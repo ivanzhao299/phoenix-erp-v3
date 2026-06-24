@@ -1,0 +1,13 @@
+check-freeze-boundaries: 11 changed file(s) inspected
+check-freeze-boundaries: 6 docs-only text scan(s) skipped
+check-freeze-boundaries: 8 frozen path hit(s)
+check-freeze-boundaries: 0 content hit(s)
+FREEZE_BOUNDARY: api/web application paths: apps/api/src/auth/auth.service.ts
+FREEZE_BOUNDARY: permission/RBAC/Auth business logic: apps/api/src/auth/auth.service.ts
+FREEZE_BOUNDARY: api/web application paths: apps/api/src/main.ts
+FREEZE_BOUNDARY: api/web application paths: apps/api/src/modules/chanjet/chanjet-callback.controller.ts
+FREEZE_BOUNDARY: Chanjet/Yonyou integration business: apps/api/src/modules/chanjet/chanjet-callback.controller.ts
+FREEZE_BOUNDARY: api/web application paths: apps/api/src/modules/notification/notification-stream.controller.ts
+FREEZE_BOUNDARY: api/web application paths: apps/api/src/modules/procurement/procurement.service.spec.ts
+FREEZE_BOUNDARY: procurement core business: apps/api/src/modules/procurement/procurement.service.spec.ts
+Result: FAIL. Frozen boundary touched without ALLOW_FREEZE_TOUCH=true.

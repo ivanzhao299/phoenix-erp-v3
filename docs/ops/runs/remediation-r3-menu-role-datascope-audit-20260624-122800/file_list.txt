@@ -1,0 +1,20 @@
+total 184
+drwxr-xr-x  2 root root  4096 Jun 24 12:28 .
+drwx------ 20 root root  4096 Jun 24 12:28 ..
+-rw-r--r--  1 root root   296 Jun 24 12:28 README.txt
+-rw-r--r--  1 root root  1696 Jun 24 12:28 code_menu_reference_scan.txt
+-rw-r--r--  1 root root 57542 Jun 24 12:28 code_rbac_datascope_scan.txt
+-rw-r--r--  1 root root   819 Jun 24 12:28 datascope_gap_summary.txt
+-rw-r--r--  1 root root  4442 Jun 24 12:28 datascope_policy_summary.txt
+-rw-r--r--  1 root root   335 Jun 24 12:28 db_identity.txt
+-rw-r--r--  1 root root     0 Jun 24 12:28 file_list.txt
+-rw-r--r--  1 root root   898 Jun 24 12:28 manifest.json
+-rw-r--r--  1 root root 27732 Jun 24 12:28 menu_inventory.txt
+-rw-r--r--  1 root root   465 Jun 24 12:28 menu_role_datascope_risk_summary.txt
+-rw-r--r--  1 root root  1147 Jun 24 12:28 rbac_gap_summary.txt
+-rw-r--r--  1 root root  8221 Jun 24 12:28 role_inventory.txt
+-rw-r--r--  1 root root   587 Jun 24 12:28 role_menu_permission_matrix.txt
+-rw-r--r--  1 root root  2980 Jun 24 12:28 store_payment_permission_audit.txt
+-rw-r--r--  1 root root  5816 Jun 24 12:28 table_columns.txt
+-rw-r--r--  1 root root 10656 Jun 24 12:28 user_org_store_scope_inventory.txt
+-rw-r--r--  1 root root  9921 Jun 24 12:28 user_role_inventory.txt

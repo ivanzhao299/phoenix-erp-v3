@@ -1,0 +1,1495 @@
+{
+  "db_identity": {
+    "database": "phoenix_erp",
+    "db_user": "phoenix_v3",
+    "schema": "public"
+  },
+  "input_file_count": 74,
+  "dry_run_rows_count": 74,
+  "auto_claim_ready_count": 15,
+  "manual_review_required_count": 0,
+  "unresolved_or_hold_count": 59,
+  "searched_columns_count": 245,
+  "db_write_executed": false,
+  "file_metadata_inserted": false,
+  "files_deleted": false,
+  "files_moved": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "raw_url_generated": false,
+  "uploads_public_url_generated": false,
+  "warnings": [],
+  "searched_columns": [
+    {
+      "table_schema": "public",
+      "table_name": "biz_purchase_order",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "biz_purchase_order",
+      "column_name": "supplier_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "biz_purchase_order",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "biz_purchase_order",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "biz_purchase_order",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "brd_medication_records",
+      "column_name": "attachment_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "file_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "original_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "stored_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "storage_path",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "mime_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "checksum",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "module_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "owner_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "owner_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "uploaded_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "file_metadata",
+      "column_name": "visibility",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "ap_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "source_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "source_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "supplier_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "supplier_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "invoice_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "base_currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "payment_status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ap_invoices",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "ar_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "source_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "source_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "customer_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "customer_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "invoice_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "base_currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "collection_status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_invoices",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_receipt_allocations",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_receipts",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_ar_receipts",
+      "column_name": "receipt_method",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "expense_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "requester_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "expense_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "base_currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "attachment_urls",
+      "data_type": "jsonb"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_expense_requests",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "invoice_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "ref_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "customer_or_supplier",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "direction",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_invoices",
+      "column_name": "updated_at",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_payments",
+      "column_name": "payment_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_payments",
+      "column_name": "invoice_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_payments",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "reimb_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "expense_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "employee_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "base_currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "cash_account_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_reimbursements",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "fin_transactions",
+      "column_name": "payment_proof",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "log_receipts",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "mst_products",
+      "column_name": "image_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "pda_app_info",
+      "column_name": "apk_url",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "pkg_exceptions",
+      "column_name": "photo_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_init_batch_rows",
+      "column_name": "related_receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_init_batches",
+      "column_name": "file_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_init_batches",
+      "column_name": "file_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "ap_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payment_allocations",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "pay_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payer_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payer_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payer_account",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payee_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payee_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payee_account",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "base_currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "payment_method",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "fund_nature",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "shareholder_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "voucher_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_payments",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "source_req_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "contract_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "subject",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "supplier_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "supplier_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "purchase_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "origin_country",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "destination_country",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "pay_terms",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "approval_status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "approver_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "contract_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "contract_note",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_orders",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "req_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "subject",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "company_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "project_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "project_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "purchase_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "urgency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "requester_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "dept_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "reason",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "converted_po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "attachment_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_purchase_requests",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc2_receipts",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_items",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_items",
+      "column_name": "product_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "supplier_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "supplier_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "subject",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "contract_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "contract_note",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "contract_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_orders",
+      "column_name": "approver_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_payments",
+      "column_name": "payment_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_payments",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_payments",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "req_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "subject",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "category",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "urgency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "currency_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "unit",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "supplier_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "supplier_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "po_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "approved_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "reject_note",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "dept",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "item",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "qty",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "reason",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "applicant",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "reviewer_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "attachment_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_purchase_requests",
+      "column_name": "request_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "prc_receipts",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sal_delivery_orders",
+      "column_name": "photo_urls",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sal_receipts",
+      "column_name": "receipt_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sal_receipts",
+      "column_name": "photo_urls",
+      "data_type": "jsonb"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "schema_migrations",
+      "column_name": "filename",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "shr_capital_contributions",
+      "column_name": "attachment_urls",
+      "data_type": "jsonb"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "account_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "account_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "payment_method",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "qr_attachment_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_accounts",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "payment_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "store_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "company_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "currency",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "payment_method",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "proof_attachment_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "order_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "sale_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "submitted_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "confirmed_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "rejected_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "voided_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "reason",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "remark",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "store_payment_records",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sys_alerts",
+      "column_name": "related_path",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sys_error_logs",
+      "column_name": "request_path",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sys_operation_logs",
+      "column_name": "request_path",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "sys_organizations",
+      "column_name": "path",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "uat_feedbacks",
+      "column_name": "screenshot_urls",
+      "data_type": "jsonb"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "wms_inbound",
+      "column_name": "attachment_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "wms_outbound",
+      "column_name": "attachment_url",
+      "data_type": "text"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "ws_contracts",
+      "column_name": "contract_no",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "ws_contracts",
+      "column_name": "customer_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "ws_contracts",
+      "column_name": "product_code",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "ws_contracts",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "ws_shipments",
+      "column_name": "contract_no",
+      "data_type": "character varying"
+    }
+  ]
+}

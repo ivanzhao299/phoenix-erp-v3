@@ -1,0 +1,7 @@
+AUTO_CLAIM_READY=15
+MANUAL_REVIEW_REQUIRED=0
+UNRESOLVED_OR_HOLD=59
+raw_url_generated=false
+uploads_public_url_generated=false
+db_write_executed=false
+file_metadata_inserted=false

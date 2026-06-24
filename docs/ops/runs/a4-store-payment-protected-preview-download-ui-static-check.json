@@ -1,0 +1,15 @@
+{
+  "conclusion": "PASS",
+  "failed": [],
+  "checks": {
+    "protected_status_endpoint": true,
+    "protected_preview_endpoint": true,
+    "protected_download_endpoint": true,
+    "raw_url_blocked": true,
+    "uploads_not_linked": true,
+    "no_raw_http_open": true,
+    "fail_closed_allowed_status": true,
+    "metadata_missing_state": true,
+    "object_url_only_after_fetch": true
+  }
+}

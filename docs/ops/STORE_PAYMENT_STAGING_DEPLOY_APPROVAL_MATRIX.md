@@ -1,0 +1,20 @@
+# Store Payment Staging Deploy Approval Matrix
+
+Date: 2026-06-23
+
+All rows default to no execution without explicit user approval.
+
+| item_id | item_name | current_status | risk_level | allowed_environment | required_precheck | execution_command_or_method | rollback_plan | validation_method | recommended_decision | can_execute_without_user_approval | required_user_approval | responsible_agent |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| STG-APP-001 | push to remote | HOLD | L3 | git remote only after approval | clean main, approved commit hash, no secrets | `git push` only after explicit approval | git revert or stop deployment; no force push | remote hash equals approved hash | APPROVE_WITH_CONDITIONS | false | true | Codex-Orchestrator |
+| STG-APP-002 | staging deploy | HOLD | L4 | staging only | push approved, staging env ready, DB backup confirmed | approved staging deployment runbook | revert staging to previous commit | API/Web health and Store Payment route smoke | APPROVE_WITH_CONDITIONS | false | true | A6-Staging-Deploy-Runbook |
+| STG-APP-003 | staging DB migration | HOLD | L5 | staging DB only | backup, migration hash, A1/A2 gate, no data DML except approved | approved migration command in staging Gate | migration down() or DB restore under rollback Gate | tables/columns/indexes verified | APPROVE_WITH_CONDITIONS | false | true | A1 + A2 + A6 |
+| STG-APP-004 | staging menu / role sync | HOLD | L4 | staging DB only | menu list, role matrix, A2 review | approved SQL/script/manual sync Gate | disable/remove Store Payment grants under approval | `MENU_STORE_PAYMENT*` and grants exist | APPROVE_WITH_CONDITIONS | false | true | A2 + A5 |
+| STG-APP-005 | staging file storage configuration | HOLD | L4 | staging file storage only | storage root, permissions, no public `/uploads` path | approved env/config deployment Gate | disable preview/download and revert config | protected endpoint smoke, no raw URL | APPROVE_WITH_CONDITIONS | false | true | A6 + A2 |
+| STG-APP-006 | staging file_metadata verification | HOLD | L3 | staging DB read-only unless fixture setup approved | file_metadata table exists, fixture policy approved | read-only query or approved UAT fixture setup Gate | remove approved staging fixture rows under cleanup Gate | status/preview/download smoke | APPROVE_WITH_CONDITIONS | false | true | A5 + A2 |
+| STG-APP-007 | staging STORE-VTE-001 / COMP-LAO-AGRI verification | HOLD | L2 | staging read-only | store/company exist and active | read-only DB evidence | no rollback for read-only check | evidence report | APPROVE | false | true | A5-Data-Readiness |
+| STG-APP-008 | staging UAT users and roles | HOLD | L4 | staging DB only | user list, roles, DataScope, A2 review | approved role/user configuration Gate | disable pilot roles/users under approval | role-based login and menu visibility | APPROVE_WITH_CONDITIONS | false | true | A5 + A2 |
+| STG-APP-009 | staging UAT business personnel scope | HOLD | L3 | business UAT only | named users, store scope, UAT schedule | written approval and UAT checklist | pause UAT and revoke test access | signed UAT path evidence | APPROVE_WITH_CONDITIONS | false | true | Codex-Orchestrator + A5 |
+| STG-APP-010 | protected attachment staging smoke | HOLD | L3 | staging only | file storage, metadata, user scope ready | A1/A2 smoke against staging | disable attachment preview/download | rawUrl false, `/uploads` false, 401/404 pass | APPROVE_WITH_CONDITIONS | false | true | A1 + A2 |
+| STG-APP-011 | business UAT smoke | HOLD | L3 | staging or approved pilot | deploy complete, users ready, fixture policy approved | guided UAT script | pause pilot and disable Store Payment access | account/record/proof workflows pass | APPROVE_WITH_CONDITIONS | false | true | A4 + A5 + A2 + A1 |
+| STG-APP-012 | production deploy | HOLD | L5 | production only after future GO | staging evidence, A7 production GO, backup, rollback owner | production release Gate only | production rollback plan / restore | production health, business signoff | HOLD | false | true | A7-Final-QA-Gate |

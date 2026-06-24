@@ -1,0 +1,20 @@
+{
+  "gate": "APPROVE_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_GATE",
+  "remote_execution_dir": "/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-execution-20260624-134210",
+  "executed_at": "2026-06-24T13:42:11+08:00",
+  "menu_inserted_or_already_exists": 5,
+  "role_permission_inserted_or_already_exists": 11,
+  "datascope_inserted_or_already_exists": 11,
+  "user_scope_inserted_or_already_exists": 1,
+  "manual_review_required_executed_count": 0,
+  "hold_items_executed": false,
+  "action_bit_compatibility": "target V/E/X with Store Payment-only legacy C/A compatibility in perm_codes",
+  "db_write_executed": true,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "deleted_permissions": false,
+  "expanded_non_store_payment_permissions": false,
+  "current_conclusion": "GO_WITH_CONDITIONS"
+}

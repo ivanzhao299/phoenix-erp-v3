@@ -1,0 +1,13 @@
+check_time=2026-06-24T12:07:40+08:00
+gate=APPROVE_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_GATE
+approved_scope=AUTO_CLAIM_READY_ONLY
+input_rows_expected=15
+migration_executed=false
+deploy_executed=false
+restart_executed=false
+push_executed=false
+file_delete_executed=false
+file_move_executed=false
+file_permission_change_executed=false
+nginx_changed=false
+env_changed=false

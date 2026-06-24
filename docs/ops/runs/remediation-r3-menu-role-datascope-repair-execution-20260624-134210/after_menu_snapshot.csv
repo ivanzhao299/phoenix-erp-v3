@@ -1,0 +1,6 @@
+menu_id,menu_code,menu_name_zh,menu_name_lo,domain,parent_code,sort_order,icon,route,created_at
+44756,MENU_STORE_PAYMENT,Store Payment 收款记录,,STORE,MENU_POS_STORE,620,,/store-payment/records,2026-06-24 05:42:10.824711
+44754,MENU_STORE_PAYMENT_ACCOUNT,Store Payment 收款账户管理,,STORE,MENU_POS_STORE,610,,/store-payment/accounts,2026-06-24 05:42:10.824711
+44757,MENU_STORE_PAYMENT_CONFIRM,Store Payment 收款确认,,STORE,MENU_POS_STORE,630,,/store-payment/confirm,2026-06-24 05:42:10.824711
+44755,MENU_STORE_PAYMENT_EXPORT,Store Payment 收款导出,,STORE,MENU_POS_STORE,650,,/store-payment/export,2026-06-24 05:42:10.824711
+44758,MENU_STORE_PAYMENT_VOID,Store Payment 收款作废,,STORE,MENU_POS_STORE,640,,/store-payment/void,2026-06-24 05:42:10.824711

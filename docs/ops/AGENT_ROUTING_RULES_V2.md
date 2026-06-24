@@ -71,3 +71,43 @@ The following natural language keywords route primarily to A4:
 4. Production deployment:
    - A6 owns deployment runbook.
    - A7 owns final GO / HOLD / ROLLBACK.
+
+## Allowlist / Denylist Constraint Parser
+
+Natural language constraints must be parsed before final Agent selection.
+
+Priority:
+
+1. denylist
+2. allowlist
+3. keyword routing
+
+Allowlist markers include `只允许`, `仅允许`, `only allow`, and `allow only`.
+
+Examples:
+
+- `只允许 A1/A2/A5` restricts final `selected_agents` to A1, A2, and A5.
+- `只允许 A2 安全审查、A1 CI、A5 数据 readiness` restricts final `selected_agents` to A2, A1, and A5.
+
+Denylist markers include `不允许`, `禁止`, `不要`, `不得`, `disallow`, and `exclude`.
+
+Examples:
+
+- `不允许 A3/A4` must not trigger A3 or A4.
+- `不允许后端代码` denies A3.
+- `不允许前端代码` denies A4.
+- `不改业务代码` denies A3/A4 for execution routing.
+- `不修改 apps/api` denies A3.
+- `不修改 apps/web` denies A4.
+
+Hard constraints that must be preserved in route-plan:
+
+- `不执行 migration`
+- `不写数据库` / `不写库`
+- `不部署`
+- `不 push`
+- `不改业务代码`
+- `不修改 apps/api`
+- `不修改 apps/web`
+
+If allowlist and denylist conflict, Router must HOLD with a clear conflict reason.

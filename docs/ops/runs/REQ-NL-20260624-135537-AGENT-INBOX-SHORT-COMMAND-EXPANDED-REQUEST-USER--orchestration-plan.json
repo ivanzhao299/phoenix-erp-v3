@@ -1,0 +1,442 @@
+{
+  "request_id": "REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER-",
+  "request_text": "Agent Inbox short command expanded request.\n\nUser short intent:\n继续下一 Gate，只执行明确候选，不执行 manual/HOLD，不部署，不重启，不 push。\n\nCurrent runtime stage:\nPRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIRED\n\nActive decision:\nWAITING_USER_APPROVAL_FOR_NEXT_REMEDIATION_GATE\n\nInferred next Gate:\nAPPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS\n\nNext Gate recommendation summary:\n`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`\nManual-review and HOLD items remain excluded.\nAction-bit compatibility cleanup is a separate future Gate.\n\nRouting guidance:\nThis Gate is a read-only initial data import diagnosis. Route to A5 data readiness, A2 security review, and A1 validation only.\n\nHard constraints:\n- no push。\n- no deploy。\n- no restart。\n- no migration。\n- no cleanup/reset。\n- 禁止修改业务代码。\n- 禁止修改远端服务器配置。\n- no DB write。\n- no remote write。\n- 不执行 MANUAL_REVIEW_REQUIRED 项，不执行 HOLD 项。\n- 只处理上一 dry-run 或 recommendation 中明确列出的 clear candidates。\n- 只允许 A5-Data-Readiness / A2-Security-Regression-Gate / A1-CI-Runtime-Gate。\n- 不允许 A3/A4/A6/A7 执行。\n\nGuardrail anchor:\n# Runtime Memory Guardrails\n\nLast updated: 2026-06-24\n\n1. Do not rely on long-lived chat context for Store Payment project state.\n2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.\n3. Do not ask the user to manually run Terminal commands for routine sync, docs/ops/runs cleanup, rebase, merge, or W5 gate.\n4. Baseline Autopilot is the default lifecycle for safe commit, rebase, merge, and gate validation.\n5. Production deployment requires explicit user approval.\n6. Push requires explicit user approval.\n7. Remote production DB writes require explicit user approval.\n8. Migration execution requires a dedicated approved Gate.\n9. Attachment preview/download must not be enabled before an A3 protected streaming Gate and A2 security review.\n10. Raw URL exposure is forbidden.\n11. Do not return naked `/uploads` URLs for Store Payment proof / QR attachments.\n12. Do not open `http(s)` attachment links from the Store Payment frontend.\n13. No cleanup, reset, or destructive operation may run without explicit approval.\n14. File metadata `storage_path` is backend-only and must never be returned to the frontend.\n15. `file_metadata.file_id` is the only external attachment reference allowed for protected Store Payment preview/download.\n16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.\n17. Store Payment frontend preview/download buttons must remain fail-closed unless backend protected status returns `accessStatus=allowed`.\n18. If `rawUrl` is ever present in a protected attachment response, the frontend must treat it as unsafe and disable access.\n19. Store Payment staging deploy must use `.github/workflows/staging-deploy.yml` or another explicitly approved staging-only path.\n20. Do not use `push main` as a staging deploy mechanism because the current production workflow deploys on `push main`.\n\nRequired behavior:\n1. Generate a complete route plan from runtime memory, next-gate recommendation, guardrails, and task board.\n2. Default to dry-run unless an active approval exactly matches the inferred Gate.\n3. If execution is not approved, do not execute remote operations.\n4. Write results to Agent Inbox OUTBOX and docs/ops/runs.",
+  "risk_level": "LOW/MEDIUM",
+  "route_decision": "PLAN_READY",
+  "route_confidence": 0.96,
+  "route_plan": {
+    "request": "Agent Inbox short command expanded request.\n\nUser short intent:\n继续下一 Gate，只执行明确候选，不执行 manual/HOLD，不部署，不重启，不 push。\n\nCurrent runtime stage:\nPRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIRED\n\nActive decision:\nWAITING_USER_APPROVAL_FOR_NEXT_REMEDIATION_GATE\n\nInferred next Gate:\nAPPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS\n\nNext Gate recommendation summary:\n`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`\nManual-review and HOLD items remain excluded.\nAction-bit compatibility cleanup is a separate future Gate.\n\nRouting guidance:\nThis Gate is a read-only initial data import diagnosis. Route to A5 data readiness, A2 security review, and A1 validation only.\n\nHard constraints:\n- no push。\n- no deploy。\n- no restart。\n- no migration。\n- no cleanup/reset。\n- 禁止修改业务代码。\n- 禁止修改远端服务器配置。\n- no DB write。\n- no remote write。\n- 不执行 MANUAL_REVIEW_REQUIRED 项，不执行 HOLD 项。\n- 只处理上一 dry-run 或 recommendation 中明确列出的 clear candidates。\n- 只允许 A5-Data-Readiness / A2-Security-Regression-Gate / A1-CI-Runtime-Gate。\n- 不允许 A3/A4/A6/A7 执行。\n\nGuardrail anchor:\n# Runtime Memory Guardrails\n\nLast updated: 2026-06-24\n\n1. Do not rely on long-lived chat context for Store Payment project state.\n2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.\n3. Do not ask the user to manually run Terminal commands for routine sync, docs/ops/runs cleanup, rebase, merge, or W5 gate.\n4. Baseline Autopilot is the default lifecycle for safe commit, rebase, merge, and gate validation.\n5. Production deployment requires explicit user approval.\n6. Push requires explicit user approval.\n7. Remote production DB writes require explicit user approval.\n8. Migration execution requires a dedicated approved Gate.\n9. Attachment preview/download must not be enabled before an A3 protected streaming Gate and A2 security review.\n10. Raw URL exposure is forbidden.\n11. Do not return naked `/uploads` URLs for Store Payment proof / QR attachments.\n12. Do not open `http(s)` attachment links from the Store Payment frontend.\n13. No cleanup, reset, or destructive operation may run without explicit approval.\n14. File metadata `storage_path` is backend-only and must never be returned to the frontend.\n15. `file_metadata.file_id` is the only external attachment reference allowed for protected Store Payment preview/download.\n16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.\n17. Store Payment frontend preview/download buttons must remain fail-closed unless backend protected status returns `accessStatus=allowed`.\n18. If `rawUrl` is ever present in a protected attachment response, the frontend must treat it as unsafe and disable access.\n19. Store Payment staging deploy must use `.github/workflows/staging-deploy.yml` or another explicitly approved staging-only path.\n20. Do not use `push main` as a staging deploy mechanism because the current production workflow deploys on `push main`.\n\nRequired behavior:\n1. Generate a complete route plan from runtime memory, next-gate recommendation, guardrails, and task board.\n2. Default to dry-run unless an active approval exactly matches the inferred Gate.\n3. If execution is not approved, do not execute remote operations.\n4. Write results to Agent Inbox OUTBOX and docs/ops/runs.",
+    "selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    "selected_agents_before_constraints": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness",
+      "A4-Frontend-UAT-Smoke",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "selected_agents_after_constraints": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    "allowed_agents": [
+      "A1-CI-Runtime-Gate",
+      "A2-Security-Regression-Gate",
+      "A5-Data-Readiness"
+    ],
+    "denied_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "hard_constraints": [
+      "no migration execution",
+      "no database write",
+      "no deploy",
+      "no push"
+    ],
+    "constraint_conflicts": [],
+    "confidence": 0.96,
+    "matched_keywords": {
+      "Codex-Orchestrator": [
+        "orchestrator",
+        "Codex-Orchestrator",
+        "Orchestrator"
+      ],
+      "A1-CI-Runtime-Gate": [
+        "CI",
+        "gate",
+        "ci",
+        "validation",
+        "runtime",
+        "A1",
+        "A1-CI-Runtime-Gate"
+      ],
+      "A2-Security-Regression-Gate": [
+        "DataScope",
+        "protected attachment",
+        "security",
+        "security review",
+        "role",
+        "datascope",
+        "payment",
+        "A2",
+        "A2-Security-Regression-Gate"
+      ],
+      "A3-Backend-Critical-Path": [
+        "attachment preview",
+        "backend",
+        "endpoint",
+        "A3"
+      ],
+      "A4-Frontend-UAT-Smoke": [
+        "UI",
+        "frontend",
+        "ui",
+        "button",
+        "A4"
+      ],
+      "A5-Data-Readiness": [
+        "data readiness",
+        "A5",
+        "A5-Data-Readiness",
+        "Data Readiness"
+      ],
+      "A6-Staging-Deploy-Runbook": [
+        "staging",
+        "A6"
+      ],
+      "A7-Final-QA-Gate": [
+        "HOLD",
+        "hold",
+        "A7"
+      ]
+    },
+    "risk_domains": [
+      "ci",
+      "runtime",
+      "startup",
+      "typecheck",
+      "auth",
+      "rbac",
+      "datascope",
+      "payment",
+      "finance",
+      "chanjet",
+      "audit",
+      "attachment-acl",
+      "data-readiness",
+      "master-data",
+      "pilot-data",
+      "mapping"
+    ],
+    "held_reasons": [],
+    "recommended_sequence": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    "parallel_groups": [
+      [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ]
+    ],
+    "fallback_action": "create task pool",
+    "route_decision": "PLAN_READY",
+    "requires_route_review": false,
+    "domains": {
+      "ci": true,
+      "security": true,
+      "dataReadiness": true,
+      "ui": true,
+      "backend": true,
+      "backendMentionedButNegated": false,
+      "deployPlan": true,
+      "finalGate": true,
+      "protectedAttachment": true,
+      "authorizationDesign": false
+    },
+    "agent_scores": {
+      "A1-CI-Runtime-Gate": 16,
+      "A2-Security-Regression-Gate": 16.9,
+      "A3-Backend-Critical-Path": 10,
+      "A4-Frontend-UAT-Smoke": 11,
+      "A5-Data-Readiness": 14.6,
+      "A6-Staging-Deploy-Runbook": 7,
+      "A7-Final-QA-Gate": 8
+    }
+  },
+  "mode": "supervised",
+  "dry_run": true,
+  "parallel": 1,
+  "selected_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness"
+  ],
+  "allowed_agents": [
+    "A1-CI-Runtime-Gate",
+    "A2-Security-Regression-Gate",
+    "A5-Data-Readiness"
+  ],
+  "denied_agents": [
+    "A3-Backend-Critical-Path",
+    "A4-Frontend-UAT-Smoke",
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "hard_constraints": [
+    "no migration execution",
+    "no database write",
+    "no deploy",
+    "no push"
+  ],
+  "constraint_conflicts": [],
+  "selected_agents_after_constraints": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness"
+  ],
+  "held_reasons": [],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md",
+    "agent_route_plan": {
+      "request": "Agent Inbox short command expanded request.\n\nUser short intent:\n继续下一 Gate，只执行明确候选，不执行 manual/HOLD，不部署，不重启，不 push。\n\nCurrent runtime stage:\nPRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIRED\n\nActive decision:\nWAITING_USER_APPROVAL_FOR_NEXT_REMEDIATION_GATE\n\nInferred next Gate:\nAPPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS\n\nNext Gate recommendation summary:\n`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`\nManual-review and HOLD items remain excluded.\nAction-bit compatibility cleanup is a separate future Gate.\n\nRouting guidance:\nThis Gate is a read-only initial data import diagnosis. Route to A5 data readiness, A2 security review, and A1 validation only.\n\nHard constraints:\n- no push。\n- no deploy。\n- no restart。\n- no migration。\n- no cleanup/reset。\n- 禁止修改业务代码。\n- 禁止修改远端服务器配置。\n- no DB write。\n- no remote write。\n- 不执行 MANUAL_REVIEW_REQUIRED 项，不执行 HOLD 项。\n- 只处理上一 dry-run 或 recommendation 中明确列出的 clear candidates。\n- 只允许 A5-Data-Readiness / A2-Security-Regression-Gate / A1-CI-Runtime-Gate。\n- 不允许 A3/A4/A6/A7 执行。\n\nGuardrail anchor:\n# Runtime Memory Guardrails\n\nLast updated: 2026-06-24\n\n1. Do not rely on long-lived chat context for Store Payment project state.\n2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.\n3. Do not ask the user to manually run Terminal commands for routine sync, docs/ops/runs cleanup, rebase, merge, or W5 gate.\n4. Baseline Autopilot is the default lifecycle for safe commit, rebase, merge, and gate validation.\n5. Production deployment requires explicit user approval.\n6. Push requires explicit user approval.\n7. Remote production DB writes require explicit user approval.\n8. Migration execution requires a dedicated approved Gate.\n9. Attachment preview/download must not be enabled before an A3 protected streaming Gate and A2 security review.\n10. Raw URL exposure is forbidden.\n11. Do not return naked `/uploads` URLs for Store Payment proof / QR attachments.\n12. Do not open `http(s)` attachment links from the Store Payment frontend.\n13. No cleanup, reset, or destructive operation may run without explicit approval.\n14. File metadata `storage_path` is backend-only and must never be returned to the frontend.\n15. `file_metadata.file_id` is the only external attachment reference allowed for protected Store Payment preview/download.\n16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.\n17. Store Payment frontend preview/download buttons must remain fail-closed unless backend protected status returns `accessStatus=allowed`.\n18. If `rawUrl` is ever present in a protected attachment response, the frontend must treat it as unsafe and disable access.\n19. Store Payment staging deploy must use `.github/workflows/staging-deploy.yml` or another explicitly approved staging-only path.\n20. Do not use `push main` as a staging deploy mechanism because the current production workflow deploys on `push main`.\n\nRequired behavior:\n1. Generate a complete route plan from runtime memory, next-gate recommendation, guardrails, and task board.\n2. Default to dry-run unless an active approval exactly matches the inferred Gate.\n3. If execution is not approved, do not execute remote operations.\n4. Write results to Agent Inbox OUTBOX and docs/ops/runs.",
+      "selected_agents": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      "selected_agents_before_constraints": [
+        "A3-Backend-Critical-Path",
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness",
+        "A4-Frontend-UAT-Smoke",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "selected_agents_after_constraints": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      "allowed_agents": [
+        "A1-CI-Runtime-Gate",
+        "A2-Security-Regression-Gate",
+        "A5-Data-Readiness"
+      ],
+      "denied_agents": [
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "hard_constraints": [
+        "no migration execution",
+        "no database write",
+        "no deploy",
+        "no push"
+      ],
+      "constraint_conflicts": [],
+      "confidence": 0.96,
+      "matched_keywords": {
+        "Codex-Orchestrator": [
+          "orchestrator",
+          "Codex-Orchestrator",
+          "Orchestrator"
+        ],
+        "A1-CI-Runtime-Gate": [
+          "CI",
+          "gate",
+          "ci",
+          "validation",
+          "runtime",
+          "A1",
+          "A1-CI-Runtime-Gate"
+        ],
+        "A2-Security-Regression-Gate": [
+          "DataScope",
+          "protected attachment",
+          "security",
+          "security review",
+          "role",
+          "datascope",
+          "payment",
+          "A2",
+          "A2-Security-Regression-Gate"
+        ],
+        "A3-Backend-Critical-Path": [
+          "attachment preview",
+          "backend",
+          "endpoint",
+          "A3"
+        ],
+        "A4-Frontend-UAT-Smoke": [
+          "UI",
+          "frontend",
+          "ui",
+          "button",
+          "A4"
+        ],
+        "A5-Data-Readiness": [
+          "data readiness",
+          "A5",
+          "A5-Data-Readiness",
+          "Data Readiness"
+        ],
+        "A6-Staging-Deploy-Runbook": [
+          "staging",
+          "A6"
+        ],
+        "A7-Final-QA-Gate": [
+          "HOLD",
+          "hold",
+          "A7"
+        ]
+      },
+      "risk_domains": [
+        "ci",
+        "runtime",
+        "startup",
+        "typecheck",
+        "auth",
+        "rbac",
+        "datascope",
+        "payment",
+        "finance",
+        "chanjet",
+        "audit",
+        "attachment-acl",
+        "data-readiness",
+        "master-data",
+        "pilot-data",
+        "mapping"
+      ],
+      "held_reasons": [],
+      "recommended_sequence": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      "parallel_groups": [
+        [
+          "A2-Security-Regression-Gate",
+          "A1-CI-Runtime-Gate",
+          "A5-Data-Readiness"
+        ]
+      ],
+      "fallback_action": "create task pool",
+      "route_decision": "PLAN_READY",
+      "requires_route_review": false,
+      "domains": {
+        "ci": true,
+        "security": true,
+        "dataReadiness": true,
+        "ui": true,
+        "backend": true,
+        "backendMentionedButNegated": false,
+        "deployPlan": true,
+        "finalGate": true,
+        "protectedAttachment": true,
+        "authorizationDesign": false
+      },
+      "agent_scores": {
+        "A1-CI-Runtime-Gate": 16,
+        "A2-Security-Regression-Gate": 16.9,
+        "A3-Backend-Critical-Path": 10,
+        "A4-Frontend-UAT-Smoke": 11,
+        "A5-Data-Readiness": 14.6,
+        "A6-Staging-Deploy-Runbook": 7,
+        "A7-Final-QA-Gate": 8
+      }
+    },
+    "agent_artifacts": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A2-Security-Regression-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A2-Security-Regression-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A2-Security-Regression-Gate.md --dry-run"
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A1-CI-Runtime-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A1-CI-Runtime-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A1-CI-Runtime-Gate.md --dry-run"
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "contract": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A5-Data-Readiness.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A5-Data-Readiness.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A5-Data-Readiness.md --dry-run"
+      }
+    ],
+    "orchestration_plan_json": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--execution-summary.md"
+  },
+  "worktree_checks": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a2-security-regression-gate",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a1-ci-runtime-gate",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a5-data-readiness",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "worktree_warnings": [
+    "A2-Security-Regression-Gate: worktree may need rebase onto main",
+    "A1-CI-Runtime-Gate: worktree may need rebase onto main",
+    "A5-Data-Readiness: worktree may need rebase onto main"
+  ],
+  "dispatch_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ]
+  ],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [
+    "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A2-Security-Regression-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A1-CI-Runtime-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A5-Data-Readiness.md --dry-run"
+  ],
+  "worker_start_commands": [],
+  "safe_merge_commands": [],
+  "baseline_autopilot_lifecycle": {
+    "will_run_after_agent_completion": true,
+    "user_manual_rebase_required": false,
+    "user_manual_merge_required": false,
+    "user_manual_docs_ops_runs_cleanup_required": false
+  },
+  "codex_actually_executed": false,
+  "approval_token_provided": false,
+  "approved_execution_result_json": null,
+  "approved_execution_summary_md": null
+}

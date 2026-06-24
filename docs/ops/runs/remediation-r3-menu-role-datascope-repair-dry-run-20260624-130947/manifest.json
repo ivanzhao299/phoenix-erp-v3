@@ -1,0 +1,12 @@
+{
+  "gate": "APPROVE_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_GATE",
+  "remote_dry_run_dir": "/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947",
+  "created_at": "2026-06-24T13:09:47+08:00",
+  "db_write_executed": false,
+  "sql_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "secrets_redacted": true
+}

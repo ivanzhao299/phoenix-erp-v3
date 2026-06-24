@@ -1,0 +1,9 @@
+audit_dir=/opt/phoenix-erp-backups/remediation-r2-historical-uploads-inventory-20260624-085306
+roots=/var/lib/docker/volumes/phoenix_uploads/_data
+file_count=74
+total_size_bytes=66718630
+total_size_human=63.6MB
+risk_file_count=0
+orphan_candidate_count=0
+metadata_claim_candidate_count=74
+duplicate_basename_count=0

@@ -1,0 +1,13 @@
+Fresh read-only SQL diagnostics attempted at 2026-06-24 15:14 CST.
+
+Result: SSH session did not produce DB output.
+
+Observed SSH failures:
+- long psql session: timed out during banner exchange after broken ControlMaster pipe.
+- short psql session: connection closed by 47.236.122.224 port 22.
+
+Interpretation:
+- No DB write was attempted.
+- No migration was executed.
+- No deploy/restart/push was executed.
+- Current dry-run manifest must rely on prior R3 evidence until remote SSH stability allows a fresh read-only refresh.

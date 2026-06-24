@@ -1,0 +1,175 @@
+Output format is aligned.
+Null display is "[NULL]".
+ menu_id |           menu_code           |   menu_name_zh    |   domain    |    parent_code    | sort_order |              route              |         created_at         
+---------+-------------------------------+-------------------+-------------+-------------------+------------+---------------------------------+----------------------------
+   16804 | MENU_BREEDING                 | 养殖业务          | FARM        | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16806 | MENU_MASTER_GRADE             | 等级主档          | MASTER      | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16808 | MENU_MASTER_PACKAGING         | 包装规格主档      | MASTER      | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16805 | MENU_MASTER_PRODUCT           | 产品主档          | MASTER      | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16807 | MENU_MASTER_SKU               | SKU 主档          | MASTER      | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16809 | MENU_PACKAGING                | 包装作业          | PKG         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16810 | MENU_PDA                      | PDA 同步          | WMS         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16811 | MENU_QA                       | 质检              | QUALITY     | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16812 | MENU_STORE_POS                | 门店 POS          | STORE       | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16813 | MENU_SYSTEM                   | 系统管理          | SYS         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16814 | MENU_SYS_CONFIG               | 系统配置          | SYS         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16815 | MENU_SYS_MONITOR              | 系统监控          | SYS         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+   16816 | MENU_UAT                      | UAT 试运行        | SYS         | [NULL]            |          0 | [NULL]                          | 2026-06-06 02:27:26.963265
+       1 | MENU_DASHBOARD                | 大盘看板          | COMMON      | [NULL]            |          1 | /dashboard                      | 2026-05-21 06:18:17.358931
+       2 | MENU_APPROVAL                 | 审批中心          | COMMON      | [NULL]            |          2 | /approval                       | 2026-05-21 06:18:17.358931
+       3 | MENU_FIN_AUDIT                | 财务审计          | FINANCE     | [NULL]            |          3 | /fin/audit                      | 2026-05-21 06:18:17.358931
+       4 | MENU_FIN_REPORT               | 财务报表          | FINANCE     | [NULL]            |          4 | /fin/report                     | 2026-05-21 06:18:17.358931
+       5 | MENU_FIN_CLOSE                | 财务结算          | FINANCE     | [NULL]            |          5 | /fin/close                      | 2026-05-21 06:18:17.358931
+       6 | MENU_ORDER_MGR                | 订单管理          | ORDER       | [NULL]            |          6 | /order                          | 2026-05-21 06:18:17.358931
+       7 | MENU_STORE_MGR                | 门店管理          | STORE       | [NULL]            |          7 | /store                          | 2026-05-21 06:18:17.358931
+       8 | MENU_POS_STORE                | POS 店务          | STORE       | [NULL]            |          8 | /pos/store                      | 2026-05-21 06:18:17.358931
+       9 | MENU_POS_CASH                 | POS 收银          | STORE       | [NULL]            |          9 | /pos/cash                       | 2026-05-21 06:18:17.358931
+      10 | MENU_FARM_DATA                | 养殖数据          | FARM        | [NULL]            |         10 | /farm/data                      | 2026-05-21 06:18:17.358931
+     316 | MOBILE_DASHBOARD              | 每日看板（移动）  | MOBILE      | [NULL]            |         10 | [NULL]                          | 2026-05-22 08:06:55.079344
+      11 | MENU_FARM_OVERVIEW            | 养殖看板          | FARM        | [NULL]            |         11 | /farm/overview                  | 2026-05-21 06:18:17.358931
+      12 | MENU_FARM_DAILY               | 鸡舍日报          | FARM        | [NULL]            |         12 | /farm/daily                     | 2026-05-21 06:18:17.358931
+      13 | MENU_FARM_QA                  | 养殖品控          | FARM        | [NULL]            |         13 | /farm/qa                        | 2026-05-21 06:18:17.358931
+      29 | MENU_DEVICE_MONITOR           | 设备监控          | FARM        | [NULL]            |         14 | /breeding/device                | 2026-05-21 06:18:17.93765
+      14 | MENU_FARM_VET                 | 兽医防疫          | FARM        | [NULL]            |         14 | /farm/vet                       | 2026-05-21 06:18:17.358931
+      15 | MENU_QA_OP                    | 质检作业          | QA          | [NULL]            |         15 | /qa/op                          | 2026-05-21 06:18:17.358931
+    8905 | MENU_PROD_COLLECTION          | 集蛋记录          | FARM        | [NULL]            |         16 | /breeding/egg-ledger            | 2026-06-02 14:19:15.123439
+      16 | MENU_QA_MGR                   | 质检管理          | QA          | [NULL]            |         16 | /qa/mgr                         | 2026-05-21 06:18:17.358931
+    9010 | MENU_PROD_INBOUND             | 日产蛋入库        | FARM        | [NULL]            |         17 | /breeding/daily-inbound         | 2026-06-02 14:35:49.540757
+      17 | MENU_QA_PRODUCT               | 产品质检          | QA          | [NULL]            |         17 | /qa/product                     | 2026-05-21 06:18:17.358931
+      18 | MENU_PKG_OP                   | 包装作业          | PKG         | [NULL]            |         18 | /pkg/op                         | 2026-05-21 06:18:17.358931
+      19 | MENU_PKG_MGR                  | 包装管理          | PKG         | [NULL]            |         19 | /pkg/mgr                        | 2026-05-21 06:18:17.358931
+      20 | MENU_PACKAGE_RUN              | 包装运行          | PKG         | [NULL]            |         20 | /pkg/run                        | 2026-05-21 06:18:17.358931
+    8906 | MENU_PKG_PACKAGING            | 包装作业          | PKG         | [NULL]            |         20 | /pkg/packaging                  | 2026-06-02 14:19:15.123439
+     317 | MOBILE_FEED                   | 饲料台账（移动）  | MOBILE      | [NULL]            |         20 | [NULL]                          | 2026-05-22 08:06:55.079344
+      21 | MENU_WMS_VIEW                 | 仓储查看          | WMS         | [NULL]            |         21 | /wms/view                       | 2026-05-21 06:18:17.358931
+      22 | MENU_WMS_INOUT                | 出入库作业        | WMS         | [NULL]            |         22 | /wms/inout                      | 2026-05-21 06:18:17.358931
+      23 | MENU_WMS_OP                   | 仓储管理          | WMS         | [NULL]            |         23 | /wms/op                         | 2026-05-21 06:18:17.358931
+      24 | MENU_LOGISTICS                | 物流配送          | LOG         | [NULL]            |         24 | /logistics                      | 2026-05-21 06:18:17.358931
+    8907 | MENU_PKG_COMPLETE_INVENTORY   | 包装完成入库      | PKG         | [NULL]            |         24 | /pkg/complete-inventory         | 2026-06-02 14:19:15.123439
+      25 | MENU_LOG_DISPATCH             | 物流调度          | LOG         | [NULL]            |         25 | /log/dispatch                   | 2026-05-21 06:18:17.358931
+      26 | MENU_LOG_REVIEW               | 物流复核          | LOG         | [NULL]            |         26 | /log/review                     | 2026-05-21 06:18:17.358931
+      27 | MENU_PRC_MGR                  | 采购管理          | PRC         | [NULL]            |         27 | /prc                            | 2026-05-21 06:18:17.358931
+      28 | MENU_B2B_SALE                 | B2B 销售          | SALES       | [NULL]            |         28 | /b2b                            | 2026-05-21 06:18:17.358931
+      30 | MENU_WMS_MASTER               | 仓库主档          | WMS         | [NULL]            |         29 | /warehouse/warehouses           | 2026-05-21 06:18:17.93765
+    8908 | MENU_INV_BATCH                | 库存批次          | WMS         | [NULL]            |         30 | /sales2/inventory               | 2026-06-02 14:19:15.123439
+      31 | MENU_LOGISTICS_MASTER         | 物流主档          | LOG         | [NULL]            |         30 | /transport/vehicles             | 2026-05-21 06:18:17.93765
+     318 | MOBILE_MORTALITY              | 死淘快录（移动）  | MOBILE      | [NULL]            |         30 | [NULL]                          | 2026-05-22 08:06:55.079344
+    8909 | MENU_INV_LEDGER               | 库存流水          | WMS         | [NULL]            |         31 | /warehouse/ledger               | 2026-06-02 14:19:15.123439
+      32 | MENU_QA_MASTER                | 质检主档          | QA          | [NULL]            |         31 | /quality/standards              | 2026-05-21 06:18:17.93765
+    8910 | MENU_INV_MANUAL_INBOUND       | 手工库存入库      | WMS         | [NULL]            |         32 | /warehouse/inbound              | 2026-06-02 14:19:15.123439
+      33 | MENU_PRC_MASTER               | 采购主档          | PRC         | [NULL]            |         32 | /procurement/suppliers          | 2026-05-21 06:18:17.93765
+    9011 | MENU_INV_SOURCE_MODE          | 库存来源模式      | WMS         | [NULL]            |         33 | /warehouse/source-mode          | 2026-06-02 14:35:49.540757
+      34 | MENU_ORDER_WH                 | 仓库拣货          | ORDER       | [NULL]            |         33 | /order/picking                  | 2026-05-21 06:18:17.93765
+      35 | MENU_ORDER_FIN                | 订单财务          | ORDER       | [NULL]            |         34 | /order/credit                   | 2026-05-21 06:18:17.93765
+      36 | MENU_MASTER                   | 主数据管理        | COMMON      | [NULL]            |         35 | /master                         | 2026-05-21 06:18:17.93765
+      37 | MENU_SETTINGS_USER            | 用户管理          | COMMON      | [NULL]            |         36 | /settings/users                 | 2026-05-21 06:18:17.93765
+      38 | MENU_SETTINGS_IT              | IT 系统管理       | COMMON      | [NULL]            |         37 | /settings/roles                 | 2026-05-21 06:18:17.93765
+      39 | MENU_SETTINGS_DATA            | 数据字典管理      | COMMON      | [NULL]            |         38 | /settings/dict                  | 2026-05-21 06:18:17.93765
+   10022 | MENU_TRACEABILITY_VIEW        | 全链追溯          | COMMON      | [NULL]            |         40 | /traceability                   | 2026-06-03 04:04:54.267408
+     319 | MOBILE_EGGLOG                 | 产蛋录入（移动）  | MOBILE      | [NULL]            |         40 | [NULL]                          | 2026-05-22 08:06:55.079344
+    4724 | MENU_ORG_VIEW                 | 组织架构查看      | COMMON      | [NULL]            |         41 | /master-data/organizations      | 2026-05-31 03:02:21.347638
+   10023 | MENU_TRACEABILITY_EXPORT      | 追溯导出          | COMMON      | [NULL]            |         41 | /traceability                   | 2026-06-03 04:04:54.267408
+    4725 | MENU_ORG_MANAGE               | 组织架构管理      | COMMON      | [NULL]            |         42 | /master-data/organizations      | 2026-05-31 03:02:21.347638
+    4726 | MENU_ORG_USER_SCOPE           | 用户组织权限      | COMMON      | [NULL]            |         43 | /master-data/user-orgs          | 2026-05-31 03:02:21.347638
+    1040 | MENU_PRC2                     | 采购V2 主模块     | PRC         | [NULL]            |         50 | /procurement2                   | 2026-05-28 07:09:03.627508
+     320 | MOBILE_HENREPORT              | 存栏日报（移动）  | MOBILE      | [NULL]            |         50 | [NULL]                          | 2026-05-22 08:06:55.079344
+    1041 | MENU_PRC2_MASTER              | 采购V2 主数据     | PRC         | [NULL]            |         51 | /procurement2/suppliers         | 2026-05-28 07:09:03.627508
+    1042 | MENU_PRC2_REQUEST             | 采购V2 申请       | PRC         | [NULL]            |         52 | /procurement2/requests          | 2026-05-28 07:09:03.627508
+    1043 | MENU_PRC2_ORDER               | 采购V2 订单       | PRC         | [NULL]            |         53 | /procurement2/orders            | 2026-05-28 07:09:03.627508
+    1044 | MENU_PRC2_PAYMENT             | 采购V2 付款       | PRC         | [NULL]            |         54 | /procurement2/payments          | 2026-05-28 07:09:03.627508
+    1045 | MENU_PRC2_FUND                | 采购V2 股东资金   | PRC         | [NULL]            |         55 | /procurement2/shareholder-funds | 2026-05-28 07:09:03.627508
+    1046 | MENU_PRC2_SHIPMENT            | 采购V2 物流运单   | PRC         | [NULL]            |         56 | /procurement2/shipments         | 2026-05-28 07:09:03.627508
+    1047 | MENU_PRC2_RECEIPT             | 采购V2 收货       | PRC         | [NULL]            |         57 | /procurement2/receipts          | 2026-05-28 07:09:03.627508
+    1048 | MENU_PRC2_DASHBOARD           | 采购V2 看板       | PRC         | [NULL]            |         58 | /procurement2/dashboard         | 2026-05-28 07:09:03.627508
+    1049 | MENU_PRC2_SUPPLIER            | 采购V2 供应商     | PRC         | [NULL]            |         59 | /procurement2/suppliers         | 2026-05-28 07:09:03.627508
+    1050 | MENU_PRC2_PROJECT             | 采购V2 项目       | PRC         | [NULL]            |         60 | /procurement2/projects          | 2026-05-28 07:09:03.627508
+     321 | MOBILE_ANALYTICS              | 生产趋势（移动）  | MOBILE      | [NULL]            |         60 | [NULL]                          | 2026-05-22 08:06:55.079344
+    1051 | MENU_PRC2_INIT                | 采购V2 历史初始化 | PRC         | [NULL]            |         61 | /procurement2/init              | 2026-05-28 07:09:03.627508
+    1052 | MENU_FIN2                     | 财务V2 主模块     | FINANCE     | [NULL]            |         62 | /finance2                       | 2026-05-28 07:09:03.627508
+    1053 | MENU_FIN2_AP                  | 财务V2 应付账款   | FINANCE     | [NULL]            |         63 | /finance2/ap                    | 2026-05-28 07:09:03.627508
+    1054 | MENU_FIN2_AR                  | 财务V2 应收账款   | FINANCE     | [NULL]            |         64 | /finance2/ar                    | 2026-05-28 07:09:03.627508
+    1055 | MENU_FIN2_CASH                | 财务V2 资金账户   | FINANCE     | [NULL]            |         65 | /finance2/cash-accounts         | 2026-05-28 07:09:03.627508
+    1056 | MENU_FIN2_EXPENSE             | 财务V2 费用管理   | FINANCE     | [NULL]            |         66 | /finance2/expenses              | 2026-05-28 07:09:03.627508
+   24114 | MENU_FIN2_AR_LEDGER           | 应收总账          | FINANCE     | [NULL]            |         67 | /finance2/ar-ledger             | 2026-06-09 02:42:51.588151
+    1057 | MENU_FIN2_BUDGET              | 财务V2 预算管理   | FINANCE     | [NULL]            |         67 | /finance2/reports               | 2026-05-28 07:09:03.627508
+    1058 | MENU_FIN2_SHAREHOLDER         | 财务V2 股东资金   | FINANCE     | [NULL]            |         68 | /finance2/shareholder-funds     | 2026-05-28 07:09:03.627508
+    1059 | MENU_FIN2_REPORT              | 财务V2 财务报表   | FINANCE     | [NULL]            |         69 | /finance2/reports               | 2026-05-28 07:09:03.627508
+    1060 | MENU_SALES2                   | Sales V2 主模块   | SALES       | [NULL]            |         70 | /sales2                         | 2026-05-28 07:09:03.627508
+     322 | MOBILE_PACKAGING              | 包装统计（移动）  | MOBILE      | [NULL]            |         70 | [NULL]                          | 2026-05-22 08:06:55.079344
+    1061 | MENU_SALES2_CUSTOMER          | Sales V2 客户主档 | SALES       | [NULL]            |         71 | /sales2/customers               | 2026-05-28 07:09:03.627508
+    1062 | MENU_SALES2_CHANNEL           | Sales V2 销售渠道 | SALES       | [NULL]            |         72 | /sales2/customers               | 2026-05-28 07:09:03.627508
+    1063 | MENU_SALES2_PRICE             | Sales V2 价格管理 | SALES       | [NULL]            |         73 | /sales2/pricing                 | 2026-05-28 07:09:03.627508
+    1064 | MENU_SALES2_ORDER             | Sales V2 销售订单 | SALES       | [NULL]            |         74 | /sales2/orders                  | 2026-05-28 07:09:03.627508
+    1038 | MENU_SALES2_DELIVERY          | Sales V2 配送管理 | SALES       | [NULL]            |         75 | /sales2/delivery                | 2026-05-28 07:09:03.054959
+    1065 | MENU_WORKFLOW                 | 工作流审批        | COMMON      | [NULL]            |         75 | /workflow                       | 2026-05-28 07:09:03.627508
+    1039 | MENU_SALES2_CREDIT            | Sales V2 信用控制 | SALES       | [NULL]            |         76 | /sales2/customers               | 2026-05-28 07:09:03.216337
+    1066 | MENU_SYS_ORG                  | 组织架构          | COMMON      | [NULL]            |         76 | /settings/organizations         | 2026-05-28 07:09:03.627508
+     323 | MOBILE_QUALITY                | 品质检测（移动）  | MOBILE      | [NULL]            |         80 | [NULL]                          | 2026-05-22 08:06:55.079344
+     324 | MOBILE_EGG                    | 鸡蛋台账（移动）  | MOBILE      | [NULL]            |         90 | [NULL]                          | 2026-05-22 08:06:55.079344
+     325 | MOBILE_SALES                  | 销售出库（移动）  | MOBILE      | [NULL]            |        100 | [NULL]                          | 2026-05-22 08:06:55.079344
+     326 | MOBILE_MEDICINE               | 药品台账（移动）  | MOBILE      | [NULL]            |        110 | [NULL]                          | 2026-05-22 08:06:55.079344
+     327 | MOBILE_DELIVERY               | 配送签收（移动）  | MOBILE      | [NULL]            |        120 | [NULL]                          | 2026-05-22 08:06:55.079344
+     580 | MOBILE_TERMINAL               | 包装终端          | MOBILE      | [NULL]            |        130 | /mobile/terminal                | 2026-05-23 05:07:02.928068
+     581 | MOBILE_PROCUREMENT            | 采购审批          | MOBILE      | [NULL]            |        140 | /mobile/procurement             | 2026-05-23 05:07:02.928068
+    7239 | MENU_SHAREHOLDER_CAPITAL      | 资本流管理        | SHAREHOLDER | [NULL]            |        608 | /shareholders/capital           | 2026-06-01 14:41:59.556958
+    6682 | MENU_SHAREHOLDER_DASHBOARD    | 股东驾驶舱        | SHAREHOLDER | [NULL]            |        609 | /shareholders/dashboard         | 2026-06-01 11:45:41.604622
+    6683 | MENU_SHAREHOLDER_VIEW         | 股东项目          | SHAREHOLDER | [NULL]            |        610 | /shareholders/projects          | 2026-06-01 11:45:41.604622
+    6684 | MENU_SHAREHOLDER_MANAGE       | 股东权益管理      | SHAREHOLDER | [NULL]            |        611 | /shareholders/projects          | 2026-06-01 11:45:41.604622
+    6685 | MENU_SHAREHOLDER_CONTRIBUTION | 出资台账          | SHAREHOLDER | [NULL]            |        612 | /shareholders/contributions     | 2026-06-01 11:45:41.604622
+    6686 | MENU_SHAREHOLDER_SCOPE        | 股东查看范围      | SHAREHOLDER | [NULL]            |        613 | /shareholders/scopes            | 2026-06-01 11:45:41.604622
+   11567 | MENU_MASTER_DATA              | 主数据中心        | MASTER      | [NULL]            |        700 | /master-data                    | 2026-06-03 12:42:39.95361
+   22160 | MENU_FARM_MASTER              | 养殖主档管理      | BREEDING    | MENU_FARM_DATA    |         10 | [NULL]                          | 2026-06-08 07:32:49.18337
+   18975 | MENU_FARM_FEED                | 饲料消耗记录      | breeding    | MENU_FARM_DATA    |         35 | /breeding/feed                  | 2026-06-07 05:19:11.220781
+   21422 | MENU_FIN2_AP_MASTER           | 应付账款 主档管理 | FIN2        | MENU_FIN2_AP      |         10 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21423 | MENU_FIN2_AP_TXN              | 应付账款 业务流水 | FIN2        | MENU_FIN2_AP      |         20 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21424 | MENU_FIN2_AP_VIEW             | 应付账款 查询查看 | FIN2        | MENU_FIN2_AP      |         30 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21419 | MENU_FIN2_AR_MASTER           | 应收账款 主档管理 | FIN2        | MENU_FIN2_AR      |         10 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21420 | MENU_FIN2_AR_TXN              | 应收账款 业务流水 | FIN2        | MENU_FIN2_AR      |         20 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21421 | MENU_FIN2_AR_VIEW             | 应收账款 查询查看 | FIN2        | MENU_FIN2_AR      |         30 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21294 | MENU_FIN2_CASH_MASTER         | 现金账户主档      | FIN2        | MENU_FIN2_CASH    |         10 | [NULL]                          | 2026-06-08 00:56:32.117369
+   21295 | MENU_FIN2_CASH_TXN            | 现金收付记账      | FIN2        | MENU_FIN2_CASH    |         20 | [NULL]                          | 2026-06-08 00:56:32.117369
+   21296 | MENU_FIN2_CASH_VIEW           | 现金账户查看      | FIN2        | MENU_FIN2_CASH    |         30 | [NULL]                          | 2026-06-08 00:56:32.117369
+   22649 | MENU_FIN2_CASH_TRANSFER       | 资金转账          | FINANCE     | MENU_FIN2_CASH    |         40 | [NULL]                          | 2026-06-08 10:01:19.924704
+   21425 | MENU_FIN2_EXPENSE_MASTER      | 费用管理 主档管理 | FIN2        | MENU_FIN2_EXPENSE |         10 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21426 | MENU_FIN2_EXPENSE_TXN         | 费用管理 业务流水 | FIN2        | MENU_FIN2_EXPENSE |         20 | [NULL]                          | 2026-06-08 02:43:20.279664
+   21427 | MENU_FIN2_EXPENSE_VIEW        | 费用管理 查询查看 | FIN2        | MENU_FIN2_EXPENSE |         30 | [NULL]                          | 2026-06-08 02:43:20.279664
+   24983 | MENU_MD_CUSTOMER              | 客户档案          | MASTER      | MENU_MASTER_DATA  |        701 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24985 | MENU_MD_SUPPLIER              | 供应商档案        | MASTER      | MENU_MASTER_DATA  |        702 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24981 | MENU_MD_PROJECT               | 项目档案          | MASTER      | MENU_MASTER_DATA  |        703 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24979 | MENU_MD_PRODUCT               | 产品档案          | MASTER      | MENU_MASTER_DATA  |        704 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24980 | MENU_MD_GRADE                 | 等级档案          | MASTER      | MENU_MASTER_DATA  |        705 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24978 | MENU_MD_PACKAGING             | 包装规格          | MASTER      | MENU_MASTER_DATA  |        706 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24987 | MENU_MD_SKU                   | SKU档案           | MASTER      | MENU_MASTER_DATA  |        707 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24984 | MENU_MD_WAREHOUSE             | 仓库档案          | MASTER      | MENU_MASTER_DATA  |        708 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24986 | MENU_MD_STORE                 | 门店档案          | MASTER      | MENU_MASTER_DATA  |        709 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24976 | MENU_MD_DRIVER                | 司机档案          | MASTER      | MENU_MASTER_DATA  |        710 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24982 | MENU_MD_VEHICLE               | 车辆档案          | MASTER      | MENU_MASTER_DATA  |        711 | [NULL]                          | 2026-06-09 08:40:03.728244
+   24977 | MENU_MD_CASH_ACCOUNT          | 资金账户档案      | MASTER      | MENU_MASTER_DATA  |        712 | [NULL]                          | 2026-06-09 08:40:03.728244
+   28555 | MENU_MD_MATERIAL              | 物料档案          | MASTER      | MENU_MASTER_DATA  |        712 | [NULL]                          | 2026-06-12 14:57:45.066762
+   11568 | MENU_MD_BANK_ACCOUNT          | 银行账户中心      | MASTER      | MENU_MASTER_DATA  |        715 | /master-data/bank-accounts      | 2026-06-03 12:42:39.95361
+   11569 | MENU_MD_DICT_CENTER           | 数据字典中心      | MASTER      | MENU_MASTER_DATA  |        720 | /master-data/dictionaries       | 2026-06-03 12:42:39.95361
+   11570 | MENU_MD_QUALITY               | 数据质量中心      | MASTER      | MENU_MASTER_DATA  |        730 | /master-data/quality            | 2026-06-03 12:42:39.95361
+   11571 | MENU_MD_AUDIT                 | 主数据审计        | MASTER      | MENU_MASTER_DATA  |        735 | /master-data/audit              | 2026-06-03 12:42:39.95361
+   11896 | MENU_MD_PENDING               | 主数据待审批      | MASTER      | MENU_MASTER_DATA  |        740 | /master-data/pending            | 2026-06-03 15:23:57.556598
+    5202 | MENU_MOBILE_DELIVERY          | 配送任务          | LOG         | MENU_MOBILE       |         10 | /mobile/delivery                | 2026-05-31 06:19:51.977784
+    5173 | MENU_SALES2_INVENTORY         | 库存管理          | SALES       | MENU_SALES2       |         50 | /sales2/inventory               | 2026-05-31 06:19:51.611936
+    5174 | MENU_SALES2_REPORT            | 经营分析          | SALES       | MENU_SALES2       |         60 | /sales2/report                  | 2026-05-31 06:19:51.709797
+    5172 | MENU_SALES2_RETURN            | 销售退货管理      | SALES       | MENU_SALES2       |         60 | /sales2/returns                 | 2026-05-31 06:19:51.520263
+(153 rows)
+
+--- STORE_PAYMENT_MENU_CODES ---
+ menu_id | menu_code | menu_name_zh | domain | parent_code | sort_order | route 
+---------+-----------+--------------+--------+-------------+------------+-------
+(0 rows)
+
+--- DUPLICATE_MENU_CODES ---
+ menu_code | count 
+-----------+-------
+(0 rows)
+
+--- ORPHAN_MENUS ---
+      menu_code       | parent_code 
+----------------------+-------------
+ MENU_MOBILE_DELIVERY | MENU_MOBILE
+(1 row)
+

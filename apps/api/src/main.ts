@@ -9,6 +9,12 @@ import { join } from 'path';
 import { mkdirSync } from 'fs';
 
 async function bootstrap() {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && process.env.ENABLE_DEV_LOGIN === 'true') {
+    console.error('[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.');
+    process.exit(1);
+  }
+
   // ✅ bodyParser: false — 禁用 NestJS 内置的 100KB body-parser
   //    否则内置 parser 先于自定义中间件执行，logo base64 会触发 413
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
@@ -22,8 +28,6 @@ async function bootstrap() {
   // Logo base64 最大约 800KB（前端已限制），正文 JSON 预留至 5MB
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ limit: '5mb', extended: true }));
-
-  const isProd = process.env.NODE_ENV === 'production';
 
   // ── 反向代理信任（Docker / Nginx 链路下正确识别真实客户端 IP）──────────────
   // 不设置时 ThrottlerGuard 会把所有请求都归到同一个 IP bucket（Nginx 内网 IP），

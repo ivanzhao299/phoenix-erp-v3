@@ -3,17 +3,63 @@
     "agent_name": "Codex-Orchestrator",
     "canonical_agent": "Codex-Orchestrator",
     "role": "需求澄清、任务拆分、route-review、HOLD 汇总、任务池生成",
-    "primary_domains": ["orchestration", "planning", "route-review", "unclear-requirement"],
-    "keywords_zh": ["需求", "拆分", "规划", "方案", "不确定", "无法判断", "任务池", "总控"],
-    "keywords_en": ["orchestrator", "planning", "route review", "unclear", "task queue", "breakdown"],
-    "explicit_mentions": ["Codex-Orchestrator", "Orchestrator"],
+    "primary_domains": [
+      "orchestration",
+      "planning",
+      "route-review",
+      "unclear-requirement"
+    ],
+    "keywords_zh": [
+      "需求",
+      "拆分",
+      "规划",
+      "方案",
+      "不确定",
+      "无法判断",
+      "任务池",
+      "总控"
+    ],
+    "keywords_en": [
+      "orchestrator",
+      "planning",
+      "route review",
+      "unclear",
+      "task queue",
+      "breakdown"
+    ],
+    "explicit_mentions": [
+      "Codex-Orchestrator",
+      "Orchestrator"
+    ],
     "negative_keywords": [],
-    "allowed_task_types": ["route-review", "requirement-spec", "task-contract", "ops-docs"],
-    "forbidden_task_types": ["business-code", "migration", "db-write", "production-deploy"],
-    "risk_domains": ["routing", "planning", "governance"],
+    "allowed_task_types": [
+      "route-review",
+      "requirement-spec",
+      "task-contract",
+      "ops-docs"
+    ],
+    "forbidden_task_types": [
+      "business-code",
+      "migration",
+      "db-write",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "routing",
+      "planning",
+      "governance"
+    ],
     "requires_pre_review": false,
     "requires_post_validation": false,
-    "default_handoff": ["A1-CI-Runtime-Gate", "A2-Security-Regression-Gate", "A3-Backend-Critical-Path", "A4-Frontend-UAT-Smoke", "A5-Data-Readiness", "A6-Staging-Deploy-Runbook", "A7-Final-QA-Gate"],
+    "default_handoff": [
+      "A1-CI-Runtime-Gate",
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A5-Data-Readiness",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
     "parallel_allowed_with": [],
     "confidence_weight": 0.55
   },
@@ -21,126 +67,630 @@
     "agent_name": "A1-CI-Runtime-Gate",
     "canonical_agent": "A1-CI-Runtime-Gate",
     "role": "CI、typecheck、build、startup、runtime、smoke 验证",
-    "primary_domains": ["ci", "typecheck", "build", "runtime", "smoke", "validation"],
-    "keywords_zh": ["CI", "验证", "测试", "编译", "构建", "启动", "typecheck", "smoke", "运行时", "gate"],
-    "keywords_en": ["ci", "validation", "test", "typecheck", "build", "startup", "runtime", "smoke", "gate"],
-    "explicit_mentions": ["A1", "A1-CI-Runtime-Gate", "CI Runtime Gate"],
+    "primary_domains": [
+      "ci",
+      "typecheck",
+      "build",
+      "runtime",
+      "smoke",
+      "validation"
+    ],
+    "keywords_zh": [
+      "CI",
+      "验证",
+      "测试",
+      "编译",
+      "构建",
+      "启动",
+      "typecheck",
+      "smoke",
+      "运行时",
+      "gate"
+    ],
+    "keywords_en": [
+      "ci",
+      "validation",
+      "test",
+      "typecheck",
+      "build",
+      "startup",
+      "runtime",
+      "smoke",
+      "gate"
+    ],
+    "explicit_mentions": [
+      "A1",
+      "A1-CI-Runtime-Gate",
+      "CI Runtime Gate"
+    ],
     "negative_keywords": [],
-    "allowed_task_types": ["ci", "typecheck", "build", "runtime-validation", "smoke"],
-    "forbidden_task_types": ["business-code", "migration-execution", "db-write", "production-deploy"],
-    "risk_domains": ["ci", "runtime", "startup", "typecheck"],
+    "allowed_task_types": [
+      "ci",
+      "typecheck",
+      "build",
+      "runtime-validation",
+      "smoke"
+    ],
+    "forbidden_task_types": [
+      "business-code",
+      "migration-execution",
+      "db-write",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "ci",
+      "runtime",
+      "startup",
+      "typecheck"
+    ],
     "requires_pre_review": false,
     "requires_post_validation": false,
-    "default_handoff": ["A2-Security-Regression-Gate", "A4-Frontend-UAT-Smoke", "A7-Final-QA-Gate"],
-    "parallel_allowed_with": ["A2-Security-Regression-Gate", "A5-Data-Readiness"],
-    "confidence_weight": 1.0
+    "default_handoff": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "parallel_allowed_with": [
+      "A2-Security-Regression-Gate",
+      "A5-Data-Readiness"
+    ],
+    "confidence_weight": 1
   },
   "A2-Security-Regression-Gate": {
     "agent_name": "A2-Security-Regression-Gate",
     "canonical_agent": "A2-Security-Regression-Gate",
     "role": "安全审查、RBAC、DataScope、权限、JWT、附件 ACL、日志脱敏、Chanjet 风险",
-    "primary_domains": ["security", "auth", "rbac", "datascope", "permission", "jwt", "audit", "attachment-acl", "finance", "payment", "chanjet"],
-    "keywords_zh": ["安全", "权限", "菜单码", "角色授权", "角色", "RBAC", "DataScope", "越权", "JWT", "审计", "日志脱敏", "敏感日志", "附件权限", "附件 ACL", "附件访问控制", "protected attachment", "protected preview", "protected download", "支付", "财务", "畅捷通", "用友"],
-    "keywords_en": ["security", "security review", "auth", "permission", "role authorization", "menu code", "role", "rbac", "datascope", "jwt", "audit", "sensitive log", "attachment acl", "protected attachment", "protected preview", "protected download", "payment", "finance", "chanjet"],
-    "explicit_mentions": ["A2", "A2-Security-Regression-Gate", "Security Regression Gate"],
+    "primary_domains": [
+      "security",
+      "auth",
+      "rbac",
+      "datascope",
+      "permission",
+      "jwt",
+      "audit",
+      "attachment-acl",
+      "finance",
+      "payment",
+      "chanjet"
+    ],
+    "keywords_zh": [
+      "安全",
+      "权限",
+      "菜单码",
+      "角色授权",
+      "角色",
+      "RBAC",
+      "DataScope",
+      "越权",
+      "JWT",
+      "审计",
+      "日志脱敏",
+      "敏感日志",
+      "附件权限",
+      "附件 ACL",
+      "附件访问控制",
+      "protected attachment",
+      "protected preview",
+      "protected download",
+      "支付",
+      "财务",
+      "畅捷通",
+      "用友"
+    ],
+    "keywords_en": [
+      "security",
+      "security review",
+      "auth",
+      "permission",
+      "role authorization",
+      "menu code",
+      "role",
+      "rbac",
+      "datascope",
+      "jwt",
+      "audit",
+      "sensitive log",
+      "attachment acl",
+      "protected attachment",
+      "protected preview",
+      "protected download",
+      "payment",
+      "finance",
+      "chanjet"
+    ],
+    "explicit_mentions": [
+      "A2",
+      "A2-Security-Regression-Gate",
+      "Security Regression Gate"
+    ],
     "negative_keywords": [],
-    "allowed_task_types": ["security-review", "rbac-review", "datascope-review", "audit-review", "sensitive-log-review"],
-    "forbidden_task_types": ["migration-execution", "db-write", "production-deploy"],
-    "risk_domains": ["auth", "rbac", "datascope", "payment", "finance", "chanjet", "audit", "attachment-acl"],
+    "allowed_task_types": [
+      "security-review",
+      "rbac-review",
+      "datascope-review",
+      "audit-review",
+      "sensitive-log-review"
+    ],
+    "forbidden_task_types": [
+      "migration-execution",
+      "db-write",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "auth",
+      "rbac",
+      "datascope",
+      "payment",
+      "finance",
+      "chanjet",
+      "audit",
+      "attachment-acl"
+    ],
     "requires_pre_review": true,
     "requires_post_validation": true,
-    "default_handoff": ["A1-CI-Runtime-Gate", "A3-Backend-Critical-Path", "A4-Frontend-UAT-Smoke"],
-    "parallel_allowed_with": ["A1-CI-Runtime-Gate", "A5-Data-Readiness"],
+    "default_handoff": [
+      "A1-CI-Runtime-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "parallel_allowed_with": [
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
     "confidence_weight": 1.1
   },
   "A3-Backend-Critical-Path": {
     "agent_name": "A3-Backend-Critical-Path",
     "canonical_agent": "A3-Backend-Critical-Path",
     "role": "后端 API、service、controller、module、DTO、接口契约和最小后端实现",
-    "primary_domains": ["backend", "api", "service", "controller", "module", "dto", "appmodule"],
-    "keywords_zh": ["后端", "接口", "接口方案", "后端边界", "后端授权", "API", "API draft", "service", "controller", "module", "DTO", "AppModule", "确认接口", "新增接口", "菜单码", "角色授权", "权限 seed", "权限 register", "protected preview", "protected download", "attachment preview", "attachment download", "附件 protected", "附件预览", "附件下载"],
-    "keywords_en": ["backend", "api", "api draft", "service", "controller", "module", "dto", "appmodule", "endpoint", "menu code", "role authorization", "permission seed", "permission register", "protected preview", "protected download", "attachment preview", "attachment download"],
-    "explicit_mentions": ["A3", "A3-Backend-Critical-Path", "Backend Critical Path"],
-    "negative_keywords": ["不改后端", "不改后端接口", "no backend", "do not modify backend"],
-    "allowed_task_types": ["backend-implementation", "api-draft", "service-controller", "module-wiring"],
-    "forbidden_task_types": ["frontend-only", "migration-execution", "production-deploy"],
-    "risk_domains": ["backend", "api", "rbac", "datascope", "audit"],
+    "primary_domains": [
+      "backend",
+      "api",
+      "service",
+      "controller",
+      "module",
+      "dto",
+      "appmodule"
+    ],
+    "keywords_zh": [
+      "后端",
+      "接口",
+      "接口方案",
+      "后端边界",
+      "后端授权",
+      "API",
+      "API draft",
+      "service",
+      "controller",
+      "module",
+      "DTO",
+      "AppModule",
+      "确认接口",
+      "新增接口",
+      "菜单码",
+      "角色授权",
+      "权限 seed",
+      "权限 register",
+      "protected preview",
+      "protected download",
+      "attachment preview",
+      "attachment download",
+      "附件 protected",
+      "附件预览",
+      "附件下载"
+    ],
+    "keywords_en": [
+      "backend",
+      "api",
+      "api draft",
+      "service",
+      "controller",
+      "module",
+      "dto",
+      "appmodule",
+      "endpoint",
+      "menu code",
+      "role authorization",
+      "permission seed",
+      "permission register",
+      "protected preview",
+      "protected download",
+      "attachment preview",
+      "attachment download"
+    ],
+    "explicit_mentions": [
+      "A3",
+      "A3-Backend-Critical-Path",
+      "Backend Critical Path"
+    ],
+    "negative_keywords": [
+      "不改后端",
+      "不改后端接口",
+      "no backend",
+      "do not modify backend"
+    ],
+    "allowed_task_types": [
+      "backend-implementation",
+      "api-draft",
+      "service-controller",
+      "module-wiring"
+    ],
+    "forbidden_task_types": [
+      "frontend-only",
+      "migration-execution",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "backend",
+      "api",
+      "rbac",
+      "datascope",
+      "audit"
+    ],
     "requires_pre_review": true,
     "requires_post_validation": true,
-    "default_handoff": ["A2-Security-Regression-Gate", "A1-CI-Runtime-Gate", "A4-Frontend-UAT-Smoke"],
-    "parallel_allowed_with": ["A4-Frontend-UAT-Smoke"],
-    "confidence_weight": 1.0
+    "default_handoff": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "parallel_allowed_with": [
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "confidence_weight": 1
   },
   "A4-Frontend-UIUX-UAT": {
     "agent_name": "A4-Frontend-UIUX-UAT",
     "canonical_agent": "A4-Frontend-UAT-Smoke",
     "role": "前端页面开发、UI/UX 优化、样式调整、响应式适配、权限可见性、UAT smoke",
-    "primary_domains": ["frontend", "ui", "ux", "style", "responsive", "form", "table", "route-menu", "uat"],
-    "keywords_zh": ["页面", "前端", "UI", "UX", "样式", "美化", "好看", "清爽", "现代化", "布局", "按钮", "表格", "表单", "弹窗", "抽屉", "筛选", "状态标签", "颜色", "间距", "响应式", "移动端", "PC端", "交互", "用户体验", "UAT"],
-    "keywords_en": ["frontend", "ui", "ux", "style", "polish", "modern", "layout", "button", "table", "form", "modal", "drawer", "filter", "status tag", "color", "spacing", "responsive", "mobile", "desktop", "interaction", "user experience", "uat", "smoke"],
-    "explicit_mentions": ["A4", "A4-Frontend-UAT-Smoke", "A4-Frontend-UIUX-UAT", "Frontend UIUX UAT"],
-    "negative_keywords": ["不改前端", "no frontend", "do not modify frontend"],
-    "allowed_task_types": ["frontend-implementation", "ui-ux-polish", "responsive-layout", "uat-smoke"],
-    "forbidden_task_types": ["backend", "migration", "db-write", "production-deploy"],
-    "risk_domains": ["frontend-implementation", "ui-ux-polish", "responsive-layout", "permission-aware-ui", "uat-smoke"],
+    "primary_domains": [
+      "frontend",
+      "ui",
+      "ux",
+      "style",
+      "responsive",
+      "form",
+      "table",
+      "route-menu",
+      "uat"
+    ],
+    "keywords_zh": [
+      "页面",
+      "前端",
+      "UI",
+      "UX",
+      "样式",
+      "美化",
+      "好看",
+      "清爽",
+      "现代化",
+      "布局",
+      "按钮",
+      "表格",
+      "表单",
+      "弹窗",
+      "抽屉",
+      "筛选",
+      "状态标签",
+      "颜色",
+      "间距",
+      "响应式",
+      "移动端",
+      "PC端",
+      "交互",
+      "用户体验",
+      "UAT"
+    ],
+    "keywords_en": [
+      "frontend",
+      "ui",
+      "ux",
+      "style",
+      "polish",
+      "modern",
+      "layout",
+      "button",
+      "table",
+      "form",
+      "modal",
+      "drawer",
+      "filter",
+      "status tag",
+      "color",
+      "spacing",
+      "responsive",
+      "mobile",
+      "desktop",
+      "interaction",
+      "user experience",
+      "uat",
+      "smoke"
+    ],
+    "explicit_mentions": [
+      "A4",
+      "A4-Frontend-UAT-Smoke",
+      "A4-Frontend-UIUX-UAT",
+      "Frontend UIUX UAT"
+    ],
+    "negative_keywords": [
+      "不改前端",
+      "no frontend",
+      "do not modify frontend"
+    ],
+    "allowed_task_types": [
+      "frontend-implementation",
+      "ui-ux-polish",
+      "responsive-layout",
+      "uat-smoke"
+    ],
+    "forbidden_task_types": [
+      "backend",
+      "migration",
+      "db-write",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "frontend-implementation",
+      "ui-ux-polish",
+      "responsive-layout",
+      "permission-aware-ui",
+      "uat-smoke"
+    ],
     "requires_pre_review": false,
     "requires_post_validation": true,
-    "default_handoff": ["A2-Security-Regression-Gate", "A1-CI-Runtime-Gate", "A7-Final-QA-Gate"],
-    "parallel_allowed_with": ["A3-Backend-Critical-Path", "A2-Security-Regression-Gate"],
-    "confidence_weight": 1.0
+    "default_handoff": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A7-Final-QA-Gate"
+    ],
+    "parallel_allowed_with": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate"
+    ],
+    "confidence_weight": 1
   },
   "A5-Data-Readiness": {
     "agent_name": "A5-Data-Readiness",
     "canonical_agent": "A5-Data-Readiness",
     "role": "数据 readiness、主数据、门店/公司/账户/角色/组织/字典映射、试点数据准备",
-    "primary_domains": ["data-readiness", "master-data", "pilot-data", "store-mapping", "company-mapping", "account-mapping", "role-mapping", "organization-mapping"],
-    "keywords_zh": ["数据准备", "数据检查", "数据 readiness", "主数据", "门店", "门店映射", "公司映射", "账户映射", "角色映射", "字典", "组织", "组织映射", "基础数据", "数据核查", "数据就绪", "试点 readiness", "试点准备"],
-    "keywords_en": ["data readiness", "master data", "store mapping", "company mapping", "account mapping", "role mapping", "organization mapping", "data check", "data validation", "pilot readiness", "pilot data"],
-    "explicit_mentions": ["A5", "A5 数据", "A5-Data-Readiness", "Data Readiness"],
-    "negative_keywords": ["CI readiness only"],
-    "allowed_task_types": ["read-only-data-check", "master-data-check", "mapping-validation", "pilot-readiness"],
-    "forbidden_task_types": ["business-code", "migration-execution", "db-write", "production-deploy"],
-    "risk_domains": ["data-readiness", "master-data", "pilot-data", "mapping"],
+    "primary_domains": [
+      "data-readiness",
+      "master-data",
+      "pilot-data",
+      "store-mapping",
+      "company-mapping",
+      "account-mapping",
+      "role-mapping",
+      "organization-mapping"
+    ],
+    "keywords_zh": [
+      "数据准备",
+      "数据检查",
+      "数据 readiness",
+      "主数据",
+      "门店",
+      "门店映射",
+      "公司映射",
+      "账户映射",
+      "角色映射",
+      "字典",
+      "组织",
+      "组织映射",
+      "基础数据",
+      "数据核查",
+      "数据就绪",
+      "试点 readiness",
+      "试点准备"
+    ],
+    "keywords_en": [
+      "data readiness",
+      "master data",
+      "store mapping",
+      "company mapping",
+      "account mapping",
+      "role mapping",
+      "organization mapping",
+      "data check",
+      "data validation",
+      "pilot readiness",
+      "pilot data"
+    ],
+    "explicit_mentions": [
+      "A5",
+      "A5 数据",
+      "A5-Data-Readiness",
+      "Data Readiness"
+    ],
+    "negative_keywords": [
+      "CI readiness only"
+    ],
+    "allowed_task_types": [
+      "read-only-data-check",
+      "master-data-check",
+      "mapping-validation",
+      "pilot-readiness"
+    ],
+    "forbidden_task_types": [
+      "business-code",
+      "migration-execution",
+      "db-write",
+      "production-deploy"
+    ],
+    "risk_domains": [
+      "data-readiness",
+      "master-data",
+      "pilot-data",
+      "mapping"
+    ],
     "requires_pre_review": false,
     "requires_post_validation": true,
-    "default_handoff": ["A2-Security-Regression-Gate", "A3-Backend-Critical-Path"],
-    "parallel_allowed_with": ["A1-CI-Runtime-Gate", "A2-Security-Regression-Gate"],
+    "default_handoff": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path"
+    ],
+    "parallel_allowed_with": [
+      "A1-CI-Runtime-Gate",
+      "A2-Security-Regression-Gate"
+    ],
     "confidence_weight": 1.15
   },
   "A6-Staging-Deploy-Runbook": {
     "agent_name": "A6-Staging-Deploy-Runbook",
     "canonical_agent": "A6-Staging-Deploy-Runbook",
     "role": "预发部署 runbook、环境矩阵、回滚方案、health check，不实际部署",
-    "primary_domains": ["staging", "deploy-runbook", "rollback", "health-check", "environment"],
-    "keywords_zh": ["预发", "staging", "部署 runbook", "部署文档", "回滚方案", "环境矩阵", "health check", "发布手册", "不实际部署"],
-    "keywords_en": ["staging", "deploy runbook", "deployment runbook", "rollback", "environment", "health check", "release runbook"],
-    "explicit_mentions": ["A6", "A6-Staging-Deploy-Runbook", "Deploy Runbook"],
-    "negative_keywords": ["实际部署", "生产部署", "deploy production"],
-    "allowed_task_types": ["runbook", "staging-plan", "rollback-plan", "health-check-plan"],
-    "forbidden_task_types": ["production-deploy", "db-write", "migration-execution"],
-    "risk_domains": ["staging", "rollback", "deploy-readiness"],
+    "primary_domains": [
+      "staging",
+      "deploy-runbook",
+      "rollback",
+      "health-check",
+      "environment"
+    ],
+    "keywords_zh": [
+      "预发",
+      "staging",
+      "部署 runbook",
+      "部署文档",
+      "回滚方案",
+      "环境矩阵",
+      "health check",
+      "发布手册",
+      "不实际部署"
+    ],
+    "keywords_en": [
+      "staging",
+      "deploy runbook",
+      "deployment runbook",
+      "rollback",
+      "environment",
+      "health check",
+      "release runbook"
+    ],
+    "explicit_mentions": [
+      "A6",
+      "A6-Staging-Deploy-Runbook",
+      "Deploy Runbook"
+    ],
+    "negative_keywords": [
+      "实际部署",
+      "生产部署",
+      "deploy production"
+    ],
+    "allowed_task_types": [
+      "runbook",
+      "staging-plan",
+      "rollback-plan",
+      "health-check-plan"
+    ],
+    "forbidden_task_types": [
+      "production-deploy",
+      "db-write",
+      "migration-execution"
+    ],
+    "risk_domains": [
+      "staging",
+      "rollback",
+      "deploy-readiness"
+    ],
     "requires_pre_review": true,
     "requires_post_validation": true,
-    "default_handoff": ["A7-Final-QA-Gate"],
-    "parallel_allowed_with": ["A7-Final-QA-Gate"],
-    "confidence_weight": 1.0
+    "default_handoff": [
+      "A7-Final-QA-Gate"
+    ],
+    "parallel_allowed_with": [
+      "A7-Final-QA-Gate"
+    ],
+    "confidence_weight": 1
   },
   "A7-Final-QA-Gate": {
     "agent_name": "A7-Final-QA-Gate",
     "canonical_agent": "A7-Final-QA-Gate",
     "role": "最终验收、GO / GO WITH CONDITIONS / HOLD / ROLLBACK 判断，不生产发布",
-    "primary_domains": ["final-qa", "go-no-go", "hold", "rollback", "uat-final"],
-    "keywords_zh": ["终验", "最终验收", "GO", "HOLD", "ROLLBACK", "回滚判断", "上线判断", "最终 Gate"],
-    "keywords_en": ["final qa", "final gate", "go", "hold", "rollback", "go no go", "uat final"],
-    "explicit_mentions": ["A7", "A7-Final-QA-Gate", "Final QA Gate"],
+    "primary_domains": [
+      "final-qa",
+      "go-no-go",
+      "hold",
+      "rollback",
+      "uat-final"
+    ],
+    "keywords_zh": [
+      "终验",
+      "最终验收",
+      "GO",
+      "HOLD",
+      "ROLLBACK",
+      "回滚判断",
+      "上线判断",
+      "最终 Gate"
+    ],
+    "keywords_en": [
+      "final qa",
+      "final gate",
+      "go",
+      "hold",
+      "rollback",
+      "go no go",
+      "uat final"
+    ],
+    "explicit_mentions": [
+      "A7",
+      "A7-Final-QA-Gate",
+      "Final QA Gate"
+    ],
     "negative_keywords": [],
-    "allowed_task_types": ["final-qa", "go-no-go-review", "rollback-decision"],
-    "forbidden_task_types": ["production-deploy", "db-write", "migration-execution"],
-    "risk_domains": ["final-qa", "release-decision", "rollback"],
+    "allowed_task_types": [
+      "final-qa",
+      "go-no-go-review",
+      "rollback-decision"
+    ],
+    "forbidden_task_types": [
+      "production-deploy",
+      "db-write",
+      "migration-execution"
+    ],
+    "risk_domains": [
+      "final-qa",
+      "release-decision",
+      "rollback"
+    ],
     "requires_pre_review": true,
     "requires_post_validation": false,
-    "default_handoff": ["Codex-Orchestrator"],
-    "parallel_allowed_with": ["A6-Staging-Deploy-Runbook"],
-    "confidence_weight": 1.0
+    "default_handoff": [
+      "Codex-Orchestrator"
+    ],
+    "parallel_allowed_with": [
+      "A6-Staging-Deploy-Runbook"
+    ],
+    "confidence_weight": 1
+  },
+  "routing_constraints": {
+    "allowlist_markers": [
+      "只允许",
+      "仅允许",
+      "only allow",
+      "allow only"
+    ],
+    "denylist_markers": [
+      "不允许",
+      "禁止",
+      "不要",
+      "不得",
+      "disallow",
+      "exclude"
+    ],
+    "priority": [
+      "denylist",
+      "allowlist",
+      "keyword routing"
+    ],
+    "hard_constraints": [
+      "no business code changes",
+      "no migration execution",
+      "no database write",
+      "no deploy",
+      "no push",
+      "no apps/api changes",
+      "no apps/web changes"
+    ],
+    "rule": "Denied agents must be removed even if keywords match. Allowed agents restrict final selection. Conflicts between allowed and denied Agents produce HOLD."
   }
 }

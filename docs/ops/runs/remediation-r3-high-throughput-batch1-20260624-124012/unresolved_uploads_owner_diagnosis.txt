@@ -1,0 +1,51 @@
+Output format is aligned.
+Null display is "[NULL]".
+--- HISTORICAL_FILE_METADATA_SUMMARY ---
+ rows | legacy_rows | legacy_module_rows | active_rows | protected_rows 
+------+-------------+--------------------+-------------+----------------
+   15 |          15 |                  0 |          15 |             15
+(1 row)
+
+--- LEGACY_FILE_METADATA_BY_OWNER ---
+ module_code |     owner_type      | rows 
+-------------+---------------------+------
+ PURCHASE    | PURCHASE_ATTACHMENT |   14
+ PAYMENT     | PAYMENT_ATTACHMENT  |    1
+(2 rows)
+
+--- ATTACHMENT_LIKE_COLUMNS_COUNT ---
+ attachment_like_columns 
+-------------------------
+                      25
+(1 row)
+
+--- ATTACHMENT_LIKE_COLUMNS_SAMPLE ---
+       table_name       |     column_name     |     data_type     
+------------------------+---------------------+-------------------
+ brd_medication_records | attachment_url      | text
+ file_metadata          | file_id             | character varying
+ fin_transactions       | payment_proof       | text
+ mst_products           | image_url           | text
+ pda_app_info           | apk_url             | character varying
+ pkg_exceptions         | photo_url           | text
+ prc2_init_batches      | file_name           | character varying
+ prc2_init_batches      | file_url            | text
+ prc2_payments          | voucher_url         | text
+ prc2_purchase_orders   | contract_no         | character varying
+ prc2_purchase_orders   | contract_note       | text
+ prc2_purchase_orders   | contract_url        | text
+ prc2_purchase_requests | attachment_url      | text
+ prc_purchase_orders    | contract_no         | character varying
+ prc_purchase_orders    | contract_note       | text
+ prc_purchase_orders    | contract_url        | text
+ prc_purchase_requests  | attachment_url      | text
+ sal_delivery_orders    | photo_urls          | text
+ schema_migrations      | filename            | text
+ store_payment_accounts | qr_attachment_id    | character varying
+ store_payment_records  | proof_attachment_id | character varying
+ wms_inbound            | attachment_url      | text
+ wms_outbound           | attachment_url      | text
+ ws_contracts           | contract_no         | character varying
+ ws_shipments           | contract_no         | character varying
+(25 rows)
+

@@ -1,0 +1,21 @@
+{
+  "gate": "APPROVE_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_GATE",
+  "remote_dry_run_dir": "/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947",
+  "created_at": "2026-06-24T13:09:47+08:00",
+  "menu_present_count": 0,
+  "menu_repair_candidate_count": 5,
+  "role_permission_present_count": 0,
+  "role_permission_repair_candidate_count": 11,
+  "datascope_present_count": 0,
+  "datascope_repair_candidate_count": 11,
+  "user_scope_repair_candidate_count": 1,
+  "manual_review_required_count": 3,
+  "hold_item_count": 2,
+  "db_write_executed": false,
+  "sql_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "current_conclusion": "READY_FOR_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_APPROVAL_WITH_CONDITIONS"
+}

@@ -1,0 +1,21 @@
+{
+  "request_id": "REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI",
+  "mode": "execute-approved",
+  "approval_token_provided": true,
+  "codex_cli_executed": false,
+  "executed_agents": [],
+  "skipped_agents": [],
+  "held_reasons": [
+    "DB write or migration execution request requires HOLD",
+    "DB write request requires human Gate"
+  ],
+  "worktree_rebase_results": [],
+  "agent_exit_codes": {},
+  "agent_log_files": {},
+  "generated_reports": [],
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "merged": false,
+  "pushed": false
+}

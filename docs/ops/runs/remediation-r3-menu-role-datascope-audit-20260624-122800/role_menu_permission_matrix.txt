@@ -1,0 +1,16 @@
+Output format is aligned.
+Null display is "[NULL]".
+ role_code | role_name_zh | menu_code | menu_name_zh | perm_codes | deny_codes | scope_type | scope_value 
+-----------+--------------+-----------+--------------+------------+------------+------------+-------------
+(0 rows)
+
+--- DUPLICATE_ROLE_MENU_GRANTS ---
+ role_code | menu_code | count 
+-----------+-----------+-------
+(0 rows)
+
+--- WIDE_STORE_PAYMENT_GRANTS ---
+ role_code | role_name_zh | menu_code | perm_codes | scope_type | scope_value 
+-----------+--------------+-----------+------------+------------+-------------
+(0 rows)
+

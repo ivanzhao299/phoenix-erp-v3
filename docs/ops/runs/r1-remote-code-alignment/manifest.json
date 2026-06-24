@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-23T22:59:00+08:00",
+  "remote_audit_dir": "/opt/phoenix-erp-backups/remediation-r1-code-alignment-20260623-225600",
+  "deploy_path": "/opt/phoenix-erp",
+  "before_commit": "87b5781",
+  "after_commit": "7507b12a",
+  "after_commit_full": "7507b12a37e2620b7506b65fcb05f11a2a67a6ed",
+  "branch": "main",
+  "remote_worktree_clean": false,
+  "local_only_server_artifact": "docker-compose.yml.bak-20260522-180813",
+  "file_metadata_migration_present": true,
+  "store_payment_migration_present": true,
+  "file_acl_files_present": true,
+  "store_payment_backend_files_present": true,
+  "store_payment_frontend_files_present": true,
+  "migration_executed": false,
+  "db_write_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_main_executed": false,
+  "production_workflow_triggered": false,
+  "conclusion": "GO_WITH_CONDITIONS"
+}

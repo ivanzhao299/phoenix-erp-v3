@@ -1,0 +1,11 @@
+P0: 0
+P1: 6
+P2: 2
+menu_repair_candidates: 5
+role_permission_repair_candidates: 11
+datascope_repair_candidates: 11
+user_scope_repair_candidates: 1
+manual_review_required: 3
+hold_items: 2
+hold_1: remote runtime action-bit mismatch C/A vs target V/E/X; prefer code alignment before execution or separate compatibility Gate.
+hold_2: three user-scope rows require manual review; do not give ALL scope automatically.

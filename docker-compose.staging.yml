@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: phoenix-v3-staging-db
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      POSTGRES_USER: ${DB_USER:-phoenix_staging}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required for staging}
+      POSTGRES_DB: ${DB_NAME:-phoenix_erp_staging}
+    volumes:
+      - phoenix_staging_pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${STAGING_DB_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-phoenix_staging} -d ${DB_NAME:-phoenix_erp_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ${STAGING_API_IMAGE:-ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest}
+    container_name: phoenix-v3-staging-api
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+      - .env.staging.api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: staging
+      APP_ENV: staging
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-phoenix_staging}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required for staging}
+      DB_NAME: ${DB_NAME:-phoenix_erp_staging}
+      PORT: 3100
+      FILE_STORAGE_PATH: ${STAGING_FILE_STORAGE_PATH:?STAGING_FILE_STORAGE_PATH is required}
+      STORE_PAYMENT_ENABLED: ${STORE_PAYMENT_ENABLED:-true}
+      STORE_PAYMENT_ATTACHMENT_PROTECTED_STREAMING: ${STORE_PAYMENT_ATTACHMENT_PROTECTED_STREAMING:-true}
+      STORE_PAYMENT_RAW_URL_DISABLED: ${STORE_PAYMENT_RAW_URL_DISABLED:-true}
+      STORE_PAYMENT_LEGACY_UPLOADS_DISABLED: ${STORE_PAYMENT_LEGACY_UPLOADS_DISABLED:-true}
+    volumes:
+      - ${STAGING_FILE_STORAGE_PATH:?STAGING_FILE_STORAGE_PATH is required}:/app/uploads
+    ports:
+      - "127.0.0.1:${STAGING_API_PORT:-13100}:3100"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  web:
+    image: ${STAGING_WEB_IMAGE:-ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest}
+    container_name: phoenix-v3-staging-web
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+      - .env.staging.web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: staging
+      APP_ENV: staging
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      API_TARGET: http://api:3100
+      NEXT_PUBLIC_APP_ENV: staging
+    ports:
+      - "127.0.0.1:${STAGING_WEB_PORT:-13000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  phoenix_staging_pg_data:
+    name: phoenix_staging_pg_data

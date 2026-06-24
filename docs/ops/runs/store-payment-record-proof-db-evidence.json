@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-06-23T14:18:51.332551+08:00",
+  "database": "phoenix_erp",
+  "db_user": "mac",
+  "is_local_phoenix_erp": true,
+  "store_payment_records_table": "store_payment_records",
+  "file_metadata_table": "file_metadata",
+  "record": {
+    "id": 1,
+    "payment_no": "SP-UAT-PROOF-001",
+    "company_code": "COMP-LAO-AGRI",
+    "store_code": "STORE-VTE-001",
+    "payment_account_id": 1,
+    "amount": "1.00",
+    "currency": "LAK",
+    "payment_method": "UAT",
+    "status": "PENDING",
+    "proof_attachment_id": "FILE-SP-PROOF-UAT-001",
+    "submitted_by": "codex_uat",
+    "remark": "UAT only / no real business data / no real payment proof"
+  },
+  "file_metadata": {
+    "file_id": "FILE-SP-PROOF-UAT-001",
+    "module_code": "STORE_PAYMENT",
+    "owner_type": "STORE_PAYMENT_RECORD",
+    "owner_id": "1",
+    "company_code": "COMP-LAO-AGRI",
+    "store_code": "STORE-VTE-001",
+    "status": "ACTIVE",
+    "visibility": "PROTECTED",
+    "original_name": "store-payment-proof-record-uat.pdf",
+    "mime_type": "application/pdf",
+    "size_bytes": "657",
+    "checksum": "40e52b211697255e5b613410d6b0669d93ef2881aa40f00ce0f7abefa79c1ce7"
+  },
+  "record_count": 1,
+  "file_metadata_count": 1
+}

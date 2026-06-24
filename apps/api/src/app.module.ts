@@ -38,6 +38,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { FileModule } from './modules/file/file.module';
 import { ProcurementV2Module } from './modules/procurement-v2/procurement-v2.module';
 // [Shareholder Runtime Phase 1] 股东权益与出资台账
 import { ShareholderModule } from './modules/shareholder/shareholder.module';
@@ -122,6 +123,7 @@ import { StorePaymentModule } from './modules/store-payment/store-payment.module
     QualityModule,
     WorkflowModule,
     UploadModule,
+    FileModule,
     ProcurementV2Module,
     ShareholderModule,     // Shareholder Runtime Phase 1
     OrgModule,

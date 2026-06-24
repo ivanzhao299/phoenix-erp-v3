@@ -1,0 +1,8 @@
+auto_claim_ready=0
+manual_review_required=0
+unresolved_or_hold=74
+rawUrl_generated=false
+public_uploads_url_generated=false
+db_write_executed=false
+file_metadata_inserted=false
+hold_reason=SSH unavailable during banner exchange / connection setup

@@ -1,0 +1,13 @@
+action_bit_mapping_dry_run.md
+datascope_repair_dry_run.sql
+file_list.txt
+manifest.json
+menu_repair_dry_run.sql
+repair_dry_run_summary.json
+repair_risk_summary.txt
+role_permission_repair_dry_run.sql
+rollback_datascope_candidate.sql
+rollback_menu_repair_candidate.sql
+rollback_role_permission_candidate.sql
+rollback_user_scope_candidate.sql
+user_scope_repair_dry_run.sql

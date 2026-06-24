@@ -20,7 +20,7 @@ function usage(exitCode = 1) {
     --branch <branch-name> \\
     [--worktree <path>] \\
     [--max-retries 3] \\
-    [--dry-run] [--yes] [--allow-code] [--schema-gate <request-id>] \\
+    [--dry-run] [--yes] [--allow-code] [--schema-gate <request-id>] [--staging-bootstrap] \\
     [--auto-commit] [--auto-merge] [--run-gates]`);
   process.exit(exitCode);
 }
@@ -48,6 +48,10 @@ function parseArgs(argv) {
     }
     if (arg === '--allow-code') {
       values.allowCode = true;
+      continue;
+    }
+    if (arg === '--staging-bootstrap') {
+      values.stagingBootstrap = true;
       continue;
     }
     if (arg === '--auto-commit') {
@@ -191,6 +195,15 @@ function isMigrationOrSchemaFile(file) {
   );
 }
 
+function isStagingBootstrapFile(file) {
+  return (
+    file === '.env.staging.example' ||
+    file === 'docker-compose.staging.yml' ||
+    file === '.github/workflows/staging-deploy.yml' ||
+    file.startsWith('deploy/staging/')
+  );
+}
+
 function hasFrozenBoundary(entries) {
   return entries.some((entry) => isMigrationOrSchemaFile(entry.path));
 }
@@ -249,13 +262,18 @@ function autoResolveDocsConflict(cwd, files, dryRun) {
 function maybeCommit(cwd, entries, message, args, summary, label) {
   if (entries.length === 0) return false;
   if (!args.autoCommit) fail(`${label} has changes and auto-commit is disabled`, { status: entries.map((entry) => entry.raw).join('\n') });
-  if (hasFrozenBoundary(entries)) {
+  if (hasFrozenBoundary(entries) && !args.schemaGate) {
     fail(`${label} touches migration/schema/entity/table/column boundary`, { status: entries.map((entry) => entry.raw).join('\n') });
   }
   if (hasBusinessCode(entries) && !args.allowCode) {
     fail(`${label} contains business code and --allow-code was not provided`, { status: entries.map((entry) => entry.raw).join('\n') });
   }
-  const unsupported = entries.filter((entry) => !(isOpsFile(entry.path) || (args.allowCode && (isApiFile(entry.path) || isWebFile(entry.path)))));
+  const unsupported = entries.filter((entry) => !(
+    isOpsFile(entry.path) ||
+    (args.stagingBootstrap && isStagingBootstrapFile(entry.path)) ||
+    (args.allowCode && (isApiFile(entry.path) || isWebFile(entry.path))) ||
+    (args.schemaGate && isMigrationOrSchemaFile(entry.path))
+  ));
   if (unsupported.length > 0) {
     fail(`${label} has unsupported dirty files`, {
       unsupported: unsupported.map((entry) => `${entry.raw} -> ${entry.path}`).join('\n'),
@@ -349,6 +367,7 @@ function commitLifecycleReport(summary, report) {
 function safeMergeBranch(args, summary) {
   const syncCommand = ['node', 'scripts/ops/agent-sync-and-merge.mjs', args.branch, args.dryRun ? '--dry-run' : '--yes'];
   if (args.allowCode) syncCommand.push('--allow-code');
+  if (args.stagingBootstrap) syncCommand.push('--staging-bootstrap');
   if (args.schemaGate) syncCommand.push('--schema-gate', args.schemaGate);
   console.log(`Safe merge command: cd ${MAIN_ROOT} && ${syncCommand.join(' ')}`);
   if (args.dryRun) {

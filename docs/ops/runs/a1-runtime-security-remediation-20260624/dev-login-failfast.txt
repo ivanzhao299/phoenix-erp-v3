@@ -1,0 +1,6 @@
+
+> phoenix-erp-v3-nest@1.0.0 start:prod /Users/mac/phoenix-erp-worktrees/codex-orchestrator/apps/api
+> node dist/main
+
+[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.
+ ELIFECYCLE  Command failed with exit code 1.

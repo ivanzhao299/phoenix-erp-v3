@@ -9,6 +9,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { SysOperationLogEntity } from '../../common/entities/sys-operation-log.entity';
+import { FileAccessService, ProtectedFileMode } from '../file/file-access.service';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import {
   ConfirmStorePaymentRecordDto,
@@ -24,7 +25,6 @@ import { StorePaymentAccountEntity } from './entities/store-payment-account.enti
 import { StorePaymentRecordEntity } from './entities/store-payment-record.entity';
 
 type StorePaymentRecordStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'VOIDED';
-
 interface RequestUser {
   userId?: string | number;
   id?: string | number;
@@ -40,6 +40,15 @@ interface RequestUser {
 const FINANCE_ROLES = new Set(['ROLE_FIN_ACCT', 'ROLE_FIN_CFO', 'ROLE_GROUP_FINANCE', 'ROLE_HQ_FINANCE']);
 const MANAGER_ROLES = new Set(['ROLE_STORE_MGR']);
 const CLERK_ROLES = new Set(['ROLE_CASHIER']);
+const STORE_CODE_ALIASES: Record<string, string[]> = {
+  'STORE-VTE-001': ['ST-VTE-001'],
+};
+const STORE_CODE_CANONICAL: Record<string, string> = Object.fromEntries(
+  Object.entries(STORE_CODE_ALIASES).flatMap(([canonical, aliases]) => [
+    [canonical, canonical],
+    ...aliases.map((alias) => [alias, canonical] as const),
+  ]),
+);
 
 @Injectable()
 export class StorePaymentService {
@@ -53,6 +62,7 @@ export class StorePaymentService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly cls: ClsService,
+    private readonly fileAccessService: FileAccessService,
   ) {}
 
   async listAccounts(query: QueryStorePaymentAccountDto) {
@@ -62,7 +72,11 @@ export class StorePaymentService {
 
     qb.andWhere('a.deletedAt IS NULL');
     if (query.companyCode) qb.andWhere('a.companyCode = :companyCode', { companyCode: query.companyCode });
-    if (query.storeCode) qb.andWhere('a.storeCode = :storeCode', { storeCode: query.storeCode });
+    if (query.storeCode) {
+      qb.andWhere('a.storeCode IN (:...queryStoreCodes)', {
+        queryStoreCodes: this.expandStoreCodeAliases(query.storeCode),
+      });
+    }
     if (query.currency) qb.andWhere('a.currency = :currency', { currency: query.currency });
     if (query.paymentMethod) qb.andWhere('a.paymentMethod = :paymentMethod', { paymentMethod: query.paymentMethod });
     if (query.status) qb.andWhere('a.status = :status', { status: query.status });
@@ -84,12 +98,13 @@ export class StorePaymentService {
   async createAccount(dto: CreateStorePaymentAccountDto) {
     this.assertAccountMaintainer();
     this.assertProtectedAttachmentRef(dto.qrAttachmentId, 'STORE_PAYMENT_QR_ATTACHMENT_INVALID', false);
+    const storeCode = this.canonicalStoreCode(dto.storeCode);
 
     return this.dataSource.transaction(async (manager) => {
       const exists = await manager.findOne(StorePaymentAccountEntity, {
         where: {
           companyCode: dto.companyCode,
-          storeCode: dto.storeCode,
+          storeCode,
           accountCode: dto.accountCode,
         },
       });
@@ -99,7 +114,7 @@ export class StorePaymentService {
         accountCode: dto.accountCode,
         accountName: dto.accountName,
         companyCode: dto.companyCode,
-        storeCode: dto.storeCode,
+        storeCode,
         finCashAccountId: this.blankToNull(dto.finCashAccountId),
         currency: dto.currency,
         paymentMethod: dto.paymentMethod,
@@ -167,7 +182,11 @@ export class StorePaymentService {
 
     qb.andWhere('r.deletedAt IS NULL');
     if (query.companyCode) qb.andWhere('r.companyCode = :companyCode', { companyCode: query.companyCode });
-    if (query.storeCode) qb.andWhere('r.storeCode = :storeCode', { storeCode: query.storeCode });
+    if (query.storeCode) {
+      qb.andWhere('r.storeCode IN (:...queryStoreCodes)', {
+        queryStoreCodes: this.expandStoreCodeAliases(query.storeCode),
+      });
+    }
     if (query.status) qb.andWhere('r.status = :status', { status: query.status });
     if (query.submittedBy) qb.andWhere('r.submittedBy = :submittedBy', { submittedBy: query.submittedBy });
     if (query.dateFrom) qb.andWhere('r.paidAt >= :dateFrom', { dateFrom: query.dateFrom });
@@ -198,7 +217,7 @@ export class StorePaymentService {
       if (account.status !== 'ACTIVE' || !account.isActive) {
         throw new BadRequestException('STORE_PAYMENT_ACCOUNT_DISABLED');
       }
-      if (account.companyCode !== dto.companyCode || account.storeCode !== storeCode) {
+      if (account.companyCode !== dto.companyCode || !this.storeCodeMatchesAny(account.storeCode, [storeCode])) {
         throw new ForbiddenException('STORE_PAYMENT_ACCOUNT_SCOPE_MISMATCH');
       }
       if (account.currency !== dto.currency || account.paymentMethod !== dto.paymentMethod) {
@@ -246,6 +265,67 @@ export class StorePaymentService {
     const record = await this.findRecordOrThrow(id);
     this.assertRecordScope(record);
     return this.toRecordResponse(record);
+  }
+
+  async getAccountQrAttachmentAccess(id: string) {
+    const account = await this.accountRepo.findOne({ where: { id } });
+    if (!account || account.deletedAt) throw new NotFoundException('STORE_PAYMENT_ACCOUNT_NOT_FOUND');
+    this.assertAccountScope(account);
+    if (account.qrAttachmentId) {
+      return this.fileAccessService.getProtectedFileStatus(account.qrAttachmentId, this.toFileAccessPolicy({
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        companyCode: account.companyCode,
+        storeCode: account.storeCode,
+      })).catch(() => this.toAttachmentAccessPendingResponse({
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        attachmentBound: true,
+        reason: 'STORE_PAYMENT_QR_FILE_METADATA_PENDING',
+      }));
+    }
+    return this.toAttachmentAccessPendingResponse({
+      objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+      objectId: account.id,
+      attachmentBound: !!account.qrAttachmentId,
+      reason: 'STORE_PAYMENT_PROTECTED_QR_PREVIEW_PENDING_A3',
+    });
+  }
+
+  async getRecordProofAttachmentAccess(id: string) {
+    const record = await this.findRecordOrThrow(id);
+    this.assertRecordScope(record);
+    if (record.proofAttachmentId) {
+      return this.fileAccessService.getProtectedFileStatus(record.proofAttachmentId, this.toFileAccessPolicy({
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        companyCode: record.companyCode,
+        storeCode: record.storeCode,
+      })).catch(() => this.toAttachmentAccessPendingResponse({
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        attachmentBound: true,
+        reason: 'STORE_PAYMENT_PROOF_FILE_METADATA_PENDING',
+      }));
+    }
+    return this.toAttachmentAccessPendingResponse({
+      objectType: 'STORE_PAYMENT_RECORD_PROOF',
+      objectId: record.id,
+      attachmentBound: !!record.proofAttachmentId,
+      reason: 'STORE_PAYMENT_PROTECTED_PROOF_PREVIEW_PENDING_A3',
+    });
+  }
+
+  async getStorePaymentAttachmentStatus(attachmentId: string) {
+    const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
+    this.assertAttachmentOwnerScope(owner);
+    return this.fileAccessService.getProtectedFileStatus(attachmentId, this.toFileAccessPolicy(owner));
+  }
+
+  async openStorePaymentAttachment(attachmentId: string, mode: ProtectedFileMode) {
+    const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
+    this.assertAttachmentOwnerScope(owner);
+    return this.fileAccessService.openProtectedFile(attachmentId, this.toFileAccessPolicy(owner), mode);
   }
 
   async confirmRecord(id: string, dto: ConfirmStorePaymentRecordDto) {
@@ -347,25 +427,36 @@ export class StorePaymentService {
 
     const storeCodes = this.allowedStoreCodes();
     if (this.isManager()) {
-      if (storeCodes.includes(record.storeCode)) return;
+      if (this.storeCodeMatchesAny(record.storeCode, storeCodes)) return;
       throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
     }
 
     if (this.isClerk()) {
-      if (record.submittedBy === this.username() || storeCodes.includes(record.storeCode)) return;
+      if (record.submittedBy === this.username() || this.storeCodeMatchesAny(record.storeCode, storeCodes)) return;
       throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
     }
 
     throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
   }
 
+  private assertAccountScope(account: StorePaymentAccountEntity) {
+    if (this.isAdmin() || this.isFinance()) return;
+    if (!account.isActive || account.status !== 'ACTIVE') throw new ForbiddenException('STORE_PAYMENT_ACCOUNT_FORBIDDEN');
+
+    const storeCodes = this.allowedStoreCodes();
+    if (this.storeCodeMatchesAny(account.storeCode, storeCodes)) return;
+
+    throw new ForbiddenException('STORE_PAYMENT_ACCOUNT_FORBIDDEN');
+  }
+
   private resolveCreateStoreCode(bodyStoreCode: string): string {
-    if (this.isAdmin() || this.isFinance()) return bodyStoreCode;
+    const canonicalBodyStoreCode = this.canonicalStoreCode(bodyStoreCode);
+    if (this.isAdmin() || this.isFinance()) return canonicalBodyStoreCode;
 
     const storeCodes = this.allowedStoreCodes();
     if (storeCodes.length === 0) throw new ForbiddenException('STORE_PAYMENT_STORE_SCOPE_REQUIRED');
-    if (!storeCodes.includes(bodyStoreCode)) throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
-    return bodyStoreCode;
+    if (!this.storeCodeMatchesAny(canonicalBodyStoreCode, storeCodes)) throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
+    return canonicalBodyStoreCode;
   }
 
   private assertAccountMaintainer() {
@@ -396,6 +487,85 @@ export class StorePaymentService {
     ) {
       throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_RAW_URL_FORBIDDEN');
     }
+  }
+
+  private validateProtectedAttachmentId(value: string) {
+    const normalized = value.trim();
+    if (!normalized) throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_ID_REQUIRED');
+    const lowered = normalized.toLowerCase();
+    if (
+      normalized.includes('..') ||
+      normalized.includes('/') ||
+      normalized.includes('\\') ||
+      normalized.includes('\0') ||
+      lowered.startsWith('http://') ||
+      lowered.startsWith('https://') ||
+      lowered.startsWith('uploads') ||
+      lowered.startsWith('/uploads')
+    ) {
+      throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_ID_UNSAFE');
+    }
+    return normalized;
+  }
+
+  private async findStorePaymentAttachmentOwnerOrThrow(attachmentId: string) {
+    const safeAttachmentId = this.validateProtectedAttachmentId(attachmentId);
+    const record = await this.recordRepo.findOne({ where: { proofAttachmentId: safeAttachmentId } });
+    if (record && !record.deletedAt) {
+      return {
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        objectNo: record.paymentNo,
+        storeCode: record.storeCode,
+        companyCode: record.companyCode,
+        record,
+      };
+    }
+
+    const account = await this.accountRepo.findOne({ where: { qrAttachmentId: safeAttachmentId } });
+    if (account && !account.deletedAt) {
+      return {
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        objectNo: account.accountCode,
+        storeCode: account.storeCode,
+        companyCode: account.companyCode,
+        account,
+      };
+    }
+
+    throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
+  }
+
+  private assertAttachmentOwnerScope(owner: {
+    record?: StorePaymentRecordEntity;
+    account?: StorePaymentAccountEntity;
+  }) {
+    if (owner.record) {
+      this.assertRecordScope(owner.record);
+      return;
+    }
+    if (owner.account) {
+      this.assertAccountScope(owner.account);
+      return;
+    }
+    throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
+  }
+
+  private toFileAccessPolicy(owner: {
+    objectType: string;
+    objectId: string;
+    companyCode: string;
+    storeCode: string;
+  }) {
+    return {
+      moduleCode: 'STORE_PAYMENT',
+      ownerType: owner.objectType === 'STORE_PAYMENT_ACCOUNT_QR' ? 'STORE_PAYMENT_ACCOUNT' : 'STORE_PAYMENT_RECORD',
+      ownerId: owner.objectId,
+      companyCode: owner.companyCode,
+      storeCode: owner.storeCode,
+      requiredMenu: owner.objectType === 'STORE_PAYMENT_ACCOUNT_QR' ? 'MENU_STORE_PAYMENT_ACCOUNT' : 'MENU_STORE_PAYMENT',
+    };
   }
 
   private async findRecordOrThrow(id: string) {
@@ -481,7 +651,10 @@ export class StorePaymentService {
       paymentMethod: record.paymentMethod,
       paidAt: record.paidAt,
       proofAttachmentBound: !!record.proofAttachmentId,
-      proofPreviewAllowed: true,
+      proofPreviewAllowed: false,
+      proofPreviewStatus: 'access_pending',
+      proofDownloadAllowed: false,
+      proofDownloadStatus: 'access_pending',
       orderNo: record.orderNo,
       saleNo: record.saleNo,
       status: record.status,
@@ -547,7 +720,7 @@ export class StorePaymentService {
     const userStoreCodes = this.splitCodes(this.user().storeCode);
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     const scoped = scope?.allowedSiteCodes ?? [];
-    return Array.from(new Set([...userStoreCodes, ...scoped].filter(code => code && code !== 'ALL')));
+    return this.expandStoreCodeList([...userStoreCodes, ...scoped].filter(code => code && code !== 'ALL'));
   }
 
   private isAdmin(): boolean {
@@ -593,6 +766,26 @@ export class StorePaymentService {
       .filter(Boolean);
   }
 
+  private canonicalStoreCode(code: string): string {
+    const normalized = code.trim();
+    return STORE_CODE_CANONICAL[normalized] ?? normalized;
+  }
+
+  private expandStoreCodeAliases(code: string): string[] {
+    const canonical = this.canonicalStoreCode(code);
+    return Array.from(new Set([canonical, ...(STORE_CODE_ALIASES[canonical] ?? [])]));
+  }
+
+  private expandStoreCodeList(codes: string[]): string[] {
+    return Array.from(new Set(codes.flatMap((code) => this.expandStoreCodeAliases(code))));
+  }
+
+  private storeCodeMatchesAny(value: string, allowedCodes: string[]): boolean {
+    const candidateCodes = this.expandStoreCodeAliases(value);
+    const allowed = new Set(this.expandStoreCodeList(allowedCodes));
+    return candidateCodes.some((code) => allowed.has(code));
+  }
+
   private blankToNull(value: string | undefined): string | null {
     const normalized = value?.trim();
     return normalized ? normalized : null;
@@ -601,5 +794,26 @@ export class StorePaymentService {
   private shortText(value: string | null): string | null {
     if (!value) return null;
     return value.length > 80 ? `${value.slice(0, 80)}...` : value;
+  }
+
+  private toAttachmentAccessPendingResponse(input: {
+    objectType: string;
+    objectId: string;
+    attachmentBound: boolean;
+    reason: string;
+  }) {
+    return {
+      objectType: input.objectType,
+      objectId: input.objectId,
+      attachmentBound: input.attachmentBound,
+      previewAllowed: false,
+      previewStatus: 'access_pending',
+      downloadAllowed: false,
+      downloadStatus: 'access_pending',
+      rawUrl: null,
+      reason: input.reason,
+      auditRequired: true,
+      auditStatus: 'todo_after_protected_attachment_acl',
+    };
   }
 }

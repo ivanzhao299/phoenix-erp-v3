@@ -1,0 +1,74 @@
+check-security-regression: 5 changed source file(s) inspected
+SECURITY_REGRESSION: JWT fallback/env drift: apps/api/src/auth/auth.service.ts:9: const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
+SECURITY_REGRESSION: JWT fallback/env drift: apps/api/src/auth/auth.service.ts:16: const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];  // 7天：企业运营系统不应频繁踢出，可通过 JWT_EXPIRES_IN 环境变量覆盖
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:4: import { ChanjetAuthService } from './chanjet-auth.service';
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:5: import { ChanjetArSyncService } from './chanjet-ar-sync.service';
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:8: @Controller('api/chanjet')
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:10: export class ChanjetCallbackController {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:11: private readonly log = new Logger('ChanjetCallback');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:12: private readonly nonceCache = new Map<string, number>();
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:15: private readonly auth: ChanjetAuthService,
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:16: private readonly arSync: ChanjetArSyncService,
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:24: if (/certificate|authCode|appTicket|openToken|accessToken|secret|signature/i.test(key)) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:33: private callbackSecret(): string {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:34: return process.env.CHANJET_CALLBACK_SECRET || process.env.CHANJET_MSG_SECRET || process.env.CHANJET_APP_SECRET || '';
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:37: private expectedSignatures(secret: string, timestamp: string, nonce: string, body: Record<string, unknown>) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:38: const payload = `${timestamp}.${nonce}.${JSON.stringify(body ?? {})}`;
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:43: private verifyCallbackSignature(headers: Record<string, string | string[] | undefined>, body: Record<string, unknown>) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:44: const secret = this.callbackSecret();
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:45: const signature = String(headers['x-chanjet-signature'] || headers['X-Chanjet-Signature'] || '');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:46: const timestamp = String(headers['x-chanjet-timestamp'] || headers['X-Chanjet-Timestamp'] || '');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:47: const nonce = String(headers['x-chanjet-nonce'] || headers['X-Chanjet-Nonce'] || '');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:49: if (!secret || !signature || !timestamp || !nonce) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:50: throw new ForbiddenException('Chanjet callback signature required');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:53: const ts = Number(timestamp);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:54: if (!Number.isFinite(ts)) throw new ForbiddenException('Invalid Chanjet callback timestamp');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:55: const timestampMs = ts > 10_000_000_000 ? ts : ts * 1000;
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:56: if (Math.abs(Date.now() - timestampMs) > 5 * 60 * 1000) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:57: throw new ForbiddenException('Expired Chanjet callback timestamp');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:60: const nonceKey = `${timestamp}:${nonce}`;
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:62: for (const [key, expiresAt] of this.nonceCache.entries()) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:63: if (expiresAt < now) this.nonceCache.delete(key);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:65: if (this.nonceCache.has(nonceKey)) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:66: throw new ForbiddenException('Replay Chanjet callback nonce');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:69: const expected = this.expectedSignatures(secret, timestamp, nonce, body);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:70: const provided = Buffer.from(signature);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:75: if (!ok) throw new ForbiddenException('Invalid Chanjet callback signature');
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:76: this.nonceCache.set(nonceKey, now + 5 * 60 * 1000);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:80: * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
+SECURITY_REGRESSION: public auth bypass decorator: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:83: @Public()
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:84: @Get('callback')
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:85: async verifyCallback(@Query() query: Record<string, string>) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:88: this.log.log(`★ GET callback query: ${JSON.stringify(this.maskSensitive(query)).slice(0, 500)}`);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:106: * POST /api/chanjet/callback
+SECURITY_REGRESSION: public auth bypass decorator: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:110: @Public()
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:111: @Post('callback')
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:113: async handleCallback(@Body() body: Record<string, unknown>, @Headers() headers: Record<string, string | string[] | undefined>) {
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:114: this.verifyCallbackSignature(headers, body);
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:200: * GET /api/chanjet/diagnostics
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:210: * GET /api/chanjet/test-token
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:225: * GET /api/chanjet/test-api
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:240: * GET /api/chanjet/ar-statistics?bookid=xxx&startDate=2026-05-01&endDate=2026-06-30
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:265: * GET /api/chanjet/companies
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:280: * GET /api/chanjet/departments-diff?companyCode=COMP-LAO-AGRI
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:297: * POST /api/chanjet/sync-ar
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:298: * 按公司同步好业财应收统计表 → PG(chanjet_ar_snapshot)。
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:323: * GET /api/chanjet/ar-snapshot?companyCode=&period=
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:350: * GET /api/chanjet/ar-ledger-import-preview?companyCode=&period=
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:368: * POST /api/chanjet/ar-ledger-import
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:369: * g199-B 审核入账:chanjet_ar_snapshot → fin_ar_ledger。
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:387: * GET/POST /api/chanjet/call
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:391: *   GET /api/chanjet/call?path=/accounting/openapi/cc/book/findByEnterpriseId&method=GET
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:392: *   GET /api/chanjet/call?path=/accounting/openapi/cc/party/custvendor/query/{bookid}&bookid=3533914511118750&method=GET
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:395: *   POST /api/chanjet/call
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:448: * POST /api/chanjet/set-cert
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:460: * POST /api/chanjet/set-ticket
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:472: * POST /api/chanjet/trigger-ticket
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:487: * POST /api/chanjet/test-callback
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:490: @Post('test-callback')
+SECURITY_REGRESSION: Chanjet callback/signature critical path: apps/api/src/modules/chanjet/chanjet-callback.controller.ts:492: testCallback(@Body() body: Record<string, unknown>) {
+SECURITY_REGRESSION: JWT fallback/env drift: apps/api/src/modules/notification/notification-stream.controller.ts:10: const FALLBACK = 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
+SECURITY_REGRESSION: JWT fallback/env drift: apps/api/src/modules/notification/notification-stream.controller.ts:14: const secrets = [process.env.JWT_SECRET || FALLBACK, process.env.JWT_SECRET_PREV || ''].filter(Boolean);
+SECURITY_REGRESSION: public auth bypass decorator: apps/api/src/modules/notification/notification-stream.controller.ts:27: * EventSource 不能携带 Authorization 头 → 用 @Public 绕全局 MenuGuard，改用 ?token= 自验签。
+SECURITY_REGRESSION: public auth bypass decorator: apps/api/src/modules/notification/notification-stream.controller.ts:38: @Public()
+Result: WARN. Security-sensitive change allowed by explicit override.

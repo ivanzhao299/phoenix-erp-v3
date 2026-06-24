@@ -1,0 +1,20 @@
+       ?column?       
+----------------------
+ database=phoenix_erp
+(1 row)
+
+    ?column?     
+-----------------
+ user=phoenix_v3
+(1 row)
+
+   ?column?    
+---------------
+ schema=public
+(1 row)
+
+                 ?column?                  
+-------------------------------------------
+ server_time=2026-06-24 04:28:00.899964+00
+(1 row)
+

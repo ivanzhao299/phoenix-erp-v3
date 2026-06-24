@@ -1,0 +1,26 @@
+{
+  "menu_candidates": [
+    "MENU_STORE_PAYMENT_ACCOUNT",
+    "MENU_STORE_PAYMENT",
+    "MENU_STORE_PAYMENT_CONFIRM",
+    "MENU_STORE_PAYMENT_VOID",
+    "MENU_STORE_PAYMENT_EXPORT"
+  ],
+  "role_permission_candidates": [
+    {"role_code":"ROLE_CASHIER","menu_code":"MENU_STORE_PAYMENT","target_perm":"V,E","legacy_compat":"C","final_perm_codes":"V,E,C"},
+    {"role_code":"ROLE_STORE_MGR","menu_code":"MENU_STORE_PAYMENT","target_perm":"V","legacy_compat":"","final_perm_codes":"V"},
+    {"role_code":"ROLE_STORE_MGR","menu_code":"MENU_STORE_PAYMENT_CONFIRM","target_perm":"V,E","legacy_compat":"A","final_perm_codes":"V,E,A"},
+    {"role_code":"ROLE_FIN_ACCT","menu_code":"MENU_STORE_PAYMENT","target_perm":"V","legacy_compat":"","final_perm_codes":"V"},
+    {"role_code":"ROLE_FIN_ACCT","menu_code":"MENU_STORE_PAYMENT_CONFIRM","target_perm":"V,E","legacy_compat":"A","final_perm_codes":"V,E,A"},
+    {"role_code":"ROLE_FIN_ACCT","menu_code":"MENU_STORE_PAYMENT_EXPORT","target_perm":"X","legacy_compat":"","final_perm_codes":"X"},
+    {"role_code":"ROLE_ADMIN","menu_code":"MENU_STORE_PAYMENT_ACCOUNT","target_perm":"V,E","legacy_compat":"","final_perm_codes":"V,E"},
+    {"role_code":"ROLE_ADMIN","menu_code":"MENU_STORE_PAYMENT","target_perm":"V,E","legacy_compat":"C","final_perm_codes":"V,E,C"},
+    {"role_code":"ROLE_ADMIN","menu_code":"MENU_STORE_PAYMENT_CONFIRM","target_perm":"V,E","legacy_compat":"A","final_perm_codes":"V,E,A"},
+    {"role_code":"ROLE_ADMIN","menu_code":"MENU_STORE_PAYMENT_VOID","target_perm":"V,E","legacy_compat":"A","final_perm_codes":"V,E,A"},
+    {"role_code":"ROLE_ADMIN","menu_code":"MENU_STORE_PAYMENT_EXPORT","target_perm":"X","legacy_compat":"","final_perm_codes":"X"}
+  ],
+  "datascope_candidates": 11,
+  "user_scope_candidates": [{"user_id":97,"org_code":"STORE-VTE-001","role_scope":"STORE"}],
+  "manual_review_required_excluded": [296,299,1460],
+  "hold_items_excluded": ["action-bit cleanup", "manual-review user scope"]
+}

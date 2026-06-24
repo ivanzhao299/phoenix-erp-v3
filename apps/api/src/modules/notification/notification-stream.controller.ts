@@ -1,4 +1,4 @@
-import { Controller, Sse, Query, MessageEvent } from '@nestjs/common';
+import { Controller, Sse, Query, MessageEvent, UnauthorizedException } from '@nestjs/common';
 import { Observable, merge, interval, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import * as jwt from 'jsonwebtoken';
@@ -40,7 +40,7 @@ export class NotificationStreamController {
   stream(@Query('token') token?: string): Observable<MessageEvent> {
     const userId = verifyUserId(token);
     if (!userId) {
-      return of({ data: { type: 'unauthorized' } } as MessageEvent);
+      throw new UnauthorizedException('Token 无效或已过期');
     }
     const connected$ = of({ data: { type: 'connected' } } as MessageEvent);
     const heartbeat$ = interval(25000).pipe(map(() => ({ data: { type: 'ping' } }) as MessageEvent));

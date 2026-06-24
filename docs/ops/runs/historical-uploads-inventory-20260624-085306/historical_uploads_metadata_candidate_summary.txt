@@ -1,0 +1,2 @@
+category	count	suggested_module	auto_claim	requires_human_confirmation
+CONTRACT_ATTACHMENT_CANDIDATE	74	LEGACY_CONTRACT	false	true

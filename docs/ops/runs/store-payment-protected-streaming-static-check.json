@@ -1,0 +1,20 @@
+{
+  "conclusion": "PASS",
+  "failed": [],
+  "checks": {
+    "upload_module_exists": true,
+    "upload_returns_raw_upload_url": true,
+    "status_endpoint": true,
+    "preview_endpoint": true,
+    "download_endpoint": true,
+    "rbac_require_menu": true,
+    "streaming_not_enabled": true,
+    "raw_url_null": true,
+    "unsafe_id_guard": true,
+    "ownership_record": true,
+    "ownership_account": true,
+    "datascope_record": true,
+    "datascope_account": true,
+    "structured_denied_log": true
+  }
+}

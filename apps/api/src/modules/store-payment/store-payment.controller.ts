@@ -6,8 +6,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import {
@@ -52,7 +54,7 @@ export class StorePaymentController {
   }
 
   @Post('records')
-  @RequireMenu('MENU_STORE_PAYMENT', 'C')
+  @RequireMenu('MENU_STORE_PAYMENT', 'E')
   createRecord(@Body() dto: CreateStorePaymentRecordDto) {
     return this.service.createRecord(dto);
   }
@@ -63,20 +65,66 @@ export class StorePaymentController {
     return this.service.getRecord(id);
   }
 
+  @Get('accounts/:id/qr-attachment')
+  @RequireMenu('MENU_STORE_PAYMENT_ACCOUNT', 'V')
+  getAccountQrAttachment(@Param('id') id: string) {
+    return this.service.getAccountQrAttachmentAccess(id);
+  }
+
+  @Get('records/:id/proof-attachment')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  getRecordProofAttachment(@Param('id') id: string) {
+    return this.service.getRecordProofAttachmentAccess(id);
+  }
+
+  @Get('attachments/:attachmentId/status')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  getAttachmentStatus(@Param('attachmentId') attachmentId: string) {
+    return this.service.getStorePaymentAttachmentStatus(attachmentId);
+  }
+
+  @Get('attachments/:attachmentId/preview')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  async previewAttachment(@Param('attachmentId') attachmentId: string, @Res({ passthrough: true }) res: Response) {
+    const file = await this.service.openStorePaymentAttachment(attachmentId, 'preview');
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.sizeBytes),
+      'Content-Disposition': file.disposition,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return file.stream;
+  }
+
+  @Get('attachments/:attachmentId/download')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  async downloadAttachment(@Param('attachmentId') attachmentId: string, @Res({ passthrough: true }) res: Response) {
+    const file = await this.service.openStorePaymentAttachment(attachmentId, 'download');
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.sizeBytes),
+      'Content-Disposition': file.disposition,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return file.stream;
+  }
+
   @Post('records/:id/confirm')
-  @RequireMenu('MENU_STORE_PAYMENT_CONFIRM', 'A')
+  @RequireMenu('MENU_STORE_PAYMENT_CONFIRM', 'E')
   confirmRecord(@Param('id') id: string, @Body() dto: ConfirmStorePaymentRecordDto) {
     return this.service.confirmRecord(id, dto);
   }
 
   @Post('records/:id/reject')
-  @RequireMenu('MENU_STORE_PAYMENT_CONFIRM', 'A')
+  @RequireMenu('MENU_STORE_PAYMENT_CONFIRM', 'E')
   rejectRecord(@Param('id') id: string, @Body() dto: RejectStorePaymentRecordDto) {
     return this.service.rejectRecord(id, dto);
   }
 
   @Post('records/:id/void')
-  @RequireMenu('MENU_STORE_PAYMENT_VOID', 'A')
+  @RequireMenu('MENU_STORE_PAYMENT_VOID', 'E')
   voidRecord(@Param('id') id: string, @Body() dto: VoidStorePaymentRecordDto) {
     return this.service.voidRecord(id, dto);
   }

@@ -1,0 +1,2 @@
+UNRESOLVED_OR_HOLD=59
+These rows were not inserted and remain out of scope for this Gate.

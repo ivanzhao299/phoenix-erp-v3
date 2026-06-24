@@ -1,0 +1,15 @@
+A1_POSTCHECK=PASS_WITH_CONDITIONS
+A2_POSTCHECK=PASS_WITH_CONDITIONS
+A5_POSTCHECK=GO_WITH_CONDITIONS
+menu_count_after=5
+role_permission_count_after=11
+datascope_count_after=11
+user97_store_scope_after=1
+manual_review_required_executed_count=0
+hold_items_executed=false
+deleted_permissions=false
+expanded_non_store_payment_permissions=false
+migration_executed=false
+deploy_executed=false
+restart_executed=false
+push_executed=false

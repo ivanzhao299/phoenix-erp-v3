@@ -1,0 +1,38 @@
+Output format is aligned.
+Null display is "[NULL]".
+--- STORE_PAYMENT_MENU_EXISTENCE ---
+         menu_code          | status  | menu_name_zh | parent_code | route  
+----------------------------+---------+--------------+-------------+--------
+ MENU_STORE_PAYMENT         | MISSING | [NULL]       | [NULL]      | [NULL]
+ MENU_STORE_PAYMENT_ACCOUNT | MISSING | [NULL]       | [NULL]      | [NULL]
+ MENU_STORE_PAYMENT_CONFIRM | MISSING | [NULL]       | [NULL]      | [NULL]
+ MENU_STORE_PAYMENT_EXPORT  | MISSING | [NULL]       | [NULL]      | [NULL]
+ MENU_STORE_PAYMENT_VOID    | MISSING | [NULL]       | [NULL]      | [NULL]
+(5 rows)
+
+--- STORE_PAYMENT_EXPECTED_MATRIX_COVERAGE ---
+   role_code    |         menu_code          | expected_perm |   role_name    |   actual_perm   | scope_type | scope_value 
+----------------+----------------------------+---------------+----------------+-----------------+------------+-------------
+ ROLE_ADMIN     | MENU_STORE_PAYMENT         | V,E           | 集团超级管理员 | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_ACCOUNT | V,E           | 集团超级管理员 | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_CONFIRM | V,E           | 集团超级管理员 | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_EXPORT  | X             | 集团超级管理员 | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_VOID    | V,E           | 集团超级管理员 | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_CASHIER   | MENU_STORE_PAYMENT         | V,E           | 前台收银员     | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT         | V             | 财务会计       | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_CONFIRM | V,E           | 财务会计       | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_EXPORT  | X             | 财务会计       | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_STORE_MGR | MENU_STORE_PAYMENT         | V             | 直营店店长     | [GRANT_MISSING] | [NULL]     | [NULL]
+ ROLE_STORE_MGR | MENU_STORE_PAYMENT_CONFIRM | V,E           | 直营店店长     | [GRANT_MISSING] | [NULL]     | [NULL]
+(11 rows)
+
+--- STORE_PAYMENT_ACCOUNT_ROWS ---
+ id | account_code | account_name | company_code | store_code | currency | payment_method | qr_attachment_id | status | is_active 
+----+--------------+--------------+--------------+------------+----------+----------------+------------------+--------+-----------
+(0 rows)
+
+--- STORE_PAYMENT_RECORD_ROWS ---
+ id | payment_no | company_code | store_code | payment_account_id | amount | currency | payment_method | proof_attachment_id | status | submitted_by | confirmed_by 
+----+------------+--------------+------------+--------------------+--------+----------+----------------+---------------------+--------+--------------+--------------
+(0 rows)
+

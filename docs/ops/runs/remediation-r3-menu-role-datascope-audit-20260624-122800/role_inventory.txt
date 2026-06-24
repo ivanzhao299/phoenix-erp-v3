@@ -1,0 +1,81 @@
+Output format is aligned.
+Null display is "[NULL]".
+ role_id |                role_code                |     role_name_zh     |  role_type  |   status   |       deprecated_at        
+---------+-----------------------------------------+----------------------+-------------+------------+----------------------------
+       1 | ROLE_ADMIN                              | 集团超级管理员       | SYSTEM      | ACTIVE     | [NULL]
+      24 | ROLE_B2B_MGR                            | 大客总监             | SALES       | ACTIVE     | [NULL]
+     705 | ROLE_BU_AGRI_GM                         | 农业事业群总经理     | MANAGEMENT  | ACTIVE     | [NULL]
+     706 | ROLE_BU_FOOD_GM                         | 食品事业群总经理     | MANAGEMENT  | ACTIVE     | [NULL]
+    1317 | ROLE_CASH                               | 出纳                 | FINANCE     | ACTIVE     | [NULL]
+      23 | ROLE_CASHIER                            | 前台收银员           | STORE       | ACTIVE     | [NULL]
+       2 | ROLE_CEO                                | 集团总裁             | DECISION    | ACTIVE     | [NULL]
+    1830 | ROLE_COST_ACCOUNTING_MANAGER            | 成本核算经理         | FINANCE     | ACTIVE     | [NULL]
+      26 | ROLE_CUSTOMER_B2B                       | 自助订货用户         | EXTERNAL    | ACTIVE     | [NULL]
+    3472 | ROLE_CUSTOMER_MASTER_MGR                | 客户主数据管理       | MASTER      | ACTIVE     | [NULL]
+      19 | ROLE_DRIVER                             | 司机                 | LOGISTICS   | ACTIVE     | [NULL]
+     707 | ROLE_FACTORY_MGR                        | 场区经理             | PRODUCTION  | ACTIVE     | [NULL]
+      11 | ROLE_FARMER                             | 饲养员               | PRODUCTION  | ACTIVE     | [NULL]
+   10066 | ROLE_FARM_CASHIER                       | 养殖场出纳           | FINANCE     | ACTIVE     | [NULL]
+    3475 | ROLE_FARM_MASTER_MGR                    | 场站主数据管理       | MASTER      | ACTIVE     | [NULL]
+       9 | ROLE_FARM_MGR                           | 养殖场长             | PRODUCTION  | ACTIVE     | [NULL]
+   10064 | ROLE_FARM_QC_INSPECTOR                  | 养殖场质检员         | QUALITY     | ACTIVE     | [NULL]
+   10065 | ROLE_FARM_SHIPPER                       | 养殖场发货员         | LOGISTICS   | ACTIVE     | [NULL]
+    1760 | ROLE_FINANCE_ANALYST                    | 财务分析经理         | FINANCE     | ACTIVE     | [NULL]
+    1758 | ROLE_FINANCE_REVIEW_MANAGER             | 财务审核经理         | FINANCE     | ACTIVE     | [NULL]
+    3476 | ROLE_FIN_ACCOUNT_MASTER_MGR             | 资金账户主数据管理   | MASTER      | ACTIVE     | [NULL]
+       5 | ROLE_FIN_ACCT                           | 财务会计             | FINANCE     | ACTIVE     | [NULL]
+       6 | ROLE_FIN_AR                             | 应收专员             | FINANCE     | ACTIVE     | [NULL]
+       4 | ROLE_FIN_CFO                            | 财务总监             | FINANCE     | ACTIVE     | [NULL]
+       7 | ROLE_FIN_COST                           | 成本会计             | FINANCE     | ACTIVE     | [NULL]
+       3 | ROLE_HQ_FINANCE                         | 总部财务审计         | FINANCE     | ACTIVE     | [NULL]
+     708 | ROLE_HR_MANAGER                         | 人力资源经理         | MANAGEMENT  | ACTIVE     | [NULL]
+      30 | ROLE_LINE_SUPERVISOR                    | 班组长               | FIELD       | ACTIVE     | [NULL]
+      18 | ROLE_LOG_MGR                            | 物流调度             | LOGISTICS   | ACTIVE     | [NULL]
+    3469 | ROLE_MASTER_DATA_ADMIN                  | 主数据管理员         | MASTER      | ACTIVE     | [NULL]
+    3470 | ROLE_MASTER_DATA_APPROVER               | 主数据审批人         | MASTER      | ACTIVE     | [NULL]
+    8121 | ROLE_MENGSAI_DONGPENG_TREASURER         | 孟赛/东鹏蛋鸡场 出纳 | FINANCE     | ACTIVE     | [NULL]
+    5389 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | 孟赛生产数据主管     | PRODUCTION  | ACTIVE     | [NULL]
+      20 | ROLE_PDA_OP                             | PDA 作业员           | COMMON      | ACTIVE     | [NULL]
+     477 | ROLE_PILOT_MANAGER                      | 试运行负责人         | MANAGEMENT  | DEPRECATED | 2026-06-14 16:10:29.817345
+      14 | ROLE_PKG_MGR                            | 车间主任             | PACKAGING   | ACTIVE     | [NULL]
+      15 | ROLE_PKG_OP                             | 包装工人             | PACKAGING   | ACTIVE     | [NULL]
+      27 | ROLE_PKG_OPERATOR                       | [已废弃] 包装操作员  | FIELD       | ACTIVE     | [NULL]
+      21 | ROLE_PRC_BUYER                          | 采购专员             | PROCUREMENT | ACTIVE     | [NULL]
+    3473 | ROLE_PRODUCT_MASTER_MGR                 | 产品主数据管理       | MASTER      | ACTIVE     | [NULL]
+      12 | ROLE_QA_MGR                             | 品控总监             | QUALITY     | ACTIVE     | [NULL]
+      13 | ROLE_QA_STAFF                           | 质检专员             | QUALITY     | ACTIVE     | [NULL]
+      28 | ROLE_QC_INSPECTOR                       | 质检员               | FIELD       | DEPRECATED | 2026-06-14 16:10:29.817345
+       8 | ROLE_REGION_MGR                         | 区域督导             | MANAGEMENT  | ACTIVE     | [NULL]
+      31 | ROLE_SALES_MGR                          | 销售经理             | SALES       | ACTIVE     | [NULL]
+      25 | ROLE_SALES_REP                          | 业务员               | SALES       | ACTIVE     | [NULL]
+    1643 | ROLE_SHAREHOLDER_FINANCE                | 股东资金管理员       | FINANCE     | ACTIVE     | [NULL]
+      22 | ROLE_STORE_MGR                          | 直营店店长           | STORE       | ACTIVE     | [NULL]
+    3471 | ROLE_SUPPLIER_MASTER_MGR                | 供应商主数据管理     | MASTER      | ACTIVE     | [NULL]
+    1759 | ROLE_TREASURY_MANAGER                   | 资金经理             | FINANCE     | ACTIVE     | [NULL]
+      10 | ROLE_VET                                | 驻场兽医             | PRODUCTION  | ACTIVE     | [NULL]
+    3474 | ROLE_WAREHOUSE_MASTER_MGR               | 仓储主数据管理       | MASTER      | ACTIVE     | [NULL]
+      29 | ROLE_WH_CLERK                           | 仓管员               | FIELD       | ACTIVE     | [NULL]
+      16 | ROLE_WMS_MGR                            | 仓储经理             | WAREHOUSE   | ACTIVE     | [NULL]
+      17 | ROLE_WMS_OP                             | 仓管理货员           | WAREHOUSE   | ACTIVE     | [NULL]
+(55 rows)
+
+--- ROLES_MATCHING_STORE_PAYMENT_EXPECTED_NAMES ---
+ role_id |          role_code          |    role_name_zh    | role_type | status 
+---------+-----------------------------+--------------------+-----------+--------
+       1 | ROLE_ADMIN                  | 集团超级管理员     | SYSTEM    | ACTIVE
+    1317 | ROLE_CASH                   | 出纳               | FINANCE   | ACTIVE
+      23 | ROLE_CASHIER                | 前台收银员         | STORE     | ACTIVE
+   10066 | ROLE_FARM_CASHIER           | 养殖场出纳         | FINANCE   | ACTIVE
+    1760 | ROLE_FINANCE_ANALYST        | 财务分析经理       | FINANCE   | ACTIVE
+    1758 | ROLE_FINANCE_REVIEW_MANAGER | 财务审核经理       | FINANCE   | ACTIVE
+    3476 | ROLE_FIN_ACCOUNT_MASTER_MGR | 资金账户主数据管理 | MASTER    | ACTIVE
+       5 | ROLE_FIN_ACCT               | 财务会计           | FINANCE   | ACTIVE
+       6 | ROLE_FIN_AR                 | 应收专员           | FINANCE   | ACTIVE
+       4 | ROLE_FIN_CFO                | 财务总监           | FINANCE   | ACTIVE
+       7 | ROLE_FIN_COST               | 成本会计           | FINANCE   | ACTIVE
+       3 | ROLE_HQ_FINANCE             | 总部财务审计       | FINANCE   | ACTIVE
+    3469 | ROLE_MASTER_DATA_ADMIN      | 主数据管理员       | MASTER    | ACTIVE
+    1643 | ROLE_SHAREHOLDER_FINANCE    | 股东资金管理员     | FINANCE   | ACTIVE
+      22 | ROLE_STORE_MGR              | 直营店店长         | STORE     | ACTIVE
+(15 rows)
+

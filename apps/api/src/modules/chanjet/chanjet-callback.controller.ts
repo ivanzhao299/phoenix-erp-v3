@@ -1,18 +1,80 @@
-import { Controller, Post, Body, Get, Query, Logger, HttpCode, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException } from '@nestjs/common';
 import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
+import * as crypto from 'crypto';
 
 @Controller('api/chanjet')
 @UseGuards(MenuGuard, DataScopeGuard)
 export class ChanjetCallbackController {
   private readonly log = new Logger('ChanjetCallback');
+  private readonly nonceCache = new Map<string, number>();
 
   constructor(
     private readonly auth: ChanjetAuthService,
     private readonly arSync: ChanjetArSyncService,
   ) {}
+
+  private maskSensitive(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.maskSensitive(item));
+    if (!value || typeof value !== 'object') return value;
+    const masked: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (/certificate|authCode|appTicket|openToken|accessToken|secret|signature/i.test(key)) {
+        masked[key] = '[REDACTED]';
+      } else {
+        masked[key] = this.maskSensitive(item);
+      }
+    }
+    return masked;
+  }
+
+  private callbackSecret(): string {
+    return process.env.CHANJET_CALLBACK_SECRET || process.env.CHANJET_MSG_SECRET || process.env.CHANJET_APP_SECRET || '';
+  }
+
+  private expectedSignatures(secret: string, timestamp: string, nonce: string, body: Record<string, unknown>) {
+    const payload = `${timestamp}.${nonce}.${JSON.stringify(body ?? {})}`;
+    const digest = crypto.createHmac('sha256', secret).update(payload).digest();
+    return [digest.toString('hex'), digest.toString('base64')];
+  }
+
+  private verifyCallbackSignature(headers: Record<string, string | string[] | undefined>, body: Record<string, unknown>) {
+    const secret = this.callbackSecret();
+    const signature = String(headers['x-chanjet-signature'] || headers['X-Chanjet-Signature'] || '');
+    const timestamp = String(headers['x-chanjet-timestamp'] || headers['X-Chanjet-Timestamp'] || '');
+    const nonce = String(headers['x-chanjet-nonce'] || headers['X-Chanjet-Nonce'] || '');
+
+    if (!secret || !signature || !timestamp || !nonce) {
+      throw new ForbiddenException('Chanjet callback signature required');
+    }
+
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts)) throw new ForbiddenException('Invalid Chanjet callback timestamp');
+    const timestampMs = ts > 10_000_000_000 ? ts : ts * 1000;
+    if (Math.abs(Date.now() - timestampMs) > 5 * 60 * 1000) {
+      throw new ForbiddenException('Expired Chanjet callback timestamp');
+    }
+
+    const nonceKey = `${timestamp}:${nonce}`;
+    const now = Date.now();
+    for (const [key, expiresAt] of this.nonceCache.entries()) {
+      if (expiresAt < now) this.nonceCache.delete(key);
+    }
+    if (this.nonceCache.has(nonceKey)) {
+      throw new ForbiddenException('Replay Chanjet callback nonce');
+    }
+
+    const expected = this.expectedSignatures(secret, timestamp, nonce, body);
+    const provided = Buffer.from(signature);
+    const ok = expected.some((candidate) => {
+      const expectedBuffer = Buffer.from(candidate);
+      return provided.length === expectedBuffer.length && crypto.timingSafeEqual(provided, expectedBuffer);
+    });
+    if (!ok) throw new ForbiddenException('Invalid Chanjet callback signature');
+    this.nonceCache.set(nonceKey, now + 5 * 60 * 1000);
+  }
 
   /**
    * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
@@ -23,13 +85,13 @@ export class ChanjetCallbackController {
   async verifyCallback(@Query() query: Record<string, string>) {
     const keys = Object.keys(query);
     if (keys.length > 0) {
-      this.log.log(`★ GET callback query: ${JSON.stringify(query).slice(0, 500)}`);
+      this.log.log(`★ GET callback query: ${JSON.stringify(this.maskSensitive(query)).slice(0, 500)}`);
       if (query.certificate) {
         this.auth.setCertificate(query.certificate);
-        this.log.log(`★ certificate 从 GET query 捕获: ${query.certificate.slice(0, 40)}…`);
+        this.log.log('★ certificate 从 GET query 捕获: [REDACTED]');
       }
       if (query.authCode) {
-        this.log.log(`★ authCode 从 GET query 收到: ${query.authCode.slice(0, 30)}…`);
+        this.log.log('★ authCode 从 GET query 收到: [REDACTED]');
         try {
           await this.auth.fetchCertificateByAuthCode(query.authCode);
         } catch (e) {
@@ -48,8 +110,9 @@ export class ChanjetCallbackController {
   @Public()
   @Post('callback')
   @HttpCode(200)
-  async handleCallback(@Body() body: Record<string, unknown>) {
-    this.log.log(`★ 收到畅捷通推送 keys=[${Object.keys(body).join(',')}] body=${JSON.stringify(body).slice(0, 800)}`);
+  async handleCallback(@Body() body: Record<string, unknown>, @Headers() headers: Record<string, string | string[] | undefined>) {
+    this.verifyCallbackSignature(headers, body);
+    this.log.log(`★ 收到畅捷通推送 keys=[${Object.keys(body).join(',')}] body=${JSON.stringify(this.maskSensitive(body)).slice(0, 800)}`);
 
     // ─── 路径 A：企业授权回调（非加密，直接 JSON，可能含 certificate/authCode） ───
     const deepGet = (obj: Record<string, unknown>, key: string): string | undefined => {
@@ -66,12 +129,12 @@ export class ChanjetCallbackController {
     const certificate = deepGet(body, 'certificate');
     if (certificate) {
       this.auth.setCertificate(certificate);
-      this.log.log(`★ certificate 已从回调捕获: ${certificate.slice(0, 40)}…`);
+      this.log.log('★ certificate 已从回调捕获: [REDACTED]');
     }
 
     const authCode = deepGet(body, 'authCode');
     if (authCode) {
-      this.log.log(`★ authCode 已收到: ${authCode.slice(0, 30)}…`);
+      this.log.log('★ authCode 已收到: [REDACTED]');
       try {
         await this.auth.fetchCertificateByAuthCode(authCode);
       } catch (e) {
@@ -89,14 +152,14 @@ export class ChanjetCallbackController {
       try {
         const decrypted = this.auth.decryptMessage(content, isEncryptMsg);
         payload = JSON.parse(decrypted);
-        this.log.log(`解密成功: ${JSON.stringify(payload).slice(0, 500)}`);
+        this.log.log(`解密成功: ${JSON.stringify(this.maskSensitive(payload)).slice(0, 500)}`);
       } catch (e) {
         // encryptMsg 解密失败时回退尝试另一种密钥
         if (isEncryptMsg) {
           try {
             const decrypted = this.auth.decryptMessage(content, false);
             payload = JSON.parse(decrypted);
-            this.log.log(`解密成功(回退MD5密钥): ${JSON.stringify(payload).slice(0, 500)}`);
+            this.log.log(`解密成功(回退MD5密钥): ${JSON.stringify(this.maskSensitive(payload)).slice(0, 500)}`);
           } catch {
             this.log.error(`encryptMsg 两种密钥均解密失败: ${(e as Error).message}`);
             return { result: 'success' };
@@ -126,7 +189,7 @@ export class ChanjetCallbackController {
       const payloadCert = deepGet(payload, 'certificate');
       if (payloadCert) {
         this.auth.setCertificate(payloadCert);
-        this.log.log(`★ certificate 已从加密消息捕获: ${payloadCert.slice(0, 40)}…`);
+        this.log.log('★ certificate 已从加密消息捕获: [REDACTED]');
       }
     }
 

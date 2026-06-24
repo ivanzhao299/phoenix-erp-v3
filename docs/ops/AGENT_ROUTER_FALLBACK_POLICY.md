@@ -38,3 +38,22 @@ Agent Router is the mandatory first step before `agent-orchestrator.mjs` creates
 ## Execution Boundary
 
 Router never executes Codex CLI, never modifies business code, never merges, never pushes, never deploys, never executes migrations, and never writes databases.
+
+## Allowlist / Denylist Fail-Down
+
+Agent allowlist and denylist constraints override keyword routing.
+
+Priority:
+
+1. denylist
+2. allowlist
+3. keyword routing
+
+Rules:
+
+- If a denied Agent is also matched by keywords, remove it from `selected_agents`.
+- If an allowlist exists, final `selected_agents` must be a subset of `allowed_agents`.
+- If an Agent appears in both `allowed_agents` and `denied_agents`, HOLD.
+- `不允许 A3/A4` must not trigger A3/A4 by explicit mention.
+- `不改业务代码` prevents A3/A4 real execution routing unless explicitly overridden by a later human Gate.
+- `不执行 migration`, `不写数据库`, `不部署`, and `不 push` are hard constraints and must appear in the route-plan.

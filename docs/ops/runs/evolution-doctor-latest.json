@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T16:33:07.436Z",
+  "generated_at": "2026-06-24T04:54:25.361Z",
   "result": "GO",
   "open_improvement_count": 5,
   "top_3_improvement_candidates": [
@@ -26,7 +26,7 @@
   "highest_priority_improvement": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
   "evolution_backlog_stale": false,
   "forbidden_dirty_detected": false,
-  "git_status_short": "M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/evolution/evolution-state.json\n M docs/ops/evolution/improvement-backlog.json\n M docs/ops/evolution/learning-log.json\n M docs/ops/runs/evolution-plan-latest.json\n M docs/ops/runs/evolution-plan-latest.md\n M docs/ops/runs/observer-findings-latest.json\n M docs/ops/runs/observer-findings-latest.md\n M scripts/ops/agent-doctor.mjs\n M scripts/ops/agent-finalize.mjs",
+  "git_status_short": "M docs/ops/AGENT_TASK_BOARD.md\n M docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md\n M docs/ops/runtime-memory/DECISION_LOG.md\n M docs/ops/runtime-memory/GUARDRAILS.md\n M docs/ops/runtime-memory/NEXT_ACTIONS.md\n M docs/ops/runtime-memory/PROJECT_STATE.json\n M docs/ops/runtime-memory/STORE_PAYMENT_STATE.md\n?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md\n?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_POLICY.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md\n?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md\n?? docs/ops/runs/remediation-r3-high-throughput-batch1-20260624-124012/",
   "codex_cli_executed": false,
   "database_written": false,
   "deployed": false

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -327,6 +327,17 @@ export class AuthService {
     const target = (targetUsername || '').trim();
     if (!target) throw new BadRequestException('目标用户名必填');
     if (target === adminUser.username) throw new BadRequestException('无需以自己的身份查看');
+    const targetRoles = await this.userRepo.query(
+      `SELECT r.role_code
+         FROM sys_user u
+         JOIN sys_user_role ur ON ur.user_id = u.user_id
+         JOIN sys_role r ON r.role_id = ur.role_id
+        WHERE u.username = $1 AND u.status = 1`,
+      [target],
+    );
+    if (targetRoles.some((row: any) => row.role_code === 'ROLE_ADMIN')) {
+      throw new ForbiddenException('不允许以超级管理员身份查看');
+    }
     // 复用 login 全部解析逻辑（bypassPassword），保证权限/数据范围与真实登录一致
     const session = await this.login(target, '', ip, {
       bypassPassword: true,

@@ -1,0 +1,21 @@
+{
+  "gate": "APPROVE_HISTORICAL_UPLOADS_METADATA_CLAIM_DRY_RUN_GATE",
+  "date": "2026-06-24",
+  "status": "HOLD",
+  "reason": "SSH unavailable during banner exchange / connection setup; remote DB owner correlation could not be executed safely.",
+  "input_inventory_dir": "/opt/phoenix-erp-backups/remediation-r2-historical-uploads-inventory-20260624-085306",
+  "input_file_count": 74,
+  "dry_run_rows_count": 0,
+  "auto_claim_ready_count": 0,
+  "manual_review_required_count": 0,
+  "unresolved_or_hold_count": 74,
+  "db_write_executed": false,
+  "file_metadata_inserted": false,
+  "files_deleted": false,
+  "files_moved": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "nginx_changed": false,
+  "env_changed": false
+}
