@@ -1,0 +1,29 @@
+--- post-web-deploy store-payment guard smoke ---
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Wed, 24 Jun 2026 09:16:12 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 15528
+Connection: keep-alive
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-nextjs-cache: HIT
+x-nextjs-prerender: 1
+x-nextjs-prerender: 1
+x-nextjs-stale-time: 300
+Cache-Control: s-maxage=31536000
+ETag: "22jxqi04x0bxm"
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+
+--- public api health after web deploy ---
+curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to erp.eggslao.com:443 
+HTTP/1.1 200 Connection established
+

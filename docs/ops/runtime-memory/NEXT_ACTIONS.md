@@ -23,6 +23,8 @@ Last updated: 2026-06-24
    - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
 15. `APPROVE_AUTH_COOKIE_CREDENTIAL_SMOKE`.
    - P1-006 fixed local `/store-payment` route guarding and confirmed production JWT fallback is off; cookie flags still require a credentialed login smoke after deployment.
+16. `APPROVE_ROLLBACK_RESTORE_VALIDATION_FIX_GATE`.
+   - P1-007 captured current runtime image IDs, but rollback readiness remains HOLD until `/opt/phoenix-erp` git ownership/safe-directory inspection, backup location, compose path, and previous known-good image evidence are proven under an A6 gate.
 
 ## Recommended Immediate Sequence
 
@@ -39,6 +41,7 @@ Last updated: 2026-06-24
 9. Keep the 59 unresolved historical files out of scope until manual review or broader owner evidence exists.
 10. Keep `/uploads` and raw URL exposure forbidden for Store Payment and legacy upload responses.
 11. Do not enter Store Payment remote business UAT until a narrow UAT fixture/data setup Gate is approved and re-smoked.
+12. Do not claim rollback/restore readiness until P1-007 owner-correct git status, backup evidence, compose evidence, and rollback/restore dry-run plan are complete.
 
 ## Do Not Auto-Start
 
