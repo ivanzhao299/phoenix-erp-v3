@@ -1,0 +1,9 @@
+# immediate precheck before approved write
+local_time=2026-06-24T23:15:10+08:00
+accounts=0
+candidate_accounts=0
+records=0
+menus=5
+store=STORE-VTE-001,COMP-LAO-AGRI,ACTIVE
+org=COMP-LAO-AGRI,ACTIVE
+grants=11
