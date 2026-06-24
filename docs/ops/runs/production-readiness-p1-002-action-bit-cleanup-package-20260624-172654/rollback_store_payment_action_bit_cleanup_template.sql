@@ -1,0 +1,11 @@
+-- Rollback template only.
+-- Do not execute this template directly. Use the rollback statements emitted by
+-- candidate_store_payment_action_bit_cleanup.sql before commit.
+--
+-- Expected form:
+-- UPDATE sys_role_menu_permission SET perm_codes = '<old_perm_codes>' WHERE perm_id = <perm_id>;
+--
+-- Rollback safety:
+--   1. Restore only rows whose perm_id appeared in the saved execution output.
+--   2. Do not touch MENU_STORE_PAYMENT_EXPORT unless it appeared in an approved evidence file.
+--   3. Re-run Store Payment permission smoke after rollback.

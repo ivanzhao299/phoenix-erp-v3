@@ -1,0 +1,4 @@
+timestamp=20260624-172654
+mode=sql-package-only
+branch=codex/prod-readiness-remediation
+head=09b5c7489884a625e105493d0a47b90eee11804f
