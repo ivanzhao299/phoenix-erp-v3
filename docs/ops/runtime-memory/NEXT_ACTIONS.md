@@ -16,6 +16,7 @@ Last updated: 2026-06-24
    - Candidate cleanup SQL and rollback template are now prepared under `APPROVE_ACTION_BIT_LEGACY_CLEANUP_EXECUTION_GATE`; execution remains HOLD until approved.
 8. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
    - Manual scope cleanup is ready for business review: users 296, 299, and 1460 remain excluded; no automatic global/store scope grant is allowed.
+   - Decision matrix is prepared under `APPROVE_MANUAL_SCOPE_USER_DECISIONS`.
 9. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
 10. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
 11. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.

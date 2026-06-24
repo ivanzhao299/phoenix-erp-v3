@@ -1,0 +1,13 @@
+-- Template only. Do not execute.
+-- Generate exact SQL only after business owner decides each row in manual_scope_decision_matrix.csv.
+--
+-- Possible approved outcomes:
+--   1. EXCLUDE: no SQL.
+--   2. STORE-VTE-001 store participant: insert/update sys_user_orgs for STORE-VTE-001 with STORE role scope, if schema supports it.
+--   3. COMP-LAO-AGRI finance participant: insert/update company-level user/org scope, not global ALL.
+--
+-- Required safeguards:
+--   - Re-read sys_user, sys_user_role, mst_stores, sys_organizations, sys_user_orgs before any write.
+--   - Generate rollback SQL from before snapshot.
+--   - Do not add ALL/global scope automatically.
+--   - Do not extend sys_data_scopes scope_type without a Schema Gate.

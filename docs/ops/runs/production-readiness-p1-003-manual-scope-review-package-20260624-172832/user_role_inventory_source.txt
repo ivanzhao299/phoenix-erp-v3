@@ -1,0 +1,78 @@
+Output format is aligned.
+Null display is "[NULL]".
+ user_id |   username    |       real_name        |     store_code      | status |                                                                       roles                                                                       
+---------+---------------+------------------------+---------------------+--------+---------------------------------------------------------------------------------------------------------------------------------------------------
+      96 | admin         | 金凤凰总控             | ALL                 |      1 | ROLE_ADMIN,ROLE_MASTER_DATA_APPROVER
+      12 | ajian         | 阿坚                   | SITE-VTE-SLAUGHTER  |      1 | ROLE_DRIVER
+     151 | alue          | 阿略                   | STORE-VTE-001       |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_STORE_MGR
+       8 | amei          | 阿美                   | STORE-HS-001        |      1 | ROLE_CASHIER,ROLE_CUSTOMER_MASTER_MGR,ROLE_STORE_MGR
+     152 | bouavanh      | Bouavanh               | STORE-BKX-001       |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_STORE_MGR
+      98 | cashier       | 阿玉                   | STORE-VTE-001       |      1 | ROLE_CASHIER
+     150 | chenling      | 陈玲                   | STORE-MX-001        |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_STORE_MGR
+    2944 | chenyifei     | 陈逸飞                 | COMP-LAO-XINGCHI    |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_SALES_REP
+     158 | fanzhenhao    | 范镇豪                 | ALL                 |      1 | ROLE_PRC_BUYER,ROLE_SUPPLIER_MASTER_MGR
+       2 | fuqiang       | 伏强                   | SITE-DONGPENG-LAYER |      1 | ROLE_FACTORY_MGR,ROLE_FARM_MASTER_MGR,ROLE_PRODUCT_MASTER_MGR,ROLE_REGION_MGR
+     156 | gaoyang       | 高洋                   | ALL                 |      1 | ROLE_FIN_ACCT
+     146 | guodapeng     | 郭大鹏                 | ALL                 |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_PRODUCT_MASTER_MGR,ROLE_SALES_MGR
+     153 | langshipei    | 郎世沛                 | STORE-HS-001        |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_SALES_REP
+       7 | linhong       | 林宏                   | SITE-DONGPENG-LAYER |      1 | ROLE_FARM_MGR,ROLE_VET
+       4 | liuhantao     | 刘汉涛                 | ALL                 |      1 | ROLE_COST_ACCOUNTING_MANAGER,ROLE_FINANCE_ANALYST,ROLE_FIN_ACCOUNT_MASTER_MGR,ROLE_FIN_COST,ROLE_HQ_FINANCE,ROLE_TREASURY_MANAGER
+     155 | liujie        | 刘杰                   | ALL                 |      1 | ROLE_FINANCE_ANALYST,ROLE_FINANCE_REVIEW_MANAGER,ROLE_FIN_ACCOUNT_MASTER_MGR,ROLE_FIN_ACCT,ROLE_FIN_CFO,ROLE_HQ_FINANCE,ROLE_MASTER_DATA_APPROVER
+       6 | liushanjun    | 刘善军                 | SITE-DONGPENG-LAYER |      1 | ROLE_FARMER,ROLE_WAREHOUSE_MASTER_MGR,ROLE_WMS_MGR
+     296 | pilot_cashier | 陈 丽 (试运行收银)     | STORE-MS-01         |      0 | ROLE_CASHIER
+     297 | pilot_driver  | 王 强 (试运行司机)     | PILOT-MS            |      0 | ROLE_DRIVER
+     299 | pilot_finance | 刘 华 (试运行财务)     | PILOT-MS            |      0 | ROLE_FIN_ACCT
+     300 | pilot_manager | 张 建国 (试运行负责人) | PILOT-MS            |      0 | ROLE_PILOT_MANAGER
+     295 | pilot_sales   | 李 梦 (试运行业务员)   | PILOT-MS            |      0 | ROLE_SALES_REP
+     298 | pilot_wms     | 赵 刚 (试运行仓库)     | PILOT-MS            |      0 | ROLE_WMS_MGR
+     159 | qiantao       | 钱涛                   | COMP-LAO-AGRI       |      1 | ROLE_PRC_BUYER,ROLE_SUPPLIER_MASTER_MGR
+     157 | songlei       | 宋雷                   | COMP-LAO-AGRI       |      1 | ROLE_FACTORY_MGR
+     148 | songmingguang | 宋明光                 | COMP-LAO-AGRI       |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_FIN_ACCT,ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR,ROLE_SALES_REP
+     147 | songshoujiang | 宋守江                 | SITE-MENGSAI-LAYER  |      1 | ROLE_WAREHOUSE_MASTER_MGR,ROLE_WMS_MGR
+      97 | store_mgr1    | 苏小明                 | STORE-VTE-001       |      0 | ROLE_STORE_MGR
+     149 | tangzhiwen    | 唐治文                 | COMP-LAO-AGRI       |      1 | ROLE_FARM_CASHIER,ROLE_FARM_QC_INSPECTOR,ROLE_WAREHOUSE_MASTER_MGR,ROLE_WMS_OP
+     129 | wang_ceo      | 王总                   | ALL                 |      0 | ROLE_CEO
+      11 | wanglejin     | 王乐金                 | ALL                 |      1 | ROLE_PRC_BUYER,ROLE_SUPPLIER_MASTER_MGR
+       3 | wangweihua    | 王玮华                 | COMP-LAO-AGRI       |      1 | ROLE_FIN_ACCT,ROLE_MENGSAI_DONGPENG_TREASURER
+     154 | xiaolan       | 小兰                   | STORE-XB-001        |      1 | ROLE_CUSTOMER_MASTER_MGR,ROLE_STORE_MGR
+     137 | xiejiling     | 谢继领                 | SITE-MENGSAI-LAYER  |      1 | ROLE_FARM_MGR,ROLE_VET
+     145 | xuefeng       | 薛峰                   | COMP-LAO-AGRI       |      1 | ROLE_LINE_SUPERVISOR,ROLE_WAREHOUSE_MASTER_MGR,ROLE_WMS_MGR
+    2945 | xuegang       | 薛刚                   | COMP-LAO-FOOD       |      1 | ROLE_FACTORY_MGR,ROLE_FARM_MASTER_MGR,ROLE_PRODUCT_MASTER_MGR
+      10 | yue           | 岳                     | AREA-YUE            |      0 | ROLE_BU_FOOD_GM,ROLE_REGION_MGR
+      25 | zhaoyongwei   | 赵永伟                 | ALL                 |      1 | ROLE_ADMIN,ROLE_CEO,ROLE_REGION_MGR
+       9 | zhuhuiran     | 朱会然                 | SITE-DONGPENG-LAYER |      1 | ROLE_FARM_SHIPPER,ROLE_REGION_MGR
+    1460 | zhuzhao_an    | 朱召安                 | ALL                 |      0 | ROLE_FIN_ACCT,ROLE_TREASURY_MANAGER
+       5 | zhuzhaoan     | 朱召安                 | COMP-LAO-XINGCHI    |      1 | ROLE_CASH,ROLE_FIN_ACCOUNT_MASTER_MGR,ROLE_FIN_ACCT,ROLE_TREASURY_MANAGER
+       1 | zhuzhaocun    | 朱兆存                 | ALL                 |      1 | ROLE_BU_AGRI_GM,ROLE_CEO,ROLE_FARM_MASTER_MGR
+(42 rows)
+
+--- USERS_WITH_STORE_PAYMENT_ROLES_OR_STORE_CODES ---
+ user_id |   username    |     real_name      |    store_code    | status |          role_code          |  role_name_zh  | is_primary | is_visible 
+---------+---------------+--------------------+------------------+--------+-----------------------------+----------------+------------+------------
+      96 | admin         | 金凤凰总控         | ALL              |      1 | ROLE_ADMIN                  | 集团超级管理员 | t          | t
+     151 | alue          | 阿略               | STORE-VTE-001    |      1 | ROLE_CUSTOMER_MASTER_MGR    | 客户主数据管理 | f          | t
+     151 | alue          | 阿略               | STORE-VTE-001    |      1 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+       8 | amei          | 阿美               | STORE-HS-001     |      1 | ROLE_CASHIER                | 前台收银员     | f          | t
+       8 | amei          | 阿美               | STORE-HS-001     |      1 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+     152 | bouavanh      | Bouavanh           | STORE-BKX-001    |      1 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+      98 | cashier       | 阿玉               | STORE-VTE-001    |      1 | ROLE_CASHIER                | 前台收银员     | t          | t
+     150 | chenling      | 陈玲               | STORE-MX-001     |      1 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+     156 | gaoyang       | 高洋               | ALL              |      1 | ROLE_FIN_ACCT               | 财务会计       | t          | t
+       4 | liuhantao     | 刘汉涛             | ALL              |      1 | ROLE_FINANCE_ANALYST        | 财务分析经理   | f          | t
+       4 | liuhantao     | 刘汉涛             | ALL              |      1 | ROLE_HQ_FINANCE             | 总部财务审计   | t          | t
+     155 | liujie        | 刘杰               | ALL              |      1 | ROLE_FINANCE_ANALYST        | 财务分析经理   | f          | t
+     155 | liujie        | 刘杰               | ALL              |      1 | ROLE_FINANCE_REVIEW_MANAGER | 财务审核经理   | t          | t
+     155 | liujie        | 刘杰               | ALL              |      1 | ROLE_FIN_ACCT               | 财务会计       | f          | t
+     155 | liujie        | 刘杰               | ALL              |      1 | ROLE_FIN_CFO                | 财务总监       | f          | t
+     155 | liujie        | 刘杰               | ALL              |      1 | ROLE_HQ_FINANCE             | 总部财务审计   | f          | t
+     296 | pilot_cashier | 陈 丽 (试运行收银) | STORE-MS-01      |      0 | ROLE_CASHIER                | 前台收银员     | t          | t
+     299 | pilot_finance | 刘 华 (试运行财务) | PILOT-MS         |      0 | ROLE_FIN_ACCT               | 财务会计       | t          | t
+     148 | songmingguang | 宋明光             | COMP-LAO-AGRI    |      1 | ROLE_FIN_ACCT               | 财务会计       | f          | t
+      97 | store_mgr1    | 苏小明             | STORE-VTE-001    |      0 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+       3 | wangweihua    | 王玮华             | COMP-LAO-AGRI    |      1 | ROLE_FIN_ACCT               | 财务会计       | t          | t
+     154 | xiaolan       | 小兰               | STORE-XB-001     |      1 | ROLE_STORE_MGR              | 直营店店长     | t          | t
+      25 | zhaoyongwei   | 赵永伟             | ALL              |      1 | ROLE_ADMIN                  | 集团超级管理员 | t          | t
+    1460 | zhuzhao_an    | 朱召安             | ALL              |      0 | ROLE_FIN_ACCT               | 财务会计       | f          | t
+       5 | zhuzhaoan     | 朱召安             | COMP-LAO-XINGCHI |      1 | ROLE_FIN_ACCT               | 财务会计       | t          | t
+(25 rows)
+

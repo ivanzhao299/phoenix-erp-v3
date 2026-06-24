@@ -1,0 +1,4 @@
+timestamp=20260624-172832
+mode=manual-review-package
+branch=codex/prod-readiness-remediation
+head=35a2c6ba25cfa12d31cdfc5967598dd7c52a5532

@@ -1,0 +1,76 @@
+Output format is aligned.
+Null display is "[NULL]".
+ user_id |   username    | real_name | user_store_code | status |   org_code    |         org_name         | org_type | company_code  | site_code | data_scope_level | role_scope | is_primary | is_manager 
+---------+---------------+-----------+-----------------+--------+---------------+--------------------------+----------+---------------+-----------+------------------+------------+------------+------------
+     151 | alue          | 阿略      | STORE-VTE-001   |      1 | STORE-VTE-001 | 万象直营店               | STORE    | COMP-LAO-AGRI | [NULL]    | STORE            | [NULL]     | t          | f
+     152 | bouavanh      | Bouavanh  | STORE-BKX-001   |      1 | STORE-BKX-001 | 波利坎赛省直营店         | STORE    | COMP-LAO-AGRI | [NULL]    | STORE            | [NULL]     | t          | f
+      98 | cashier       | 阿玉      | STORE-VTE-001   |      1 | STORE-VTE-001 | 万象直营店               | STORE    | COMP-LAO-AGRI | [NULL]    | STORE            | [NULL]     | t          | f
+     150 | chenling      | 陈玲      | STORE-MX-001    |      1 | STORE-MX-001  | 孟赛直营店               | STORE    | COMP-LAO-AGRI | [NULL]    | STORE            | [NULL]     | t          | f
+     159 | qiantao       | 钱涛      | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+     157 | songlei       | 宋雷      | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+     148 | songmingguang | 宋明光    | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+      97 | store_mgr1    | 苏小明    | STORE-VTE-001   |      0 | [NULL]        | [NULL]                   | [NULL]   | [NULL]        | [NULL]    | [NULL]           | [NULL]     | [NULL]     | [NULL]
+     149 | tangzhiwen    | 唐治文    | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+       3 | wangweihua    | 王玮华    | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+     145 | xuefeng       | 薛峰      | COMP-LAO-AGRI   |      1 | COMP-LAO-AGRI | 老挝凤凰农业发展有限公司 | COMPANY  | COMP-LAO-AGRI | [NULL]    | COMPANY          | [NULL]     | t          | f
+(11 rows)
+
+--- PILOT_STORE_MASTER ---
+ id |    store_code    |    store_name    | company_code  | mapped_site_code | status | manager |          region          
+----+------------------+------------------+---------------+------------------+--------+---------+--------------------------
+  7 | STORE-BKX-001    | 波利坎赛省直营店 | COMP-LAO-AGRI | [NULL]           | ACTIVE | 啊塞    | [NULL]
+  8 | STORE-LPB-001    | 琅勃拉邦直营店   | COMP-LAO-AGRI | [NULL]           | ACTIVE | [NULL]  | [NULL]
+  5 | STORE-MX-001     | 孟赛直营店       | COMP-LAO-AGRI | [NULL]           | ACTIVE | [NULL]  | [NULL]
+  9 | STORE-PSL-001    | 丰沙里省直营店   | COMP-LAO-AGRI | [NULL]           | ACTIVE | 老王    | 丰沙里省 / COMP-LAO-AGRI
+  6 | STORE-VTE-001    | 万象直营店       | COMP-LAO-AGRI | [NULL]           | ACTIVE | 刘彬    | [NULL]
+ 10 | STORE-VTE-WH-001 | 万象仓储中心店   | COMP-LAO-AGRI | [NULL]           | ACTIVE | [NULL]  | 万象市 / COMP-LAO-AGRI
+(6 rows)
+
+--- PILOT_ORGANIZATIONS ---
+  id   |             org_code              |         org_name         |  org_type  | status | company_code  |     site_code      |    parent_code     |                                      path                                      
+-------+-----------------------------------+--------------------------+------------+--------+---------------+--------------------+--------------------+--------------------------------------------------------------------------------
+    15 | COMP-LAO-AGRI                     | 老挝凤凰农业发展有限公司 | COMPANY    | ACTIVE | COMP-LAO-AGRI | [NULL]             | ORG-GROUP          | /ORG-GROUP/COMP-LAO-AGRI/
+    59 | DEPT-SITE-VTE-BROILER-ADMIN       | 万象肉鸡养殖场-行政部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-ADMIN/
+    58 | DEPT-SITE-VTE-BROILER-EQUIPMENT   | 万象肉鸡养殖场-设备部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-EQUIPMENT/
+    56 | DEPT-SITE-VTE-BROILER-FINANCE     | 万象肉鸡养殖场-财务部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-FINANCE/
+    53 | DEPT-SITE-VTE-BROILER-PROD        | 万象肉鸡养殖场-生产部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-PROD/
+    57 | DEPT-SITE-VTE-BROILER-QUALITY     | 万象肉鸡养殖场-质检部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-QUALITY/
+    55 | DEPT-SITE-VTE-BROILER-SALES       | 万象肉鸡养殖场-销售部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-SALES/
+    54 | DEPT-SITE-VTE-BROILER-WAREHOUSE   | 万象肉鸡养殖场-仓储部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-BROILER   | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/DEPT-SITE-VTE-BROILER-WAREHOUSE/
+    73 | DEPT-SITE-VTE-SLAUGHTER-ADMIN     | 万象屠宰加工厂-行政部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-ADMIN/
+    72 | DEPT-SITE-VTE-SLAUGHTER-EQUIPMENT | 万象屠宰加工厂-设备部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-EQUIPMENT/
+    70 | DEPT-SITE-VTE-SLAUGHTER-FINANCE   | 万象屠宰加工厂-财务部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-FINANCE/
+    67 | DEPT-SITE-VTE-SLAUGHTER-PROD      | 万象屠宰加工厂-生产部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-PROD/
+    71 | DEPT-SITE-VTE-SLAUGHTER-QUALITY   | 万象屠宰加工厂-质检部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-QUALITY/
+    69 | DEPT-SITE-VTE-SLAUGHTER-SALES     | 万象屠宰加工厂-销售部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-SALES/
+    68 | DEPT-SITE-VTE-SLAUGHTER-WAREHOUSE | 万象屠宰加工厂-仓储部    | DEPARTMENT | ACTIVE | [NULL]        | [NULL]             | SITE-VTE-SLAUGHTER | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/DEPT-SITE-VTE-SLAUGHTER-WAREHOUSE/
+    22 | SITE-VTE-BROILER                  | 万象肉鸡养殖场           | SITE       | ACTIVE | [NULL]        | SITE-VTE-BROILER   | COMP-LAO-FOOD      | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-BROILER/
+    23 | SITE-VTE-SLAUGHTER                | 万象屠宰加工厂           | SITE       | ACTIVE | [NULL]        | SITE-VTE-SLAUGHTER | COMP-LAO-FOOD      | /ORG-GROUP/COMP-LAO-FOOD/SITE-VTE-SLAUGHTER/
+ 14431 | STORE-BKX-001                     | 波利坎赛省直营店         | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-BKX-001/
+ 14429 | STORE-LPB-001                     | 琅勃拉邦直营店           | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-LPB-001/
+ 14428 | STORE-MX-001                      | 孟赛直营店               | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-MX-001/
+ 17056 | STORE-PSL-001                     | 丰沙里省直营店           | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-PSL-001/
+ 14430 | STORE-VTE-001                     | 万象直营店               | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-VTE-001/
+ 17057 | STORE-VTE-WH-001                  | 万象仓储中心店           | STORE      | ACTIVE | COMP-LAO-AGRI | [NULL]             | COMP-LAO-AGRI      | /ORG-GROUP/COMP-LAO-AGRI/STORE-VTE-WH-001/
+(23 rows)
+
+--- USERS_WITH_ROLE_NO_ORG_SCOPE ---
+ user_id |   username    |       real_name        |  store_code   |                roles                
+---------+---------------+------------------------+---------------+-------------------------------------
+     296 | pilot_cashier | 陈 丽 (试运行收银)     | STORE-MS-01   | ROLE_CASHIER
+     297 | pilot_driver  | 王 强 (试运行司机)     | PILOT-MS      | ROLE_DRIVER
+     299 | pilot_finance | 刘 华 (试运行财务)     | PILOT-MS      | ROLE_FIN_ACCT
+     300 | pilot_manager | 张 建国 (试运行负责人) | PILOT-MS      | ROLE_PILOT_MANAGER
+     295 | pilot_sales   | 李 梦 (试运行业务员)   | PILOT-MS      | ROLE_SALES_REP
+     298 | pilot_wms     | 赵 刚 (试运行仓库)     | PILOT-MS      | ROLE_WMS_MGR
+      97 | store_mgr1    | 苏小明                 | STORE-VTE-001 | ROLE_STORE_MGR
+     129 | wang_ceo      | 王总                   | ALL           | ROLE_CEO
+      10 | yue           | 岳                     | AREA-YUE      | ROLE_BU_FOOD_GM,ROLE_REGION_MGR
+    1460 | zhuzhao_an    | 朱召安                 | ALL           | ROLE_FIN_ACCT,ROLE_TREASURY_MANAGER
+(10 rows)
+
+--- USERS_WITH_ORG_SCOPE_NO_ROLE ---
+ user_id | username | real_name | store_code 
+---------+----------+-----------+------------
+(0 rows)
+
