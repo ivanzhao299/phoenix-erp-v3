@@ -61,7 +61,7 @@ No task in this list authorizes production deployment, production migration, pus
 | PRD-P0-001 | P0 | Initial data import repair diagnosis | `PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`; `PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_PLAN.md`; `PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REPORT.md`; `PRODUCTION_READINESS_P0_001_INITIAL_DATA_REFRESH_REPORT.md` | A5, A2, A1 | `APPROVE_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_PLAN` | GO_WITH_CONDITIONS / ACCOUNT_PLACEHOLDER_WRITE_PLAN_READY | Fresh short read-only evidence confirms `store_payment_accounts=0`, `store_payment_records=0`, and Store Payment `file_metadata=0`. Do not insert payment records or attachment metadata without owner evidence. Next write Gate, if approved, should be limited to disabled/pending account placeholders with rollback SQL. |
 | PRD-P0-002 | P0 | A1 runtime/security blocker remediation | `A1_CI_RUNTIME_GATE_REPORT.md`; `A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_PLAN.md`; `A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_EXECUTION_REPORT.md` | A2, A3, A1 | `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` | GO_WITH_CONDITIONS | Bounded fixes implemented for dev-login production fail-fast, SSE unauthorized handling, admin impersonation, Chanjet signature/timestamp/nonce validation, sensitive log masking, and procurement test drift. API build/typecheck/Jest and W5 authorized closeout PASS. Chanjet valid-signature smoke remains a runtime condition. |
 | PRD-P0-003 | P0 | Deploy-chain hardening dry-run | `PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md`; `PRODUCTION_GO_NO_GO.md`; `PRODUCTION_DEPLOY_CHAIN_HARDENING_PLAN.md`; `PRODUCTION_DEPLOY_CHAIN_HARDENING_DRY_RUN_REPORT.md` | A6, A2, A1 | `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` | HOLD_WITH_CONDITIONS | Local deploy-chain manifest exists. Fresh remote status/diff refresh failed due SSH connection close / banner exchange timeout. Keep push-main and production deploy HOLD until remote checkout drift can be revalidated. |
-| PRD-P0-004 | P0 | Legacy upload runtime verification gate | `PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_TO_FILE_METADATA_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md`; `PRODUCTION_LEGACY_UPLOAD_RUNTIME_VERIFICATION_PLAN.md`; `PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_LOCAL_COMPAT_FIX_REPORT.md` | A3, A2, A1, A6 | `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` | LOCAL_COMPAT_FIXED / READY_FOR_RUNTIME_VERIFICATION_APPROVAL | Local generic upload UI accepts protected `fileId` and no longer renders raw upload links. Verify running API actually uses the approved file_metadata upload response shape (`fileId`, `rawUrl: null`, `url: null`) and does not reintroduce raw URL exposure. A deploy/restart or write probe requires separate explicit approval. |
+| PRD-P0-004 | P0 | Legacy upload runtime verification gate | `PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_TO_FILE_METADATA_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md`; `PRODUCTION_LEGACY_UPLOAD_RUNTIME_VERIFICATION_PLAN.md`; `PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_LOCAL_COMPAT_FIX_REPORT.md`; `PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_RUNTIME_VERIFICATION_REPORT.md` | A3, A2, A1, A6 | `APPROVE_LEGACY_UPLOAD_RUNTIME_WRITE_PROBE` | GO WITH CONDITIONS / RUNTIME STATIC VERIFIED | Running production API dist contains the hardened upload response shape (`fileId`, `rawUrl: null`, `url: null`, `LEGACY_PENDING`). Public `/uploads` probes returned 404, not raw listing. A true upload response smoke remains a separate write-probe Gate because it writes a binary and file_metadata row. |
 | PRD-P0-005 | P0 | Re-run production GO/NO-GO after P0 closures | `PRODUCTION_GO_NO_GO.md`; A1/A2/A5/A6/A7 reports | A7, A1, A2, A5, A6 | `APPROVE_PRODUCTION_GO_NO_GO_REEVALUATION` | Blocked by P0-001 through P0-004 | Confirm required CI, security, data readiness, deploy-chain safety, rollback plan, and approver state. Production decision remains HOLD until this passes. |
 
 ### P0 Detail Notes
@@ -72,7 +72,7 @@ No task in this list authorizes production deployment, production migration, pus
 
 `PRD-P0-003` dry-run is complete locally but remains HOLD for remote refresh. The reports show remote Nginx config drift and backup files in the checkout; production-grade operation needs a predictable deploy path and a successful fresh remote status probe.
 
-`PRD-P0-004` is required because source remediation was implemented, but the running production API was not proven to serve the hardened behavior.
+`PRD-P0-004` has runtime-static evidence that the running production API contains the hardened upload response shape. It still has conditions because a true upload response probe would write a binary and `file_metadata` row, and the legacy API static `/uploads` mount still exists internally.
 
 ## P1 Tasks
 
@@ -119,14 +119,14 @@ Phoenix ERP should not be labeled production-grade until all of the following ar
 
 ## Recommended Next Single Gate
 
-`APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`
+`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`
 
 Rationale:
 
 - `PRD-P0-002` has been implemented with conditions.
 - `PRD-P0-001` dry-run produced a manifest but needs fresh SSH/DB evidence because the remote SQL batch failed during banner exchange.
 - `PRD-P0-003` local deploy-chain dry-run is documented, but remote refresh is HOLD due SSH connection instability.
-- `PRD-P0-004` should proceed only as read-only runtime verification; any upload/restart/write probe still requires separate approval.
+- `PRD-P0-004` now has production runtime-static evidence for the hardened upload response. Any upload/restart/write probe still requires separate approval.
 
 ## Explicit Non-Actions
 

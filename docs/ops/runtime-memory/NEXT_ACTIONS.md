@@ -18,6 +18,7 @@ Last updated: 2026-06-24
 10. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
 11. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.
 12. `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
+   - Completed as read-only runtime-static verification: production API dist includes `fileId`, `rawUrl: null`, `url: null`, and `LEGACY_PENDING`. Remaining write probe requires separate approval.
 13. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
 14. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
    - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
@@ -29,8 +30,9 @@ Last updated: 2026-06-24
 ## Recommended Immediate Sequence
 
 1. Use Agent Inbox for short commands instead of long prompt copy/paste.
-2. Start `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as read-only first; do not upload test files unless separately approved.
+2. Keep `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as GO WITH CONDITIONS.
    - Local compatibility fix is complete: generic upload UI now accepts protected `fileId` and blocks raw `/uploads` or `http(s)` links.
+   - Production runtime-static evidence now shows the running API returns the hardened upload shape. Do not run the upload write probe unless separately approved.
 3. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence after SSH command-level stability improves; local manifest is already documented.
 4. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
 5. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
