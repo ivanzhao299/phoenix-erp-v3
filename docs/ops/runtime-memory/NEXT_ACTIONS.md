@@ -16,7 +16,7 @@ Last updated: 2026-06-24
    - Master-data repair plan is now docs-complete: keep `STORE-VTE-001 / COMP-LAO-AGRI` canonical, keep `ST-VTE-001` as Store Payment legacy alias only, and do not perform broad auto-rewrites.
 7. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
    - Local Store Payment runtime already uses target `E` for write actions; remaining cleanup is a narrow future DB Gate to remove temporary Store Payment-only `C/A` grants after runtime verification.
-   - Candidate cleanup SQL and rollback template are now prepared under `APPROVE_ACTION_BIT_LEGACY_CLEANUP_EXECUTION_GATE`; execution remains HOLD until approved.
+   - Completed: removed six temporary Store Payment-only `C/A` grants. Post-check confirmed `legacy_ca_rows=0` and export remains `X`.
 8. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
    - Manual scope cleanup is ready for business review: users 296, 299, and 1460 remain excluded; no automatic global/store scope grant is allowed.
    - Decision matrix is prepared under `APPROVE_MANUAL_SCOPE_USER_DECISIONS`.

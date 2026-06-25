@@ -1,0 +1,37 @@
+# post action-bit cleanup verification
+local_time=2026-06-25T09:14:38+08:00
+ perm_id |   role_code    |         menu_code          | perm_codes 
+---------+----------------+----------------------------+------------
+  343472 | ROLE_ADMIN     | MENU_STORE_PAYMENT         | V,E
+  343477 | ROLE_CASHIER   | MENU_STORE_PAYMENT         | V,E
+  343468 | ROLE_FIN_ACCT  | MENU_STORE_PAYMENT         | V
+  343476 | ROLE_STORE_MGR | MENU_STORE_PAYMENT         | V
+  343474 | ROLE_ADMIN     | MENU_STORE_PAYMENT_ACCOUNT | V,E
+  343471 | ROLE_ADMIN     | MENU_STORE_PAYMENT_CONFIRM | V,E
+  343467 | ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_CONFIRM | V,E
+  343475 | ROLE_STORE_MGR | MENU_STORE_PAYMENT_CONFIRM | V,E
+  343473 | ROLE_ADMIN     | MENU_STORE_PAYMENT_EXPORT  | X
+  343469 | ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_EXPORT  | X
+  343470 | ROLE_ADMIN     | MENU_STORE_PAYMENT_VOID    | V,E
+(11 rows)
+
+     ?column?     
+------------------
+ legacy_ca_rows=0
+(1 row)
+
+      ?column?       
+---------------------
+ export_rows_non_x=0
+(1 row)
+
+  ?column?  
+------------
+ accounts=3
+(1 row)
+
+ ?column?  
+-----------
+ records=0
+(1 row)
+
