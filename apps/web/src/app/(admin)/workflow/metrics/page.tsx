@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Activity, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, RefreshCw, BarChart3, ArrowUpCircle, Bell, Wifi, WifiOff } from 'lucide-react';
 import s from "@/components/ui/admin-ui.module.css";
+import { usePermission } from "@/hooks/usePermission";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -267,6 +268,8 @@ function PushHealthCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function WorkflowMetricsPage() {
+  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const canViewMetrics = workflowPerm.check('X') || workflowPerm.check('E') || workflowPerm.check('D');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<OverdueTask[]>([]);
@@ -313,6 +316,10 @@ export default function WorkflowMetricsPage() {
       minute: '2-digit'
     });
   }
+  if (!canViewMetrics) {
+    return <div className={u.emptyPad40}>无权限访问审批看板。请联系系统管理员授予工作流统计权限。</div>;
+  }
+
   return <div style={{
     padding: '28px 32px',
     maxWidth: 1200,

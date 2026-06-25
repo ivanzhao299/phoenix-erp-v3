@@ -9,6 +9,7 @@ import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRen
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/contexts/ToastContext';
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { usePermission } from '@/hooks/usePermission';
 import ui from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -90,6 +91,8 @@ function statusColor(s: string) {
 export default function WorkflowFormRuntimePage() {
   const router = useRouter();
   const toast = useToast(); // G28：项目 useToast 替换 sonner
+  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const canManageForms = workflowPerm.check('E') || workflowPerm.check('C') || workflowPerm.check('D');
 
   // ── 列表状态 ──
   const [forms, setForms] = useState<FormDef[]>([]);
@@ -284,6 +287,10 @@ export default function WorkflowFormRuntimePage() {
   }
 
   // ── 渲染 ────────────────────────────────────────────────────────────────────
+
+  if (!canManageForms) {
+    return <div className={u.emptyPad40}>无权限访问表单管理。请联系系统管理员授予工作流管理权限。</div>;
+  }
 
   return <div>
       {/* G28：替换自定义标题行为全局 PageHeader 组件 */}

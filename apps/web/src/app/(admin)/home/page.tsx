@@ -37,7 +37,7 @@ interface TodoTask { task_no: string; title: string; node_name: string; created_
 const SHORTCUTS: Array<{ key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string }> = [
   { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MASTER' },
   { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MASTER' },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2',           icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2' },
+  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2' },
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2' },
   { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW' },
@@ -59,11 +59,11 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
   )) {
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/tasks/todo', icon: Inbox };
+  if (todo > 0) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
   if (!role)                 return { label: '进入主数据中心', href: '/master-data', icon: Sparkles };
   if (role.includes('CASH') || role.includes('TREASURY')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
   if (role.includes('FIN'))  return { label: '进入财务中心', href: '/finance2', icon: Wallet };
-  if (role.includes('PRC'))  return { label: '进入采购中心', href: '/procurement2', icon: ShoppingBag };
+  if (role.includes('PRC'))  return { label: '进入采购中心', href: '/procurement2/dashboard', icon: ShoppingBag };
   if (role.includes('SALES'))return { label: '进入销售中心', href: '/sales2', icon: ShoppingCart };
   if (role.includes('WMS'))  return { label: '进入库存中心', href: '/warehouse', icon: Warehouse };
   return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
@@ -373,7 +373,7 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
           共 <strong style={{ color: 'var(--color-primary)' }}>{todoCount}</strong> 单
         </span>
-        <Link href="/workflow/tasks/todo" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        <Link href="/workflow/todos" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
           全部 <ChevronRight size={12} />
         </Link>
       </div>

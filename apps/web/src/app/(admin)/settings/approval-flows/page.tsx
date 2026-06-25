@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
+import { usePermission } from '@/hooks/usePermission';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 import u from "@/styles/uix-utils.module.css";
@@ -61,6 +62,8 @@ const STATUS_LABEL: Record<string, {
   }
 };
 export default function ApprovalFlowsPage() {
+  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const canManageFlows = workflowPerm.check('E') || workflowPerm.check('C') || workflowPerm.check('D');
   const [rows, setRows] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -107,6 +110,10 @@ export default function ApprovalFlowsPage() {
     }
   }
   const filtered = filter ? rows.filter(r => r.status === filter) : rows;
+  if (!canManageFlows) {
+    return <div className={u.emptyPad40}>无权限访问流程配置。请联系系统管理员授予工作流管理权限。</div>;
+  }
+
   return <div>
       <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['审批中心', '流程配置']} actions={<>
             <Link href="/workflow/builder" style={primaryActionButton}>新建流程</Link>

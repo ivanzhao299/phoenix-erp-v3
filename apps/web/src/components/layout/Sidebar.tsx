@@ -54,6 +54,7 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
 type MenuItem = {
   id: string; path?: string; Icon: LucideIcon; label: string;
   perm: string | null;
+  requiredPerm?: string;
   // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
   superPerm?: string;
   children?: MenuItem[];
@@ -191,10 +192,10 @@ const MENU: MenuItem[] = [
     { id: "ap-todos",   path: "/workflow/todos",         Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW" },
     { id: "ap-history", path: "/workflow/history",        Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW" },
     { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW" },
-    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW" },
-    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW" },
-    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW" },
-    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW" },
+    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW", requiredPerm: "E" },
+    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW", requiredPerm: "C" },
+    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW", requiredPerm: "E" },
+    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW", requiredPerm: "X" },
   ]},
 
   // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
@@ -304,12 +305,12 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
       // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
       // G56-B：叶子有 superPerm 时，持有 superPerm 亦可见（超级码"管理全部"兜底）
       const kids = item.children.filter(c =>
-        !c.perm || hasPermission(c.perm) || (!!c.superPerm && hasPermission(c.superPerm)));
+        !c.perm || hasPermission(c.perm, c.requiredPerm) || (!!c.superPerm && hasPermission(c.superPerm)));
       if (!kids.length) return null;
       return { ...item, children: kids };
     }
     // 叶子项：严格按 perm 检查
-    if (item.perm && !hasPermission(item.perm)) return null;
+    if (item.perm && !hasPermission(item.perm, item.requiredPerm)) return null;
     return item;
   }).filter(Boolean) as MenuItem[], [hasPermission]);
 
