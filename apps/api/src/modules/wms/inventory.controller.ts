@@ -24,7 +24,7 @@ export class StocktakeController {
 }
 
 @Controller('api/inventory')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class InventoryController {
   constructor(private readonly wmsService: WmsService) {}
 

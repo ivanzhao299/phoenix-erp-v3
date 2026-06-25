@@ -47,7 +47,7 @@ export class AuthController {
   @Post('impersonate')
   @HttpCode(200)
   async impersonate(
-    @Body() body: { username: string },
+    @Body() body: { username: string; reason?: string },
     @Headers('authorization') authHeader: string,
     @Headers('x-forwarded-for') ip?: string,
   ) {
@@ -55,13 +55,18 @@ export class AuthController {
     if (!token) throw new UnauthorizedException('未提供 Token');
     const me = await this.authService.getMe(token); // 无效 token 抛 401
     const u: any = me.user;
+    if (u?.impersonatedBy) {
+      throw new ForbiddenException('影子登录会话禁止再次发起影子登录');
+    }
     const isSuper =
       (Array.isArray(u.permissions) && u.permissions.includes('*')) ||
       u.role === 'ROLE_ADMIN' ||
       (Array.isArray(u.roles) && u.roles.includes('ROLE_ADMIN'));
     if (!isSuper) throw new ForbiddenException('仅超级管理员可使用「以用户身份查看」');
     if (!body?.username) throw new BadRequestException('目标用户名必填');
-    return await this.authService.impersonate(body.username, { userId: u.userId, username: u.username }, ip);
+    const reason = String(body.reason || '').trim();
+    if (reason.length < 6) throw new BadRequestException('影子登录必须填写不少于 6 个字符的审计原因');
+    return await this.authService.impersonate(body.username, { userId: u.userId, username: u.username }, ip, reason);
   }
 
   /**

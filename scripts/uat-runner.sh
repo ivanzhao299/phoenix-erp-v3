@@ -112,9 +112,11 @@ cyan "════════════════════════�
 
 cyan ""
 cyan "▶ 0) 登录所有 personas"
-declare -a USERS=(admin:admin123 wang_ceo:Test@1234 test_farm_mgr:Test@1234 \
-  test_vet:Test@1234 test_pkg:Test@1234 test_wms:Test@1234 \
-  test_cashier:Test@1234 test_fin:Test@1234 test_store_mgr:Test@1234)
+[ -n "${ADMIN_PASS:-}" ] || { red "  ✗ ADMIN_PASS 必填，禁止使用脚本内默认管理员密码"; exit 2; }
+[ -n "${UAT_TEST_PASSWORD:-}" ] || { red "  ✗ UAT_TEST_PASSWORD 必填，禁止使用脚本内默认测试密码"; exit 2; }
+declare -a USERS=(admin:"$ADMIN_PASS" wang_ceo:"$UAT_TEST_PASSWORD" test_farm_mgr:"$UAT_TEST_PASSWORD" \
+  test_vet:"$UAT_TEST_PASSWORD" test_pkg:"$UAT_TEST_PASSWORD" test_wms:"$UAT_TEST_PASSWORD" \
+  test_cashier:"$UAT_TEST_PASSWORD" test_fin:"$UAT_TEST_PASSWORD" test_store_mgr:"$UAT_TEST_PASSWORD")
 for entry in "${USERS[@]}"; do
   U=${entry%%:*}; P=${entry#*:}
   if login_persona "$U" "$P"; then

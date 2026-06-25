@@ -323,7 +323,7 @@ export class AuthService {
    * 仅用于 QA/客服排障：以该用户身份查看真实界面、走真实流程。
    * 安全：调用方必须是超管（控制器层校验）；token 带 impersonatedBy 标记；写审计。
    */
-  async impersonate(targetUsername: string, adminUser: { userId: number; username: string }, ip?: string) {
+  async impersonate(targetUsername: string, adminUser: { userId: number; username: string }, ip?: string, reason?: string) {
     const target = (targetUsername || '').trim();
     if (!target) throw new BadRequestException('目标用户名必填');
     if (target === adminUser.username) throw new BadRequestException('无需以自己的身份查看');
@@ -344,12 +344,12 @@ export class AuthService {
       impersonatedBy: { id: adminUser.userId, username: adminUser.username },
     });
     // 审计：谁、以谁身份、何时、来源 IP
-    this.logger.warn(`[IMPERSONATE] admin=${adminUser.username}(#${adminUser.userId}) → user=${target} ip=${ip || '-'}`);
+    this.logger.warn(`[IMPERSONATE] admin=${adminUser.username}(#${adminUser.userId}) → user=${target} ip=${ip || '-'} reason=${reason || '-'}`);
     try {
       await this.userRepo.query(
         `INSERT INTO sys_audit_log (user_id, user_name, action, entity_type, entity_id, ip_addr, created_at)
          VALUES ($1, $2, 'IMPERSONATE', 'AUTH', $3, $4, NOW())`,
-        [adminUser.userId, adminUser.username, target, ip || null],
+        [adminUser.userId, adminUser.username, `${target} | reason=${reason || '-'}`, ip || null],
       );
     } catch (e: any) {
       this.logger.warn(`[IMPERSONATE] audit log skipped: ${e?.message}`);

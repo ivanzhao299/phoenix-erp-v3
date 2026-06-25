@@ -9,7 +9,7 @@
 #
 # 验证项：
 #   1. 健康检查 /api/health
-#   2. 登录 admin/along888 → 拿 token
+#   2. 使用 ADMIN_USER / ADMIN_PASS 登录 → 拿 token
 #   3. 核心 lookup endpoint：houses/customers/warehouses（DictSelect 依赖）
 #   4. 核心字典：INV_OUTBOUND_TYPE/INV_INBOUND_TYPE/BRD_MORTALITY_REASON（业务关键）
 #   5. 关键 DB 表行数：sys_dict / sys_menu / brd_houses
@@ -50,7 +50,9 @@ check() {
 
 echo "═══ Phase 1: API health & auth ═══"
 check "health endpoint"     "$CURL_PREFIX $API/api/health"                         "ok|OK|status.*up"
-TOKEN=$($CURL_PREFIX -X POST $API/api/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"along888"}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token","NO_TOKEN"))' 2>&1)
+: "${ADMIN_USER:=admin}"
+: "${ADMIN_PASS:?ADMIN_PASS is required; default admin passwords are forbidden}"
+TOKEN=$($CURL_PREFIX -X POST $API/api/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token","NO_TOKEN"))' 2>&1)
 check "admin login"         "echo $TOKEN | head -c 5"                              "eyJ"
 
 if [[ "$TOKEN" == "NO_TOKEN" || "$TOKEN" == ERROR* ]]; then

@@ -27,7 +27,7 @@ Authorization: Bearer <JWT_TOKEN>
 \`\`\`bash
 curl -X POST http://localhost:3100/api/auth/login \\
   -H 'Content-Type: application/json' \\
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"$ADMIN_USER","password":"$ADMIN_PASS"}'
 \`\`\`
 
 ## 端点列表（按模块）

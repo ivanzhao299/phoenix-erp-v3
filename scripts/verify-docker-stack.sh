@@ -86,9 +86,11 @@ if ! curl -sf http://127.0.0.1:3100/api/health >/dev/null 2>&1; then
   exit 3
 fi
 
+: "${ADMIN_USER:=admin}"
+: "${ADMIN_PASS:?ADMIN_PASS is required; default admin passwords are forbidden}"
 LOGIN=$(curl -s -X POST http://127.0.0.1:3100/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123"}' 2>&1)
+  -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" 2>&1)
 TOKEN=$(printf '%s' "$LOGIN" | grep -oE '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -n "$TOKEN" ]; then

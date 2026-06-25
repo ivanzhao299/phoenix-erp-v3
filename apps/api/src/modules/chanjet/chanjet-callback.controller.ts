@@ -1,4 +1,6 @@
-import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException, Req } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
@@ -14,6 +16,7 @@ export class ChanjetCallbackController {
   constructor(
     private readonly auth: ChanjetAuthService,
     private readonly arSync: ChanjetArSyncService,
+    @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
   private maskSensitive(value: unknown): unknown {
@@ -398,29 +401,30 @@ export class ChanjetCallbackController {
    * path 中 {bookid} 占位符会被 query.bookid 或 body.bookid 替换。
    */
   @Get('call')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
-  async callGet(@Query() query: Record<string, string>) {
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  async callGet(@Query() query: Record<string, string>, @Req() req: any) {
     return this.doCall(query.path, {
       method: (query.method as 'GET' | 'POST') || 'GET',
       bookid: query.bookid,
       queryStr: query.q,
-    });
+    }, req);
   }
 
   @Post('call')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
-  async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }) {
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }, @Req() req: any) {
     return this.doCall(body.path, {
       method: body.method || 'POST',
       bookid: body.bookid,
       body: body.body,
       query: body.query,
-    });
+    }, req);
   }
 
   private async doCall(
     rawPath: string,
     opts: { method: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string>; queryStr?: string } = { method: 'GET' },
+    req?: any,
   ) {
     if (!rawPath) return { success: false, error: 'path 不能为空' };
     const path = opts.bookid ? rawPath.replace('{bookid}', opts.bookid) : rawPath;
@@ -438,9 +442,56 @@ export class ChanjetCallbackController {
         query: queryMap,
         body: opts.body,
       });
+      await this.writeChanjetAudit(req, 'CHANJET_CALL_PROXY', path, 'SUCCESS', {
+        method: opts.method,
+        query: this.maskSensitive(queryMap),
+        body: this.maskSensitive(opts.body || {}),
+        resultKeys: result && typeof result === 'object' ? Object.keys(result as Record<string, unknown>).slice(0, 20) : [],
+      });
       return { success: true, path, result };
     } catch (e) {
+      await this.writeChanjetAudit(req, 'CHANJET_CALL_PROXY', path, 'FAIL', {
+        method: opts.method,
+        error: (e as Error).message,
+      });
       return { success: false, path, error: (e as Error).message };
+    }
+  }
+
+  private async writeChanjetAudit(
+    req: any,
+    actionCode: string,
+    path: string,
+    resultStatus: 'SUCCESS' | 'FAIL',
+    afterData: Record<string, unknown>,
+  ) {
+    try {
+      const user = req?.user || {};
+      const roles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
+      await this.ds.query(
+        `INSERT INTO sys_operation_logs
+          (user_id, username, role_code, module_code, action_code, biz_type,
+           biz_no, request_method, request_path, ip_address, user_agent,
+           after_data, result_status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13)`,
+        [
+          user.userId || user.id || null,
+          user.username || null,
+          roles[0] || null,
+          'MENU_SYS_CONFIG',
+          actionCode,
+          'CHANJET',
+          path.slice(0, 80),
+          req?.method || null,
+          req?.url || null,
+          req?.ip || req?.headers?.['x-forwarded-for'] || null,
+          req?.headers?.['user-agent'] || null,
+          JSON.stringify(afterData || {}),
+          resultStatus,
+        ],
+      );
+    } catch (e) {
+      this.log.warn(`Chanjet audit skipped: ${(e as Error).message}`);
     }
   }
 
@@ -449,7 +500,7 @@ export class ChanjetCallbackController {
    * 管理员手动设置 certificate（从畅捷通控制台复制）。
    */
   @Post('set-cert')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
   setCert(@Body() body: { certificate: string }) {
     if (!body.certificate) return { success: false, error: 'certificate 不能为空' };
     this.auth.setCertificate(body.certificate);
@@ -461,7 +512,7 @@ export class ChanjetCallbackController {
    * 管理员手动注入 appTicket（容器重启后丢失时用）。
    */
   @Post('set-ticket')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
   setTicket(@Body() body: { appTicket: string }) {
     if (!body.appTicket) return { success: false, error: 'appTicket 不能为空' };
     this.auth.setAppTicket(body.appTicket);
@@ -473,7 +524,7 @@ export class ChanjetCallbackController {
    * 管理员手动触发 appTicket 推送（需消息接收地址已配好）。
    */
   @Post('trigger-ticket')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
   async triggerTicket() {
     try {
       const result = await this.auth.triggerAppTicket();
@@ -488,7 +539,7 @@ export class ChanjetCallbackController {
    * 管理员用已知密钥测试回调解密链路。
    */
   @Post('test-callback')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
   testCallback(@Body() body: Record<string, unknown>) {
     const isEncryptMsg = !!body.encryptMsg;
     const content = (body.encryptMsg ?? body.content) as string | undefined;

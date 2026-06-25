@@ -1,7 +1,8 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { RequireMenu } from '../../common/guards/menu.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PresenceService } from './presence.service';
 
 /**
@@ -9,6 +10,7 @@ import { PresenceService } from './presence.service';
  * 全局 MenuGuard 生效，@RequireMenu('MENU_SYSTEM','V') 限管理员/系统角色（ROLE_ADMIN 持 * 通过）。
  */
 @Controller('api/system')
+@UseGuards(AuthGuard('jwt'), MenuGuard)
 export class PresenceController {
   private readonly log = new Logger('Presence');
   constructor(
@@ -18,7 +20,7 @@ export class PresenceController {
 
   /** GET /api/system/online-users — 在线用户明细（含姓名/角色/上次活跃） */
   @Get('online-users')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
   async onlineUsers() {
     const snap = this.presence.snapshot();
     if (snap.length === 0) return { total: 0, items: [] };
@@ -69,7 +71,7 @@ export class PresenceController {
 
   /** GET /api/system/online-count — 在线人数（顶栏小指示用） */
   @Get('online-count')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
   onlineCount() {
     return { count: this.presence.onlineCount() };
   }

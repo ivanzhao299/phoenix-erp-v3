@@ -176,8 +176,13 @@ export default function UserDetailPage() {
   // ── 影子登录 ────────────────────────────────────────────────────────────────────
   const doImpersonate = async () => {
     if (!user) return;
+    const reason = window.prompt("请输入影子登录原因（不少于 6 个字符，用于审计）", "排障查看用户真实权限与页面");
+    if (!reason || reason.trim().length < 6) {
+      toast.error("影子登录必须填写不少于 6 个字符的审计原因");
+      return;
+    }
     setShowImpersonateConfirm(false);
-    try { await enterImpersonation(user.username); }
+    try { await enterImpersonation(user.username, reason.trim()); }
     catch (e: any) { toast.error(t("ui.影子登录失败", "影子登录失败") + ": " + (e.message || String(e))); }
   };
 

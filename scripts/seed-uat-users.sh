@@ -4,7 +4,7 @@
 # 用法：
 #   bash scripts/seed-uat-users.sh
 #
-# 创建 9 个测试 persona（全部密码 Test@123，admin 用真实环境密码）：
+# 创建 9 个测试 persona（密码必须通过 ADMIN_PASS / UAT_TEST_PASSWORD 显式传入）：
 #   admin               ROLE_ADMIN       系统超管
 #   wang_ceo            ROLE_CEO         集团 CEO
 #   test_farm_mgr       ROLE_FARM_MGR    场长
@@ -23,7 +23,8 @@ set -eu
 
 API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
-ADMIN_P="${ADMIN_PASS:-admin123}"
+ADMIN_P="${ADMIN_PASS:-}"
+PASS_UAT="${UAT_TEST_PASSWORD:-}"
 PSQL="${PSQL:-$(command -v psql || echo /Applications/Postgres.app/Contents/Versions/18/bin/psql)}"
 DB="${DB_NAME:-phoenix_erp}"
 
@@ -35,6 +36,9 @@ yellow(){ printf '\033[33m%s\033[0m\n' "$1"; }
 cyan "═══════════════════════════════════════════════════════════════════"
 cyan "  Phoenix ERP V3 — UAT 9 个测试账号种子"
 cyan "═══════════════════════════════════════════════════════════════════"
+
+[ -n "$ADMIN_P" ] || { red "❌ ADMIN_PASS 必填，禁止使用脚本内默认管理员密码"; exit 2; }
+[ -n "$PASS_UAT" ] || { red "❌ UAT_TEST_PASSWORD 必填，禁止使用脚本内默认测试密码"; exit 2; }
 
 # ── 0) admin 登录 ─────────────────────────────────────────────────────────
 TOKEN=$(curl -sf -X POST "$API/api/auth/login" -H 'Content-Type: application/json' \
@@ -87,8 +91,6 @@ declare -a USERS=(
   'test_fin|会计测试|ROLE_FIN_ACCT|ALL'
   'test_store_mgr|门店经理测试|ROLE_STORE_MGR|ST-VTE-001'
 )
-
-PASS_UAT='Test@1234'   # 统一测试密码（长度 ≥8 + 字母 + 数字 + 符号）
 
 for U in "${USERS[@]}"; do
   USERNAME=$(echo "$U" | cut -d'|' -f1)
@@ -162,7 +164,7 @@ else
   red "  ❌ $FAIL 个账号不能登录"
 fi
 cyan "═══════════════════════════════════════════════════════════════════"
-cyan "  统一密码:  Test@1234  (admin 走环境密码 $ADMIN_P)"
+cyan "  UAT 账号密码:  由 UAT_TEST_PASSWORD 环境变量提供（不打印）"
 cyan "═══════════════════════════════════════════════════════════════════"
 
 exit $FAIL

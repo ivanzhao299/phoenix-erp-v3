@@ -34,7 +34,7 @@ export function getImpersonation(): { by: string; as: string } | null {
 }
 
 /** 进入影子模式：以 username 身份查看 */
-export async function enterImpersonation(username: string): Promise<void> {
+export async function enterImpersonation(username: string, reason: string): Promise<void> {
   const token = sessionStorage.getItem("phoenix_token") || "";
   if (!token) throw new Error("未登录");
   // 备份当前(超管)会话，供退出时还原
@@ -46,7 +46,7 @@ export async function enterImpersonation(username: string): Promise<void> {
   const r = await fetch("/api/auth/impersonate", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ username, reason }),
   }).then((x) => x.json());
   if (r.code !== 200 || !r.token) {
     sessionStorage.removeItem(ORIGIN_KEY);

@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../org/services/data-scope.service';
 
 /**
  * V3 WmsService
@@ -11,16 +13,31 @@ export class WmsService {
   constructor(
     @InjectEntityManager()
     private readonly em: EntityManager,
+    private readonly cls: ClsService,
   ) {}
+
+  private warehouseScope(column = 'warehouse_code', paramOffset = 0): { sql: string; params: unknown[] } {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) {
+      return { sql: '1=1', params: [] };
+    }
+    return {
+      sql: `(${column} = ANY($${paramOffset + 1}) OR ${column} IS NULL)`,
+      params: [scope.allowedWarehouseCodes],
+    };
+  }
 
   // ─── 入库 (Inbound) ─────────────────────────────────────────────────────────
   async getInboundDashboard() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const [pending] = await this.em.query(
-        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING'`,
+        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql}`,
+        scope.params,
       );
       const [processing] = await this.em.query(
-        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING'`,
+        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING' AND ${scope.sql}`,
+        scope.params,
       );
       return {
         code: 200,
@@ -37,8 +54,10 @@ export class WmsService {
 
   async getPendingInbound() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') ORDER BY created_at DESC`,
+        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -48,9 +67,10 @@ export class WmsService {
 
   async getInboundTask(taskNo: string) {
     try {
+      const scope = this.warehouseScope('warehouse_code', 1);
       const tasks = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE task_no = $1`,
-        [taskNo],
+        `SELECT * FROM wms_inbound WHERE task_no = $1 AND ${scope.sql}`,
+        [taskNo, ...scope.params],
       );
       if (!tasks.length) return { code: 404, msg: '任务不存在' };
       const items = await this.em.query(
@@ -402,8 +422,10 @@ export class WmsService {
   // ─── 库存 (Inventory) ───────────────────────────────────────────────────────
   async getInventoryBatches() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM inv_batches WHERE qty > 0 ORDER BY created_at DESC LIMIT 200`,
+        `SELECT * FROM inv_batches WHERE qty > 0 AND ${scope.sql} ORDER BY created_at DESC LIMIT 200`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -413,8 +435,10 @@ export class WmsService {
 
   async getReceivingOrders() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status = 'PENDING' ORDER BY created_at DESC`,
+        `SELECT * FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
