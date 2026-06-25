@@ -5,19 +5,20 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
-import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
+import { workflowApi, type ApprovalReassignCandidate, type WorkflowTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 import {
-  primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill,
+  primaryActionButton, secondaryActionButton, actionPill,
   detailInfoBox,
 } from "@/components/design-system/cockpit-styles";
 export default function WorkflowTodoPage() {
   const [rows, setRows] = useState<WorkflowTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [comment, setComment] = useState("");
-  const [transferOpen, setTransferOpen] = useState(false);
-  const [transferMode, setTransferMode] = useState<"role" | "user">("role");
+  const [decision, setDecision] = useState<"approve" | "reject" | "transfer">("approve");
+  const [transferCandidates, setTransferCandidates] = useState<ApprovalReassignCandidate[]>([]);
   const [transferTarget, setTransferTarget] = useState("");
+  const [candidateLoading, setCandidateLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -46,14 +47,43 @@ export default function WorkflowTodoPage() {
       alive = false;
     };
   }, [load]);
+  useEffect(() => {
+    if (!selected || decision !== "transfer") return;
+    let alive = true;
+    setCandidateLoading(true);
+    setError("");
+    workflowApi.approvalReassignCandidates(selected.instance_id)
+      .then(rows => {
+        if (!alive) return;
+        setTransferCandidates(rows);
+        setTransferTarget(rows[0]?.userId ?? "");
+      })
+      .catch(err => {
+        if (!alive) return;
+        setTransferCandidates([]);
+        setTransferTarget("");
+        setError(err instanceof Error ? friendlyError(err.message) : "加载转交候选人失败");
+      })
+      .finally(() => {
+        if (alive) setCandidateLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selected?.instance_id, decision]);
   async function act(type: "approve" | "reject") {
     if (!selected) return;
+    if (type === "reject" && !comment.trim()) {
+      setError("请填写不同意原因。");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       if (type === "approve") await workflowApi.approve(selected.id, comment.trim());else await workflowApi.reject(selected.id, comment.trim());
       setComment("");
-      setNotice(type === "approve" ? "已通过审批。" : "已驳回申请。");
+      setDecision("approve");
+      setNotice(type === "approve" ? "已同意审批。" : "已提交不同意。");
       await load();
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "处理失败");
@@ -81,30 +111,19 @@ export default function WorkflowTodoPage() {
   }
   async function transfer() {
     if (!selected) return;
-    const target = transferTarget.trim();
-    if (!target) {
-      setError("请填写转交对象。");
+    if (!transferTarget) {
+      setError("请选择转交审批人。");
       return;
     }
-    const userId = Number(target);
-    if (transferMode === "user" && (!Number.isInteger(userId) || userId <= 0)) {
-      setError("用户 ID 必须是大于 0 的数字。");
-      return;
-    }
-    const payload = transferMode === "user" ? {
-      assignee_user_id: userId
-    } : {
-      assignee_role_code: target.toUpperCase()
-    };
     setLoading(true);
     setError("");
     setNotice("");
     try {
-      await workflowApi.transfer(selected.id, payload);
+      const res = await workflowApi.approvalReassign(selected.instance_id, transferTarget);
       setComment("");
+      setDecision("approve");
       setTransferTarget("");
-      setTransferOpen(false);
-      setNotice("任务已转交。");
+      setNotice(res.toName ? `任务已转交给 ${res.toName}。` : "任务已转交。");
       await load();
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "转交失败");
@@ -132,7 +151,8 @@ export default function WorkflowTodoPage() {
               setComment("");
               setError("");
               setNotice("");
-              setTransferOpen(false);
+              setDecision("approve");
+              setTransferTarget("");
             }}>
                     <strong>{row.title}</strong>
                     <span>{row.node_name} · {row.starter_name || "发起人"}</span>
@@ -164,37 +184,48 @@ export default function WorkflowTodoPage() {
               <h4 className={s.formSection}>申请内容</h4>
               <WorkflowDataView data={selected.form_data_json || {}} schema={selected.form_schema_json} />
 
-              <h4 className={s.formSection}>审批意见</h4>
+              <h4 className={s.formSection}>审批处理</h4>
               <p className={s.modalDesc} style={{
             margin: "0 0 8px"
-          }}>可以先补充意见，也可以直接通过、驳回或转交给其他处理人。</p>
-              <textarea className={s.textarea} placeholder="填写审批意见，可留空直接通过" value={comment} onChange={e => setComment(e.target.value)} />
+          }}>选择处理方式并填写意见。转交候选人由后端按角色权限和数据域过滤。</p>
+              <div style={decisionTabsStyle}>
+                <button type="button" onClick={() => {
+              setDecision("approve");
+              setError("");
+            }} style={decisionButtonStyle(decision === "approve", "success")}>同意</button>
+                <button type="button" onClick={() => {
+              setDecision("reject");
+              setError("");
+            }} style={decisionButtonStyle(decision === "reject", "danger")}>不同意</button>
+                <button type="button" onClick={() => {
+              setDecision("transfer");
+              setError("");
+            }} style={decisionButtonStyle(decision === "transfer", "info")}>转交审批</button>
+              </div>
+              {decision === "transfer" ? <div style={transferPanelStyle}>
+                  <label className={s.formLabel}>转交审批人 *</label>
+                  <select className={s.select} value={transferTarget} onChange={e => setTransferTarget(e.target.value)} disabled={candidateLoading || transferCandidates.length === 0}>
+                    {candidateLoading ? <option value="">候选人加载中...</option> : null}
+                    {!candidateLoading && transferCandidates.length === 0 ? <option value="">暂无可转交审批人</option> : null}
+                    {!candidateLoading && transferCandidates.map(candidate => <option key={candidate.userId} value={candidate.userId}>
+                        {candidate.displayName}{candidate.roleNameZh ? ` · ${candidate.roleNameZh}` : ""}
+                      </option>)}
+                  </select>
+                  <p className={s.modalDesc} style={{ margin: 0 }}>候选人已由后端按角色权限、公司/项目数据域和自审分离规则过滤。</p>
+                </div> : null}
+              <textarea className={s.textarea} placeholder={decision === "approve" ? "填写审批意见，可留空直接同意" : decision === "reject" ? "请填写不同意原因" : "填写转交说明，便于接收人理解背景（可选）"} value={comment} onChange={e => setComment(e.target.value)} />
               {notice ? <div className={s.successBanner}>{notice}</div> : null}
               {error ? <div className={s.errorBanner}>{error}</div> : null}
-
-              {transferOpen ? <div style={transferPanelStyle}>
-                  <div style={transferModeStyle}>
-                    <button type="button" onClick={() => setTransferMode("role")} style={toolbarFilterPill(transferMode === "role")}>
-                      转给角色
-                    </button>
-                    <button type="button" onClick={() => setTransferMode("user")} style={toolbarFilterPill(transferMode === "user")}>
-                      转给用户
-                    </button>
-                  </div>
-                  <input className={s.inp} value={transferTarget} onChange={e => setTransferTarget(e.target.value)} placeholder={transferMode === "role" ? "角色编码，如 ROLE_FIN_ACCT" : "用户 ID，如 1001"} />
-                  <div style={transferActionsStyle}>
-                    <button type="button" style={secondaryActionButton} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
-                    <button type="button" style={primaryActionButton} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
-                  </div>
-                </div> : null}
 
               <div style={footerStyle}>
                 <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看详情</Link>
                 <button type="button" style={secondaryActionButton} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
-                <button type="button" style={secondaryActionButton} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
-                <button type="button" style={actionPill('danger')} disabled={loading} onClick={() => act("reject")}>驳回</button>
-                <button type="button" style={primaryActionButton} disabled={loading} onClick={() => act("approve")}>
-                  {loading ? "处理中..." : "通过"}
+                <button type="button" style={decision === "reject" ? actionPill('danger') : decision === "transfer" ? actionPill('info') : primaryActionButton} disabled={loading || (decision === "transfer" && (candidateLoading || transferCandidates.length === 0))} onClick={() => {
+              if (decision === "approve") void act("approve");
+              else if (decision === "reject") void act("reject");
+              else void transfer();
+            }}>
+                  {loading ? "处理中..." : decision === "approve" ? "提交同意" : decision === "reject" ? "提交不同意" : "确认转交审批"}
                 </button>
               </div>
             </div> : <div className={s.emptyState}><div className={s.emptyStateText}>选择一条待办后处理。</div></div>}
@@ -390,24 +421,37 @@ const templateGridStyle: React.CSSProperties = {
   display: "grid",
   gap: 6
 };
+const decisionTabsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+  marginBottom: 12,
+  padding: 4,
+  borderRadius: "var(--radius-md)",
+  background: "var(--bg-page)",
+  border: "1px solid var(--border)"
+};
+function decisionButtonStyle(active: boolean, tone: "success" | "danger" | "info"): React.CSSProperties {
+  const color = tone === "success" ? "var(--status-success)" : tone === "danger" ? "var(--status-danger)" : "var(--status-info)";
+  return {
+    minHeight: 40,
+    borderRadius: "var(--radius-sm)",
+    border: `1px solid ${active ? color : "transparent"}`,
+    background: active ? `color-mix(in srgb, ${color} 14%, transparent)` : "transparent",
+    color: active ? color : "var(--text-secondary)",
+    fontWeight: 800,
+    cursor: "pointer",
+    transition: "background .16s ease, color .16s ease, border-color .16s ease"
+  };
+}
 const transferPanelStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-md)",
   padding: 12,
-  marginTop: 12,
+  marginBottom: 12,
   display: "grid",
   gap: 10,
   background: "var(--bg-page)"
-};
-const transferModeStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 6,
-  flexWrap: "wrap"
-};
-const transferActionsStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: 10
 };
 const footerStyle: React.CSSProperties = {
   display: "flex",
