@@ -68,9 +68,9 @@ const ALL_CARDS: QuickCard[] = [
 
   // ───── 财务现金 ─────
   { key: 'cash_in',     title: '现金收款',          desc: '直营店 / 客户收款 · 老币+人民币',
-    icon: Wallet,        href: '/finance2/cash-accounts?action=receive',              accent: '#06B6D4', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+    icon: Wallet,        href: '/finance2/cash-accounts?action=receive',              accent: '#06B6D4', perm: 'MENU_FIN2_CASH_TXN',      permOp: 'C' },
   { key: 'cash_out',    title: '现金付款',          desc: '采购 / 工资 / 运费',
-    icon: Receipt,       href: '/finance2/cash-accounts?action=pay',                  accent: '#7C3AED', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+    icon: Receipt,       href: '/finance2/cash-accounts?action=pay',                  accent: '#7C3AED', perm: 'MENU_FIN2_CASH_TXN',      permOp: 'C' },
 
   // ───── 销售 ─────
   { key: 'sale_create', title: '销售出库',          desc: '客户订单 / 散户零售',

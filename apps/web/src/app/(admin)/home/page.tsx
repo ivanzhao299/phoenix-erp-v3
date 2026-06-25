@@ -38,7 +38,7 @@ type Shortcut = { key: string; label: string; href: string; icon: any; accent: s
 const SHORTCUTS: Shortcut[] = [
   { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER', altPerms: ['MENU_MASTER_DATA', 'MENU_MASTER'] },
   { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER', altPerms: ['MENU_MASTER_DATA', 'MENU_MASTER'] },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2', altPerms: ['MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
+  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2' },
   { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW' },
@@ -65,12 +65,14 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: (menuCode
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
   if (todo > 0 && hasPermission('MENU_WORKFLOW')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
-  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
+  if ((role?.includes('CASH') || role?.includes('TREASURY')) && (hasPermission('MENU_FIN2_CASH_VIEW') || hasPermission('MENU_FIN2_CASH'))) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN') && hasPermission('MENU_FIN2')) return { label: '进入财务中心', href: '/finance2', icon: Wallet };
-  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
-    if (hasPermission('MENU_PRC2')) return { label: '进入采购中心', href: '/procurement2/dashboard', icon: ShoppingBag };
+  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
+    if (hasPermission('MENU_PRC2_DASHBOARD') || hasPermission('MENU_PRC2')) return { label: '进入采购中心', href: '/procurement2/dashboard', icon: ShoppingBag };
     if (hasPermission('MENU_PRC2_ORDER')) return { label: '进入采购订单', href: '/procurement2/orders', icon: ShoppingBag };
-    if (hasPermission('MENU_PRC2_MASTER')) return { label: '进入采购申请', href: '/procurement2/requests', icon: ShoppingBag };
+    if (hasPermission('MENU_PRC2_REQUEST') || hasPermission('MENU_PRC2_MASTER')) return { label: '进入采购申请', href: '/procurement2/requests', icon: ShoppingBag };
+    if (hasPermission('MENU_PRC2_SUPPLIER')) return { label: '进入供应商档案', href: '/procurement2/suppliers', icon: ShoppingBag };
+    if (hasPermission('MENU_PRC2_PROJECT')) return { label: '进入采购项目', href: '/procurement2/projects', icon: ShoppingBag };
     if (hasPermission('MENU_PRC2_PAYMENT')) return { label: '进入采购付款', href: '/procurement2/payments', icon: Wallet };
     if (hasPermission('MENU_PRC2_RECEIPT')) return { label: '进入收货管理', href: '/procurement2/receipts', icon: Package };
     if (hasPermission('MENU_PRC2_SHIPMENT')) return { label: '进入物流管理', href: '/procurement2/shipments', icon: ShoppingBag };

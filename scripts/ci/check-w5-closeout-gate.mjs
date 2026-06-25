@@ -55,6 +55,10 @@ const checks = [
     name: 'unsafe attachment reference gate passes',
     pass: run('node', ['scripts/ci/check-unsafe-attachment-refs.mjs']),
   },
+  {
+    name: 'menu permission atomicity gate passes',
+    pass: run('node', ['scripts/ci/check-menu-permission-atomicity.mjs']),
+  },
 ];
 
 let failed = 0;
