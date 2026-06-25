@@ -62,7 +62,7 @@ const STATUS_LABEL: Record<string, {
   }
 };
 export default function ApprovalFlowsPage() {
-  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const workflowPerm = usePermission('MENU_WORKFLOW_CONFIG');
   const canManageFlows = workflowPerm.check('E') || workflowPerm.check('C') || workflowPerm.check('D');
   const [rows, setRows] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(false);

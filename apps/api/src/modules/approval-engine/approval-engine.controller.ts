@@ -11,14 +11,14 @@ export class ApprovalEngineController {
 
   /** 我的审批待办 */
   @Get('todos')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V', ['MENU_WORKFLOW'])
   async getMyTodos() {
     return this.engine.getMyTodos();
   }
 
   /** 审批历史 */
   @Get('history')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
   async getHistory(
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
@@ -29,14 +29,14 @@ export class ApprovalEngineController {
 
   /** 实例详情 */
   @Get('instances/:id')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
   async getDetail(@Param('id') id: string) {
     return this.engine.getInstanceDetail(id);
   }
 
   /** 通过业务单据获取实例 */
   @Get('by-biz/:bizType/:bizId')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
   async getByBiz(
     @Param('bizType') bizType: string,
     @Param('bizId') bizId: string,
@@ -46,7 +46,7 @@ export class ApprovalEngineController {
 
   /** 候选审批人查询（开放式选人 / 转交用）：权限 ∩ 数据域过滤，排除发起人 */
   @Get('eligible-approvers')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V', ['MENU_WORKFLOW'])
   async eligibleApprovers(
     @Query('menuCode') menuCode: string,
     @Query('requiredPerm') requiredPerm?: string,
@@ -58,7 +58,7 @@ export class ApprovalEngineController {
 
   /** 审批通过 */
   @Post('instances/:id/approve')
-  @RequireMenu('MENU_WORKFLOW', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'A', ['MENU_WORKFLOW'])
   async approve(
     @Param('id') id: string,
     @Body() body: { comment?: string },
@@ -68,7 +68,7 @@ export class ApprovalEngineController {
 
   /** 审批拒绝 */
   @Post('instances/:id/reject')
-  @RequireMenu('MENU_WORKFLOW', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'A', ['MENU_WORKFLOW'])
   async reject(
     @Param('id') id: string,
     @Body() body: { comment?: string },
@@ -79,14 +79,14 @@ export class ApprovalEngineController {
 
   /** 转交候选人：实例自身 moduleCode/companyCode 解析合格审批人 */
   @Get('instances/:id/reassign-candidates')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V', ['MENU_WORKFLOW'])
   async reassignCandidates(@Param('id') id: string) {
     return this.engine.reassignCandidates(id);
   }
 
   /** 转交审批：把当前步改派给另一合格审批人（发起人/当前审批人/ADMIN 可操作，后端再校验） */
   @Post('instances/:id/reassign')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'E', ['MENU_WORKFLOW'])
   async reassign(
     @Param('id') id: string,
     @Body() body: { toUserId: string },

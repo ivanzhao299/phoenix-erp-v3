@@ -268,7 +268,7 @@ function PushHealthCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function WorkflowMetricsPage() {
-  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const workflowPerm = usePermission('MENU_WORKFLOW_METRICS');
   const canViewMetrics = workflowPerm.check('X') || workflowPerm.check('E') || workflowPerm.check('D');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);

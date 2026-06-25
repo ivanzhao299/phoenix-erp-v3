@@ -42,7 +42,7 @@ const SHORTCUTS: Shortcut[] = [
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2' },
   { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW' },
-  { key: 'workflow',  label: '审批工作台',   href: '/workflow',               icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW' },
+  { key: 'workflow',  label: '审批工作台',   href: '/workflow',               icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW', 'MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'] },
   { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_DATA_QUALITY' },
 ];
 
@@ -64,7 +64,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: (menuCode
   )) {
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0 && hasPermission('MENU_WORKFLOW')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
+  if (todo > 0 && (hasPermission('MENU_WORKFLOW_TODO') || hasPermission('MENU_WORKFLOW'))) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
   if ((role?.includes('CASH') || role?.includes('TREASURY')) && (hasPermission('MENU_FIN2_CASH_VIEW') || hasPermission('MENU_FIN2_CASH'))) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN') && hasPermission('MENU_FIN2')) return { label: '进入财务中心', href: '/finance2', icon: Wallet };
   if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {

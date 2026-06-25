@@ -40,7 +40,7 @@ export class WorkflowFormController {
   // ── 表单定义列表 ─────────────────────────────────────────────────────────────
 
   @Get()
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   list(@Query() query: {
     status?:   string;
     bizType?:  string;
@@ -60,7 +60,7 @@ export class WorkflowFormController {
   // ── 创建表单定义 ─────────────────────────────────────────────────────────────
 
   @Post()
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'C', ['MENU_WORKFLOW'])
   create(@Body() body: CreateFormDto) {
     return this.runtimeSvc.createForm(body);
   }
@@ -68,7 +68,7 @@ export class WorkflowFormController {
   // ── 从数据源创建（旧接口，兼容保留）──────────────────────────────────────────
 
   @Post('from-data-source')
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'C', ['MENU_WORKFLOW'])
   createFromDataSource(@Body() body: any, @Req() req: any) {
     return this.workflow.createFormFromDataSource(body, req.user);
   }
@@ -76,7 +76,7 @@ export class WorkflowFormController {
   // ── 提交列表（GET /submissions 必须在 GET /:id 之前声明）───────────────────
 
   @Get('submissions')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   listSubmissions(@Query() query: {
     formCode?:  string;
     status?:    string;
@@ -94,7 +94,7 @@ export class WorkflowFormController {
   // ── 提交详情（GET /submissions/:id 必须在 GET /:id 之前声明）───────────────
 
   @Get('submissions/:id')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   getSubmission(@Param('id') id: string) {
     return this.runtimeSvc.getSubmission(Number(id));
   }
@@ -102,7 +102,7 @@ export class WorkflowFormController {
   // ── 启动审批（Phase I；静态前缀 submissions/，必须在 /:id 之前声明）─────────
 
   @Post('submissions/:id/start-approval')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   startApproval(@Param('id') id: string) {
     return this.runtimeSvc.startApprovalFromSubmission(Number(id));
   }
@@ -110,7 +110,7 @@ export class WorkflowFormController {
   // ── 发布版本（静态前缀 versions/，必须在 /:id 之前声明）────────────────────
 
   @Post('versions/:versionId/publish')
-  @RequireMenu('MENU_WORKFLOW', 'E')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   publishVersion(@Param('versionId') versionId: string) {
     return this.runtimeSvc.publishVersion(Number(versionId));
   }
@@ -123,7 +123,7 @@ export class WorkflowFormController {
    * - 否则 → 按 code 获取（返回当前发布版本 + 版本列表）
    */
   @Get(':idOrCode')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   get(@Param('idOrCode') idOrCode: string) {
     const asNum = Number(idOrCode);
     if (Number.isInteger(asNum) && asNum > 0) {
@@ -135,7 +135,7 @@ export class WorkflowFormController {
   // ── 更新表单基本信息 ─────────────────────────────────────────────────────────
 
   @Put(':id')
-  @RequireMenu('MENU_WORKFLOW', 'E')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.updateForm(Number(id), body, req.user);
   }
@@ -143,7 +143,7 @@ export class WorkflowFormController {
   // ── 旧发布接口（兼容保留；Phase H 用 POST /versions/:versionId/publish）─────
 
   @Post(':id/publish')
-  @RequireMenu('MENU_WORKFLOW', 'E')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   publishLegacy(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.publishForm(Number(id), body, req.user);
   }
@@ -151,7 +151,7 @@ export class WorkflowFormController {
   // ── 表单设计器视图（旧接口，兼容保留）──────────────────────────────────────
 
   @Get(':id/designer')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   designer(@Param('id') id: string) {
     return this.workflow.getFormDesigner(Number(id));
   }
@@ -159,7 +159,7 @@ export class WorkflowFormController {
   // ── 创建新版本（Phase H）────────────────────────────────────────────────────
 
   @Post(':id/versions')
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'C', ['MENU_WORKFLOW'])
   createVersion(@Param('id') id: string, @Body() body: CreateVersionDto) {
     return this.runtimeSvc.createVersion(Number(id), body);
   }
@@ -167,7 +167,7 @@ export class WorkflowFormController {
   // ── 提交表单数据（Phase H）──────────────────────────────────────────────────
 
   @Post(':code/submit')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   submitForm(@Param('code') code: string, @Body() body: SubmitFormDto) {
     return this.runtimeSvc.submitForm(code.toUpperCase(), body);
   }

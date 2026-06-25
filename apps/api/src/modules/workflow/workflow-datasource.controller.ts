@@ -10,43 +10,43 @@ export class WorkflowDatasourceController {
   constructor(private readonly workflow: WorkflowService) {}
 
   @Get()
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   list(@Query() query: any) {
     return this.workflow.listDataSources(query);
   }
 
   @Post()
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'C', ['MENU_WORKFLOW'])
   create(@Body() body: any, @Req() req: any) {
     return this.workflow.createDataSource(body, req.user);
   }
 
   @Post('sync-defaults')
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'C', ['MENU_WORKFLOW'])
   syncDefaults(@Req() req: any) {
     return this.workflow.syncDefaultDataSources(req.user);
   }
 
   @Post('refresh-metadata')
-  @RequireMenu('MENU_WORKFLOW', 'C')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   refreshMetadata(@Req() req: any) {
     return this.workflow.refreshDataSourceMetadata(req.user);
   }
 
   @Get(':code/field-suggestions')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   fieldSuggestions(@Param('code') code: string, @Req() req: any) {
     return this.workflow.suggestDataSourceFields(code, req.user);
   }
 
   @Put(':id')
-  @RequireMenu('MENU_WORKFLOW', 'E')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'E', ['MENU_WORKFLOW'])
   update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.updateDataSource(Number(id), body, req.user);
   }
 
   @Post('preview')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_FORM', 'V', ['MENU_WORKFLOW'])
   preview(@Body() body: any) {
     return this.workflow.previewDataSource(body);
   }

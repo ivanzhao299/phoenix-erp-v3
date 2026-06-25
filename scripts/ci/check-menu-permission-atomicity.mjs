@@ -32,10 +32,23 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /@RequireMenu\([^,]+,\s*['"]{2}/.test(line)
+    ) {
+      add(file, lineNo, 'RequireMenu action bit must not be empty. Use V/C/E/D/A/X explicitly.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/procurement-v2\/controllers\/.+\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_PRC2_MASTER['"]/.test(line)
     ) {
       add(file, lineNo, 'Procurement V2 controllers must prefer atomic MENU_PRC2_* guards with MENU_PRC2_MASTER only as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/(workflow|approval-engine|notification)\/.+\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_WORKFLOW['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Workflow and approval controllers must prefer atomic MENU_WORKFLOW_* guards with MENU_WORKFLOW only as altMenus fallback.', line);
     }
 
     if (

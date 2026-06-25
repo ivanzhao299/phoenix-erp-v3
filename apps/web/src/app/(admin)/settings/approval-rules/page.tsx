@@ -251,7 +251,7 @@ function slaSummary(st: RuleStep): string {
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 export default function ApprovalRulesPage() {
   const toast = useToast();
-  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const workflowPerm = usePermission('MENU_WORKFLOW_RULES');
   const canManageRules = workflowPerm.check('C') || workflowPerm.check('E') || workflowPerm.check('D');
   const [rules, setRules] = useState<ApprovalRule[]>([]);
   const [delRule, setDelRule] = useState<ApprovalRule | null>(null);

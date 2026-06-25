@@ -91,7 +91,7 @@ function statusColor(s: string) {
 export default function WorkflowFormRuntimePage() {
   const router = useRouter();
   const toast = useToast(); // G28：项目 useToast 替换 sonner
-  const workflowPerm = usePermission('MENU_WORKFLOW');
+  const workflowPerm = usePermission('MENU_WORKFLOW_FORM');
   const canManageForms = workflowPerm.check('E') || workflowPerm.check('C') || workflowPerm.check('D');
 
   // ── 列表状态 ──
