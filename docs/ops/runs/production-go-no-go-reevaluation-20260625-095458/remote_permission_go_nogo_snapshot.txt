@@ -1,0 +1,3 @@
+ERROR:  column m.id does not exist
+LINE 1: ...rom sys_role_menu_permission p join sys_menu m on m.id=p.men...
+                                                             ^

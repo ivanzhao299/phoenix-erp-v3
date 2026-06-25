@@ -1,0 +1,9 @@
+mux_client_request_session: read from master failed: Broken pipe
+store_payment_accounts=3
+store_payment_records=0
+file_metadata=22
+menus=5
+ERROR:  column "menu_code" does not exist
+LINE 1: ...s='||count(*) from sys_role_menu_permission where menu_code ...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "sys_role_menu_permission.menu_id" or the column "sys_role_menu_permission.deny_codes".

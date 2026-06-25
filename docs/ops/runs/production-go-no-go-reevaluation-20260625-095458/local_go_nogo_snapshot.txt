@@ -1,0 +1,19 @@
+--- local ---
+bc8fdff9a36a22d3b2f66d613eff4c0d63325df5
+## codex/prod-readiness-remediation...origin/main
+?? docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/
+PASS: Phase 0 operating docs exist
+PASS: PR template exists
+PASS: migration down() gate script exists
+PASS: migration data-DML gate script exists
+PASS: nullable unique gate script exists
+PASS: RBAC audit script exists
+PASS: smoke test script exists
+FAIL: freeze boundary static gate passes
+PASS: security regression static gate passes
+Result: FAIL. 1 W5 closeout static gate(s) failed.
+--- health ---
+{"status":"OK","service":"Phoenix ERP V3 API","timestamp":"2026-06-25T01:55:00.149Z","uptime":56839,"boot_at":"2026-06-24T10:07:42.681Z","env":"production","node_version":"v20.20.2","jwt":{"loaded":true,"fingerprint":"...317f","rotation_active":false,"expires_in":"8h","clock_tolerance_sec":60},"db":{"connected":true},"security":{"jwt_fallback_in_use":false,"is_production":true,"warning":null}}--- actions ---
+AI Delivery CI Security	completed	success	https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/28141509836
+CI/CD — Build & Deploy	completed	success	https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/28141509820
+AI Delivery CI Build	completed	success	https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/28141509817
