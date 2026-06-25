@@ -46,6 +46,9 @@ export class CreateShareholderContributionDto {
   amountBase?: number;
 
   @IsOptional() @IsString()
+  contributionDate?: string;
+
+  @IsOptional() @IsString()
   expectedReturnDate?: string;
 
   @IsOptional() @IsNumber() @Min(0) @Type(() => Number)
@@ -95,6 +98,9 @@ export class UpdateShareholderContributionDto {
 
   @IsOptional() @IsNumber() @Min(0) @Type(() => Number)
   amountBase?: number;
+
+  @IsOptional() @IsString()
+  contributionDate?: string;
 
   @IsOptional() @IsString()
   expectedReturnDate?: string;

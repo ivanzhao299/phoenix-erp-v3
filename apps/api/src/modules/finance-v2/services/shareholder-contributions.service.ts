@@ -123,7 +123,7 @@ export class ShareholderContributionsService {
              contribution_type, fund_nature,
              currency_code, amount_original, exchange_rate, amount_base, base_currency,
              settled_amount_original, settled_amount_base, balance_amount_original, balance_amount_base,
-             expected_return_date, interest_rate,
+             contribution_date, expected_return_date, interest_rate,
              status, wf_instance_id, cash_account_id,
              remark, created_by, updated_by, created_at, updated_at
       FROM fin_shareholder_contributions WHERE 1=1
@@ -270,9 +270,9 @@ export class ShareholderContributionsService {
             currency_code, amount_original, exchange_rate, amount_base, base_currency,
             settled_amount_original, settled_amount_base,
             balance_amount_original, balance_amount_base,
-            expected_return_date, interest_rate,
+            contribution_date, expected_return_date, interest_rate,
             status, cash_account_id, remark, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
         [
           contributionNo,
           dto.shareholderCode ?? null,
@@ -288,6 +288,7 @@ export class ShareholderContributionsService {
           amtOrig, rate, amtBase, 'CNY',
           0, 0,
           amtOrig, amtBase,
+          dto.contributionDate ?? null,
           dto.expectedReturnDate ?? null,
           dto.interestRate ?? null,
           'DRAFT',
@@ -334,6 +335,7 @@ export class ShareholderContributionsService {
       if (dto.contributionType !== undefined) set('contribution_type',   dto.contributionType);
       if (dto.fundNature       !== undefined) set('fund_nature',         dto.fundNature);
       if (dto.currencyCode     !== undefined) set('currency_code',       dto.currencyCode);
+      if (dto.contributionDate !== undefined) set('contribution_date', dto.contributionDate);
       if (dto.expectedReturnDate !== undefined) set('expected_return_date', dto.expectedReturnDate);
       if (dto.interestRate     !== undefined) set('interest_rate',       dto.interestRate);
       if (dto.cashAccountId    !== undefined) set('cash_account_id',     dto.cashAccountId);

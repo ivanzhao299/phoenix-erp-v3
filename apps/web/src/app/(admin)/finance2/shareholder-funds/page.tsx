@@ -47,6 +47,7 @@ interface Contribution {
   amountOriginal: string | number;
   settledAmountOriginal: string | number;
   balanceAmountOriginal: string | number;
+  contributionDate: string | null;
   expectedReturnDate: string | null;
   status: string;
   createdBy?: string | null;
@@ -198,6 +199,7 @@ function CreateContributionModal({
     contributionType: editing?.contributionType ?? 'LOAN',
     currencyCode: editing?.currencyCode ?? 'CNY',
     amountOriginal: editing ? String(editing.amountOriginal) : '',
+    contributionDate: editing?.contributionDate ?? '',
     expectedReturnDate: editing?.expectedReturnDate ?? '',
     remark: editing?.remark ?? '',
     voucherUrl: '' as string
@@ -221,6 +223,10 @@ function CreateContributionModal({
       setErr('请填写金额');
       return;
     }
+    if (!form.contributionDate) {
+      setErr('请选择股东出资时间');
+      return;
+    }
     setSaving(true);
     setErr('');
     try {
@@ -235,6 +241,7 @@ function CreateContributionModal({
           contributionType: form.contributionType,
           currencyCode: form.currencyCode.trim().toUpperCase(),
           amountOriginal: Number(form.amountOriginal),
+          contributionDate: form.contributionDate || undefined,
           expectedReturnDate: form.expectedReturnDate || undefined,
           remark: form.remark.trim() || undefined,
           voucherUrl: form.voucherUrl || undefined
@@ -285,6 +292,10 @@ function CreateContributionModal({
           <div>
             <div style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
+          </div>
+          <div>
+            <div style={formLabel}>股东出资时间 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <input type="date" value={form.contributionDate} onChange={e => set('contributionDate', e.target.value)} className={inpClass} />
           </div>
           <div>
             <div style={formLabel}>预计归还日期</div>
@@ -591,6 +602,7 @@ function ContributionDrawer({
           {[{ label: '资金类型', value: <TypeBadge type={contribution.contributionType} /> },
             { label: '状态', value: <LocalStatusBadge status={contribution.status} map={STATUS_CONFIG} /> },
             { label: '公司', value: contribution.companyName ?? contribution.companyCode },
+            { label: '股东出资时间', value: contribution.contributionDate ?? '—' },
             { label: '来源', value: contribution.sourceType },
           ].map(r => <div key={r.label} style={{ borderRadius: 8, padding: '8px 12px', background: 'var(--bg-muted)' }}>
               <div style={{ fontSize: 10, marginBottom: 2, color: 'var(--text-secondary)' }}>{r.label}</div>
@@ -1064,6 +1076,10 @@ export default function ShareholderFundsPage() {
                     <div>
                       <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>出资总额</div>
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</div>
+                    </div>
+                    <div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>股东出资时间</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{c.contributionDate ?? '—'}</div>
                     </div>
                     <div>
                       <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>未结余额</div>

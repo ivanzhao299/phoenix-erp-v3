@@ -93,6 +93,10 @@ export class FinShareholderContributionEntity {
   @Column({ name: 'balance_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
   balanceAmountBase: number;
 
+  // ── 出资日期 ─────────────────────────────────────────────────────────────
+  @Column({ name: 'contribution_date', type: 'date', nullable: true })
+  contributionDate: string | null;
+
   // ── 利息 ─────────────────────────────────────────────────────────────────
   @Column({ name: 'expected_return_date', type: 'date', nullable: true })
   expectedReturnDate: string | null;
