@@ -29,7 +29,9 @@ Last updated: 2026-06-24
    - Completed as read-only runtime-static verification; follow-up compatibility fix changes upload response `url` to protected `fileId` while keeping `rawUrl: null` and `LEGACY_PENDING`. Remaining authenticated write probe requires separate approval after deploy.
 14. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
 15. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
-   - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
+   - Remote Store Payment runtime shell is verified.
+   - Latest refresh shows `store_payment_accounts=3`, all disabled/inactive, `store_payment_records=0`, and Store Payment `file_metadata=0`.
+   - Business UAT remains HOLD until authenticated smoke, QR metadata fixture, or finance-confirmed account activation is separately approved.
 16. `APPROVE_AUTH_COOKIE_CREDENTIAL_SMOKE`.
    - P1-006 fixed local `/store-payment` route guarding and confirmed production JWT fallback is off; cookie flags still require a credentialed login smoke after deployment.
 17. `APPROVE_ROLLBACK_RESTORE_VALIDATION_FIX_GATE`.
