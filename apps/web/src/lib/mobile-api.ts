@@ -532,6 +532,12 @@ export interface WorkflowTaskPage {
   pageSize: number;
 }
 
+export interface ApprovalReassignCandidate {
+  userId:       string;
+  displayName:  string;
+  roleNameZh:   string | null;
+}
+
 type ApprovalHistoryResponse = WorkflowTaskPage | {
   list?: Array<Record<string, unknown>>;
   data?: Array<Record<string, unknown>>;
@@ -687,6 +693,14 @@ export const approvalApi = {
   /** 审批拒绝（comment 必填） */
   rejectInstance: (instanceId: string, comment: string): Promise<unknown> =>
     wfPost(`/api/approval/instances/${instanceId}/reject`, { comment }),
+
+  /** 转交候选人（后端按角色权限与 DataScope 过滤） */
+  getReassignCandidates: (instanceId: string): Promise<ApprovalReassignCandidate[]> =>
+    wfGet<ApprovalReassignCandidate[]>(`/api/approval/instances/${instanceId}/reassign-candidates`),
+
+  /** 转交审批（后端再次校验候选人权限与 DataScope） */
+  reassignInstance: (instanceId: string, toUserId: string): Promise<unknown> =>
+    wfPost(`/api/approval/instances/${instanceId}/reassign`, { toUserId }),
 
   /** 待办数量（用于首页角标） */
   getTaskCount: async (): Promise<number> => {
