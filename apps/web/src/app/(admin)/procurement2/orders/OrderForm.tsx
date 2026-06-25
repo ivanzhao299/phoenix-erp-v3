@@ -82,7 +82,7 @@ const emptyItem = (): OrderItem => ({
   amount: ""
 });
 // G95-D：与采购申请一致——默认多空行、记住上次公司/项目/供应商
-const blankRows = (n = 5): OrderItem[] => Array.from({ length: n }, emptyItem);
+const blankRows = (n = 3): OrderItem[] => Array.from({ length: n }, emptyItem);
 const LAST_SCOPE_KEY = "prc_order_last_scope";
 const readLastScope = (): { companyCode?: string; companyName?: string; projectCode?: string; projectName?: string; supplierCode?: string; supplierName?: string } => {
   try { return JSON.parse(localStorage.getItem(LAST_SCOPE_KEY) || "{}"); } catch { return {}; }
@@ -363,7 +363,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       const existingFilled = prev.filter(row => row.itemName.trim());
       const blanks = prev.filter(row => !row.itemName.trim());
       const merged = [...existingFilled, ...rows].map(row => ({ ...emptyItem(), ...row }));
-      const minRows = Math.max(5, merged.length + Math.max(0, blanks.length - rows.length));
+      const minRows = Math.max(3, merged.length + Math.max(0, blanks.length - rows.length));
       while (merged.length < minRows) merged.push(emptyItem());
       return merged;
     });
@@ -372,7 +372,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
   if (loading) return <div className={u.emptyCenter}>加载中…</div>;
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: 96 }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: 88 }}>
       <div className={s.formSection}>基础信息</div>
       <div className={s.fieldRow}>
         <div className={s.field} style={{
@@ -398,7 +398,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       </div>
 
       <div className={s.formSection} style={{
-        marginTop: 14
+        marginTop: 12
       }}>供应商 &amp; 采购属性</div>
       {/* G166：紧凑化——供应商&采购属性改满 2 列 */}
       <div className={s.fieldRow}>
@@ -433,7 +433,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       </div>
 
       <div className={s.formSection} style={{
-        marginTop: 14
+        marginTop: 12
       }}>物流信息（可选）</div>
       <div className={s.field}>
         <label style={{
@@ -459,9 +459,9 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       </div>}
 
       <div className={s.formSection} style={{
-        marginTop: 14
+        marginTop: 12
       }}>合同信息（可选）</div>
-      <div className={s.fieldRow}>
+      <div className={s.fieldRow} style={{ alignItems: "start" }}>
         <div className={s.field}>
           <label className={s.lbl}>合同号</label>
           <input className={s.inp} value={fContractNo} onChange={e => setFContractNo(e.target.value)} placeholder="CT2-..." />
@@ -476,7 +476,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
             fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote", "lineItems"]}
             onApply={applyContractAutofill}
             title="识别合同信息"
-            helperText="上传后需手动点击识别；识别结果先进入审核区，人工勾选确认后才回填到本页已有字段和采购明细行。供应商和金额只作为参考，不自动覆盖主数据与明细金额。"
+            helperText="先审核再回填到本页已有字段和采购明细；不新增文本框。"
             reviewTitle="合同识别结果（请人工审核）"
             applyButtonLabel="确认选中结果并回填到采购单"
           />
@@ -486,11 +486,11 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       <div className={s.fieldRow}>
         <div className={s.field}>
           <label className={s.lbl}>合同摘要</label>
-          <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
+          <textarea className={s.textarea} rows={1} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
         </div>
         <div className={s.field}>
           <label className={s.lbl}>备注</label>
-          <textarea className={s.textarea} rows={2} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
+          <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
         </div>
       </div>
 
@@ -499,8 +499,8 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginTop: 14,
-        marginBottom: 8
+        marginTop: 12,
+        marginBottom: 6
       }}>
         <span className={s.formSection} style={{
           margin: 0
@@ -519,8 +519,8 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        marginBottom: 8,
-        padding: "8px 10px",
+        marginBottom: 6,
+        padding: "6px 10px",
         border: "1px solid var(--border)",
         borderRadius: 6,
         background: "var(--bg-muted)",
@@ -528,7 +528,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         fontSize: 12
       }}>
         <Search size={13} />
-        <span>物料名称列支持快速查询主数据；未找到时可在下拉中直接新建物料，保存后会自动带回规格、单位并回填当前明细行。</span>
+        <span>物料名称支持快速搜索；未找到可直接新建，并自动带回规格、单位。</span>
       </div>
       {/* G136：单位建议项（含工程/服务类单位）——datalist 仅建议、仍可自由输入 */}
       <datalist id="po-unit-options">
