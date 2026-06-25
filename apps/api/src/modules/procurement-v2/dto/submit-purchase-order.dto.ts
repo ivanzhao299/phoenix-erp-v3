@@ -4,4 +4,8 @@ export class SubmitPurchaseOrderDto {
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @IsOptional()
+  @IsString()
+  approverUserId?: string;
 }

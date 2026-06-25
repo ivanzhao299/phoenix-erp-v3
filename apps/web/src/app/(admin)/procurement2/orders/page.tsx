@@ -85,6 +85,11 @@ interface PageResult {
   page: number;
   pageSize: number;
 }
+interface ApprovalCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh?: string | null;
+}
 interface ApprovedPR {
   id: string;
   reqNo: string;
@@ -245,6 +250,12 @@ export default function PurchaseOrdersPage() {
   const [actionTarget, setActionTarget] = useState<PurchaseOrder | null>(null);
   const [actionComment, setActionComment] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitTarget, setSubmitTarget] = useState<PurchaseOrder | null>(null);
+  const [submitComment, setSubmitComment] = useState("");
+  const [submitCandidates, setSubmitCandidates] = useState<ApprovalCandidate[]>([]);
+  const [submitApproverId, setSubmitApproverId] = useState("");
+  const [submitCandidateLoading, setSubmitCandidateLoading] = useState(false);
 
   // PR 转 PO 弹窗
   const [convertOpen, setConvertOpen] = useState(false);
@@ -311,13 +322,39 @@ export default function PurchaseOrdersPage() {
       setDetailLoading(false);
     }
   }
-  async function handleSubmit(row: PurchaseOrder) {
+  async function openSubmit(row: PurchaseOrder) {
+    setSubmitTarget(row);
+    setSubmitComment("");
+    setSubmitApproverId("");
+    setSubmitCandidates([]);
+    setSubmitOpen(true);
+    setSubmitCandidateLoading(true);
     try {
-      const res = await fetch(`${API_ORDERS}/${row.id}/submit`, {
+      const qs = new URLSearchParams({ menuCode: "MENU_PRC2_ORDER", requiredPerm: "E" });
+      if (row.companyCode) qs.set("companyCode", row.companyCode);
+      if (row.projectCode) qs.set("projectCode", row.projectCode);
+      const res = await fetch(`/api/approval/eligible-approvers?${qs}`, { headers: hdr });
+      const json = res.ok ? await res.json().catch(() => []) : [];
+      const list = Array.isArray(json) ? json : [];
+      setSubmitCandidates(list);
+      if (list[0]?.userId) setSubmitApproverId(list[0].userId);
+    } catch {
+      setSubmitCandidates([]);
+    } finally {
+      setSubmitCandidateLoading(false);
+    }
+  }
+
+  async function handleSubmit(approverUserId?: string) {
+    if (!submitTarget) return;
+    try {
+      setActionSubmitting(true);
+      const res = await fetch(`${API_ORDERS}/${submitTarget.id}/submit`, {
         method: "POST",
         headers: hdr,
         body: JSON.stringify({
-          comment: ""
+          comment: submitComment,
+          approverUserId: approverUserId || undefined
         })
       });
       if (!res.ok) {
@@ -325,9 +362,12 @@ export default function PurchaseOrdersPage() {
         throw new Error(e.message ?? "提交失败");
       }
       toast.success("已提交审批");
+      setSubmitOpen(false);
       load(page);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "提交失败");
+    } finally {
+      setActionSubmitting(false);
     }
   }
   function openCancel(row: PurchaseOrder) {
@@ -552,7 +592,7 @@ export default function PurchaseOrdersPage() {
                       <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                       {row.status === "DRAFT" && <>
                           <Link href={`/procurement2/orders/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>编辑</Link>
-                          <button style={actBtnTone("success")} onClick={() => handleSubmit(row)}>提交审批</button>
+                          <button style={actBtnTone("success")} onClick={() => openSubmit(row)}>提交审批</button>
                         </>}
                       {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
                         <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>
@@ -889,6 +929,51 @@ export default function PurchaseOrdersPage() {
       </SimpleModal>
 
       {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
+
+      <SimpleModal open={submitOpen} onClose={() => setSubmitOpen(false)} title="提交采购订单 · 选择下一审批人">
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 12 }}>
+          <div>订单：<strong style={{ color: "var(--text-primary)" }}>{submitTarget?.poNo ?? submitTarget?.subject}</strong></div>
+          <div>候选人已按采购订单权限、公司/项目数据域过滤。选择后会指定给该审批人；也可按审批规则提交。</div>
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>下一审批人</label>
+          {submitCandidateLoading ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>正在加载可审批人员…</div>
+            : submitCandidates.length === 0 ? <div style={{ padding: 18, textAlign: "center", color: "var(--status-warning)", fontSize: 13, lineHeight: 1.7 }}>未找到可指定审批人，可按审批规则提交；若规则也未配置，后端会阻止提交。</div>
+            : <div style={{ display: "grid", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                {submitCandidates.map(candidate => (
+                  <button key={candidate.userId} type="button" onClick={() => setSubmitApproverId(candidate.userId)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      border: `1px solid ${submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)"}`,
+                      background: submitApproverId === candidate.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "var(--bg-card)",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      textAlign: "left"
+                    }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 8, background: submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)", flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700 }}>{candidate.displayName}</span>
+                    {candidate.roleNameZh && <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-secondary)" }}>{candidate.roleNameZh}</span>}
+                  </button>
+                ))}
+              </div>}
+        </div>
+        <div className={s.field} style={{ marginTop: 12 }}>
+          <label className={s.lbl}>提交说明</label>
+          <textarea className={s.textarea} rows={3} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder="可填写合同、交付、付款或跨境采购注意事项" />
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
+          <button type="button" className={s.btnSecondary} onClick={() => setSubmitOpen(false)}>取消</button>
+          <button type="button" className={s.btnSecondary} disabled={actionSubmitting} onClick={() => handleSubmit(undefined)}>按审批规则提交</button>
+          <button type="button" className={s.btnPrimary} disabled={actionSubmitting || !submitApproverId} onClick={() => handleSubmit(submitApproverId)}>
+            {actionSubmitting ? "提交中…" : "提交给所选审批人"}
+          </button>
+        </div>
+      </SimpleModal>
 
       {/* ── 取消对话框 ─────────────────────────────────────────────────────── */}
       <SimpleModal open={cancelOpen} onClose={() => setCancelOpen(false)} title="取消采购订单">

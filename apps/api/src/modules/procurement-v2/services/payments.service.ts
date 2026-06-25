@@ -16,6 +16,7 @@ import { Prc2ShareholderFundEntity }    from '../entities/prc2-shareholder-fund.
 import { CreatePaymentDto }            from '../dto/create-payment.dto';
 import { UpdatePaymentDto }            from '../dto/update-payment.dto';
 import { QueryPaymentDto }             from '../dto/query-payment.dto';
+import { SubmitPaymentDto }            from '../dto/submit-payment.dto';
 import { QueryShareholderFundsDto }    from '../dto/query-shareholder-funds.dto';
 import { getMaskLevel, applyMask, applyMaskList, MaskFieldDef } from '../../../common/utils/mask.util';
 import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
@@ -286,7 +287,7 @@ export class PaymentsService {
 
   // ── 提交审批 ──────────────────────────────────────────────────────────────
 
-  async submit(id: string, dto: { comment?: string }) {
+  async submit(id: string, dto: SubmitPaymentDto) {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
@@ -309,6 +310,7 @@ export class PaymentsService {
         companyName:  pay.companyName,
         projectCode:  pay.projectCode,
         subject:      pay.remark ?? pay.payNo,
+        pickedApproverId: dto.approverUserId,
       }, mgr);
       // ─────────────────────────────────────────────────────────────
 

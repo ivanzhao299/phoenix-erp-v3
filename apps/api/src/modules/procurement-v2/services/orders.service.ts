@@ -565,6 +565,7 @@ export class OrdersService {
         companyName:  po.companyName,
         projectCode:  po.projectCode,
         subject:      po.subject,
+        pickedApproverId: dto.approverUserId,
       }, mgr);
       // ─────────────────────────────────────────────────────────────
 
