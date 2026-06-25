@@ -98,7 +98,7 @@ export default function RoleDetailPage() {
   const router = useRouter();
   const toast = useToast();
   const { t } = useLanguage();
-  const { canEdit } = usePermission("MENU_SETTINGS_IT");
+  const { canEdit } = usePermission("MENU_SETTINGS_ROLE");
 
   const roleCode = decodeURIComponent(String(params?.code || ""));
 

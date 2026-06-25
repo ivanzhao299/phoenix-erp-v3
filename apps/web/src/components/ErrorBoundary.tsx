@@ -24,26 +24,22 @@ export class ErrorBoundary extends React.Component<
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', height: '100vh', gap: 16,
-        fontFamily: 'sans-serif', color: 'var(--gray-700)', background: 'var(--gray-50)',
-      }}>
-        <div style={{ fontSize: 48 }}>⚠️</div>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>页面出现了意外错误</h2>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--gray-500)' }}>
-          请刷新页面重试，或联系系统管理员
-        </p>
-        <button
-type="button"           onClick={() => window.location.reload()}
-          style={{
-            padding: '10px 24px', borderRadius: 8, border: 'none',
-            background: 'var(--status-warning)', color: 'var(--bg-card)', fontSize: 14,
-            fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          刷新页面
-        </button>
+      <div className="phx-error-shell">
+        <section className="phx-error-card" role="alert">
+          <p className="phx-error-kicker">运行异常</p>
+          <h2 className="phx-error-title">页面出现了意外错误</h2>
+          <p className="phx-error-desc">
+            请刷新页面重试；如果持续出现，请联系系统管理员。
+          </p>
+          <div className="phx-error-actions">
+            <button type="button" className="phx-btn" onClick={() => window.location.reload()}>
+              刷新页面
+            </button>
+            <button type="button" className="phx-btn phx-btn-secondary" onClick={() => { window.location.href = '/home'; }}>
+              返回首页
+            </button>
+          </div>
+        </section>
       </div>
     );
   }

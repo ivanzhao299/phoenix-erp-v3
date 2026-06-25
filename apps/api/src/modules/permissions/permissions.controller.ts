@@ -16,7 +16,7 @@ export class PermissionsController {
    * 返回按 domain 分组的菜单列表（前端 roles 页面动态加载，不再硬编码 PERM_GROUPS）
    */
   @Get('menus')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getMenus() {
     const data = await this.svc.getMenusGrouped();
     return { code: 200, data };
@@ -27,7 +27,7 @@ export class PermissionsController {
    * 返回岗位分离冲突规则（RACI 红线）
    */
   @Get('conflicts')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getConflicts() {
     const data = await this.svc.getConflicts();
     return { code: 200, data };
@@ -39,7 +39,7 @@ export class PermissionsController {
    * body: { menu_codes: string[] }
    */
   @Post('check-conflicts')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async checkConflicts(@Body() body: { menu_codes: string[] }) {
     if (!body || !Array.isArray(body.menu_codes)) {
       throw new BadRequestException('menu_codes 必须是字符串数组');
@@ -53,7 +53,7 @@ export class PermissionsController {
    * 全景矩阵：N 角色 × M 菜单，含 perm_codes（CRUD 三元组）
    */
   @Get('matrix')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getMatrix() {
     const data = await this.svc.getMatrix();
     return { code: 200, data };
@@ -64,7 +64,7 @@ export class PermissionsController {
    * 顶部统计：角色数 / 菜单数 / 敏感数 / 冲突规则数 / 每角色用户数
    */
   @Get('stats')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getStats() {
     const data = await this.svc.getStats();
     return { code: 200, data };
@@ -75,7 +75,7 @@ export class PermissionsController {
    * 调试/预览：查询某用户在三路源合并后的最终权限（用于排错）
    */
   @Get('effective-perms/:userId')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getEffective(@Param('userId') userId: string) {
     const uid = Number(userId);
     if (!uid) throw new BadRequestException('userId 必须是数字');
@@ -87,7 +87,7 @@ export class PermissionsController {
    * 该角色下的用户列表（删除角色前预警用）
    */
   @Get('role/:code/users')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getRoleUsers(@Param('code') code: string) {
     const data = await this.svc.getRoleUsers(code);
     return { code: 200, data };
@@ -98,7 +98,7 @@ export class PermissionsController {
    * 该角色的菜单×CRUD 三元组列表（编辑表单展示用）
    */
   @Get('role/:code/perms')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async getRolePerms(@Param('code') code: string) {
     const data = await this.svc.getRolePermissions(code);
     return { code: 200, data };
@@ -110,7 +110,7 @@ export class PermissionsController {
    * body: { perms: [{menu_code, perm_codes}, ...] }
    */
   @Put('role/:code/perms')
-  @RequireMenu('MENU_SETTINGS_IT', 'E')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'E', ['MENU_SETTINGS_IT'])
   async setRolePerms(@Param('code') code: string, @Body() body: { perms: RoleMenuPermDto[] }) {
     if (!body || !Array.isArray(body.perms)) {
       throw new BadRequestException('body.perms 必须是数组');
@@ -128,7 +128,7 @@ export class PermissionsController {
    * 反查：有该菜单该操作权限的角色（直绑/权限集）+ 在岗用户。
    */
   @Get('who-can')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async whoCan(@Query('menu') menu: string, @Query('perm') perm: string) {
     if (!menu) throw new BadRequestException('menu 必填');
     return { code: 200, data: await this.svc.whoCan(menu, perm || 'V') };
@@ -139,7 +139,7 @@ export class PermissionsController {
    * 角色组合 SoD 校验（授权前拦截）。body: { role_codes: string[] }
    */
   @Post('check-role-combo')
-  @RequireMenu('MENU_SETTINGS_IT', 'V')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V', ['MENU_SETTINGS_IT'])
   async checkRoleCombo(@Body() body: { role_codes: string[] }) {
     if (!body || !Array.isArray(body.role_codes)) throw new BadRequestException('role_codes 必须是数组');
     return { code: 200, data: await this.svc.checkRoleComboConflicts(body.role_codes) };
@@ -151,7 +151,7 @@ export class PermissionsController {
    * body: { status: 'ACTIVE' | 'DEPRECATED' }
    */
   @Patch('role/:code/status')
-  @RequireMenu('MENU_SETTINGS_IT', 'E')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'E', ['MENU_SETTINGS_IT'])
   async setRoleStatus(@Param('code') code: string, @Body() body: { status: string }) {
     try {
       const data = await this.svc.setRoleStatus(code, body?.status);

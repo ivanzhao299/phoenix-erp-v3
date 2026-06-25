@@ -44,9 +44,8 @@ interface BaseProps {
 }
 
 const selStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 7,
-  border: '1px solid var(--border)', background: 'var(--bg-card)',
-  color: 'var(--text-primary)', fontSize: 13, outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
 };
 
 /** 通用：从端点加载 {value,label} 选项的下拉 */
@@ -68,8 +67,10 @@ function ScopedSelect({
     return () => { alive = false; };
   }, [reloadKey]); // eslint-disable-line
 
+  const mergedClassName = ['phx-select', className].filter(Boolean).join(' ');
+
   return (
-    <select className={className} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
+    <select className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
       <option value="">{loading ? '加载中…' : placeholder}</option>
       {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

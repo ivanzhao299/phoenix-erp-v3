@@ -52,6 +52,36 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/permissions\/permissions\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Role permission APIs must use MENU_SETTINGS_ROLE with MENU_SETTINGS_IT only as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/(?:permissions|permission-sets)\/permission-sets\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Permission-set APIs must use MENU_SETTINGS_PERMISSION_SET with MENU_SETTINGS_IT only as altMenus fallback.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /path:\s*["']\/settings\/roles["']/.test(line) &&
+      /perm:\s*["']MENU_SETTINGS_IT["']/.test(line)
+    ) {
+      add(file, lineNo, 'Settings roles menu must be gated by MENU_SETTINGS_ROLE, not coarse MENU_SETTINGS_IT.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /path:\s*["']\/settings\/permission-sets["']/.test(line) &&
+      /perm:\s*["']MENU_SETTINGS_IT["']/.test(line)
+    ) {
+      add(file, lineNo, 'Settings permission-sets menu must be gated by MENU_SETTINGS_PERMISSION_SET, not coarse MENU_SETTINGS_IT.', line);
+    }
+
+    if (
       file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
       /href="\/terminal\/packaging\/dashboard"/.test(line)
     ) {

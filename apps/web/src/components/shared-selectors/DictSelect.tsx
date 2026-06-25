@@ -29,20 +29,12 @@ export function DictSelect({
   className, style,
 }: DictSelectProps) {
   const { optionPairs, loading } = useDictOptions(dictType);
-
-  const baseStyle: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box',
-    padding: '8px 12px', borderRadius: 7,
-    border: '1px solid var(--border)', background: 'var(--bg-card)',
-    color: 'var(--text-primary)', fontSize: 13, outline: 'none',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    ...style,
-  };
+  const mergedClassName = ['phx-select', className].filter(Boolean).join(' ');
 
   return (
     <select
-      className={className}
-      style={baseStyle}
+      className={mergedClassName}
+      style={style}
       value={value}
       disabled={disabled || loading}
       onChange={(e) => onChange(e.target.value)}
