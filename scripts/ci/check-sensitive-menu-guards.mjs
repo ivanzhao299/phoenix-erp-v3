@@ -29,6 +29,13 @@ const sensitivePathOrText = [
 const documentedLoginOnly = new Set([
   'apps/api/src/auth/auth.controller.ts',
   'apps/api/src/health.controller.ts',
+  // Dynamic CRUD uses table-level PBAC inside the controller/service layer.
+  'apps/api/src/modules/generic-crud/generic-crud.controller.ts',
+  // Runtime master data is protected by MasterDataTypeGuard and per-type checks.
+  'apps/api/src/modules/master-data/master-data-runtime.controller.ts',
+  // SSE cannot carry Authorization headers in EventSource; this endpoint verifies
+  // a query token manually and is intentionally not MenuGuard-based.
+  'apps/api/src/modules/notification/notification-stream.controller.ts',
   'apps/api/src/modules/product-master/controllers/lookup.controller.ts',
   'apps/api/src/modules/procurement-v2/procurement-v2.controller.ts',
 ]);

@@ -72,7 +72,10 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
     if (req.user) this.cls.set('user', req.user);
 
     // 3. 无 @RequireMenu → 仅需登录
-    const requirement = this.reflector.get<MenuRequirement>(REQUIRE_MENU_KEY, context.getHandler());
+    const requirement = this.reflector.getAllAndOverride<MenuRequirement>(REQUIRE_MENU_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!requirement) return true;
 
     const user = req.user;
