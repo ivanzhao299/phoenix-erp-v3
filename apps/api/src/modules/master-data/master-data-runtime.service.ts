@@ -339,6 +339,19 @@ export class MasterDataRuntimeService {
     return c;
   }
 
+  private async nextCode(c: MdTypeConfig): Promise<string> {
+    if (!c.prefix) return '';
+    try {
+      return await this.codeGen.next(c.prefix);
+    } catch (e: any) {
+      const msg = String(e?.message ?? e ?? '');
+      if (msg.includes('编码前缀未注册')) {
+        throw new BadRequestException(`${msg}；请先执行主数据编码前缀初始化`);
+      }
+      throw e;
+    }
+  }
+
   /** 校验某字典类型下是否存在该值（容错：查询异常一律放行，不阻断业务） */
   private async isDictValue(dictType: string, val: string): Promise<boolean> {
     try {
@@ -502,7 +515,7 @@ export class MasterDataRuntimeService {
    */
   async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
+    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
 
     // 自动审批校验（新建校验全字段）
@@ -527,7 +540,7 @@ export class MasterDataRuntimeService {
    */
   async createQuick(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; name: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
+    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
     const name = String(dto[c.nameCol] ?? '').trim();
     if (!name) throw new BadRequestException('名称不能为空');

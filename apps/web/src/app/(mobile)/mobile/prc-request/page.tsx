@@ -63,6 +63,11 @@ interface V2PrRecord {
   total_amount?: number;
   totalAmount?: number;
 }
+interface ApprovalCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh?: string | null;
+}
 type Tab = 'form' | 'records';
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: 'var(--gray-500)',
@@ -411,6 +416,11 @@ export default function PrcRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  const [submitPickerOpen, setSubmitPickerOpen] = useState(false);
+  const [submitCandidates, setSubmitCandidates] = useState<ApprovalCandidate[]>([]);
+  const [submitApproverId, setSubmitApproverId] = useState('');
+  const [submitComment, setSubmitComment] = useState('');
+  const [submitCandidateLoading, setSubmitCandidateLoading] = useState(false);
 
   // 申请记录
   const [records, setRecords] = useState<V2PrRecord[]>([]);
@@ -505,7 +515,46 @@ export default function PrcRequestPage() {
 
   // ── 提交审批 ──────────────────────────────────────────────────────────────
 
-  const handleSubmit = useCallback(async () => {
+  const loadSubmitCandidates = useCallback(async () => {
+    setSubmitCandidateLoading(true);
+    setSubmitCandidates([]);
+    setSubmitApproverId('');
+    try {
+      const qs = new URLSearchParams({
+        menuCode: 'MENU_PRC2_ORDER',
+        requiredPerm: 'E'
+      });
+      if (companyCode.trim()) qs.set('companyCode', companyCode.trim());
+      if (projectCode.trim()) qs.set('projectCode', projectCode.trim());
+      const res = await fetch(`/api/approval/eligible-approvers?${qs}`, {
+        headers: authHeader()
+      });
+      const json = res.ok ? await res.json().catch(() => []) : [];
+      const list = Array.isArray(json) ? json : [];
+      setSubmitCandidates(list);
+      if (list[0]?.userId) setSubmitApproverId(list[0].userId);
+    } catch {
+      setSubmitCandidates([]);
+    } finally {
+      setSubmitCandidateLoading(false);
+    }
+  }, [companyCode, projectCode]);
+
+  const openSubmitPicker = useCallback(async () => {
+    const err = validate();
+    if (err) {
+      setFormError(err);
+      return;
+    }
+    setFormError('');
+    setFormSuccess('');
+    setSubmitComment('');
+    setSubmitPickerOpen(true);
+    await loadSubmitCandidates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items, loadSubmitCandidates]);
+
+  const handleSubmit = useCallback(async (approverUserId?: string) => {
     const err = validate();
     if (err) {
       setFormError(err);
@@ -532,7 +581,10 @@ export default function PrcRequestPage() {
       const submitRes = await fetch(`/api/v2/procurement/requests/${prId}/submit`, {
         method: 'POST',
         headers: authHeader(),
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          approverUserId: approverUserId || undefined,
+          comment: submitComment.trim() || undefined
+        })
       });
       const submitJson = await submitRes.json().catch(() => ({}));
       if (!submitRes.ok) {
@@ -540,6 +592,7 @@ export default function PrcRequestPage() {
         return;
       }
       setFormSuccess(`申请已提交审批！单号：${createJson.prNo ?? createJson.req_no ?? prId}`);
+      setSubmitPickerOpen(false);
       resetForm();
       setTimeout(() => router.push('/mobile/workflow'), 1200);
     } catch {
@@ -548,7 +601,7 @@ export default function PrcRequestPage() {
       setSubmitting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items]);
+  }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items, submitComment, router]);
   function resetForm() {
     setSubject('');
     setProjectCode('');
@@ -1142,7 +1195,7 @@ export default function PrcRequestPage() {
         }} /> : <Save size={16} />}
             {saving ? '保存中…' : '保存草稿'}
           </button>
-          <button onClick={handleSubmit} disabled={saving || submitting} style={{
+          <button onClick={() => { void openSubmitPicker(); }} disabled={saving || submitting} style={{
         flex: 2,
         padding: '13px 0',
         borderRadius: 12,
@@ -1163,5 +1216,110 @@ export default function PrcRequestPage() {
             {submitting ? '提交中…' : '提交审批'}
           </button>
         </div>}
+
+      {submitPickerOpen && !readonly && <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(0,0,0,0.48)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: 520,
+          maxHeight: '86svh',
+          overflowY: 'auto',
+          background: t.cardBg,
+          color: t.text,
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
+          border: `1px solid ${t.cardBorder}`,
+          boxShadow: '0 -20px 60px rgba(0,0,0,0.35)',
+          padding: '16px 16px calc(16px + env(safe-area-inset-bottom))'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>提交审批</div>
+              <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>选择下一审批人，候选已按采购权限与数据域过滤</div>
+            </div>
+            <button onClick={() => setSubmitPickerOpen(false)} disabled={submitting} style={{
+              border: 'none',
+              background: 'transparent',
+              color: t.textSub,
+              fontSize: 24,
+              lineHeight: 1,
+              cursor: 'pointer'
+            }}>×</button>
+          </div>
+
+          <div style={{ padding: 12, borderRadius: 12, background: t.inputBg, border: `1px solid ${t.inputBorder}`, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>申请主题</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{subject.trim() || '采购申请'}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginTop: 6 }}>{companyName || companyCode || '未选择公司'}{projectName ? ` · ${projectName}` : ''}</div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={labelSt}>下一审批人</label>
+            {submitCandidateLoading ? <div style={{ padding: 18, textAlign: 'center', color: t.textSub, fontSize: 13 }}>正在加载可审批人员…</div>
+              : submitCandidates.length === 0 ? <div style={{ padding: 14, borderRadius: 12, background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', color: 'var(--status-warning)', fontSize: 13, lineHeight: 1.6 }}>
+                  暂未找到可指定审批人。可按审批规则提交；若流程规则未配置，后端会阻止提交并提示原因。
+                </div>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {submitCandidates.map(candidate => (
+                    <button key={candidate.userId} type="button" onClick={() => setSubmitApproverId(candidate.userId)} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      border: `1px solid ${submitApproverId === candidate.userId ? 'var(--status-success)' : t.inputBorder}`,
+                      background: submitApproverId === candidate.userId ? 'color-mix(in srgb, var(--status-success) 12%, transparent)' : t.inputBg,
+                      color: t.text,
+                      textAlign: 'left',
+                      cursor: 'pointer'
+                    }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 9, background: submitApproverId === candidate.userId ? 'var(--status-success)' : t.inputBorder, flexShrink: 0 }} />
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>{candidate.displayName}</span>
+                      {candidate.roleNameZh && <span style={{ marginLeft: 'auto', fontSize: 12, color: t.textSub }}>{candidate.roleNameZh}</span>}
+                    </button>
+                  ))}
+                </div>}
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelSt}>提交说明</label>
+            <textarea style={{ ...inputSt, minHeight: 78, resize: 'vertical' }} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder="可填写采购背景、紧急原因或注意事项" />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setSubmitPickerOpen(false)} disabled={submitting} style={{
+              flex: 1,
+              padding: '13px 0',
+              borderRadius: 12,
+              border: `1.5px solid ${isDark ? 'var(--gray-700)' : 'var(--gray-300)'}`,
+              background: 'transparent',
+              color: t.text,
+              fontSize: 15,
+              fontWeight: 600
+            }}>取消</button>
+            <button onClick={() => { void handleSubmit(submitApproverId || undefined); }} disabled={submitting || (!submitApproverId && submitCandidates.length > 0)} style={{
+              flex: 2,
+              padding: '13px 0',
+              borderRadius: 12,
+              border: 'none',
+              background: submitting ? 'var(--slate-400)' : 'var(--status-success)',
+              color: 'var(--bg-card)',
+              fontSize: 15,
+              fontWeight: 800,
+              opacity: (!submitApproverId && submitCandidates.length > 0) ? 0.55 : 1
+            }}>
+              {submitting ? '提交中…' : submitApproverId ? '提交给所选审批人' : '按审批规则提交'}
+            </button>
+          </div>
+        </div>
+      </div>}
     </div>;
 }

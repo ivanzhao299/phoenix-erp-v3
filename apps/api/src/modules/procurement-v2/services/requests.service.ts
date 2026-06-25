@@ -342,6 +342,7 @@ export class RequestsService {
         companyName:  req.companyName,
         projectCode:  req.projectCode,
         subject:      req.subject,
+        pickedApproverId: dto.approverUserId,
       }, mgr);
       // ─────────────────────────────────────────────────────────────
 
