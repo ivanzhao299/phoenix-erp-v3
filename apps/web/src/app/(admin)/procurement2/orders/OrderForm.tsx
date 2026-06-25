@@ -423,8 +423,10 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
             purpose="PROCUREMENT_CONTRACT"
             fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote"]}
             onApply={applyContractAutofill}
-            title="识别合同并回填"
-            helperText="适用于采购合同/报价单/付款申请；供应商和金额先作为建议展示，主数据与明细金额不自动覆盖。"
+            title="识别合同信息"
+            helperText="上传后需手动点击识别；识别结果先进入审核区，人工勾选确认后才回填。供应商和金额只作为参考，不自动覆盖主数据与明细金额。"
+            reviewTitle="合同识别结果（请人工审核）"
+            applyButtonLabel="确认选中结果并回填合同字段"
           />
         </div>
       </div>

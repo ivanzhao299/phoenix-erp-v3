@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertCircle, CheckCircle, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle, ClipboardCheck, Sparkles } from 'lucide-react';
 import { parseAttachmentRefs } from '@/lib/attachments';
 
 export interface DocumentAutofillSuggestion {
@@ -20,6 +20,8 @@ export interface DocumentAutofillPanelProps {
   disabled?: boolean;
   title?: string;
   helperText?: string;
+  reviewTitle?: string;
+  applyButtonLabel?: string;
 }
 
 export function DocumentAutofillPanel({
@@ -29,16 +31,29 @@ export function DocumentAutofillPanel({
   onApply,
   disabled,
   title = '识别附件并回填',
-  helperText = '仅调用受控附件识别接口，不读取裸链接。',
+  helperText = '仅调用受控附件识别接口，不读取裸链接。识别结果需人工审核确认后才会回填。',
+  reviewTitle = '待人工审核的识别结果',
+  applyButtonLabel = '确认无误并回填选中字段',
 }: DocumentAutofillPanelProps) {
   const refs = parseAttachmentRefs(fileRefs);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<DocumentAutofillSuggestion[]>([]);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState('');
+  const [applied, setApplied] = useState(false);
 
   const canExtract = refs.length > 0 && !disabled;
+  const selectedSuggestions = useMemo(
+    () => suggestions.filter(s => selectedFields.has(s.field)),
+    [selectedFields, suggestions],
+  );
+
+  useEffect(() => {
+    setSelectedFields(new Set(suggestions.map(s => s.field)));
+    setApplied(false);
+  }, [suggestions]);
 
   async function extract() {
     if (!canExtract) {
@@ -49,6 +64,8 @@ export function DocumentAutofillPanel({
     setError('');
     setWarnings([]);
     setSuggestions([]);
+    setSelectedFields(new Set());
+    setApplied(false);
     try {
       const token = sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
       const res = await fetch('/api/document-intelligence/extract', {
@@ -69,6 +86,25 @@ export function DocumentAutofillPanel({
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleField(field: string) {
+    setSelectedFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  function applySelected() {
+    if (!selectedSuggestions.length) {
+      setError('请至少选择一项已人工确认的识别结果');
+      return;
+    }
+    setError('');
+    onApply(selectedSuggestions);
+    setApplied(true);
   }
 
   return (
@@ -106,6 +142,18 @@ export function DocumentAutofillPanel({
         </button>
       </div>
 
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 6,
+        marginTop: 8,
+        fontSize: 12,
+        color: 'var(--text-secondary)',
+      }}>
+        <ClipboardCheck size={13} style={{ marginTop: 1, flex: '0 0 auto' }} />
+        <span>流程：上传附件 → 点击识别 → 审核识别结果 → 勾选确认字段 → 回填到表单 → 人工复核后保存。</span>
+      </div>
+
       {status && (
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
           识别状态：{status === 'PARTIAL_METADATA_EXTRACTED' ? '已生成部分可回填建议' : '等待 OCR/AI 引擎'}
@@ -116,12 +164,14 @@ export function DocumentAutofillPanel({
 
       {suggestions.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>可回填建议</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+            {reviewTitle}
+          </div>
           <div style={{ display: 'grid', gap: 6 }}>
             {suggestions.map(s => (
               <div key={s.field} style={{
                 display: 'grid',
-                gridTemplateColumns: '90px 1fr auto',
+                gridTemplateColumns: 'auto minmax(76px, 110px) minmax(0, 1fr) auto',
                 gap: 8,
                 alignItems: 'center',
                 fontSize: 12,
@@ -130,27 +180,52 @@ export function DocumentAutofillPanel({
                 borderRadius: 'var(--radius-sm)',
                 background: 'var(--bg-card)',
               }}>
+                <input
+                  type="checkbox"
+                  checked={selectedFields.has(s.field)}
+                  onChange={() => toggleField(s.field)}
+                  aria-label={`选择回填 ${s.label ?? s.field}`}
+                />
                 <strong>{s.label ?? s.field}</strong>
-                <span style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</span>
+                <span
+                  title={s.value}
+                  style={{
+                    color: 'var(--text-secondary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s.value}
+                </span>
                 <span style={{ color: 'var(--text-tertiary)' }}>{Math.round((s.confidence ?? 0) * 100)}%</span>
               </div>
             ))}
           </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+            已选择 {selectedSuggestions.length}/{suggestions.length} 项。未勾选字段不会写入表单；供应商、金额等高风险字段可仅作为人工参考。
+          </div>
           <button
             type="button"
-            onClick={() => onApply(suggestions)}
+            onClick={applySelected}
+            disabled={!selectedSuggestions.length}
             style={{
               marginTop: 8,
               border: 'none',
               borderRadius: 'var(--radius-md)',
-              background: 'var(--color-primary)',
+              background: selectedSuggestions.length ? 'var(--color-primary)' : 'var(--bg-muted)',
               color: 'var(--text-on-dark)',
               padding: '7px 12px',
-              cursor: 'pointer',
+              cursor: selectedSuggestions.length ? 'pointer' : 'not-allowed',
             }}
           >
-            应用建议到表单
+            {applyButtonLabel}
           </button>
+          {applied && (
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--status-success)' }}>
+              已按人工勾选结果回填，请继续核对表单字段后再保存。
+            </div>
+          )}
         </div>
       )}
     </div>
