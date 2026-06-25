@@ -60,9 +60,15 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
           continue;
         }
         const json = ct.includes('application/json') ? await res.json() : {};
-        if (json?.fileId) added.push(String(json.fileId));
-        else if (json?.url) added.push(String(json.url));
-        else errs.push(`${file.name}：服务端未返回受控 fileId`);
+        if (json?.fileId) {
+          added.push(String(json.fileId));
+        } else if (json?.url && !isUnsafeAttachmentRef(String(json.url))) {
+          added.push(String(json.url));
+        } else if (json?.url) {
+          errs.push(`${file.name}：服务端返回裸链接，已按安全策略拒绝`);
+        } else {
+          errs.push(`${file.name}：服务端未返回受控 fileId`);
+        }
       }
       if (added.length) onChange([...value, ...added]);
       if (errs.length) setErr(errs.join('；'));

@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { Paperclip, X, Loader2, FileText, ImageIcon } from 'lucide-react';
+import { isProtectedFileRef, isUnsafeAttachmentRef } from '@/lib/attachments';
 
 interface FileUploadInputProps {
   value?: string;
@@ -21,15 +22,6 @@ function getApiBase() {
     return process.env.NEXT_PUBLIC_API_BASE;
   }
   return '';
-}
-
-function isUnsafeAttachmentRef(ref: string) {
-  const value = ref.trim().toLowerCase();
-  return value.startsWith('/uploads/') || value.startsWith('uploads/') || value.startsWith('http://') || value.startsWith('https://');
-}
-
-function isProtectedFileRef(ref: string) {
-  return /^FILE-[A-Za-z0-9._:-]+$/.test(ref.trim());
 }
 
 export function FileUploadInput({
@@ -58,8 +50,10 @@ export function FileUploadInput({
       const json = await res.json().catch(() => ({}));
       if (json.code === 200 && json.fileId) {
         onChange(String(json.fileId));
-      } else if (json.code === 200 && json.url) {
+      } else if (json.code === 200 && json.url && !isUnsafeAttachmentRef(String(json.url))) {
         onChange(String(json.url));
+      } else if (json.code === 200 && json.url) {
+        setError('上传失败：服务端返回裸链接，已按安全策略拒绝');
       } else {
         setError(json.message || '上传失败：服务端未返回受控 fileId');
       }
