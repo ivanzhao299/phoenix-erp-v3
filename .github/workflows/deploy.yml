@@ -465,8 +465,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           source: "apps/web/public/runtime-design-system.css"
           target: "/opt/phoenix/static-overrides/"
@@ -480,8 +480,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           script: |
             set -e
@@ -557,8 +557,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF
           script: |
