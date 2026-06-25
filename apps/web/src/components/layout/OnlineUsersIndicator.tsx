@@ -6,12 +6,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import request from "@/lib/api-client";
+import { usePermission } from "@/hooks/usePermission";
 
 export function OnlineUsersIndicator() {
   const router = useRouter();
+  const monitorPerm = usePermission("MENU_SYS_MONITOR");
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!monitorPerm.hasAccess) {
+      setCount(null);
+      return;
+    }
     let alive = true;
     const load = async () => {
       try {
@@ -24,7 +30,7 @@ export function OnlineUsersIndicator() {
     const onVis = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", onVis);
     return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  }, []);
+  }, [monitorPerm.hasAccess]);
 
   if (count === null) return null;
   return (

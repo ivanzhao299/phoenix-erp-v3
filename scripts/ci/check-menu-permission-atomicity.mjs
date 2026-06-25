@@ -82,6 +82,27 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/bff\/bff\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
+    ) {
+      add(file, lineNo, 'User management BFF APIs must use MENU_SETTINGS_USER with MENU_SETTINGS_IT only as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/notification\/notification-config\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Notification config APIs must use MENU_SETTINGS_NOTIFY with MENU_SYS_CONFIG only as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/master\/master\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Brand settings update must use MENU_SETTINGS_BRAND with MENU_SETTINGS_IT only as altMenus fallback.', line);
+    }
+
+    if (
       file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
       /href="\/terminal\/packaging\/dashboard"/.test(line)
     ) {
