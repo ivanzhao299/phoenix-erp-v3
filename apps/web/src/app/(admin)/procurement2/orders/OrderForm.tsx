@@ -297,6 +297,22 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         setFContractNote(prev => prev.trim() ? prev : suggestion.value);
         applied += 1;
       }
+      if (suggestion.field === "subject" && suggestion.value && !fSubject.trim()) {
+        setFSubject(suggestion.value);
+        applied += 1;
+      }
+      if (suggestion.field === "currencyCode" && suggestion.value) {
+        setFCurrencyCode(suggestion.value);
+        applied += 1;
+      }
+      if (suggestion.field === "expectedDate" && suggestion.value && !fExpDate) {
+        setFExpDate(suggestion.value);
+        applied += 1;
+      }
+      if (suggestion.field === "payDeadline" && suggestion.value && !fPayDeadline) {
+        setFPayDeadline(suggestion.value);
+        applied += 1;
+      }
     }
     toast.success(applied ? `已回填 ${applied} 项合同信息` : "当前建议未覆盖可回填字段");
   }
@@ -405,10 +421,10 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           <DocumentAutofillPanel
             fileRefs={fContractUrls}
             purpose="PROCUREMENT_CONTRACT"
-            fields={["contractNo", "contractNote"]}
+            fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote"]}
             onApply={applyContractAutofill}
             title="识别合同并回填"
-            helperText="适用于采购合同/报价单/付款申请，当前先做受控附件校验与元数据建议。"
+            helperText="适用于采购合同/报价单/付款申请；供应商和金额先作为建议展示，主数据与明细金额不自动覆盖。"
           />
         </div>
       </div>
