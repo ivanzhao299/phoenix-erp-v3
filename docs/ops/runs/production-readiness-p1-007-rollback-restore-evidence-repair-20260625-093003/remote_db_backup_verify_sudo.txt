@@ -1,0 +1,8 @@
+drwx------ 30 root root 4096 Jun 25 09:46 /opt/phoenix-erp-backups
+drwxr-x---  2 ops  ops  4096 Jun 25 09:47 /opt/phoenix-erp-backups/db
+total 7.8M
+-rw-r----- 1 ops ops 7.8M Jun 25 09:47 phoenix_erp_20260625-094749.sql.gz
+-rw-r----- 1 ops ops  106 Jun 25 09:47 phoenix_erp_20260625-094749.sql.gz.sha256
+latest=/opt/phoenix-erp-backups/db/phoenix_erp_20260625-094749.sql.gz
+b5bd271a44448713ac1424f8dfbcd29c39358c2021859956e437bc551d378c61  /opt/phoenix-erp-backups/db/phoenix_erp_20260625-094749.sql.gz
+backup_verify_sudo_exit=0

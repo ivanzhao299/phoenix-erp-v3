@@ -1,0 +1,83 @@
+--- identity ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+identity_exit=255
+--- safe_directory_configure ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+safe_directory_configure_exit=255
+--- checkout_ownership ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+checkout_ownership_exit=255
+--- git_status ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+git_status_exit=255
+--- compose_paths ---
+-rw-r--r-- 1 root root 33335 Jun 19 12:48 .github/workflows/deploy.yml
+-rw-r--r-- 1 root root  2722 Jun 23 22:58 docker-compose.staging.yml
+-rw-r--r-- 1 root root  3781 Jun 16 21:48 docker-compose.yml
+db
+api
+web
+compose_paths_exit=0
+--- containers_images ---
+jinhu-smart-park-prod-api|jinhu-smart-park-prod-api|Up 11 days (healthy)
+jinhu-smart-park-prod-postgres|postgres:16-alpine|Up 3 weeks (healthy)
+jinhu-smart-park-prod-web|jinhu-smart-park-prod-web|Up 11 days (healthy)
+phoenix-v3-api|ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest|Up 16 hours (healthy)
+phoenix-v3-db|postgres:16-alpine|Up 5 weeks (healthy)
+phoenix-v3-web|ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest|Up 14 minutes (healthy)
+quantsys-prod-backend-1|quantsys-prod-backend|Up 4 days (healthy)
+quantsys-prod-db-1|postgres:16-alpine|Up 4 days (healthy)
+quantsys-prod-frontend-1|quantsys-prod-frontend|Up 4 days
+quantsys-prod-redis-1|redis:7-alpine|Up 5 days
+quantsys-prod-scheduler-1|quantsys-prod-scheduler|Up 4 days
+IMAGE_IDS
+/phoenix-v3-web|ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest|sha256:7939caba970f635a489f8eee625b04f9f9b9f17c49b4b73433968c46374e9e6b
+/phoenix-v3-api|ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest|sha256:ac43ceafe114483835cf916f6a40f269bf2d0fa42c9edfda98ea3dd8ddda2bbb
+/phoenix-v3-db|postgres:16-alpine|sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+containers_images_exit=0
+--- backup_candidates ---
+DIR /opt/phoenix-erp-backups
+DIR /var/backups
+2026-06-25 00:00 0 /var/backups/dpkg.arch.0
+2026-06-24 06:40 783447 /var/backups/dpkg.status.0
+2026-06-21 00:00 51200 /var/backups/alternatives.tar.0
+2026-06-21 00:00 32 /var/backups/dpkg.arch.1.gz
+2026-06-20 06:59 202016 /var/backups/dpkg.status.1.gz
+2026-06-18 00:00 32 /var/backups/dpkg.arch.2.gz
+2026-06-17 06:43 202013 /var/backups/dpkg.status.2.gz
+2026-06-17 00:00 32 /var/backups/dpkg.arch.3.gz
+2026-06-16 06:07 202009 /var/backups/dpkg.status.3.gz
+2026-06-12 00:00 32 /var/backups/dpkg.arch.4.gz
+2026-06-12 00:00 2605 /var/backups/alternatives.tar.1.gz
+2026-06-11 06:23 202011 /var/backups/dpkg.status.4.gz
+2026-06-11 00:00 32 /var/backups/dpkg.arch.5.gz
+2026-06-11 00:00 2608 /var/backups/alternatives.tar.2.gz
+2026-06-10 06:48 202012 /var/backups/dpkg.status.5.gz
+2026-06-08 00:00 32 /var/backups/dpkg.arch.6.gz
+2026-06-08 00:00 2610 /var/backups/alternatives.tar.3.gz
+2026-06-07 06:33 202007 /var/backups/dpkg.status.6.gz
+2026-05-28 00:00 2598 /var/backups/alternatives.tar.4.gz
+2026-05-23 08:51 41576 /var/backups/apt.extended_states.0
+2026-05-23 08:51 213 /var/backups/dpkg.statoverride.0
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.6.gz
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.5.gz
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.4.gz
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.3.gz
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.2.gz
+2026-05-23 08:51 162 /var/backups/dpkg.statoverride.1.gz
+2026-05-22 22:04 4660 /var/backups/apt.extended_states.1.gz
+2026-05-21 16:35 4525 /var/backups/apt.extended_states.2.gz
+2026-05-20 15:46 4514 /var/backups/apt.extended_states.3.gz
+backup_candidates_exit=0
+--- rollback_primitives ---
+COMPOSE_CONFIG_OK
+{"Command":"\"/sbin/tini -- sh -c…\"","CreatedAt":"2026-06-24 18:07:39 +0800 CST","ExitCode":0,"Health":"healthy","ID":"6484138bfa38","Image":"ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest","Labels":"org.opencontainers.image.version=latest,com.docker.compose.config-hash=e92f32ee2920dea6d730bb021de7ea5b2fba9c94abfc15b4b9f1daa2375334fe,com.docker.compose.image=sha256:ac43ceafe114483835cf916f6a40f269bf2d0fa42c9edfda98ea3dd8ddda2bbb,com.docker.compose.replace=phoenix-v3-api,org.opencontainers.image.revision=8833269c9cca5b285f65147feb5cb6ec27017505,org.opencontainers.image.url=https://github.com/ivanzhao299/phoenix-erp-v3,org.opencontainers.image.created=2026-06-24T10:04:16.414Z,org.opencontainers.image.licenses=,org.opencontainers.image.source=https://github.com/ivanzhao299/phoenix-erp-v3,org.opencontainers.image.title=phoenix-erp-v3,com.docker.compose.project.working_dir=/opt/phoenix-erp,com.docker.compose.version=5.1.3,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.oneoff=False,com.docker.compose.project=phoenix-erp,com.docker.compose.project.config_files=/opt/phoenix-erp/docker-compose.yml,com.docker.compose.service=api,org.opencontainers.image.description=Phoenix ERP V3 — 蛋鸡养殖全链路 ERP (V2→V3 迁移完成, UAT 76/76)","LocalVolumes":"1","Mounts":"phoenix_uploads","Name":"phoenix-v3-api","Names":"phoenix-v3-api","Networks":"phoenix-erp_default","Ports":"127.0.0.1:3100-\u003e3100/tcp","Project":"phoenix-erp","Publishers":[{"URL":"127.0.0.1","TargetPort":3100,"PublishedPort":3100,"Protocol":"tcp"}],"RunningFor":"16 hours ago","Service":"api","Size":"0B","State":"running","Status":"Up 16 hours (healthy)"}
+{"Command":"\"docker-entrypoint.s…\"","CreatedAt":"2026-05-20 23:00:04 +0800 CST","ExitCode":0,"Health":"healthy","ID":"ef353f72b137","Image":"postgres:16-alpine","Labels":"com.docker.compose.image=sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229,com.docker.compose.oneoff=False,com.docker.compose.project=phoenix-erp,com.docker.compose.project.config_files=/opt/phoenix-erp/docker-compose.yml,com.docker.compose.version=5.1.3,com.docker.compose.depends_on=,com.docker.compose.project.working_dir=/opt/phoenix-erp,com.docker.compose.replace=phoenix-v3-db,com.docker.compose.service=db,com.docker.compose.config-hash=b57b0d755443a82ffc4d96342ff10ab583e553fa90683ba4d4ae85678166dc9a,com.docker.compose.container-number=1","LocalVolumes":"1","Mounts":"phoenix_pg_data","Name":"phoenix-v3-db","Names":"phoenix-v3-db","Networks":"phoenix-erp_default","Ports":"127.0.0.1:5432-\u003e5432/tcp","Project":"phoenix-erp","Publishers":[{"URL":"127.0.0.1","TargetPort":5432,"PublishedPort":5432,"Protocol":"tcp"}],"RunningFor":"5 weeks ago","Service":"db","Size":"0B","State":"running","Status":"Up 5 weeks (healthy)"}
+{"Command":"\"/sbin/tini -- node …\"","CreatedAt":"2026-06-25 09:28:44 +0800 CST","ExitCode":0,"Health":"healthy","ID":"7f85761240df","Image":"ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest","Labels":"com.docker.compose.replace=phoenix-v3-web,org.opencontainers.image.licenses=,org.opencontainers.image.source=https://github.com/ivanzhao299/phoenix-erp-v3,com.docker.compose.image=sha256:7939caba970f635a489f8eee625b04f9f9b9f17c49b4b73433968c46374e9e6b,com.docker.compose.project.config_files=/opt/phoenix-erp/docker-compose.yml,org.opencontainers.image.revision=540de0ef85cf11f7e1250ce2980774ec688f3433,org.opencontainers.image.title=phoenix-erp-v3,org.opencontainers.image.version=latest,com.docker.compose.config-hash=34cc1b06b7ae02c599bab28d169d2da65649a6bb5c704ef2b170342be51364d5,com.docker.compose.depends_on=,com.docker.compose.project=phoenix-erp,com.docker.compose.service=web,com.docker.compose.version=5.1.3,org.opencontainers.image.url=https://github.com/ivanzhao299/phoenix-erp-v3,com.docker.compose.container-number=1,com.docker.compose.oneoff=False,com.docker.compose.project.working_dir=/opt/phoenix-erp,org.opencontainers.image.created=2026-06-25T01:28:13.400Z,org.opencontainers.image.description=Phoenix ERP V3 — 蛋鸡养殖全链路 ERP (V2→V3 迁移完成, UAT 76/76)","LocalVolumes":"0","Mounts":"","Name":"phoenix-v3-web","Names":"phoenix-v3-web","Networks":"phoenix-erp_default","Ports":"127.0.0.1:3000-\u003e3000/tcp","Project":"phoenix-erp","Publishers":[{"URL":"127.0.0.1","TargetPort":3000,"PublishedPort":3000,"Protocol":"tcp"}],"RunningFor":"14 minutes ago","Service":"web","Size":"0B","State":"running","Status":"Up 14 minutes (healthy)"}
+pg_dump (PostgreSQL) 16.14
+phoenix_erp|phoenix_v3|2026-06-25 01:43:06.177645+00
+rollback_primitives_exit=0

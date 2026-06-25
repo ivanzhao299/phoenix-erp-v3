@@ -1,0 +1,15 @@
+--- identity ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+identity_exit=255
+--- safe_directory_configure ---
+/opt/phoenix-erp
+safe_directory_configure_exit=0
+--- git_status ---
+/opt/phoenix-erp
+540de0ef85cf11f7e1250ce2980774ec688f3433
+## main...origin/main
+?? docker-compose.yml.bak-20260522-180813
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+git_status_exit=0
