@@ -57,6 +57,8 @@ type MenuItem = {
   requiredPerm?: string;
   // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
   superPerm?: string;
+  // 过渡期兼容码：优先使用原子菜单码；老角色仍可通过旧粗粒度码看见同一入口。
+  altPerms?: string[];
   children?: MenuItem[];
 };
 
@@ -127,10 +129,10 @@ const MENU: MenuItem[] = [
 
   // 4. 采购管理 — Procurement V2 正式入口
   { id: "procurement", Icon: Layers3, label: "采购管理", perm: "MENU_PRC2_MASTER", children: [
-    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2"          },
-    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_MASTER"   },
-    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_MASTER"   },
-    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_MASTER"   },
+    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD", altPerms: ["MENU_PRC2"] },
+    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_SUPPLIER",  altPerms: ["MENU_PRC2_MASTER"] },
+    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_PROJECT",   altPerms: ["MENU_PRC2_MASTER"] },
+    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_REQUEST",   altPerms: ["MENU_PRC2_MASTER"] },
     { id: "prc2-order",     path: "/procurement2/orders",            Icon: ShoppingBag,     label: "采购订单",   perm: "MENU_PRC2_ORDER"    },
     { id: "prc2-shipment",  path: "/procurement2/shipments",         Icon: Truck,           label: "物流管理",   perm: "MENU_PRC2_SHIPMENT" },
     { id: "prc2-receipt",   path: "/procurement2/receipts",          Icon: PackageCheck,    label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
@@ -169,8 +171,8 @@ const MENU: MenuItem[] = [
     { id: "f2-ar-recon",  path: "/finance2/ar-reconciliation",  Icon: Scale,           label: "应收三方对账", perm: "MENU_FIN2_AR_LEDGER"  },
     { id: "f2-chanjet-sync", path: "/finance2/chanjet-sync",    Icon: BookOpen,        label: "好业财同步",  perm: "MENU_FIN2_AR"         },
     { id: "f2-ap",        path: "/finance2/ap",                 Icon: TrendingDown,    label: "应付账款",   perm: "MENU_FIN2_AP"         },
-    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH"       },
-    { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",   perm: "MENU_FIN2_CASH"       },
+    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH_VIEW",      altPerms: ["MENU_FIN2_CASH"] },
+    { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",   perm: "MENU_FIN2_CASH_TRANSFER",  altPerms: ["MENU_FIN2_CASH"] },
     { id: "f2-sf",        path: "/finance2/shareholder-funds",  Icon: Users,           label: "股东资金",   perm: "MENU_FIN2_SHAREHOLDER" },
     { id: "f2-expense",   path: "/finance2/expenses",           Icon: Receipt,         label: "费用管理",   perm: "MENU_FIN2_EXPENSE"    },
     { id: "f2-reimburse", path: "/finance2/reimbursements",     Icon: ScrollText,      label: "报销管理",   perm: "MENU_FIN2_REIMBURSE"  },
@@ -296,6 +298,13 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const expanded_ = pinned || hovered;
   const isOverlay = hovered && !pinned;
 
+  const canSeeMenuItem = useCallback((item: MenuItem) => {
+    if (!item.perm) return true;
+    if (hasPermission(item.perm, item.requiredPerm)) return true;
+    if (item.superPerm && hasPermission(item.superPerm)) return true;
+    return item.altPerms?.some(code => hasPermission(code, item.requiredPerm)) ?? false;
+  }, [hasPermission]);
+
   // G12 父守卫 OR 逻辑：父项 perm 不再严格检查，子项过滤后非空即显示父项。
   // 之前问题：宋明光持 MENU_FIN2_CASH 但缺 MENU_FIN2 父权 → 整段财务节点被剔除。
   // PBAC 颗粒度原则：父节点只是分组容器，权限以叶子为准。
@@ -303,16 +312,15 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const visibleMenu = useMemo(() => MENU.map(item => {
     if (item.children) {
       // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
-      // G56-B：叶子有 superPerm 时，持有 superPerm 亦可见（超级码"管理全部"兜底）
-      const kids = item.children.filter(c =>
-        !c.perm || hasPermission(c.perm, c.requiredPerm) || (!!c.superPerm && hasPermission(c.superPerm)));
+      // 叶子可见性统一走 canSeeMenuItem：原子码优先，superPerm/altPerms 仅作明确兜底。
+      const kids = item.children.filter(canSeeMenuItem);
       if (!kids.length) return null;
       return { ...item, children: kids };
     }
     // 叶子项：严格按 perm 检查
-    if (item.perm && !hasPermission(item.perm, item.requiredPerm)) return null;
+    if (!canSeeMenuItem(item)) return null;
     return item;
-  }).filter(Boolean) as MenuItem[], [hasPermission]);
+  }).filter(Boolean) as MenuItem[], [canSeeMenuItem]);
 
   const getActive = useCallback((path?: string) => {
     if (!path) return false;
@@ -438,7 +446,14 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
               {item.children && (
                 <Accordion open={isOpen}>
                   {/* Terminal 作业台入口：仅在生产管理分组顶部显示 */}
-                  {item.id === "production" && (
+                  {item.id === "production" && canSeeMenuItem({
+                    id: "terminal-packaging",
+                    path: "/terminal/packaging/dashboard",
+                    Icon: Zap,
+                    label: "包装作业台",
+                    perm: "MENU_PKG_OP",
+                    altPerms: ["MENU_PKG_MGR"],
+                  }) && (
                     <a
                       href="/terminal/packaging/dashboard"
                       target="_blank"

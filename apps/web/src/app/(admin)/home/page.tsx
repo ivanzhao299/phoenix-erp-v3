@@ -458,11 +458,11 @@ function BusinessOverview({ hasPermission }: { hasPermission: (m: string) => boo
   //   后续 G21+ 计划：BusinessOverview 进一步改为纯指标卡（带今日数字、删 href），与 SHORTCUTS 完全分离
   const allCards = [
     { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2' },
-    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH' },
+    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH_VIEW', altPerms: ['MENU_FIN2_CASH'] },
     { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
     { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },
   ];
-  const cards = allCards.filter(c => hasPermission(c.perm));
+  const cards = allCards.filter(c => hasPermission(c.perm) || (c.altPerms?.some(p => hasPermission(p)) ?? false));
   if (cards.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
