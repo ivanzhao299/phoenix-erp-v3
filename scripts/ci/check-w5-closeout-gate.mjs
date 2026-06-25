@@ -51,6 +51,10 @@ const checks = [
     name: 'security regression static gate passes',
     pass: run('node', ['scripts/ci/check-security-regression.mjs']),
   },
+  {
+    name: 'unsafe attachment reference gate passes',
+    pass: run('node', ['scripts/ci/check-unsafe-attachment-refs.mjs']),
+  },
 ];
 
 let failed = 0;
