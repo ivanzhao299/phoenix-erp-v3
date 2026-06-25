@@ -34,10 +34,10 @@ export class LookupController {
    * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
    * 解析失败 → 兜底 isGlobal=true（不因解析异常把下拉清空）。
    */
-  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[]; farmCodes: string[] }> {
+  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[]; farmCodes: string[]; warehouseCodes: string[] }> {
     try {
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      if (!user) return { isGlobal: true, companyCodes: [], farmCodes: [] };
+      if (!user) return { isGlobal: true, companyCodes: [], farmCodes: [], warehouseCodes: [] };
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
@@ -46,9 +46,10 @@ export class LookupController {
         isGlobal: !!scope.isGlobal,
         companyCodes: scope.allowedCompanyCodes ?? [],
         farmCodes: scope.allowedFarmCodes ?? [],   // G87 场授权清单
+        warehouseCodes: scope.allowedWarehouseCodes ?? [],
       };
     } catch {
-      return { isGlobal: true, companyCodes: [], farmCodes: [] };
+      return { isGlobal: true, companyCodes: [], farmCodes: [], warehouseCodes: [] };
     }
   }
 
@@ -121,12 +122,21 @@ export class LookupController {
    */
   @Get('projects')
   async projects() {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
+    const params: any[] = [];
+    const conds = [`status='ACTIVE'`];
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conds.push(`company_code = ANY($${params.length})`);
+    }
     const rows = await this.em.query(
       `SELECT project_code AS "projectCode", project_name AS "projectName",
               company_code AS "companyCode", status
          FROM biz_projects
-         WHERE status='ACTIVE'
+         WHERE ${conds.join(' AND ')}
          ORDER BY project_code`,
+      params,
     );
     return { code: 200, data: rows };
   }
@@ -137,12 +147,21 @@ export class LookupController {
    */
   @Get('sites')
   async sites() {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
+    const params: any[] = [];
+    const conds = [`org_type='SITE'`, `status='ACTIVE'`];
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conds.push(`company_code = ANY($${params.length})`);
+    }
     const rows = await this.em.query(
       `SELECT org_code AS "orgCode", org_name AS "orgName", company_code AS "companyCode",
               site_business_type AS "siteBusinessType", status
          FROM sys_organizations
-         WHERE org_type='SITE' AND status='ACTIVE'
+         WHERE ${conds.join(' AND ')}
          ORDER BY sort_order NULLS LAST, org_code`,
+      params,
     );
     return { code: 200, data: rows };
   }
@@ -152,12 +171,21 @@ export class LookupController {
   /** GET /api/lookup/customers — 客户下拉（替代 /master-data/runtime/customer/active） */
   @Get('customers')
   async customers() {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
+    const params: any[] = [];
+    const conds = [`status='ACTIVE'`];
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conds.push(`company_code = ANY($${params.length})`);
+    }
     const rows = await this.em.query(
       `SELECT customer_no AS code, customer_name AS name, customer_type AS "customerType",
               company_code AS "companyCode", status, risk_level AS "riskLevel"
          FROM sal_customers
-         WHERE status='ACTIVE'
+         WHERE ${conds.join(' AND ')}
          ORDER BY customer_no`,
+      params,
     );
     return { code: 200, data: rows };
   }
@@ -165,12 +193,21 @@ export class LookupController {
   /** GET /api/lookup/suppliers — 供应商下拉（替代 /master-data/runtime/supplier/active） */
   @Get('suppliers')
   async suppliers() {
+    const scope = await this.resolveCompanyScope();
+    const params: any[] = [];
+    const conds = [`status='ACTIVE'`, `is_active=true`];
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conds.push(`(shared_scope='GROUP' OR owner_company_code = ANY($${params.length}))`);
+    }
     const rows = await this.em.query(
       `SELECT supplier_code AS code, supplier_name AS name, country_code AS "countryCode",
-              supplier_type AS "supplierType", default_currency AS "defaultCurrency", status
+              supplier_type AS "supplierType", default_currency AS "defaultCurrency",
+              shared_scope AS "sharedScope", owner_company_code AS "ownerCompanyCode", status
          FROM prc2_suppliers
-         WHERE status='ACTIVE' AND is_active=true
+         WHERE ${conds.join(' AND ')}
          ORDER BY supplier_code`,
+      params,
     );
     return { code: 200, data: rows };
   }
@@ -256,11 +293,14 @@ export class LookupController {
     @Query('siteCode') siteCode?: string,
     @Query('type') type?: string,
   ) {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     const conds: string[] = [`status='ACTIVE'`];
     if (companyCode) { params.push(companyCode); conds.push(`company_code=$${params.length}`); }
     if (siteCode)    { params.push(siteCode);    conds.push(`site_code=$${params.length}`); }
     if (type)        { params.push(type);        conds.push(`type=$${params.length}`); }
+    if (!scope.isGlobal) { params.push(scope.companyCodes); conds.push(`company_code = ANY($${params.length})`); }
     const rows = await this.em.query(
       `SELECT warehouse_code AS "warehouseCode",
               COALESCE(warehouse_name_zh, warehouse_name) AS "warehouseName",
@@ -277,9 +317,12 @@ export class LookupController {
   /** GET /api/lookup/stores — 门店下拉（替代 /crud/mst_stores） */
   @Get('stores')
   async stores(@Query('companyCode') companyCode?: string) {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     let where = `status='ACTIVE'`;
     if (companyCode) { params.push(companyCode); where += ` AND company_code=$${params.length}`; }
+    if (!scope.isGlobal) { params.push(scope.companyCodes); where += ` AND company_code = ANY($${params.length})`; }
     const rows = await this.em.query(
       `SELECT store_code AS "storeCode", store_name AS "storeName",
               company_code AS "companyCode", status
@@ -355,10 +398,13 @@ export class LookupController {
    *  G106-C：支持 company 过滤——付款单按所选公司收窄银行账户，杜绝用他司账户付款。 */
   @Get('cash-accounts')
   async cashAccounts(@Query('currency') currency?: string, @Query('company') company?: string) {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     let where = `status='ACTIVE'`;
     if (currency) { params.push(currency); where += ` AND currency_code=$${params.length}`; }
     if (company)  { params.push(company);  where += ` AND company_code=$${params.length}`; }
+    if (!scope.isGlobal) { params.push(scope.companyCodes); where += ` AND company_code = ANY($${params.length})`; }
     const rows = await this.em.query(
       `SELECT account_code AS "accountCode", account_name AS "accountName",
               company_code AS "companyCode", currency_code AS "currencyCode",
@@ -378,14 +424,24 @@ export class LookupController {
    */
   @Get('batches')
   async batches() {
+    const scope = await this.resolveCompanyScope();
+    const params: any[] = [];
+    const conds = [`qty_available > 0`];
+    if (!scope.isGlobal && scope.warehouseCodes.length > 0) {
+      params.push(scope.warehouseCodes);
+      conds.push(`warehouse_code = ANY($${params.length})`);
+    } else if (!scope.isGlobal && scope.companyCodes.length === 0 && scope.warehouseCodes.length === 0) {
+      return { code: 200, data: [] };
+    }
     const rows = await this.em.query(
       `SELECT batch_no AS "batch_no", sku_code AS "sku_code", product_code AS "product_code",
               qty_available AS "qty_available", status, warehouse_code AS "warehouse_code",
               store_code AS "store_code", expire_date AS "expire_date"
          FROM inv_batches
-         WHERE qty_available > 0
+         WHERE ${conds.join(' AND ')}
          ORDER BY expire_date NULLS LAST, batch_no
          LIMIT 500`,
+      params,
     );
     return { code: 200, data: rows };
   }

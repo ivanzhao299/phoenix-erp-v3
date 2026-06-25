@@ -11,6 +11,7 @@ import { extname, join } from 'path';
 import { mkdirSync, readFileSync } from 'fs';
 import { Repository } from 'typeorm';
 import { FileMetadataEntity } from '../file/entities/file-metadata.entity';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
 const ALLOWED_EXTS  = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
 const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB（前端已压缩图片；PDF 接受原始大小）
@@ -31,7 +32,7 @@ interface LegacyUploadBody {
 }
 
 @Controller('api/upload')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
 export class UploadController {
   constructor(
     @InjectRepository(FileMetadataEntity)
@@ -44,6 +45,14 @@ export class UploadController {
    * 返回 file_metadata 受控引用；兼容字段 url 返回 fileId，不返回裸文件路径。
    */
   @Post('contract')
+  @RequireMenu('MENU_PRC2_ORDER', 'E', [
+    'MENU_PRC2_MASTER',
+    'MENU_FIN2_SHAREHOLDER',
+    'MENU_FIN2_EXPENSE',
+    'MENU_FIN2_AP',
+    'MENU_STORE_PAYMENT',
+    'MENU_WORKFLOW',
+  ])
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
