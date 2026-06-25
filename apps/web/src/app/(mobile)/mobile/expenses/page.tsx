@@ -6,6 +6,7 @@ import { ChevronLeft, RefreshCw, Plus, Receipt, Clock, CheckCircle, XCircle, Wal
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
 import { mobileApi } from '@/lib/mobile-api';
+import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -21,6 +22,7 @@ interface ExpenseRecord {
   company_name: string;
   requester_name: string | null;
   created_at: string;
+  attachment_urls?: string[] | string | null;
   reimbursements?: {
     id: number;
     reimb_no: string;
@@ -117,7 +119,8 @@ export default function MobileExpensesPage() {
     currencyCode: 'CNY',
     amountOriginal: '',
     expenseDate: '',
-    description: ''
+    description: '',
+    attachmentUrls: [] as string[]
   });
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState('');
@@ -204,7 +207,8 @@ export default function MobileExpensesPage() {
           currencyCode: form.currencyCode,
           amountOriginal: Number(form.amountOriginal),
           expenseDate: form.expenseDate || undefined,
-          description: form.description || undefined
+          description: form.description || undefined,
+          attachmentUrls: form.attachmentUrls
         })
       });
       setForm({
@@ -213,7 +217,8 @@ export default function MobileExpensesPage() {
         currencyCode: 'CNY',
         amountOriginal: '',
         expenseDate: '',
-        description: ''
+        description: '',
+        attachmentUrls: []
       });
       setTab('list');
       void loadList();
@@ -239,6 +244,20 @@ export default function MobileExpensesPage() {
     fontSize: 14,
     boxSizing: 'border-box'
   }} />;
+
+  const normalizeAttachments = (value: ExpenseRecord['attachment_urls']): string[] => {
+    if (Array.isArray(value)) return value.filter(Boolean).map(String);
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+      } catch {
+        return value ? [value] : [];
+      }
+    }
+    return [];
+  };
 
   // ── 详情视图 ─────────────────────────────────────────────────────────────
 
@@ -329,6 +348,23 @@ export default function MobileExpensesPage() {
             color: text
           }}>
                   {detail.description}
+                </div>}
+              {normalizeAttachments(detail.attachment_urls).length > 0 && <div style={{
+            marginTop: 12,
+            paddingTop: 12,
+            borderTop: `1px solid ${border}`
+          }}>
+                  <div style={{
+              color: sub,
+              fontSize: 11,
+              marginBottom: 8
+            }}>费用凭证</div>
+                  <AttachmentUploader
+                    value={normalizeAttachments(detail.attachment_urls)}
+                    onChange={() => undefined}
+                    readOnly
+                    label="费用凭证"
+                  />
                 </div>}
             </div>
 
@@ -662,6 +698,32 @@ export default function MobileExpensesPage() {
           resize: 'none',
           boxSizing: 'border-box'
         }} />
+          </div>
+
+          <div className={u.mb20}>
+            <div style={{
+          fontSize: 12,
+          color: sub,
+          marginBottom: 6
+        }}>费用凭证</div>
+            <div style={{
+          padding: 10,
+          borderRadius: 12,
+          border: `1.5px solid ${border}`,
+          background: isDark ? 'var(--gray-900)' : 'var(--slate-50)'
+        }}>
+              <AttachmentUploader
+                value={form.attachmentUrls}
+                onChange={urls => setForm(f => ({ ...f, attachmentUrls: urls }))}
+                label="上传发票/小票/付款截图（可多选）"
+              />
+            </div>
+            <div style={{
+          fontSize: 11,
+          color: sub,
+          marginTop: 6,
+          lineHeight: 1.45
+        }}>支持 PDF、图片，多张凭证会随费用申请一并提交审批。</div>
           </div>
 
           {saveErr && <div style={{

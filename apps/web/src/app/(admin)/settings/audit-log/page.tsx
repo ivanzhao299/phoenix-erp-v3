@@ -4,7 +4,7 @@ import { useToast } from '@/contexts/ToastContext'; // G29-A: sonner → useToas
 import u from "@/styles/uix-utils.module.css";
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
@@ -25,6 +25,16 @@ interface LogItem {
   created_at: string;
   operator?: string;
 }
+
+interface AuditMetrics {
+  total: number;
+  approved: number;
+  rejected: number;
+  highRisk: number;
+  sampleSize: number;
+  sampled: boolean;
+}
+
 export default function AuditLogPage() {
   const toast = useToast();
   const {
@@ -102,35 +112,99 @@ export default function AuditLogPage() {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [metrics, setMetrics] = useState<AuditMetrics>({
+    total: 0,
+    approved: 0,
+    rejected: 0,
+    highRisk: 0,
+    sampleSize: 0,
+    sampled: false
+  });
+  const buildParams = useCallback((pg: number, limit = PAGE_SIZE, includeAction = true) => {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String((pg - 1) * limit),
+      sort: "id",
+      order: "desc"
+    });
+    if (includeAction && actionFilter !== "ALL") params.set("action", actionFilter);
+    if (search.trim()) params.set("q", search.trim());
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    return params;
+  }, [actionFilter, search, dateFrom, dateTo]);
   const load = useCallback(async (pg = 1) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String((pg - 1) * PAGE_SIZE),
-        sort: "id",
-        order: "desc"
-      });
-      if (actionFilter !== "ALL") params.set("action", actionFilter);
-      if (search.trim()) params.set("q", search.trim());
-      if (dateFrom) params.set("date_from", dateFrom);
-      if (dateTo) params.set("date_to", dateTo);
-      const r = await fetch(`/api/crud/sys_approval_log?${params}`, {
-        headers: hdr()
-      });
+      const params = buildParams(pg);
+      const metricParams = buildParams(1, 1000);
+      const [r, mr] = await Promise.all([
+        fetch(`/api/crud/sys_approval_log?${params}`, {
+          headers: hdr()
+        }),
+        fetch(`/api/crud/sys_approval_log?${metricParams}`, {
+          headers: hdr()
+        })
+      ]);
       const data = await r.json();
-      setLogs(data.data ?? []);
-      setTotal(data.total ?? 0);
+      const metricData = await mr.json().catch(() => ({ data: [] }));
+      const rows: LogItem[] = Array.isArray(data.data) ? data.data : [];
+      const metricRows: LogItem[] = Array.isArray(metricData.data) ? metricData.data : [];
+      const nextTotal = Number(data.total ?? rows.length);
+      setLogs(rows);
+      setTotal(nextTotal);
+      setMetrics({
+        total: nextTotal,
+        approved: metricRows.filter(row => row.action === "APPROVED").length,
+        rejected: metricRows.filter(row => row.action === "REJECTED").length,
+        highRisk: metricRows.filter(row => ["DELETE", "CANCELLED", "REJECTED"].includes(row.action)).length,
+        sampleSize: metricRows.length,
+        sampled: nextTotal > metricRows.length
+      });
       setPage(pg);
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, search, dateFrom, dateTo]);
+  }, [buildParams]);
   useEffect(() => {
     load(1);
   }, [actionFilter]);
   const handleSearch = () => load(1);
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const metricCards = [
+    {
+      key: "total",
+      label: t('ui.匹配审计记录', '匹配审计记录'),
+      value: metrics.total,
+      hint: t('ui.当前筛选命中的总记录数', '当前筛选命中的总记录数'),
+      icon: History,
+      color: "var(--color-primary)"
+    },
+    {
+      key: "approved",
+      label: t('status.approved', '已审批'),
+      value: metrics.approved,
+      hint: metrics.sampled ? t('ui.最近样本统计', '最近样本统计') : t('ui.当前筛选统计', '当前筛选统计'),
+      icon: CheckCircle,
+      color: "var(--status-success)"
+    },
+    {
+      key: "rejected",
+      label: t('status.rejected', '已驳回'),
+      value: metrics.rejected,
+      hint: metrics.sampled ? t('ui.最近样本统计', '最近样本统计') : t('ui.当前筛选统计', '当前筛选统计'),
+      icon: XCircle,
+      color: "var(--status-danger)"
+    },
+    {
+      key: "risk",
+      label: t('ui.高风险动作', '高风险动作'),
+      value: metrics.highRisk,
+      hint: t('ui.删除撤回驳回等动作', '删除 / 撤回 / 驳回等动作'),
+      icon: ShieldAlert,
+      color: "var(--status-warning)"
+    }
+  ];
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.审计日志', '审计日志')} subtitle={t('ui.系统操作轨迹与审批行为全量记录支持按操作类型日期范围查询', '系统操作轨迹与审批行为全量记录，支持按操作类型、日期范围查询')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审计日志', '审计日志')]} actions={<div style={{
       display: "flex",
@@ -281,6 +355,60 @@ export default function AuditLogPage() {
       }}>
             {t('ui.重置', '重置')}
           </button>}
+      </div>
+
+      <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: 12,
+      marginBottom: 16
+    }}>
+        {metricCards.map(card => {
+        const Icon = card.icon;
+        return <div key={card.key} style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "14px 16px",
+          minHeight: 92,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12
+        }}>
+            <div>
+              <div style={{
+            fontSize: 12,
+            color: "var(--text-secondary)",
+            marginBottom: 7
+          }}>{card.label}</div>
+              <div style={{
+            fontSize: 24,
+            fontWeight: 800,
+            color: "var(--text-primary)",
+            lineHeight: 1
+          }}>{Number(card.value || 0).toLocaleString("zh-CN")}</div>
+              <div style={{
+            marginTop: 7,
+            fontSize: 11,
+            color: "var(--text-tertiary)"
+          }}>{card.hint}{metrics.sampled && card.key !== "total" ? ` · ${metrics.sampleSize}/1000` : ""}</div>
+            </div>
+            <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: card.color,
+          background: `color-mix(in srgb, ${card.color} 13%, transparent)`,
+          flexShrink: 0
+        }}>
+              <Icon size={18} />
+            </div>
+          </div>;
+      })}
       </div>
 
       {/* 操作类型 Tab */}
