@@ -75,6 +75,11 @@ export class ProcurementService {
     return this.cls.get('user.storeCode') || 'ALL';
   }
 
+  private storeScope(column = 'store_code', paramOffset = 0): { sql: string; params: unknown[] } {
+    if (this.isGlobalUser) return { sql: '1=1', params: [] };
+    return { sql: `${column} = $${paramOffset + 1}`, params: [this.userStoreCode] };
+  }
+
   async getRequests() {
     try {
       const params: any[] = [];
@@ -257,6 +262,7 @@ export class ProcurementService {
 
   async getSupplierKpi() {
     try {
+      const scope = this.storeScope('po.store_code', 0);
       const data = await this.em.query(`
         SELECT s.supplier_name, s.supplier_code,
                COUNT(po.po_no)                                           AS total_orders,
@@ -267,10 +273,10 @@ export class ProcurementService {
                        / NULLIF(COUNT(po.po_no), 0), 1
                )                                                          AS fulfillment_rate
         FROM prc_suppliers s
-        LEFT JOIN prc_purchase_orders po ON s.supplier_code = po.supplier_code
+        LEFT JOIN prc_purchase_orders po ON s.supplier_code = po.supplier_code AND ${scope.sql}
         GROUP BY s.supplier_name, s.supplier_code
         ORDER BY total_spend DESC
-      `);
+      `, scope.params);
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
   }
@@ -278,8 +284,9 @@ export class ProcurementService {
   // ─── 三单比对 (Three-Way Match) ──────────────────────────────────────────────
   async getThreeWayMatch(poNo: string) {
     try {
+      const scope = this.storeScope('store_code', 1);
       const [order] = await this.em.query(
-        `SELECT * FROM prc_purchase_orders WHERE po_no = $1`, [poNo],
+        `SELECT * FROM prc_purchase_orders WHERE po_no = $1 AND ${scope.sql}`, [poNo, ...scope.params],
       );
       if (!order) return { code: 404, msg: '采购单不存在' };
 
@@ -330,13 +337,15 @@ export class ProcurementService {
   async getDashboardSummary() {
     try {
       const thisMonth = new Date().toISOString().slice(0, 7);
+      const scope0 = this.storeScope('store_code', 0);
+      const scope1 = this.storeScope('store_code', 1);
       const [[pending], [approved], [monthSpend], [overdue]] = await Promise.all([
-        this.em.query(`SELECT COUNT(*) AS cnt FROM prc_purchase_orders WHERE status='PENDING_APPROVAL'`),
-        this.em.query(`SELECT COUNT(*) AS cnt FROM prc_purchase_orders WHERE status='APPROVED'`),
+        this.em.query(`SELECT COUNT(*) AS cnt FROM prc_purchase_orders WHERE status='PENDING_APPROVAL' AND ${scope0.sql}`, scope0.params),
+        this.em.query(`SELECT COUNT(*) AS cnt FROM prc_purchase_orders WHERE status='APPROVED' AND ${scope0.sql}`, scope0.params),
         this.em.query(`SELECT COALESCE(SUM(total_amount),0) AS total FROM prc_purchase_orders
-                       WHERE TO_CHAR(created_at,'YYYY-MM')=$1`, [thisMonth]),
+                       WHERE TO_CHAR(created_at,'YYYY-MM')=$1 AND ${scope1.sql}`, [thisMonth, ...scope1.params]),
         this.em.query(`SELECT COUNT(*) AS cnt FROM prc_purchase_orders
-                       WHERE status NOT IN ('COMPLETED','CANCELLED') AND expected_date < CURRENT_DATE`),
+                       WHERE status NOT IN ('COMPLETED','CANCELLED') AND expected_date < CURRENT_DATE AND ${scope0.sql}`, scope0.params),
       ]);
       return {
         code: 200,

@@ -27,6 +27,23 @@ export class WmsService {
     };
   }
 
+  private orderStoreScope(column = 'store_code', paramOffset = 0): { sql: string; params: unknown[] } {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal) return { sql: '1=1', params: [] };
+
+    const userStoreCode = String(this.cls.get('user.storeCode') || '').trim();
+    const allowedStoreCodes = Array.from(new Set([
+      ...(scope.allowedSiteCodes || []),
+      ...(userStoreCode && userStoreCode !== 'ALL' ? [userStoreCode] : []),
+    ].filter(Boolean)));
+
+    if (allowedStoreCodes.length === 0) return { sql: '1=0', params: [] };
+    return {
+      sql: `${column} = ANY($${paramOffset + 1})`,
+      params: [allowedStoreCodes],
+    };
+  }
+
   // ─── 入库 (Inbound) ─────────────────────────────────────────────────────────
   async getInboundDashboard() {
     try {
@@ -270,11 +287,14 @@ export class WmsService {
   // ─── 出库 (Outbound) ────────────────────────────────────────────────────────
   async getOutboundDashboard() {
     try {
+      const scope = this.orderStoreScope('store_code', 0);
       const [pending] = await this.em.query(
-        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'approved'`,
+        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'approved' AND ${scope.sql}`,
+        scope.params,
       );
       const [allocated] = await this.em.query(
-        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'allocated'`,
+        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'allocated' AND ${scope.sql}`,
+        scope.params,
       );
       return {
         code: 200,
@@ -287,8 +307,10 @@ export class WmsService {
 
   async getPendingOutbound() {
     try {
+      const scope = this.orderStoreScope('store_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM ord_orders WHERE status IN ('approved', 'locked', 'allocated') ORDER BY created_at DESC`,
+        `SELECT * FROM ord_orders WHERE status IN ('approved', 'locked', 'allocated') AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -298,9 +320,10 @@ export class WmsService {
 
   async getOutboundOrder(orderNo: string) {
     try {
+      const scope = this.orderStoreScope('store_code', 1);
       const orders = await this.em.query(
-        `SELECT * FROM ord_orders WHERE order_no = $1`,
-        [orderNo],
+        `SELECT * FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        [orderNo, ...scope.params],
       );
       if (!orders.length) return { code: 404, msg: '订单不存在' };
       const items = await this.em.query(
@@ -326,9 +349,10 @@ export class WmsService {
     const items: Array<{ batch_no: string; qty: number }> = Array.isArray(body?.items) ? body.items : [];
 
     return await this.em.transaction(async (manager) => {
+      const scope = this.orderStoreScope('store_code', 1);
       const ords = await manager.query(
-        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1`,
-        [orderNo],
+        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        [orderNo, ...scope.params],
       );
       if (!ords.length) return { code: 404, msg: '订单不存在' };
       const order = ords[0];
@@ -386,11 +410,12 @@ export class WmsService {
   async receiveSignOrder(orderNo: string, body: any, user: any) {
     const receiver = body?.receiver || user?.username || 'SYS';
     return await this.em.transaction(async (manager) => {
+      const scope = this.orderStoreScope('store_code', 1);
       const result = await manager.query(
         `UPDATE ord_orders SET status='received', updated_at=CURRENT_TIMESTAMP
-         WHERE order_no = $1
+         WHERE order_no = $1 AND ${scope.sql}
          RETURNING order_no, store_code`,
-        [orderNo],
+        [orderNo, ...scope.params],
       );
       if (!result.length) return { code: 404, msg: '订单不存在' };
 
