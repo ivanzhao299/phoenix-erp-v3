@@ -1,0 +1,10 @@
+{
+  "task_id": "PRD-P1-003",
+  "decision": "EXCLUDE_FROM_VIENTIANE_PILOT_CURRENT_GATE",
+  "db_write_executed": false,
+  "scope_write_executed": false,
+  "users_reviewed": [296, 299, 1460],
+  "excluded_count": 3,
+  "reason": "Rows require business-specific scope mapping and include noncanonical STORE-MS-01, PILOT-MS, and ALL markers. Broad production authorization is not sufficient to infer cross-store or global finance access.",
+  "ssh_evidence_note": "A read-only column probe confirmed sys_user/sys_user_role/sys_user_orgs table names and columns. A later related-table probe hung and was canceled; no DB write occurred."
+}
