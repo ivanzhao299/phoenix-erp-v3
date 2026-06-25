@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { FileUploadInput } from "./FileUploadInput";
 import styles from "./crudForm.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import {
@@ -15,7 +14,7 @@ import {
   // 库存批次
   BatchSelector,
 } from "@/components/shared-selectors/MasterDataSelectors";
-import { AttachmentUploader } from "@/components/design-system";
+import { AttachmentUploader, ManagedAttachmentUploader } from "@/components/design-system";
 
 /**
  * G4-D：CrudForm 新增主数据 / 字典 / 附件类型
@@ -183,10 +182,11 @@ export const CrudForm = memo(function CrudForm({
                 {String(values[field.key] ?? "—")}
               </div>
             ) : field.type === "upload" ? (
-              <FileUploadInput
-                value={String(values[field.key] ?? "")}
-                onChange={url => set(field.key, url)}
-                disabled={false}
+              <ManagedAttachmentUploader
+                value={values[field.key]}
+                onChange={v => set(field.key, v)}
+                storage="json-string"
+                label="上传附件（PDF/图片 ≤15MB，可多个）"
               />
             ) : field.type === "attachment" ? (
               // G4-D：统一附件上传，禁 URL 文本框

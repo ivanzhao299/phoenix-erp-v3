@@ -51,6 +51,10 @@ export { SelectField, CompanySelector, ProjectSelector, StatusSelector } from '.
 export type { Option, SelectFieldProps } from './forms/SelectField';
 export { AttachmentUploader } from './forms/AttachmentUploader';
 export type { AttachmentUploaderProps } from './forms/AttachmentUploader';
+export { ManagedAttachmentUploader } from './forms/ManagedAttachmentUploader';
+export type { ManagedAttachmentUploaderProps } from './forms/ManagedAttachmentUploader';
+export { DocumentAutofillPanel } from './forms/DocumentAutofillPanel';
+export type { DocumentAutofillPanelProps, DocumentAutofillSuggestion } from './forms/DocumentAutofillPanel';
 export { TextInput, TextAreaInput, SelectInput, DateInput, UserSelector, AttachmentField } from './forms/Inputs';
 export type { TextInputProps, TextAreaInputProps } from './forms/Inputs';
 

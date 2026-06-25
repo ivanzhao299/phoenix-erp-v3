@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Upload, X, FileText } from 'lucide-react';
+import { isProtectedFileRef, isUnsafeAttachmentRef } from '@/lib/attachments';
 
 /**
  * AttachmentUploader — 统一多附件上传（基于现有 /api/upload/contract 通道）。
@@ -78,15 +79,6 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
       {err && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{err}</div>}
     </div>
   );
-}
-
-function isUnsafeAttachmentRef(ref: string) {
-  const value = ref.trim().toLowerCase();
-  return value.startsWith('/uploads/') || value.startsWith('uploads/') || value.startsWith('http://') || value.startsWith('https://');
-}
-
-function isProtectedFileRef(ref: string) {
-  return /^FILE-[A-Za-z0-9._:-]+$/.test(ref.trim());
 }
 
 // G169：已上传附件单项。新上传返回受控 fileId；历史裸 URL 只显示为禁用引用，不再渲染可点击裸链接。

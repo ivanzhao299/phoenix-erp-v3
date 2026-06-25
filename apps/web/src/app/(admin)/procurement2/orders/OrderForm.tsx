@@ -15,7 +15,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
-import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
+import { AttachmentUploader, DocumentAutofillPanel, type DocumentAutofillSuggestion } from "@/components/design-system"; // G4-B 合同附件
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // G134：合同附件支持多文件——contractUrl 列改存 JSON 数组字符串；兼容历史单 url 值。
@@ -286,6 +286,21 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
     }
   }
 
+  function applyContractAutofill(suggestions: DocumentAutofillSuggestion[]) {
+    let applied = 0;
+    for (const suggestion of suggestions) {
+      if (suggestion.field === "contractNo" && suggestion.value && !fContractNo.trim()) {
+        setFContractNo(suggestion.value);
+        applied += 1;
+      }
+      if (suggestion.field === "contractNote" && suggestion.value) {
+        setFContractNote(prev => prev.trim() ? prev : suggestion.value);
+        applied += 1;
+      }
+    }
+    toast.success(applied ? `已回填 ${applied} 项合同信息` : "当前建议未覆盖可回填字段");
+  }
+
   if (loading) return <div className={u.emptyCenter}>加载中…</div>;
 
   return (
@@ -387,6 +402,14 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           <label className={s.lbl}>合同附件</label>
           {/* G4-B：禁止 URL 文本框，使用统一附件上传组件 */}
           <AttachmentUploader value={fContractUrls} onChange={setFContractUrls} label="上传合同/付款申请等附件（可多个，PDF/图片 ≤15MB）" />
+          <DocumentAutofillPanel
+            fileRefs={fContractUrls}
+            purpose="PROCUREMENT_CONTRACT"
+            fields={["contractNo", "contractNote"]}
+            onApply={applyContractAutofill}
+            title="识别合同并回填"
+            helperText="适用于采购合同/报价单/付款申请，当前先做受控附件校验与元数据建议。"
+          />
         </div>
       </div>
       {/* G166：合同摘要 + 备注 并排两列 */}

@@ -14,7 +14,7 @@ import { Plus, Trash2, CreditCard, DollarSign, Save, ArrowLeft } from "lucide-re
 import { useToast } from "@/contexts/ToastContext";
 import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors";
-import { AttachmentUploader } from "@/components/design-system";
+import { ManagedAttachmentUploader } from "@/components/design-system";
 import { tableInputCell } from "@/components/design-system/cockpit-styles";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
         </div>
         <div className={s.field}>
           <label className={s.lbl}>付款凭证</label>
-          <AttachmentUploader value={formVoucherUrl ? [formVoucherUrl] : []} onChange={urls => setFormVoucherUrl(urls[urls.length - 1] ?? "")} label="上传付款凭证（PDF/图片 ≤15MB）" />
+          <ManagedAttachmentUploader value={formVoucherUrl} onChange={v => setFormVoucherUrl(String(v))} storage="json-string" label="上传付款凭证（PDF/图片 ≤15MB，可多个）" />
         </div>
       </div>
 

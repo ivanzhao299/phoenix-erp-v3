@@ -69,6 +69,7 @@ import { PermissionSetsModule } from './modules/permission-sets/permission-sets.
 // [Chanjet] 畅捷通好业财开放平台对接（webhook + token + API）
 import { ChanjetModule } from './modules/chanjet/chanjet.module';
 import { StorePaymentModule } from './modules/store-payment/store-payment.module';
+import { DocumentIntelligenceModule } from './modules/document-intelligence/document-intelligence.module';
 
 
 @Module({
@@ -142,6 +143,7 @@ import { StorePaymentModule } from './modules/store-payment/store-payment.module
     PermissionSetsModule,   // G118: 权限集（PBAC 两层模型）CRUD
     ChanjetModule,          // 畅捷通好业财对接（webhook 回调 + token 管理 + API 代理）
     StorePaymentModule,     // Store Payment: 直营店缴款 runtime endpoints
+    DocumentIntelligenceModule, // 受控附件文档识别/表单回填标准入口
   ],
   controllers: [DebugController, HealthController],
   providers: [

@@ -6,7 +6,7 @@ import { Users, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Upl
 import PageHeader from '@/components/PageHeader';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
-import { AttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2 } from '@/components/design-system';
+import { ManagedAttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2 } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/contexts/AuthContext';
 import { currencySymbol } from '@/lib/currency';
@@ -308,7 +308,7 @@ function CreateContributionModal({
         </div>
         <div className={u.mt12}>
           <div style={formLabel}>出资凭证</div>
-          <AttachmentUploader value={form.voucherUrl ? [form.voucherUrl] : []} onChange={urls => set('voucherUrl', urls[urls.length - 1] ?? '')} label="上传出资凭证（PDF/图片 ≤15MB）" />
+          <ManagedAttachmentUploader value={form.voucherUrl} onChange={v => set('voucherUrl', String(v))} storage="json-string" label="上传出资凭证（PDF/图片 ≤15MB，可多个）" />
         </div>
         <div className={u.mt12}>
           <div style={formLabel}>备注</div>
