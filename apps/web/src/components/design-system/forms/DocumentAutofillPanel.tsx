@@ -8,6 +8,7 @@ export interface DocumentAutofillSuggestion {
   field: string;
   label?: string;
   value: string;
+  displayValue?: string;
   confidence?: number;
   source?: string;
 }
@@ -196,7 +197,7 @@ export function DocumentAutofillPanel({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {s.value}
+                  {s.displayValue ?? s.value}
                 </span>
                 <span style={{ color: 'var(--text-tertiary)' }}>{Math.round((s.confidence ?? 0) * 100)}%</span>
               </div>

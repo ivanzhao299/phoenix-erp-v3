@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom';
 import request from '@/lib/api-client';
 import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
 import { DictSelect } from './DictSelect';
+import { Search } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
 export interface MaterialRow {
@@ -227,8 +228,21 @@ export function MaterialPicker({
 
   return (
     <div ref={boxRef} style={{ position: 'relative', width: '100%' }}>
+      <Search
+        size={13}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          color: 'var(--text-tertiary)',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      />
       <input
-        style={{ ...inputStyle, ...style }}
+        style={{ ...inputStyle, ...style, paddingLeft: 26 }}
         value={query}
         disabled={disabled}
         placeholder={placeholder}
@@ -244,7 +258,7 @@ export function MaterialPicker({
         <div ref={panelRef} style={{ ...panelStyle, top: rect.top, left: rect.left, width: rect.width }}>
           {filtered.length === 0 && !showCreate && (
             <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              暂无物料
+              暂无可选物料，请输入物料名称后新建
             </div>
           )}
           {filtered.map((m, i) => (
@@ -277,7 +291,7 @@ export function MaterialPicker({
                 background: highlight === filtered.length ? 'var(--bg-muted)' : 'transparent',
               }}
             >
-              + 新建物料「{query.trim()}」
+              + 未找到匹配项，直接新建物料「{query.trim()}」
             </div>
           )}
 

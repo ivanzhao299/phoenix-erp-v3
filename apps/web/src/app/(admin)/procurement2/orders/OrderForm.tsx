@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
-import { Plus, Trash2, Save, ArrowLeft } from "lucide-react";
+import { Plus, Search, Trash2, Save, ArrowLeft } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
@@ -104,6 +104,15 @@ const tdStyle: React.CSSProperties = {
 };
 // G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
 const cellInp: React.CSSProperties = tableInputCell;
+
+interface ContractLineItemSuggestion {
+  itemName?: string;
+  spec?: string;
+  qty?: string;
+  unit?: string;
+  unitPrice?: string;
+  amount?: string;
+}
 
 // ── 表单 ──────────────────────────────────────────────────────────────────────
 export default function OrderForm({ orderId }: { orderId?: string }) {
@@ -289,6 +298,14 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
   function applyContractAutofill(suggestions: DocumentAutofillSuggestion[]) {
     let applied = 0;
     for (const suggestion of suggestions) {
+      if (suggestion.field === "lineItems" && suggestion.value) {
+        const rows = parseLineItemSuggestions(suggestion.value);
+        if (rows.length) {
+          applyLineItemSuggestions(rows);
+          applied += rows.length;
+        }
+        continue;
+      }
       if (suggestion.field === "contractNo" && suggestion.value && !fContractNo.trim()) {
         setFContractNo(suggestion.value);
         applied += 1;
@@ -315,6 +332,41 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       }
     }
     toast.success(applied ? `已回填 ${applied} 项合同信息` : "当前建议未覆盖可回填字段");
+  }
+
+  function parseLineItemSuggestions(value: string): OrderItem[] {
+    try {
+      const parsed = JSON.parse(value) as ContractLineItemSuggestion[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map(row => {
+          const qty = row.qty ? String(row.qty).replace(/,/g, "") : "";
+          const unitPrice = row.unitPrice ? String(row.unitPrice).replace(/,/g, "") : "";
+          const amount = row.amount ? String(row.amount).replace(/,/g, "") : "";
+          return {
+            itemName: String(row.itemName ?? "").trim(),
+            spec: String(row.spec ?? "").trim(),
+            qty,
+            unit: String(row.unit ?? "").trim(),
+            unitPrice,
+            amount: amount || (qty && unitPrice ? String(Math.round(Number(qty) * Number(unitPrice) * 100) / 100) : ""),
+          };
+        })
+        .filter(row => row.itemName);
+    } catch {
+      return [];
+    }
+  }
+
+  function applyLineItemSuggestions(rows: OrderItem[]) {
+    setFormItems(prev => {
+      const existingFilled = prev.filter(row => row.itemName.trim());
+      const blanks = prev.filter(row => !row.itemName.trim());
+      const merged = [...existingFilled, ...rows].map(row => ({ ...emptyItem(), ...row }));
+      const minRows = Math.max(5, merged.length + Math.max(0, blanks.length - rows.length));
+      while (merged.length < minRows) merged.push(emptyItem());
+      return merged;
+    });
   }
 
   if (loading) return <div className={u.emptyCenter}>加载中…</div>;
@@ -421,12 +473,12 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           <DocumentAutofillPanel
             fileRefs={fContractUrls}
             purpose="PROCUREMENT_CONTRACT"
-            fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote"]}
+            fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote", "lineItems"]}
             onApply={applyContractAutofill}
             title="识别合同信息"
-            helperText="上传后需手动点击识别；识别结果先进入审核区，人工勾选确认后才回填。供应商和金额只作为参考，不自动覆盖主数据与明细金额。"
+            helperText="上传后需手动点击识别；识别结果先进入审核区，人工勾选确认后才回填到本页已有字段和采购明细行。供应商和金额只作为参考，不自动覆盖主数据与明细金额。"
             reviewTitle="合同识别结果（请人工审核）"
-            applyButtonLabel="确认选中结果并回填合同字段"
+            applyButtonLabel="确认选中结果并回填到采购单"
           />
         </div>
       </div>
@@ -462,6 +514,21 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         }} onClick={() => setFormItems(p => [...p, emptyItem()])}>
           <Plus size={12} /> 添加行
         </button>
+      </div>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8,
+        padding: "8px 10px",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        background: "var(--bg-muted)",
+        color: "var(--text-secondary)",
+        fontSize: 12
+      }}>
+        <Search size={13} />
+        <span>物料名称列支持快速查询主数据；未找到时可在下拉中直接新建物料，保存后会自动带回规格、单位并回填当前明细行。</span>
       </div>
       {/* G136：单位建议项（含工程/服务类单位）——datalist 仅建议、仍可自由输入 */}
       <datalist id="po-unit-options">
@@ -503,6 +570,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
                   setItemField(idx, "itemCode", m?.material_code ?? "");
                   setItemField(idx, "spec", m?.spec ?? "");
                   setItemField(idx, "unit", m?.unit ?? "");
+                  if (m?.material_code) toast.success(`已选择物料：${m.material_name}`);
                 }} style={{
                   minWidth: 200,
                   fontSize: 12,

@@ -24,6 +24,24 @@ interface CurrentUser {
   id?: string;
 }
 
+interface FieldSuggestion {
+  field: string;
+  label: string;
+  value: string;
+  displayValue?: string;
+  confidence: number;
+  source: string;
+}
+
+interface ProcurementLineItemSuggestion {
+  itemName: string;
+  spec?: string;
+  qty?: string;
+  unit?: string;
+  unitPrice?: string;
+  amount?: string;
+}
+
 @Injectable()
 export class DocumentIntelligenceService {
   constructor(
@@ -115,7 +133,7 @@ export class DocumentIntelligenceService {
       'payDeadline',
       'contractNote',
     ]);
-    const suggestions: Array<{ field: string; label: string; value: string; confidence: number; source: string }> = [];
+    const suggestions: FieldSuggestion[] = [];
     const names = files.map(f => f.originalName || '').join('；');
     const normalizedText = this.normalizeText(text);
     if (fields.has('contractNo')) {
@@ -226,7 +244,83 @@ export class DocumentIntelligenceService {
         source: parts.length ? 'document_text_summary' : 'metadata',
       });
     }
+    if (fields.has('lineItems')) {
+      const lineItems = this.extractProcurementLineItems(normalizedText);
+      if (lineItems.length) {
+        suggestions.push({
+          field: 'lineItems',
+          label: '采购明细',
+          value: JSON.stringify(lineItems.slice(0, 20)),
+          displayValue: lineItems.slice(0, 5).map((it, idx) => {
+            const spec = it.spec ? ` · ${it.spec}` : '';
+            const qty = it.qty ? ` · ${it.qty}${it.unit ?? ''}` : '';
+            const price = it.unitPrice ? ` · 单价${it.unitPrice}` : '';
+            return `${idx + 1}. ${it.itemName}${spec}${qty}${price}`;
+          }).join('；'),
+          confidence: 0.5,
+          source: 'document_text_line_items',
+        });
+      }
+    }
     return suggestions;
+  }
+
+  private extractProcurementLineItems(text: string): ProcurementLineItemSuggestion[] {
+    if (!text) return [];
+    const lines = text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length >= 3 && line.length <= 160)
+      .filter(line => !/(合同|甲方|乙方|供应商|采购方|地址|电话|开户|账号|签字|盖章|合计|总计|金额大写)/.test(line));
+
+    const items: ProcurementLineItemSuggestion[] = [];
+    const seen = new Set<string>();
+    for (const line of lines) {
+      const compact = line.replace(/\s+/g, ' ');
+      const nameSpec = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()\-]{2,40})[（(]([^）)]{2,40})[）)]/);
+      const tableLike = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()\-]{2,40})\s+([A-Za-z0-9\u4e00-\u9fa5./\-]{1,40})?\s*([0-9]+(?:\.[0-9]+)?)?\s*([A-Za-z\u4e00-\u9fa5]{1,8})?\s*([0-9]+(?:\.[0-9]+)?)?/);
+      const match = nameSpec || tableLike;
+      if (!match) continue;
+
+      const itemName = String(match[1] || '').trim();
+      if (!itemName || itemName.length < 2) continue;
+      if (/^(编号|序号|品名|名称|规格|单位|数量|单价|备注|项目)$/.test(itemName)) continue;
+
+      const spec = nameSpec ? String(match[2] || '').trim() : String(match[2] || '').trim();
+      const tail = compact.slice(match[0].length);
+      const qtyUnit = compact.match(/([0-9]+(?:\.[0-9]+)?)\s*(公斤|千克|kg|KG|吨|桶|袋|箱|盒|瓶|支|件|套|批|个|包)/);
+      const hasMoneySignal = /￥|¥|RMB|CNY|LAK|USD|人民币|基普|美元|金额|总价|单价|小计|合计/i.test(compact);
+      const moneyValues = hasMoneySignal
+        ? Array.from(compact.matchAll(/(?:￥|¥|RMB|CNY|LAK|USD)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi)).map(m => m[1].replace(/,/g, ''))
+        : [];
+      const qty = qtyUnit?.[1] || (!nameSpec && match[3] ? String(match[3]) : '');
+      const unit = qtyUnit?.[2] || (!nameSpec && match[4] ? String(match[4]) : this.inferUnit(spec));
+      const unitPrice = moneyValues.length >= 2 ? moneyValues[moneyValues.length - 2] : '';
+      const amount = moneyValues.length >= 1 ? moneyValues[moneyValues.length - 1] : '';
+      const key = `${itemName}|${spec}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Avoid turning ordinary prose into rows. Require either a spec, a quantity/unit, or obvious amount tail.
+      if (!spec && !qty && !/[0-9]/.test(tail)) continue;
+
+      items.push({
+        itemName,
+        spec: spec || undefined,
+        qty: qty || undefined,
+        unit: unit || undefined,
+        unitPrice: unitPrice || undefined,
+        amount: amount || undefined,
+      });
+      if (items.length >= 20) break;
+    }
+    return items;
+  }
+
+  private inferUnit(spec: string) {
+    const value = String(spec || '');
+    const match = value.match(/(公斤|千克|kg|KG|吨|桶|袋|箱|盒|瓶|支|件|套|批|个|包)/);
+    return match?.[1] || '';
   }
 
   private genericSuggestions(files: FileMetadataEntity[], requestedFields: string[], text: string) {
