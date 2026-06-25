@@ -1,0 +1,15 @@
+BEFORE_STATUS
+## main...origin/main
+?? docker-compose.yml.bak-20260522-180813
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+moved=docker-compose.yml.bak-20260522-180813
+moved=nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+moved=nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+DEST=/opt/phoenix-erp-backups/deploy-artifacts/20260625-100916
+3429 /opt/phoenix-erp-backups/deploy-artifacts/20260625-100916/docker-compose.yml.bak-20260522-180813
+6184 /opt/phoenix-erp-backups/deploy-artifacts/20260625-100916/nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+6184 /opt/phoenix-erp-backups/deploy-artifacts/20260625-100916/nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+AFTER_STATUS
+## main...origin/main
+artifact_hygiene_exit=0

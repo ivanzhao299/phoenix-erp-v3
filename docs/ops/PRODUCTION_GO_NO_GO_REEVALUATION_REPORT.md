@@ -73,7 +73,7 @@ Production API health returned `status=OK`, DB connected, production JWT fallbac
 5. Chanjet valid-signature runtime smoke remains a provider/credential condition.
 6. SSH banner instability is mitigated by no-ControlMaster/timeboxed probes but not fully eliminated.
 7. Full disaster-recovery maturity still requires an isolated restore drill.
-8. Three untracked remote backup artifacts should be moved or formally documented in a future hygiene Gate.
+8. Remote backup artifacts were moved out of the checkout by `PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md`; continue keeping host-side backups under `/opt/phoenix-erp-backups/`.
 
 ## GO/NO-GO Decision
 
@@ -98,4 +98,4 @@ Phoenix ERP can continue controlled production operation and Store Payment contr
 2. Activate real Store Payment accounts/QR metadata only after finance confirmation.
 3. Run optional authenticated upload write probe if desired.
 4. Run isolated restore drill before declaring full DR readiness.
-5. Clean or formally archive remote backup artifacts in a deploy-chain hygiene Gate.
+5. Keep `/opt/phoenix-erp` checkout clean; future backup artifacts must stay under `/opt/phoenix-erp-backups/`.

@@ -85,7 +85,7 @@ Any one is enough after deployment:
 | Commit/image | `bc8fdff9a36a22d3b2f66d613eff4c0d63325df5`; remote web image revision `540de0ef`; API healthy |
 | Decision | GO WITH CONDITIONS |
 | Approver | User granted production operations authorization in Codex thread |
-| Conditions | Store Payment business UAT, real account/QR activation, optional upload write probe, Chanjet valid-signature provider smoke, isolated restore drill, backup-artifact hygiene |
+| Conditions | Store Payment business UAT, real account/QR activation, optional upload write probe, Chanjet valid-signature provider smoke, isolated restore drill |
 | Rollback owner | ops / Codex-Orchestrator runbook owner, with DB backup `/opt/phoenix-erp-backups/db/phoenix_erp_20260625-094749.sql.gz` |
 | Monitoring window | Continue health and business-UAT smoke during next production cycle |
 | Evidence links | `docs/ops/PRODUCTION_GO_NO_GO_REEVALUATION_REPORT.md`; `docs/ops/PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_EVIDENCE_REPAIR_REPORT.md` |

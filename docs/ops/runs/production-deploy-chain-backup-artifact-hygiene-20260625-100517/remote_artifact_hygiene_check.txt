@@ -1,0 +1,5 @@
+## main...origin/main
+?? docker-compose.yml.bak-20260522-180813
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+check_exit=0
