@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardCheck, X, CheckCircle, XCircle, Sun, Moon, Clock, Building2, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
@@ -27,6 +28,29 @@ const STATUS_COLOR: Record<string, string> = {
   TODO: 'var(--status-warning)',
   DONE: 'var(--status-success)'
 };
+
+function MobileSheetPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [mounted]);
+
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
 
 // ── 安全摘要：股东资金不暴露金额/银行字段 ─────────────────────────────────────
 function safeSubject(task: WorkflowTask): string {
@@ -364,7 +388,7 @@ function ActionSheet({
   }
   const isApprove = mode === 'approve';
   const accentColor = isApprove ? 'var(--status-success)' : 'var(--status-danger)';
-  return <div style={{
+  return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
     zIndex: 300,
@@ -376,6 +400,8 @@ function ActionSheet({
   }}>
       <div style={{
       width: '100%',
+      maxHeight: '86svh',
+      overflowY: 'auto',
       background: isDark ? 'var(--gray-900)' : 'var(--bg-card)',
       borderRadius: '20px 20px 0 0',
       padding: '24px 16px calc(24px + env(safe-area-inset-bottom))'
@@ -466,7 +492,7 @@ function ActionSheet({
           {submitting ? '提交中…' : isApprove ? '确认通过' : '确认拒绝'}
         </button>
       </div>
-    </div>;
+    </div></MobileSheetPortal>;
 }
 
 // ── 详情底栏 ──────────────────────────────────────────────────────────────────
@@ -504,7 +530,7 @@ function DetailSheet({
   }, [task.instanceId]);
   const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : 'var(--slate-400)';
   const stepStatusLabel = (s: string) => s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s === 'PENDING' ? '待审批' : s;
-  return <div style={{
+  return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
     zIndex: 300,
@@ -782,7 +808,7 @@ function DetailSheet({
           </button>
         </div>
       </div>
-    </div>;
+    </div></MobileSheetPortal>;
 }
 
 // ── 历史任务卡片 ───────────────────────────────────────────────────────────────

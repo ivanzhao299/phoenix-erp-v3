@@ -532,6 +532,71 @@ export interface WorkflowTaskPage {
   pageSize: number;
 }
 
+type ApprovalHistoryResponse = WorkflowTaskPage | {
+  list?: Array<Record<string, unknown>>;
+  data?: Array<Record<string, unknown>>;
+  items?: Array<Record<string, unknown>>;
+  total?: number;
+  page?: number;
+  pageSize?: number;
+};
+
+function normalizeApprovalHistory(raw: ApprovalHistoryResponse): WorkflowTaskPage {
+  if (Array.isArray((raw as WorkflowTaskPage).items)) return raw as WorkflowTaskPage;
+  const history = raw as Exclude<ApprovalHistoryResponse, WorkflowTaskPage>;
+  const page = Number(history.page ?? 1);
+  const pageSize = Number(history.pageSize ?? 20);
+  const rows: Array<Record<string, unknown>> = history.list ?? history.data ?? history.items ?? [];
+  const items = rows.map((row): WorkflowTask => {
+    const id = String(row.id ?? row.instanceId ?? row.instance_id ?? '');
+    const status = String(row.status ?? 'DONE');
+    return {
+      taskSource: 'APPROVAL_ENGINE',
+      taskId: `history-${id}`,
+      instanceId: id,
+      instanceNo: valueOrNull(row.instanceNo ?? row.instance_no),
+      bizType: valueOrNull(row.bizType ?? row.biz_type),
+      bizId: valueOrNull(row.bizId ?? row.biz_id),
+      bizNo: valueOrNull(row.bizNo ?? row.biz_no),
+      subject: valueOrNull(row.subject),
+      amount: numberOrNull(row.amount),
+      currencyCode: valueOrNull(row.currencyCode ?? row.currency_code),
+      companyCode: valueOrNull(row.companyCode ?? row.company_code),
+      companyName: valueOrNull(row.companyName ?? row.company_name),
+      projectCode: valueOrNull(row.projectCode ?? row.project_code),
+      projectName: valueOrNull(row.projectName ?? row.project_name),
+      requiredRole: null,
+      stepNo: numberOrNull(row.currentStepNo ?? row.current_step_no),
+      totalSteps: numberOrNull(row.totalSteps ?? row.total_steps),
+      currentStepNo: numberOrNull(row.currentStepNo ?? row.current_step_no),
+      startedBy: valueOrNull(row.startedBy ?? row.started_by),
+      status,
+      createdAt: String(row.finishedAt ?? row.finished_at ?? row.startedAt ?? row.started_at ?? new Date().toISOString()),
+      dueAt: null,
+      isOverdue: false,
+      escalationLevel: 0,
+    };
+  });
+
+  return {
+    items,
+    total: Number(history.total ?? items.length),
+    page,
+    pageSize,
+  };
+}
+
+function valueOrNull(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  return String(value);
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export interface FormSubmissionSnapshot {
   id:              number;
   submissionNo:    string;
@@ -602,12 +667,13 @@ export const approvalApi = {
   },
 
   /** 审批历史（已办） */
-  getHistory: (params?: { page?: number; pageSize?: number; bizType?: string }): Promise<WorkflowTaskPage> => {
+  getHistory: async (params?: { page?: number; pageSize?: number; bizType?: string }): Promise<WorkflowTaskPage> => {
     const q = new URLSearchParams();
     if (params?.page)     q.set('page',     String(params.page));
     if (params?.pageSize) q.set('pageSize', String(params.pageSize));
     if (params?.bizType)  q.set('bizType',  params.bizType);
-    return wfGet<WorkflowTaskPage>(`/api/approval/history?${q}`);
+    const raw = await wfGet<ApprovalHistoryResponse>(`/api/approval/history?${q}`);
+    return normalizeApprovalHistory(raw);
   },
 
   /** 实例详情 */
