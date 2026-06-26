@@ -14,11 +14,13 @@ import { Controller, Get, Param, Query, Logger, Req, UseGuards } from '@nestjs/c
 import { AuthGuard } from '@nestjs/passport';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { ClsService } from 'nestjs-cls';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
-import { DataScopeService } from '../org/services/data-scope.service';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
+import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 
 @Controller('api/biz/projects')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_PRC2_PROJECT', 'V', ['MENU_MASTER_DATA'])
 export class BizProjectsController {
   private readonly logger = new Logger(BizProjectsController.name);
@@ -26,6 +28,7 @@ export class BizProjectsController {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly dataScope: DataScopeService,
+    private readonly cls: ClsService,
   ) {}
 
   /**
@@ -81,11 +84,12 @@ export class BizProjectsController {
   }
 
   private async companyScope(req: any): Promise<{ isGlobal: boolean; companyCodes: string[] }> {
-    const user = req?.user ?? {};
-    const permissions: string[] = Array.isArray(user.permissions) ? user.permissions : [];
-    if (permissions.includes('*') || user.username === 'admin' || user.role === 'ROLE_ADMIN' || user.roles?.includes?.('ROLE_ADMIN')) {
-      return { isGlobal: true, companyCodes: [] };
+    const clsScope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (clsScope) {
+      return { isGlobal: !!clsScope.isGlobal, companyCodes: clsScope.allowedCompanyCodes ?? [] };
     }
+
+    const user = req?.user ?? {};
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     const userId = String(user.userId ?? user.id ?? '');
     try {
