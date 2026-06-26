@@ -305,6 +305,16 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/bff\/bff\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_MONITOR['"]/.test(line)
+    ) {
+      const nearby = lines.slice(Math.max(0, index - 14), Math.min(lines.length, index + 14)).join('\n');
+      if (/class\s+AuditBffController|api\/audit|workbench|anti-fraud/.test(nearby)) {
+        add(file, lineNo, 'Audit BFF APIs must use MENU_SETTINGS_AUDIT, not system monitor permissions.', line);
+      }
+    }
+
+    if (
       /apps\/api\/src\/modules\/notification\/notification-config\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
     ) {
@@ -344,6 +354,14 @@ for (const file of trackedFiles()) {
       /perm:\s*["']MENU_SYS_CONFIG["']/.test(line)
     ) {
       add(file, lineNo, 'Sidebar entries must use atomic settings permissions instead of coarse MENU_SYS_CONFIG.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /path:\s*["']\/settings\/audit-log["']/.test(line) &&
+      /MENU_SYS_MONITOR/.test(line)
+    ) {
+      add(file, lineNo, 'Audit-log sidebar entry must not be visible through MENU_SYS_MONITOR; require MENU_SETTINGS_AUDIT.', line);
     }
 
     if (

@@ -255,7 +255,7 @@ export const MENU: MenuItem[] = [
     { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SETTINGS_DATA_SCOPE" },
     { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_CONFIG" },
     { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_SECURITY" },
-    { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_AUDIT", altPerms: ["MENU_SYS_MONITOR"] },
+    { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_AUDIT" },
     { id: "stg-brand",       path: "/settings/brand",         Icon: Star,        label: "品牌配置",   perm: "MENU_SETTINGS_BRAND" },
     { id: "stg-pda",         path: "/settings/pda-terminals", Icon: Smartphone,  label: "终端配置",   perm: "MENU_SETTINGS_TERMINAL" },
     { id: "stg-pos",         path: "/settings/pos-config",    Icon: Store,       label: "收银配置",   perm: "MENU_SETTINGS_POS" },

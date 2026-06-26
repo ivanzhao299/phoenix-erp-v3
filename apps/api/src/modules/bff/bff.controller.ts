@@ -844,7 +844,7 @@ export class AnalyticsBffController {
 // ── Audit ─────────────────────────────────────────────────────────────────────
 @Controller('api/audit')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_SYS_MONITOR', 'V')
+@RequireMenu('MENU_SETTINGS_AUDIT', 'V')
 export class AuditBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -859,7 +859,7 @@ export class AuditBffController {
   }
 
   @Post('workbench/sample')
-  @RequireMenu('MENU_SYS_MONITOR', 'E')
+  @RequireMenu('MENU_SETTINGS_AUDIT', 'E')
   async sampleAudit(@Body() body: any) {
     return { code: 200, msg: '抽样审计已记录', data: { sample_id: `SAMPLE-${Date.now()}` } };
   }
@@ -880,7 +880,7 @@ export class AuditBffController {
   }
 
   @Post('anti-fraud/:id/freeze')
-  @RequireMenu('MENU_SYS_MONITOR', 'E')
+  @RequireMenu('MENU_SETTINGS_AUDIT', 'E')
   async freezeAccount(@Param('id') id: string) {
     return { code: 200, msg: `账户 ${id} 已标记冻结`, data: { id } };
   }
