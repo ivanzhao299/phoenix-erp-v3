@@ -172,6 +172,34 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/system-monitor\/controllers\/sys-configs\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
+    ) {
+      add(file, lineNo, 'System config APIs must use MENU_SETTINGS_CONFIG, not coarse MENU_SYS_CONFIG.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/product-master\/controllers\/menu-admin\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Menu registry admin APIs must use MENU_SETTINGS_MENU_REGISTRY, not coarse MENU_SYS_CONFIG.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Chanjet configuration and diagnostics endpoints must use MENU_SETTINGS_CHANJET, not coarse MENU_SYS_CONFIG.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /perm:\s*["']MENU_SYS_CONFIG["']/.test(line)
+    ) {
+      add(file, lineNo, 'Sidebar entries must use atomic settings permissions instead of coarse MENU_SYS_CONFIG.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master\/master\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
     ) {

@@ -20,14 +20,14 @@ export class MenuAdminController {
 
   /** GET /api/sys/menu-registry/stats — 调试用，查看当前内存 Set 大小与数据源 */
   @Get('stats')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'V')
   stats() {
     return { code: 200, data: getMenuRegistryStats() };
   }
 
   /** POST /api/sys/menu-registry/reload — 强制重新从 sys_menu 加载 menu_codes */
   @Post('reload')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'E')
   async reload() {
     await rehydrate(this.em);
     return { code: 200, data: getMenuRegistryStats(), message: 'menu-registry reloaded' };

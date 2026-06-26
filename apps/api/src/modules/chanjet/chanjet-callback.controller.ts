@@ -14,6 +14,7 @@ const CHANJET_PROXY_ALLOWED_PATHS = [
   '/accounting/gl/statistics/receive/',
 ];
 const CHANJET_PROXY_MENU = 'MENU_FIN2_AR_LEDGER';
+const CHANJET_CONFIG_MENU = 'MENU_SETTINGS_CHANJET';
 
 @Controller('api/chanjet')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -236,7 +237,7 @@ export class ChanjetCallbackController {
    * 管理员查看畅捷通认证链状态。
    */
   @Get('diagnostics')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'V')
   diagnostics() {
     return this.auth.diagnostics();
   }
@@ -246,7 +247,7 @@ export class ChanjetCallbackController {
    * 管理员手动触发 token 获取测试。
    */
   @Get('test-token')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'E')
   async testToken(@Req() req: any) {
     this.log.warn(`manual chanjet test-token triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
@@ -534,7 +535,7 @@ export class ChanjetCallbackController {
    * 管理员手动设置 certificate（从畅捷通控制台复制）。
    */
   @Post('set-cert')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'E')
   setCert(@Body() body: { certificate: string }) {
     if (!body.certificate) return { success: false, error: 'certificate 不能为空' };
     this.auth.setCertificate(body.certificate);
@@ -546,7 +547,7 @@ export class ChanjetCallbackController {
    * 管理员手动注入 appTicket（容器重启后丢失时用）。
    */
   @Post('set-ticket')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'E')
   setTicket(@Body() body: { appTicket: string }) {
     if (!body.appTicket) return { success: false, error: 'appTicket 不能为空' };
     this.auth.setAppTicket(body.appTicket);
@@ -558,7 +559,7 @@ export class ChanjetCallbackController {
    * 管理员手动触发 appTicket 推送（需消息接收地址已配好）。
    */
   @Post('trigger-ticket')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'E')
   async triggerTicket() {
     try {
       const result = await this.auth.triggerAppTicket();
@@ -573,7 +574,7 @@ export class ChanjetCallbackController {
    * 管理员用已知密钥测试回调解密链路。
    */
   @Post('test-callback')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_CONFIG_MENU, 'E')
   testCallback(@Body() body: Record<string, unknown>) {
     const isEncryptMsg = !!body.encryptMsg;
     const content = (body.encryptMsg ?? body.content) as string | undefined;

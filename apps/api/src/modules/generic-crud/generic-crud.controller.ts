@@ -124,7 +124,7 @@ export class GenericCrudController {
     if (table === 'sys_approval_log' || table === 'sys_audit_log') return 'MENU_SETTINGS_AUDIT';
     if (table === 'sys_approval_flows')      return 'MENU_WORKFLOW_CONFIG';
     if (table === 'sys_approval_rule')       return 'MENU_WORKFLOW_RULES';
-    if (table === 'sys_settings')            return 'MENU_SYS_CONFIG';
+    if (table === 'sys_settings')            return 'MENU_SETTINGS_CONFIG';
     if (table === 'pda_terminals')           return 'MENU_SETTINGS_TERMINAL';
     if (table.startsWith('fin_cash_'))       return 'MENU_FIN2_CASH_VIEW';
     if (table.startsWith('fin_ar_'))         return 'MENU_FIN2_AR';

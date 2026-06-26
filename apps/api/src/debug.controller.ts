@@ -9,7 +9,7 @@ export class DebugController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   @Get('migrated-data')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
   async getMigratedData() {
     const users = await this.em.query('SELECT * FROM sys_user ORDER BY user_id DESC LIMIT 5');
     const cashFlows = await this.em.query('SELECT * FROM biz_cash_flow ORDER BY id ASC LIMIT 5');
