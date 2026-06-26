@@ -166,6 +166,58 @@ export class OrgService {
     }
   }
 
+  private async assertCompanyScopedCodeVisible(
+    table: 'biz_projects' | 'wms_warehouses',
+    codeCol: 'project_code' | 'warehouse_code',
+    code: string,
+    label: string,
+  ): Promise<void> {
+    const cleanCode = String(code ?? '').trim();
+    if (!cleanCode) throw new BadRequestException(`${label}不能为空`);
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'DENY') throw new ForbiddenException('DATA_SCOPE_DENIED');
+    const activeClause = table === 'biz_projects'
+      ? `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'
+          AND deleted_at IS NULL`
+      : `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'`;
+
+    const [row] = await this.ds.query(
+      `SELECT ${codeCol} AS code, company_code
+         FROM ${table}
+        WHERE ${codeCol} = $1
+          ${activeClause}
+        LIMIT 1`,
+      [cleanCode],
+    );
+    if (!row) throw new BadRequestException(`${label}「${cleanCode}」不存在或已归档`);
+    if (scope === 'ALL') return;
+    const companyCode = String(row.company_code ?? '').trim();
+    if (!companyCode || !scope.includes(companyCode)) {
+      throw new ForbiddenException('DATA_SCOPE_DENIED');
+    }
+  }
+
+  private async visibleCompanyScopedCodes(
+    table: 'biz_projects' | 'wms_warehouses',
+    codeCol: 'project_code' | 'warehouse_code',
+  ): Promise<'ALL' | string[]> {
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'ALL') return 'ALL';
+    if (scope === 'DENY') return [];
+    const activeClause = table === 'biz_projects'
+      ? `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'
+          AND deleted_at IS NULL`
+      : `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'`;
+    const rows: Array<{ code: string }> = await this.ds.query(
+      `SELECT ${codeCol} AS code
+         FROM ${table}
+        WHERE company_code = ANY($1)
+          ${activeClause}`,
+      [scope],
+    );
+    return rows.map((r) => String(r.code));
+  }
+
   async getOrg(id: number): Promise<SysOrganizationEntity> {
     const org = await this.orgRepo.findOne({ where: { id } });
     if (!org) throw new NotFoundException(`Organization ${id} not found`);
@@ -518,12 +570,23 @@ export class OrgService {
   // ── 用户额外授权 ─────────────────────────────────────────────────────────────
 
   async getUserScopes(userId: number) {
-    const projects = await this.userProjRepo.find({ where: { userId } });
-    const warehouses = await this.userWhRepo.find({ where: { userId } });
+    const visibleProjectCodes = await this.visibleCompanyScopedCodes('biz_projects', 'project_code');
+    const visibleWarehouseCodes = await this.visibleCompanyScopedCodes('wms_warehouses', 'warehouse_code');
+    const projects = visibleProjectCodes === 'ALL'
+      ? await this.userProjRepo.find({ where: { userId } })
+      : visibleProjectCodes.length
+        ? await this.userProjRepo.find({ where: { userId, projectCode: In(visibleProjectCodes) } })
+        : [];
+    const warehouses = visibleWarehouseCodes === 'ALL'
+      ? await this.userWhRepo.find({ where: { userId } })
+      : visibleWarehouseCodes.length
+        ? await this.userWhRepo.find({ where: { userId, warehouseCode: In(visibleWarehouseCodes) } })
+        : [];
     return { projects, warehouses };
   }
 
   async addProjectScope(userId: number, projectCode: string): Promise<SysUserProjectScopeEntity> {
+    await this.assertCompanyScopedCodeVisible('biz_projects', 'project_code', projectCode, '项目');
     const existing = await this.userProjRepo.findOne({ where: { userId, projectCode } });
     if (existing) return existing;
     const s = this.userProjRepo.create({ userId, projectCode });
@@ -534,11 +597,13 @@ export class OrgService {
 
   async removeProjectScope(id: number): Promise<void> {
     const s = await this.userProjRepo.findOne({ where: { id } });
+    if (s) await this.assertCompanyScopedCodeVisible('biz_projects', 'project_code', s.projectCode, '项目');
     if (s) this.dataScopeService.invalidate(String(s.userId));
     await this.userProjRepo.delete(id);
   }
 
   async addWarehouseScope(userId: number, warehouseCode: string): Promise<SysUserWarehouseScopeEntity> {
+    await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', warehouseCode, '仓库');
     const existing = await this.userWhRepo.findOne({ where: { userId, warehouseCode } });
     if (existing) return existing;
     const s = this.userWhRepo.create({ userId, warehouseCode });
@@ -549,6 +614,7 @@ export class OrgService {
 
   async removeWarehouseScope(id: number): Promise<void> {
     const s = await this.userWhRepo.findOne({ where: { id } });
+    if (s) await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', s.warehouseCode, '仓库');
     if (s) this.dataScopeService.invalidate(String(s.userId));
     await this.userWhRepo.delete(id);
   }
