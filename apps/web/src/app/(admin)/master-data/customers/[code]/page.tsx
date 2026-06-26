@@ -42,7 +42,10 @@ interface RefItem { refTable: string; refDocType: string; refCount: number; }
 export default function CustomerDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { canView, isSuper } = usePermission("MENU_MASTER_DATA");
+  const customerPerm = usePermission("MENU_MD_CUSTOMER");
+  const masterDataPerm = usePermission("MENU_MASTER_DATA");
+  const canView = customerPerm.canView || masterDataPerm.canView;
+  const isSuper = customerPerm.isSuper || masterDataPerm.isSuper;
 
   const code = decodeURIComponent(String(params?.code || ""));
 

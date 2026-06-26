@@ -130,10 +130,10 @@ export const MENU: MenuItem[] = [
 
   // 4. 采购管理 — Procurement V2 正式入口
   { id: "procurement", Icon: Layers3, label: "采购管理", perm: "MENU_PRC2_MASTER", children: [
-    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD", altPerms: ["MENU_PRC2"] },
-    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_SUPPLIER",  altPerms: ["MENU_PRC2_MASTER"] },
-    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_PROJECT",   altPerms: ["MENU_PRC2_MASTER"] },
-    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_REQUEST",   altPerms: ["MENU_PRC2_MASTER"] },
+    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD" },
+    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_SUPPLIER"  },
+    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_PROJECT"   },
+    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_REQUEST"   },
     { id: "prc2-order",     path: "/procurement2/orders",            Icon: ShoppingBag,     label: "采购订单",   perm: "MENU_PRC2_ORDER"    },
     { id: "prc2-shipment",  path: "/procurement2/shipments",         Icon: Truck,           label: "物流管理",   perm: "MENU_PRC2_SHIPMENT" },
     { id: "prc2-receipt",   path: "/procurement2/receipts",          Icon: PackageCheck,    label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
@@ -166,7 +166,7 @@ export const MENU: MenuItem[] = [
 
   // 6. 财务管理 — 应收 + 应付 + 资金 + 费用 + 报表
   { id: "finance", Icon: Wallet, label: "财务管理", perm: "MENU_FIN2", children: [
-    { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2"            },
+    { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2_DASHBOARD"  },
     { id: "f2-ar",        path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收账款",   perm: "MENU_FIN2_AR"         },
     { id: "f2-ar-ledger", path: "/finance2/ar-ledger",          Icon: BookOpen,        label: "应收总账",   perm: "MENU_FIN2_AR_LEDGER"  },
     { id: "f2-ar-recon",  path: "/finance2/ar-reconciliation",  Icon: Scale,           label: "应收三方对账", perm: "MENU_FIN2_AR_LEDGER"  },
@@ -192,9 +192,9 @@ export const MENU: MenuItem[] = [
 
   // 7. 审批中心 — 工作流统一入口（原"工作流"改名）
   { id: "approval", Icon: ListChecks, label: "审批中心", perm: "MENU_WORKFLOW", children: [
-    { id: "ap-todos",   path: "/workflow/todos",         aliases: ["/workflow/tasks/todo"], Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO",    altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-history", path: "/workflow/history",        aliases: ["/workflow/tasks/done"], Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY", altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW_NOTIFY",  altPerms: ["MENU_WORKFLOW"] },
+    { id: "ap-todos",   path: "/workflow/todos",         aliases: ["/workflow/tasks/todo"], Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO"    },
+    { id: "ap-history", path: "/workflow/history",        aliases: ["/workflow/tasks/done"], Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY" },
+    { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW_NOTIFY"  },
     { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW_CONFIG",  requiredPerm: "E" },
     { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW_RULES",   requiredPerm: "C" },
     { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW_FORM",    requiredPerm: "E" },

@@ -37,13 +37,13 @@ interface TodoTask { task_no: string; title: string; node_name: string; created_
 // G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
 type Shortcut = { key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string; altPerms?: string[]; groupId?: string };
 const SHORTCUTS: Shortcut[] = [
-  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER', altPerms: ['MENU_MASTER_DATA', 'MENU_MASTER'] },
-  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER', altPerms: ['MENU_MASTER_DATA', 'MENU_MASTER'] },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
+  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER', altPerms: ['MENU_MASTER_DATA'] },
+  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER', altPerms: ['MENU_MASTER_DATA'] },
+  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2', groupId: 'sales' },
-  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2', groupId: 'finance' },
+  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
-  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW', 'MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
+  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
   { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_DATA_QUALITY' },
 ];
 
@@ -65,13 +65,13 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
   )) {
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0 && (hasPermission('MENU_WORKFLOW_TODO') || hasPermission('MENU_WORKFLOW'))) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
+  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
   if ((role?.includes('CASH') || role?.includes('TREASURY')) && (hasPermission('MENU_FIN2_CASH_VIEW') || hasPermission('MENU_FIN2_CASH'))) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN')) {
     const financePath = getFirstAccessiblePath(hasPermission, 'finance');
     if (financePath) return { label: '进入财务中心', href: financePath, icon: Wallet };
   }
-  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_MASTER', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
+  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
     const procurementPath = getFirstAccessiblePath(hasPermission, 'procurement');
     if (procurementPath) return { label: '进入采购中心', href: procurementPath, icon: ShoppingBag };
   }
@@ -99,7 +99,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
-  const hasMasterPerm = hasPermission('MENU_MASTER');
+  const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
   // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
   const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
   // 对齐后端：/master-data/operations/centers 要求 MENU_MASTER_DATA（非 MENU_MASTER）。
@@ -199,7 +199,7 @@ export default function HomePage() {
         todoCount={todoCount}
         overdueCount={summary?.overdueTodo ?? 0}
         highAlertCount={scores?.highAlertCount ?? 0}
-        hasMasterPerm={hasMasterPerm}
+        masterDataPath={masterDataPath}
         showAlertBubble={hasQualityPerm}
       />
 
@@ -268,11 +268,11 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════
 // Hero 欢迎横幅
 // ══════════════════════════════════════════════════════
-function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, hasMasterPerm, showAlertBubble }: {
+function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, masterDataPath, showAlertBubble }: {
   greeting: string; userName: string; briefing: string;
   ctaLabel: string; ctaHref: string; CtaIcon: any;
   todoCount: number; overdueCount: number; highAlertCount: number;
-  hasMasterPerm: boolean; showAlertBubble: boolean;
+  masterDataPath?: string; showAlertBubble: boolean;
 }) {
   return (
     <div style={{
@@ -326,9 +326,9 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
           }}>
             <CtaIcon size={14} /> {ctaLabel} <ArrowRight size={12} />
           </Link>
-          {/* 主数据中心副 CTA — 仅持有 MENU_MASTER 权限的用户可见（避免普通业务员误入） */}
-          {hasMasterPerm && (
-            <Link href="/master-data" style={{
+          {/* 主数据中心副 CTA — 只跳转到用户实际可访问的第一个主数据叶子入口。 */}
+          {masterDataPath && (
+            <Link href={masterDataPath} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '7px 16px', borderRadius: 8,
               background: 'var(--bg-muted)', border: '1px solid var(--border)',
@@ -629,7 +629,10 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
 // ══════════════════════════════════════════════════════
 function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) {
   // G11：按权限过滤业务中心 — 无权访问的不显示
-  const visible = SHORTCUTS.filter(s => hasPermission(s.perm) || (s.altPerms?.some(p => hasPermission(p)) ?? false));
+  const visible = SHORTCUTS.filter(s => {
+    const href = s.groupId ? getFirstAccessiblePath(hasPermission, s.groupId) : s.href;
+    return Boolean(href) && (hasPermission(s.perm) || (s.altPerms?.some(p => hasPermission(p)) ?? false));
+  });
   if (visible.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
@@ -646,7 +649,8 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) 
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
         {visible.map(s => {
-          const href = s.groupId ? (getFirstAccessiblePath(hasPermission, s.groupId) || s.href) : s.href;
+          const href = s.groupId ? (getFirstAccessiblePath(hasPermission, s.groupId) || '') : s.href;
+          if (!href) return null;
           return (
           <Link key={s.key} href={href} style={{
             position: 'relative', overflow: 'hidden',

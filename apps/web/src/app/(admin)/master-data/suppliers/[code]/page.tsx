@@ -42,7 +42,10 @@ interface RefItem { refTable: string; refDocType: string; refCount: number; }
 export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { canView, isSuper } = usePermission("MENU_MASTER_DATA");
+  const supplierPerm = usePermission("MENU_MD_SUPPLIER");
+  const masterDataPerm = usePermission("MENU_MASTER_DATA");
+  const canView = supplierPerm.canView || masterDataPerm.canView;
+  const isSuper = supplierPerm.isSuper || masterDataPerm.isSuper;
 
   const code = decodeURIComponent(String(params?.code || ""));
 

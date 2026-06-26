@@ -60,7 +60,9 @@ function scoreColor(s: number): { bg: string; fg: string; label: string } {
 }
 
 export default function GovernanceDashboardPage() {
-  const { canView } = usePermission('MENU_MASTER_DATA');  // G79：补权限门(原零检查·安全洞)
+  const qualityPerm = usePermission('MENU_MD_QUALITY');
+  const masterDataPerm = usePermission('MENU_MASTER_DATA');
+  const canView = qualityPerm.canView || masterDataPerm.canView;
   const [scores, setScores] = useState<Scores | null>(null);
   const [dict, setDict] = useState<DictCoverage | null>(null);
   const [loading, setLoading] = useState(true);

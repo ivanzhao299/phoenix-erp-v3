@@ -40,8 +40,9 @@ export default function DashboardPage() {
     if (loading) return;
     try {
       if (hasPermission('MENU_DASHBOARD', 'V')) { setAllowed(true); return; }
-      if (hasPermission('MENU_FIN2', 'V') || hasPermission('MENU_FIN2_REPORT', 'V')) {
-        router.replace('/finance2');
+      const financePath = getFirstAccessiblePath(hasPermission, 'finance');
+      if (financePath) {
+        router.replace(financePath);
         return;
       }
       router.replace('/home');
@@ -66,9 +67,9 @@ export default function DashboardPage() {
     { path: '/warehouse', groupId: 'inventory', label: t('ui.仓储库存','仓储库存'), desc: t('ui.入库 / 出库 / 盘点','入库 / 出库 / 盘点'),   color: 'var(--color-purple-500)', icon: <Archive size={22} />, perm: 'MENU_WMS_VIEW' },
     { path: '/sales2/orders', groupId: 'sales', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: 'var(--status-warning)', icon: <ShoppingCart size={22} />, perm: 'MENU_SALES2_ORDER' },
     { path: '/sales2/delivery', groupId: 'sales', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: 'var(--status-info)', icon: <Truck size={22} />, perm: 'MENU_SALES2_DELIVERY' },
-    { path: '/finance2', groupId: 'finance', label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: 'var(--status-warning)', icon: <TrendingUp size={22} />, perm: 'MENU_FIN2' },
+    { path: '/finance2', groupId: 'finance', label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: 'var(--status-warning)', icon: <TrendingUp size={22} />, perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'] },
     { path: '/quality', groupId: 'production', label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: 'var(--color-purple-500)', icon: <CheckCircle size={22} />, perm: 'MENU_QA_OP', altPerms: ['MENU_QA_MGR'] },
-    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2', 'MENU_PRC2_MASTER'] },
+    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
     { path: '/analytics', groupId: 'analytics', label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: 'var(--violet-500)', icon: <BarChart2 size={22} />, perm: 'MENU_DASHBOARD' },
     { path: '/settings', groupId: 'settings', label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: 'var(--slate-400)', icon: <Users size={22} />, perm: 'MENU_SETTINGS_USER' },
   ];

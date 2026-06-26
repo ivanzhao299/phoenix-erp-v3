@@ -5,24 +5,26 @@ import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
 @Controller('api/procurement')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_PRC2', 'V')
 export class ProcurementController {
   constructor(private readonly procurementService: ProcurementService) {}
 
   // ─── 采购看板汇总 ──────────────────────────────────────────────────────────
   @Get('dashboard')
+  @RequireMenu('MENU_PRC2_DASHBOARD', 'V')
   async getDashboard() {
     return await this.procurementService.getDashboardSummary();
   }
 
   // ─── 采购申请（草稿/待审批） ────────────────────────────────────────────────
   @Get('requests')
+  @RequireMenu('MENU_PRC2_REQUEST', 'V')
   async getRequests() {
     return await this.procurementService.getRequests();
   }
 
   // ─── 采购订单（审批后） ────────────────────────────────────────────────────
   @Get('orders')
+  @RequireMenu('MENU_PRC2_ORDER', 'V')
   async getOrders() {
     return await this.procurementService.getOrders();
   }
@@ -52,13 +54,14 @@ export class ProcurementController {
 
   // ─── 批准采购单 ─────────────────────���──────────────────────────────────────
   @Post(':poNo/approve')
-  @RequireMenu('MENU_PRC2_ORDER', 'A', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_PRC2_ORDER', 'A', ['MENU_WORKFLOW_TODO'])
   async approvePO(@Param('poNo') poNo: string) {
     return await this.procurementService.approvePO(poNo);
   }
 
   // ─── 待付款列表（来自PO批准） ──────────────────────────────────────────────
   @Get('pending-payments')
+  @RequireMenu('MENU_PRC2_PAYMENT', 'V')
   async getPendingPayments() {
     return await this.procurementService.getPendingPayments();
   }
@@ -86,23 +89,27 @@ export class ProcurementController {
 
   // ─── 供应商 ────────────────────────────────────────────────────────────────
   @Get('suppliers')
+  @RequireMenu('MENU_PRC2_SUPPLIER', 'V')
   async getSuppliers() {
     return await this.procurementService.getSuppliers();
   }
 
   @Get('supplier-kpi')
+  @RequireMenu('MENU_PRC2_SUPPLIER', 'V')
   async getSupplierKpi() {
     return await this.procurementService.getSupplierKpi();
   }
 
   // ─── 三单比对 ──────────────────────────────────────────────────────────────
   @Get('three-way-match/:po_no')
+  @RequireMenu('MENU_PRC2_ORDER', 'V')
   async getThreeWayMatch(@Param('po_no') poNo: string) {
     return await this.procurementService.getThreeWayMatch(poNo);
   }
 
   // ─── 饲料耗料对账 ──────────────────────────────────────────────────────────
   @Get('feed-reconciliation')
+  @RequireMenu('MENU_PRC2_DASHBOARD', 'V')
   async getFeedReconciliation(
     @Query('start_date') startDate: string,
     @Query('end_date') endDate: string,
@@ -113,12 +120,13 @@ export class ProcurementController {
 
   // ─── 采购申请 ──────────────────────────────────────────────────────────────
   @Get('purchase-requests')
+  @RequireMenu('MENU_PRC2_REQUEST', 'V')
   async getPurchaseRequests() {
     return await this.procurementService.getPurchaseRequests();
   }
 
   @Post('purchase-requests')
-  @RequireMenu('MENU_PRC2_REQUEST', 'C', ['MENU_PRC2_MASTER'])
+  @RequireMenu('MENU_PRC2_REQUEST', 'C')
   async createPurchaseRequest(@Body() body: any) {
     return await this.procurementService.createPurchaseRequest(body);
   }
@@ -130,7 +138,7 @@ export class ProcurementController {
   }
 
   @Post('purchase-requests/:id/reject')
-  @RequireMenu('MENU_PRC2_REQUEST', 'A', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_PRC2_REQUEST', 'A', ['MENU_WORKFLOW_TODO'])
   async rejectRequest(@Param('id') id: string, @Body('note') note: string) {
     return await this.procurementService.rejectRequest(Number(id), note);
   }

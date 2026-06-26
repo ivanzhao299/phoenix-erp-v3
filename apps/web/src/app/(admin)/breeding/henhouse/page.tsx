@@ -53,9 +53,9 @@ export default function HenHousePage() {
     showConfirm
   } = useDialog();
   const {
-    can
+    hasPerm
   } = usePermission();
-  // G23-B：can(role[]) → PBAC
+  // G23-B：菜单码必须走 PBAC，不再把 MENU_* 当角色传给 can(role[])。
   const { canEdit: canEditHouse } = usePermission('MENU_FARM_DATA');
   const {
     t
@@ -322,7 +322,7 @@ export default function HenHousePage() {
     title: t('common.operation', '操作'),
     width: '160px',
     render: (_: unknown, row: HouseCard) => <div className={s.tableActions}>
-        {can(['MENU_DEVICE_MONITOR']) && <button type="button" className={mappedHouses.has(row.code) ? `${s.btn} ${s.btnSm}` : `${s.btn} ${s.btnSm} ${s.btnGhost}`} style={mappedHouses.has(row.code) ? {
+        {hasPerm('MENU_DEVICE_MONITOR:V') && <button type="button" className={mappedHouses.has(row.code) ? `${s.btn} ${s.btnSm}` : `${s.btn} ${s.btnSm} ${s.btnGhost}`} style={mappedHouses.has(row.code) ? {
         color: 'var(--status-success)',
         borderColor: 'var(--status-success)',
         background: 'color-mix(in srgb, var(--status-success) 12%, transparent)'

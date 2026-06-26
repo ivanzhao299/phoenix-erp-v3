@@ -30,13 +30,13 @@ function getToken() {
 export default function Page() {
   const toast = useToast();
   const { t } = useLanguage();
-  // G5-E：页面级 perm 守卫 — 业务录入用户（如孟赛生产数据主管）不应能进入主数据维护页
-  const { canView } = usePermission("MENU_MASTER");
+  // 页面级 perm 守卫：养殖场主档按养殖主数据原子码控制，不再依赖旧 MENU_MASTER 父级权限。
+  const { canView } = usePermission("MENU_FARM_MASTER");
   if (!canView) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
         <h3>无权限访问</h3>
-        <p>「养殖场主数据」需要 MENU_MASTER:V 权限。请联系系统管理员。</p>
+        <p>「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。</p>
       </div>
     );
   }

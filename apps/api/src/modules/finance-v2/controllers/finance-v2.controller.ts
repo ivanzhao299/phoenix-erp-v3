@@ -91,7 +91,19 @@ export class FinanceV2Controller {
    * Finance V2 Dashboard 汇总：AP 统计 + 模块状态
    */
   @Get('dashboard')
-  @RequireMenu('MENU_FIN2', 'V')
+  @RequireMenu('MENU_FIN2_DASHBOARD', 'V', [
+    'MENU_FIN2_REPORT',
+    'MENU_FIN2_AP',
+    'MENU_FIN2_AR',
+    'MENU_FIN2_AR_LEDGER',
+    'MENU_FIN2_CASH_VIEW',
+    'MENU_FIN2_CASH',
+    'MENU_FIN2_CASH_TRANSFER',
+    'MENU_FIN2_SHAREHOLDER',
+    'MENU_FIN2_EXPENSE',
+    'MENU_FIN2_REIMBURSE',
+    'MENU_FIN2',
+  ])
   async dashboard() {
     const u = this.scopedUser;
     // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已将正确 scope 写入 CLS）

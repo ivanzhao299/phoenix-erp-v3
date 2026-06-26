@@ -35,7 +35,7 @@ interface OrgItem {
 export default function MdCompaniesPage() {
   const {
     canView
-  } = usePermission("MENU_MASTER");
+  } = usePermission("MENU_SYS_ORG");
   const [items, setItems] = useState<OrgItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

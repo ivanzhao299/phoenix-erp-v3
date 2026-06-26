@@ -60,7 +60,9 @@ const TYPE_LABEL: Record<string, string> = {
   dict: '字典'
 };
 export default function OperationsPage() {
-  const { canView } = usePermission("MENU_MASTER_DATA");  // G79：补权限门(原零检查·安全洞)
+  const centerPerm = usePermission("MENU_MD_CENTER");
+  const masterDataPerm = usePermission("MENU_MASTER_DATA");
+  const canView = centerPerm.canView || masterDataPerm.canView;
   const [todo, setTodo] = useState<Todo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
