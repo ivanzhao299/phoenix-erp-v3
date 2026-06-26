@@ -504,6 +504,20 @@ for (const file of trackedFiles()) {
     add(file, 1, 'MasterDataTypeGuard must not allow coarse MENU_SYS_ORG as per-type fallback; use MENU_MD_ORG/MENU_MD_COMPANY or legacy read-only org aliases only.', lines[0] || file);
   }
 
+  if (
+    /apps\/api\/src\/common\/guards\/master-data-type\.guard\.ts$/.test(file) &&
+    /TYPE_TO_ALT_MENUS[\s\S]*(MENU_ORG_VIEW|MENU_ORG_MANAGE)/.test(text)
+  ) {
+    add(file, 1, 'MasterDataTypeGuard must not allow legacy MENU_ORG_VIEW/MENU_ORG_MANAGE fallbacks; use MENU_MD_ORG/MENU_MD_COMPANY.', lines[0] || file);
+  }
+
+  if (
+    /apps\/api\/src\/modules\/org\/organization\.controller\.ts$/.test(file) &&
+    /MENU_ORG_VIEW|MENU_ORG_MANAGE/.test(text)
+  ) {
+    add(file, 1, 'Organization runtime APIs must not use legacy MENU_ORG_VIEW/MENU_ORG_MANAGE aliases; use MENU_MD_ORG.', lines[0] || file);
+  }
+
   if (file.endsWith('apps/web/src/app/(admin)/settings/online-users/page.tsx')) {
     if (!/usePermission\(["']MENU_SYS_MONITOR["']\)/.test(text) || !/monitorPerm\.canView/.test(text)) {
       add(file, 1, 'Online users page must gate route rendering and data load with MENU_SYS_MONITOR before calling /system/online-users.', lines[0] || file);

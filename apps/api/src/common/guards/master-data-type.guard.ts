@@ -52,7 +52,6 @@ const TYPE_TO_MENU: Record<string, string> = {
 };
 
 const TYPE_TO_ALT_MENUS: Record<string, string[]> = {
-  organization: ['MENU_ORG_VIEW', 'MENU_ORG_MANAGE'],
   company: ['MENU_MD_ORG'],
 };
 
