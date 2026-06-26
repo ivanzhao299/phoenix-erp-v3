@@ -237,7 +237,12 @@ export const MENU: MenuItem[] = [
     { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
-    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      superPerm: "MENU_MASTER_DATA", altPerms: ["MENU_MD_SUPPLIER", "MENU_MD_PROJECT", "MENU_MD_CASH_ACCOUNT"] },  // G3-B 审批
+    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      superPerm: "MENU_MASTER_DATA", altPerms: [
+      "MENU_MD_SUPPLIER", "MENU_MD_PROJECT", "MENU_MD_MATERIAL", "MENU_MD_PRODUCT",
+      "MENU_MD_GRADE", "MENU_MD_PACKAGING", "MENU_MD_SKU", "MENU_MD_WAREHOUSE",
+      "MENU_MD_STORE", "MENU_MD_DRIVER", "MENU_MD_VEHICLE", "MENU_MD_CASH_ACCOUNT",
+      "MENU_MD_BANK_ACCOUNT", "MENU_MD_ORG", "MENU_MD_COMPANY", "MENU_SETTINGS_DATA",
+    ] },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
     // G80 Phase 2：用户组织权限已并入「系统设置 · 用户管理」(/settings/users)，此入口下线
   ]},

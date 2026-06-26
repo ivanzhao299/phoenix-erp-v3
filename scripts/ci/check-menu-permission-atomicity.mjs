@@ -350,6 +350,59 @@ for (const file of trackedFiles()) {
     if (coarseOrgRoutes.some((pattern) => pattern.test(text))) {
       add(file, 1, 'Sidebar org/company/business-unit/data-scope entries must use atomic permissions, not MENU_SYS_ORG.', lines[0] || file);
     }
+
+    const pendingRequiredMenus = [
+      'MENU_MD_SUPPLIER',
+      'MENU_MD_PROJECT',
+      'MENU_MD_MATERIAL',
+      'MENU_MD_PRODUCT',
+      'MENU_MD_GRADE',
+      'MENU_MD_PACKAGING',
+      'MENU_MD_SKU',
+      'MENU_MD_WAREHOUSE',
+      'MENU_MD_STORE',
+      'MENU_MD_DRIVER',
+      'MENU_MD_VEHICLE',
+      'MENU_MD_CASH_ACCOUNT',
+      'MENU_MD_BANK_ACCOUNT',
+      'MENU_MD_ORG',
+      'MENU_MD_COMPANY',
+      'MENU_SETTINGS_DATA',
+    ];
+    const pendingLine = lines.find((line) => /id:\s*["']mdc-pending["']/.test(line)) ?? '';
+    const pendingBlock = text.slice(Math.max(0, text.indexOf('id: "mdc-pending"')), text.indexOf('id: "mdc-quality"') > 0 ? text.indexOf('id: "mdc-quality"') : text.length);
+    for (const menu of pendingRequiredMenus) {
+      if (!pendingLine.includes(menu) && !pendingBlock.includes(menu)) {
+        add(file, 1, `Sidebar master-data pending must include ${menu} so per-type approvers can see the pending entry.`, lines[0] || file);
+      }
+    }
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/master-data/pending/page.tsx')) {
+    const pendingPageMenus = [
+      'MENU_MD_CUSTOMER',
+      'MENU_MD_SUPPLIER',
+      'MENU_MD_PROJECT',
+      'MENU_MD_MATERIAL',
+      'MENU_MD_PRODUCT',
+      'MENU_MD_GRADE',
+      'MENU_MD_PACKAGING',
+      'MENU_MD_SKU',
+      'MENU_MD_WAREHOUSE',
+      'MENU_MD_STORE',
+      'MENU_MD_DRIVER',
+      'MENU_MD_VEHICLE',
+      'MENU_MD_CASH_ACCOUNT',
+      'MENU_MD_BANK_ACCOUNT',
+      'MENU_MD_ORG',
+      'MENU_MD_COMPANY',
+      'MENU_SETTINGS_DATA',
+    ];
+    for (const menu of pendingPageMenus) {
+      if (!text.includes(menu)) {
+        add(file, 1, `Master-data pending page must gate and load ${menu} records atomically.`, lines[0] || file);
+      }
+    }
   }
 
   if (
