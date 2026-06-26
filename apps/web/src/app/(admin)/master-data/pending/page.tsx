@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Clock, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
@@ -19,27 +19,47 @@ const TYPES = [{
   type: "customer",
   label: "客户",
   codeKey: "customer_no",
-  nameKey: "customer_name"
+  nameKey: "customer_name",
+  menu: "MENU_MD_CUSTOMER"
 }, {
   type: "supplier",
   label: "供应商",
   codeKey: "supplier_code",
-  nameKey: "supplier_name"
+  nameKey: "supplier_name",
+  menu: "MENU_MD_SUPPLIER"
 }, {
   type: "project",
   label: "项目公司",
   codeKey: "project_code",
-  nameKey: "project_name"
+  nameKey: "project_name",
+  menu: "MENU_MD_PROJECT"
 }, {
   type: "cash-account",
   label: "资金账户",
   codeKey: "account_code",
-  nameKey: "account_name"
+  nameKey: "account_name",
+  menu: "MENU_MD_CASH_ACCOUNT"
 }];
 export default function MasterDataPendingPage() {
-  const {
-    canView
-  } = usePermission("MENU_MASTER_DATA");
+  const masterDataPerm = usePermission("MENU_MASTER_DATA");
+  const customerPerm = usePermission("MENU_MD_CUSTOMER");
+  const supplierPerm = usePermission("MENU_MD_SUPPLIER");
+  const projectPerm = usePermission("MENU_MD_PROJECT");
+  const cashPerm = usePermission("MENU_MD_CASH_ACCOUNT");
+  const typePerms: Record<string, boolean> = {
+    MENU_MD_CUSTOMER: customerPerm.canView,
+    MENU_MD_SUPPLIER: supplierPerm.canView,
+    MENU_MD_PROJECT: projectPerm.canView,
+    MENU_MD_CASH_ACCOUNT: cashPerm.canView,
+  };
+  const visibleTypes = useMemo(() => TYPES.filter(t => masterDataPerm.canView || typePerms[t.menu]), [
+    masterDataPerm.canView,
+    customerPerm.canView,
+    supplierPerm.canView,
+    projectPerm.canView,
+    cashPerm.canView,
+  ]);
+  const canView = visibleTypes.length > 0;
   const [data, setData] = useState<Record<string, Record<string, any>[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,9 +67,9 @@ export default function MasterDataPendingPage() {
     setLoading(true);
     setError("");
     try {
-      const results = await Promise.allSettled(TYPES.map(t => request<Record<string, any>[]>(`/master-data/runtime/${t.type}?status=PENDING_APPROVAL`)));
+      const results = await Promise.allSettled(visibleTypes.map(t => request<Record<string, any>[]>(`/master-data/runtime/${t.type}?status=PENDING_APPROVAL`)));
       const map: Record<string, Record<string, any>[]> = {};
-      TYPES.forEach((t, i) => {
+      visibleTypes.forEach((t, i) => {
         map[t.type] = results[i].status === "fulfilled" ? (results[i] as PromiseFulfilledResult<any>).value : [];
       });
       setData(map);
@@ -58,7 +78,7 @@ export default function MasterDataPendingPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [visibleTypes]);
   useEffect(() => {
     if (canView) load();
   }, [canView, load]);
@@ -113,7 +133,7 @@ export default function MasterDataPendingPage() {
       flexDirection: "column",
       gap: 18
     }}>
-            {TYPES.map(t => data[t.type]?.length > 0 && <div key={t.type}>
+            {visibleTypes.map(t => data[t.type]?.length > 0 && <div key={t.type}>
                 <div style={{
           display: "flex",
           alignItems: "center",

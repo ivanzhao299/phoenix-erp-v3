@@ -82,7 +82,7 @@ export default function GovernanceDashboardPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const cards = scores ? [
     { key: 'org_score',       label: '组织治理', icon: Network,    score: scores.org_score,       weight: 20, hint: `${scores.details.orgs.active}/${scores.details.orgs.total} 活跃` },

@@ -122,6 +122,30 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /id:\s*["']s2-overview["']/.test(line) &&
+      /perm:\s*["']MENU_SALES2["']/.test(line)
+    ) {
+      add(file, lineNo, 'Sidebar sales overview must use MENU_SALES2_DASHBOARD with atomic sales altPerms, not coarse MENU_SALES2.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /id:\s*["']mdc-overview["']/.test(line) &&
+      /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
+    ) {
+      add(file, lineNo, 'Sidebar master-data overview must use MENU_MD_CENTER with MENU_MASTER_DATA only as superPerm fallback.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /id:\s*["']mdc-pending["']/.test(line) &&
+      /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
+    ) {
+      add(file, lineNo, 'Sidebar master-data pending must be visible through relevant atomic master-data permissions, not only coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_MASTER_DATA['"]/.test(line)
     ) {

@@ -77,15 +77,15 @@ export default function OperationsPage() {
       setLoading(false);
     }
   }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
   const summary = useMemo(() => todo ? {
     pendingTotal: todo.pendingApprovals.reduce((s, p) => s + p.count, 0),
     missingTotal: todo.missingContact.reduce((s, m) => s + m.count, 0),
     duplicateTotal: todo.duplicateCodes.reduce((s, d) => s + d.count, 0),
     blockedTotal: todo.archiveBlocked.length
   } : null, [todo]);
+  useEffect(() => {
+    if (canView) void load();
+  }, [canView, load]);
   if (!canView) return <div className={u.emptyPad40}>无权限访问主数据运营工作台</div>;
   return <div>
       <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>

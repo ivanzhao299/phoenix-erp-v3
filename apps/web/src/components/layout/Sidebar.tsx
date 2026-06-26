@@ -144,7 +144,7 @@ export const MENU: MenuItem[] = [
 
   // 5. 销售管理 — 客户 + 价格 + 订单 + 配送 + 退货 + 信用 + 直营店
   { id: "sales", Icon: ShoppingCart, label: "销售管理", perm: "MENU_SALES2", children: [
-    { id: "s2-overview",    path: "/sales2",             Icon: LayoutDashboard, label: "销售总览",   perm: "MENU_SALES2"           },
+    { id: "s2-overview",    path: "/sales2",             Icon: LayoutDashboard, label: "销售总览",   perm: "MENU_SALES2_DASHBOARD", altPerms: ["MENU_SALES2_ORDER", "MENU_SALES2_CUSTOMER", "MENU_SALES2_PRICE", "MENU_SALES2_DELIVERY", "MENU_SALES2_RETURN", "MENU_SALES2_CHANNEL", "MENU_SALES2_REPORT"] },
     { id: "s2-customers",   path: "/sales2/customers",   Icon: Users,           label: "客户管理",   perm: "MENU_SALES2_CUSTOMER"  },
     { id: "s2-channels",    path: "/sales2/channels",    Icon: Network,         label: "渠道管理",   perm: "MENU_SALES2_CHANNEL"   },
     { id: "s2-pricing",     path: "/sales2/pricing",     Icon: Tag,             label: "价格管理",   perm: "MENU_SALES2_PRICE"     },
@@ -216,9 +216,9 @@ export const MENU: MenuItem[] = [
   // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>，superPerm=MENU_MASTER_DATA
   //   作"管理全部主数据"超级兜底（持超级码即见全部；按实体授权者只见对应叶子）。
   //   与后端 MasterDataTypeGuard 完全对齐（per-type OR 超级码）。
-  //   组织/公司/事业群/数据范围已拆为原子码；字典→MENU_SETTINGS_DATA；概览/待审批=超级码本身。
+  //   组织/公司/事业群/数据范围已拆为原子码；字典→MENU_SETTINGS_DATA；概览=MENU_MD_CENTER；待审批按相关主数据叶子权限可见。
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
-    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MASTER_DATA"     },
+    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MD_CENTER",       superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG",           superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY",       superPerm: "MENU_MASTER_DATA" },
@@ -237,7 +237,7 @@ export const MENU: MenuItem[] = [
     { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
-    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MASTER_DATA"     },  // G3-B 审批
+    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      superPerm: "MENU_MASTER_DATA", altPerms: ["MENU_MD_SUPPLIER", "MENU_MD_PROJECT", "MENU_MD_CASH_ACCOUNT"] },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
     // G80 Phase 2：用户组织权限已并入「系统设置 · 用户管理」(/settings/users)，此入口下线
   ]},
