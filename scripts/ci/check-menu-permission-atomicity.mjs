@@ -181,6 +181,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/approval-engine\/workflow-biz-registry\.service\.ts$/.test(file) &&
+      /moduleCode:\s*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Workflow biz registry must map master-data biz types to atomic MENU_MD_* module codes, not coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
       /@(Get|Post)\(['"](?:call|test-api)['"]\)/.test(line)
     ) {
