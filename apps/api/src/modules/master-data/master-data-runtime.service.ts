@@ -434,16 +434,24 @@ export class MasterDataRuntimeService {
 
   /**
    * G71：解析当前用户对该实体的公司可见范围。
-   *   返回 'ALL'（无 company 维度 / 全局 / 内部调用 / 解析失败兜底）
-   *      | 'DENY'（有公司维度但无任何可见公司 → 应返回空）
+   *   返回 'ALL'（无 company 维度 / 全局 / 内部调用）
+   *      | 'DENY'（有公司维度但无任何可见公司，或登录用户的 scope 无法可靠解析）
    *      | string[]（可见公司编码，用于 company_code = ANY(...)）
+   *
+   * 安全边界：
+   *   - 无 user 的内部调用保持不收窄，避免后台治理任务被误伤。
+   *   - 已登录用户的 userId 缺失或 DataScope 解析异常必须 fail-closed。
+   *     否则 Selector/Runtime 在异常态会退化为全集团主数据可见。
    */
   private async allowedCompanies(c: MdTypeConfig): Promise<'ALL' | 'DENY' | string[]> {
     if (!c.companyCol) return 'ALL';                          // 无公司维度（全局共享主数据）
     const user = this.cls.get('user') as Record<string, any> | undefined;
     if (!user) return 'ALL';                                  // 内部调用无用户上下文，不收窄
     const userId = String(user.userId ?? user.id ?? user.sub ?? '');
-    if (!userId) return 'ALL';
+    if (!userId) {
+      this.logger.warn('[MdRuntime] 已登录用户缺少 userId，拒绝公司维度主数据可见范围');
+      return 'DENY';
+    }
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
       const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
@@ -451,8 +459,8 @@ export class MasterDataRuntimeService {
       if (!scope.allowedCompanyCodes.length) return 'DENY';   // 无可见公司 → 拒绝全部
       return scope.allowedCompanyCodes;
     } catch (e: any) {
-      this.logger.warn(`[MdRuntime] DataScope 解析失败，降级放行：${e?.message}`);
-      return 'ALL';                                           // 解析异常不阻断（与现有 helper 一致）
+      this.logger.warn(`[MdRuntime] DataScope 解析失败，拒绝公司维度主数据可见范围：${e?.message}`);
+      return 'DENY';
     }
   }
 
