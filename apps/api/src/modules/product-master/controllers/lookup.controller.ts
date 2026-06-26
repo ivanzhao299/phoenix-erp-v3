@@ -296,6 +296,29 @@ export class LookupController {
     if (name.length > 120) throw new BadRequestException('物料名称过长');
 
     const materialType = String(body?.material_type ?? body?.materialType ?? 'OTHER').trim() || 'OTHER';
+    const [existing] = await this.em.query(
+      `SELECT material_code, material_name, material_type, spec, unit, default_currency, status
+         FROM mst_materials
+        WHERE status = 'ACTIVE' AND lower(trim(material_name)) = lower(trim($1))
+        LIMIT 1`,
+      [name],
+    );
+    if (existing) {
+      return {
+        code: 200,
+        data: {
+          material_code: existing.material_code,
+          material_name: existing.material_name,
+          material_type: existing.material_type,
+          spec: existing.spec,
+          unit: existing.unit,
+          default_currency: existing.default_currency,
+          status: existing.status,
+          existing: true,
+        },
+      };
+    }
+
     const dto = {
       material_name: name,
       material_type: materialType,
@@ -317,6 +340,7 @@ export class LookupController {
         unit: dto.unit,
         default_currency: dto.default_currency,
         status: 'ACTIVE',
+        existing: false,
       },
     };
   }

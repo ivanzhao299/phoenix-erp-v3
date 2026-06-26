@@ -27,6 +27,7 @@ export interface MaterialRow {
   material_type?: string;
   spec?: string;
   unit?: string;
+  existing?: boolean;
 }
 
 interface MaterialPickerProps {
@@ -198,12 +199,13 @@ export function MaterialPicker({
         material_type: (data.material_type ?? data.materialType ?? nType) || undefined,
         spec: (data.spec ?? nSpec.trim()) || undefined,
         unit: (data.unit ?? nUnit.trim()) || undefined,
+        existing: data.existing === true,
       };
       // 失效缓存并并入本地列表（避免等 5min TTL）
       invalidateCache(`lookup:${MATERIAL_LOOKUP}`);
       setList(prev => [row, ...prev.filter(m => m.material_code !== row.material_code)]);
       pick(row);
-      toast.success(`物料「${row.material_name}」已新建`);
+      toast.success(row.existing ? `物料「${row.material_name}」已存在，已为你选中` : `物料「${row.material_name}」已新建`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '新建物料失败');
     } finally {
