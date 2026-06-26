@@ -95,7 +95,8 @@ export class LookupController {
     const scope = await this.resolveCompanyScope();
     if (scope.isGlobal) {
       const rows = await this.cached('companies:global', () => this.em.query(
-        `SELECT org_code AS "orgCode", org_name AS "orgName", org_name_cn AS "orgNameCn",
+        `SELECT org_code AS "orgCode", COALESCE(company_code, org_code) AS "companyCode",
+                org_name AS "orgName", org_name_cn AS "orgNameCn",
                 org_short_name AS "orgShortName", status
            FROM sys_organizations
            WHERE org_type='COMPANY' AND status='ACTIVE'
@@ -106,10 +107,11 @@ export class LookupController {
     if (!scope.companyCodes.length) return { code: 200, data: [] };
     const key = `companies:${[...scope.companyCodes].sort().join(',')}`;
     const rows = await this.cached(key, () => this.em.query(
-      `SELECT org_code AS "orgCode", org_name AS "orgName", org_name_cn AS "orgNameCn",
+      `SELECT org_code AS "orgCode", COALESCE(company_code, org_code) AS "companyCode",
+              org_name AS "orgName", org_name_cn AS "orgNameCn",
               org_short_name AS "orgShortName", status
          FROM sys_organizations
-         WHERE org_type='COMPANY' AND status='ACTIVE' AND org_code = ANY($1)
+         WHERE org_type='COMPANY' AND status='ACTIVE' AND COALESCE(company_code, org_code) = ANY($1)
          ORDER BY sort_order NULLS LAST, org_code`,
       [scope.companyCodes],
     ));
@@ -121,14 +123,19 @@ export class LookupController {
    * 业务录入页面（养殖/采购/财务）通用，仅 ACTIVE。
    */
   @Get('projects')
-  async projects() {
+  async projects(@Query('companyCode') companyCode?: string, @Query('company_code') companyCodeSnake?: string) {
     const scope = await this.resolveCompanyScope();
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     const conds = [`status='ACTIVE'`];
+    const requestedCompanyCode = (companyCode || companyCodeSnake || '').trim();
     if (!scope.isGlobal) {
       params.push(scope.companyCodes);
       conds.push(`company_code = ANY($${params.length})`);
+    }
+    if (requestedCompanyCode) {
+      params.push(requestedCompanyCode);
+      conds.push(`company_code = $${params.length}`);
     }
     const rows = await this.em.query(
       `SELECT project_code AS "projectCode", project_name AS "projectName",

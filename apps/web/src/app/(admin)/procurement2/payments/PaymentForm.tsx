@@ -275,7 +275,12 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
         </div>
         <div className={s.field}>
           <label className={s.lbl}>项目</label>
-          <ProjectSelector value={formProjCode} onChange={setFormProjCode} onPick={o => setFormProjName(o?.raw?.project_name ?? o?.label ?? "")} companyCode={formCompCode || undefined} />
+          <ProjectSelector
+            value={formProjCode}
+            onChange={setFormProjCode}
+            onPick={o => setFormProjName(o?.raw?.projectName ?? o?.raw?.project_name ?? o?.label ?? "")}
+            companyCode={formCompCode || undefined}
+          />
         </div>
       </div>
 

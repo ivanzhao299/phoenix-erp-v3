@@ -12,7 +12,7 @@ import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
  *
  * 数据源（G5-B 后）：
  *   - 业务录入用必备 (公司/客户/供应商/仓库/门店/场站/鸡舍/鸡群/字典) → /api/lookup/*
- *   - 项目                                                          → /biz/projects/active
+ *   - 项目                                                          → /api/lookup/projects
  *   - 等级/规格                                                     → /lookup/product-grades, /lookup/packaging-specs
  *   - 资金账户/用户                                                 → /lookup/cash-accounts, /lookup/users
  *   - 渠道/司机/车辆/股东（管理员路径）                              → V2 Runtime 专属 endpoint
@@ -91,10 +91,9 @@ export function SupplierSelector(p: BaseProps) {
 }
 
 // ── 项目（MDM-1 切换为 biz_projects 统一项目主表，按 company_code 过滤）─────
-// 注：原 /master-data/runtime/project/active 从 prc2_projects 取（空表），
-//      已切换为 /biz/projects（biz_projects 数据源），按 status=ACTIVE 过滤；
-//      若 biz_projects 表暂未建（业务方未授权 migration 执行），端点 fallback
-//      返回空数组，前端下拉显示"暂无项目"。
+// 业务录入页面必须走 /api/lookup/projects：仅 JWT + DataScope，不要求用户具备
+// MENU_PRC2_PROJECT 主数据维护/项目档案权限。付款单等页面只需要“引用项目”，
+// 不应因为缺项目维护菜单而看不到项目下拉。
 export interface ProjectSelectorProps extends BaseProps {
   companyCode?: string;  // 选公司后过滤；不传则返回全部 ACTIVE 项目
 }
@@ -104,17 +103,17 @@ export function ProjectSelector(p: ProjectSelectorProps) {
     reloadDeps={[companyCode]}   // G86：随公司切换重载过滤
     loader={async () => {
       const url = companyCode
-        ? `/biz/projects/active?company_code=${encodeURIComponent(companyCode)}`
-        : '/biz/projects/active';
+        ? `/lookup/projects?companyCode=${encodeURIComponent(companyCode)}`
+        : '/lookup/projects';
       try {
-        const list = await request<any[]>(url);
+        const list = await lookupArr<any>(url);
         return (list || []).map(r => ({
-          value: r.project_code,
-          label: `${r.project_name}（${r.project_code}）`,
+          value: r.projectCode ?? r.project_code,
+          label: `${r.projectName ?? r.project_name}（${r.projectCode ?? r.project_code}）`,
           raw: r,
-        }));
+        })).filter(o => o.value);
       } catch {
-        // 兼容：表未建或端点未部署时返回空，前端显示"暂无项目"
+        // 兼容：表未建或端点未部署时返回空，前端显示占位。
         return [];
       }
     }} />;
@@ -128,7 +127,7 @@ export function CompanySelector(p: BaseProps) {
       // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。
       const list = await lookupArr<any>('/lookup/companies');
       return (Array.isArray(list) ? list : [])
-        .map(o => ({ value: o.orgCode, label: o.orgNameCn || o.orgName, raw: o }));
+        .map(o => ({ value: o.companyCode || o.orgCode, label: o.orgNameCn || o.orgName, raw: o }));
     }} />;
 }
 
