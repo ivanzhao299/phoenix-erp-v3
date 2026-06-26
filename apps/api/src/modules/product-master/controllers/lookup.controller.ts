@@ -484,17 +484,47 @@ export class LookupController {
    */
   @Get('houses')
   async houses(@Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
+    const scope = await this.resolveCompanyScope();
+    if (
+      !scope.isGlobal
+      && scope.companyCodes.length === 0
+      && scope.farmCodes.length === 0
+      && scope.allowedSiteCodes.length === 0
+    ) {
+      return { code: 200, data: [] };
+    }
     const params: any[] = [];
-    let where = `status='ACTIVE'`;
-    if (farmCode) { params.push(farmCode); where += ` AND farm_code=$${params.length}`; }
-    if (siteCode) { params.push(siteCode); where += ` AND site_code=$${params.length}`; }
+    const conds = [`h.status='ACTIVE'`];
+    if (farmCode) { params.push(farmCode); conds.push(`h.farm_code=$${params.length}`); }
+    if (siteCode) { params.push(siteCode); conds.push(`h.site_code=$${params.length}`); }
+    if (!scope.isGlobal) {
+      const scopeConds: string[] = [];
+      if (scope.farmCodes.length > 0) {
+        params.push(scope.farmCodes);
+        scopeConds.push(`h.farm_code = ANY($${params.length})`);
+      }
+      if (scope.allowedSiteCodes.length > 0) {
+        params.push(scope.allowedSiteCodes);
+        scopeConds.push(`h.site_code = ANY($${params.length})`);
+      }
+      if (scope.companyCodes.length > 0) {
+        params.push(scope.companyCodes);
+        scopeConds.push(`EXISTS (
+          SELECT 1
+            FROM brd_farms f
+           WHERE f.farm_code = h.farm_code
+             AND f.company_code = ANY($${params.length})
+        )`);
+      }
+      conds.push(`(${scopeConds.join(' OR ')})`);
+    }
     const rows = await this.em.query(
-      `SELECT house_code AS "houseCode", house_name AS "houseName",
-              farm_code AS "farmCode", site_code AS "siteCode", house_type AS "houseType",
-              capacity, current_birds AS "currentBirds", status
-         FROM brd_houses
-         WHERE ${where}
-         ORDER BY house_code`,
+      `SELECT h.house_code AS "houseCode", h.house_name AS "houseName",
+              h.farm_code AS "farmCode", h.site_code AS "siteCode", h.house_type AS "houseType",
+              h.capacity, h.current_birds AS "currentBirds", h.status
+         FROM brd_houses h
+         WHERE ${conds.join(' AND ')}
+         ORDER BY h.house_code`,
       params,
     );
     return { code: 200, data: rows };
@@ -503,17 +533,53 @@ export class LookupController {
   /** GET /api/lookup/flocks?houseCode=&farmCode=&siteCode= — 鸡群下拉 */
   @Get('flocks')
   async flocks(@Query('houseCode') houseCode?: string, @Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
+    const scope = await this.resolveCompanyScope();
+    if (
+      !scope.isGlobal
+      && scope.companyCodes.length === 0
+      && scope.farmCodes.length === 0
+      && scope.allowedSiteCodes.length === 0
+    ) {
+      return { code: 200, data: [] };
+    }
     const params: any[] = [];
-    let where = `status='ACTIVE'`;
-    if (houseCode) { params.push(houseCode); where += ` AND house_code=$${params.length}`; }
-    if (farmCode)  { params.push(farmCode);  where += ` AND farm_code=$${params.length}`; }
-    if (siteCode)  { params.push(siteCode);  where += ` AND site_code=$${params.length}`; }
+    const conds = [`fl.status='ACTIVE'`];
+    if (houseCode) { params.push(houseCode); conds.push(`fl.house_code=$${params.length}`); }
+    if (farmCode)  { params.push(farmCode);  conds.push(`fl.farm_code=$${params.length}`); }
+    if (siteCode)  { params.push(siteCode);  conds.push(`fl.site_code=$${params.length}`); }
+    if (!scope.isGlobal) {
+      const scopeConds: string[] = [];
+      if (scope.farmCodes.length > 0) {
+        params.push(scope.farmCodes);
+        scopeConds.push(`fl.farm_code = ANY($${params.length})`);
+      }
+      if (scope.allowedSiteCodes.length > 0) {
+        params.push(scope.allowedSiteCodes);
+        scopeConds.push(`fl.site_code = ANY($${params.length})`);
+        scopeConds.push(`EXISTS (
+          SELECT 1
+            FROM brd_houses h
+           WHERE h.house_code = fl.house_code
+             AND h.site_code = ANY($${params.length})
+        )`);
+      }
+      if (scope.companyCodes.length > 0) {
+        params.push(scope.companyCodes);
+        scopeConds.push(`EXISTS (
+          SELECT 1
+            FROM brd_farms f
+           WHERE f.farm_code = fl.farm_code
+             AND f.company_code = ANY($${params.length})
+        )`);
+      }
+      conds.push(`(${scopeConds.join(' OR ')})`);
+    }
     const rows = await this.em.query(
-      `SELECT flock_no AS "flockNo", house_code AS "houseCode", farm_code AS "farmCode",
-              strain, placement_date AS "placementDate", current_qty AS "currentQty", status
-         FROM brd_flocks
-         WHERE ${where}
-         ORDER BY flock_no`,
+      `SELECT fl.flock_no AS "flockNo", fl.house_code AS "houseCode", fl.farm_code AS "farmCode",
+              fl.strain, fl.placement_date AS "placementDate", fl.current_qty AS "currentQty", fl.status
+         FROM brd_flocks fl
+         WHERE ${conds.join(' AND ')}
+         ORDER BY fl.flock_no`,
       params,
     );
     return { code: 200, data: rows };
