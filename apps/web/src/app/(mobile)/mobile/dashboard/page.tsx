@@ -63,6 +63,18 @@ const ALERT_LABELS: Record<string, string> = {
   FEED_LOW: '饲料不足'
 };
 
+const MOBILE_SALES_DASHBOARD_PERMS = [
+  'MENU_SALES2_DASHBOARD',
+  'MENU_SALES2_ORDER',
+  'MENU_SALES2_CUSTOMER',
+  'MENU_SALES2_PRICE',
+  'MENU_SALES2_DELIVERY',
+  'MENU_SALES2_RETURN',
+  'MENU_SALES2_CHANNEL',
+  'MENU_SALES2_REPORT',
+  'MENU_SALES2_INVENTORY',
+] as const;
+
 // ── 迷你柱状图 ────────────────────────────────────────────────────────────────
 
 function MiniBarChart({
@@ -263,7 +275,7 @@ export default function MobileDashboardPage() {
   const showPkg = hasPermission('MENU_PKG_OP', 'V') || hasPermission('MENU_PKG_MGR', 'V');
   const showQuality = hasPermission('MENU_QA_OP', 'V') || hasPermission('MENU_QA_MGR', 'V') || hasPermission('MENU_QA', 'V') || hasPermission('MENU_MD_QUALITY', 'V');
   const showStock = hasPermission('MENU_WMS_VIEW', 'V') || hasPermission('MENU_WMS_INOUT', 'V') || hasPermission('MENU_SALES2_INVENTORY', 'V');
-  const showSales = hasPermission('MENU_SALES2', 'V') || hasPermission('MENU_SALES2_ORDER', 'V') || hasPermission('MENU_SALES2_REPORT', 'V');
+  const showSales = MOBILE_SALES_DASHBOARD_PERMS.some(menu => hasPermission(menu, 'V'));
   const showAlerts = hasPermission('MENU_DEVICE_MONITOR', 'V');
   const showDelivery = hasPermission('MENU_MOBILE_DELIVERY', 'V') || hasPermission('MENU_SALES2_DELIVERY', 'V') || hasPermission('MENU_LOGISTICS', 'V');
 

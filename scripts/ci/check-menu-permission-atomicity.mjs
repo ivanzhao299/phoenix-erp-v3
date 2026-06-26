@@ -130,6 +130,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      file.endsWith('apps/web/src/app/(mobile)/mobile/dashboard/page.tsx') &&
+      /hasPermission\(['"]MENU_SALES2['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Mobile dashboard sales visibility must use atomic MENU_SALES2_* permissions, not coarse MENU_SALES2.', line);
+    }
+
+    if (
       file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
       /id:\s*["']mdc-overview["']/.test(line) &&
       /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
