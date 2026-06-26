@@ -151,6 +151,17 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/common\/guards\/menu-registry\.service\.ts$/.test(file) &&
+      /FALLBACK_MENU_CODES/.test(text)
+    ) {
+      for (const requiredMenu of ['MENU_QA_MASTER', 'MENU_MOBILE_DELIVERY']) {
+        if (!text.includes(`'${requiredMenu}'`)) {
+          add(file, 1, `Menu registry fallback snapshot must include ${requiredMenu} so CI/test fallback stays aligned with atomic runtime permissions.`, lines[0] || file);
+        }
+      }
+    }
+
+    if (
       file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
       /id:\s*["']mdc-overview["']/.test(line) &&
       /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
