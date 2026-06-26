@@ -711,7 +711,7 @@ export default function WorkflowFormRuntimePage() {
         }, {
           key: 'moduleCode',
           label: '模块权限',
-          placeholder: '如 MENU_WORKFLOW'
+          placeholder: '如 MENU_WORKFLOW_FORM'
         }, {
           key: 'category',
           label: '分类',

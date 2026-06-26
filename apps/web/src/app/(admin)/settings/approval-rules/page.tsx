@@ -282,7 +282,7 @@ export default function ApprovalRulesPage() {
     steps: RuleStep[];
   }>({
     ruleCode: "",
-    moduleCode: "MENU_WORKFLOW",
+    moduleCode: "MENU_WORKFLOW_RULES",
     bizType: "PO",
     orgType: "",
     companyCode: "",
@@ -321,7 +321,7 @@ export default function ApprovalRulesPage() {
     setEditing(null);
     setForm({
       ruleCode: "",
-      moduleCode: "MENU_WORKFLOW",
+      moduleCode: "MENU_WORKFLOW_RULES",
       bizType: "PO",
       orgType: "",
       companyCode: "",

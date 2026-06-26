@@ -41,7 +41,14 @@ for (const file of trackedFiles()) {
       /apps\/api\/src\/modules\/procurement-v2\/controllers\/.+\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_PRC2_MASTER['"]/.test(line)
     ) {
-      add(file, lineNo, 'Procurement V2 controllers must prefer atomic MENU_PRC2_* guards with MENU_PRC2_MASTER only as altMenus fallback.', line);
+      add(file, lineNo, 'Procurement V2 controllers must prefer atomic MENU_PRC2_* guards and must not directly require MENU_PRC2_MASTER.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/procurement-v2\/controllers\/(requests|suppliers|projects)\.controller\.ts$/.test(file) &&
+      /MENU_PRC2_MASTER|LEGACY_MASTER_MENU/.test(line)
+    ) {
+      add(file, lineNo, 'Procurement request/supplier/project endpoints must not fall back to coarse MENU_PRC2_MASTER.', line);
     }
 
     if (
