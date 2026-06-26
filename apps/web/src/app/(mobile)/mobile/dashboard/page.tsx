@@ -265,7 +265,7 @@ export default function MobileDashboardPage() {
   const showStock = hasPermission('MENU_WMS_VIEW', 'V') || hasPermission('MENU_WMS_INOUT', 'V') || hasPermission('MENU_SALES2_INVENTORY', 'V');
   const showSales = hasPermission('MENU_SALES2', 'V') || hasPermission('MENU_SALES2_ORDER', 'V') || hasPermission('MENU_SALES2_REPORT', 'V');
   const showAlerts = hasPermission('MENU_IOT', 'V') || hasPermission('MENU_FARM_DATA', 'V');
-  const showDelivery = hasPermission('MENU_SALES2_DELIVERY', 'V') || hasPermission('MENU_LOGISTICS', 'V');
+  const showDelivery = hasPermission('MENU_MOBILE_DELIVERY', 'V') || hasPermission('MENU_SALES2_DELIVERY', 'V') || hasPermission('MENU_LOGISTICS', 'V');
 
   // ── SWR 数据加载（null key = 跳过 fetch，不消耗网络）───────────────────────
   const swrOpts = {

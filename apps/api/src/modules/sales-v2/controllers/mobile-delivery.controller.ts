@@ -30,7 +30,7 @@ export class MobileDeliveryController {
   /** 当前用户是否为 ROLE_DRIVER */
   private isDriver(): boolean {
     const user = this.user;
-    const roles: string[] = user?.roles ?? user?.role ? [user.role] : [];
+    const roles: string[] = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
     return roles.includes('ROLE_DRIVER');
   }
 
