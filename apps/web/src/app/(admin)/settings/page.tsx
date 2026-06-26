@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import {
-  User, Shield, Globe, Database, Smartphone, Lock,
+  User, Users, Shield, Globe, Database, Smartphone, Lock,
   Package, Activity, GitMerge, ClipboardList, FileText, Settings
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const stockPerm = usePermission("MENU_SETTINGS_STOCK");
   const securityPerm = usePermission("MENU_SETTINGS_SECURITY");
   const auditPerm = usePermission("MENU_SETTINGS_AUDIT");
+  const onlineUsersPerm = usePermission("MENU_SETTINGS_ONLINE_USER");
   const workflowConfigPerm = usePermission("MENU_WORKFLOW_CONFIG");
   const posPerm = usePermission("MENU_SETTINGS_POS");
   const terminalPerm = usePermission("MENU_SETTINGS_TERMINAL");
@@ -53,6 +54,7 @@ export default function SettingsPage() {
       items: [
         { path:"/settings/security",     icon:<Lock size={20}/>,         title:t('ui.安全策略', '安全策略'),     desc:t('ui.登录限制会话超时日志', '登录限制·会话超时·日志'), visible: securityPerm.canView },
         { path:"/settings/audit-log",    icon:<Activity size={20}/>,     title:t('ui.审计日志', '审计日志'),     desc:t('ui.全量操作日志追踪查询', '全量操作日志追踪查询'), visible: auditPerm.canView },
+        { path:"/settings/online-users", icon:<Users size={20}/>,        title:t('ui.在线用户', '在线用户'),     desc:t('ui.查看当前在线账号与连接状态', '查看当前在线账号与连接状态'), visible: onlineUsersPerm.canView },
         { path:"/settings/approval-flows",icon:<GitMerge size={20}/>,   title:t('ui.审批流配置', '审批流配置'),   desc:t('ui.单据金额阈值与审批角色链', '单据金额阈值与审批角色链'), visible: workflowConfigPerm.canView },
       ],
     },

@@ -7,7 +7,7 @@ import { PresenceService } from './presence.service';
 
 /**
  * G171：在线用户（管理员）。基于 SSE 长连接的在线状态。
- * 全局 MenuGuard 生效，@RequireMenu('MENU_SYS_MONITOR','V') 限系统监控/运维角色（ROLE_ADMIN 持 * 通过）。
+ * 全局 MenuGuard 生效，在线用户走 MENU_SETTINGS_ONLINE_USER 原子菜单码，避免复用系统监控粗权限。
  */
 @Controller('api/system')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
@@ -20,7 +20,7 @@ export class PresenceController {
 
   /** GET /api/system/online-users — 在线用户明细（含姓名/角色/上次活跃） */
   @Get('online-users')
-  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  @RequireMenu('MENU_SETTINGS_ONLINE_USER', 'V')
   async onlineUsers() {
     const snap = this.presence.snapshot();
     if (snap.length === 0) return { total: 0, items: [] };
@@ -71,7 +71,7 @@ export class PresenceController {
 
   /** GET /api/system/online-count — 在线人数（顶栏小指示用） */
   @Get('online-count')
-  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  @RequireMenu('MENU_SETTINGS_ONLINE_USER', 'V')
   onlineCount() {
     return { count: this.presence.onlineCount() };
   }

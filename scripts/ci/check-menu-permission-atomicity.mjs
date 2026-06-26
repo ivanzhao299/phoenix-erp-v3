@@ -413,6 +413,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/notification\/presence\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_MONITOR['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Online user presence APIs must use MENU_SETTINGS_ONLINE_USER, not MENU_SYS_MONITOR.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/system-monitor\/controllers\/sys-configs\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
     ) {
@@ -446,6 +453,14 @@ for (const file of trackedFiles()) {
       /MENU_SYS_MONITOR/.test(line)
     ) {
       add(file, lineNo, 'Audit-log sidebar entry must not be visible through MENU_SYS_MONITOR; require MENU_SETTINGS_AUDIT.', line);
+    }
+
+    if (
+      file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
+      /path:\s*["']\/settings\/online-users["']/.test(line) &&
+      /MENU_SYS_MONITOR/.test(line)
+    ) {
+      add(file, lineNo, 'Online-users sidebar entry must not be visible through MENU_SYS_MONITOR; require MENU_SETTINGS_ONLINE_USER.', line);
     }
 
     if (
@@ -703,8 +718,20 @@ for (const file of trackedFiles()) {
   }
 
   if (file.endsWith('apps/web/src/app/(admin)/settings/online-users/page.tsx')) {
-    if (!/usePermission\(["']MENU_SYS_MONITOR["']\)/.test(text) || !/monitorPerm\.canView/.test(text)) {
-      add(file, 1, 'Online users page must gate route rendering and data load with MENU_SYS_MONITOR before calling /system/online-users.', lines[0] || file);
+    if (!/usePermission\(["']MENU_SETTINGS_ONLINE_USER["']\)/.test(text) || !/onlineUsersPerm\.canView/.test(text)) {
+      add(file, 1, 'Online users page must gate route rendering and data load with MENU_SETTINGS_ONLINE_USER before calling /system/online-users.', lines[0] || file);
+    }
+    if (/MENU_SYS_MONITOR/.test(text)) {
+      add(file, 1, 'Online users page must not use MENU_SYS_MONITOR as a fallback; online user access belongs to MENU_SETTINGS_ONLINE_USER.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/components/layout/OnlineUsersIndicator.tsx')) {
+    if (!/usePermission\(["']MENU_SETTINGS_ONLINE_USER["']\)/.test(text) || !/onlineUsersPerm\.hasAccess/.test(text)) {
+      add(file, 1, 'Online users topbar indicator must be gated with MENU_SETTINGS_ONLINE_USER before calling /system/online-count.', lines[0] || file);
+    }
+    if (/MENU_SYS_MONITOR/.test(text)) {
+      add(file, 1, 'Online users topbar indicator must not use MENU_SYS_MONITOR as a fallback.', lines[0] || file);
     }
   }
 
@@ -718,6 +745,7 @@ for (const file of trackedFiles()) {
       'MENU_SETTINGS_STOCK',
       'MENU_SETTINGS_SECURITY',
       'MENU_SETTINGS_AUDIT',
+      'MENU_SETTINGS_ONLINE_USER',
       'MENU_WORKFLOW_CONFIG',
       'MENU_SETTINGS_POS',
       'MENU_SETTINGS_TERMINAL',

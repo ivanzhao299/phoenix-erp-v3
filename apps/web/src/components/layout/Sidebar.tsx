@@ -261,6 +261,7 @@ export const MENU: MenuItem[] = [
     { id: "stg-pos",         path: "/settings/pos-config",    Icon: Store,       label: "收银配置",   perm: "MENU_SETTINGS_POS" },
     { id: "stg-stock-cfg",   path: "/settings/store-stock",       Icon: ToggleRight, label: "库存分账",   perm: "MENU_SETTINGS_STOCK" },
     { id: "stg-notify",      path: "/settings/notifications",     Icon: Bell,        label: "通知设置",   perm: "MENU_SETTINGS_NOTIFY" },
+    { id: "stg-online-users", path: "/settings/online-users",     Icon: Users,       label: "在线用户",   perm: "MENU_SETTINGS_ONLINE_USER" },
   ]},
 
   // 11. 验收试运行

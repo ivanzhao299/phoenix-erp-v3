@@ -1,6 +1,6 @@
 "use client";
 
-// G171：在线用户（管理员）——基于 SSE 长连接的实时在线状态。每 20s 刷新。
+// G171：在线用户——基于 SSE 长连接的实时在线状态。每 20s 刷新。
 import { useState, useEffect, useCallback, useRef } from "react";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
@@ -37,7 +37,7 @@ function fmtDuration(sinceMs?: number) {
 
 export default function OnlineUsersPage() {
   const toast = useToast();
-  const monitorPerm = usePermission("MENU_SYS_MONITOR");
+  const onlineUsersPerm = usePermission("MENU_SETTINGS_ONLINE_USER");
   const [items, setItems] = useState<OnlineUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function OnlineUsersPage() {
   const shownErr = useRef(false);
 
   const load = useCallback(async (silent = false) => {
-    if (!monitorPerm.canView) {
+    if (!onlineUsersPerm.canView) {
       setLoading(false);
       return;
     }
@@ -66,16 +66,16 @@ export default function OnlineUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [monitorPerm.canView, toast]);
+  }, [onlineUsersPerm.canView, toast]);
 
   useEffect(() => {
-    if (!monitorPerm.canView) return;
+    if (!onlineUsersPerm.canView) return;
     load();
     const id = setInterval(() => load(true), 20000);
     return () => clearInterval(id);
-  }, [load, monitorPerm.canView]);
+  }, [load, onlineUsersPerm.canView]);
 
-  if (!monitorPerm.canView) {
+  if (!onlineUsersPerm.canView) {
     return (
       <div className="animate-fade-in">
         <PageHeader title="在线用户" subtitle="需要系统监控查看权限" breadcrumb={["系统设置", "在线用户"]} />

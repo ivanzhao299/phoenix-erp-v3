@@ -1,7 +1,7 @@
 "use client";
 
-// G171：顶栏在线人数小指示（仅管理员可见——/api/system/online-count 受 MENU_SYSTEM 守卫，
-//   非管理员 403 → count 保持 null → 不渲染，无需前端判角色）。点击进入在线用户页。
+// G171：顶栏在线人数小指示。在线用户走 MENU_SETTINGS_ONLINE_USER 原子菜单码；
+//   无权限时前端不渲染，后端 /api/system/online-count 也会 403 fail-closed。
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
@@ -10,11 +10,11 @@ import { usePermission } from "@/hooks/usePermission";
 
 export function OnlineUsersIndicator() {
   const router = useRouter();
-  const monitorPerm = usePermission("MENU_SYS_MONITOR");
+  const onlineUsersPerm = usePermission("MENU_SETTINGS_ONLINE_USER");
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!monitorPerm.hasAccess) {
+    if (!onlineUsersPerm.hasAccess) {
       setCount(null);
       return;
     }
@@ -30,7 +30,7 @@ export function OnlineUsersIndicator() {
     const onVis = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", onVis);
     return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  }, [monitorPerm.hasAccess]);
+  }, [onlineUsersPerm.hasAccess]);
 
   if (count === null) return null;
   return (
