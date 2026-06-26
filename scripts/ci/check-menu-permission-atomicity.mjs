@@ -590,6 +590,44 @@ for (const file of trackedFiles()) {
     }
   }
 
+  if (file.endsWith('apps/web/src/app/(admin)/settings/page.tsx')) {
+    const settingsHubMenus = [
+      'MENU_SETTINGS_USER',
+      'MENU_SETTINGS_ROLE',
+      'MENU_MD_ORG',
+      'MENU_SETTINGS_DATA',
+      'MENU_SETTINGS_CONFIG',
+      'MENU_SETTINGS_STOCK',
+      'MENU_SETTINGS_SECURITY',
+      'MENU_SETTINGS_AUDIT',
+      'MENU_WORKFLOW_CONFIG',
+      'MENU_SETTINGS_POS',
+      'MENU_SETTINGS_TERMINAL',
+      'MENU_SETTINGS_BRAND',
+      'MENU_UAT',
+    ];
+    for (const menu of settingsHubMenus) {
+      if (!text.includes(menu)) {
+        add(file, 1, `Settings hub must gate child card visibility with ${menu}.`, lines[0] || file);
+      }
+    }
+    if (!/items:\s*group\.items\.filter\(item\s*=>\s*item\.visible\)/.test(text)) {
+      add(file, 1, 'Settings hub must filter invisible child cards before rendering.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/settings/security/page.tsx')) {
+    if (!/usePermission\(["']MENU_SETTINGS_SECURITY["']\)/.test(text) || !/securityPerm\.canView/.test(text)) {
+      add(file, 1, 'Security settings page must gate route rendering with MENU_SETTINGS_SECURITY before showing policy content.', lines[0] || file);
+    }
+    if (!/usePermission\(["']MENU_SETTINGS_USER["']\)/.test(text) || !/userPerm\.canView[\s\S]*\/api\/crud\/sys_users/.test(text)) {
+      add(file, 1, 'Security settings page must only call sys_users when MENU_SETTINGS_USER is available.', lines[0] || file);
+    }
+    if (!/usePermission\(["']MENU_SETTINGS_AUDIT["']\)/.test(text) || !/auditPerm\.canView[\s\S]*\/api\/crud\/sys_approval_log/.test(text)) {
+      add(file, 1, 'Security settings page must only call audit logs when MENU_SETTINGS_AUDIT is available.', lines[0] || file);
+    }
+  }
+
   if (file.endsWith('apps/web/src/app/(admin)/settings/audit-log/page.tsx')) {
     if (!/usePermission\(["']MENU_SETTINGS_AUDIT["']\)/.test(text) || !/canViewAudit/.test(text)) {
       add(file, 1, 'Audit log page must gate route rendering and data load with MENU_SETTINGS_AUDIT before calling audit CRUD APIs.', lines[0] || file);
