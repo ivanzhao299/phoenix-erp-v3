@@ -722,6 +722,18 @@ for (const file of trackedFiles()) {
       add(file, 1, 'Notification settings high-risk buttons must be controlled by MENU_SETTINGS_NOTIFY:E.', lines[0] || file);
     }
   }
+
+  if (file.endsWith('apps/api/src/modules/approval-engine/approval-engine.service.ts')) {
+    if (!/async getHistory\([^)]*\)[\s\S]*wf_approval_instance_steps[\s\S]*actor_user_id[\s\S]*approver_user_id[\s\S]*approver_role/.test(text)) {
+      add(file, 1, 'Approval history must be filtered by starter/actor/assigned user/assigned role; MENU_WORKFLOW_HISTORY must not expose global completed approvals.', lines[0] || file);
+    }
+    if (!/async getHistory\([^)]*\)[\s\S]*allowedCompanyCodes/.test(text)) {
+      add(file, 1, 'Approval history must apply company DataScope filtering for non-global users.', lines[0] || file);
+    }
+    if (!/async getInstanceByBiz\([^)]*\)[\s\S]*this\.assertInstanceReadable\(inst,\s*steps\)/.test(text)) {
+      add(file, 1, 'Approval by-biz lookup must reuse instance readability checks before returning details.', lines[0] || file);
+    }
+  }
 }
 
 console.log(`check-menu-permission-atomicity: inspected ${trackedFiles().length} frontend/backend source file(s)`);

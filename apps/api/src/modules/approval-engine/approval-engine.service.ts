@@ -910,23 +910,95 @@ export class ApprovalEngineService {
     const inst = await this.instanceRepo.findOne({ where: { bizType, bizId } });
     if (!inst) return null;
     const steps = await this.stepRepo.find({ where: { instanceId: inst.id }, order: { stepNo: 'ASC' } });
+    this.assertInstanceReadable(inst, steps);
     return { ...inst, steps };
   }
 
   /** 获取审批历史（已完成的实例） */
   async getHistory(page: number, pageSize: number, bizType?: string): Promise<any> {
-    const skip = (page - 1) * pageSize;
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.min(100, Math.max(1, Number(pageSize) || 20));
+    const offset = (safePage - 1) * safePageSize;
+    const { userId, roles } = this.currentUser();
+    const isAdmin = roles.includes('ROLE_ADMIN');
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
 
-    const qb = this.instanceRepo.createQueryBuilder('i')
-      .where("i.status IN ('APPROVED','REJECTED','CANCELLED')")
-      .orderBy('i.finishedAt', 'DESC')
-      .skip(skip)
-      .take(pageSize);
+    const params: any[] = [];
+    const where: string[] = ["i.status IN ('APPROVED','REJECTED','CANCELLED')"];
 
-    if (bizType) qb.andWhere('i.bizType = :bt', { bt: bizType });
+    if (bizType) {
+      params.push(bizType);
+      where.push(`i.biz_type = $${params.length}`);
+    }
 
-    const [list, total] = await qb.getManyAndCount();
-    return { list, total, page, pageSize };
+    if (scope && !scope.isGlobal && Array.isArray(scope.allowedCompanyCodes) && scope.allowedCompanyCodes.length > 0) {
+      params.push(scope.allowedCompanyCodes);
+      where.push(`(i.company_code = ANY($${params.length}::varchar[]) OR i.company_code IS NULL)`);
+    }
+
+    if (!isAdmin) {
+      params.push(userId);
+      const userParam = `$${params.length}`;
+      params.push(roles);
+      const rolesParam = `$${params.length}`;
+      where.push(`(
+        i.started_by = ${userParam}
+        OR EXISTS (
+          SELECT 1
+            FROM wf_approval_instance_steps s
+           WHERE s.instance_id = i.id
+             AND (
+               s.actor_user_id = ${userParam}
+               OR s.approver_user_id = ${userParam}
+               OR s.approver_role = ANY(${rolesParam}::varchar[])
+             )
+        )
+      )`);
+    }
+
+    const whereSql = where.join('\n        AND ');
+    const countRows = await this.ds.query(
+      `SELECT COUNT(*)::int AS total
+         FROM wf_approval_instances i
+        WHERE ${whereSql}`,
+      params,
+    );
+
+    params.push(safePageSize);
+    const limitParam = `$${params.length}`;
+    params.push(offset);
+    const offsetParam = `$${params.length}`;
+
+    const list = await this.ds.query(
+      `SELECT
+          i.id::text             AS "id",
+          i.instance_no          AS "instanceNo",
+          i.module_code          AS "moduleCode",
+          i.biz_type             AS "bizType",
+          i.biz_id::text         AS "bizId",
+          i.biz_no               AS "bizNo",
+          i.total_steps          AS "totalSteps",
+          i.current_step_no      AS "currentStepNo",
+          i.status               AS "status",
+          i.started_by::text     AS "startedBy",
+          i.started_at           AS "startedAt",
+          i.finished_at          AS "finishedAt",
+          i.amount               AS "amount",
+          i.currency_code        AS "currencyCode",
+          i.company_code         AS "companyCode",
+          i.company_name         AS "companyName",
+          i.project_code         AS "projectCode",
+          i.project_name         AS "projectName",
+          i.subject              AS "subject"
+         FROM wf_approval_instances i
+        WHERE ${whereSql}
+        ORDER BY i.finished_at DESC NULLS LAST, i.started_at DESC
+        LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      params,
+    );
+
+    return { list, total: Number(countRows?.[0]?.total ?? 0), page: safePage, pageSize: safePageSize };
   }
 
   // ── 内部：更新业务状态 ────────────────────────────────────────────────────
