@@ -346,12 +346,30 @@ for (const file of trackedFiles()) {
   ) {
     add(file, 1, 'Org management APIs must use MENU_MD_ORG/MENU_MD_COMPANY/MENU_SETTINGS_DATA_SCOPE as primary permissions, not coarse MENU_SYS_ORG.', lines[0] || file);
   }
+  if (
+    /apps\/api\/src\/modules\/org\/org\.controller\.ts$/.test(file) &&
+    /MENU_SYS_ORG/.test(text)
+  ) {
+    add(file, 1, 'Org management APIs must not use legacy MENU_SYS_ORG fallback; use atomic org/company/data-scope permissions.', lines[0] || file);
+  }
+  if (
+    /apps\/api\/src\/modules\/org\/organization\.controller\.ts$/.test(file) &&
+    /MENU_SYS_ORG/.test(text)
+  ) {
+    add(file, 1, 'Organization runtime APIs must not use legacy MENU_SYS_ORG fallback; use MENU_MD_ORG and approved org runtime aliases only.', lines[0] || file);
+  }
 
   if (
     /apps\/api\/src\/modules\/business-unit\/business-unit\.controller\.ts$/.test(file) &&
     /@RequireMenu\(\s*['"]MENU_SYS_ORG['"]/.test(text)
   ) {
     add(file, 1, 'Business-unit APIs must use MENU_MD_BUSINESS_UNIT as primary permission, not coarse MENU_SYS_ORG.', lines[0] || file);
+  }
+  if (
+    /apps\/api\/src\/modules\/business-unit\/business-unit\.controller\.ts$/.test(file) &&
+    /MENU_SYS_ORG/.test(text)
+  ) {
+    add(file, 1, 'Business-unit APIs must not use legacy MENU_SYS_ORG fallback; use MENU_MD_BUSINESS_UNIT.', lines[0] || file);
   }
 
   if (

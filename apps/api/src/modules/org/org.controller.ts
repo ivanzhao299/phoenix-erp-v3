@@ -6,7 +6,7 @@
  *
  * ── 与 OrganizationController(/api/organizations) 的边界（G80 评估，2026-06-10）──
  * 二者**故意分离、各有消费方、不合并**（合并会破坏在用页面、收益低风险高）：
- *   · 本控制器 /api/org/*：管理视角（MENU_SYS_ORG），含 用户-组织绑定 / 数据范围规则 /
+ *   · 本控制器 /api/org/*：管理视角（MENU_MD_ORG / MENU_MD_COMPANY / MENU_SETTINGS_DATA_SCOPE），含 用户-组织绑定 / 数据范围规则 /
  *     额外授权 / 成员列表 / orgType 过滤列表（companies 页、OrgMembersPanel 在用）
  *   · OrganizationController /api/organizations/*：组织树 Runtime 视角（MENU_ORG_VIEW），
  *     提供嵌套树 / CRUD / 启停（master-data/organizations 页、UserOrgBindingPanel 在用）
@@ -37,7 +37,6 @@ const ORG_MENU = 'MENU_MD_ORG';
 const COMPANY_MENU = 'MENU_MD_COMPANY';
 const DATA_SCOPE_MENU = 'MENU_SETTINGS_DATA_SCOPE';
 const USER_MENU = 'MENU_SETTINGS_USER';
-const LEGACY_ORG_MENU = 'MENU_SYS_ORG';
 
 // [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/org')
@@ -48,28 +47,28 @@ export class OrgController {
   // ── 组织树 ──────────────────────────────────────────────────────────────────
 
   @Get('organizations')
-  @RequireMenu(COMPANY_MENU, 'V', [ORG_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(COMPANY_MENU, 'V', [ORG_MENU])
   async listOrganizations() {
     const data = await this.orgService.listOrgs();
     return { code: 200, data };
   }
 
   @Get('organizations/:id')
-  @RequireMenu(ORG_MENU, 'V', [COMPANY_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(ORG_MENU, 'V', [COMPANY_MENU])
   async getOrganization(@Param('id', ParseIntPipe) id: number) {
     const data = await this.orgService.getOrg(id);
     return { code: 200, data };
   }
 
   @Post('organizations')
-  @RequireMenu(ORG_MENU, 'C', [LEGACY_ORG_MENU])
+  @RequireMenu(ORG_MENU, 'C')
   async createOrganization(@Body() dto: CreateOrgDto) {
     const data = await this.orgService.createOrg(dto);
     return { code: 200, data };
   }
 
   @Put('organizations/:id')
-  @RequireMenu(ORG_MENU, 'E', [LEGACY_ORG_MENU])
+  @RequireMenu(ORG_MENU, 'E')
   async updateOrganization(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrgDto,
@@ -79,7 +78,7 @@ export class OrgController {
   }
 
   @Delete('organizations/:id')
-  @RequireMenu(ORG_MENU, 'D', [LEGACY_ORG_MENU])
+  @RequireMenu(ORG_MENU, 'D')
   @HttpCode(HttpStatus.OK)
   async deleteOrganization(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.deleteOrg(id);
@@ -90,28 +89,28 @@ export class OrgController {
 
   /** 获取某组织的所有成员（含用户信息 + 数据范围等级） — settings/organizations 页面使用 */
   @Get('organizations/:orgId/members')
-  @RequireMenu(ORG_MENU, 'V', [LEGACY_ORG_MENU])
+  @RequireMenu(ORG_MENU, 'V')
   async getOrgMembers(@Param('orgId', ParseIntPipe) orgId: number) {
     const data = await this.orgService.getOrgMembers(orgId);
     return { code: 200, data };
   }
 
   @Get('user-orgs/:userId')
-  @RequireMenu(DATA_SCOPE_MENU, 'V', [USER_MENU, ORG_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'V', [USER_MENU, ORG_MENU])
   async getUserOrgs(@Param('userId', ParseIntPipe) userId: number) {
     const data = await this.orgService.getUserOrgs(userId);
     return { code: 200, data };
   }
 
   @Post('user-orgs')
-  @RequireMenu(DATA_SCOPE_MENU, 'C', [USER_MENU, ORG_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'C', [USER_MENU, ORG_MENU])
   async assignUserOrg(@Body() dto: AssignUserOrgDto) {
     const data = await this.orgService.assignUserOrg(dto);
     return { code: 200, data };
   }
 
   @Put('user-orgs/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'E', [USER_MENU, ORG_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'E', [USER_MENU, ORG_MENU])
   async updateUserOrg(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserOrgDto,
@@ -121,7 +120,7 @@ export class OrgController {
   }
 
   @Delete('user-orgs/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'D', [USER_MENU, ORG_MENU, LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'D', [USER_MENU, ORG_MENU])
   @HttpCode(HttpStatus.OK)
   async removeUserOrg(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.removeUserOrg(id);
@@ -131,21 +130,21 @@ export class OrgController {
   // ── 用户额外授权 ─────────────────────────────────────────────────────────────
 
   @Get('user-scopes/:userId')
-  @RequireMenu(DATA_SCOPE_MENU, 'V', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'V')
   async getUserScopes(@Param('userId', ParseIntPipe) userId: number) {
     const data = await this.orgService.getUserScopes(userId);
     return { code: 200, data };
   }
 
   @Post('user-scopes/project')
-  @RequireMenu(DATA_SCOPE_MENU, 'C', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'C')
   async addProjectScope(@Body() body: { userId: number; projectCode: string }) {
     const data = await this.orgService.addProjectScope(body.userId, body.projectCode);
     return { code: 200, data };
   }
 
   @Delete('user-scopes/project/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'D', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'D')
   @HttpCode(HttpStatus.OK)
   async removeProjectScope(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.removeProjectScope(id);
@@ -153,14 +152,14 @@ export class OrgController {
   }
 
   @Post('user-scopes/warehouse')
-  @RequireMenu(DATA_SCOPE_MENU, 'C', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'C')
   async addWarehouseScope(@Body() body: { userId: number; warehouseCode: string }) {
     const data = await this.orgService.addWarehouseScope(body.userId, body.warehouseCode);
     return { code: 200, data };
   }
 
   @Delete('user-scopes/warehouse/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'D', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'D')
   @HttpCode(HttpStatus.OK)
   async removeWarehouseScope(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.removeWarehouseScope(id);
@@ -170,21 +169,21 @@ export class OrgController {
   // ── 数据范围规则 ─────────────────────────────────────────────────────────────
 
   @Get('data-scopes')
-  @RequireMenu(DATA_SCOPE_MENU, 'V', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'V')
   async listDataScopes() {
     const data = await this.orgService.listDataScopes();
     return { code: 200, data };
   }
 
   @Post('data-scopes')
-  @RequireMenu(DATA_SCOPE_MENU, 'C', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'C')
   async createDataScope(@Body() dto: CreateDataScopeDto) {
     const data = await this.orgService.createDataScope(dto);
     return { code: 200, data };
   }
 
   @Put('data-scopes/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'E', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'E')
   async updateDataScope(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDataScopeDto,
@@ -194,7 +193,7 @@ export class OrgController {
   }
 
   @Delete('data-scopes/:id')
-  @RequireMenu(DATA_SCOPE_MENU, 'D', [LEGACY_ORG_MENU])
+  @RequireMenu(DATA_SCOPE_MENU, 'D')
   @HttpCode(HttpStatus.OK)
   async deleteDataScope(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.deleteDataScope(id);
