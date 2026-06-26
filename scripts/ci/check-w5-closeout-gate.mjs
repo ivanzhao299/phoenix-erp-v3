@@ -60,6 +60,14 @@ const checks = [
     pass: run('node', ['scripts/ci/check-menu-permission-atomicity.mjs']),
   },
   {
+    name: 'sensitive menu guard gate passes',
+    pass: run('node', ['scripts/ci/check-sensitive-menu-guards.mjs']),
+  },
+  {
+    name: 'frontend menu gate alignment passes',
+    pass: run('node', ['scripts/ci/check-frontend-menu-gates.mjs']),
+  },
+  {
     name: 'procurement DataScope write gate passes',
     pass: run('node', ['scripts/ci/check-procurement-datascope-writes.mjs']),
   },

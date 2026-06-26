@@ -13,14 +13,15 @@ The latest remediation batches have addressed:
 - Global error page and form-control baseline styling.
 - Procurement high-frequency write DataScope enforcement.
 - Procurement DataScope write regression gate in W5 closeout.
+- Frontend menu gate alignment for sidebar, home CTA, and business-center shortcuts.
+- Frontend menu gate regression check in W5 closeout.
 
 ## Priority P0
 
-1. **Role Matrix Pilot Audit**
-   - Target users: Wang Lejin and other high-frequency procurement/finance users.
-   - Verify visible sidebar items against granted menu permissions.
-   - Verify no unauthorized submenu appears.
-   - Verify authorized submenu is usable end-to-end.
+1. **Role Matrix Pilot Audit - Frontend Gate Complete**
+   - Sidebar, operations workbench CTA, and business-center shortcuts now share the same menu resolver.
+   - Known menu route access redirects when the current user lacks the leaf permission.
+   - Remaining work: production user-by-user permission matrix evidence for Wang Lejin and other pilot roles.
 
 2. **Inventory / WMS DataScope**
    - Procurement request/order/receipt/payment/shipment/project/supplier/shareholder-fund write paths now enforce server-side ownership.
@@ -63,13 +64,13 @@ The latest remediation batches have addressed:
 
 ## Execution Recommendation
 
-Next batch should start with P0-1 and the remaining WMS side of P0-2:
+Next batch should start with the remaining WMS side of P0-2 and P0-3:
 
 - They directly affect user-visible permission correctness and cross-data leakage risk.
 - They are prerequisites before broader role/function rollout.
 
 Recommended next commit scope:
 
-- `fix(rbac): audit pilot role menu visibility`
 - `fix(datascope): enforce inventory warehouse write scopes`
 - `fix(workflow): harden approval action flow`
+- `fix(attachments): converge remaining upload surfaces`

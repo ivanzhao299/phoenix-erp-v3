@@ -51,7 +51,7 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
 }
 
 // ── Menu Tree (Lucide icons) ─────────────────────────────────────
-type MenuItem = {
+export type MenuItem = {
   id: string; path?: string; Icon: LucideIcon; label: string;
   perm: string | null;
   requiredPerm?: string;
@@ -64,7 +64,7 @@ type MenuItem = {
 
 // ── V3 最终菜单架构 — Navigation Final 2026-05-30 ─────────────────
 // 12 个一级菜单，全部业务中文命名，无技术术语
-const MENU: MenuItem[] = [
+export const MENU: MenuItem[] = [
 
   // 0. HOME-1 企业运营工作台（统一首页，登录直达）
   { id: "home", path: "/home", Icon: LayoutDashboard, label: "运营工作台", perm: "MENU_DASHBOARD" },
@@ -283,6 +283,59 @@ const MENU: MenuItem[] = [
  *   4. 否则 → false（不渲染该菜单项）
  */
 
+export type PermissionChecker = (menuCode?: string | null, permCode?: string) => boolean;
+
+export function canAccessMenuItem(item: MenuItem, hasPermission: PermissionChecker): boolean {
+  if (!item.perm) return true;
+  if (hasPermission(item.perm, item.requiredPerm)) return true;
+  if (item.superPerm && hasPermission(item.superPerm)) return true;
+  return item.altPerms?.some(code => hasPermission(code, item.requiredPerm)) ?? false;
+}
+
+export function getVisibleMenu(hasPermission: PermissionChecker): MenuItem[] {
+  return MENU.map(item => {
+    if (item.children) {
+      const kids = item.children.filter(child => canAccessMenuItem(child, hasPermission));
+      if (!kids.length) return null;
+      return { ...item, children: kids };
+    }
+    if (!canAccessMenuItem(item, hasPermission)) return null;
+    return item;
+  }).filter(Boolean) as MenuItem[];
+}
+
+export function getFirstAccessiblePath(hasPermission: PermissionChecker, groupId?: string): string | undefined {
+  const menu = getVisibleMenu(hasPermission);
+  const roots = groupId ? menu.filter(item => item.id === groupId) : menu;
+  for (const item of roots) {
+    if (item.path) return item.path;
+    const childPath = item.children?.find(child => child.path)?.path;
+    if (childPath) return childPath;
+  }
+  return undefined;
+}
+
+export function findMenuItemByPath(pathname: string): MenuItem | undefined {
+  let best: MenuItem | undefined;
+  const consider = (item: MenuItem) => {
+    if (!item.path) return;
+    if (pathname === item.path || pathname.startsWith(item.path + "/")) {
+      if (!best?.path || item.path.length > best.path.length) best = item;
+    }
+  };
+  for (const item of MENU) {
+    consider(item);
+    for (const child of item.children ?? []) consider(child);
+  }
+  return best;
+}
+
+export function canAccessPath(pathname: string, hasPermission: PermissionChecker): boolean {
+  const item = findMenuItemByPath(pathname);
+  if (!item) return true;
+  return canAccessMenuItem(item, hasPermission);
+}
+
 // ── Sidebar Component ────────────────────────────────────────────
 interface SidebarProps {
   pinned: boolean; hovered: boolean;
@@ -298,29 +351,13 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const expanded_ = pinned || hovered;
   const isOverlay = hovered && !pinned;
 
-  const canSeeMenuItem = useCallback((item: MenuItem) => {
-    if (!item.perm) return true;
-    if (hasPermission(item.perm, item.requiredPerm)) return true;
-    if (item.superPerm && hasPermission(item.superPerm)) return true;
-    return item.altPerms?.some(code => hasPermission(code, item.requiredPerm)) ?? false;
-  }, [hasPermission]);
+  const canSeeMenuItem = useCallback((item: MenuItem) => canAccessMenuItem(item, hasPermission), [hasPermission]);
 
   // G12 父守卫 OR 逻辑：父项 perm 不再严格检查，子项过滤后非空即显示父项。
   // 之前问题：宋明光持 MENU_FIN2_CASH 但缺 MENU_FIN2 父权 → 整段财务节点被剔除。
   // PBAC 颗粒度原则：父节点只是分组容器，权限以叶子为准。
   // G8 性能：visibleMenu 仅在 user.permissions 变化时重算。
-  const visibleMenu = useMemo(() => MENU.map(item => {
-    if (item.children) {
-      // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
-      // 叶子可见性统一走 canSeeMenuItem：原子码优先，superPerm/altPerms 仅作明确兜底。
-      const kids = item.children.filter(canSeeMenuItem);
-      if (!kids.length) return null;
-      return { ...item, children: kids };
-    }
-    // 叶子项：严格按 perm 检查
-    if (!canSeeMenuItem(item)) return null;
-    return item;
-  }).filter(Boolean) as MenuItem[], [canSeeMenuItem]);
+  const visibleMenu = useMemo(() => getVisibleMenu(hasPermission), [hasPermission]);
 
   const getActive = useCallback((path?: string) => {
     if (!path) return false;

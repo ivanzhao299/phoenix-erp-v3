@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Sidebar, pathTitle } from "@/components/layout/Sidebar";
+import { Sidebar, canAccessPath, findMenuItemByPath, getFirstAccessiblePath, pathTitle } from "@/components/layout/Sidebar";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import { ApprovalNotifier } from "@/components/layout/ApprovalNotifier"; // G167：审批信息中心（铃铛/红点/横幅/声音）
 import { OnlineUsersIndicator } from "@/components/layout/OnlineUsersIndicator"; // G171：在线用户(管理员可见)
@@ -116,7 +116,7 @@ const RAIL_W = "56px";
 const FULL_W = "220px";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, hasPermission } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -150,6 +150,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // 菜单级前端门禁：如果 URL 命中已登记菜单但当前用户无该叶子权限，
+  // 直接跳到其可访问的第一个菜单，避免向用户展示"无权限子段/无权限菜单"。
+  useEffect(() => {
+    if (loading || !user) return;
+    if (pathname === "/profile" || pathname.startsWith("/settings/profile")) return;
+    const matched = findMenuItemByPath(pathname);
+    if (!matched) return;
+    if (canAccessPath(pathname, hasPermission)) return;
+    const fallback = getFirstAccessiblePath(hasPermission) || "/login";
+    if (fallback !== pathname) router.replace(fallback);
+  }, [loading, user, pathname, hasPermission, router]);
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-base)" }}>
