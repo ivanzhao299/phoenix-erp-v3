@@ -1,12 +1,61 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { isMenuRegistered } from '../../common/guards/menu-registry.service';
+import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
 import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-C
 import { DictGovernanceService } from './dict-governance.service';               // G5.5-D
 import { MasterDataGovernanceService } from './governance.service';              // G5.5-D
 import { MasterDataOperationsService } from './operations.service';              // G5.5-E
+
+const MASTER_DATA_SUPER_MENU = 'MENU_MASTER_DATA';
+
+const REFERENCE_OBJECT_TO_MENU: Record<string, string> = {
+  CUSTOMER: 'MENU_MD_CUSTOMER',
+  SUPPLIER: 'MENU_MD_SUPPLIER',
+  PROJECT: 'MENU_MD_PROJECT',
+  MATERIAL: 'MENU_MD_MATERIAL',
+  PRODUCT: 'MENU_MD_PRODUCT',
+  GRADE: 'MENU_MD_GRADE',
+  SPEC: 'MENU_MD_PACKAGING',
+  PACKAGING: 'MENU_MD_PACKAGING',
+  SKU: 'MENU_MD_SKU',
+  WAREHOUSE: 'MENU_MD_WAREHOUSE',
+  STORE: 'MENU_MD_STORE',
+  DRIVER: 'MENU_MD_DRIVER',
+  VEHICLE: 'MENU_MD_VEHICLE',
+  CASH_ACCOUNT: 'MENU_MD_CASH_ACCOUNT',
+  BANK_ACCOUNT: 'MENU_MD_BANK_ACCOUNT',
+  ORGANIZATION: 'MENU_MD_ORG',
+  COMPANY: 'MENU_MD_COMPANY',
+  BUSINESS_UNIT: 'MENU_MD_BUSINESS_UNIT',
+};
+
+const CODE_PREFIX_TO_MENU: Record<string, string> = {
+  CUS: 'MENU_MD_CUSTOMER',
+  SUP: 'MENU_MD_SUPPLIER',
+  PRJ: 'MENU_MD_PROJECT',
+  MAT: 'MENU_MD_MATERIAL',
+  CASH: 'MENU_MD_CASH_ACCOUNT',
+  PRD: 'MENU_MD_PRODUCT',
+  STR: 'MENU_MD_STORE',
+  BANK: 'MENU_MD_BANK_ACCOUNT',
+  SKU: 'MENU_MD_SKU',
+  WH: 'MENU_MD_WAREHOUSE',
+  GRD: 'MENU_MD_GRADE',
+  SPEC: 'MENU_MD_PACKAGING',
+  DRV: 'MENU_MD_DRIVER',
+  VEH: 'MENU_MD_VEHICLE',
+  ORG: 'MENU_MD_ORG',
+  COMP: 'MENU_MD_COMPANY',
+  BU: 'MENU_MD_BUSINESS_UNIT',
+};
+
+function normalizeCode(value: string | undefined | null) {
+  return String(value || '').trim().toUpperCase();
+}
 
 /**
  * MasterDataCenterController — 主数据中心后端 API（G1）
@@ -26,6 +75,19 @@ export class MasterDataCenterController {
     private readonly gov: MasterDataGovernanceService,  // G5.5-D
     private readonly ops: MasterDataOperationsService,  // G5.5-E
   ) {}
+
+  private assertMasterDataPermission(req: any, menu: string, perm: PermCode) {
+    const user = req?.user;
+    if (!user) throw new ForbiddenException('User context not found.');
+    if (!isMenuRegistered(menu)) throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
+
+    if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return;
+    if (user.role === 'ROLE_ADMIN') return;
+
+    if (hasPerm(user.permissions, menu, perm)) return;
+    if (isMenuRegistered(MASTER_DATA_SUPER_MENU) && hasPerm(user.permissions, MASTER_DATA_SUPER_MENU, perm)) return;
+    throw new ForbiddenException('MENU_PERMISSION_DENIED');
+  }
 
   // ══ G5.5-E 运营平台端点 ════════════════════════════════════════════════════
   /** 6 中心实时统计（首页运营工作台用） */
@@ -70,19 +132,23 @@ export class MasterDataCenterController {
    * 输入：(objectType, objectCode)；输出：被哪些业务单据引用
    */
   @Get('references/:objectType/:objectCode')
-  @RequireMenu('MENU_MASTER_DATA', 'V')
   async references(
     @Param('objectType') objectType: string,
     @Param('objectCode') objectCode: string,
+    @Req() req: any,
   ) {
+    const menu = REFERENCE_OBJECT_TO_MENU[normalizeCode(objectType)] ?? 'MENU_MD_AUDIT';
+    this.assertMasterDataPermission(req, menu, 'V');
     return this.refs.compute(objectType, objectCode);
   }
 
   /** 生成下一个主数据编码 */
   @Post('code/next')
-  @RequireMenu('MENU_MASTER_DATA', 'C')
-  async nextCode(@Body() body: { prefix: string }) {
-    const code = await this.codeGen.next(body?.prefix);
+  async nextCode(@Body() body: { prefix: string }, @Req() req: any) {
+    const prefix = normalizeCode(body?.prefix);
+    const menu = CODE_PREFIX_TO_MENU[prefix] ?? MASTER_DATA_SUPER_MENU;
+    this.assertMasterDataPermission(req, menu, 'C');
+    const code = await this.codeGen.next(prefix);
     return { code };
   }
 

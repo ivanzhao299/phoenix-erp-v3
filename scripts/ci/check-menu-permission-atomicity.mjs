@@ -115,6 +115,20 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      file.endsWith('apps/web/src/app/(admin)/home/page.tsx') &&
+      /perm:\s*['"]MENU_SALES2['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Home sales shortcut/card must use MENU_SALES2_DASHBOARD with atomic sales altPerms, not coarse MENU_SALES2.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Master-data center APIs must not use coarse MENU_MASTER_DATA as direct endpoint guard; use atomic center/quality/audit/per-type checks.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
       /@(Get|Post)\(['"](?:call|test-api)['"]\)/.test(line)
     ) {
@@ -291,6 +305,13 @@ for (const file of trackedFiles()) {
     /usePermission\(["']MENU_SYS_ORG["']\)/.test(text)
   ) {
     add(file, 1, 'Data-scope settings page must use MENU_SETTINGS_DATA_SCOPE, not MENU_SYS_ORG.', lines[0] || file);
+  }
+
+  if (
+    /apps\/api\/src\/common\/guards\/master-data-type\.guard\.ts$/.test(file) &&
+    /TYPE_TO_ALT_MENUS[\s\S]*MENU_SYS_ORG/.test(text)
+  ) {
+    add(file, 1, 'MasterDataTypeGuard must not allow coarse MENU_SYS_ORG as per-type fallback; use MENU_MD_ORG/MENU_MD_COMPANY or legacy read-only org aliases only.', lines[0] || file);
   }
 }
 

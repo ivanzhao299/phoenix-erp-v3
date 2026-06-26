@@ -52,8 +52,8 @@ const TYPE_TO_MENU: Record<string, string> = {
 };
 
 const TYPE_TO_ALT_MENUS: Record<string, string[]> = {
-  organization: ['MENU_ORG_VIEW', 'MENU_ORG_MANAGE', 'MENU_SYS_ORG'],
-  company: ['MENU_SYS_ORG', 'MENU_MD_ORG'],
+  organization: ['MENU_ORG_VIEW', 'MENU_ORG_MANAGE'],
+  company: ['MENU_MD_ORG'],
 };
 
 function deriveOp(method: string, urlPath: string): PermCode {
