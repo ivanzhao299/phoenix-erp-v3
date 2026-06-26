@@ -20,6 +20,9 @@ export function AttachmentViewer({ urls, count, emptyText = '无附件' }: Attac
           const ref = String(u ?? '').trim();
           const isProtectedRef = /^FILE-[A-Z0-9_-]+/i.test(ref);
           const isRawUrl = /^https?:\/\//i.test(ref) || /^\/?uploads\//i.test(ref);
+          const displayRef = isRawUrl
+            ? '已按安全策略脱敏'
+            : ref || 'empty';
           const label = isProtectedRef
             ? '受控附件引用'
             : isRawUrl
@@ -30,7 +33,7 @@ export function AttachmentViewer({ urls, count, emptyText = '无附件' }: Attac
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: isRawUrl ? 'var(--status-danger)' : 'var(--text-secondary)', fontSize: 12 }}>
               <div style={{ width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-muted)', borderRadius: 6, color: 'var(--text-secondary)' }}><FileText size={24} /></div>
               <span>{label} {i + 1}</span>
-              <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ref || 'empty'}</span>
+              <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayRef}</span>
             </div>
           );
         })}
