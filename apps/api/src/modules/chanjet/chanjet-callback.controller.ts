@@ -13,6 +13,7 @@ const CHANJET_PROXY_ALLOWED_PATHS = [
   '/accounting/openapi/cc/department/',
   '/accounting/gl/statistics/receive/',
 ];
+const CHANJET_PROXY_MENU = 'MENU_FIN2_AR_LEDGER';
 
 @Controller('api/chanjet')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -261,7 +262,7 @@ export class ChanjetCallbackController {
    * 管理员手动调用好业财账套列表接口验证连通性（全链路实证）。
    */
   @Get('test-api')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async testApi(@Req() req: any) {
     this.log.warn(`manual chanjet test-api triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
@@ -434,7 +435,7 @@ export class ChanjetCallbackController {
    * path 中 {bookid} 占位符会被 query.bookid 或 body.bookid 替换。
    */
   @Get('call')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async callGet(@Query() query: Record<string, string>, @Req() req: any) {
     return this.doCall(query.path, {
       method: this.normalizeChanjetProxyMethod(query.method || 'GET'),
@@ -444,7 +445,7 @@ export class ChanjetCallbackController {
   }
 
   @Post('call')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }, @Req() req: any) {
     return this.doCall(body.path, {
       method: this.normalizeChanjetProxyMethod(body.method || 'POST'),
@@ -511,7 +512,7 @@ export class ChanjetCallbackController {
           user.userId || user.id || null,
           user.username || null,
           roles[0] || null,
-          'MENU_SYS_CONFIG',
+          CHANJET_PROXY_MENU,
           actionCode,
           'CHANJET',
           path.slice(0, 80),

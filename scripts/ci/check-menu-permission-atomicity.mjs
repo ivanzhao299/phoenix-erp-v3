@@ -108,6 +108,26 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
+      /@(Get|Post)\(['"](?:call|test-api)['"]\)/.test(line)
+    ) {
+      const nearby = lines.slice(index, Math.min(lines.length, index + 5)).join('\n');
+      if (!/RequireMenu\(CHANJET_PROXY_MENU,\s*['"]E['"]\)/.test(nearby)) {
+        add(file, lineNo, 'Chanjet manual external API proxy/test endpoints must use MENU_FIN2_AR_LEDGER:E via CHANJET_PROXY_MENU.', line);
+      }
+    }
+
+    if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
+      /module_code|CHANJET_CALL_PROXY|MENU_SYS_CONFIG/.test(line)
+    ) {
+      const nearby = lines.slice(Math.max(0, index - 8), Math.min(lines.length, index + 8)).join('\n');
+      if (/writeChanjetAudit/.test(nearby) && /MENU_SYS_CONFIG/.test(nearby)) {
+        add(file, lineNo, 'Chanjet proxy audit logs must use CHANJET_PROXY_MENU, not MENU_SYS_CONFIG.', line);
+      }
+    }
+
+    if (
       /apps\/api\/src\/modules\/permissions\/permissions\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
     ) {
