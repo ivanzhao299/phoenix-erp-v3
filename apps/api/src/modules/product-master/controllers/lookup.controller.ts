@@ -333,18 +333,49 @@ export class LookupController {
    */
   @Get('shareholders')
   async shareholders(@Query('companyCode') companyCode?: string) {
-    if (companyCode) {
-      const rows = await this.cached(`shareholders:${companyCode}`, () => this.em.query(
+    const scope = await this.resolveCompanyScope();
+    if (
+      !scope.isGlobal
+      && scope.companyCodes.length === 0
+      && scope.allowedSiteCodes.length === 0
+    ) {
+      return { code: 200, data: [] };
+    }
+
+    const params: any[] = [];
+    const conds = [`s.status='ACTIVE'`];
+    const requestedCompanyCode = (companyCode || '').trim();
+    if (requestedCompanyCode) {
+      params.push(requestedCompanyCode);
+      conds.push(`p.company_code = $${params.length}`);
+    }
+    if (!scope.isGlobal) {
+      const scopeConds: string[] = [];
+      if (scope.companyCodes.length > 0) {
+        params.push(scope.companyCodes);
+        scopeConds.push(`p.company_code = ANY($${params.length})`);
+      }
+      if (scope.allowedSiteCodes.length > 0) {
+        params.push(scope.allowedSiteCodes);
+        scopeConds.push(`p.site_code = ANY($${params.length})`);
+      }
+      conds.push(`(${scopeConds.join(' OR ')})`);
+    }
+
+    if (requestedCompanyCode || !scope.isGlobal) {
+      const cacheKey = `shareholders:${scope.isGlobal ? 'global' : `${scope.companyCodes.slice().sort().join(',')}|${scope.allowedSiteCodes.slice().sort().join(',')}`}:${requestedCompanyCode || '*'}`;
+      const rows = await this.cached(cacheKey, () => this.em.query(
         `SELECT DISTINCT s.shareholder_code AS code, s.shareholder_name AS name, s.status
            FROM shr_shareholders s
            JOIN shr_project_equity e ON e.shareholder_code = s.shareholder_code
            JOIN shr_projects p ON p.project_code = e.project_code
-          WHERE s.status='ACTIVE' AND p.company_code = $1
+          WHERE ${conds.join(' AND ')}
           ORDER BY s.shareholder_code`,
-        [companyCode],
+        params,
       ));
       return { code: 200, data: rows };
     }
+
     const rows = await this.cached('shareholders', () => this.em.query(
       `SELECT shareholder_code AS code, shareholder_name AS name, status
          FROM shr_shareholders
