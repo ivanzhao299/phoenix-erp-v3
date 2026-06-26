@@ -839,6 +839,7 @@ export class ApprovalEngineService {
       where: { instanceId },
       order: { stepNo: 'ASC' },
     });
+    this.assertInstanceReadable(instance, steps);
 
     // Phase I: 若审批实例关联了表单提交，一并返回表单快照（含 schema 用于前端渲染）
     let formSubmission: any = null;
@@ -859,6 +860,32 @@ export class ApprovalEngineService {
     }
 
     return { ...instance, steps, formSubmission };
+  }
+
+  private assertInstanceReadable(instance: WfApprovalInstanceEntity, steps: WfApprovalInstanceStepEntity[]): void {
+    const { userId, roles } = this.currentUser();
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
+
+    if (scope && !scope.isGlobal && instance.companyCode) {
+      const allowedCompanies = new Set((scope.allowedCompanyCodes ?? []).map((code) => String(code)));
+      if (!allowedCompanies.has(String(instance.companyCode))) {
+        throw new ForbiddenException('无权查看该审批实例：公司数据域不匹配');
+      }
+    }
+
+    if (roles.includes('ROLE_ADMIN')) return;
+    if (String(instance.startedBy ?? '') === String(userId)) return;
+
+    const readableByUser = steps.some((step) => {
+      const assignedToUser = step.approverUserId && String(step.approverUserId) === String(userId);
+      const assignedToRole = step.approverRole && roles.includes(step.approverRole);
+      const actedByUser = step.actorUserId && String(step.actorUserId) === String(userId);
+      return assignedToUser || assignedToRole || actedByUser;
+    });
+    if (!readableByUser) {
+      throw new ForbiddenException('无权查看该审批实例');
+    }
   }
 
   async getInstanceByBiz(bizType: string, bizId: string): Promise<any | null> {

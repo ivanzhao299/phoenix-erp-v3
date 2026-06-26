@@ -29,7 +29,7 @@ export class ApprovalEngineController {
 
   /** 实例详情 */
   @Get('instances/:id')
-  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW', 'MENU_WORKFLOW_TODO'])
   async getDetail(@Param('id') id: string) {
     return this.engine.getInstanceDetail(id);
   }

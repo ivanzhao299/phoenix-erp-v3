@@ -24,7 +24,18 @@ export default function WorkflowDonePage() {
     setError("");
     try {
       const res = await workflowApi.done();
-      setRows(Array.isArray(res.data) ? res.data : []);
+      const payload = res.data as unknown;
+      const nested = payload && !Array.isArray(payload) && typeof payload === "object" ? payload as { list?: WorkflowTask[]; items?: WorkflowTask[]; data?: WorkflowTask[] } : null;
+      const nextRows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(nested?.list)
+          ? nested.list
+          : Array.isArray(nested?.items)
+            ? nested.items
+            : Array.isArray(nested?.data)
+              ? nested.data
+              : [];
+      setRows(nextRows);
     } catch (err) {
       setRows([]);
       setError(err instanceof Error ? err.message : "加载已办审批失败");
@@ -83,11 +94,6 @@ function resultText(result?: string) {
 function formatDate(value?: string) {
   if (!value) return "-";
   return String(value).replace("T", " ").slice(0, 16);
-}
-function resultBadgeClass(result?: string) {
-  if (result === "APPROVE") return `${s.badge} ${s.badgeSuccess}`;
-  if (result === "REJECT" || result === "CANCEL" || result === "CANCELED") return `${s.badge} ${s.badgeDanger}`;
-  return `${s.badge} ${s.badgeNeutral}`;
 }
 const sectionHeaderStyle: React.CSSProperties = {
   display: "flex",
