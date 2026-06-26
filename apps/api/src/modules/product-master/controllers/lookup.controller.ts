@@ -71,6 +71,17 @@ export class LookupController {
     return data;
   }
 
+  private async tableExists(tableName: string): Promise<boolean> {
+    const rows = await this.em.query(
+      `SELECT 1
+         FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = $1
+        LIMIT 1`,
+      [tableName],
+    );
+    return rows.length > 0;
+  }
+
   /** GET /api/lookup/product-grades — 仅 ACTIVE 等级，供前端下拉 */
   @Get('product-grades')
   async productGrades() {
@@ -129,25 +140,52 @@ export class LookupController {
   async projects(@Query('companyCode') companyCode?: string, @Query('company_code') companyCodeSnake?: string) {
     const scope = await this.resolveCompanyScope();
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
-    const params: any[] = [];
-    const conds = [`status='ACTIVE'`];
+    const buildScopedFilter = () => {
+      const params: any[] = [];
+      const conds = [`status='ACTIVE'`];
+      if (!scope.isGlobal) {
+        params.push(scope.companyCodes);
+        conds.push(`company_code = ANY($${params.length})`);
+      }
+      const requestedCompanyCode = (companyCode || companyCodeSnake || '').trim();
+      if (requestedCompanyCode) {
+        params.push(requestedCompanyCode);
+        conds.push(`company_code = $${params.length}`);
+      }
+      return { params, conds };
+    };
+
     const requestedCompanyCode = (companyCode || companyCodeSnake || '').trim();
-    if (!scope.isGlobal) {
-      params.push(scope.companyCodes);
-      conds.push(`company_code = ANY($${params.length})`);
-    }
-    if (requestedCompanyCode) {
-      params.push(requestedCompanyCode);
-      conds.push(`company_code = $${params.length}`);
-    }
-    const rows = await this.em.query(
-      `SELECT project_code AS "projectCode", project_name AS "projectName",
-              company_code AS "companyCode", status
-         FROM biz_projects
-         WHERE ${conds.join(' AND ')}
-         ORDER BY project_code`,
-      params,
-    );
+    const cacheKey = `projects:${scope.isGlobal ? 'global' : scope.companyCodes.slice().sort().join(',')}:${requestedCompanyCode || '*'}`;
+    const rows = await this.cached(cacheKey, async () => {
+      let primaryRows: any[] = [];
+      if (await this.tableExists('biz_projects')) {
+        const { params, conds } = buildScopedFilter();
+        primaryRows = await this.em.query(
+          `SELECT project_code AS "projectCode", project_name AS "projectName",
+                  company_code AS "companyCode", status, 'biz_projects' AS "sourceTable"
+             FROM biz_projects
+             WHERE ${conds.join(' AND ')}
+             ORDER BY project_code`,
+          params,
+        );
+      }
+      if (primaryRows.length > 0) return primaryRows;
+
+      // 生产兼容：MDM-1 统一项目主表上线前，部分历史采购项目仍保存在
+      // prc2_projects。业务单据只需要引用 ACTIVE 项目，不应因数据尚未完全
+      // 迁入 biz_projects 而出现“项目无可选项”。
+      if (!(await this.tableExists('prc2_projects'))) return [];
+      const { params, conds } = buildScopedFilter();
+      return this.em.query(
+        `SELECT project_code AS "projectCode", project_name AS "projectName",
+                company_code AS "companyCode", status, 'prc2_projects' AS "sourceTable"
+           FROM prc2_projects
+           WHERE ${conds.join(' AND ')}
+           ORDER BY project_code`,
+        params,
+      );
+    });
     return { code: 200, data: rows };
   }
 
