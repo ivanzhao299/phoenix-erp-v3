@@ -210,7 +210,7 @@ export default function MasterDataHubPage() {
   const [error, setError] = useState('');
   const canViewCenter = hasPermission('MENU_MD_CENTER', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
   const canViewGovernance = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
-  const canViewDataQuality = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_DATA_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
+  const canViewDataQuality = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
   const canViewPending = canAccessAny(hasPermission, PENDING_ENTRY_MENUS) || hasPermission('MENU_MASTER_DATA', 'V');
   const load = useCallback(async () => {
     if (!canViewCenter) {

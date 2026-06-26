@@ -44,7 +44,7 @@ const SHORTCUTS: Shortcut[] = [
   { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
   { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
-  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_DATA_QUALITY' },
+  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY', altPerms: ['MENU_MASTER_DATA'] },
 ];
 
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
@@ -85,7 +85,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
   }
   const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
   if (masterPath) return { label: '进入主数据中心', href: masterPath, icon: Sparkles };
-  if (hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
+  if (hasPermission('MENU_MD_QUALITY') || hasPermission('MENU_MASTER_DATA')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
   if (hasPermission('MENU_DASHBOARD')) return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   const firstPath = getFirstAccessiblePath(hasPermission);
   return { label: firstPath ? '进入我的工作区' : '查看我的待办', href: firstPath || '/workflow/todos', icon: Inbox };
@@ -100,8 +100,8 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
   const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
-  // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
-  const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
+  // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_MD_QUALITY 或主数据超级码的角色显示
+  const hasQualityPerm = hasPermission('MENU_MD_QUALITY') || hasPermission('MENU_MASTER_DATA');
   // 对齐后端：/master-data/operations/centers 要求 MENU_MASTER_DATA（非 MENU_MASTER）。
   //   原用 hasMasterPerm → 店长等持 MENU_MASTER 但无 MENU_MASTER_DATA 者发请求即 403 弹错。
   const hasCentersPerm = hasPermission('MENU_MASTER_DATA') || hasPermission('MENU_MD_CENTER');

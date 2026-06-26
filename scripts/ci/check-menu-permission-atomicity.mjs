@@ -180,11 +180,25 @@ for (const file of trackedFiles()) {
       add(file, lineNo, 'Product/master business lookup write helpers must not fall back to coarse MENU_MASTER_DATA.', line);
     }
 
-    if (
-      /apps\/api\/src\/modules\/master-data\/biz-projects\.controller\.ts$/.test(file) &&
-      /@RequireMenu\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
+  if (
+    /apps\/api\/src\/modules\/master-data\/biz-projects\.controller\.ts$/.test(file) &&
+    /@RequireMenu\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
     ) {
       add(file, lineNo, 'Biz project selector APIs must use MENU_PRC2_PROJECT with MENU_MD_PROJECT fallback, not coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/data-quality\/data-quality\.controller\.ts$/.test(file) &&
+      /MENU_SYS_MONITOR|MENU_DATA_QUALITY/.test(line)
+    ) {
+      add(file, lineNo, 'Data-quality APIs must use MENU_MD_QUALITY with MENU_MASTER_DATA as super fallback; do not grant access through system monitor or unregistered legacy frontend code.', line);
+    }
+
+    if (
+      /apps\/web\/src\/app\/\(admin\)\/(home|master-data|data-quality)\/page\.tsx$/.test(file) &&
+      /MENU_DATA_QUALITY/.test(line)
+    ) {
+      add(file, lineNo, 'Frontend data-quality visibility must use registered MENU_MD_QUALITY, not unregistered MENU_DATA_QUALITY.', line);
     }
 
     if (

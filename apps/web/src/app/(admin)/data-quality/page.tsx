@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
+import { usePermission } from '@/hooks/usePermission';
 import { RefreshCw, AlertTriangle, CheckCircle, AlertCircle, ShieldCheck, Database, BookOpen, Link2, Boxes, GitPullRequestArrow, Code2 } from 'lucide-react';
 
 /**
@@ -85,6 +86,9 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function DataQualityPage() {
+  const qualityPerm = usePermission('MENU_MD_QUALITY');
+  const masterDataPerm = usePermission('MENU_MASTER_DATA');
+  const canView = qualityPerm.canView || masterDataPerm.canView;
   const [scores, setScores] = useState<Scores | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +108,7 @@ export default function DataQualityPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const cards = scores ? [
     { key: 'masterData',   label: '主数据健康', icon: Database,           score: scores.masterData,   weight: scores.weights.masterData,   path: '/data-quality/master-data' },
@@ -115,6 +119,8 @@ export default function DataQualityPage() {
     { key: 'workflow',     label: '审批健康',   icon: GitPullRequestArrow, score: scores.workflow,    weight: scores.weights.workflow,     path: '/data-quality/workflow' },
     { key: 'code',         label: '编码规范',   icon: Code2,              score: scores.code,         weight: scores.weights.code,         path: '/data-quality/code' },
   ] : [];
+
+  if (!canView) return <div className={u.emptyPad40}>无权限访问数据质量驾驶舱</div>;
 
   return (
     <div>
