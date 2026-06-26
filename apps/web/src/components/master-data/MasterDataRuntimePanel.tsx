@@ -120,9 +120,9 @@ export function renderMdFieldInput(
     value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
 }
 
-// G130：主数据类型 → 专属菜单码（镜像后端 MasterDataTypeGuard 的 TYPE_TO_MENU）。
-//   按类型维护人(如供应商=ROLE_SUPPLIER_MASTER_MGR 持 MENU_MD_SUPPLIER:C,E)门控增/改按钮，
-//   而非超级码 MENU_MASTER_DATA——否则只有超管能看到「新增」按钮，G120 下放的按类型维护权被架空。
+// G130/Governance: 主数据类型 → 专属菜单码（镜像后端 MasterDataTypeGuard 的 TYPE_TO_MENU）。
+// 按类型维护人门控增/改按钮；ROLE_ADMIN 或 "*" 仍通过 usePermission 的 isSuper 处理，
+// 不再把 MENU_MASTER_DATA 当作所有主数据叶子的可见性兜底。
 const TYPE_TO_MENU: Record<string, string> = {
   customer: "MENU_MD_CUSTOMER", supplier: "MENU_MD_SUPPLIER", project: "MENU_MD_PROJECT",
   product: "MENU_MD_PRODUCT", grade: "MENU_MD_GRADE", spec: "MENU_MD_PACKAGING", sku: "MENU_MD_SKU",
@@ -141,11 +141,9 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     fields.forEach(f => { m[f.key] = f; });
     return m;
   }, [fields]);
-  // G130：先按该类型专属菜单门控，再以超级码 MENU_MASTER_DATA 兜底（超管/总控仍可用）
-  const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MASTER_DATA");
-  const superMd = usePermission("MENU_MASTER_DATA");
-  const canCreate = perType.canCreate || superMd.canCreate;
-  const canEdit = perType.canEdit || superMd.canEdit;
+  const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MD_CENTER");
+  const canCreate = perType.canCreate || perType.isSuper;
+  const canEdit = perType.canEdit || perType.isSuper;
   // G131：支持业务单据页(如采购供应商档案)直达「新增」——?create=1 自动开新增抽屉，
   //   存完后 returnTo 自动回跳来源页（采购员无需手动绕回）。
   //   用 window.location 读 query（避免 useSearchParams 强制 Suspense 边界 / 整页 CSR bailout）。

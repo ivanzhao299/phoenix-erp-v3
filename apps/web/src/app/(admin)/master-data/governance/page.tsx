@@ -61,8 +61,7 @@ function scoreColor(s: number): { bg: string; fg: string; label: string } {
 
 export default function GovernanceDashboardPage() {
   const qualityPerm = usePermission('MENU_MD_QUALITY');
-  const masterDataPerm = usePermission('MENU_MASTER_DATA');
-  const canView = qualityPerm.canView || masterDataPerm.canView;
+  const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
   const [dict, setDict] = useState<DictCoverage | null>(null);
   const [loading, setLoading] = useState(true);

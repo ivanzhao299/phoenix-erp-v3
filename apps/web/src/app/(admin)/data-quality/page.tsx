@@ -87,8 +87,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default function DataQualityPage() {
   const qualityPerm = usePermission('MENU_MD_QUALITY');
-  const masterDataPerm = usePermission('MENU_MASTER_DATA');
-  const canView = qualityPerm.canView || masterDataPerm.canView;
+  const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);

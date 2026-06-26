@@ -43,11 +43,10 @@ export default function CustomerDetailPage() {
   const params = useParams();
   const router = useRouter();
   const customerPerm = usePermission("MENU_MD_CUSTOMER");
-  const masterDataPerm = usePermission("MENU_MASTER_DATA");
   const salesOrderPerm = usePermission("MENU_SALES2_ORDER");
   const arPerm = usePermission("MENU_FIN2_AR");
-  const canView = customerPerm.canView || masterDataPerm.canView;
-  const isSuper = customerPerm.isSuper || masterDataPerm.isSuper;
+  const canView = customerPerm.canView || customerPerm.isSuper;
+  const isSuper = customerPerm.isSuper;
   const canViewOrders = salesOrderPerm.canView || salesOrderPerm.isSuper;
   const canViewAr = arPerm.canView || arPerm.isSuper;
 

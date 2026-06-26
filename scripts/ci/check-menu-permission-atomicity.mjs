@@ -178,6 +178,20 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/web\/src\/components\/master-data\/MasterDataRuntimePanel\.tsx$/.test(file) &&
+      /usePermission\(["']MENU_MASTER_DATA["']\)/.test(line)
+    ) {
+      add(file, lineNo, 'MasterDataRuntimePanel create/edit gates must use per-type MENU_MD_* permissions, not coarse MENU_MASTER_DATA fallback.', line);
+    }
+
+    if (
+      /apps\/web\/src\/app\/\(admin\)\/(data-quality|master-data\/(governance|operations|pending)|master-data\/(customers|suppliers)\/\[code\])\/page\.tsx$/.test(file) &&
+      /usePermission\(["']MENU_MASTER_DATA["']\)/.test(line)
+    ) {
+      add(file, lineNo, 'Master-data pages must not use MENU_MASTER_DATA as page visibility fallback; use MENU_MD_CENTER, MENU_MD_QUALITY, or per-type MENU_MD_* permissions.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_MASTER_DATA['"]/.test(line)
     ) {

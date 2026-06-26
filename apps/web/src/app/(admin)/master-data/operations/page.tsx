@@ -61,8 +61,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 export default function OperationsPage() {
   const centerPerm = usePermission("MENU_MD_CENTER");
-  const masterDataPerm = usePermission("MENU_MASTER_DATA");
-  const canView = centerPerm.canView || masterDataPerm.canView;
+  const canView = centerPerm.canView || centerPerm.isSuper;
   const [todo, setTodo] = useState<Todo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -43,11 +43,10 @@ export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
   const supplierPerm = usePermission("MENU_MD_SUPPLIER");
-  const masterDataPerm = usePermission("MENU_MASTER_DATA");
   const purchaseOrderPerm = usePermission("MENU_PRC2_ORDER");
   const apPerm = usePermission("MENU_FIN2_AP");
-  const canView = supplierPerm.canView || masterDataPerm.canView;
-  const isSuper = supplierPerm.isSuper || masterDataPerm.isSuper;
+  const canView = supplierPerm.canView || supplierPerm.isSuper;
+  const isSuper = supplierPerm.isSuper;
   const canViewPurchaseOrders = purchaseOrderPerm.canView || purchaseOrderPerm.isSuper;
   const canViewAp = apPerm.canView || apPerm.isSuper;
 

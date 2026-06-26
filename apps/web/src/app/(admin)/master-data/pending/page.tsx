@@ -119,7 +119,6 @@ const TYPES = [{
   menu: "MENU_SETTINGS_DATA"
 }];
 export default function MasterDataPendingPage() {
-  const masterDataPerm = usePermission("MENU_MASTER_DATA");
   const customerPerm = usePermission("MENU_MD_CUSTOMER");
   const supplierPerm = usePermission("MENU_MD_SUPPLIER");
   const projectPerm = usePermission("MENU_MD_PROJECT");
@@ -156,8 +155,7 @@ export default function MasterDataPendingPage() {
     MENU_MD_COMPANY: companyPerm.canView,
     MENU_SETTINGS_DATA: dictPerm.canView,
   };
-  const visibleTypes = useMemo(() => TYPES.filter(t => masterDataPerm.canView || typePerms[t.menu]), [
-    masterDataPerm.canView,
+  const visibleTypes = useMemo(() => TYPES.filter(t => typePerms[t.menu]), [
     customerPerm.canView,
     supplierPerm.canView,
     projectPerm.canView,
