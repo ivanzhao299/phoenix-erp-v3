@@ -32,7 +32,7 @@ export class WorkflowRuntimeController {
    * 支持分页、过滤、关键字搜索
    */
   @Get('my-tasks')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   async getMyTasks(@Query() q: {
     page?:       string;
     pageSize?:   string;
@@ -160,37 +160,37 @@ export class WorkflowRuntimeController {
   }
 
   @Post('start')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'C', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_TODO', 'C')
   start(@Body() body: any, @Req() req: any) {
     return this.workflow.startWorkflow(body, req.user);
   }
 
   @Get('instances')
-  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V')
   listInstances(@Query() query: any, @Req() req: any) {
     return this.workflow.listInstances(query, req.user);
   }
 
   @Get('analytics')
-  @RequireMenu('MENU_WORKFLOW_METRICS', 'X', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
   analytics(@Query() query: any, @Req() req: any) {
     return this.workflow.getAnalytics(req.user, query);
   }
 
   @Get('instances/:id')
-  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V')
   getInstance(@Param('id') id: string, @Req() req: any) {
     return this.workflow.getInstance(Number(id), req.user);
   }
 
   @Post('instances/:id/cancel')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'E', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_TODO', 'E')
   cancel(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.cancelInstance(Number(id), body, req.user);
   }
 
   @Post('instances/:id/urge')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'E', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_TODO', 'E')
   urge(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.urgeInstance(Number(id), body, req.user);
   }

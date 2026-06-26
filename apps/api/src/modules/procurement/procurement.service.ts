@@ -78,7 +78,7 @@ export class ProcurementService {
          WHERE u.status = 1
            AND ($1::text IS NULL OR u.user_id::text <> $1::text)
            ${scopeClause}
-           AND m.menu_code IN ('MENU_PRC2_ORDER', 'MENU_WORKFLOW_TODO', 'MENU_WORKFLOW')
+           AND m.menu_code IN ('MENU_PRC2_ORDER', 'MENU_WORKFLOW_TODO')
            AND (
              rmp.perm_codes = '*'
              OR 'A' = ANY(string_to_array(COALESCE(rmp.perm_codes, ''), ','))

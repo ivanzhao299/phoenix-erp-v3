@@ -102,7 +102,6 @@ export class FinanceV2Controller {
     'MENU_FIN2_SHAREHOLDER',
     'MENU_FIN2_EXPENSE',
     'MENU_FIN2_REIMBURSE',
-    'MENU_FIN2',
   ])
   async dashboard() {
     const u = this.scopedUser;

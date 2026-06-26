@@ -46,12 +46,14 @@ export class UploadController {
    */
   @Post('contract')
   @RequireMenu('MENU_PRC2_ORDER', 'E', [
-    'MENU_PRC2_MASTER',
+    'MENU_PRC2_REQUEST',
+    'MENU_PRC2_PAYMENT',
     'MENU_FIN2_SHAREHOLDER',
     'MENU_FIN2_EXPENSE',
+    'MENU_FIN2_REIMBURSE',
     'MENU_FIN2_AP',
     'MENU_STORE_PAYMENT',
-    'MENU_WORKFLOW',
+    'MENU_WORKFLOW_FORM',
   ])
   @UseInterceptors(
     FileInterceptor('file', {

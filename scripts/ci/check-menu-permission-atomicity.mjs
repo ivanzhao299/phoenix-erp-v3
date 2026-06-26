@@ -52,6 +52,41 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/(workflow|approval-engine|notification)\/.+\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_WORKFLOW['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Workflow, approval, and notification controllers must not use coarse MENU_WORKFLOW as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/procurement-v2\/controllers\/dashboard\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_PRC2['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Procurement dashboard widgets must not use coarse MENU_PRC2 as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/finance-v2\/controllers\/finance-v2\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_FIN2['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Finance dashboard must not use coarse MENU_FIN2 as altMenus fallback.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/upload\/upload\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"](MENU_WORKFLOW|MENU_PRC2_MASTER)['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Upload endpoints must use leaf module permissions and must not fall back to MENU_WORKFLOW or MENU_PRC2_MASTER.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/generic-crud\/generic-crud\.controller\.ts$/.test(file) &&
+      /return\s+['"](MENU_FIN2|MENU_PRC2|MENU_MASTER)['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Generic CRUD table fallback must not return coarse parent permissions MENU_FIN2/MENU_PRC2/MENU_MASTER.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/permissions\/permissions\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
     ) {

@@ -116,17 +116,35 @@ export class GenericCrudController {
     if (table.startsWith('brd_'))            return 'MENU_FARM_DATA';
     // G33-D：product_grades / product_specs 等等级/规格主档
     if (table === 'product_grades' || table === 'product_specs' || table === 'product_packaging') return 'MENU_MASTER_GRADE';
-    if (table.startsWith('fin_cash_'))       return 'MENU_FIN2_CASH';
+    if (table === 'sys_role' || table === 'sys_user_role' || table === 'sys_role_menu_permission' || table === 'sys_role_conflict' || table === 'sys_menu' || table === 'sys_permissions') {
+      return 'MENU_SETTINGS_ROLE';
+    }
+    if (table === 'sys_user')                return 'MENU_SETTINGS_USER';
+    if (table === 'sys_dict')                return 'MENU_SYS_DICT';
+    if (table === 'sys_approval_log' || table === 'sys_audit_log') return 'MENU_SETTINGS_AUDIT';
+    if (table === 'sys_approval_flows')      return 'MENU_WORKFLOW_CONFIG';
+    if (table === 'sys_approval_rule')       return 'MENU_WORKFLOW_RULES';
+    if (table === 'sys_settings')            return 'MENU_SYS_CONFIG';
+    if (table === 'pda_terminals')           return 'MENU_SETTINGS_TERMINAL';
+    if (table.startsWith('fin_cash_'))       return 'MENU_FIN2_CASH_VIEW';
     if (table.startsWith('fin_ar_'))         return 'MENU_FIN2_AR';
     if (table.startsWith('fin_ap_'))         return 'MENU_FIN2_AP';
     if (table.startsWith('fin_expense'))     return 'MENU_FIN2_EXPENSE';
     if (table.startsWith('fin_shareholder')) return 'MENU_FIN2_SHAREHOLDER';
-    if (table.startsWith('fin_'))            return 'MENU_FIN2';
+    if (table === 'fin_payments' || table === 'fin_pay_records') return 'MENU_FIN2_AP';
+    if (table === 'fin_store_settlements')   return 'MENU_FIN2_REPORT';
+    if (table.startsWith('fin_'))            return null;
     if (table === 'inv_batches' || table === 'inv_ledger') return 'MENU_WMS_VIEW';
     if (table.startsWith('inv_'))            return 'MENU_WMS_VIEW';
     if (table.startsWith('wms_'))            return 'MENU_WMS_INOUT';
+    if (table.startsWith('prc_purchase_request')) return 'MENU_PRC2_REQUEST';
+    if (table.startsWith('prc_purchase_payment')) return 'MENU_PRC2_PAYMENT';
+    if (table.startsWith('prc_receipt'))     return 'MENU_PRC2_RECEIPT';
+    if (table.startsWith('prc_supplier'))    return 'MENU_PRC2_SUPPLIER';
+    if (table.startsWith('prc_purchase'))    return 'MENU_PRC2_ORDER';
+    if (table.startsWith('prc_'))            return null;
     if (table.startsWith('prc2_purchase'))   return 'MENU_PRC2_ORDER';
-    if (table.startsWith('prc2_'))           return 'MENU_PRC2';
+    if (table.startsWith('prc2_'))           return null;
     if (table.startsWith('sal_'))            return 'MENU_SALES2';
     if (table.startsWith('pkg_'))            return 'MENU_PKG_OP';
     // 门店 / POS 业务表（pos_sales/pos_sessions/store_receiving/store_losses/store_replenish_req…）
@@ -134,7 +152,12 @@ export class GenericCrudController {
     //   修复：原无此映射 → 门店工作台拉 pos_sales/store_receiving 报 403（店长自己工作台报权限错）。
     if (table.startsWith('pos_'))            return 'MENU_POS_STORE';
     if (table.startsWith('store_'))          return 'MENU_STORE_MGR';
-    if (table.startsWith('mst_'))            return 'MENU_MASTER';
+    if (table === 'mst_stores')              return 'MENU_MD_STORE';
+    if (table === 'mst_products')            return 'MENU_MD_PRODUCT';
+    if (table === 'mst_suppliers')           return 'MENU_MD_SUPPLIER';
+    if (table === 'mst_customers')           return 'MENU_MD_CUSTOMER';
+    if (table === 'mst_skus')                return 'MENU_MD_SKU';
+    if (table.startsWith('mst_'))            return null;
     return null;
   }
 
