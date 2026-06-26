@@ -590,6 +590,15 @@ for (const file of trackedFiles()) {
     }
   }
 
+  if (file.endsWith('apps/web/src/app/(admin)/settings/audit-log/page.tsx')) {
+    if (!/usePermission\(["']MENU_SETTINGS_AUDIT["']\)/.test(text) || !/canViewAudit/.test(text)) {
+      add(file, 1, 'Audit log page must gate route rendering and data load with MENU_SETTINGS_AUDIT before calling audit CRUD APIs.', lines[0] || file);
+    }
+    if (/MENU_SYS_MONITOR/.test(text)) {
+      add(file, 1, 'Audit log page must not use MENU_SYS_MONITOR as a fallback; audit access belongs to MENU_SETTINGS_AUDIT.', lines[0] || file);
+    }
+  }
+
   if (file.endsWith('apps/web/src/app/(admin)/settings/notifications/page.tsx')) {
     if (!/usePermission\(["']MENU_SETTINGS_NOTIFY["']\)/.test(text) || !/notifyPerm\.canView/.test(text)) {
       add(file, 1, 'Notification settings page must gate route rendering with MENU_SETTINGS_NOTIFY before calling config/log APIs.', lines[0] || file);

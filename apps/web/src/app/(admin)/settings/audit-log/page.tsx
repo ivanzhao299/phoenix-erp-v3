@@ -6,6 +6,8 @@ import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission";
+import { PermissionDeniedState } from "@/components/design-system/feedback/States";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 const tok = () => typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
@@ -37,6 +39,8 @@ interface AuditMetrics {
 
 export default function AuditLogPage() {
   const toast = useToast();
+  const auditPerm = usePermission("MENU_SETTINGS_AUDIT");
+  const canViewAudit = auditPerm.canView;
   const {
     t
   } = useLanguage();
@@ -134,6 +138,10 @@ export default function AuditLogPage() {
     return params;
   }, [actionFilter, search, dateFrom, dateTo]);
   const load = useCallback(async (pg = 1) => {
+    if (!canViewAudit) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = buildParams(pg);
@@ -165,10 +173,14 @@ export default function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [buildParams]);
+  }, [buildParams, canViewAudit]);
   useEffect(() => {
-    load(1);
-  }, [actionFilter]);
+    if (canViewAudit) {
+      load(1);
+    } else {
+      setLoading(false);
+    }
+  }, [actionFilter, canViewAudit, load]);
   const handleSearch = () => load(1);
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const metricCards = [
@@ -205,6 +217,12 @@ export default function AuditLogPage() {
       color: "var(--status-warning)"
     }
   ];
+  if (!canViewAudit) {
+    return <div className="animate-fade-in">
+        <PageHeader title={t('ui.审计日志', '审计日志')} subtitle={t('ui.系统操作轨迹与审批行为全量记录支持按操作类型日期范围查询', '系统操作轨迹与审批行为全量记录，支持按操作类型、日期范围查询')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审计日志', '审计日志')]} />
+        <PermissionDeniedState message={t('ui.无权限访问审计日志', '无权限访问审计日志，请联系管理员授予 MENU_SETTINGS_AUDIT 查看权限。')} />
+      </div>;
+  }
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.审计日志', '审计日志')} subtitle={t('ui.系统操作轨迹与审批行为全量记录支持按操作类型日期范围查询', '系统操作轨迹与审批行为全量记录，支持按操作类型、日期范围查询')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审计日志', '审计日志')]} actions={<div style={{
       display: "flex",
