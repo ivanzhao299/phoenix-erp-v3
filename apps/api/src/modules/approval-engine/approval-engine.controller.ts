@@ -46,7 +46,15 @@ export class ApprovalEngineController {
 
   /** 候选审批人查询（开放式选人 / 转交用）：权限 ∩ 数据域过滤，排除发起人 */
   @Get('eligible-approvers')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V', ['MENU_WORKFLOW'])
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V', [
+    'MENU_WORKFLOW',
+    'MENU_PRC2_REQUEST',
+    'MENU_PRC2_ORDER',
+    'MENU_PRC2_PAYMENT',
+    'MENU_PRC2_FUND',
+    'MENU_FIN2_EXPENSE',
+    'MENU_FIN2_SHAREHOLDER',
+  ])
   async eligibleApprovers(
     @Query('menuCode') menuCode: string,
     @Query('requiredPerm') requiredPerm?: string,

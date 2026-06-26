@@ -521,7 +521,7 @@ export default function PrcRequestPage() {
     setSubmitApproverId('');
     try {
       const qs = new URLSearchParams({
-        menuCode: 'MENU_PRC2_ORDER',
+        menuCode: 'MENU_PRC2_REQUEST',
         requiredPerm: 'E'
       });
       if (companyCode.trim()) qs.set('companyCode', companyCode.trim());

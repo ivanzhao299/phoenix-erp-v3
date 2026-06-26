@@ -13,6 +13,7 @@ import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-st
 import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
 import { AssignmentResolverService, ApproverType } from '../workflow/assignment-resolver.service';
+import { ALL_PERM_CODES, hasPerm, PermCode } from '../../auth/permissions.util';
 
 export interface StartApprovalParams {
   moduleCode?: string;
@@ -170,8 +171,25 @@ export class ApprovalEngineService {
   async listEligibleApprovers(query: {
     menuCode: string; requiredPerm?: string; companyCode?: string; projectCode?: string;
   }): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
-    const { userId } = this.currentUser();
+    const current = this.currentUser();
+    const menuCode = String(query.menuCode ?? '').trim();
+    if (!menuCode) throw new BadRequestException('menuCode is required');
+    if (!this.canQueryApproverCandidates(menuCode)) {
+      throw new ForbiddenException('无权查询该业务的审批候选人');
+    }
+    const { userId } = current;
     return this.assignmentResolver.resolveEligibleApprovers({ ...query, excludeUserId: userId || undefined });
+  }
+
+  private canQueryApproverCandidates(menuCode: string): boolean {
+    const user = this.cls.get('user') as Record<string, any> | undefined;
+    const roles = Array.isArray(user?.roles) ? user?.roles : (user?.role ? [user.role] : []);
+    if (roles.includes('ROLE_ADMIN') || user?.role === 'ROLE_ADMIN' || user?.username === 'admin') return true;
+    const permissions = user?.permissions as string[] | undefined;
+    if (permissions?.includes('*')) return true;
+    // 发起人只要拥有该业务菜单任一权限位，即可查询该业务的审批候选人。
+    // 候选人本身仍由 AssignmentResolver 按 menuCode + requiredPerm + DataScope 二次筛选。
+    return ALL_PERM_CODES.some((perm: PermCode) => hasPerm(permissions, menuCode, perm));
   }
 
   /**
