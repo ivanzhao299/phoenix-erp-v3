@@ -18,6 +18,8 @@ The latest remediation batches have addressed:
 - App/PWA logo simplified by removing the white circular badge wrapper.
 - Inventory/WMS write DataScope enforcement for inbound, transfer, stocktake, loss, and atomic stock operations.
 - WMS DataScope write regression check in W5 closeout.
+- PC approval action panel aligned to "同意 / 不同意 / 转交审批" with approve selected by default.
+- Approval history and legacy done pages now show explicit errors and tolerate missing fields.
 
 ## Priority P0
 
@@ -31,10 +33,11 @@ The latest remediation batches have addressed:
    - WMS inbound, purchase receipt posting, outbound batch deduction, receiving confirmation, transfer, stocktake, loss, and atomic inventory increment/decrement now enforce warehouse write ownership when `allowedWarehouseCodes` is configured.
    - Remaining work: production user-by-user warehouse scope evidence and store/order stock view checks.
 
-3. **Approval Action Flow**
+3. **Approval Action Flow - Frontend Handling Complete**
    - Confirm "同意 / 不同意 / 转交审批" is consistently available on PC and mobile.
    - Confirm assignee selection is DataScope and role constrained.
    - Confirm completed approvals do not crash.
+   - Remaining work: procurement submit-to-next-approver selection and backend route-specific review for high-frequency purchase flows.
 
 ## Priority P1
 
@@ -67,12 +70,13 @@ The latest remediation batches have addressed:
 
 ## Execution Recommendation
 
-Next batch should start with P0-3 approval action flow:
+Next batch should continue from procurement approval submit-to-assignee selection and protected attachment convergence:
 
-- They directly affect user-visible permission correctness and cross-data leakage risk.
-- They are prerequisites before broader role/function rollout.
+- Procurement submission is a high-frequency workflow and must let users know who receives the next approval step.
+- Attachment convergence prevents raw upload/download leakage across finance, shareholder funds, procurement, and store payment.
+- Both remain prerequisites before broader role/function rollout.
 
 Recommended next commit scope:
 
-- `fix(workflow): harden approval action flow`
+- `fix(procurement): expose approval assignee selection`
 - `fix(attachments): converge remaining upload surfaces`

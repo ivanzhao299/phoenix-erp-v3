@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search, Forward } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -94,6 +94,9 @@ interface InstanceDetail {
     actedAt: string;
   }[];
 }
+
+type ApprovalDecision = "approve" | "reject" | "transfer";
+type ReassignCandidate = { userId: string; displayName: string; roleNameZh: string | null };
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 const BIZ_TYPE_LABEL: Record<string, string> = {
@@ -230,7 +233,7 @@ async function approveInstance(instanceId: string, comment: string) {
   });
   return res.json();
 }
-async function fetchReassignCandidates(instanceId: string): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
+async function fetchReassignCandidates(instanceId: string): Promise<ReassignCandidate[]> {
   const res = await fetch(`/api/approval/instances/${instanceId}/reassign-candidates`, {
     headers: authHdr(),
     cache: "no-store"
@@ -271,10 +274,9 @@ export default function ApprovalTodosPage() {
   const [detail, setDetail] = useState<InstanceDetail | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [comment, setComment] = useState("");
+  const [decision, setDecision] = useState<ApprovalDecision>("approve");
   const [submitting, setSubmitting] = useState(false);
-  // P2 转交审批
-  const [reassignMode, setReassignMode] = useState(false);
-  const [candidates, setCandidates] = useState<Array<{ userId: string; displayName: string; roleNameZh: string | null }>>([]);
+  const [candidates, setCandidates] = useState<ReassignCandidate[]>([]);
   const [pickedTo, setPickedTo] = useState("");
   const [reassignLoading, setReassignLoading] = useState(false);
 
@@ -331,6 +333,9 @@ export default function ApprovalTodosPage() {
   const openDetail = async (todo: UnifiedTask) => {
     setSelected(todo);
     setComment("");
+    setDecision("approve");
+    setCandidates([]);
+    setPickedTo("");
     setDrawerOpen(true);
     if (todo.taskSource === "APPROVAL_ENGINE") {
       setDetail(await fetchDetail(todo.instanceId));
@@ -338,6 +343,29 @@ export default function ApprovalTodosPage() {
       setDetail(null);
     }
   };
+  useEffect(() => {
+    if (!drawerOpen || !selected || decision !== "transfer") return;
+    let alive = true;
+    setPickedTo("");
+    setReassignLoading(true);
+    fetchReassignCandidates(selected.instanceId)
+      .then(rows => {
+        if (!alive) return;
+        setCandidates(rows);
+        setPickedTo(rows[0]?.userId ?? "");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setCandidates([]);
+        setPickedTo("");
+      })
+      .finally(() => {
+        if (alive) setReassignLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [drawerOpen, selected?.instanceId, decision]);
   const handleApprove = async () => {
     if (!selected) return;
     setSubmitting(true);
@@ -382,16 +410,6 @@ export default function ApprovalTodosPage() {
       setSubmitting(false);
     }
   };
-  const openReassign = async () => {
-    if (!selected) return;
-    setPickedTo("");
-    setReassignMode(true);
-    setReassignLoading(true);
-    try {
-      setCandidates(await fetchReassignCandidates(selected.instanceId));
-    } catch { setCandidates([]); }
-    finally { setReassignLoading(false); }
-  };
   const handleReassign = async () => {
     if (!selected || !pickedTo) return;
     setSubmitting(true);
@@ -401,7 +419,6 @@ export default function ApprovalTodosPage() {
         toast.error(r.message || "转交失败");
       } else {
         toast.success(`已转交给 ${r.toName ?? "审批人"}`);
-        setReassignMode(false);
         setDrawerOpen(false);
         setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
@@ -411,6 +428,11 @@ export default function ApprovalTodosPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+  const submitDecision = () => {
+    if (decision === "approve") void handleApprove();
+    else if (decision === "reject") void handleReject();
+    else void handleReassign();
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
   return <div>
@@ -795,12 +817,21 @@ export default function ApprovalTodosPage() {
           margin: "0 0 12px",
           color: "var(--text-primary)"
         }}>审批意见</h4>
-            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="请输入审批意见（拒绝时必填）" className={s.textarea} rows={3} style={{
-          width: "100%",
-          marginBottom: 16
-        }} />
-            {/* P2 转交候选区 */}
-            {reassignMode && <div style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-muted)" }}>
+            <p className={s.modalDesc} style={{ margin: "0 0 10px" }}>
+              默认同意。候选转交人由后端按角色权限、公司/项目数据域和自审分离规则过滤。
+            </p>
+            <div style={decisionTabsStyle}>
+              <button type="button" onClick={() => setDecision("approve")} style={decisionButtonStyle(decision === "approve", "success")}>
+                <CheckCircle size={14} /> 同意
+              </button>
+              <button type="button" onClick={() => setDecision("reject")} style={decisionButtonStyle(decision === "reject", "danger")}>
+                <XCircle size={14} /> 不同意
+              </button>
+              <button type="button" onClick={() => setDecision("transfer")} style={decisionButtonStyle(decision === "transfer", "info")}>
+                <Forward size={14} /> 转交审批
+              </button>
+            </div>
+            {decision === "transfer" && <div style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-muted)" }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>转交给（有确认权且数据域覆盖本单据的人）</div>
               {reassignLoading ? <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 8 }}>加载候选人…</div>
                 : candidates.length === 0 ? <div style={{ fontSize: 12, color: "var(--status-warning)", padding: 8 }}>无可转交对象（无人同时具备确认权与本单据数据域）</div>
@@ -813,26 +844,19 @@ export default function ApprovalTodosPage() {
                       </label>
                     ))}
                   </div>}
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setReassignMode(false)} disabled={submitting}>取消</button>
-                <button onClick={handleReassign} disabled={submitting || !pickedTo} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{submitting ? "转交中…" : "确认转交"}</button>
-              </div>
             </div>}
+            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder={decision === "approve" ? "填写审批意见（可不填）" : decision === "reject" ? "请填写不同意原因…" : "填写转交说明，便于接收人理解背景（可不填）"} className={s.textarea} rows={3} style={{
+          width: "100%",
+          marginBottom: 16
+        }} />
             <div style={{
           display: "flex",
-          gap: 12
+          gap: 12,
+          justifyContent: "flex-end",
+          flexWrap: "wrap"
         }}>
-              <button onClick={handleReject} disabled={submitting} style={{ ...actionPill('danger'), flex: 1, justifyContent: "center" }}>
-                <XCircle size={14} style={{ marginRight: 6 }} />拒绝
-              </button>
-              <button onClick={openReassign} disabled={submitting} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>
-                转交
-              </button>
-              <button onClick={handleApprove} disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>
-                <CheckCircle size={14} style={{
-              marginRight: 6
-            }} />
-                {submitting ? "处理中…" : "审批通过"}
+              <button onClick={submitDecision} disabled={submitting || (decision === "transfer" && (reassignLoading || !pickedTo))} style={decision === "reject" ? { ...actionPill('danger'), justifyContent: "center", minWidth: 160 } : decision === "transfer" ? { ...actionPill('info'), justifyContent: "center", minWidth: 180 } : { ...primaryActionButton, justifyContent: "center", minWidth: 160 }}>
+                {submitting ? "处理中…" : decision === "approve" ? "提交同意" : decision === "reject" ? "提交不同意" : "确认转交审批"}
               </button>
             </div>
           </div>}
@@ -877,4 +901,33 @@ export default function ApprovalTodosPage() {
           </div>}
       </RightDrawer>
     </div>;
+}
+
+const decisionTabsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+  marginBottom: 12,
+  padding: 4,
+  borderRadius: "var(--radius-md)",
+  background: "var(--bg-page)",
+  border: "1px solid var(--border)"
+};
+
+function decisionButtonStyle(active: boolean, tone: "success" | "danger" | "info"): React.CSSProperties {
+  const color = tone === "success" ? "var(--status-success)" : tone === "danger" ? "var(--status-danger)" : "var(--status-info)";
+  return {
+    minHeight: 40,
+    borderRadius: "var(--radius-sm)",
+    border: `1px solid ${active ? color : "transparent"}`,
+    background: active ? `color-mix(in srgb, ${color} 14%, transparent)` : "transparent",
+    color: active ? color : "var(--text-secondary)",
+    fontWeight: 800,
+    cursor: "pointer",
+    transition: "background .16s ease, color .16s ease, border-color .16s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6
+  };
 }
