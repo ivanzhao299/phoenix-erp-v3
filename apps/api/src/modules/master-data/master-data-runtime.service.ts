@@ -53,6 +53,29 @@ interface MdTypeConfig {
   noValidityPeriod?: boolean;
 }
 
+// 主数据运行时 DataScope 的菜单上下文必须与类型级权限一致。
+// Controller 已由 MasterDataTypeGuard 按 :type 做原子门禁；这里同步使用同一原子码，
+// 避免公司范围解析/缓存/审计继续落在粗粒度 MENU_MASTER_DATA 上。
+const OBJECT_TYPE_TO_MENU: Record<string, string> = {
+  CUSTOMER: 'MENU_MD_CUSTOMER',
+  SUPPLIER: 'MENU_MD_SUPPLIER',
+  PROJECT: 'MENU_MD_PROJECT',
+  MATERIAL: 'MENU_MD_MATERIAL',
+  CASH_ACCOUNT: 'MENU_MD_CASH_ACCOUNT',
+  PRODUCT: 'MENU_MD_PRODUCT',
+  STORE: 'MENU_MD_STORE',
+  BANK_ACCOUNT: 'MENU_MD_BANK_ACCOUNT',
+  SKU: 'MENU_MD_SKU',
+  WAREHOUSE: 'MENU_MD_WAREHOUSE',
+  GRADE: 'MENU_MD_GRADE',
+  SPEC: 'MENU_MD_PACKAGING',
+  DRIVER: 'MENU_MD_DRIVER',
+  VEHICLE: 'MENU_MD_VEHICLE',
+  ORGANIZATION: 'MENU_MD_ORG',
+  COMPANY: 'MENU_MD_COMPANY',
+  DICT: 'MENU_MD_DICT',
+};
+
 const TYPES: Record<string, MdTypeConfig> = {
   customer: {
     table: 'sal_customers', codeCol: 'customer_no', nameCol: 'customer_name',
@@ -454,7 +477,8 @@ export class MasterDataRuntimeService {
     }
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
-      const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
+      const scopeMenu = OBJECT_TYPE_TO_MENU[c.objectType] ?? 'MENU_MD_CENTER';
+      const scope = await this.dataScope.resolve(userId, roles, scopeMenu);
       if (scope.isGlobal) return 'ALL';
       if (!scope.allowedCompanyCodes.length) return 'DENY';   // 无可见公司 → 拒绝全部
       return scope.allowedCompanyCodes;
