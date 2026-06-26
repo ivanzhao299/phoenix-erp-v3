@@ -253,6 +253,13 @@ for (const file of trackedFiles()) {
     add(file, 1, 'Business-unit APIs must use MENU_MD_BUSINESS_UNIT as primary permission, not coarse MENU_SYS_ORG.', lines[0] || file);
   }
 
+  if (
+    /apps\/api\/src\/modules\/permissions\/permissions\.module\.ts$/.test(file) &&
+    /PermissionSetsController/.test(text)
+  ) {
+    add(file, 1, 'Permission-set routes must be registered only by PermissionSetsModule to avoid duplicate /api/permission-sets controllers.', lines[0] || file);
+  }
+
   if (file.endsWith('apps/web/src/components/layout/Sidebar.tsx')) {
     const coarseOrgRoutes = [
       /path:\s*["']\/master-data\/organizations["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
