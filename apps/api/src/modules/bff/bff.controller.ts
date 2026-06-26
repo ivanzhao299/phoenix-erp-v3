@@ -889,7 +889,7 @@ export class AuditBffController {
 // ── Pricing ───────────────────────────────────────────────────────────────────
 @Controller('api/pricing')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_SALES2', 'V', ['MENU_SALES2_REPORT'])
+@RequireMenu('MENU_SALES2_PRICE', 'V')
 export class PricingBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -909,7 +909,7 @@ export class PricingBffController {
   }
 
   @Put('floating/:id')
-  @RequireMenu('MENU_SALES2', 'E', ['MENU_SALES2_REPORT'])
+  @RequireMenu('MENU_SALES2_PRICE', 'E')
   async updateFloating(@Param('id') id: string, @Body() body: any) {
     return { code: 200, msg: '浮动价格已更新' };
   }
@@ -928,7 +928,7 @@ export class PricingBffController {
 // ── Wholesale ─────────────────────────────────────────────────────────────────
 @Controller('api/wholesale')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_SALES2', 'V')
+@RequireMenu('MENU_SALES2_CUSTOMER', 'V')
 export class WholesaleBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -959,7 +959,7 @@ export class WholesaleBffController {
   }
 
   @Put('distributors/:id')
-  @RequireMenu('MENU_SALES2', 'E')
+  @RequireMenu('MENU_SALES2_CUSTOMER', 'E')
   async updateDistributor(@Param('id') id: string, @Body() body: any) {
     return { code: 200, msg: '经销商信息已更新' };
   }

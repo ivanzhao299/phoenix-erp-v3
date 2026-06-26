@@ -102,9 +102,16 @@ for (const file of trackedFiles()) {
 
     if (
       /apps\/api\/src\/modules\/generic-crud\/generic-crud\.controller\.ts$/.test(file) &&
-      /return\s+['"](MENU_FIN2|MENU_PRC2|MENU_MASTER)['"]/.test(line)
+      /return\s+['"](MENU_FIN2|MENU_PRC2|MENU_MASTER|MENU_SALES2)['"]/.test(line)
     ) {
-      add(file, lineNo, 'Generic CRUD table fallback must not return coarse parent permissions MENU_FIN2/MENU_PRC2/MENU_MASTER.', line);
+      add(file, lineNo, 'Generic CRUD table fallback must not return coarse parent permissions MENU_FIN2/MENU_PRC2/MENU_MASTER/MENU_SALES2.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/bff\/bff\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SALES2['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Sales BFF APIs must use atomic MENU_SALES2_* permissions instead of coarse MENU_SALES2.', line);
     }
 
     if (

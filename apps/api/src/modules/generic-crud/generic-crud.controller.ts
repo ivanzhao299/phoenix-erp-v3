@@ -145,7 +145,15 @@ export class GenericCrudController {
     if (table.startsWith('prc_'))            return null;
     if (table.startsWith('prc2_purchase'))   return 'MENU_PRC2_ORDER';
     if (table.startsWith('prc2_'))           return null;
-    if (table.startsWith('sal_'))            return 'MENU_SALES2';
+    if (table === 'sal_customers')           return 'MENU_SALES2_CUSTOMER';
+    if (table === 'sal_channels')            return 'MENU_SALES2_CHANNEL';
+    if (table === 'sal_price_books' || table === 'sal_price_items') return 'MENU_SALES2_PRICE';
+    if (table === 'sal_sales_orders' || table === 'sal_order_items') return 'MENU_SALES2_ORDER';
+    if (table.startsWith('sal_delivery') || table === 'sal_receipts') return 'MENU_SALES2_DELIVERY';
+    if (table.startsWith('sal_return'))      return 'MENU_SALES2_RETURN';
+    if (table === 'sal_drivers')             return 'MENU_MD_DRIVER';
+    if (table === 'sal_vehicles')            return 'MENU_MD_VEHICLE';
+    if (table.startsWith('sal_'))            return null;
     if (table.startsWith('pkg_'))            return 'MENU_PKG_OP';
     // 门店 / POS 业务表（pos_sales/pos_sessions/store_receiving/store_losses/store_replenish_req…）
     //   → 门店工作台菜单；店长持 MENU_STORE_MGR/MENU_POS_STORE，行级 store_code 隔离保证仅本店数据。
