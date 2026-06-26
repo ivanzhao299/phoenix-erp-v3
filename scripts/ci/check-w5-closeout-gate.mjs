@@ -71,6 +71,10 @@ const checks = [
     name: 'procurement DataScope write gate passes',
     pass: run('node', ['scripts/ci/check-procurement-datascope-writes.mjs']),
   },
+  {
+    name: 'WMS DataScope write gate passes',
+    pass: run('node', ['scripts/ci/check-wms-datascope-writes.mjs']),
+  },
 ];
 
 let failed = 0;

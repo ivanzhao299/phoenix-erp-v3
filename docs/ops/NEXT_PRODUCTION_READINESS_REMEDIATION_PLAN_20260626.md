@@ -15,6 +15,9 @@ The latest remediation batches have addressed:
 - Procurement DataScope write regression gate in W5 closeout.
 - Frontend menu gate alignment for sidebar, home CTA, and business-center shortcuts.
 - Frontend menu gate regression check in W5 closeout.
+- App/PWA logo simplified by removing the white circular badge wrapper.
+- Inventory/WMS write DataScope enforcement for inbound, transfer, stocktake, loss, and atomic stock operations.
+- WMS DataScope write regression check in W5 closeout.
 
 ## Priority P0
 
@@ -23,10 +26,10 @@ The latest remediation batches have addressed:
    - Known menu route access redirects when the current user lacks the leaf permission.
    - Remaining work: production user-by-user permission matrix evidence for Wang Lejin and other pilot roles.
 
-2. **Inventory / WMS DataScope**
+2. **Inventory / WMS DataScope - Server Write Gate Complete**
    - Procurement request/order/receipt/payment/shipment/project/supplier/shareholder-fund write paths now enforce server-side ownership.
-   - Continue with inventory batches, warehouse flows, transfer/stocktake/loss actions, and store/order stock views.
-   - Add regression checks for cross-warehouse visibility and write denial.
+   - WMS inbound, purchase receipt posting, outbound batch deduction, receiving confirmation, transfer, stocktake, loss, and atomic inventory increment/decrement now enforce warehouse write ownership when `allowedWarehouseCodes` is configured.
+   - Remaining work: production user-by-user warehouse scope evidence and store/order stock view checks.
 
 3. **Approval Action Flow**
    - Confirm "同意 / 不同意 / 转交审批" is consistently available on PC and mobile.
@@ -64,13 +67,12 @@ The latest remediation batches have addressed:
 
 ## Execution Recommendation
 
-Next batch should start with the remaining WMS side of P0-2 and P0-3:
+Next batch should start with P0-3 approval action flow:
 
 - They directly affect user-visible permission correctness and cross-data leakage risk.
 - They are prerequisites before broader role/function rollout.
 
 Recommended next commit scope:
 
-- `fix(datascope): enforce inventory warehouse write scopes`
 - `fix(workflow): harden approval action flow`
 - `fix(attachments): converge remaining upload surfaces`
