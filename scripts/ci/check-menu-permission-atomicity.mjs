@@ -335,6 +335,23 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/debug\.controller\.ts$/.test(file) &&
+      /(SELECT\s+\*|samples\s*:|sys_user\s+ORDER|sys_approval_log\s+ORDER|biz_cash_flow\s+ORDER)/i.test(line)
+    ) {
+      add(file, lineNo, 'Production debug endpoints must not return raw user/finance/approval sample rows; expose aggregate counts only and keep production disabled.', line);
+    }
+
+    if (
+      /apps\/api\/src\/debug\.controller\.ts$/.test(file) &&
+      /async\s+getMigratedData/.test(line)
+    ) {
+      const block = lines.slice(index, Math.min(lines.length, index + 12)).join('\n');
+      if (!/NODE_ENV\s*===\s*['"]production['"]/.test(block) || !/ForbiddenException/.test(block)) {
+        add(file, lineNo, 'Debug migrated-data endpoint must fail closed in production before any data query.', line);
+      }
+    }
+
+    if (
       /apps\/api\/src\/modules\/permissions\/permissions\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
     ) {
