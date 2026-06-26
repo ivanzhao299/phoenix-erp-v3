@@ -80,6 +80,20 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/document-intelligence\/document-intelligence\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_PRC2_MASTER['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Document intelligence extraction must use leaf procurement/material/finance permissions and must not fall back to MENU_PRC2_MASTER.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/approval-engine\/approval-rules\.service\.ts$/.test(file) &&
+      /['"]MENU_WORKFLOW['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Approval rule audit logs must use MENU_WORKFLOW_RULES, not coarse MENU_WORKFLOW.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/generic-crud\/generic-crud\.controller\.ts$/.test(file) &&
       /return\s+['"](MENU_FIN2|MENU_PRC2|MENU_MASTER)['"]/.test(line)
     ) {
