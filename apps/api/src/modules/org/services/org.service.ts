@@ -82,7 +82,7 @@ export class OrgService {
     if (!userId) return 'DENY';
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
-      const s = await this.dataScopeService.resolve(userId, roles, 'MENU_SYS_ORG');
+      const s = await this.dataScopeService.resolve(userId, roles, 'MENU_MD_ORG');
       if (s.isGlobal) return 'ALL';
       if (!s.allowedCompanyCodes.length) return 'DENY';
       return s.allowedCompanyCodes;

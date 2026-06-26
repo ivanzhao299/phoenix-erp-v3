@@ -289,7 +289,7 @@ export class LookupController {
    */
   @Post('materials/quick')
   @UseGuards(MenuGuard)
-  @RequireMenu('MENU_PRC2_REQUEST', 'C', ['MENU_PRC2_ORDER', 'MENU_MD_MATERIAL', 'MENU_MASTER_DATA'])
+  @RequireMenu('MENU_PRC2_REQUEST', 'C', ['MENU_PRC2_ORDER', 'MENU_MD_MATERIAL'])
   async createMaterialQuick(@Body() body: Record<string, unknown>, @Req() req: any) {
     const name = String(body?.material_name ?? body?.materialName ?? body?.name ?? '').trim();
     if (!name) throw new BadRequestException('物料名称不能为空');

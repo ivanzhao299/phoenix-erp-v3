@@ -21,7 +21,7 @@ import { DataScopeContext, DataScopeService } from '../org/services/data-scope.s
 
 @Controller('api/biz/projects')
 @UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-@RequireMenu('MENU_PRC2_PROJECT', 'V', ['MENU_MASTER_DATA'])
+@RequireMenu('MENU_PRC2_PROJECT', 'V', ['MENU_MD_PROJECT'])
 export class BizProjectsController {
   private readonly logger = new Logger(BizProjectsController.name);
 

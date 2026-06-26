@@ -174,6 +174,27 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/product-master\/controllers\/lookup\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Product/master business lookup write helpers must not fall back to coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/master-data\/biz-projects\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Biz project selector APIs must use MENU_PRC2_PROJECT with MENU_MD_PROJECT fallback, not coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/org\/services\/org\.service\.ts$/.test(file) &&
+      /dataScopeService\.resolve\([^)]*['"]MENU_SYS_ORG['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Org service DataScope context must use atomic MENU_MD_ORG, not coarse legacy MENU_SYS_ORG.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
       /this\.ops\.(getCenters|search|getOperationsTodo)\((?![^)]*allowedOperationTypes\(req\))/.test(line)
     ) {
