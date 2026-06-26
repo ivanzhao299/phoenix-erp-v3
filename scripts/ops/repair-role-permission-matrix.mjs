@@ -112,6 +112,10 @@ const REPLACEMENTS = {
 };
 
 function runPsql(sql) {
+  const env = {
+    ...process.env,
+    PGCONNECT_TIMEOUT: process.env.PGCONNECT_TIMEOUT || '5',
+  };
   const candidates = [
     process.env.PSQL_BIN,
     '/Applications/Postgres.app/Contents/Versions/latest/bin/psql',
@@ -134,7 +138,12 @@ function runPsql(sql) {
         '\t',
         '-c',
         sql,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      ], {
+        encoding: 'utf8',
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: Number(process.env.PSQL_EXEC_TIMEOUT_MS || 10000),
+      });
     } catch (error) {
       lastError = error;
     }
@@ -148,6 +157,13 @@ function parseRows(output) {
     .split('\n')
     .filter((line) => line && !/^\(\d+ rows?\)$/.test(line))
     .map((line) => line.split('\t'));
+}
+
+function renderMarkdown(lines) {
+  while (lines.at(-1) === '') {
+    lines.pop();
+  }
+  return `${lines.join('\n')}\n`;
 }
 
 function sqlString(value) {
@@ -371,7 +387,7 @@ function writeReports(result) {
   if (result.error) {
     lines.push('', '## Error', '', '```text', result.error, '```');
   }
-  writeFileSync(mdPath, `${lines.join('\n')}\n`);
+  writeFileSync(mdPath, renderMarkdown(lines));
   return { jsonPath, mdPath };
 }
 

@@ -78,6 +78,10 @@ const ATOMIC_REPLACEMENTS = {
 };
 
 function runPsql(sql) {
+  const env = {
+    ...process.env,
+    PGCONNECT_TIMEOUT: process.env.PGCONNECT_TIMEOUT || '5',
+  };
   const candidates = [
     process.env.PSQL_BIN,
     '/Applications/Postgres.app/Contents/Versions/latest/bin/psql',
@@ -103,7 +107,9 @@ function runPsql(sql) {
         sql,
       ], {
         encoding: 'utf8',
+        env,
         stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: Number(process.env.PSQL_EXEC_TIMEOUT_MS || 10000),
       });
     } catch (error) {
       lastError = error;
@@ -118,6 +124,13 @@ function parseRows(output) {
     .split('\n')
     .filter((line) => line && !/^\(\d+ rows?\)$/.test(line))
     .map((line) => line.split('\t'));
+}
+
+function renderMarkdown(lines) {
+  while (lines.at(-1) === '') {
+    lines.pop();
+  }
+  return `${lines.join('\n')}\n`;
 }
 
 const coarseList = COARSE_MENUS.map((menu) => `'${menu}'`).join(',');
@@ -209,7 +222,7 @@ mkdirSync(outputDir, { recursive: true });
 const jsonPath = join(outputDir, 'role-permission-matrix-audit-latest.json');
 const mdPath = join(outputDir, 'role-permission-matrix-audit-latest.md');
 writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
-writeFileSync(mdPath, `${lines.join('\n')}\n`);
+writeFileSync(mdPath, renderMarkdown(lines));
 
 console.log(`role-permission-matrix-audit: ${severity}`);
 console.log(`findings: ${findings.length}`);
