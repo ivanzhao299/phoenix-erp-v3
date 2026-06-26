@@ -568,6 +568,9 @@ for (const file of trackedFiles()) {
     if (/altPerms:\s*\[[^\]]*['"]MENU_FIN2_CASH['"]/.test(text) || /hasPermission\([^)]*['"]MENU_FIN2_CASH['"]/.test(text)) {
       add(file, 1, 'Home finance shortcuts must not use legacy MENU_FIN2_CASH fallback; use atomic cash permissions only.', lines[0] || file);
     }
+    if (/altPerms:\s*\[[^\]]*['"]MENU_MASTER_DATA['"]/.test(text) || /hasPermission\([^)]*['"]MENU_MASTER_DATA['"]/.test(text)) {
+      add(file, 1, 'Home master-data shortcuts and KPI widgets must not use coarse MENU_MASTER_DATA fallback; use MENU_MD_CENTER, MENU_MD_QUALITY, and per-type MENU_MD_* permissions only.', lines[0] || file);
+    }
   }
 
   if (file.endsWith('apps/web/src/app/(admin)/dashboard/page.tsx')) {

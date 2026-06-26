@@ -37,14 +37,14 @@ interface TodoTask { task_no: string; title: string; node_name: string; created_
 // G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
 type Shortcut = { key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string; altPerms?: string[]; groupId?: string };
 const SHORTCUTS: Shortcut[] = [
-  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER', altPerms: ['MENU_MASTER_DATA'] },
-  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER', altPerms: ['MENU_MASTER_DATA'] },
+  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER' },
+  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER' },
   { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'], groupId: 'sales' },
   { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
   { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
-  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY', altPerms: ['MENU_MASTER_DATA'] },
+  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY' },
 ];
 
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
@@ -85,7 +85,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
   }
   const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
   if (masterPath) return { label: '进入主数据中心', href: masterPath, icon: Sparkles };
-  if (hasPermission('MENU_MD_QUALITY') || hasPermission('MENU_MASTER_DATA')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
+  if (hasPermission('MENU_MD_QUALITY')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
   if (hasPermission('MENU_DASHBOARD')) return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   const firstPath = getFirstAccessiblePath(hasPermission);
   return { label: firstPath ? '进入我的工作区' : '查看我的待办', href: firstPath || '/workflow/todos', icon: Inbox };
@@ -100,11 +100,9 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
   const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
-  // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_MD_QUALITY 或主数据超级码的角色显示
-  const hasQualityPerm = hasPermission('MENU_MD_QUALITY') || hasPermission('MENU_MASTER_DATA');
-  // 对齐后端：/master-data/operations/centers 要求 MENU_MASTER_DATA（非 MENU_MASTER）。
-  //   原用 hasMasterPerm → 店长等持 MENU_MASTER 但无 MENU_MASTER_DATA 者发请求即 403 弹错。
-  const hasCentersPerm = hasPermission('MENU_MASTER_DATA') || hasPermission('MENU_MD_CENTER');
+  // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
+  const hasQualityPerm = hasPermission('MENU_MD_QUALITY');
+  const hasCentersPerm = hasPermission('MENU_MD_CENTER');
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
