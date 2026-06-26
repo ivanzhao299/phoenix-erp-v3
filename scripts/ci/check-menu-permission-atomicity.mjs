@@ -552,6 +552,30 @@ for (const file of trackedFiles()) {
     }
   }
 
+  if (file.endsWith('apps/web/src/app/(admin)/finance2/page.tsx')) {
+    if (/altPerms:\s*\[[^\]]*['"]MENU_FIN2_CASH['"]/.test(text) || /hasPermission\([^)]*['"]MENU_FIN2_CASH['"]/.test(text)) {
+      add(file, 1, 'Finance hub must not use legacy MENU_FIN2_CASH as a frontend fallback; use MENU_FIN2_CASH_VIEW, MENU_FIN2_CASH_TRANSFER, and MENU_FIN2_CASH_TXN atomically.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/components/layout/Sidebar.tsx')) {
+    if (/id:\s*["']f2-(cash|fund)["'][\s\S]{0,220}altPerms:\s*\[[^\]]*['"]MENU_FIN2_CASH['"]/.test(text)) {
+      add(file, 1, 'Finance sidebar cash/fund entries must not use legacy MENU_FIN2_CASH fallback; require MENU_FIN2_CASH_VIEW or MENU_FIN2_CASH_TRANSFER.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/home/page.tsx')) {
+    if (/altPerms:\s*\[[^\]]*['"]MENU_FIN2_CASH['"]/.test(text) || /hasPermission\([^)]*['"]MENU_FIN2_CASH['"]/.test(text)) {
+      add(file, 1, 'Home finance shortcuts must not use legacy MENU_FIN2_CASH fallback; use atomic cash permissions only.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/dashboard/page.tsx')) {
+    if (/altPerms:\s*\[[^\]]*['"]MENU_FIN2_CASH['"]/.test(text) || /hasPermission\([^)]*['"]MENU_FIN2_CASH['"]/.test(text)) {
+      add(file, 1, 'Dashboard finance shortcut must not use legacy MENU_FIN2_CASH fallback; use atomic cash permissions only.', lines[0] || file);
+    }
+  }
+
   if (
     file.endsWith('apps/web/src/app/(admin)/master-data/companies/page.tsx') &&
     /usePermission\(["']MENU_SYS_ORG["']\)/.test(text)

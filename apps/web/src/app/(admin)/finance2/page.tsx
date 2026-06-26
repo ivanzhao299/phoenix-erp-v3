@@ -133,7 +133,6 @@ interface ModuleItem {
   path:        string;
   accent:      AccentKey;
   perm:        string;
-  altPerms?:   string[];
 }
 
 const MODULES: ModuleItem[] = [
@@ -143,8 +142,8 @@ const MODULES: ModuleItem[] = [
   { icon: Scale,          title: '应收三方对账', path: '/finance2/ar-reconciliation', accent: 'green',  perm: 'MENU_FIN2_AR_LEDGER', description: '业务发票 ↔ ERP 总账 ↔ 好业财应收 · 按客户对齐 · 差异飘红。' },
   { icon: Cloud,          title: '好业财同步',   path: '/finance2/chanjet-sync',      accent: 'blue',   perm: 'MENU_FIN2_AR', description: '只读好业财→PG 快照 · 部门对账 · 审核入账 fin_ar_ledger(财务总监独占)。' },
   { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  perm: 'MENU_FIN2_AP', description: '供应商发票管理、付款核销、多币种、账龄分析。' },
-  { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   perm: 'MENU_FIN2_CASH_VIEW', altPerms: ['MENU_FIN2_CASH'], description: '多账户余额管理、流水账本、转账审批。' },
-  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   perm: 'MENU_FIN2_CASH_TRANSFER', altPerms: ['MENU_FIN2_CASH'], description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },
+  { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   perm: 'MENU_FIN2_CASH_VIEW', description: '多账户余额管理、流水账本、转账审批。' },
+  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   perm: 'MENU_FIN2_CASH_TRANSFER', description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },
   { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', perm: 'MENU_FIN2_SHAREHOLDER', description: '出资台账、结算审批(退回/抵扣/核销)、联动资金账户。' },
   { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', perm: 'MENU_FIN2_EXPENSE', description: '费用申请全流程审批,审批通过自动生成报销,付款联动资金账户。' },
   { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   perm: 'MENU_FIN2_REIMBURSE', description: '报销台账,付款事务安全,自动扣减现金账户余额。' },
@@ -388,7 +387,7 @@ export default function Finance2DashboardPage() {
       <SectionLabel>功能模块</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {MODULES
-          .filter(m => hasPermission(m.perm, 'V') || (m.altPerms?.some(p => hasPermission(p, 'V')) ?? false))
+          .filter(m => hasPermission(m.perm, 'V'))
           .map((m) => (
           <NavCard
             key={m.path}

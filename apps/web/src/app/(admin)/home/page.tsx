@@ -41,7 +41,7 @@ const SHORTCUTS: Shortcut[] = [
   { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER', altPerms: ['MENU_MASTER_DATA'] },
   { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
   { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'], groupId: 'sales' },
-  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
+  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
   { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
   { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
   { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY', altPerms: ['MENU_MASTER_DATA'] },
@@ -66,7 +66,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
   if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
-  if ((role?.includes('CASH') || role?.includes('TREASURY')) && (hasPermission('MENU_FIN2_CASH_VIEW') || hasPermission('MENU_FIN2_CASH'))) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
+  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN')) {
     const financePath = getFirstAccessiblePath(hasPermission, 'finance');
     if (financePath) return { label: '进入财务中心', href: financePath, icon: Wallet };
@@ -465,7 +465,7 @@ function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker 
   //   后续 G21+ 计划：BusinessOverview 进一步改为纯指标卡（带今日数字、删 href），与 SHORTCUTS 完全分离
   const allCards = [
     { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'] },
-    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH_VIEW', altPerms: ['MENU_FIN2_CASH'] },
+    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH_VIEW' },
     { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
     { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },
   ];
