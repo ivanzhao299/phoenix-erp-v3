@@ -48,7 +48,8 @@ export class OrgService {
    *   org 树仅 COMPANY 级有 company_code，子组织(部门/场站) company_code 为空、靠 parent_id
    *   挂到公司——故用递归 CTE 取「用户可见公司的整棵子树」，避免简单 company_code 过滤
    *   误删自家子组织、或放行 NULL 泄露他司子组织。
-   *   全局(isGlobal/ROLE_ADMIN)/内部调用(无 user)/解析失败 → 返回全部(不收窄)。
+   *   全局(isGlobal/ROLE_ADMIN)/内部调用(无 user) → 返回全部(不收窄)。
+   *   已登录用户 scope 缺失或解析失败 → fail-closed，避免异常态透出全量组织树。
    */
   async listOrgs(): Promise<SysOrganizationEntity[]> {
     const scope = await this.resolveOrgCompanyScope();
@@ -77,7 +78,7 @@ export class OrgService {
     const user = this.cls.get('user') as Record<string, any> | undefined;
     if (!user) return 'ALL';                                  // 内部调用无用户上下文
     const userId = String(user.userId ?? user.id ?? user.sub ?? '');
-    if (!userId) return 'ALL';
+    if (!userId) return 'DENY';
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
       const s = await this.dataScopeService.resolve(userId, roles, 'MENU_SYS_ORG');
@@ -85,7 +86,7 @@ export class OrgService {
       if (!s.allowedCompanyCodes.length) return 'DENY';
       return s.allowedCompanyCodes;
     } catch {
-      return 'ALL';                                           // 解析异常不阻断（与 G71 一致）
+      return 'DENY';
     }
   }
 
