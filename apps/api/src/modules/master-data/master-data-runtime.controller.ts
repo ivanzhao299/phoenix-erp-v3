@@ -13,7 +13,7 @@ import { MasterDataRuntimeService } from './master-data-runtime.service';
  *   POST   /:type/:code/transition  生命周期流转（submit/approve/reject/freeze/archive/restore）
  *
  * 鉴权（G56-B 项级原子）：MasterDataTypeGuard 按 :type 动态解析专属码
- *   MENU_MD_<TYPE>（如 customer→MENU_MD_CUSTOMER），并以 MENU_MASTER_DATA 为超级兜底。
+ *   MENU_MD_<TYPE>（如 customer→MENU_MD_CUSTOMER）；未知类型拒绝访问，ROLE_ADMIN 保留管理通道。
  *   操作码自动推导：GET→V、POST 新增→C、PUT/transition→E。
  */
 @Controller('api/master-data/runtime')

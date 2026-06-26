@@ -10,8 +10,6 @@ import { DictGovernanceService } from './dict-governance.service';              
 import { MasterDataGovernanceService } from './governance.service';              // G5.5-D
 import { MasterDataOperationsService } from './operations.service';              // G5.5-E
 
-const MASTER_DATA_SUPER_MENU = 'MENU_MASTER_DATA';
-
 const REFERENCE_OBJECT_TO_MENU: Record<string, string> = {
   CUSTOMER: 'MENU_MD_CUSTOMER',
   SUPPLIER: 'MENU_MD_SUPPLIER',
@@ -107,7 +105,6 @@ export class MasterDataCenterController {
     if (user.role === 'ROLE_ADMIN') return;
 
     if (hasPerm(user.permissions, menu, perm)) return;
-    if (isMenuRegistered(MASTER_DATA_SUPER_MENU) && hasPerm(user.permissions, MASTER_DATA_SUPER_MENU, perm)) return;
     throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }
 
@@ -183,7 +180,8 @@ export class MasterDataCenterController {
   @Post('code/next')
   async nextCode(@Body() body: { prefix: string }, @Req() req: any) {
     const prefix = normalizeCode(body?.prefix);
-    const menu = CODE_PREFIX_TO_MENU[prefix] ?? MASTER_DATA_SUPER_MENU;
+    const menu = CODE_PREFIX_TO_MENU[prefix];
+    if (!menu) throw new ForbiddenException('MENU_PERMISSION_DENIED');
     this.assertMasterDataPermission(req, menu, 'C');
     const code = await this.codeGen.next(prefix);
     return { code };

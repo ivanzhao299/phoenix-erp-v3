@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 function trackedFiles() {
-  return execFileSync('git', ['ls-files', 'apps/web/src', 'apps/api/src/modules'], { encoding: 'utf8' })
+  return execFileSync('git', ['ls-files', 'apps/web/src', 'apps/api/src/modules', 'apps/api/src/common/guards'], { encoding: 'utf8' })
     .split('\n')
     .filter(Boolean)
     .filter((file) => /\.(tsx?|jsx?)$/.test(file));
@@ -189,6 +189,21 @@ for (const file of trackedFiles()) {
       /usePermission\(["']MENU_MASTER_DATA["']\)/.test(line)
     ) {
       add(file, lineNo, 'Master-data pages must not use MENU_MASTER_DATA as page visibility fallback; use MENU_MD_CENTER, MENU_MD_QUALITY, or per-type MENU_MD_* permissions.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
+      /hasPerm\([^)]*MENU_MASTER_DATA/.test(line)
+    ) {
+      add(file, lineNo, 'Master-data center helper checks must not grant access through MENU_MASTER_DATA; require atomic MENU_MD_* permissions or ROLE_ADMIN.', line);
+    }
+
+    if (
+      /apps\/api\/src\/common\/guards\/master-data-type\.guard\.ts$/.test(file) &&
+      /(SUPER_MENU|MENU_MASTER_DATA|TYPE_TO_MENU\[type\]\s*\?\?|hasPerm\([^)]*MENU_MASTER_DATA)/.test(line) &&
+      !/MasterDataTypeGuard|MENU_MD_<TYPE>|MENU_MD_MATERIAL/.test(line)
+    ) {
+      add(file, lineNo, 'MasterDataTypeGuard must not use MENU_MASTER_DATA or unknown-type fallback; require mapped MENU_MD_* permissions or ROLE_ADMIN.', line);
     }
 
     if (
