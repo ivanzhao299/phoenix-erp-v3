@@ -370,7 +370,30 @@ for (const file of trackedFiles()) {
     ) {
       add(file, lineNo, 'Mobile dashboard device alerts must be gated by MENU_DEVICE_MONITOR, not broad farm or legacy IoT permissions.', line);
     }
+
+    if (file.endsWith('apps/web/src/lib/mobile-roles.ts')) {
+      if (/JWT permissions → 访问级别。菜单码约定：MOBILE_/.test(line)) {
+        add(file, lineNo, 'Mobile runtime permissions must prefer MENU_* atomic menu codes; MOBILE_* may only remain as legacy compatibility.', line);
+      }
+    }
   });
+
+  if (file.endsWith('apps/web/src/lib/mobile-roles.ts')) {
+    const requiredFragments = [
+      'PAGE_MENU_PERMS',
+      'MENU_PRC2_REQUEST',
+      'MENU_PRC2_ORDER',
+      'MENU_WORKFLOW_TODO',
+      'MENU_FIN2_EXPENSE',
+      'MENU_MOBILE_DELIVERY',
+      'if ((subject.permissions?.length ?? 0) > 0 && PAGE_MENU_PERMS[pageKey]) return',
+    ];
+    for (const fragment of requiredFragments) {
+      if (!text.includes(fragment)) {
+        add(file, 1, `Mobile page access must be backed by atomic MENU_* permissions; missing ${fragment}.`, lines[0] || file);
+      }
+    }
+  }
 
     if (
       /apps\/api\/src\/modules\/iot\/(farm-cabin|farm-device|iot-v3|mon-device)\.controller\.ts$/.test(file)

@@ -15,8 +15,8 @@ interface MobilePermissionResult {
  * 手机端页面权限守卫
  *
  * 与首页卡片门控共用 getMobileAccessLevel（单一权威入口）：
- *   1. JWT permissions（DB 动态权限 MOBILE_*，admin 在用户管理修改后重登即生效）
- *   2. mobile-roles.ts 硬编码矩阵（多角色 roles[] + 别名兜底）
+ *   1. JWT permissions（DB 动态权限 MENU_* / MOBILE_*，admin 在用户管理修改后重登即生效）
+ *   2. mobile-roles.ts 硬编码矩阵（仅在无权限快照时作为兼容兜底）
  *
  * 用法：
  *   const { allowed, readonly, loading } = useMobilePermission('feed');
