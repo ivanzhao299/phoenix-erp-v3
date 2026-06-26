@@ -279,7 +279,7 @@ export default function WorkflowDataSourcesPage() {
         sourceCode: selectedCatalog.code,
         name: `${selectedCatalog.name}自动审批流程`,
         category: "通用",
-        approvalRole: "ROLE_ADMIN"
+        approvalRole: "ROLE_FIN_CFO"
       });
       const data = res.data || {};
       const definition = data.definition as {

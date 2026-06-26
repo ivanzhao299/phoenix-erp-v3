@@ -315,15 +315,15 @@ function approvalRole(category: string) {
   const map: Record<string, string> = {
     财务: "ROLE_FIN_CFO",
     采购: "ROLE_PRC_BUYER",
-    合同: "ROLE_SYSOPS",
-    人事: "ROLE_SYSOPS",
+    合同: "ROLE_FIN_CFO",
+    人事: "ROLE_HR_ADMIN",
     仓储: "ROLE_WMS_MGR",
     品控: "ROLE_QA_MGR",
     门店: "ROLE_STORE_MGR",
     养殖: "ROLE_FARM_MGR",
     物流: "ROLE_LOG_MGR"
   };
-  return map[category] || "ROLE_SYSOPS";
+  return map[category] || "ROLE_FIN_CFO";
 }
 const toolbarActionsStyle: React.CSSProperties = {
   display: "flex",

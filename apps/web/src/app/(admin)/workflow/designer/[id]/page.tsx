@@ -74,7 +74,7 @@ const defaultNodes: WorkflowNode[] = [{
   y: 140,
   config: {
     assigneeType: "ROLE",
-    roles: ["ROLE_SYSOPS"]
+    roles: []
   }
 }, {
   id: "end",
@@ -91,9 +91,6 @@ const defaultEdges: WorkflowEdge[] = [{
   to: "end"
 }];
 const fallbackRoleOptions: DirectoryOption[] = [{
-  label: "系统管理员",
-  value: "ROLE_SYSOPS"
-}, {
   label: "财务会计",
   value: "ROLE_FIN_ACCT"
 }, {
@@ -121,6 +118,7 @@ const fallbackRoleOptions: DirectoryOption[] = [{
   label: "物流负责人",
   value: "ROLE_LOG_MGR"
 }];
+const UNSAFE_DEFAULT_APPROVER_ROLES = new Set(["ROLE_ADMIN", "ROLE_SYSOPS"]);
 const fallbackUserOptions: DirectoryOption[] = [];
 const operators = [{
   label: "等于",
@@ -260,7 +258,7 @@ export default function WorkflowDesignerPage() {
       y: 140,
       config: type === "approval" ? {
         assigneeType: "ROLE",
-        roles: ["ROLE_SYSOPS"]
+        roles: []
       } : {}
     };
     setNodes(prev => [...prev, next]);
@@ -328,9 +326,8 @@ export default function WorkflowDesignerPage() {
       setMsg("请先切换到含金额/数字字段的表单，或选择系统推荐的路线。");
       return;
     }
-    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
     const financeRole = pickRole(roleOptions, ["财务"], "ROLE_FIN_ACCT");
-    const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], sysRole);
+    const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], financeRole);
     const amountField = fieldOptions.find(field => field.type === "amount" || field.key.includes("amount") || field.key.includes("money"))?.key || "amount";
     let nextNodes: WorkflowNode[] = [];
     let nextEdges: WorkflowEdge[] = [];
@@ -390,7 +387,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: [managerRole]
         }
       }, {
         id: "end",
@@ -497,7 +494,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: [financeRole]
         }
       }, {
         id: "end",
@@ -549,7 +546,7 @@ export default function WorkflowDesignerPage() {
     setMsg("已整理路线图位置。");
   }
   function autoCompleteForPublish() {
-    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
+    const defaultRole = pickRole(roleOptions, ["负责人", "主管", "经理", "财务"], "");
     let nextNodes = nodes.length ? nodes : defaultNodes;
     let nextEdges = edges;
     if (!nextNodes.some(node => node.type === "start")) {
@@ -580,7 +577,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: defaultRole ? [defaultRole] : []
         }
       };
       nextNodes = end ? [...nextNodes.filter(node => node.id !== end.id), approval, end] : [...nextNodes, approval];
@@ -592,13 +589,13 @@ export default function WorkflowDesignerPage() {
       const assigneeType = config.assigneeType || "ROLE";
       if (assigneeType === "STARTER") return node;
       if (assigneeType === "USER" && (config.users || []).length) return node;
-      if (assigneeType === "ROLE" && (config.roles || []).length) return node;
+      if (assigneeType === "ROLE" && (config.roles || []).length && !(config.roles || []).some(role => UNSAFE_DEFAULT_APPROVER_ROLES.has(role))) return node;
       return {
         ...node,
         config: {
           ...config,
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: defaultRole ? [defaultRole] : []
         }
       };
     });
@@ -991,9 +988,10 @@ function AssigneeEditor({
       </label>
       {assigneeType === "ROLE" ? <label className={s.field}>
           <span className={s.lbl}>选择角色</span>
-          <select className={s.inp} value={config.roles?.[0] || "ROLE_SYSOPS"} onChange={e => onChange({
+          <select className={s.inp} value={config.roles?.[0] || ""} onChange={e => onChange({
         roles: [e.target.value]
       })}>
+            <option value="">请选择业务审批角色</option>
             {roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
           <small style={fieldHelpStyle}>角色来自系统角色数据源，新增角色后会自动出现在这里。</small>
@@ -1071,7 +1069,7 @@ function buildDesignerChecks(nodes: WorkflowNode[], edges: WorkflowEdge[], formV
     const config = node.config || {};
     const type = config.assigneeType || "ROLE";
     if (type === "STARTER") return false;
-    if (type === "ROLE") return !(config.roles || []).length || Boolean(config.roles?.some(role => !roleValues.has(role)));
+    if (type === "ROLE") return !(config.roles || []).length || Boolean(config.roles?.some(role => !roleValues.has(role) || UNSAFE_DEFAULT_APPROVER_ROLES.has(role)));
     return !(config.users || []).length || Boolean(config.users?.some(user => users.length > 0 && !userValues.has(String(user))));
   });
   const conditionEdges = edges.filter(edge => edge.condition);
@@ -1188,6 +1186,7 @@ function validateDesigner(nodes: WorkflowNode[], edges: WorkflowEdge[], fields: 
   nodes.filter(node => node.type === "approval").forEach(node => {
     const config = node.config || {};
     if ((config.assigneeType || "ROLE") === "ROLE" && !(config.roles || []).length) problems.push(`${node.name} 还没有选择审批角色。`);
+    if ((config.assigneeType || "ROLE") === "ROLE" && (config.roles || []).some(role => UNSAFE_DEFAULT_APPROVER_ROLES.has(role))) problems.push(`${node.name} 不能默认流转给系统管理员，请选择业务审批角色。`);
     if (config.assigneeType === "USER" && !(config.users || []).length) problems.push(`${node.name} 还没有指定用户。`);
   });
   return problems;
@@ -1307,7 +1306,8 @@ function assigneeText(node: WorkflowNode, roles: DirectoryOption[], users: Direc
     const labels = selectedUsers.map(id => users.find(user => user.value === String(id))?.label || `用户 ${id}`);
     return labels.length ? labels.join("、") : "未选择用户";
   }
-  const role = config.roles?.[0] || "ROLE_SYSOPS";
+  const role = config.roles?.[0] || "";
+  if (!role) return "未选择角色";
   return roles.find(item => item.value === role)?.label || role;
 }
 function nodeName(id: string, nodes: WorkflowNode[]) {

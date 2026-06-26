@@ -18,13 +18,8 @@ type ApprovalStep = {
   role: string;
 };
 type BuildStage = "scene" | "form" | "route" | "finish";
+const UNSAFE_DEFAULT_APPROVER_ROLES = new Set(["ROLE_ADMIN", "ROLE_SYSOPS"]);
 const FALLBACK_ROLES: RoleOption[] = [{
-  label: "系统管理员",
-  value: "ROLE_SYSOPS"
-}, {
-  label: "管理员",
-  value: "ROLE_ADMIN"
-}, {
   label: "财务会计",
   value: "ROLE_FIN_ACCT"
 }, {
@@ -40,6 +35,14 @@ const FALLBACK_ROLES: RoleOption[] = [{
   label: "品控负责人",
   value: "ROLE_QA_MGR"
 }];
+function safeApprovalRole(role?: string) {
+  const value = String(role || "");
+  return UNSAFE_DEFAULT_APPROVER_ROLES.has(value) ? "" : value;
+}
+function safeApprovalSteps(steps: ApprovalStep[], fallbackName = "负责人审批"): ApprovalStep[] {
+  const next = steps.length ? steps : [{ id: "approval_1", name: fallbackName, role: "" }];
+  return next.map(step => ({ ...step, role: safeApprovalRole(step.role) }));
+}
 const FIELD_PALETTE: WorkflowFormField[] = [{
   key: "amount",
   label: "申请金额",
@@ -85,11 +88,11 @@ export default function WorkflowBuilderPage() {
   const [category, setCategory] = useState(template?.category || "通用");
   const [description, setDescription] = useState(template?.description || "");
   const [fields, setFields] = useState<WorkflowFormField[]>(template?.fields || []);
-  const [steps, setSteps] = useState<ApprovalStep[]>(template?.approvals || [{
+  const [steps, setSteps] = useState<ApprovalStep[]>(safeApprovalSteps(template?.approvals || [{
     id: "approval_1",
     name: "负责人审批",
-    role: "ROLE_SYSOPS"
-  }]);
+    role: ""
+  }]));
   const [ccRole, setCcRole] = useState("");
   const [roles, setRoles] = useState<RoleOption[]>(FALLBACK_ROLES);
   const [busy, setBusy] = useState(false);
@@ -120,11 +123,11 @@ export default function WorkflowBuilderPage() {
     setCategory(next.category);
     setDescription(next.description);
     setFields(next.fields);
-    setSteps(next.approvals.length ? next.approvals : [{
+    setSteps(safeApprovalSteps(next.approvals.length ? next.approvals : [{
       id: "approval_1",
       name: `${next.category}审批`,
-      role: "ROLE_SYSOPS"
-    }]);
+      role: ""
+    }], `${next.category}审批`));
     setCcRole("");
     setStage("form");
     setResult(null);
@@ -165,7 +168,7 @@ export default function WorkflowBuilderPage() {
     setSteps(current => [...current, {
       id: `approval_${current.length + 1}`,
       name: `第 ${current.length + 1} 级审批`,
-      role: roles[0]?.value || "ROLE_SYSOPS"
+      role: ""
     }]);
   }
   function updateStep(id: string, patch: Partial<ApprovalStep>) {
@@ -188,6 +191,10 @@ export default function WorkflowBuilderPage() {
     }
     if (steps.length === 0) {
       setError("至少保留一个审批步骤。");
+      return;
+    }
+    if (steps.some(step => !step.role || UNSAFE_DEFAULT_APPROVER_ROLES.has(step.role))) {
+      setError("请为每一级审批选择明确的业务角色，不能默认流转给系统管理员。");
       return;
     }
     setBusy(true);
@@ -397,6 +404,7 @@ function RouteStep(props: {
                 <select className={s.inp} value={step.role} onChange={e => props.onUpdateStep(step.id, {
               role: e.target.value
             })}>
+                  <option value="">请选择审批角色</option>
                   {props.roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
                 <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} disabled={props.steps.length <= 1} onClick={() => props.onRemoveStep(step.id)}>移除</button>
