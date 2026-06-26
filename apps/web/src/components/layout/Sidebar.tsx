@@ -194,10 +194,10 @@ export const MENU: MenuItem[] = [
     { id: "ap-todos",   path: "/workflow/todos",         Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO",    altPerms: ["MENU_WORKFLOW"] },
     { id: "ap-history", path: "/workflow/history",        Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY", altPerms: ["MENU_WORKFLOW"] },
     { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW_NOTIFY",  altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW_CONFIG",  requiredPerm: "E", altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW_RULES",   requiredPerm: "C", altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW_FORM",    requiredPerm: "E", altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW_METRICS", requiredPerm: "X", altPerms: ["MENU_WORKFLOW"] },
+    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW_CONFIG",  requiredPerm: "E" },
+    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW_RULES",   requiredPerm: "C" },
+    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW_FORM",    requiredPerm: "E" },
+    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW_METRICS", requiredPerm: "X" },
   ]},
 
   // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
