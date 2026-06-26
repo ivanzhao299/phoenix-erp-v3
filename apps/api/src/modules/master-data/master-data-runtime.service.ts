@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -464,6 +464,21 @@ export class MasterDataRuntimeService {
     }
   }
 
+  /**
+   * 公司维度主数据写保护：
+   *   - 读路径由 allowedCompanies/list/get 收窄。
+   *   - 写路径也必须校验目标 company_code，否则用户可能在创建或编辑时把主数据挂到不可见公司。
+   */
+  private async assertWritableCompanyScope(c: MdTypeConfig, record: Record<string, any>): Promise<void> {
+    if (!c.companyCol) return;
+    const allowed = await this.allowedCompanies(c);
+    if (allowed === 'ALL') return;
+    const companyCode = String(record[c.companyCol] ?? '').trim();
+    if (allowed === 'DENY' || !companyCode || !allowed.includes(companyCode)) {
+      throw new ForbiddenException('DATA_SCOPE_DENIED');
+    }
+  }
+
   /** 列表（管理用，可按状态/关键词筛选） */
   async list(type: string, opts: { status?: string; keyword?: string; limit?: number } = {}): Promise<any[]> {
     const c = this.cfg(type);
@@ -529,6 +544,7 @@ export class MasterDataRuntimeService {
     // 自动审批校验（新建校验全字段）
     const errors = await this.validate(type, c, dto, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, dto);
 
     const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
@@ -556,6 +572,7 @@ export class MasterDataRuntimeService {
     // G93：就地快建也走自动审批校验（查重/必填/格式），不过当场退回
     const errors = await this.validate(type, c, dto, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, dto);
 
     const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
@@ -624,6 +641,7 @@ export class MasterDataRuntimeService {
     const merged = { ...before, ...changes };
     const errors = await this.validate(type, c, merged, code, new Set(changedCols));
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, merged);
 
     // G126：拆分「财务敏感字段」与「普通字段」。敏感字段仅对 live(ACTIVE/FROZEN) 记录拦截转审批。
     const sensitive = SENSITIVE_APPROVAL_FIELDS[type] ?? [];
