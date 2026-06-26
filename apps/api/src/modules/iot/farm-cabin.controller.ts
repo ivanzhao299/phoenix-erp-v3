@@ -1,9 +1,12 @@
 import { Controller, Get, Param, UseGuards, Query } from '@nestjs/common';
 import { MonDeviceService } from './mon-device.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+
+const DEVICE_MENU = 'MENU_DEVICE_MONITOR';
 
 @Controller('api/farm-device/cabins')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu(DEVICE_MENU, 'V')
 export class FarmCabinController {
   constructor(private readonly monDeviceService: MonDeviceService) {}
 

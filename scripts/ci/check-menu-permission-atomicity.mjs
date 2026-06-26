@@ -216,6 +216,20 @@ for (const file of trackedFiles()) {
       }
     }
   });
+
+  if (
+    /apps\/api\/src\/modules\/iot\/(farm-cabin|farm-device|iot-v3|mon-device)\.controller\.ts$/.test(file)
+  ) {
+    if (!/MenuGuard/.test(text)) {
+      add(file, 1, 'IoT device controllers must use MenuGuard, not login-only AuthGuard access.', lines[0] || file);
+    }
+    if (!/RequireMenu\(\s*DEVICE_MENU/.test(text) || !/MENU_DEVICE_MONITOR/.test(text)) {
+      add(file, 1, 'IoT device controllers must be gated by atomic MENU_DEVICE_MONITOR permissions.', lines[0] || file);
+    }
+    if (/@UseGuards\(\s*AuthGuard\(['"]jwt['"]\)\s*\)/.test(text)) {
+      add(file, 1, 'IoT device controllers must not regress to AuthGuard-only route guards.', lines[0] || file);
+    }
+  }
 }
 
 console.log(`check-menu-permission-atomicity: inspected ${trackedFiles().length} frontend/backend source file(s)`);

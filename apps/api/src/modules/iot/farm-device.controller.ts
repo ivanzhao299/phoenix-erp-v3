@@ -1,9 +1,14 @@
 import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { MonDeviceService } from './mon-device.service';
 import { IotSyncService } from './iot-sync.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+
+const DEVICE_MENU = 'MENU_DEVICE_MONITOR';
+const ALERT_STATUSES = new Set(['OPEN', 'CONFIRMED', 'CLOSED']);
 
 @Controller('api/farm-device')
+@UseGuards(MenuGuard)
+@RequireMenu(DEVICE_MENU, 'V')
 export class FarmDeviceController {
   constructor(
     private readonly monDeviceService: MonDeviceService,
@@ -11,25 +16,23 @@ export class FarmDeviceController {
   ) {}
 
   @Post('sync/realtime')
+  @RequireMenu(DEVICE_MENU, 'E')
   async syncRealtimeData(@Body('device_id') deviceId: string, @Body('data') _data: any) {
     return { code: 200, msg: `设备 ${deviceId} 数据同步已触发` };
   }
 
   @Get('snapshot-all')
-  @UseGuards(AuthGuard('jwt'))
   async getSnapshotAll() {
     return await this.monDeviceService.getAllSummary();
   }
 
   @Get('houses/:houseCode/snapshot')
-  @UseGuards(AuthGuard('jwt'))
   async getDeviceSnapshot(@Param('houseCode') houseCode: string) {
     return await this.monDeviceService.getHouseOverviewV3(houseCode);
   }
 
   // ─── 报警管理 ─────────────────────────────────────────────────────────────
   @Get('alerts/stats')
-  @UseGuards(AuthGuard('jwt'))
   async getAlertStats(@Query('days') days: string) {
     const d = parseInt(days || '7');
     try {
@@ -66,16 +69,26 @@ export class FarmDeviceController {
   }
 
   @Get('alerts')
-  @UseGuards(AuthGuard('jwt'))
   async getAlerts(@Query('status') status: string, @Query('house_code') houseCode: string) {
-    const whereStatus = status && status !== 'ALL' ? `AND status = '${status}'` : '';
-    const whereHouse  = houseCode ? `AND erp_house_code = '${houseCode}'` : '';
+    const conditions: string[] = [];
+    const params: string[] = [];
+    const normalizedStatus = String(status || '').trim().toUpperCase();
+    if (normalizedStatus && normalizedStatus !== 'ALL' && ALERT_STATUSES.has(normalizedStatus)) {
+      params.push(normalizedStatus);
+      conditions.push(`status = $${params.length}`);
+    }
+    const normalizedHouseCode = String(houseCode || '').trim();
+    if (normalizedHouseCode) {
+      params.push(normalizedHouseCode);
+      conditions.push(`erp_house_code = $${params.length}`);
+    }
+    const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     try {
       const rows = await (this.monDeviceService as any).entityManager.query(`
         SELECT * FROM mon_device_alert_event
-        WHERE 1=1 ${whereStatus} ${whereHouse}
+        ${whereSql}
         ORDER BY created_at DESC LIMIT 100
-      `);
+      `, params);
       // 前端期望直接返回数组
       return Array.isArray(rows) ? rows : [];
     } catch { return []; }
@@ -93,7 +106,7 @@ export class FarmDeviceController {
   }
 
   @Post('alerts/:id/confirm')
-  @UseGuards(AuthGuard('jwt'))
+  @RequireMenu(DEVICE_MENU, 'E')
   async confirmAlert(@Param('id') id: string) {
     try {
       await (this.monDeviceService as any).entityManager.query(
@@ -104,7 +117,7 @@ export class FarmDeviceController {
   }
 
   @Post('alerts/:id/close')
-  @UseGuards(AuthGuard('jwt'))
+  @RequireMenu(DEVICE_MENU, 'E')
   async closeAlert(@Param('id') id: string, @Body() body: any) {
     try {
       await (this.monDeviceService as any).entityManager.query(
@@ -128,7 +141,6 @@ export class FarmDeviceController {
   }
 
   @Get('vendor-houses')
-  @UseGuards(AuthGuard('jwt'))
   async getVendorHouses() {
     try {
       const houses = await this.iotSyncService.listVendorHouses();
@@ -157,17 +169,20 @@ export class FarmDeviceController {
   }
 
   @Post('mapping')
+  @RequireMenu(DEVICE_MENU, 'E')
   async createMapping(@Body() body: any) {
     return await this.monDeviceService.createMapping(body);
   }
 
   @Post('sync/houses')
+  @RequireMenu(DEVICE_MENU, 'E')
   async syncHouses() {
     const result = await this.iotSyncService.syncAllRealtime();
     return { ok: true, synced: result.successHouses || 0 };
   }
 
   @Put('property-dict/:id')
+  @RequireMenu(DEVICE_MENU, 'E')
   async updatePropertyDict(@Param('id') id: string, @Body() body: any) {
     return await this.monDeviceService.updatePropertyDict(id, body);
   }
@@ -178,18 +193,19 @@ export class FarmDeviceController {
   }
 
   @Put('mapping/:id')
+  @RequireMenu(DEVICE_MENU, 'E')
   async updateMapping(@Param('id') id: string, @Body() body: any) {
     return await this.monDeviceService.updateMapping(id, body);
   }
 
   @Delete('mapping/:id')
+  @RequireMenu(DEVICE_MENU, 'E')
   async deleteMapping(@Param('id') id: string) {
     return await this.monDeviceService.deleteMapping(id);
   }
 
   // ─── 历史时序数据 ─────────────────────────────────────────────────────────
   @Get('houses/:houseCode/history')
-  @UseGuards(AuthGuard('jwt'))
   async getHouseHistory(
     @Param('houseCode') houseCode: string,
     @Query('property_code') propertyCode: string,
@@ -218,7 +234,6 @@ export class FarmDeviceController {
 
   // ─── 日汇总数据 ───────────────────────────────────────────────────────────
   @Get('houses/:houseCode/daily-agg')
-  @UseGuards(AuthGuard('jwt'))
   async getHouseDailyAgg(
     @Param('houseCode') houseCode: string,
     @Query('property_code') propertyCode: string,
@@ -244,7 +259,7 @@ export class FarmDeviceController {
 
   // ─── 历史补采（mock，真实实现需对接第三方IoT）─────────────────────────────
   @Post('sync/history')
-  @UseGuards(AuthGuard('jwt'))
+  @RequireMenu(DEVICE_MENU, 'E')
   async syncHistory(@Body() body: any) {
     return { ok: true, records: 0, msg: '本地演示模式，无需补采' };
   }
