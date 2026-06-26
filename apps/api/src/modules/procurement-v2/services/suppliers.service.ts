@@ -87,6 +87,11 @@ export class SuppliersService {
 
   /** 新建 */
   async create(dto: CreateSupplierDto): Promise<Prc2SupplierEntity> {
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: dto.ownerCompanyCode, projectCode: dto.ownerProjectCode },
+      '采购供应商',
+    );
+
     // supplier_code 全局唯一
     const exists = await this.repo.findOne({ where: { supplierCode: dto.supplierCode } });
     if (exists) {

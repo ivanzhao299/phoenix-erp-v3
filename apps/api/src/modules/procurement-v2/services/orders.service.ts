@@ -322,6 +322,10 @@ export class OrdersService {
   async create(dto: CreatePurchaseOrderDto) {
     return this.ds.transaction(async mgr => {
       const { userId, userName } = this.getUser();
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        '采购订单',
+      );
       const poNo = await this.generatePoNo(mgr);
 
       const po = mgr.create(Prc2PurchaseOrderEntity, {
@@ -378,6 +382,10 @@ export class OrdersService {
       // 查 PR（加行锁防并发）
       const req = await mgr.findOne(Prc2PurchaseRequestEntity, { where: { id: reqId } });
       if (!req) throw new NotFoundException(`采购申请 ID=${reqId} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: req.companyCode, projectCode: req.projectCode },
+        '采购申请',
+      );
 
       if (req.status !== 'APPROVED') {
         throw new ConflictException(
@@ -488,6 +496,10 @@ export class OrdersService {
     return this.ds.transaction(async mgr => {
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id } });
       if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
       if (po.status !== PO_STATUS.DRAFT) {
         throw new ConflictException(`只有草稿状态的订单才能编辑（当前状态：${po.status}）`);
       }
@@ -511,6 +523,11 @@ export class OrdersService {
       if (dto.contractNote   !== undefined) po.contractNote   = dto.contractNote;
       if (dto.payTerms       !== undefined) po.payTerms       = dto.payTerms;
       if (dto.remark         !== undefined) po.remark         = dto.remark;
+
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
 
       let savedItems: Prc2OrderItemEntity[] | null = null;
       if (dto.items !== undefined) {
@@ -538,6 +555,10 @@ export class OrdersService {
       const { userId, userName } = this.getUser();
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id } });
       if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
       if (po.status !== PO_STATUS.DRAFT) {
         throw new ConflictException(`只有草稿状态才可提交（当前状态：${po.status}）`);
       }
@@ -586,6 +607,10 @@ export class OrdersService {
       const { userId, userName } = this.getUser();
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id } });
       if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
       if (![PO_STATUS.SUBMITTED, PO_STATUS.PENDING_APPROVAL].includes(po.status as any)) {
         throw new ConflictException(`只有已提交的订单才可审批通过（当前状态：${po.status}）`);
       }
@@ -649,6 +674,10 @@ export class OrdersService {
       const { userId, userName } = this.getUser();
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id } });
       if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
       if (![PO_STATUS.SUBMITTED, PO_STATUS.PENDING_APPROVAL].includes(po.status as any)) {
         throw new ConflictException(`只有已提交的订单才可拒绝（当前状态：${po.status}）`);
       }
@@ -672,6 +701,10 @@ export class OrdersService {
       const { userId, userName } = this.getUser();
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id } });
       if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购订单',
+      );
 
       const cancellable = [PO_STATUS.DRAFT, PO_STATUS.SUBMITTED, PO_STATUS.PENDING_APPROVAL] as string[];
       if (!cancellable.includes(po.status)) {
@@ -697,6 +730,10 @@ export class OrdersService {
   async getApprovals(id: string) {
     const po = await this.poRepo.findOne({ where: { id } });
     if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+    this.scopeHelper.assertOwnership(
+      { companyCode: po.companyCode, projectCode: po.projectCode },
+      '采购订单',
+    );
     return this.approvalRepo.find({
       where: { bizType: 'PO', bizId: id },
       order: { createdAt: 'ASC' },
@@ -707,6 +744,10 @@ export class OrdersService {
   async getApLedger(id: string) {
     const po = await this.poRepo.findOne({ where: { id } });
     if (!po) throw new NotFoundException(`采购订单 ID=${id} 不存在`);
+    this.scopeHelper.assertOwnership(
+      { companyCode: po.companyCode, projectCode: po.projectCode },
+      '采购订单',
+    );
     const ap = await this.apRepo.findOne({ where: { poId: id } });
     return ap ?? null;
   }

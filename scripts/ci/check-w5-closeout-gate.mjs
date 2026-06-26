@@ -59,6 +59,10 @@ const checks = [
     name: 'menu permission atomicity gate passes',
     pass: run('node', ['scripts/ci/check-menu-permission-atomicity.mjs']),
   },
+  {
+    name: 'procurement DataScope write gate passes',
+    pass: run('node', ['scripts/ci/check-procurement-datascope-writes.mjs']),
+  },
 ];
 
 let failed = 0;

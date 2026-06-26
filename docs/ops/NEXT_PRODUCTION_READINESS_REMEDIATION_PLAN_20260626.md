@@ -11,6 +11,8 @@ The latest remediation batches have addressed:
 - Notification config API/menu alignment.
 - Brand settings API/menu alignment.
 - Global error page and form-control baseline styling.
+- Procurement high-frequency write DataScope enforcement.
+- Procurement DataScope write regression gate in W5 closeout.
 
 ## Priority P0
 
@@ -20,10 +22,10 @@ The latest remediation batches have addressed:
    - Verify no unauthorized submenu appears.
    - Verify authorized submenu is usable end-to-end.
 
-2. **Procurement / Inventory DataScope**
-   - Audit list endpoints for procurement requests, orders, receipts, inventory batches, and warehouse flows.
-   - Confirm company/project/warehouse/store filters are enforced server-side.
-   - Add regression checks for cross-company visibility.
+2. **Inventory / WMS DataScope**
+   - Procurement request/order/receipt/payment/shipment/project/supplier/shareholder-fund write paths now enforce server-side ownership.
+   - Continue with inventory batches, warehouse flows, transfer/stocktake/loss actions, and store/order stock views.
+   - Add regression checks for cross-warehouse visibility and write denial.
 
 3. **Approval Action Flow**
    - Confirm "同意 / 不同意 / 转交审批" is consistently available on PC and mobile.
@@ -61,7 +63,7 @@ The latest remediation batches have addressed:
 
 ## Execution Recommendation
 
-Next batch should start with P0-1 and P0-2:
+Next batch should start with P0-1 and the remaining WMS side of P0-2:
 
 - They directly affect user-visible permission correctness and cross-data leakage risk.
 - They are prerequisites before broader role/function rollout.
@@ -69,4 +71,5 @@ Next batch should start with P0-1 and P0-2:
 Recommended next commit scope:
 
 - `fix(rbac): audit pilot role menu visibility`
-- `fix(datascope): enforce procurement inventory list scopes`
+- `fix(datascope): enforce inventory warehouse write scopes`
+- `fix(workflow): harden approval action flow`

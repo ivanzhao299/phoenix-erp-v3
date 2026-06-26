@@ -161,6 +161,10 @@ export class ShareholderFundsService {
 
   async create(dto: CreateShareholderFundDto): Promise<Prc2ShareholderFundEntity> {
     return this.ds.transaction(async mgr => {
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        '股东资金',
+      );
       const fundNo = await this.generateFundNo(mgr);
       const rate   = Number(dto.exchangeRate ?? 1);
       const amtBase = Number(dto.amountOriginal) * rate;
@@ -207,6 +211,10 @@ export class ShareholderFundsService {
     return this.ds.transaction(async mgr => {
       const fund = await mgr.findOne(Prc2ShareholderFundEntity, { where: { id } });
       if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: fund.companyCode, projectCode: fund.projectCode },
+        '股东资金',
+      );
       if (fund.status !== 'DRAFT') {
         throw new ConflictException(`只有草稿状态才可提交（当前状态：${fund.status}）`);
       }
@@ -242,6 +250,10 @@ export class ShareholderFundsService {
     return this.ds.transaction(async mgr => {
       const fund = await mgr.findOne(Prc2ShareholderFundEntity, { where: { id } });
       if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: fund.companyCode, projectCode: fund.projectCode },
+        '股东资金',
+      );
       if (!['DRAFT', 'PENDING_APPROVAL'].includes(fund.status)) {
         throw new ConflictException(`当前状态 ${fund.status} 不允许取消`);
       }

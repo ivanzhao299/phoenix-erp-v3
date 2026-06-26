@@ -188,6 +188,10 @@ export class PaymentsService {
 
   async create(dto: CreatePaymentDto) {
     return this.ds.transaction(async mgr => {
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        '采购付款单',
+      );
       const payNo = await this.generatePayNo(mgr);
       const { totalOriginal, totalBase } = this.sumAllocations(dto.allocations);
       const shareholderId = await this.resolveShareholderId(mgr, dto.shareholderId);   // G146
@@ -239,6 +243,10 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
       if (pay.status !== 'DRAFT') throw new ConflictException('仅 DRAFT 状态可编辑');
 
       const resolvedShId = await this.resolveShareholderId(mgr, dto.shareholderId);   // G146 编码→数字id
@@ -271,6 +279,11 @@ export class PaymentsService {
         ...(dto.remark               !== undefined && { remark:               dto.remark }),
       });
 
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
+
       if (dto.allocations) {
         const { totalOriginal, totalBase } = this.sumAllocations(dto.allocations);
         pay.amountOriginal = totalOriginal;
@@ -291,6 +304,10 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
       if (pay.status !== 'DRAFT') throw new ConflictException(`当前状态 ${pay.status} 不允许提交`);
 
       // ── 启动审批引擎 ────────────────────────────────────────────
@@ -326,6 +343,10 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
       if (!['SUBMITTED', 'PENDING_APPROVAL'].includes(pay.status)) throw new ConflictException(`当前状态 ${pay.status} 不允许审批`);
       pay.status = 'APPROVED';
       await mgr.save(Prc2PaymentEntity, pay);
@@ -340,6 +361,10 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
       if (pay.status === 'PAID') throw new ConflictException('该付款单已执行，不可重复付款');
       if (pay.status !== 'APPROVED') throw new ConflictException(`当前状态 ${pay.status} 不允许执行付款`);
 
@@ -537,6 +562,10 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: pay.companyCode, projectCode: pay.projectCode },
+        '采购付款单',
+      );
       // G144：仅"已执行付款(PAID)"不可取消；DRAFT/SUBMITTED/PENDING_APPROVAL/APPROVED（未实际出款）均可取消
       //   —— 已审批但未付款的单据，业务上发现错误/改主意时应允许撤销，原仅允许 DRAFT/SUBMITTED 过严。
       if (pay.status === 'PAID') throw new ConflictException('已执行付款不允许取消');
@@ -556,6 +585,10 @@ export class PaymentsService {
   async getAllocations(id: string) {
     const pay = await this.payRepo.findOne({ where: { id } });
     if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+    this.scopeHelper.assertOwnership(
+      { companyCode: pay.companyCode, projectCode: pay.projectCode },
+      '采购付款单',
+    );
     return this.allocRepo.find({ where: { paymentId: id }, order: { id: 'ASC' } });
   }
 
@@ -639,6 +672,13 @@ export class PaymentsService {
     allocs: CreatePaymentDto['allocations'],
     exchangeRate: number,
   ) {
+    for (const a of allocs) {
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: a.companyCode, projectCode: a.projectCode },
+        '采购付款分摊',
+      );
+    }
+
     const rows = allocs.map(a => mgr.create(Prc2PaymentAllocationEntity, {
       paymentId,
       poId:                    a.poId,

@@ -143,6 +143,11 @@ export class ReceiptsService {
       // ── 校验 PO 存在且状态允许收货 ───────────────────────────────────────
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id: dto.poId } });
       if (!po) throw new NotFoundException(`PO ID=${dto.poId} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: po.companyCode, projectCode: po.projectCode },
+        '采购收货单',
+      );
+      this.scopeHelper.assertWritableWarehouse(dto.warehouseCode, '采购收货单');
       if (!['APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status))
         throw new ConflictException(`PO 状态 ${po.status} 不允许创建收货单`);
 
@@ -212,6 +217,11 @@ export class ReceiptsService {
       // ── 1. 幂等保护 ─────────────────────────────────────────────────────
       const rcp = await mgr.findOne(Prc2ReceiptEntity, { where: { id } });
       if (!rcp) throw new NotFoundException(`收货单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: rcp.companyCode, projectCode: rcp.projectCode },
+        '采购收货单',
+      );
+      this.scopeHelper.assertWritableWarehouse(rcp.warehouseCode, '采购收货单');
       if (rcp.status === 'CONFIRMED')
         throw new ConflictException('该收货单已确认，不可重复确认');
       if (!['DRAFT', 'PARTIAL'].includes(rcp.status))
@@ -304,6 +314,11 @@ export class ReceiptsService {
     return this.ds.transaction(async mgr => {
       const rcp = await mgr.findOne(Prc2ReceiptEntity, { where: { id } });
       if (!rcp) throw new NotFoundException(`收货单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: rcp.companyCode, projectCode: rcp.projectCode },
+        '采购收货单',
+      );
+      this.scopeHelper.assertWritableWarehouse(rcp.warehouseCode, '采购收货单');
       if (rcp.status === 'CONFIRMED')
         throw new ConflictException('已确认收货单不允许取消');
       if (rcp.status === 'CANCELLED')
