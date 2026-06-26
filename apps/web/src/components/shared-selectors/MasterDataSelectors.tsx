@@ -199,8 +199,6 @@ export function UserSelector(p: BaseProps & {
   const { valueField = 'username', scopeStore = true, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
     loader={async () => {
-      // G5-B 切 /api/lookup/users（无 MENU_USER_MGR:V 限制）
-      const list = await lookupArr<any>('/lookup/users');
       // 当前登录用户的 store_code（从 JWT/sessionStorage 取）
       let myStore = '';
       try {
@@ -212,6 +210,13 @@ export function UserSelector(p: BaseProps & {
           myStore = me?.storeCode || me?.store_code || '';
         }
       } catch { /* */ }
+
+      // G5-B 切 /api/lookup/users（无 MENU_USER_MGR:V 限制）。
+      // P1 权限收紧：默认把当前 storeCode 传给后端先收窄；前端过滤仅作二次兜底。
+      const query = scopeStore && myStore && myStore !== 'ALL'
+        ? `?storeCode=${encodeURIComponent(myStore)}`
+        : '';
+      const list = await lookupArr<any>(`/lookup/users${query}`);
 
       return (Array.isArray(list) ? list : [])
         // 站点过滤：仅显示同 store_code（或 store_code='ALL' 的全局用户）

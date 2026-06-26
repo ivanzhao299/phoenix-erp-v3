@@ -37,10 +37,16 @@ export class LookupController {
    * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
    * 解析失败 → fail-closed（空范围），避免异常态把业务下拉扩成全局可见。
    */
-  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[]; farmCodes: string[]; warehouseCodes: string[] }> {
+  private async resolveCompanyScope(): Promise<{
+    isGlobal: boolean;
+    companyCodes: string[];
+    farmCodes: string[];
+    warehouseCodes: string[];
+    allowedSiteCodes: string[];
+  }> {
     try {
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      if (!user) return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [] };
+      if (!user) return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [] };
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
@@ -50,9 +56,10 @@ export class LookupController {
         companyCodes: scope.allowedCompanyCodes ?? [],
         farmCodes: scope.allowedFarmCodes ?? [],   // G87 场授权清单
         warehouseCodes: scope.allowedWarehouseCodes ?? [],
+        allowedSiteCodes: scope.allowedSiteCodes ?? [],
       };
     } catch {
-      return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [] };
+      return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [] };
     }
   }
 
@@ -353,18 +360,47 @@ export class LookupController {
    */
   @Get('users')
   async users(@Query('storeCode') storeCode?: string) {
+    const scope = await this.resolveCompanyScope();
+    if (!scope.isGlobal && scope.companyCodes.length === 0 && scope.allowedSiteCodes.length === 0) {
+      return { code: 200, data: [] };
+    }
     const params: any[] = [];
-    let where = `status=1`;
+    const conds = [`u.status=1`];
     if (storeCode) {
       params.push(storeCode);
-      where += ` AND store_code=$${params.length}`;
+      conds.push(`u.store_code=$${params.length}`);
+    }
+    if (!scope.isGlobal) {
+      const scopeConds: string[] = [];
+      if (scope.allowedSiteCodes.length > 0) {
+        params.push(scope.allowedSiteCodes);
+        scopeConds.push(`u.store_code = ANY($${params.length})`);
+        scopeConds.push(`EXISTS (
+          SELECT 1
+            FROM sys_user_orgs uo
+            JOIN sys_organizations o ON o.id = uo.org_id
+           WHERE uo.user_id = u.user_id
+             AND (o.org_code = ANY($${params.length}) OR o.site_code = ANY($${params.length}))
+        )`);
+      }
+      if (scope.companyCodes.length > 0) {
+        params.push(scope.companyCodes);
+        scopeConds.push(`EXISTS (
+          SELECT 1
+            FROM sys_user_orgs uo
+            JOIN sys_organizations o ON o.id = uo.org_id
+           WHERE uo.user_id = u.user_id
+             AND o.company_code = ANY($${params.length})
+        )`);
+      }
+      conds.push(`(${scopeConds.join(' OR ')})`);
     }
     const rows = await this.em.query(
-      `SELECT user_id AS "userId", username, real_name AS "realName",
-              store_code AS "storeCode", status
-         FROM sys_user
-         WHERE ${where}
-         ORDER BY username`,
+      `SELECT u.user_id AS "userId", u.username, u.real_name AS "realName",
+              u.store_code AS "storeCode", u.status
+         FROM sys_user u
+         WHERE ${conds.join(' AND ')}
+         ORDER BY u.username`,
       params,
     );
     return { code: 200, data: rows };
