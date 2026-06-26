@@ -215,6 +215,14 @@ for (const file of trackedFiles()) {
         add(file, lineNo, 'Packaging terminal shortcut must be gated by MENU_PKG_OP or MENU_PKG_MGR.', line);
       }
     }
+
+    if (
+      file.endsWith('apps/web/src/app/(mobile)/mobile/dashboard/page.tsx') &&
+      /const\s+showAlerts\s*=/.test(line) &&
+      !/MENU_DEVICE_MONITOR/.test(line)
+    ) {
+      add(file, lineNo, 'Mobile dashboard device alerts must be gated by MENU_DEVICE_MONITOR, not broad farm or legacy IoT permissions.', line);
+    }
   });
 
   if (
