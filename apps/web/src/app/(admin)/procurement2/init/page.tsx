@@ -60,10 +60,14 @@ const BASE = "/api/v2/procurement/init";
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function InitPage() {
   const {
-    user
+    canCreate,
+    canEdit,
+    canDelete
   } = useAuth();
   const toast = useToast();
-  const isAdmin = user?.role === "ROLE_ADMIN";
+  const canUploadInit = canCreate("MENU_PRC2_INIT");
+  const canImportInit = canEdit("MENU_PRC2_INIT");
+  const canCancelInit = canDelete("MENU_PRC2_INIT");
   const [batches, setBatches] = useState<InitBatch[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -258,7 +262,7 @@ export default function InitPage() {
   }}>
       {/* G157：裸 <h2> 页头 → 全局 PageHeader（上传按钮移到 actions） */}
       <PageHeader title="历史数据初始化" subtitle="采购历史数据批量导入" breadcrumb={["采购管理", "历史初始化"]}
-        actions={isAdmin && <button onClick={() => setShowUpload(true)} style={{
+        actions={canUploadInit && <button onClick={() => setShowUpload(true)} style={{
         padding: "7px 16px",
         background: "var(--color-primary)",
         color: "var(--bg-card)",
@@ -424,7 +428,7 @@ export default function InitPage() {
                 display: "flex",
                 gap: 6
               }}>
-                    {isAdmin && ['VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => {
+                    {canImportInit && ['VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => {
                   void openDetail(b.id);
                 }} style={{
                   padding: "3px 8px",
@@ -437,7 +441,7 @@ export default function InitPage() {
                 }}>
                         导入
                       </button>}
-                    {isAdmin && ['DRAFT', 'VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => setCancelConfirmId(b.id)} style={{
+                    {canCancelInit && ['DRAFT', 'VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => setCancelConfirmId(b.id)} style={{
                   padding: "3px 8px",
                   fontSize: 12,
                   border: "1px solid var(--border)",
@@ -654,11 +658,11 @@ export default function InitPage() {
               </div>
 
               {/* 操作按钮 */}
-              {isAdmin && <div style={{
+              {(canImportInit || canCancelInit) && <div style={{
             display: "flex",
             gap: 10
           }}>
-                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setImportConfirmOpen(true)} disabled={importing} style={{
+                  {canImportInit && ['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setImportConfirmOpen(true)} disabled={importing} style={{
               padding: "7px 18px",
               background: "var(--color-primary)",
               color: "var(--bg-card)",
@@ -681,7 +685,7 @@ export default function InitPage() {
             }}>
                       查看错误行 ({detailBatch.failedRows})
                     </button>}
-                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setCancelConfirmId(detailBatch.id)} style={{
+                  {canCancelInit && ['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setCancelConfirmId(detailBatch.id)} style={{
               padding: "7px 14px",
               border: "1px solid var(--border)",
               color: "var(--text-secondary)",

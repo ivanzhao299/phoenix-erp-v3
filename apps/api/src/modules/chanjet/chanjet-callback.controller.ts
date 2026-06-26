@@ -7,6 +7,13 @@ import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 import * as crypto from 'crypto';
 
+const CHANJET_PROXY_ALLOWED_PATHS = [
+  '/accounting/openapi/cc/book/',
+  '/accounting/openapi/cc/party/',
+  '/accounting/openapi/cc/department/',
+  '/accounting/gl/statistics/receive/',
+];
+
 @Controller('api/chanjet')
 @UseGuards(MenuGuard, DataScopeGuard)
 export class ChanjetCallbackController {
@@ -41,6 +48,30 @@ export class ChanjetCallbackController {
     const payload = `${timestamp}.${nonce}.${JSON.stringify(body ?? {})}`;
     const digest = crypto.createHmac('sha256', secret).update(payload).digest();
     return [digest.toString('hex'), digest.toString('base64')];
+  }
+
+  private normalizeChanjetProxyPath(rawPath: string, bookid?: string) {
+    const trimmed = String(rawPath || '').trim();
+    if (!trimmed) throw new ForbiddenException('Chanjet proxy path required');
+    if (/^https?:\/\//i.test(trimmed) || trimmed.includes('..') || trimmed.includes('\\')) {
+      throw new ForbiddenException('Chanjet proxy path rejected');
+    }
+    const path = bookid ? trimmed.replace('{bookid}', encodeURIComponent(bookid)) : trimmed;
+    if (!path.startsWith('/accounting/')) {
+      throw new ForbiddenException('Chanjet proxy only allows accounting API paths');
+    }
+    if (!CHANJET_PROXY_ALLOWED_PATHS.some((prefix) => path.startsWith(prefix))) {
+      throw new ForbiddenException('Chanjet proxy path is not allowlisted');
+    }
+    return path;
+  }
+
+  private normalizeChanjetProxyMethod(method?: string): 'GET' | 'POST' {
+    const m = String(method || 'GET').toUpperCase();
+    if (m !== 'GET' && m !== 'POST') {
+      throw new ForbiddenException('Chanjet proxy only allows GET/POST');
+    }
+    return m;
   }
 
   private verifyCallbackSignature(headers: Record<string, string | string[] | undefined>, body: Record<string, unknown>) {
@@ -406,7 +437,7 @@ export class ChanjetCallbackController {
   @RequireMenu('MENU_SYS_CONFIG', 'E')
   async callGet(@Query() query: Record<string, string>, @Req() req: any) {
     return this.doCall(query.path, {
-      method: (query.method as 'GET' | 'POST') || 'GET',
+      method: this.normalizeChanjetProxyMethod(query.method || 'GET'),
       bookid: query.bookid,
       queryStr: query.q,
     }, req);
@@ -416,7 +447,7 @@ export class ChanjetCallbackController {
   @RequireMenu('MENU_SYS_CONFIG', 'E')
   async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }, @Req() req: any) {
     return this.doCall(body.path, {
-      method: body.method || 'POST',
+      method: this.normalizeChanjetProxyMethod(body.method || 'POST'),
       bookid: body.bookid,
       body: body.body,
       query: body.query,
@@ -428,9 +459,9 @@ export class ChanjetCallbackController {
     opts: { method: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string>; queryStr?: string } = { method: 'GET' },
     req?: any,
   ) {
-    if (!rawPath) return { success: false, error: 'path 不能为空' };
-    const path = opts.bookid ? rawPath.replace('{bookid}', opts.bookid) : rawPath;
+    let path = '';
     try {
+      path = this.normalizeChanjetProxyPath(rawPath, opts.bookid);
       // queryStr 是 "k1=v1&k2=v2" 简写形式,解析成 query map
       const queryMap: Record<string, string> = opts.query || {};
       if (opts.queryStr) {
@@ -452,7 +483,7 @@ export class ChanjetCallbackController {
       });
       return { success: true, path, result };
     } catch (e) {
-      await this.writeChanjetAudit(req, 'CHANJET_CALL_PROXY', path, 'FAIL', {
+      await this.writeChanjetAudit(req, 'CHANJET_CALL_PROXY', path || String(rawPath || '').slice(0, 80), 'FAIL', {
         method: opts.method,
         error: (e as Error).message,
       });

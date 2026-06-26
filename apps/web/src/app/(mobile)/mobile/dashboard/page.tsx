@@ -63,25 +63,6 @@ const ALERT_LABELS: Record<string, string> = {
   FEED_LOW: '饲料不足'
 };
 
-// ── 模块可见角色集合（角色字符串直接比较，无需引入 R 对象） ──────────────────
-
-/** 生产概况——全量（含逐栋明细 + 存栏批次展开） */
-const FARM_FULL = ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER', 'ROLE_FIN_COST'];
-/** 生产概况——汇总（仅 4 个数字卡，不展开明细） */
-const FARM_SUMMARY = ['ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_WMS_MGR', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_AUDITOR', 'ROLE_SALES_MGR', 'ROLE_PRC_BUYER'];
-/** 包装产出 */
-const SHOW_PKG = ['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_FARM_MGR', 'ROLE_QA_MGR', 'ROLE_WMS_MGR', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_FIN_COST', 'ROLE_AUDITOR', 'ROLE_PRC_BUYER'];
-/** 品质检测 */
-const SHOW_QUALITY = ['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_QA_MGR', 'ROLE_WMS_MGR', 'ROLE_PKG_MGR', 'ROLE_FIN_COST', 'ROLE_AUDITOR'];
-/** 蛋品库存 */
-const SHOW_STOCK = ['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_FARM_MGR', 'ROLE_QA_MGR', 'ROLE_WMS_MGR', 'ROLE_PKG_MGR', 'ROLE_LOG_MGR', 'ROLE_STORE_MGR', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_FIN_COST', 'ROLE_AUDITOR', 'ROLE_SALES_REP', 'ROLE_SALES_MGR', 'ROLE_REGION_MGR', 'ROLE_PRC_BUYER'];
-/** 销售情况 */
-const SHOW_SALES = ['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_FARM_MGR', 'ROLE_LOG_MGR', 'ROLE_STORE_MGR', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_FIN_COST', 'ROLE_AUDITOR', 'ROLE_SALES_REP', 'ROLE_SALES_MGR', 'ROLE_REGION_MGR', 'ROLE_CASHIER'];
-/** 设备告警 */
-const SHOW_ALERTS = ['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER', 'ROLE_QA_MGR'];
-/** 今日配送波次（新增模块） */
-const SHOW_DELIVERY = ['ROLE_ADMIN', 'ROLE_LOG_MGR', 'ROLE_DRIVER'];
-
 // ── 迷你柱状图 ────────────────────────────────────────────────────────────────
 
 function MiniBarChart({
@@ -254,9 +235,8 @@ function StatCard({
 export default function MobileDashboardPage() {
   const router = useRouter();
   const {
-    user
+    hasPermission
   } = useAuth();
-  const role = user?.role ?? '';
   const {
     lang
   } = useLanguage();
@@ -276,16 +256,16 @@ export default function MobileDashboardPage() {
   const [houseExpanded, setHouseExpanded] = useState(false);
   const [flockExpanded, setFlockExpanded] = useState(false);
 
-  // ── 角色可见性标志（在 SWR 之前计算，用于条件 fetch） ────────────────────────
-  const showFarmFull = FARM_FULL.includes(role);
-  const showFarmSummary = FARM_SUMMARY.includes(role);
+  // ── 菜单可见性标志（在 SWR 之前计算，用于条件 fetch）────────────────────────
+  const showFarmFull = hasPermission('MENU_FARM_DATA', 'V') || hasPermission('MENU_FARM_DAILY', 'V') || hasPermission('MENU_FARM_VET', 'V');
+  const showFarmSummary = !showFarmFull && hasPermission('MENU_DASHBOARD', 'V');
   const showFarm = showFarmFull || showFarmSummary;
-  const showPkg = SHOW_PKG.includes(role);
-  const showQuality = SHOW_QUALITY.includes(role);
-  const showStock = SHOW_STOCK.includes(role);
-  const showSales = SHOW_SALES.includes(role);
-  const showAlerts = SHOW_ALERTS.includes(role);
-  const showDelivery = SHOW_DELIVERY.includes(role);
+  const showPkg = hasPermission('MENU_PKG_OP', 'V') || hasPermission('MENU_PKG_MGR', 'V');
+  const showQuality = hasPermission('MENU_QA_OP', 'V') || hasPermission('MENU_QA_MGR', 'V') || hasPermission('MENU_QA', 'V') || hasPermission('MENU_MD_QUALITY', 'V');
+  const showStock = hasPermission('MENU_WMS_VIEW', 'V') || hasPermission('MENU_WMS_INOUT', 'V') || hasPermission('MENU_SALES2_INVENTORY', 'V');
+  const showSales = hasPermission('MENU_SALES2', 'V') || hasPermission('MENU_SALES2_ORDER', 'V') || hasPermission('MENU_SALES2_REPORT', 'V');
+  const showAlerts = hasPermission('MENU_IOT', 'V') || hasPermission('MENU_FARM_DATA', 'V');
+  const showDelivery = hasPermission('MENU_SALES2_DELIVERY', 'V') || hasPermission('MENU_LOGISTICS', 'V');
 
   // ── SWR 数据加载（null key = 跳过 fetch，不消耗网络）───────────────────────
   const swrOpts = {
