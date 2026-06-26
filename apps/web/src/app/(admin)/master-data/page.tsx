@@ -13,6 +13,9 @@ import { Network, Building, FolderKanban, ShieldCheck, Users, Globe, Store, Egg,
 import request from "@/lib/api-client";
 import { MasterDataSearch } from "@/components/master-data/MasterDataSearch";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
+import { useAuth } from "@/contexts/AuthContext";
+
+type PermissionChecker = (menuCode?: string | null, permCode?: string) => boolean;
 interface CenterStat {
   key: string;
   label: string;
@@ -29,6 +32,36 @@ interface CenterStat {
     archived: number;
   }>;
 }
+
+const TYPE_TO_MENU: Record<string, string> = {
+  organization: 'MENU_MD_ORG',
+  company: 'MENU_MD_COMPANY',
+  project: 'MENU_MD_PROJECT',
+  customer: 'MENU_MD_CUSTOMER',
+  supplier: 'MENU_MD_SUPPLIER',
+  store: 'MENU_MD_STORE',
+  product: 'MENU_MD_PRODUCT',
+  grade: 'MENU_MD_GRADE',
+  spec: 'MENU_MD_PACKAGING',
+  sku: 'MENU_MD_SKU',
+  warehouse: 'MENU_MD_WAREHOUSE',
+  driver: 'MENU_MD_DRIVER',
+  vehicle: 'MENU_MD_VEHICLE',
+  'cash-account': 'MENU_MD_CASH_ACCOUNT',
+  'bank-account': 'MENU_MD_BANK_ACCOUNT',
+  dict: 'MENU_SETTINGS_DATA',
+};
+
+const PENDING_ENTRY_MENUS = Object.values(TYPE_TO_MENU);
+
+function canAccessMenu(hasPermission: PermissionChecker, menu?: string) {
+  return Boolean(menu) && hasPermission(menu, 'V');
+}
+
+function canAccessAny(hasPermission: PermissionChecker, menus: string[]) {
+  return menus.some(menu => hasPermission(menu, 'V'));
+}
+
 const CENTER_META: Record<string, {
   title: string;
   subtitle: string;
@@ -171,10 +204,20 @@ function healthColor(s: number) {
   return 'var(--status-danger)';
 }
 export default function MasterDataHubPage() {
+  const { hasPermission } = useAuth();
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const canViewCenter = hasPermission('MENU_MD_CENTER', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
+  const canViewGovernance = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
+  const canViewDataQuality = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_DATA_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
+  const canViewPending = canAccessAny(hasPermission, PENDING_ENTRY_MENUS) || hasPermission('MENU_MASTER_DATA', 'V');
   const load = useCallback(async () => {
+    if (!canViewCenter) {
+      setCenters([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -184,10 +227,43 @@ export default function MasterDataHubPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canViewCenter]);
   useEffect(() => {
     void load();
   }, [load]);
+  const navTiles = [{
+    key: 'operations',
+    href: '/master-data/operations',
+    label: '运营工作台',
+    desc: '待审批 / 补资料 / 风险处理',
+    icon: Briefcase,
+    accent: 'var(--status-info)',
+    visible: canViewCenter,
+  }, {
+    key: 'governance',
+    href: '/master-data/governance',
+    label: '治理驾驶舱',
+    desc: '6 维度评分 / 字典覆盖率 / 趋势',
+    icon: Activity,
+    accent: 'var(--color-purple-600)',
+    visible: canViewGovernance,
+  }, {
+    key: 'pending',
+    href: '/master-data/pending',
+    label: '主数据待审批',
+    desc: 'Workflow 审批入口',
+    icon: CheckSquare,
+    accent: 'var(--status-warning)',
+    visible: canViewPending,
+  }, {
+    key: 'data-quality',
+    href: '/data-quality',
+    label: 'G5 数据质量中心',
+    desc: '7 维度全局健康评分',
+    icon: ShieldCheck,
+    accent: 'var(--status-success)',
+    visible: canViewDataQuality,
+  }].filter(tile => tile.visible);
   return <div>
       {/* 顶部页头 + 全局搜索 */}
       <div className={u.mb20}>
@@ -230,7 +306,7 @@ export default function MasterDataHubPage() {
           }} /> 刷新
           </button>
         </div>
-        <MasterDataSearch />
+        {canViewCenter && <MasterDataSearch />}
       </div>
 
       {/* 运营入口 */}
@@ -240,70 +316,18 @@ export default function MasterDataHubPage() {
       gap: 12,
       marginBottom: 24
     }}>
-        <a href="/master-data/operations" style={navTileStyle('var(--status-info)')}>
-          <Briefcase size={18} style={{
-          color: 'var(--status-info)'
-        }} />
-          <div>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700
-          }}>运营工作台</div>
-            <div style={{
-            fontSize: 11,
-            color: 'var(--text-secondary)',
-            marginTop: 2
-          }}>待审批 / 补资料 / 风险处理</div>
-          </div>
-        </a>
-        <a href="/master-data/governance" style={navTileStyle('var(--color-purple-600)')}>
-          <Activity size={18} style={{
-          color: 'var(--color-purple-600)'
-        }} />
-          <div>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700
-          }}>治理驾驶舱</div>
-            <div style={{
-            fontSize: 11,
-            color: 'var(--text-secondary)',
-            marginTop: 2
-          }}>6 维度评分 / 字典覆盖率 / 趋势</div>
-          </div>
-        </a>
-        <a href="/master-data/pending" style={navTileStyle('var(--status-warning)')}>
-          <CheckSquare size={18} style={{
-          color: 'var(--status-warning)'
-        }} />
-          <div>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700
-          }}>主数据待审批</div>
-            <div style={{
-            fontSize: 11,
-            color: 'var(--text-secondary)',
-            marginTop: 2
-          }}>Workflow 审批入口</div>
-          </div>
-        </a>
-        <a href="/data-quality" style={navTileStyle('var(--status-success)')}>
-          <ShieldCheck size={18} style={{
-          color: 'var(--status-success)'
-        }} />
-          <div>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700
-          }}>G5 数据质量中心</div>
-            <div style={{
-            fontSize: 11,
-            color: 'var(--text-secondary)',
-            marginTop: 2
-          }}>7 维度全局健康评分</div>
-          </div>
-        </a>
+        {navTiles.map(tile => {
+          const TileIcon = tile.icon;
+          return (
+            <a key={tile.key} href={tile.href} style={navTileStyle(tile.accent)}>
+              <TileIcon size={18} style={{ color: tile.accent }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{tile.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{tile.desc}</div>
+              </div>
+            </a>
+          );
+        })}
       </div>
 
       {error && <div style={{
@@ -391,7 +415,7 @@ export default function MasterDataHubPage() {
             gridTemplateColumns: meta.members.length > 2 ? 'repeat(2, 1fr)' : '1fr',
             gap: 6
           }}>
-                {meta.members.map(m => {
+                {meta.members.filter(m => canAccessMenu(hasPermission, TYPE_TO_MENU[m.type]) || hasPermission('MENU_MASTER_DATA', 'V')).map(m => {
               const memberStat = c.members.find(x => x.type === m.type);
               const MemberIcon = m.icon;
               return <a key={m.type} href={m.href} style={{

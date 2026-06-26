@@ -444,6 +444,24 @@ for (const file of trackedFiles()) {
     }
   }
 
+  if (file.endsWith('apps/web/src/app/(admin)/master-data/page.tsx')) {
+    const fixedLinks = [
+      /<a\s+href=["']\/master-data\/operations["']/,
+      /<a\s+href=["']\/master-data\/governance["']/,
+      /<a\s+href=["']\/master-data\/pending["']/,
+      /<a\s+href=["']\/data-quality["']/,
+    ];
+    if (fixedLinks.some(pattern => pattern.test(text))) {
+      add(file, 1, 'Master-data hub action tiles must be permission-filtered before render; do not render fixed links to gated child pages.', lines[0] || file);
+    }
+    if (!/canViewCenter/.test(text) || !/canViewGovernance/.test(text) || !/canViewPending/.test(text) || !/canViewDataQuality/.test(text)) {
+      add(file, 1, 'Master-data hub must compute atomic visibility for center/governance/pending/data-quality child entries.', lines[0] || file);
+    }
+    if (!/canViewCenter\s*&&\s*<MasterDataSearch/.test(text)) {
+      add(file, 1, 'Master-data global search must only render for MENU_MD_CENTER/MENU_MASTER_DATA users because it calls operations/search.', lines[0] || file);
+    }
+  }
+
   if (
     file.endsWith('apps/web/src/app/(admin)/master-data/companies/page.tsx') &&
     /usePermission\(["']MENU_SYS_ORG["']\)/.test(text)
