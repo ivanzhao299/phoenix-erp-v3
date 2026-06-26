@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, CheckCircle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, moneyCell,
@@ -20,19 +21,16 @@ type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 报损管理页面 (对应 V2: LossReport.jsx)
 // 数据来源: wms_stocktake 表 (复用，loss_no 前缀区分)
-// 权限: ROLE_ADMIN / ROLE_WMS_MGR / ROLE_FIN_CFO 可审批 & 删除
+// 权限由 MENU_WMS_INOUT 原子权限控制，不再前端硬编码角色。
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_stocktake";
-const getRole = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || "";
-  } catch {
-    return "";
-  }
-};
-const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO", "ROLE_FIN_ACCT"].includes(getRole());
 type Row = Record<string, unknown>;
 export default function LossReportPage() {
+  const { canCreate, canEdit, canDelete, canApprove } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canApproveInout = canApprove("MENU_WMS_INOUT");
   const {
     t
   } = useLanguage();
@@ -139,13 +137,15 @@ export default function LossReportPage() {
   }, [refreshKey]);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
   const openNew = useCallback(() => {
+    if (!canCreateInout) return;
     setEditing(null);
     setDrawerOpen(true);
-  }, []);
+  }, [canCreateInout]);
   const openEdit = useCallback((row: Row) => {
+    if (!canEditInout) return;
     setEditing(row);
     setDrawerOpen(true);
-  }, []);
+  }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
@@ -164,9 +164,10 @@ export default function LossReportPage() {
     }
   }, [editing, refresh]);
   const handleDelete = useCallback((row: Row) => {
+    if (!canDeleteInout) return;
     setDeleteTarget(row);
     setConfirmOpen(true);
-  }, []);
+  }, [canDeleteInout]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -174,9 +175,10 @@ export default function LossReportPage() {
     refresh();
   }, [deleteTarget, refresh]);
   const handleApprove = useCallback((row: Row) => {
+    if (!canApproveInout) return;
     setApproveTarget(row);
     setApproveOpen(true);
-  }, []);
+  }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
     await crudApi.update(TABLE, approveTarget.id as number, {
@@ -234,13 +236,13 @@ export default function LossReportPage() {
     align: "center",
     render: (_, row) => (
       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-        {isApprover() && row.status === "DONE" && (
+        {canApproveInout && row.status === "DONE" && (
           <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
             <CheckCircle size={11} />{t("ui.审批", "审批")}
           </button>
         )}
-        <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-        {isApprover() && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
+        {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+        {canDeleteInout && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
       </div>
     )
   }];
@@ -249,11 +251,11 @@ export default function LossReportPage() {
         title={t("ui.报损管理", "报损管理")}
         subtitle={t("ui.库存损耗记录与审批管理", "库存损耗记录与审批管理")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.报损管理", "报损管理")]}
-        actions={
+        actions={canCreateInout ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建报损单", "新建报损单")}
           </button>
-        }
+        ) : undefined}
       />
 
       {/* g200e KPI 4 卡 — kpiCardCompact(tone) */}
@@ -278,7 +280,7 @@ export default function LossReportPage() {
 
       <DataTable table={TABLE} columns={COLUMNS} params={{
       stocktake_no__like: "LR-%"
-    }} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无报损记录点击新建报损单开始记录", "暂无报损记录，点击「新建报损单」开始记录")} pageSize={30} />
+    }} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无报损记录点击新建报损单开始记录", "暂无报损记录，点击「新建报损单」开始记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑报损单", "编辑报损单") : t("ui.新建报损单", "新建报损单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />

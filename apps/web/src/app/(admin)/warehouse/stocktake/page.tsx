@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, Download, CheckCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, secondaryActionButton, actionPill, moneyCell,
@@ -20,19 +21,17 @@ type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 表: wms_stocktake
 // 字段: take_no, warehouse_code, zone_code, book_qty, actual_qty, diff_qty, operator, status, date
-// 权限: ROLE_ADMIN / ROLE_WMS_MGR / ROLE_FIN_CFO 可审批
+// 权限由 MENU_WMS_INOUT 原子权限控制，不再前端硬编码角色。
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_stocktake";
-const getRole = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || "";
-  } catch {
-    return "";
-  }
-};
-const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO"].includes(getRole());
 type Row = Record<string, unknown>;
 export default function StocktakePage() {
+  const { canCreate, canEdit, canDelete, canApprove, canExport } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canApproveInout = canApprove("MENU_WMS_INOUT");
+  const canExportInout = canExport("MENU_WMS_INOUT");
   const {
     t
   } = useLanguage();
@@ -142,13 +141,15 @@ export default function StocktakePage() {
   }, [refreshKey]);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
   const openNew = useCallback(() => {
+    if (!canCreateInout) return;
     setEditing(null);
     setDrawerOpen(true);
-  }, []);
+  }, [canCreateInout]);
   const openEdit = useCallback((row: Row) => {
+    if (!canEditInout) return;
     setEditing(row);
     setDrawerOpen(true);
-  }, []);
+  }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   // CSV 导出
@@ -195,9 +196,10 @@ export default function StocktakePage() {
     }
   }, [editing, refresh]);
   const handleDelete = useCallback((row: Row) => {
+    if (!canDeleteInout) return;
     setDeleteTarget(row);
     setConfirmOpen(true);
-  }, []);
+  }, [canDeleteInout]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -205,9 +207,10 @@ export default function StocktakePage() {
     refresh();
   }, [deleteTarget, refresh]);
   const handleApprove = useCallback((row: Row) => {
+    if (!canApproveInout) return;
     setApproveTarget(row);
     setApproveOpen(true);
-  }, []);
+  }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
     await crudApi.update(TABLE, approveTarget.id as number, {
@@ -293,13 +296,13 @@ export default function StocktakePage() {
     align: "center",
     render: (_, row) => (
       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-        <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-        {isApprover() && row.status === "DONE" && (
+        {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+        {canApproveInout && row.status === "DONE" && (
           <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
             <CheckCircle size={11} />{t("ui.审批", "审批")}
           </button>
         )}
-        <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
+        {canDeleteInout && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
       </div>
     )
   }];
@@ -310,15 +313,15 @@ export default function StocktakePage() {
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" style={{ ...secondaryActionButton, opacity: allRows.length === 0 ? 0.5 : 1 }} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
+            {canExportInout && <button type="button" style={{ ...secondaryActionButton, opacity: allRows.length === 0 ? 0.5 : 1 }} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
               <Download size={13} />{t("common.export", "导出")} CSV
-            </button>
+            </button>}
             <button type="button" style={secondaryActionButton} onClick={refresh}>
               <RefreshCw size={13} />{t("common.refresh", "刷新")}
             </button>
-            <button type="button" style={primaryActionButton} onClick={openNew}>
+            {canCreateInout && <button type="button" style={primaryActionButton} onClick={openNew}>
               <Plus size={14} />{t("ui.新建盘点单", "新建盘点单")}
-            </button>
+            </button>}
           </div>
         }
       />
@@ -343,7 +346,7 @@ export default function StocktakePage() {
         ))}
       </div>
 
-      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />

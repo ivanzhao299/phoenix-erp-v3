@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { CheckSquare, Plus } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 // g200e 模板 token(2026-06-20)
@@ -17,12 +18,6 @@ import {
 // ✅ V3 表: wms_inbound
 const TABLE = "wms_inbound";
 
-const getRole = () => {
-  try { return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || ""; }
-  catch { return ""; }
-};
-const isManager = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_PKG_MGR"].includes(getRole());
-
 // B1 + B8: wms_inbound 真实列对齐 — type / item / qty / warehouse_code / operator / date / remark / inbound_no
 //          状态枚举改用后端 wms.service 同款 (PENDING / PROCESSING / COMPLETED / CANCELLED)
 const SOURCE_TYPES = ["", "PRODUCTION", "PURCHASE", "TRANSFER", "RETURN"] as const;
@@ -31,6 +26,11 @@ type Row = Record<string, unknown>;
 
 export default function InboundPage() {
   const { t } = useLanguage();
+  const { canCreate, canEdit, canDelete, canApprove } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canApproveInout = canApprove("MENU_WMS_INOUT");
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
   const [saving,        setSaving]        = useState(false);
@@ -83,8 +83,8 @@ export default function InboundPage() {
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { setEditing(null); setDrawerOpen(true); }, []);
-  const openEdit    = useCallback((row: Row) => { setEditing(row); setDrawerOpen(true); }, []);
+  const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setDrawerOpen(true); }, [canCreateInout]);
+  const openEdit    = useCallback((row: Row) => { if (!canEditInout) return; setEditing(row); setDrawerOpen(true); }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleSave = useCallback(async (values: Row) => {
@@ -107,14 +107,14 @@ export default function InboundPage() {
     } finally { setSaving(false); }
   }, [editing, refresh]);
 
-  const handleDelete   = useCallback((row: Row) => { setDeleteTarget(row); setConfirmOpen(true); }, []);
+  const handleDelete   = useCallback((row: Row) => { if (!canDeleteInout) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout]);
   const confirmDelete  = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
     setConfirmOpen(false); refresh();
   }, [deleteTarget, refresh]);
 
-  const handleApprove  = useCallback((row: Row) => { setApproveTarget(row); setApproveOpen(true); }, []);
+  const handleApprove  = useCallback((row: Row) => { if (!canApproveInout) return; setApproveTarget(row); setApproveOpen(true); }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
     await crudApi.update(TABLE, approveTarget.id as number, { status: "COMPLETED" });
@@ -138,13 +138,13 @@ export default function InboundPage() {
     { key: "_actions",       title: t("common.operation", "操作"), width: 180, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-          {isManager() && row.status === "PENDING" && (
+          {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+          {canApproveInout && row.status === "PENDING" && (
             <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
               <CheckSquare size={11} />{t("ui.审核", "审核")}
             </button>
           )}
-          {isManager() && (
+          {canDeleteInout && (
             <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
@@ -158,11 +158,11 @@ export default function InboundPage() {
         title={t("ui.入库管理", "入库管理")}
         subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.入库管理", "入库管理")]}
-        actions={
+        actions={canCreateInout ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建入库单", "新建入库单")}
           </button>
-        }
+        ) : undefined}
       />
 
       {/* g200e:过滤 tab pill 用 toolbarFilterPill token,替换 s.tabPill 老类 */}
@@ -178,9 +178,9 @@ export default function InboundPage() {
         table={TABLE}
         columns={COLUMNS}
         params={typeFilter ? { type: typeFilter } as any : undefined}
-        onNew={openNew}
-        onEdit={openEdit}
-        onDelete={handleDelete}
+        onNew={canCreateInout ? openNew : undefined}
+        onEdit={canEditInout ? openEdit : undefined}
+        onDelete={canDeleteInout ? handleDelete : undefined}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("common.no_data", "暂无入库记录")}

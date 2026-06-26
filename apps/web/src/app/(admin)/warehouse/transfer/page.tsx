@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, ScanLine } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, moneyCell, inputField,
@@ -25,18 +26,14 @@ type ActionTone = "default" | "success" | "warning" | "danger" | "info" | "brand
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_transfer";
 type Row = Record<string, unknown>;
-const getRole = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || "";
-  } catch {
-    return "";
-  }
-};
-const isManager = () => ["ROLE_ADMIN", "ROLE_WMS_MGR"].includes(getRole());
 export default function TransferPage() {
   const {
     t
   } = useLanguage();
+  const { canCreate, canEdit, canDelete } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
 
   // g200e:状态 tone → actionPill(tone),COMPLETED 兼容(DB 真实值)
   const STATUS_BADGE: Record<string, { tone: ActionTone; label: string }> = {
@@ -178,13 +175,15 @@ export default function TransferPage() {
   const [scanCode, setScanCode] = useState("");
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
   const openNew = useCallback(() => {
+    if (!canCreateInout) return;
     setEditing(null);
     setDrawerOpen(true);
-  }, []);
+  }, [canCreateInout]);
   const openEdit = useCallback((row: Row) => {
+    if (!canEditInout) return;
     setEditing(row);
     setDrawerOpen(true);
-  }, []);
+  }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
@@ -231,13 +230,10 @@ export default function TransferPage() {
     }
   }, [editing, refresh]);
   const handleDelete = useCallback((row: Row) => {
-    if (!isManager()) {
-      window.alert(t("ui.权限不足仅管理员可删除调拨单", "权限不足：仅管理员可删除调拨单"));
-      return;
-    }
+    if (!canDeleteInout) return;
     setDeleteTarget(row);
     setConfirmOpen(true);
-  }, [t]);
+  }, [canDeleteInout]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -248,6 +244,7 @@ export default function TransferPage() {
   // 扫码确认调入（快速更新单号对应记录状态）
   const handleScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || !scanCode.trim()) return;
+    if (!canEditInout) return;
     // 按照 transfer_no 查询并更新为 DONE
     const res = await crudApi.list<Row>(TABLE, {
       transfer_no: scanCode.trim(),
@@ -261,17 +258,17 @@ export default function TransferPage() {
       refresh();
     }
     setScanCode("");
-  }, [scanCode, refresh]);
+  }, [scanCode, refresh, canEditInout]);
   return <div>
       <PageHeader
         title={t("ui.库存调拨", "库存调拨")}
         subtitle={t("ui.库区间及仓店间库存调拨管理", "库区间及仓店间库存调拨管理")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库存调拨", "库存调拨")]}
-        actions={
+        actions={canCreateInout ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建调拨单", "新建调拨单")}
           </button>
-        }
+        ) : undefined}
       />
 
       {/* g200e:KPI 2 卡 + 扫码区 — 老 statCard → kpiCardCompact / 扫码用 actionGroupBox + inputField */}
@@ -291,7 +288,7 @@ export default function TransferPage() {
           <div style={kpiCardCompactValue("success")}>—</div>
           <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t("ui.已完成单", "已完成单")}</div>
         </div>
-        <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+        {canEditInout && <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <ScanLine size={14} /> {t("ui.扫码快速确认调入", "扫码快速确认调入")}
           </div>
@@ -302,10 +299,10 @@ export default function TransferPage() {
             placeholder={t("ui.扫描调拨单号按回车确认", "扫描调拨单号 → 按回车确认")}
             style={{ ...inputField, flex: 1 }}
           />
-        </div>
+        </div>}
       </div>
 
-      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions refreshKey={refreshKey} emptyText={t("ui.暂无调拨记录", "暂无调拨记录")} pageSize={30} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions refreshKey={refreshKey} emptyText={t("ui.暂无调拨记录", "暂无调拨记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑调拨单", "编辑调拨单") : t("ui.新建调拨单", "新建调拨单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
