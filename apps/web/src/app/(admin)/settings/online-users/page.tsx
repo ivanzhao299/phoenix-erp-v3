@@ -9,6 +9,7 @@ import { RefreshCw, Users } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import request from "@/lib/api-client";
+import usePermission from "@/hooks/usePermission";
 
 interface OnlineUser {
   userId: string;
@@ -36,6 +37,7 @@ function fmtDuration(sinceMs?: number) {
 
 export default function OnlineUsersPage() {
   const toast = useToast();
+  const monitorPerm = usePermission("MENU_SYS_MONITOR");
   const [items, setItems] = useState<OnlineUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,10 @@ export default function OnlineUsersPage() {
   const shownErr = useRef(false);
 
   const load = useCallback(async (silent = false) => {
+    if (!monitorPerm.canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // silent：失败不派发全局 toast（页面级 toast.error 已足够提示，避免 20s 轮询刷屏）
@@ -60,13 +66,23 @@ export default function OnlineUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [monitorPerm.canView, toast]);
 
   useEffect(() => {
+    if (!monitorPerm.canView) return;
     load();
     const id = setInterval(() => load(true), 20000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, monitorPerm.canView]);
+
+  if (!monitorPerm.canView) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="在线用户" subtitle="需要系统监控查看权限" breadcrumb={["系统设置", "在线用户"]} />
+        <div className={u.emptyCenter}>无权限访问在线用户</div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">

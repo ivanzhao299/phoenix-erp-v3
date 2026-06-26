@@ -15,6 +15,7 @@ import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
   tableContainer, tabBar, tabItem, searchToolbar, toolbarFilterPill,
 } from '@/components/design-system/cockpit-styles';
+import usePermission from '@/hooks/usePermission';
 
 const tok = () => (typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || '');
 const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` });
@@ -23,6 +24,19 @@ type TabKey = 'rules' | 'templates' | 'channels' | 'logs';
 
 export default function NotificationConfigPage() {
   const [tab, setTab] = useState<TabKey>('rules');
+  const notifyPerm = usePermission('MENU_SETTINGS_NOTIFY');
+  if (!notifyPerm.canView) {
+    return (
+      <div>
+        <PageHeader
+          title="通知设置"
+          subtitle="需要通知设置查看权限"
+          breadcrumb={['系统设置', '通知设置']}
+        />
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>无权限访问通知设置</div>
+      </div>
+    );
+  }
   return (
     <div>
       <PageHeader
@@ -36,15 +50,15 @@ export default function NotificationConfigPage() {
         <button style={tabItem(tab === 'channels')}   onClick={() => setTab('channels')}><Mail size={13} /> 渠道</button>
         <button style={tabItem(tab === 'logs')}       onClick={() => setTab('logs')}><ListChecks size={13} /> 投递日志</button>
       </div>
-      {tab === 'rules'     && <RulesTab />}
+      {tab === 'rules'     && <RulesTab canEdit={notifyPerm.canEdit} />}
       {tab === 'templates' && <TemplatesTab />}
-      {tab === 'channels'  && <ChannelsTab />}
+      {tab === 'channels'  && <ChannelsTab canEdit={notifyPerm.canEdit} />}
       {tab === 'logs'      && <LogsTab />}
     </div>
   );
 }
 
-function RulesTab() {
+function RulesTab({ canEdit }: { canEdit: boolean }) {
   const toast = useToast();
   const [rules, setRules] = useState<any[]>([]);
   const [category, setCategory] = useState('');
@@ -146,12 +160,16 @@ function RulesTab() {
                   </span>
                 </td>
                 <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <button style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 11, marginRight: 6, display: 'inline-flex' }}
-                    onClick={() => toggleStatus(r)}>{r.status === 'ACTIVE' ? '禁用' : '启用'}</button>
-                  <button style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 11, display: 'inline-flex' }}
-                    onClick={() => { setTestTarget(r.rule_code); setTestCtx({}); }}>
-                    <Play size={11} /> 试发
-                  </button>
+                  {canEdit ? (
+                    <>
+                      <button style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 11, marginRight: 6, display: 'inline-flex' }}
+                        onClick={() => toggleStatus(r)}>{r.status === 'ACTIVE' ? '禁用' : '启用'}</button>
+                      <button style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 11, display: 'inline-flex' }}
+                        onClick={() => { setTestTarget(r.rule_code); setTestCtx({}); }}>
+                        <Play size={11} /> 试发
+                      </button>
+                    </>
+                  ) : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>只读</span>}
                 </td>
               </tr>
             ))}
@@ -227,7 +245,7 @@ function TemplatesTab() {
   );
 }
 
-function ChannelsTab() {
+function ChannelsTab({ canEdit }: { canEdit: boolean }) {
   const toast = useToast();
   const [channels, setChannels] = useState<any[]>([]);
   const load = async () => {
@@ -271,8 +289,10 @@ function ChannelsTab() {
               <td style={td}>{c.rate_limit_per_min}</td>
               <td style={{ ...td, fontSize: 11, color: 'var(--text-secondary)' }}>{c.remark || '—'}</td>
               <td style={{ ...td, textAlign: 'right' }}>
-                <button style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 11, display: 'inline-flex' }}
-                  onClick={() => toggle(c)}>{c.enabled ? '禁用' : '启用'}</button>
+                {canEdit ? (
+                  <button style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 11, display: 'inline-flex' }}
+                    onClick={() => toggle(c)}>{c.enabled ? '禁用' : '启用'}</button>
+                ) : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>只读</span>}
               </td>
             </tr>
           ))}

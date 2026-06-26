@@ -7,7 +7,7 @@ import { PresenceService } from './presence.service';
 
 /**
  * G171：在线用户（管理员）。基于 SSE 长连接的在线状态。
- * 全局 MenuGuard 生效，@RequireMenu('MENU_SYSTEM','V') 限管理员/系统角色（ROLE_ADMIN 持 * 通过）。
+ * 全局 MenuGuard 生效，@RequireMenu('MENU_SYS_MONITOR','V') 限系统监控/运维角色（ROLE_ADMIN 持 * 通过）。
  */
 @Controller('api/system')
 @UseGuards(AuthGuard('jwt'), MenuGuard)

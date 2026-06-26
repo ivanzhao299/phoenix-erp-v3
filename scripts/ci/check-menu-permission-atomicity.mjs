@@ -287,6 +287,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/notification\/notification-config\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_SYS_MONITOR['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Notification config/log APIs must use MENU_SETTINGS_NOTIFY, not MENU_SYS_MONITOR.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/system-monitor\/controllers\/sys-configs\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SYS_CONFIG['"]/.test(line)
     ) {
@@ -495,6 +502,21 @@ for (const file of trackedFiles()) {
     /TYPE_TO_ALT_MENUS[\s\S]*MENU_SYS_ORG/.test(text)
   ) {
     add(file, 1, 'MasterDataTypeGuard must not allow coarse MENU_SYS_ORG as per-type fallback; use MENU_MD_ORG/MENU_MD_COMPANY or legacy read-only org aliases only.', lines[0] || file);
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/settings/online-users/page.tsx')) {
+    if (!/usePermission\(["']MENU_SYS_MONITOR["']\)/.test(text) || !/monitorPerm\.canView/.test(text)) {
+      add(file, 1, 'Online users page must gate route rendering and data load with MENU_SYS_MONITOR before calling /system/online-users.', lines[0] || file);
+    }
+  }
+
+  if (file.endsWith('apps/web/src/app/(admin)/settings/notifications/page.tsx')) {
+    if (!/usePermission\(["']MENU_SETTINGS_NOTIFY["']\)/.test(text) || !/notifyPerm\.canView/.test(text)) {
+      add(file, 1, 'Notification settings page must gate route rendering with MENU_SETTINGS_NOTIFY before calling config/log APIs.', lines[0] || file);
+    }
+    if (!/notifyPerm\.canEdit/.test(text) || !/RulesTab canEdit=/.test(text) || !/ChannelsTab canEdit=/.test(text)) {
+      add(file, 1, 'Notification settings high-risk buttons must be controlled by MENU_SETTINGS_NOTIFY:E.', lines[0] || file);
+    }
   }
 }
 

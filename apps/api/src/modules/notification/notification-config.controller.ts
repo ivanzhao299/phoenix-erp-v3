@@ -183,7 +183,7 @@ export class NotificationConfigController {
 
   // ── 日志 ─────────────────────────────────────────────────────────────────
   @Get('logs')
-  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async listLogs(
     @Query('status') status?: string,
     @Query('rule_code') ruleCode?: string,
