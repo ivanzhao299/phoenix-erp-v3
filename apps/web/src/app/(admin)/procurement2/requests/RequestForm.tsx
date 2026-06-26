@@ -15,6 +15,8 @@ import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字
 import { CompanySelector, ProjectSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
+import { AttachmentUploader, DocumentAutofillPanel, type DocumentAutofillSuggestion } from "@/components/design-system";
+import { parseAttachmentRefs, serializeAttachmentRefs } from "@/lib/attachments";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -54,6 +56,15 @@ interface PurchaseRequest {
   updatedAt: string;
   itemCount?: number;
   items?: ReqItem[];
+}
+
+interface ContractLineItemSuggestion {
+  itemName?: string;
+  spec?: string;
+  qty?: string;
+  unit?: string;
+  unitPrice?: string;
+  amount?: string;
 }
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
@@ -113,6 +124,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
   const [formDept, setFormDept] = useState("");
   const [formExpDate, setFormExpDate] = useState("");
   const [formReason, setFormReason] = useState("");
+  const [formAttachmentUrls, setFormAttachmentUrls] = useState<string[]>([]);
   const [formRemark, setFormRemark] = useState("");
   const [formItems, setFormItems] = useState<ReqItem[]>(blankRows());
 
@@ -153,6 +165,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
       setFormDept(row.deptCode ?? "");
       setFormExpDate(row.expectedDate ?? "");
       setFormReason(row.reason ?? "");
+      setFormAttachmentUrls(parseAttachmentRefs(row.attachmentUrl));
       setFormRemark(row.remark ?? "");
       setFormItems(row.items?.length ? row.items.map(i => ({ ...i })) : [emptyItem()]);
     } catch {
@@ -188,6 +201,89 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
   }
   function removeItemRow(idx: number) {
     setFormItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  }
+
+  function normalizeDate(value: string) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const matched = raw.match(/(\d{4})[\/.\-年](\d{1,2})[\/.\-月](\d{1,2})/);
+    if (!matched) return raw.slice(0, 10);
+    const [, y, m, d] = matched;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  function parseNumberText(value: unknown) {
+    const n = Number(String(value ?? "").replace(/[,，]/g, "").trim());
+    return Number.isFinite(n) ? String(n) : "";
+  }
+
+  function parseLineItemSuggestions(value: string): ReqItem[] {
+    try {
+      const parsed = JSON.parse(value) as ContractLineItemSuggestion[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map(row => {
+          const qty = parseNumberText(row.qty);
+          const price = parseNumberText(row.unitPrice);
+          const amount = parseNumberText(row.amount) || (qty && price ? String(Math.round(Number(qty) * Number(price) * 100) / 100) : "");
+          return {
+            itemName: String(row.itemName ?? "").trim(),
+            spec: String(row.spec ?? "").trim(),
+            qty,
+            unit: String(row.unit ?? "").trim(),
+            estimatedUnitPrice: price,
+            estimatedAmount: amount,
+          };
+        })
+        .filter(row => row.itemName);
+    } catch {
+      return [];
+    }
+  }
+
+  function applyLineItemSuggestions(rows: ReqItem[]) {
+    setFormItems(prev => {
+      const existing = prev.filter(row => row.itemName.trim());
+      const emptyCount = Math.max(1, 5 - existing.length - rows.length);
+      return [...existing, ...rows, ...blankRows(emptyCount)];
+    });
+  }
+
+  function applyContractAutofill(suggestions: DocumentAutofillSuggestion[]) {
+    let applied = 0;
+    for (const suggestion of suggestions) {
+      const value = String(suggestion.value ?? "").trim();
+      if (!value) continue;
+      if (suggestion.field === "lineItems") {
+        const rows = parseLineItemSuggestions(value);
+        if (rows.length) {
+          applyLineItemSuggestions(rows);
+          applied += rows.length;
+        }
+        continue;
+      }
+      if (suggestion.field === "subject" && !formSubject.trim()) {
+        setFormSubject(value);
+        applied += 1;
+      }
+      if (suggestion.field === "currencyCode") {
+        setFormCurrency(value);
+        applied += 1;
+      }
+      if (suggestion.field === "expectedDate" && !formExpDate) {
+        setFormExpDate(normalizeDate(value));
+        applied += 1;
+      }
+      if (suggestion.field === "contractNote") {
+        setFormRemark(prev => prev.trim() ? prev : value);
+        applied += 1;
+      }
+      if (suggestion.field === "totalAmount" && !formItems.some(it => it.estimatedAmount)) {
+        setFormRemark(prev => prev.trim() ? prev : `合同金额：${value}`);
+        applied += 1;
+      }
+    }
+    toast.success(applied ? `已回填 ${applied} 项识别结果，请核对后保存` : "当前识别结果未匹配到可回填字段");
   }
 
   // 保存
@@ -228,6 +324,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
         deptCode: formDept.trim() || undefined,
         expectedDate: formExpDate || undefined,
         reason: formReason.trim() || undefined,
+        attachmentUrl: serializeAttachmentRefs(formAttachmentUrls, "json-string") || undefined,
         remark: formRemark.trim() || undefined,
         items: filledItems.map(it => ({
           itemCode: it.itemCode?.trim() || undefined,
@@ -324,6 +421,31 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
         <div className={s.field}>
           <label className={s.lbl}>备注</label>
           <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
+        </div>
+      </div>
+
+      <div className={s.formSection} style={{ marginTop: 16 }}>合同 / 附件识别（可选）</div>
+      <div className={s.fieldRow} style={{ alignItems: "start" }}>
+        <div className={s.field}>
+          <label className={s.lbl}>合同附件</label>
+          <AttachmentUploader
+            value={formAttachmentUrls}
+            onChange={setFormAttachmentUrls}
+            label="上传合同/报价/图片（可多个，PDF/图片 ≤15MB）"
+          />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>识别回填</label>
+          <DocumentAutofillPanel
+            fileRefs={formAttachmentUrls}
+            purpose="PROCUREMENT_CONTRACT"
+            fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote", "lineItems"]}
+            onApply={applyContractAutofill}
+            title="识别合同并回填"
+            helperText="识别结果先人工勾选确认，再回填到申请主题、币种、到货日和采购明细。"
+            reviewTitle="识别结果（请人工审核）"
+            applyButtonLabel="确认选中结果并回填"
+          />
         </div>
       </div>
 

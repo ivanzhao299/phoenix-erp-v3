@@ -349,7 +349,7 @@ export class RequestsService {
       const saved = await mgr.save(Prc2PurchaseRequestEntity, req);
 
       await this.approvalEngine.startApproval({
-        moduleCode:   'MENU_PRC2_ORDER',
+        moduleCode:   'MENU_PRC2_REQUEST',
         bizType:      'PR',
         bizId:        id,
         bizNo:        req.reqNo,

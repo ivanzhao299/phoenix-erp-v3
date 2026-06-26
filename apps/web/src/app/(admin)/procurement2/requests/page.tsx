@@ -280,7 +280,7 @@ export default function PurchaseRequestsPage() {
     setSubmitCandidateLoading(true);
     try {
       const qs = new URLSearchParams({
-        menuCode: "MENU_PRC2_ORDER",
+        menuCode: "MENU_PRC2_REQUEST",
         requiredPerm: "E"
       });
       if (row.companyCode) qs.set("companyCode", row.companyCode);

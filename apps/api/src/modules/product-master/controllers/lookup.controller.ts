@@ -1,10 +1,12 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
 import { ProductMasterService } from '../services/product-master.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
+import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
+import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 
 /**
  * LookupController — /api/lookup/*
@@ -26,6 +28,7 @@ export class LookupController {
     @InjectEntityManager() private readonly em: EntityManager,
     private readonly cls: ClsService,
     private readonly dataScope: DataScopeService,
+    private readonly masterDataRuntime: MasterDataRuntimeService,
   ) {}
 
   /**
@@ -231,6 +234,46 @@ export class LookupController {
          ORDER BY material_type, material_name`,
     );
     return { code: 200, data: rows };
+  }
+
+  /**
+   * POST /api/lookup/materials/quick — 采购录入页就地快建物料。
+   *
+   * 查询下拉保持 JWT-only；写入必须走菜单权限。采购申请/订单高频场景允许
+   * 使用采购创建权限快速补物料，同时复用主数据 Runtime 的编码、校验与审计。
+   */
+  @Post('materials/quick')
+  @UseGuards(MenuGuard)
+  @RequireMenu('MENU_PRC2_REQUEST', 'C', ['MENU_PRC2_ORDER', 'MENU_MD_MATERIAL', 'MENU_MASTER_DATA'])
+  async createMaterialQuick(@Body() body: Record<string, unknown>, @Req() req: any) {
+    const name = String(body?.material_name ?? body?.materialName ?? body?.name ?? '').trim();
+    if (!name) throw new BadRequestException('物料名称不能为空');
+    if (name.length > 120) throw new BadRequestException('物料名称过长');
+
+    const materialType = String(body?.material_type ?? body?.materialType ?? 'OTHER').trim() || 'OTHER';
+    const dto = {
+      material_name: name,
+      material_type: materialType,
+      spec: String(body?.spec ?? '').trim() || undefined,
+      unit: String(body?.unit ?? '').trim() || undefined,
+      default_currency: String(body?.default_currency ?? body?.defaultCurrency ?? 'CNY').trim() || 'CNY',
+      remark: String(body?.remark ?? '').trim() || undefined,
+    };
+    const operator = req?.user?.username ?? req?.user?.name ?? req?.user?.userId ?? 'PROCUREMENT_QUICK_CREATE';
+    const created = await this.masterDataRuntime.createQuick('material', dto, operator);
+    this.cache.delete('materials');
+    return {
+      code: 200,
+      data: {
+        material_code: created.code,
+        material_name: created.name,
+        material_type: dto.material_type,
+        spec: dto.spec,
+        unit: dto.unit,
+        default_currency: dto.default_currency,
+        status: 'ACTIVE',
+      },
+    };
   }
 
   /**

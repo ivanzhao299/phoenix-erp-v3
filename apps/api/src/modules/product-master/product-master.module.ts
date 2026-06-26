@@ -6,6 +6,7 @@ import { ProductSkusController } from './controllers/product-skus.controller';
 import { ProductCatalogController } from './controllers/product-catalog.controller';
 import { LookupController } from './controllers/lookup.controller';
 import { MenuAdminController } from './controllers/menu-admin.controller';
+import { MasterDataCenterModule } from '../master-data/master-data-center.module';
 
 /**
  * ProductMasterModule — Phase H2
@@ -19,6 +20,7 @@ import { MenuAdminController } from './controllers/menu-admin.controller';
  * 为 H3（价格接 SKU）和 H4（库存批次统一 grade_code）做准备。
  */
 @Module({
+  imports: [MasterDataCenterModule],
   controllers: [
     ProductGradesController,
     PackagingSpecsController,

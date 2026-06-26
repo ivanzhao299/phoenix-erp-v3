@@ -6,7 +6,7 @@
  *   ① 输入框可直接打字，实时本地过滤已加载的物料列表（按 material_name 包含、忽略大小写）
  *   ② 候选里没有完全匹配项时，下拉底部出现「+ 新建物料「<词>」」入口
  *   ③ 内联表单：物料名称(预填) + 物料类型(DictSelect PRC_MATERIAL_TYPE) + 规格 + 单位
- *      → POST /master-data/runtime/material/quick 直接建 ACTIVE 物料
+ *      → POST /lookup/materials/quick 直接建 ACTIVE 物料
  *      → 新物料并入本地列表 + 自动选中 + invalidateCache + toast
  *
  * value/onChange 走 material_name（采购明细 itemName 存名称）；
@@ -40,6 +40,7 @@ interface MaterialPickerProps {
 
 // G91：读走开放 lookup 端点（仅 JWT，采购录入用户可拉）；runtime/active 受主数据权限门控会 403
 const MATERIAL_LOOKUP = '/lookup/materials';
+const MATERIAL_QUICK_CREATE = '/lookup/materials/quick';
 
 // 归一化 runtime 返回（兼容 {code,name} 简化形与全行形）
 function normalize(r: any): MaterialRow {
@@ -47,7 +48,7 @@ function normalize(r: any): MaterialRow {
   return {
     material_code: code,
     material_name: r.material_name ?? r.name ?? code,
-    material_type: r.material_type ?? undefined,
+    material_type: r.material_type ?? r.materialType ?? undefined,
     spec: r.spec ?? undefined,
     unit: r.unit ?? undefined,
   };
@@ -178,8 +179,8 @@ export function MaterialPicker({
     if (!name) { toast.error('物料名称不能为空'); return; }
     setSaving(true);
     try {
-      const res = await request<{ code: string; name: string }>(
-        '/master-data/runtime/material/quick',
+      const res = await request<{ code?: string; name?: string; data?: any }>(
+        MATERIAL_QUICK_CREATE,
         {
           method: 'POST',
           body: JSON.stringify({
@@ -190,12 +191,13 @@ export function MaterialPicker({
           }),
         },
       );
+      const data = res?.data ?? res;
       const row: MaterialRow = {
-        material_code: res.code,
-        material_name: res.name ?? name,
-        material_type: nType || undefined,
-        spec: nSpec.trim() || undefined,
-        unit: nUnit.trim() || undefined,
+        material_code: data.material_code ?? data.code,
+        material_name: data.material_name ?? data.name ?? name,
+        material_type: (data.material_type ?? data.materialType ?? nType) || undefined,
+        spec: (data.spec ?? nSpec.trim()) || undefined,
+        unit: (data.unit ?? nUnit.trim()) || undefined,
       };
       // 失效缓存并并入本地列表（避免等 5min TTL）
       invalidateCache(`lookup:${MATERIAL_LOOKUP}`);
