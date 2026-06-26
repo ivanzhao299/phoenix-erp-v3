@@ -199,6 +199,20 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Master-data center aggregate APIs must not use coarse MENU_MASTER_DATA as altMenus fallback; use MENU_MD_CENTER or MENU_MD_QUALITY only.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/data-quality\/data-quality\.controller\.ts$/.test(file) &&
+      /@RequireMenu\([^)]*\[[^\]]*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Data-quality APIs must not use coarse MENU_MASTER_DATA as altMenus fallback; use MENU_MD_QUALITY only.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master-data\/master-data-runtime\.service\.ts$/.test(file) &&
       /dataScope\.resolve\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
     ) {

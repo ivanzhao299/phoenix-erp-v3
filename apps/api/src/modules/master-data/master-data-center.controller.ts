@@ -116,8 +116,6 @@ export class MasterDataCenterController {
     if (!user) throw new ForbiddenException('User context not found.');
     if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return undefined;
     if (user.role === 'ROLE_ADMIN') return undefined;
-    if (isMenuRegistered(MASTER_DATA_SUPER_MENU) && hasPerm(user.permissions, MASTER_DATA_SUPER_MENU, 'V')) return undefined;
-
     const allowed = new Set<string>();
     for (const [type, menu] of Object.entries(OPERATION_TYPE_TO_MENU)) {
       if (!isMenuRegistered(menu)) continue;
@@ -129,41 +127,41 @@ export class MasterDataCenterController {
   // ══ G5.5-E 运营平台端点 ════════════════════════════════════════════════════
   /** 6 中心实时统计（首页运营工作台用） */
   @Get('operations/centers')
-  @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_CENTER', 'V')
   async opsCenters(@Req() req: any) { return this.ops.getCenters(this.allowedOperationTypes(req)); }
 
   /** 全局主数据搜索 */
   @Get('operations/search')
-  @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_CENTER', 'V')
   async opsSearch(@Query('keyword') keyword: string, @Req() req: any) {
     return this.ops.search(keyword, this.allowedOperationTypes(req));
   }
 
   /** 30 天趋势 */
   @Get('operations/trend')
-  @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_CENTER', 'V')
   async opsTrend(@Query('days') days?: string) {
     return this.ops.getTrend(days ? parseInt(days, 10) : 30);
   }
 
   /** 运营待办（待审批 / 缺资料 / 重复 / 归档阻断） */
   @Get('operations/todo')
-  @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_CENTER', 'V')
   async opsTodo(@Req() req: any) { return this.ops.getOperationsTodo(this.allowedOperationTypes(req)); }
 
   /** G5.5-D 治理驾驶舱：总评分 + 5 子评分 */
   @Get('governance/scores')
-  @RequireMenu('MENU_MD_QUALITY', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_QUALITY', 'V')
   async governanceScores() { return this.gov.computeScores(); }
 
   /** G5.5-D 字典覆盖率 */
   @Get('governance/dict-coverage')
-  @RequireMenu('MENU_MD_QUALITY', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_QUALITY', 'V')
   async dictCoverage() { return this.dictGov.coverage(); }
 
   /** G5.5-D 字典依赖图 */
   @Get('governance/dict-dependency-map')
-  @RequireMenu('MENU_MD_QUALITY', 'V', ['MENU_MASTER_DATA'])
+  @RequireMenu('MENU_MD_QUALITY', 'V')
   async dictDependencyMap() { return this.dictGov.dependencyMap(); }
 
   /**

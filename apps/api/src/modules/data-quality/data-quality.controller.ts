@@ -25,7 +25,7 @@ import { DataQualityAggregatorService } from './services/data-quality-aggregator
  */
 @Controller('api/data-quality')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_MD_QUALITY', 'V', ['MENU_MASTER_DATA'])
+@RequireMenu('MENU_MD_QUALITY', 'V')
 export class DataQualityController {
   constructor(
     private readonly md:    MasterDataHealthService,
