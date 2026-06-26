@@ -166,7 +166,7 @@ for (const file of trackedFiles()) {
       /id:\s*["']mdc-overview["']/.test(line) &&
       /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
     ) {
-      add(file, lineNo, 'Sidebar master-data overview must use MENU_MD_CENTER with MENU_MASTER_DATA only as superPerm fallback.', line);
+      add(file, lineNo, 'Sidebar master-data overview must use MENU_MD_CENTER, not coarse MENU_MASTER_DATA.', line);
     }
 
     if (
@@ -467,6 +467,10 @@ for (const file of trackedFiles()) {
   }
 
   if (file.endsWith('apps/web/src/components/layout/Sidebar.tsx')) {
+    if (/superPerm:\s*["']MENU_MASTER_DATA["']/.test(text)) {
+      add(file, 1, 'Sidebar master-data child entries must not use MENU_MASTER_DATA superPerm fallback; grant explicit MENU_MD_* permissions instead.', lines[0] || file);
+    }
+
     const coarseOrgRoutes = [
       /path:\s*["']\/master-data\/organizations["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
       /path:\s*["']\/master-data\/business-units["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,

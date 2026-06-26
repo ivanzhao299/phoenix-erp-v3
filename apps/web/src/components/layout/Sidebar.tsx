@@ -56,7 +56,7 @@ export type MenuItem = {
   aliases?: string[];
   perm: string | null;
   requiredPerm?: string;
-  // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
+  // 受控超级码兜底。高风险目录需优先拆到原子菜单，避免父权限透出无权限子菜单。
   superPerm?: string;
   // 过渡期兼容码：优先使用原子菜单码；老角色仍可通过旧粗粒度码看见同一入口。
   altPerms?: string[];
@@ -213,31 +213,31 @@ export const MENU: MenuItem[] = [
   ]},
 
   // 9. 主数据中心 — 全量主数据统一入口
-  // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>，superPerm=MENU_MASTER_DATA
-  //   作"管理全部主数据"超级兜底（持超级码即见全部；按实体授权者只见对应叶子）。
-  //   与后端 MasterDataTypeGuard 完全对齐（per-type OR 超级码）。
+  // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>。
+  //   前端菜单不再用 MENU_MASTER_DATA 展示全部叶子；按实体授权者只见对应叶子。
+  //   具有全局管理职责的角色应显式持有对应 MENU_MD_* 原子权限或 * 通配。
   //   组织/公司/事业群/数据范围已拆为原子码；字典→MENU_SETTINGS_DATA；概览=MENU_MD_CENTER；待审批按相关主数据叶子权限可见。
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
-    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MD_CENTER",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG",           superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT", superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING",   superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MD_SKU",         superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MD_WAREHOUSE",   superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MD_STORE",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MD_DRIVER",      superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MD_VEHICLE",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MD_CENTER" },
+    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG" },
+    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT" },
+    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY" },
+    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT" },
+    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
+    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },
+    { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL" },
+    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT" },
+    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE" },
+    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING" },
+    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MD_SKU" },
+    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MD_WAREHOUSE" },
+    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MD_STORE" },
+    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MD_DRIVER" },
+    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MD_VEHICLE" },
+    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT" },
+    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT" },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
-    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      superPerm: "MENU_MASTER_DATA", altPerms: [
+    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      altPerms: [
       "MENU_MD_SUPPLIER", "MENU_MD_PROJECT", "MENU_MD_MATERIAL", "MENU_MD_PRODUCT",
       "MENU_MD_GRADE", "MENU_MD_PACKAGING", "MENU_MD_SKU", "MENU_MD_WAREHOUSE",
       "MENU_MD_STORE", "MENU_MD_DRIVER", "MENU_MD_VEHICLE", "MENU_MD_CASH_ACCOUNT",
