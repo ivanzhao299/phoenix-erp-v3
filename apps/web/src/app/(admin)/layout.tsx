@@ -252,8 +252,8 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
               className={styles.userChip}
               role="button"
               tabIndex={0}
-              onClick={() => router.push('/profile')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push('/profile'); }}
+              onClick={() => router.push('/settings/profile')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push('/settings/profile'); }}
               title={t('layout.go_to_profile', '进入个人中心')}
               style={{ cursor: 'pointer' }}
             >

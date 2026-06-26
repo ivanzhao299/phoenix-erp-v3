@@ -53,6 +53,7 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
 // ── Menu Tree (Lucide icons) ─────────────────────────────────────
 export type MenuItem = {
   id: string; path?: string; Icon: LucideIcon; label: string;
+  aliases?: string[];
   perm: string | null;
   requiredPerm?: string;
   // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
@@ -191,8 +192,8 @@ export const MENU: MenuItem[] = [
 
   // 7. 审批中心 — 工作流统一入口（原"工作流"改名）
   { id: "approval", Icon: ListChecks, label: "审批中心", perm: "MENU_WORKFLOW", children: [
-    { id: "ap-todos",   path: "/workflow/todos",         Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO",    altPerms: ["MENU_WORKFLOW"] },
-    { id: "ap-history", path: "/workflow/history",        Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY", altPerms: ["MENU_WORKFLOW"] },
+    { id: "ap-todos",   path: "/workflow/todos",         aliases: ["/workflow/tasks/todo"], Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO",    altPerms: ["MENU_WORKFLOW"] },
+    { id: "ap-history", path: "/workflow/history",        aliases: ["/workflow/tasks/done"], Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY", altPerms: ["MENU_WORKFLOW"] },
     { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW_NOTIFY",  altPerms: ["MENU_WORKFLOW"] },
     { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW_CONFIG",  requiredPerm: "E" },
     { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW_RULES",   requiredPerm: "C" },
@@ -317,11 +318,16 @@ export function getFirstAccessiblePath(hasPermission: PermissionChecker, groupId
 
 export function findMenuItemByPath(pathname: string): MenuItem | undefined {
   let best: MenuItem | undefined;
-  const consider = (item: MenuItem) => {
-    if (!item.path) return;
-    if (pathname === item.path || pathname.startsWith(item.path + "/")) {
-      if (!best?.path || item.path.length > best.path.length) best = item;
+  const considerPath = (item: MenuItem, path: string | undefined) => {
+    if (!path) return;
+    if (pathname === path || pathname.startsWith(path + "/")) {
+      const bestLen = best?.path?.length ?? 0;
+      if (path.length > bestLen) best = item;
     }
+  };
+  const consider = (item: MenuItem) => {
+    considerPath(item, item.path);
+    for (const alias of item.aliases ?? []) considerPath(item, alias);
   };
   for (const item of MENU) {
     consider(item);
@@ -563,7 +569,11 @@ export function pathTitle(pathname: string): string | undefined {
   };
   for (const item of MENU) {
     consider(item.path, item.label);
+    for (const alias of item.aliases ?? []) consider(alias, item.label);
     for (const c of item.children ?? []) consider(c.path, c.label);
+    for (const c of item.children ?? []) {
+      for (const alias of c.aliases ?? []) consider(alias, c.label);
+    }
   }
   return best?.label;
 }

@@ -12,9 +12,11 @@ import DashboardKPIs from './_components/DashboardKPIs';
 import styles from './dashboard.module.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { getFirstAccessiblePath } from '@/components/layout/Sidebar';
 
 type QuickLink = {
   path: string;
+  groupId?: string;
   label: string;
   desc: string;
   color: string;
@@ -59,20 +61,20 @@ export default function DashboardPage() {
   }, []);
 
   const QUICK_LINKS: QuickLink[] = [
-    { path: '/breeding',    label: t('ui.养殖管理','养殖管理'), desc: t('ui.鸡舍 / 鸡群 / 日报','鸡舍 / 鸡群 / 日报'),   color: 'var(--status-success)', icon: <Egg size={22} />, perm: 'MENU_FARM_DATA' },
-    { path: '/packaging',   label: t('ui.分级包装','分级包装'), desc: t('ui.集蛋 / 分级 / 包装','集蛋 / 分级 / 包装'),   color: 'var(--status-info)', icon: <Package size={22} />, perm: 'MENU_PKG_OP', altPerms: ['MENU_PKG_MGR'] },
-    { path: '/warehouse',   label: t('ui.仓储库存','仓储库存'), desc: t('ui.入库 / 出库 / 盘点','入库 / 出库 / 盘点'),   color: 'var(--color-purple-500)', icon: <Archive size={22} />, perm: 'MENU_WMS_VIEW' },
-    { path: '/sales2/orders', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: 'var(--status-warning)', icon: <ShoppingCart size={22} />, perm: 'MENU_SALES2_ORDER' },
-    { path: '/sales2/delivery', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: 'var(--status-info)', icon: <Truck size={22} />, perm: 'MENU_SALES2_DELIVERY' },
-    { path: '/finance2',        label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: 'var(--status-warning)', icon: <TrendingUp size={22} />, perm: 'MENU_FIN2' },
-    { path: '/quality',         label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: 'var(--color-purple-500)', icon: <CheckCircle size={22} />, perm: 'MENU_QA_OP', altPerms: ['MENU_QA_MGR'] },
-    { path: '/procurement2/dashboard', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2', 'MENU_PRC2_MASTER'] },
-    { path: '/analytics',   label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: 'var(--violet-500)', icon: <BarChart2 size={22} />, perm: 'MENU_DASHBOARD' },
-    { path: '/settings',    label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: 'var(--slate-400)', icon: <Users size={22} />, perm: 'MENU_SETTINGS_USER' },
+    { path: '/breeding', groupId: 'production', label: t('ui.养殖管理','养殖管理'), desc: t('ui.鸡舍 / 鸡群 / 日报','鸡舍 / 鸡群 / 日报'),   color: 'var(--status-success)', icon: <Egg size={22} />, perm: 'MENU_FARM_DATA' },
+    { path: '/packaging', groupId: 'production', label: t('ui.分级包装','分级包装'), desc: t('ui.集蛋 / 分级 / 包装','集蛋 / 分级 / 包装'),   color: 'var(--status-info)', icon: <Package size={22} />, perm: 'MENU_PKG_OP', altPerms: ['MENU_PKG_MGR'] },
+    { path: '/warehouse', groupId: 'inventory', label: t('ui.仓储库存','仓储库存'), desc: t('ui.入库 / 出库 / 盘点','入库 / 出库 / 盘点'),   color: 'var(--color-purple-500)', icon: <Archive size={22} />, perm: 'MENU_WMS_VIEW' },
+    { path: '/sales2/orders', groupId: 'sales', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: 'var(--status-warning)', icon: <ShoppingCart size={22} />, perm: 'MENU_SALES2_ORDER' },
+    { path: '/sales2/delivery', groupId: 'sales', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: 'var(--status-info)', icon: <Truck size={22} />, perm: 'MENU_SALES2_DELIVERY' },
+    { path: '/finance2', groupId: 'finance', label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: 'var(--status-warning)', icon: <TrendingUp size={22} />, perm: 'MENU_FIN2' },
+    { path: '/quality', groupId: 'production', label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: 'var(--color-purple-500)', icon: <CheckCircle size={22} />, perm: 'MENU_QA_OP', altPerms: ['MENU_QA_MGR'] },
+    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2', 'MENU_PRC2_MASTER'] },
+    { path: '/analytics', groupId: 'analytics', label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: 'var(--violet-500)', icon: <BarChart2 size={22} />, perm: 'MENU_DASHBOARD' },
+    { path: '/settings', groupId: 'settings', label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: 'var(--slate-400)', icon: <Users size={22} />, perm: 'MENU_SETTINGS_USER' },
   ];
-  const visibleQuickLinks = QUICK_LINKS.filter(q =>
-    hasPermission(q.perm, 'V') || (q.altPerms || []).some(p => hasPermission(p, 'V')),
-  );
+  const visibleQuickLinks = QUICK_LINKS
+    .map(q => ({ ...q, path: q.groupId ? (getFirstAccessiblePath(hasPermission, q.groupId) || '') : q.path }))
+    .filter(q => q.path && (hasPermission(q.perm, 'V') || (q.altPerms || []).some(p => hasPermission(p, 'V'))));
 
   // 守卫未通过（无权或正在重定向）→ 不渲染任何内容，避免 CEO 画面闪现
   if (allowed !== true) return null;

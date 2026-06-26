@@ -20,6 +20,7 @@ import { NavCard } from '@/components/ui/NavCard';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePermission } from '@/hooks/usePermission';  // G58 现金收付款入口门控
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { KPI_GRID, type AccentColor } from '@/lib/design-tokens';
 import { currencySymbol } from '@/lib/currency';
@@ -131,21 +132,23 @@ interface ModuleItem {
   description: string;
   path:        string;
   accent:      AccentKey;
+  perm:        string;
+  altPerms?:   string[];
 }
 
 const MODULES: ModuleItem[] = [
-  { icon: TrendingUp,     title: '应收账款管理', path: '/finance2/ar',                accent: 'green',  description: '客户发票、收款核销、账龄分析。' },
-  { icon: BookOpen,       title: '应收总账',     path: '/finance2/ar-ledger',         accent: 'green',  description: '集团应收往来余额台账 · 期初/本期/期末 · 多币种本币折算。' },
+  { icon: TrendingUp,     title: '应收账款管理', path: '/finance2/ar',                accent: 'green',  perm: 'MENU_FIN2_AR', description: '客户发票、收款核销、账龄分析。' },
+  { icon: BookOpen,       title: '应收总账',     path: '/finance2/ar-ledger',         accent: 'green',  perm: 'MENU_FIN2_AR_LEDGER', description: '集团应收往来余额台账 · 期初/本期/期末 · 多币种本币折算。' },
   // g199 三大新页(2026-06-19)— 财务总监月末关账核心路径
-  { icon: Scale,          title: '应收三方对账', path: '/finance2/ar-reconciliation', accent: 'green',  description: '业务发票 ↔ ERP 总账 ↔ 好业财应收 · 按客户对齐 · 差异飘红。' },
-  { icon: Cloud,          title: '好业财同步',   path: '/finance2/chanjet-sync',      accent: 'blue',   description: '只读好业财→PG 快照 · 部门对账 · 审核入账 fin_ar_ledger(财务总监独占)。' },
-  { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
-  { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   description: '多账户余额管理、流水账本、转账审批。' },
-  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },
-  { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', description: '出资台账、结算审批(退回/抵扣/核销)、联动资金账户。' },
-  { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', description: '费用申请全流程审批,审批通过自动生成报销,付款联动资金账户。' },
-  { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   description: '报销台账,付款事务安全,自动扣减现金账户余额。' },
-  { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 可支配资金 · 项目财务。' },
+  { icon: Scale,          title: '应收三方对账', path: '/finance2/ar-reconciliation', accent: 'green',  perm: 'MENU_FIN2_AR_LEDGER', description: '业务发票 ↔ ERP 总账 ↔ 好业财应收 · 按客户对齐 · 差异飘红。' },
+  { icon: Cloud,          title: '好业财同步',   path: '/finance2/chanjet-sync',      accent: 'blue',   perm: 'MENU_FIN2_AR', description: '只读好业财→PG 快照 · 部门对账 · 审核入账 fin_ar_ledger(财务总监独占)。' },
+  { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  perm: 'MENU_FIN2_AP', description: '供应商发票管理、付款核销、多币种、账龄分析。' },
+  { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   perm: 'MENU_FIN2_CASH_VIEW', altPerms: ['MENU_FIN2_CASH'], description: '多账户余额管理、流水账本、转账审批。' },
+  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   perm: 'MENU_FIN2_CASH_TRANSFER', altPerms: ['MENU_FIN2_CASH'], description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },
+  { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', perm: 'MENU_FIN2_SHAREHOLDER', description: '出资台账、结算审批(退回/抵扣/核销)、联动资金账户。' },
+  { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', perm: 'MENU_FIN2_EXPENSE', description: '费用申请全流程审批,审批通过自动生成报销,付款联动资金账户。' },
+  { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   perm: 'MENU_FIN2_REIMBURSE', description: '报销台账,付款事务安全,自动扣减现金账户余额。' },
+  { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  perm: 'MENU_FIN2_REPORT', description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 可支配资金 · 项目财务。' },
 ];
 
 // ModuleCard 已删除，改用全局 NavCard 组件
@@ -154,6 +157,7 @@ const MODULES: ModuleItem[] = [
 
 export default function Finance2DashboardPage() {
   const { canCreate: canCreateTxn } = usePermission('MENU_FIN2_CASH_TXN');  // G58 出纳现金收付款入口
+  const { hasPermission } = useAuth();
   const [arSummary,      setArSummary]      = useState<ArSummaryData | null>(null);
   const [cashDash,       setCashDash]       = useState<CashDashData | null>(null);
   const [shSummary,      setShSummary]      = useState<ShSummaryData | null>(null);
@@ -383,7 +387,9 @@ export default function Finance2DashboardPage() {
       {/* ── 功能模块导航 ──────────────────────────────────────────────── */}
       <SectionLabel>功能模块</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {MODULES.map((m) => (
+        {MODULES
+          .filter(m => hasPermission(m.perm, 'V') || (m.altPerms?.some(p => hasPermission(p, 'V')) ?? false))
+          .map((m) => (
           <NavCard
             key={m.path}
             icon={m.icon}

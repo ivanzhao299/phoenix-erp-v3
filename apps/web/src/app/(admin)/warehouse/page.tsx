@@ -18,6 +18,7 @@ import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { NavCard } from "@/components/ui/NavCard";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   PackagePlus, PackageMinus, ListChecks, Search, ArrowDown, ArrowUp,
   Package, AlertTriangle, RefreshCw, MoveHorizontal, MapPin, BookOpen,
@@ -95,6 +96,7 @@ function ZoneCard({ zone, warningLabel }: { zone: Zone; warningLabel: string }) 
 
 export default function WarehouseDashboard() {
   const { t } = useLanguage();
+  const { hasPermission } = useAuth();
   const [zones, setZones] = useState<Zone[]>([]);
   const [inbounds, setInbounds] = useState<InboundRow[]>([]);
   const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
@@ -161,14 +163,14 @@ export default function WarehouseDashboard() {
 
   // g200e 快捷入口:全局 NavCard + description 副标
   const QUICK = [
-    { path: "/warehouse/inbound",   Icon: PackagePlus,    label: t("ui.入库管理", "入库管理"), desc: t("ui.入库单创建", "入库单录入、扫码收货、批次台账上链。"),       accent: "green"  as const },
-    { path: "/warehouse/outbound",  Icon: PackageMinus,   label: t("ui.出库管理", "出库管理"), desc: t("ui.出库单创建", "出库单录入、FIFO 出库、含调拨与销售出库。"), accent: "red"    as const },
-    { path: "/warehouse/transfer",  Icon: MoveHorizontal, label: t("ui.库存调拨", "库存调拨"), desc: t("ui.库存调拨", "库间调拨,事务安全,源/目仓批次一致。"),         accent: "blue"   as const },
-    { path: "/warehouse/stocktake", Icon: ListChecks,     label: t("ui.盘点管理", "盘点管理"), desc: t("ui.盘点单", "盘点单生成、差异比对、盘盈/盘亏入账。"),         accent: "amber"  as const },
-    { path: "/warehouse/query",     Icon: Search,         label: t("ui.库存查询", "库存查询"), desc: t("ui.库存查询", "按批次/库位/品目/到期日多维查询。"),          accent: "violet" as const },
-    { path: "/warehouse/expiry",    Icon: AlertTriangle,  label: t("ui.临期预警", "临期预警"), desc: t("ui.临期预警", "14 天内临期批次提示与紧急处置入口。"),        accent: "amber"  as const },
-    { path: "/warehouse/locations", Icon: MapPin,         label: t("ui.库位管理", "库位管理"), desc: t("ui.库位管理", "库位档案、容量、温区,与库区联动。"),          accent: "blue"   as const },
-    { path: "/warehouse/ledger",    Icon: BookOpen,       label: t("ui.库存台账", "库存台账"), desc: t("ui.库存台账", "inv_batches 唯一台账,所有动作全可追溯。"),     accent: "cyan"   as const },
+    { path: "/warehouse/inbound",   Icon: PackagePlus,    label: t("ui.入库管理", "入库管理"), desc: t("ui.入库单创建", "入库单录入、扫码收货、批次台账上链。"),       accent: "green"  as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/outbound",  Icon: PackageMinus,   label: t("ui.出库管理", "出库管理"), desc: t("ui.出库单创建", "出库单录入、FIFO 出库、含调拨与销售出库。"), accent: "red"    as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/transfer",  Icon: MoveHorizontal, label: t("ui.库存调拨", "库存调拨"), desc: t("ui.库存调拨", "库间调拨,事务安全,源/目仓批次一致。"),         accent: "blue"   as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/stocktake", Icon: ListChecks,     label: t("ui.盘点管理", "盘点管理"), desc: t("ui.盘点单", "盘点单生成、差异比对、盘盈/盘亏入账。"),         accent: "amber"  as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/query",     Icon: Search,         label: t("ui.库存查询", "库存查询"), desc: t("ui.库存查询", "按批次/库位/品目/到期日多维查询。"),          accent: "violet" as const, perm: "MENU_WMS_VIEW" },
+    { path: "/warehouse/expiry",    Icon: AlertTriangle,  label: t("ui.临期预警", "临期预警"), desc: t("ui.临期预警", "14 天内临期批次提示与紧急处置入口。"),        accent: "amber"  as const, perm: "MENU_WMS_VIEW" },
+    { path: "/warehouse/locations", Icon: MapPin,         label: t("ui.库位管理", "库位管理"), desc: t("ui.库位管理", "库位档案、容量、温区,与库区联动。"),          accent: "blue"   as const, perm: "MENU_WMS_MASTER" },
+    { path: "/warehouse/ledger",    Icon: BookOpen,       label: t("ui.库存台账", "库存台账"), desc: t("ui.库存台账", "inv_batches 唯一台账,所有动作全可追溯。"),     accent: "cyan"   as const, perm: "MENU_WMS_VIEW" },
   ];
   const warningLabel = t("ui.容量预警", "容量预警");
 
@@ -253,7 +255,7 @@ export default function WarehouseDashboard() {
             gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
             gap: 12,
           }}>
-            {QUICK.map(q => (
+            {QUICK.filter(q => hasPermission(q.perm, "V")).map(q => (
               <NavCard key={q.path} icon={q.Icon} title={q.label} description={q.desc} href={q.path} accent={q.accent} />
             ))}
           </div>

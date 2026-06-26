@@ -80,7 +80,7 @@ const ALL_CARDS: QuickCard[] = [
 
   // ───── 通用 ─────
   { key: 'todo',        title: '我的待办',          desc: '待处理审批任务',
-    icon: Inbox,         href: '/workflow/tasks/todo',                                accent: '#3B82F6', perm: 'MENU_WORKFLOW_TODO',      permOp: 'V' },
+    icon: Inbox,         href: '/workflow/todos',                                     accent: '#3B82F6', perm: 'MENU_WORKFLOW_TODO',      permOp: 'V' },
   { key: 'my_submit',   title: '我的提交',          desc: '本人发起的所有单据 · 审批进度',
     icon: Send,          href: '/workflow/instances?owner=me',                        accent: '#6B7280', perm: 'MENU_WORKFLOW_HISTORY',   permOp: 'V' },
 ];

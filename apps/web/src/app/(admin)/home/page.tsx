@@ -418,7 +418,7 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
             const isUrgent = due && !isOverdue ? (due.getTime() - Date.now()) < 24 * 3600 * 1000 : false;
             const dotColor = isOverdue ? 'var(--status-danger)' : isUrgent ? 'var(--status-warning)' : 'var(--color-primary)';
             return (
-              <Link key={i} href={`/workflow/tasks/todo?taskNo=${encodeURIComponent(t.task_no)}`} style={{
+              <Link key={i} href={`/workflow/todos?taskNo=${encodeURIComponent(t.task_no)}`} style={{
                 position: 'relative', display: 'flex', gap: 12, padding: '10px 12px 10px 16px', marginLeft: -12,
                 borderRadius: 8, textDecoration: 'none', color: 'inherit',
                 transition: 'background 0.12s',
