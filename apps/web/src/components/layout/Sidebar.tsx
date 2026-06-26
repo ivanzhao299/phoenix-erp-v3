@@ -216,12 +216,12 @@ export const MENU: MenuItem[] = [
   // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>，superPerm=MENU_MASTER_DATA
   //   作"管理全部主数据"超级兜底（持超级码即见全部；按实体授权者只见对应叶子）。
   //   与后端 MasterDataTypeGuard 完全对齐（per-type OR 超级码）。
-  //   组织/公司/用户组织走 /api/org → MENU_SYS_ORG；字典→MENU_SETTINGS_DATA；概览/待审批=超级码本身。
+  //   组织/公司/事业群/数据范围已拆为原子码；字典→MENU_SETTINGS_DATA；概览/待审批=超级码本身。
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
     { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_SYS_ORG"         },
-    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_SYS_ORG"         },
-    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_SYS_ORG"         },
+    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG",           superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT", superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY",       superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT",     superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER",    superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER",    superPerm: "MENU_MASTER_DATA" },
@@ -247,7 +247,7 @@ export const MENU: MenuItem[] = [
     { id: "stg-users",       path: "/settings/users",         Icon: Users,       label: "用户管理",   perm: "MENU_SETTINGS_USER" },
     { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色与权限", perm: "MENU_SETTINGS_ROLE" },
     { id: "stg-psets",       path: "/settings/permission-sets", Icon: Layers,    label: "权限集",     perm: "MENU_SETTINGS_PERMISSION_SET" },
-    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SYS_ORG"       },
+    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SETTINGS_DATA_SCOPE" },
     { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_CONFIG" },
     { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_SECURITY" },
     { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_AUDIT", altPerms: ["MENU_SYS_MONITOR"] },

@@ -17,6 +17,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { ConfirmDialogV2 } from '@/components/design-system';
 import { useToast } from '@/contexts/ToastContext';
+import { usePermission } from '@/hooks/usePermission';
 import { Shield, Plus, Trash2, Power, Search, X, Users, Briefcase, Building2, Map, Globe } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import {
@@ -63,6 +64,7 @@ const authHeaders = () => ({
 // ── 组件 ────────────────────────────────────────────────────────────────────
 export default function DataScopesPage() {
   const toast = useToast();
+  const { canView, canCreate, canEdit, canDelete } = usePermission('MENU_SETTINGS_DATA_SCOPE');
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -96,6 +98,10 @@ export default function DataScopesPage() {
   }, []);
 
   useEffect(() => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     fetchScopes();
     // 角色 + 菜单 selector 数据
     (async () => {
@@ -112,8 +118,7 @@ export default function DataScopesPage() {
         setMenus(flat);
       } catch { /* selector 加载失败不阻塞主功能 */ }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canView, fetchScopes]);
 
   // ── 操作 ──────────────────────────────────────────────────────────────────
   const handleUpdateScope = async (id: number, scopeType: string) => {
@@ -206,16 +211,20 @@ export default function DataScopesPage() {
   const menuNameMap = useMemo(() => Object.fromEntries(menus.map(m => [m.menu_code, m.menu_name_zh])), [menus]);
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
+  if (!canView) {
+    return <div className="text-text-muted" style={{ padding: 40, textAlign: 'center' }}>无权限查看数据范围规则</div>;
+  }
+
   return <div>
       <PageHeader
         title="数据范围配置"
         subtitle="数据可见性第2层·范围等级：角色 × 模块 → SELF / PROJECT / COMPANY / REGION / GROUP（第1层功能权限见「角色与权限」，第3层组织归属见「用户管理」）"
         breadcrumb={['系统设置', '数据范围']}
-        actions={
+        actions={canCreate ? (
           <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
             <Plus size={13} /> 新增规则
           </button>
-        }
+        ) : null}
       />
 
       {/* KPI 顶卡 — 总数 + 5 个 scope 分布 */}
@@ -333,12 +342,16 @@ export default function DataScopesPage() {
                       {sc.createdAt ? new Date(sc.createdAt).toLocaleString('zh-CN', { hour12: false }) : '—'}
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => handleToggle(sc)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, marginRight: 6 }}>
-                        <Power size={12} /> {sc.enabled ? '禁用' : '启用'}
-                      </button>
-                      <button onClick={() => setDelId(sc.id)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
-                        <Trash2 size={12} /> 删除
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => handleToggle(sc)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, marginRight: 6 }}>
+                          <Power size={12} /> {sc.enabled ? '禁用' : '启用'}
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => setDelId(sc.id)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
+                          <Trash2 size={12} /> 删除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -225,8 +225,8 @@ for (const file of trackedFiles()) {
     }
   });
 
-  if (
-    /apps\/api\/src\/modules\/iot\/(farm-cabin|farm-device|iot-v3|mon-device)\.controller\.ts$/.test(file)
+    if (
+      /apps\/api\/src\/modules\/iot\/(farm-cabin|farm-device|iot-v3|mon-device)\.controller\.ts$/.test(file)
   ) {
     if (!/MenuGuard/.test(text)) {
       add(file, 1, 'IoT device controllers must use MenuGuard, not login-only AuthGuard access.', lines[0] || file);
@@ -237,6 +237,46 @@ for (const file of trackedFiles()) {
     if (/@UseGuards\(\s*AuthGuard\(['"]jwt['"]\)\s*\)/.test(text)) {
       add(file, 1, 'IoT device controllers must not regress to AuthGuard-only route guards.', lines[0] || file);
     }
+  }
+
+  if (
+    /apps\/api\/src\/modules\/org\/org\.controller\.ts$/.test(file) &&
+    /@RequireMenu\(\s*['"]MENU_SYS_ORG['"]/.test(text)
+  ) {
+    add(file, 1, 'Org management APIs must use MENU_MD_ORG/MENU_MD_COMPANY/MENU_SETTINGS_DATA_SCOPE as primary permissions, not coarse MENU_SYS_ORG.', lines[0] || file);
+  }
+
+  if (
+    /apps\/api\/src\/modules\/business-unit\/business-unit\.controller\.ts$/.test(file) &&
+    /@RequireMenu\(\s*['"]MENU_SYS_ORG['"]/.test(text)
+  ) {
+    add(file, 1, 'Business-unit APIs must use MENU_MD_BUSINESS_UNIT as primary permission, not coarse MENU_SYS_ORG.', lines[0] || file);
+  }
+
+  if (file.endsWith('apps/web/src/components/layout/Sidebar.tsx')) {
+    const coarseOrgRoutes = [
+      /path:\s*["']\/master-data\/organizations["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
+      /path:\s*["']\/master-data\/business-units["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
+      /path:\s*["']\/master-data\/companies["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
+      /path:\s*["']\/settings\/data-scopes["'][^\n]*perm:\s*["']MENU_SYS_ORG["']/,
+    ];
+    if (coarseOrgRoutes.some((pattern) => pattern.test(text))) {
+      add(file, 1, 'Sidebar org/company/business-unit/data-scope entries must use atomic permissions, not MENU_SYS_ORG.', lines[0] || file);
+    }
+  }
+
+  if (
+    file.endsWith('apps/web/src/app/(admin)/master-data/companies/page.tsx') &&
+    /usePermission\(["']MENU_SYS_ORG["']\)/.test(text)
+  ) {
+    add(file, 1, 'Company master-data page must use MENU_MD_COMPANY, not MENU_SYS_ORG.', lines[0] || file);
+  }
+
+  if (
+    file.endsWith('apps/web/src/app/(admin)/settings/data-scopes/page.tsx') &&
+    /usePermission\(["']MENU_SYS_ORG["']\)/.test(text)
+  ) {
+    add(file, 1, 'Data-scope settings page must use MENU_SETTINGS_DATA_SCOPE, not MENU_SYS_ORG.', lines[0] || file);
   }
 }
 

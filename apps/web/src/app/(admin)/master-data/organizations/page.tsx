@@ -30,6 +30,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { usePermission } from "@/hooks/usePermission";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { organizationConfig, companyConfig } from "@/components/master-data/detail-configs";
 import { OrgMembersPanel } from "@/components/master-data/OrgMembersPanel";
@@ -327,6 +328,7 @@ function DetailRow({ label, value, mono = false }: {
 
 export default function MdOrganizationsPage() {
   const toast = useToast();
+  const { canView, canCreate, canEdit, canDelete } = usePermission("MENU_MD_ORG");
 
   // Data
   const [tree, setTree]       = useState<OrgNode[]>([]);
@@ -366,6 +368,10 @@ export default function MdOrganizationsPage() {
   // ── Load ────────────────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [treeRes, flatRes] = await Promise.all([
@@ -398,7 +404,7 @@ export default function MdOrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -593,6 +599,9 @@ export default function MdOrganizationsPage() {
   const activeCount = flat.filter(o => o.status === "ACTIVE").length;
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  if (!canView) {
+    return <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>无权限查看组织架构</div>;
+  }
 
   return (
     <div className="animate-fade-in flex flex-col gap-0" style={{ padding: "24px 32px" }}>
@@ -600,11 +609,11 @@ export default function MdOrganizationsPage() {
         title="组织架构"
         subtitle={`共 ${totalCount} 个组织 · 启用 ${activeCount} · 健康度 ${totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}% — 集团 / 公司 / 场区 / 部门（事业群已解耦为业务维度）`}
         breadcrumb={["主数据中心", "组织架构"]}
-        actions={
+        actions={canCreate ? (
           <button type="button" onClick={openNew} style={primaryActionButton}>
             <Plus size={14} /> 新增组织
           </button>
-        }
+        ) : null}
       />
 
       {/* ── Main layout（固定高度 calc(100vh-100px) → 3 栏 stretch 等高，左栏内部树可滚动） ──────── */}
@@ -743,40 +752,46 @@ export default function MdOrganizationsPage() {
                 >
                   <Info size={12} /> {selectedOrg.orgType === "COMPANY" ? "公司中心" : "组织中心"}
                 </button>
-                <button
-                  onClick={openEdit}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid var(--color-primary)', color: 'var(--color-primary)', background: 'transparent', cursor: 'pointer' }}
-                >
-                  <Edit3 size={12} /> 编辑
-                </button>
-                <button
-                  onClick={handleToggleStatus}
-                  disabled={toggling}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
-                    border: `1px solid ${selectedOrg.status === 'ACTIVE' ? 'var(--status-danger)' : 'var(--status-success)'}`,
-                    color: selectedOrg.status === 'ACTIVE' ? 'var(--status-danger)' : 'var(--status-success)',
-                    background: 'transparent', cursor: 'pointer', opacity: toggling ? 0.5 : 1,
-                  }}
-                >
-                  {toggling
-                    ? <RefreshCw size={12} className="animate-spin" />
-                    : selectedOrg.status === 'ACTIVE'
-                      ? <><PowerOff size={12} /> 停用</>
-                      : <><Power size={12} /> 启用</>}
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  title="删除组织（有子节点或成员绑定时不可删）"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
-                    border: '1px solid var(--status-danger)', color: 'var(--status-danger)',
-                    background: 'transparent', cursor: 'pointer', opacity: deleting ? 0.5 : 1,
-                  }}
-                >
-                  {deleting ? <RefreshCw size={12} className="animate-spin" /> : <><Trash2 size={12} /> 删除</>}
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={openEdit}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid var(--color-primary)', color: 'var(--color-primary)', background: 'transparent', cursor: 'pointer' }}
+                    >
+                      <Edit3 size={12} /> 编辑
+                    </button>
+                    <button
+                      onClick={handleToggleStatus}
+                      disabled={toggling}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
+                        border: `1px solid ${selectedOrg.status === 'ACTIVE' ? 'var(--status-danger)' : 'var(--status-success)'}`,
+                        color: selectedOrg.status === 'ACTIVE' ? 'var(--status-danger)' : 'var(--status-success)',
+                        background: 'transparent', cursor: 'pointer', opacity: toggling ? 0.5 : 1,
+                      }}
+                    >
+                      {toggling
+                        ? <RefreshCw size={12} className="animate-spin" />
+                        : selectedOrg.status === 'ACTIVE'
+                          ? <><PowerOff size={12} /> 停用</>
+                          : <><Power size={12} /> 启用</>}
+                    </button>
+                  </>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    title="删除组织（有子节点或成员绑定时不可删）"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
+                      border: '1px solid var(--status-danger)', color: 'var(--status-danger)',
+                      background: 'transparent', cursor: 'pointer', opacity: deleting ? 0.5 : 1,
+                    }}
+                  >
+                    {deleting ? <RefreshCw size={12} className="animate-spin" /> : <><Trash2 size={12} /> 删除</>}
+                  </button>
+                )}
               </div>
 
               {/* ORG-MERGE — Tab 切换 */}
@@ -1155,4 +1170,3 @@ function PropCell({ label, value, mono = false }: {
     </div>
   );
 }
-

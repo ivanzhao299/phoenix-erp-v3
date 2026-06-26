@@ -35,7 +35,8 @@ interface OrgItem {
 export default function MdCompaniesPage() {
   const {
     canView
-  } = usePermission("MENU_SYS_ORG");
+  } = usePermission("MENU_MD_COMPANY");
+  const orgPerm = usePermission("MENU_MD_ORG");
   const [items, setItems] = useState<OrgItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -84,9 +85,10 @@ export default function MdCompaniesPage() {
       fontSize: 12,
       color: "var(--color-accent)"
     }}>
-        💡 公司档案来源于组织架构（Org Runtime），如需添加公司请前往 <Link href="/settings/organizations" style={{
+        💡 公司档案来源于组织架构（Org Runtime）
+        {orgPerm.canCreate || orgPerm.canEdit ? <>，如需添加公司请前往 <Link href="/master-data/organizations" style={{
         color: "var(--color-accent)"
-      }}>组织架构管理</Link>
+      }}>组织架构管理</Link></> : "。"}
       </div>
 
       <div style={{
@@ -117,9 +119,11 @@ export default function MdCompaniesPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div className={u.flex1} />
-        <Link href="/settings/organizations" style={{ ...primaryActionButton, textDecoration: "none" }}>
-          <ExternalLink size={13} /> 组织架构管理
-        </Link>
+        {(orgPerm.canCreate || orgPerm.canEdit) && (
+          <Link href="/master-data/organizations" style={{ ...primaryActionButton, textDecoration: "none" }}>
+            <ExternalLink size={13} /> 组织架构管理
+          </Link>
+        )}
       </div>
 
       <div className="text-text-muted" style={{

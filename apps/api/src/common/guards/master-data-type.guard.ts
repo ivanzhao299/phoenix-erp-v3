@@ -21,7 +21,7 @@ import { hasPerm, PermCode } from '../../auth/permissions.util';
  *   2. :type → 专属码 MENU_MD_<TYPE>，持有对应操作权 → 放行
  *   3. 持「超级码」MENU_MASTER_DATA（管理全部主数据）→ 放行（向后兼容：现有
  *      MENU_MASTER_DATA 持有者永不受影响）
- *   4. organization/company → MENU_SYS_ORG；dict → MENU_SETTINGS_DATA（走专属域码）
+ *   4. organization/company → MENU_MD_ORG/MENU_MD_COMPANY；dict → MENU_SETTINGS_DATA（走专属域码）
  *   5. 都不满足 → 403
  *
  * 操作码推导：GET→V、PUT→E、POST(.../transition)→E、POST(新增)→C
@@ -46,9 +46,14 @@ const TYPE_TO_MENU: Record<string, string> = {
   'bank-account': 'MENU_MD_BANK_ACCOUNT',
   material: 'MENU_MD_MATERIAL',   // G91：原缺此映射→回退超级码 MENU_MASTER_DATA，持 MENU_MD_MATERIAL 者仍 403
   // 特殊：组织 / 公司 / 字典走各自专属域码
-  organization: 'MENU_SYS_ORG',
-  company: 'MENU_SYS_ORG',
+  organization: 'MENU_MD_ORG',
+  company: 'MENU_MD_COMPANY',
   dict: 'MENU_SETTINGS_DATA',
+};
+
+const TYPE_TO_ALT_MENUS: Record<string, string[]> = {
+  organization: ['MENU_ORG_VIEW', 'MENU_ORG_MANAGE', 'MENU_SYS_ORG'],
+  company: ['MENU_SYS_ORG', 'MENU_MD_ORG'],
 };
 
 function deriveOp(method: string, urlPath: string): PermCode {
@@ -82,6 +87,9 @@ export class MasterDataTypeGuard extends AuthGuard('jwt') implements CanActivate
 
     // 2. 专属码命中
     if (isMenuRegistered(code) && hasPerm(user.permissions, code, op)) return true;
+    for (const alt of TYPE_TO_ALT_MENUS[type] ?? []) {
+      if (isMenuRegistered(alt) && hasPerm(user.permissions, alt, op)) return true;
+    }
     // 3. 超级码 MENU_MASTER_DATA 兜底（管理全部主数据）
     if (isMenuRegistered(SUPER_MENU) && hasPerm(user.permissions, SUPER_MENU, op)) return true;
 

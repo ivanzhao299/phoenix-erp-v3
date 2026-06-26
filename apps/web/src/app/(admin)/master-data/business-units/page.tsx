@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { CompanySelector } from "@/components/shared-selectors/MasterDataSelectors";
 import { ConfirmDialogV2 } from "@/components/design-system/dialogs/ConfirmDialogV2";
+import { usePermission } from "@/hooks/usePermission";
 
 // ── 事业群（业务维度）管理 + 经营概览 ─────────────────────────────────────────
 // G110/S5：法人树 ⟂ 事业群解耦——事业群跨公司，由 biz_bu_membership 承载，不参与权限。
@@ -30,6 +31,7 @@ async function api(path: string, init?: RequestInit) {
 }
 
 export default function BusinessUnitsPage() {
+  const { canView, canEdit } = usePermission("MENU_MD_BUSINESS_UNIT");
   const [data, setData] = useState<BuOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export default function BusinessUnitsPage() {
     } catch { setData([]); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const addCompanyMember = async (buCode: string) => {
     if (!newCompany) return;
@@ -61,6 +63,10 @@ export default function BusinessUnitsPage() {
   };
 
   const TYPE_ZH: Record<string, string> = { COMPANY: "公司", SITE: "场站" };
+
+  if (!canView) {
+    return <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>无权限查看事业群</div>;
+  }
 
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
@@ -103,22 +109,22 @@ export default function BusinessUnitsPage() {
                         {TYPE_ZH[m.org_type] || m.org_type}{m.weight_pct !== 100 ? ` · ${m.weight_pct}%` : ""}{m.is_primary ? " · 主" : ""}
                       </span>
                     </span>
-                    <button onClick={() => void removeMember(m.id)} style={{ background: "none", border: "none", color: "var(--status-danger)", cursor: "pointer", fontSize: 12 }}>移除</button>
+                    {canEdit && <button onClick={() => void removeMember(m.id)} style={{ background: "none", border: "none", color: "var(--status-danger)", cursor: "pointer", fontSize: 12 }}>移除</button>}
                   </div>
                 ))}
                 {bu.members.length === 0 && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>（暂无成员）</div>}
               </div>
 
               {/* 添加公司成员 */}
-              {addingTo === bu.bu_code ? (
+              {canEdit && addingTo === bu.bu_code ? (
                 <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                   <div style={{ flex: 1 }}><CompanySelector value={newCompany} onChange={setNewCompany} /></div>
                   <button onClick={() => void addCompanyMember(bu.bu_code)} disabled={!newCompany} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "var(--color-accent)", color: "#fff", fontSize: 12, cursor: "pointer" }}>添加</button>
                   <button onClick={() => { setAddingTo(null); setNewCompany(""); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-page)", fontSize: 12, cursor: "pointer" }}>取消</button>
                 </div>
-              ) : (
+              ) : canEdit ? (
                 <button onClick={() => setAddingTo(bu.bu_code)} style={{ marginTop: 10, fontSize: 12, color: "var(--color-accent)", background: "none", border: "1px dashed var(--border)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", width: "100%" }}>+ 添加公司到此事业群</button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

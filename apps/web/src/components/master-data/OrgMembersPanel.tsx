@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, UserPlus, X, Trash2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { usePermission } from "@/hooks/usePermission";
 import {
   cockpitCard, cockpitCardHeader, cockpitCardHeaderTitle, cockpitCardHeaderHint,
   primaryActionButton, secondaryActionButton, inputField, inlineBadge, formLabel,
@@ -51,6 +52,7 @@ interface AllUser {
 
 export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgName?: string }) {
   const toast = useToast();
+  const { canCreate, canEdit, canDelete } = usePermission("MENU_SETTINGS_DATA_SCOPE");
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,7 +102,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
     else setMembers([]);
   }, [orgId, loadMembers]);
 
-  useEffect(() => { loadAllUsers(); }, [loadAllUsers]);
+  useEffect(() => { if (canCreate) loadAllUsers(); }, [canCreate, loadAllUsers]);
 
   const memberIds = useMemo(() => new Set(members.map(m => m.id)), [members]);
   const candidateUsers = useMemo(() =>
@@ -177,13 +179,15 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
         <UserPlus size={14} style={{ color: 'var(--color-primary)' }} />
         <span style={cockpitCardHeaderTitle}>组织成员</span>
         <span style={cockpitCardHeaderHint}>{members.length} 人</span>
-        <button
-          type="button"
-          onClick={() => setAssignDrawer(true)}
-          style={{ ...primaryActionButton, padding: '6px 14px', fontSize: 12 }}
-        >
-          <UserPlus size={12} /> 添加成员
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => setAssignDrawer(true)}
+            style={{ ...primaryActionButton, padding: '6px 14px', fontSize: 12 }}
+          >
+            <UserPlus size={12} /> 添加成员
+          </button>
+        )}
       </div>
 
       <div style={{ padding: '4px 12px 12px' }}>
@@ -215,13 +219,19 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                   <td style={{ ...tdStyle, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{m.username}</td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{m.roleNameZh || m.role || '—'}</td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
-                    <select
-                      value={m.dataScopeLevel}
-                      onChange={(e) => updateScope(m, e.target.value)}
-                      style={{ ...inputField, fontSize: 12, padding: '4px 8px', width: 120 }}
-                    >
-                      {SCOPE_LEVELS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
+                    {canEdit ? (
+                      <select
+                        value={m.dataScopeLevel}
+                        onChange={(e) => updateScope(m, e.target.value)}
+                        style={{ ...inputField, fontSize: 12, padding: '4px 8px', width: 120 }}
+                      >
+                        {SCOPE_LEVELS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    ) : (
+                      <span style={inlineBadge('default')}>
+                        {SCOPE_LEVELS.find(s => s.value === m.dataScopeLevel)?.label ?? m.dataScopeLevel}
+                      </span>
+                    )}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <span style={inlineBadge(String(m.userStatus) === 'ACTIVE' || m.userStatus === 1 ? 'success' : 'default')}>
@@ -229,14 +239,16 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                     </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <button
-                      onClick={() => removeMember(m)}
-                      disabled={assigning === m.id}
-                      title="移除"
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 4 }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => removeMember(m)}
+                        disabled={assigning === m.id}
+                        title="移除"
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 4 }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
