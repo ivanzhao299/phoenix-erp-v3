@@ -32,6 +32,20 @@ export class ChanjetAuthService implements OnModuleInit {
     private stateRepo: Repository<SysChanjetStateEntity>,
   ) {}
 
+  private maskSensitive(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.maskSensitive(item));
+    if (!value || typeof value !== 'object') return value;
+    const masked: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (/certificate|authCode|appTicket|openToken|accessToken|appSecret|secret|token/i.test(key)) {
+        masked[key] = '[REDACTED]';
+      } else {
+        masked[key] = this.maskSensitive(item);
+      }
+    }
+    return masked;
+  }
+
   async onModuleInit() {
     this.appKey    = this.cfg.get('CHANJET_APP_KEY', '');
     this.appSecret = this.cfg.get('CHANJET_APP_SECRET', '');
@@ -134,13 +148,13 @@ export class ChanjetAuthService implements OnModuleInit {
 
   setAppTicket(ticket: string) {
     this.appTicket = ticket;
-    this.log.log(`appTicket 已更新: ${ticket.slice(0, 20)}…`);
+    this.log.log('appTicket 已更新: [REDACTED]');
     void this.persistState();
   }
 
   setCertificate(cert: string) {
     this.cert = cert;
-    this.log.log(`certificate 已更新: ${cert.slice(0, 30)}…`);
+    this.log.log('certificate 已更新: [REDACTED]');
     void this.persistState();
   }
 
@@ -159,7 +173,7 @@ export class ChanjetAuthService implements OnModuleInit {
       body: JSON.stringify(body),
     });
     const json = await res.json() as Record<string, unknown>;
-    this.log.log(`certificate(authCode) 响应: ${JSON.stringify(json).slice(0, 500)}`);
+    this.log.log(`certificate(authCode) 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 500)}`);
 
     const result = json.result as Record<string, unknown> | undefined;
     const certificate = (result?.certificate ?? json.certificate
@@ -211,7 +225,7 @@ export class ChanjetAuthService implements OnModuleInit {
       body: JSON.stringify(body),
     });
     const json = await res.json() as Record<string, unknown>;
-    this.log.log(`certificate 响应: ${JSON.stringify(json).slice(0, 300)}`);
+    this.log.log(`certificate 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
 
     const result = json.result as Record<string, unknown> | undefined;
     const certificate = (result?.certificate ?? json.certificate ?? (json.data as Record<string, unknown>)?.certificate) as string | undefined;
@@ -249,7 +263,7 @@ export class ChanjetAuthService implements OnModuleInit {
       body: JSON.stringify({ appTicket: this.appTicket, certificate }),
     });
     const json = await res.json() as Record<string, unknown>;
-    this.log.log(`generateToken 响应: ${JSON.stringify(json).slice(0, 300)}`);
+    this.log.log(`generateToken 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
 
     const value = json.value as Record<string, unknown> | undefined;
     const accessToken = value?.accessToken as string | undefined;
@@ -282,7 +296,7 @@ export class ChanjetAuthService implements OnModuleInit {
       },
     });
     const json = await res.json() as Record<string, unknown>;
-    this.log.log(`triggerAppTicket 响应: ${JSON.stringify(json).slice(0, 300)}`);
+    this.log.log(`triggerAppTicket 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
     return json;
   }
 
@@ -372,11 +386,10 @@ export class ChanjetAuthService implements OnModuleInit {
     }
     return {
       configured: this.isConfigured(),
-      appKey: this.appKey || '(空)',
+      appKeyConfigured: !!this.appKey,
       orgId: this.orgId || '(空)',
       hasAppTicket: !!this.appTicket,
       hasCert: !!this.cert,
-      certPreview: this.cert ? this.cert.slice(0, 20) + '…' : '(空)',
       tokens,
     };
   }

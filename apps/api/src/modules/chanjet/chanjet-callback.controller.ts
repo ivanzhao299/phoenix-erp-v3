@@ -114,25 +114,17 @@ export class ChanjetCallbackController {
 
   /**
    * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
-   * 授权回调可能以 GET + query params 形式到达（含 certificate/authCode）。
+   * GET 只用于平台地址验证。证书 / 授权码等敏感字段必须走带签名的 POST callback。
    */
   @Public()
   @Get('callback')
   async verifyCallback(@Query() query: Record<string, string>) {
     const keys = Object.keys(query);
     if (keys.length > 0) {
-      this.log.log(`★ GET callback query: ${JSON.stringify(this.maskSensitive(query)).slice(0, 500)}`);
-      if (query.certificate) {
-        this.auth.setCertificate(query.certificate);
-        this.log.log('★ certificate 从 GET query 捕获: [REDACTED]');
-      }
-      if (query.authCode) {
-        this.log.log('★ authCode 从 GET query 收到: [REDACTED]');
-        try {
-          await this.auth.fetchCertificateByAuthCode(query.authCode);
-        } catch (e) {
-          this.log.warn(`GET authCode→certificate 失败: ${(e as Error).message}`);
-        }
+      const sensitiveKeys = keys.filter((key) => /certificate|authCode|appTicket|openToken|accessToken|secret|signature/i.test(key));
+      this.log.log(`★ GET callback verification query keys=[${keys.join(',')}] sensitiveKeys=[${sensitiveKeys.join(',') || 'none'}]`);
+      if (sensitiveKeys.length) {
+        this.log.warn('GET callback ignored sensitive credential fields; signed POST callback is required to update Chanjet auth state');
       }
     }
     return { result: 'success' };
@@ -251,8 +243,8 @@ export class ChanjetCallbackController {
   async testToken(@Req() req: any) {
     this.log.warn(`manual chanjet test-token triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
-      const token = await this.auth.getOpenToken();
-      return { success: true, tokenPreview: token.slice(0, 30) + '…' };
+      await this.auth.getOpenToken();
+      return { success: true, hasToken: true };
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }
@@ -539,7 +531,7 @@ export class ChanjetCallbackController {
   setCert(@Body() body: { certificate: string }) {
     if (!body.certificate) return { success: false, error: 'certificate 不能为空' };
     this.auth.setCertificate(body.certificate);
-    return { success: true, certPreview: body.certificate.slice(0, 30) + '…' };
+    return { success: true, hasCertificate: true };
   }
 
   /**
@@ -551,7 +543,7 @@ export class ChanjetCallbackController {
   setTicket(@Body() body: { appTicket: string }) {
     if (!body.appTicket) return { success: false, error: 'appTicket 不能为空' };
     this.auth.setAppTicket(body.appTicket);
-    return { success: true, ticketPreview: body.appTicket.slice(0, 20) + '…' };
+    return { success: true, hasAppTicket: true };
   }
 
   /**

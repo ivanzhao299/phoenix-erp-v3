@@ -311,6 +311,30 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
+      /async\s+verifyCallback/.test(line)
+    ) {
+      const block = lines.slice(index, Math.min(lines.length, index + 32)).join('\n');
+      if (/setCertificate\(|fetchCertificateByAuthCode\(|setAppTicket\(/.test(block)) {
+        add(file, lineNo, 'Chanjet GET callback must be verification-only and must not consume certificate/authCode/appTicket; signed POST callback is required.', line);
+      }
+    }
+
+    if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
+      /(tokenPreview|certPreview|ticketPreview)/.test(line)
+    ) {
+      add(file, lineNo, 'Chanjet manual config/test endpoints must not return token/certificate/ticket previews.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/chanjet\/chanjet-auth\.service\.ts$/.test(file) &&
+      /(appTicket 已更新:.*slice|certificate 已更新:.*slice|certificate\(authCode\) 响应: \$\{JSON\.stringify\(json\)|certificate 响应: \$\{JSON\.stringify\(json\)|generateToken 响应: \$\{JSON\.stringify\(json\)|triggerAppTicket 响应: \$\{JSON\.stringify\(json\)|certPreview)/.test(line)
+    ) {
+      add(file, lineNo, 'Chanjet auth service must mask sensitive token/certificate/ticket values in logs and diagnostics.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/permissions\/permissions\.controller\.ts$/.test(file) &&
       /@RequireMenu\(\s*['"]MENU_SETTINGS_IT['"]/.test(line)
     ) {
