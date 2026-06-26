@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Put, Body, Param, UseGuards, Req,
-  BadRequestException, ConflictException, NotFoundException, ForbiddenException,
+  Controller, Get, Post, Put, Body, Param, UseGuards,
+  BadRequestException, ConflictException, NotFoundException,
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -35,8 +35,6 @@ function validatePassword(pw: string): string | null {
   return null;
 }
 
-const MGMT_ROLES = ['ROLE_ADMIN', 'ROLE_HR_ADMIN', 'ROLE_SYSOPS'];
-
 function statusToInt(s: string): number {
   const v = String(s || '').toUpperCase();
   if (v === 'ACTIVE') return 1;
@@ -50,20 +48,13 @@ function statusToStr(n: number): string {
 // [Phase R1 — HIGH-3] 替换 AuthGuard('jwt') → MenuGuard + DataScopeGuard，添加 RequireMenu
 @Controller('api/system/users')
 @UseGuards(MenuGuard, DataScopeGuard)
-@RequireMenu('MENU_SYSTEM', 'V')
+@RequireMenu('MENU_SETTINGS_USER', 'V')
 export class SystemUsersController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
-  private requireRole(user: any, allowed: string[]) {
-    const role = String(user?.role || '').toUpperCase();
-    if (!allowed.map(r => r.toUpperCase()).includes(role)) {
-      throw new ForbiddenException(`需要角色 ${allowed.join(' / ')}`);
-    }
-  }
-
   @Get()
-  async list(@Req() req: any) {
-    this.requireRole(req.user, MGMT_ROLES);
+  @RequireMenu('MENU_SETTINGS_USER', 'V')
+  async list() {
     const rows = await this.em.query(`
       SELECT u.user_id AS id, u.username, u.real_name AS real_name_zh, u.locale,
              u.store_code, u.status, u.email, u.phone,
@@ -108,8 +99,8 @@ export class SystemUsersController {
   }
 
   @Post()
-  async create(@Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, MGMT_ROLES);
+  @RequireMenu('MENU_SETTINGS_USER', 'C')
+  async create(@Body() body: any) {
     const { username, real_name_zh, real_name_lo, role, store_code, password, locale } = body || {};
     if (!username || !real_name_zh) throw new BadRequestException('用户名和姓名为必填项');
     const pwErr = validatePassword(password);
@@ -165,8 +156,8 @@ export class SystemUsersController {
   }
 
   @Put(':id/status')
-  async setStatus(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, MGMT_ROLES);
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async setStatus(@Param('id') id: string, @Body() body: any) {
     const statusInt = statusToInt(body?.status);
     const result = await this.em.query(
       `UPDATE sys_user SET status = $1, updated_at = now() WHERE user_id = $2 RETURNING user_id`,
@@ -177,8 +168,8 @@ export class SystemUsersController {
   }
 
   @Put(':id/role')
-  async setRole(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, ['ROLE_ADMIN', 'ROLE_HR_ADMIN']);
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async setRole(@Param('id') id: string, @Body() body: any) {
     const { role } = body || {};
     if (!role) throw new BadRequestException('role 必填');
 
@@ -219,8 +210,8 @@ export class SystemUsersController {
   }
 
   @Put(':id/password')
-  async resetPassword(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, ['ROLE_ADMIN', 'ROLE_HR_ADMIN']);
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async resetPassword(@Param('id') id: string, @Body() body: any) {
     const { password } = body || {};
     const pwErr = validatePassword(password);
     if (pwErr) throw new BadRequestException(pwErr);
@@ -235,8 +226,8 @@ export class SystemUsersController {
   }
 
   @Put(':id')
-  async updateInfo(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, MGMT_ROLES);
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async updateInfo(@Param('id') id: string, @Body() body: any) {
     const { real_name_zh, store_code, locale, email, phone } = body || {};
     const result = await this.em.query(
       `UPDATE sys_user
@@ -260,8 +251,8 @@ export class SystemUsersController {
    * body: { items: [{ role_code: string, is_visible: boolean }] }
    */
   @Put(':id/role-visibility')
-  async updateRoleVisibility(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    this.requireRole(req.user, MGMT_ROLES);
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async updateRoleVisibility(@Param('id') id: string, @Body() body: any) {
     const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('items 不能为空');
