@@ -2,8 +2,10 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { format } from 'date-fns';
+import { ClsService } from 'nestjs-cls';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { CapitalAggregationService } from './capital-aggregation.service';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 import { ShrProjectEntity } from '../entities/shr-project.entity';
 import { ShrShareholderEntity } from '../entities/shr-shareholder.entity';
@@ -28,6 +30,7 @@ export class ShareholderService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly approvalEngine: ApprovalEngineService,
     private readonly aggregation: CapitalAggregationService,
+    private readonly cls: ClsService,
   ) {}
 
   // ════════════════ 资本流引擎（Phase 3）════════════════
@@ -224,21 +227,27 @@ export class ShareholderService {
   }
 
   // ── 项目 ──────────────────────────────────────────────────────────────
-  async listProjects() {
+  async listProjects(user?: { userId: string; roles: string[] }) {
     const rows = await this.projectRepo.find({ order: { projectCode: 'ASC' } });
+    const allowed = await this.scopeProjectIn(user);
+    const visibleRows = allowed === null ? rows : rows.filter((p) => allowed.includes(p.projectCode));
     // 附带股东人数与股比合计
     const stats = await this.ds.query(
       `SELECT project_code, count(*)::int AS holders, sum(equity_ratio)::numeric AS ratio_sum
        FROM shr_project_equity GROUP BY project_code`,
     );
     const m = new Map<string, any>(stats.map((s: any) => [s.project_code, s]));
-    return rows.map(p => ({
+    return visibleRows.map(p => ({
       ...p,
       holders: m.get(p.projectCode)?.holders ?? 0,
       ratioSum: Number(m.get(p.projectCode)?.ratio_sum ?? 0),
     }));
   }
-  async getProject(code: string) {
+  async getProject(code: string, user?: { userId: string; roles: string[] }) {
+    const allowed = await this.scopeProjectIn(user);
+    if (allowed !== null && !allowed.includes(code)) {
+      throw new NotFoundException('无权查看该项目（不在股东查看范围内）');
+    }
     const p = await this.projectRepo.findOne({ where: { projectCode: code } });
     if (!p) throw new NotFoundException(`项目不存在: ${code}`);
     const equity = await this.equityRepo.find({ where: { projectCode: code }, order: { equityRatio: 'DESC' } });
@@ -353,16 +362,39 @@ export class ShareholderService {
   }
 
   // ── 股东驾驶舱（scope 驱动）──────────────────────────────────────────────
+  private async resolveDataScopeProjects(): Promise<string[] | 'ALL' | null> {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope) return null;
+    if (scope.isGlobal) return 'ALL';
+
+    const codes = new Set<string>(scope.allowedProjectCodes ?? []);
+    if ((scope.allowedCompanyCodes ?? []).length > 0) {
+      const projects = await this.projectRepo.find({
+        where: { companyCode: In(scope.allowedCompanyCodes) },
+      });
+      projects.forEach((p) => codes.add(p.projectCode));
+    }
+    if ((scope.allowedSiteCodes ?? []).length > 0) {
+      const projects = await this.projectRepo.find({
+        where: { siteCode: In(scope.allowedSiteCodes) },
+      });
+      projects.forEach((p) => codes.add(p.projectCode));
+    }
+    return Array.from(codes);
+  }
+
   /** 解析用户可见的项目编码集合：GROUP→全部；PROJECT→指定；COMPANY/SITE→匹配项目；无 scope→空 */
   async resolveAccessibleProjects(userId: string, roles: string[]): Promise<string[] | 'ALL'> {
-    // G70：集团级财务领导角色对股东权益有全局可见权（集团财务监督本职），
-    //   无需逐项目配 shr_shareholder_scopes。修"集团财务总监看不见股东出资"。
-    const GROUP_FINANCE_ALL = ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_HQ_FINANCE'];
-    if (roles?.some(r => GROUP_FINANCE_ALL.includes(r))) return 'ALL';
+    // 不再按 ROLE_* 硬编码放大全局视野。全局/公司/项目范围以 DataScopeGuard 写入的
+    // dataScope 为准；股东专项范围仍通过 shr_shareholder_scopes 叠加。
+    const dataScopeAccess = await this.resolveDataScopeProjects();
+    if (dataScopeAccess === 'ALL') return 'ALL';
+
     const scopes = await this.scopeRepo.find({ where: { userId, status: 'ACTIVE' } });
-    if (scopes.length === 0) return [];
+    if (scopes.length === 0) return dataScopeAccess ?? [];
     if (scopes.some(s => s.scopeType === 'GROUP')) return 'ALL';
     const codes = new Set<string>();
+    (dataScopeAccess ?? []).forEach((code) => codes.add(code));
     const allProjects = await this.projectRepo.find();
     for (const s of scopes) {
       if (s.scopeType === 'PROJECT' && s.projectCode) codes.add(s.projectCode);

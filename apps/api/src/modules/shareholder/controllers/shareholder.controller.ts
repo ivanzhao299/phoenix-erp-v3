@@ -4,6 +4,7 @@ import {
 import { ClsService } from 'nestjs-cls';
 
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ShareholderService } from '../services/shareholder.service';
 import {
   CreateProjectDto, UpdateProjectDto, CreateShareholderDto, UpdateShareholderDto,
@@ -18,7 +19,7 @@ const DASH    = 'MENU_SHAREHOLDER_DASHBOARD';
 const CAPITAL = 'MENU_SHAREHOLDER_CAPITAL';
 
 @Controller('api/shareholders')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ShareholderController {
   constructor(
     private readonly svc: ShareholderService,
@@ -31,8 +32,8 @@ export class ShareholderController {
   }
 
   // ── 项目 ──
-  @Get('projects')                @RequireMenu(VIEW, 'V')   listProjects() { return this.svc.listProjects(); }
-  @Get('projects/:projectCode')   @RequireMenu(VIEW, 'V')   getProject(@Param('projectCode') c: string) { return this.svc.getProject(c); }
+  @Get('projects')                @RequireMenu(VIEW, 'V')   listProjects() { return this.svc.listProjects(this.user); }
+  @Get('projects/:projectCode')   @RequireMenu(VIEW, 'V')   getProject(@Param('projectCode') c: string) { return this.svc.getProject(c, this.user); }
   @Post('projects')               @RequireMenu(MANAGE, 'C') createProject(@Body() dto: CreateProjectDto) { return this.svc.createProject(dto); }
   @Patch('projects/:projectCode') @RequireMenu(MANAGE, 'E') updateProject(@Param('projectCode') c: string, @Body() dto: UpdateProjectDto) { return this.svc.updateProject(c, dto); }
 
