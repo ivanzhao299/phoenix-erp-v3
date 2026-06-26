@@ -214,8 +214,9 @@ export class ChanjetCallbackController {
    * 管理员手动触发 token 获取测试。
    */
   @Get('test-token')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
-  async testToken() {
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  async testToken(@Req() req: any) {
+    this.log.warn(`manual chanjet test-token triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
       const token = await this.auth.getOpenToken();
       return { success: true, tokenPreview: token.slice(0, 30) + '…' };
@@ -229,8 +230,9 @@ export class ChanjetCallbackController {
    * 管理员手动调用好业财账套列表接口验证连通性（全链路实证）。
    */
   @Get('test-api')
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
-  async testApi() {
+  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  async testApi(@Req() req: any) {
+    this.log.warn(`manual chanjet test-api triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
       const result = await this.auth.listAccountBooks();
       return { success: true, result };

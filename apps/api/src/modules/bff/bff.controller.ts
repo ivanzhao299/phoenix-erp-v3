@@ -385,7 +385,7 @@ export class DashboardBffController {
 // ── Users (增强版：支持多角色分配) ───────────────────────────────────────────
 @Controller('api/users')
 @UseGuards(AuthGuard('jwt'), MenuGuard)
-@RequireMenu('MENU_SETTINGS_USER', 'V', ['MENU_SETTINGS_IT'])
+@RequireMenu('MENU_SETTINGS_USER', 'V')
 export class UsersBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -443,7 +443,7 @@ export class UsersBffController {
 
   /** POST /api/users — 新建用户（含初始角色）*/
   @Post()
-  @RequireMenu('MENU_SETTINGS_USER', 'C', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'C')
   async createUser(@Body() body: any, @Req() req: any) {
     const { username, real_name_zh, role, store_code, password, user_type, org_bindings } = body || {};
     if (!username || !real_name_zh) return { code: 400, msg: '用户名和姓名为必填项' };
@@ -482,7 +482,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id — 更新基本信息（含组织绑定 org_bindings）*/
   @Put(':id')
-  @RequireMenu('MENU_SETTINGS_USER', 'E', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async updateUser(@Param('id') id: string, @Body() body: any) {
     try {
       const fields: string[] = [];
@@ -534,7 +534,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/status — 启用/冻结 */
   @Put(':id/status')
-  @RequireMenu('MENU_SETTINGS_USER', 'E', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setStatus(@Param('id') id: string, @Body() body: any) {
     try {
       const s = String(body?.status || '').toUpperCase();
@@ -547,7 +547,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/role — 设置主角色（保留已有副角色）*/
   @Put(':id/role')
-  @RequireMenu('MENU_SETTINGS_USER', 'E', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setRole(@Param('id') id: string, @Body() body: any) {
     const { role } = body || {};
     if (!role) return { code: 400, msg: 'role 必填' };
@@ -570,7 +570,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/roles — 全量设置用户角色列表（多角色）*/
   @Put(':id/roles')
-  @RequireMenu('MENU_SETTINGS_USER', 'E', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setRoles(@Param('id') id: string, @Body() body: any) {
     // body: { roles: [{ role_code, is_primary }] }
     const { roles } = body || {};
@@ -609,7 +609,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/password — 重置密码 */
   @Put(':id/password')
-  @RequireMenu('MENU_SETTINGS_USER', 'E', ['MENU_SETTINGS_IT'])
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async resetPassword(@Param('id') id: string, @Body() body: any) {
     const { password } = body || {};
     if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
