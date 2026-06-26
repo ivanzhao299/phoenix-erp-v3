@@ -167,6 +167,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/product-master\/controllers\/lookup\.controller\.ts$/.test(file) &&
+      /dataScope\.resolve\([^)]*['"]MENU_MASTER_DATA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Business lookup DataScope must resolve with atomic lookup context menus, not coarse MENU_MASTER_DATA.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
       /this\.ops\.(getCenters|search|getOperationsTodo)\((?![^)]*allowedOperationTypes\(req\))/.test(line)
     ) {

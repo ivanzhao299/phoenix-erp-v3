@@ -37,7 +37,7 @@ export class LookupController {
    * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
    * 解析失败 → fail-closed（空范围），避免异常态把业务下拉扩成全局可见。
    */
-  private async resolveCompanyScope(): Promise<{
+  private async resolveCompanyScope(scopeMenu = 'MENU_MD_CENTER'): Promise<{
     isGlobal: boolean;
     companyCodes: string[];
     farmCodes: string[];
@@ -50,7 +50,7 @@ export class LookupController {
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
-      const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
+      const scope = await this.dataScope.resolve(userId, roles, scopeMenu);
       return {
         isGlobal: !!scope.isGlobal,
         companyCodes: scope.allowedCompanyCodes ?? [],
@@ -113,7 +113,7 @@ export class LookupController {
     // G37：公司下拉按 DataScope 过滤。
     // 原实现返回全集团公司 → 出纳王玮华等受限用户能在股东资金/财务单据里选到
     // 不归属自己的公司（如万象食品厂 COMP-LAO-FOOD）。非全局用户只返回 allowedCompanyCodes。
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_COMPANY');
     if (scope.isGlobal) {
       const rows = await this.cached('companies:global', () => this.em.query(
         `SELECT org_code AS "orgCode", COALESCE(company_code, org_code) AS "companyCode",
@@ -145,7 +145,7 @@ export class LookupController {
    */
   @Get('projects')
   async projects(@Query('companyCode') companyCode?: string, @Query('company_code') companyCodeSnake?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_PRC2_PROJECT');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const buildScopedFilter = () => {
       const params: any[] = [];
@@ -202,7 +202,7 @@ export class LookupController {
    */
   @Get('sites')
   async sites() {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_ORG');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     const conds = [`org_type='SITE'`, `status='ACTIVE'`];
@@ -226,7 +226,7 @@ export class LookupController {
   /** GET /api/lookup/customers — 客户下拉（替代 /master-data/runtime/customer/active） */
   @Get('customers')
   async customers() {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_CUSTOMER');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     const conds = [`status='ACTIVE'`];
@@ -248,7 +248,7 @@ export class LookupController {
   /** GET /api/lookup/suppliers — 供应商下拉（替代 /master-data/runtime/supplier/active） */
   @Get('suppliers')
   async suppliers() {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_PRC2_SUPPLIER');
     const params: any[] = [];
     const conds = [`status='ACTIVE'`, `is_active=true`];
     if (!scope.isGlobal) {
@@ -357,7 +357,7 @@ export class LookupController {
    */
   @Get('shareholders')
   async shareholders(@Query('companyCode') companyCode?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_SHAREHOLDER_VIEW');
     if (
       !scope.isGlobal
       && scope.companyCodes.length === 0
@@ -415,7 +415,7 @@ export class LookupController {
    */
   @Get('users')
   async users(@Query('storeCode') storeCode?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_SETTINGS_USER');
     if (!scope.isGlobal && scope.companyCodes.length === 0 && scope.allowedSiteCodes.length === 0) {
       return { code: 200, data: [] };
     }
@@ -472,7 +472,7 @@ export class LookupController {
     @Query('siteCode') siteCode?: string,
     @Query('type') type?: string,
   ) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_WAREHOUSE');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     const conds: string[] = [`status='ACTIVE'`];
@@ -496,7 +496,7 @@ export class LookupController {
   /** GET /api/lookup/stores — 门店下拉（替代 /crud/mst_stores） */
   @Get('stores')
   async stores(@Query('companyCode') companyCode?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_STORE');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     let where = `status='ACTIVE'`;
@@ -525,7 +525,7 @@ export class LookupController {
     ));
     // G87 数据范围收窄：缓存存全量、出口按当前用户过滤（严禁在共享缓存内做按人过滤）。
     //   ①有场授权清单 → 只看清单内的场；②公司维度收窄（场未挂公司 NULL 保留）。
-    const { isGlobal, companyCodes, farmCodes } = await this.resolveCompanyScope();
+    const { isGlobal, companyCodes, farmCodes } = await this.resolveCompanyScope('MENU_BREEDING');
     if (isGlobal) return { code: 200, data: rows };
     if (farmCodes.length === 0 && companyCodes.length === 0) return { code: 200, data: [] };
     let out = rows;
@@ -539,7 +539,7 @@ export class LookupController {
    */
   @Get('houses')
   async houses(@Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_BREEDING');
     if (
       !scope.isGlobal
       && scope.companyCodes.length === 0
@@ -588,7 +588,7 @@ export class LookupController {
   /** GET /api/lookup/flocks?houseCode=&farmCode=&siteCode= — 鸡群下拉 */
   @Get('flocks')
   async flocks(@Query('houseCode') houseCode?: string, @Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_BREEDING');
     if (
       !scope.isGlobal
       && scope.companyCodes.length === 0
@@ -644,7 +644,7 @@ export class LookupController {
    *  G106-C：支持 company 过滤——付款单按所选公司收窄银行账户，杜绝用他司账户付款。 */
   @Get('cash-accounts')
   async cashAccounts(@Query('currency') currency?: string, @Query('company') company?: string) {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_FIN2_CASH_VIEW');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
     let where = `status='ACTIVE'`;
@@ -670,7 +670,7 @@ export class LookupController {
    */
   @Get('batches')
   async batches() {
-    const scope = await this.resolveCompanyScope();
+    const scope = await this.resolveCompanyScope('MENU_MD_WAREHOUSE');
     const params: any[] = [];
     const conds = [`qty_available > 0`];
     if (!scope.isGlobal && scope.warehouseCodes.length > 0) {
