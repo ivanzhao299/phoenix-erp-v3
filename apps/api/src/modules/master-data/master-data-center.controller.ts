@@ -53,6 +53,28 @@ const CODE_PREFIX_TO_MENU: Record<string, string> = {
   BU: 'MENU_MD_BUSINESS_UNIT',
 };
 
+const OPERATION_TYPE_TO_MENU: Record<string, string> = {
+  organization: 'MENU_MD_ORG',
+  company: 'MENU_MD_COMPANY',
+  project: 'MENU_MD_PROJECT',
+  customer: 'MENU_MD_CUSTOMER',
+  supplier: 'MENU_MD_SUPPLIER',
+  store: 'MENU_MD_STORE',
+  product: 'MENU_MD_PRODUCT',
+  grade: 'MENU_MD_GRADE',
+  spec: 'MENU_MD_PACKAGING',
+  sku: 'MENU_MD_SKU',
+  warehouse: 'MENU_MD_WAREHOUSE',
+  driver: 'MENU_MD_DRIVER',
+  vehicle: 'MENU_MD_VEHICLE',
+  'cash-account': 'MENU_MD_CASH_ACCOUNT',
+  'bank-account': 'MENU_MD_BANK_ACCOUNT',
+  dict: 'MENU_SETTINGS_DATA',
+  site: 'MENU_MD_ORG',
+  'business-unit': 'MENU_MD_BUSINESS_UNIT',
+  shareholder: 'MENU_SHAREHOLDER_VIEW',
+};
+
 function normalizeCode(value: string | undefined | null) {
   return String(value || '').trim().toUpperCase();
 }
@@ -89,16 +111,33 @@ export class MasterDataCenterController {
     throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }
 
+  private allowedOperationTypes(req: any): Set<string> | undefined {
+    const user = req?.user;
+    if (!user) throw new ForbiddenException('User context not found.');
+    if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return undefined;
+    if (user.role === 'ROLE_ADMIN') return undefined;
+    if (isMenuRegistered(MASTER_DATA_SUPER_MENU) && hasPerm(user.permissions, MASTER_DATA_SUPER_MENU, 'V')) return undefined;
+
+    const allowed = new Set<string>();
+    for (const [type, menu] of Object.entries(OPERATION_TYPE_TO_MENU)) {
+      if (!isMenuRegistered(menu)) continue;
+      if (hasPerm(user.permissions, menu, 'V')) allowed.add(type);
+    }
+    return allowed;
+  }
+
   // ══ G5.5-E 运营平台端点 ════════════════════════════════════════════════════
   /** 6 中心实时统计（首页运营工作台用） */
   @Get('operations/centers')
   @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
-  async opsCenters() { return this.ops.getCenters(); }
+  async opsCenters(@Req() req: any) { return this.ops.getCenters(this.allowedOperationTypes(req)); }
 
   /** 全局主数据搜索 */
   @Get('operations/search')
   @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
-  async opsSearch(@Query('keyword') keyword: string) { return this.ops.search(keyword); }
+  async opsSearch(@Query('keyword') keyword: string, @Req() req: any) {
+    return this.ops.search(keyword, this.allowedOperationTypes(req));
+  }
 
   /** 30 天趋势 */
   @Get('operations/trend')
@@ -110,7 +149,7 @@ export class MasterDataCenterController {
   /** 运营待办（待审批 / 缺资料 / 重复 / 归档阻断） */
   @Get('operations/todo')
   @RequireMenu('MENU_MD_CENTER', 'V', ['MENU_MASTER_DATA'])
-  async opsTodo() { return this.ops.getOperationsTodo(); }
+  async opsTodo(@Req() req: any) { return this.ops.getOperationsTodo(this.allowedOperationTypes(req)); }
 
   /** G5.5-D 治理驾驶舱：总评分 + 5 子评分 */
   @Get('governance/scores')

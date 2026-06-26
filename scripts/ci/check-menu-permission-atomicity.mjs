@@ -160,6 +160,13 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      /apps\/api\/src\/modules\/master-data\/master-data-center\.controller\.ts$/.test(file) &&
+      /this\.ops\.(getCenters|search|getOperationsTodo)\((?![^)]*allowedOperationTypes\(req\))/.test(line)
+    ) {
+      add(file, lineNo, 'Master-data operations aggregate APIs must pass allowedOperationTypes(req) so cross-type summaries/search results stay atomically scoped.', line);
+    }
+
+    if (
       /apps\/api\/src\/modules\/chanjet\/chanjet-callback\.controller\.ts$/.test(file) &&
       /@(Get|Post)\(['"](?:call|test-api)['"]\)/.test(line)
     ) {

@@ -38,6 +38,25 @@ export interface TrendPoint {
   archived: number;
 }
 
+export type MasterDataOperationType =
+  | 'organization' | 'company' | 'project' | 'customer' | 'supplier' | 'store'
+  | 'product' | 'grade' | 'spec' | 'sku' | 'warehouse' | 'driver' | 'vehicle'
+  | 'cash-account' | 'bank-account' | 'dict' | 'site' | 'business-unit' | 'shareholder';
+
+type CenterMember = {
+  type: MasterDataOperationType;
+  table: string;
+  codeCol: string;
+  href: string;
+  filter?: string;
+};
+
+type CenterDefinition = {
+  key: string;
+  label: string;
+  members: CenterMember[];
+};
+
 @Injectable()
 export class MasterDataOperationsService {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
@@ -47,7 +66,7 @@ export class MasterDataOperationsService {
   }
 
   // 6 中心 → 主数据 type 映射（与 master-data-runtime.service TYPES 对齐）
-  private readonly CENTERS = [
+  private readonly CENTERS: CenterDefinition[] = [
     {
       key: 'org', label: '组织中心',
       members: [
@@ -107,13 +126,23 @@ export class MasterDataOperationsService {
     },
   ];
 
+  private isTypeAllowed(type: string, allowedTypes?: ReadonlySet<string>): boolean {
+    return !allowedTypes || allowedTypes.has(type);
+  }
+
+  private filterMembers(members: CenterMember[], allowedTypes?: ReadonlySet<string>): CenterMember[] {
+    return members.filter(m => this.isTypeAllowed(m.type, allowedTypes));
+  }
+
   /** 6 中心实时统计（运营首页用） */
-  async getCenters(): Promise<CenterStat[]> {
+  async getCenters(allowedTypes?: ReadonlySet<string>): Promise<CenterStat[]> {
     const out: CenterStat[] = [];
     for (const c of this.CENTERS) {
+      const centerMembers = this.filterMembers(c.members, allowedTypes);
+      if (!centerMembers.length) continue;
       const members: CenterStat['members'] = [];
       let objectCount = 0, pendingCount = 0, riskCount = 0, scoreSum = 0;
-      for (const m of c.members) {
+      for (const m of centerMembers) {
         const where = (m as any).filter ? `WHERE ${(m as any).filter}` : '';
         const rows = await this.safe<{ status: string; c: string }>(
           `SELECT COALESCE(status,'ACTIVE') AS status, COUNT(*)::text AS c
@@ -150,7 +179,7 @@ export class MasterDataOperationsService {
   }
 
   /** 全局搜索：跨 9 类主数据按 code/name 匹配，每类最多 5 条 */
-  async search(keyword: string): Promise<SearchResult[]> {
+  async search(keyword: string, allowedTypes?: ReadonlySet<string>): Promise<SearchResult[]> {
     const kw = String(keyword || '').trim();
     if (!kw) return [];
     const pattern = `%${kw.replace(/[%_]/g, '\\$&')}%`;
@@ -176,6 +205,7 @@ export class MasterDataOperationsService {
 
     const out: SearchResult[] = [];
     for (const q of queries) {
+      if (!this.isTypeAllowed(q.type, allowedTypes)) continue;
       const rows = await this.safe<any>(q.sql, [pattern]);
       for (const r of rows) {
         out.push({
@@ -222,11 +252,11 @@ export class MasterDataOperationsService {
   }
 
   /** 运营待办：待审批 + 待补资料 + 重复风险 */
-  async getOperationsTodo() {
+  async getOperationsTodo(allowedTypes?: ReadonlySet<string>) {
     // 待审批：所有 PENDING_APPROVAL 状态的主数据
     const pendingByType: Array<{ type: string; count: number; examples: string[]; href: string }> = [];
     for (const c of this.CENTERS) {
-      for (const m of c.members) {
+      for (const m of this.filterMembers(c.members, allowedTypes)) {
         const where = (m as any).filter ? `WHERE status='PENDING_APPROVAL' AND ${(m as any).filter}` : `WHERE status='PENDING_APPROVAL'`;
         const cnt = await this.safe<{ c: string; sample: string }>(
           `SELECT COUNT(*)::text AS c, STRING_AGG(${m.codeCol}, ',') AS sample FROM ${m.table} ${where}`,
@@ -273,11 +303,18 @@ export class MasterDataOperationsService {
          ORDER BY created_at DESC LIMIT 20`,
     );
 
+    const missingAllowed = new Set(['customer', 'supplier'].filter(type => this.isTypeAllowed(type, allowedTypes)));
+    const duplicateAllowed = new Set(['customer', 'supplier', 'sku'].filter(type => this.isTypeAllowed(type, allowedTypes)));
+
     return {
       pendingApprovals: pendingByType,
-      missingContact: missingContactRows.map(r => ({ source: r.table, count: parseInt(r.cnt, 10) })),
-      duplicateCodes: dupRows.map(r => ({ source: r.src, count: parseInt(r.cnt, 10) })),
-      archiveBlocked: blockedEvents,
+      missingContact: missingContactRows
+        .filter(r => missingAllowed.has(r.table))
+        .map(r => ({ source: r.table, count: parseInt(r.cnt, 10) })),
+      duplicateCodes: dupRows
+        .filter(r => duplicateAllowed.has(r.src))
+        .map(r => ({ source: r.src, count: parseInt(r.cnt, 10) })),
+      archiveBlocked: blockedEvents.filter(e => this.isTypeAllowed(String(e.object_type || '').toLowerCase().replace(/_/g, '-'), allowedTypes)),
       asOf: new Date().toISOString(),
     };
   }
