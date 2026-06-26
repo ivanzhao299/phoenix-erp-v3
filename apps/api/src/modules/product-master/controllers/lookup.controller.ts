@@ -35,12 +35,12 @@ export class LookupController {
    * 解析当前登录用户的公司 DataScope。
    * user 由全局 AuditLogInterceptor 在 handler 前写入 CLS；本路由只挂 AuthGuard，
    * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
-   * 解析失败 → 兜底 isGlobal=true（不因解析异常把下拉清空）。
+   * 解析失败 → fail-closed（空范围），避免异常态把业务下拉扩成全局可见。
    */
   private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[]; farmCodes: string[]; warehouseCodes: string[] }> {
     try {
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      if (!user) return { isGlobal: true, companyCodes: [], farmCodes: [], warehouseCodes: [] };
+      if (!user) return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [] };
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
@@ -52,7 +52,7 @@ export class LookupController {
         warehouseCodes: scope.allowedWarehouseCodes ?? [],
       };
     } catch {
-      return { isGlobal: true, companyCodes: [], farmCodes: [], warehouseCodes: [] };
+      return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [] };
     }
   }
 
@@ -436,6 +436,7 @@ export class LookupController {
     //   ①有场授权清单 → 只看清单内的场；②公司维度收窄（场未挂公司 NULL 保留）。
     const { isGlobal, companyCodes, farmCodes } = await this.resolveCompanyScope();
     if (isGlobal) return { code: 200, data: rows };
+    if (farmCodes.length === 0 && companyCodes.length === 0) return { code: 200, data: [] };
     let out = rows;
     if (farmCodes.length > 0) out = out.filter(r => farmCodes.includes(r.farmCode));
     if (companyCodes.length > 0) out = out.filter(r => !r.companyCode || companyCodes.includes(r.companyCode));
