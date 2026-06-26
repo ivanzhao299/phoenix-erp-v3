@@ -384,10 +384,8 @@ export class OrgService {
 
   /** 按 orgType 过滤 */
   async getOrgsByType(orgType: string): Promise<SysOrganizationEntity[]> {
-    return this.orgRepo.find({
-      where: { orgType: orgType as SysOrganizationEntity['orgType'] },
-      order: { level: 'ASC', sortOrder: 'ASC', orgCode: 'ASC' },
-    });
+    const orgs = await this.listOrgs();
+    return orgs.filter((org) => org.orgType === orgType);
   }
 
   /**
@@ -402,12 +400,27 @@ export class OrgService {
     siteCodes: string[];
     departmentCodes: string[];
   }> {
+    const visibleIds = await this.visibleOrgIds(await this.resolveOrgCompanyScope());
+    if (Array.isArray(visibleIds) && !visibleIds.length) {
+      return {
+        scopeAll: false,
+        groupCodes: [],
+        buCodes: [],
+        companyCodes: [],
+        siteCodes: [],
+        departmentCodes: [],
+      };
+    }
+    const params: any[] = [userId];
+    const scopeClause = Array.isArray(visibleIds)
+      ? ` AND uo.org_id = ANY($${params.push(visibleIds)})`
+      : '';
     const rows: Array<{ org_type: string; org_code: string }> = await this.ds.query(
       `SELECT o.org_type, o.org_code
        FROM sys_user_orgs uo
        JOIN sys_organizations o ON o.id = uo.org_id
-       WHERE uo.user_id = $1`,
-      [userId],
+       WHERE uo.user_id = $1${scopeClause}`,
+      params,
     );
 
     const groupCodes: string[] = [];
