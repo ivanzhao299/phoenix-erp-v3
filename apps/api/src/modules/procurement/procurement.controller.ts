@@ -45,6 +45,7 @@ export class ProcurementController {
 
   // ─── 获取审批人列表 ──────────────────────────────���─────────────────────────
   @Get('approvers')
+  @RequireMenu('MENU_PRC2_ORDER', 'E')
   async getApprovers() {
     return await this.procurementService.getApprovers();
   }

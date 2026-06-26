@@ -48,19 +48,46 @@ export class ProcurementService {
     return await this.em.save(PurchaseOrderEntity, po);
   }
 
-  // ─── 获取可用审批人列表（有审批权限的在职用户） ───────────────────────────
+  // ─── 获取可用审批人列表（权限 ∩ 当前场域，兼容旧采购页） ──────────────────
   async getApprovers() {
     try {
-      const data = await this.em.query(`
-        SELECT DISTINCT u.user_id, u.username, u.real_name, u.store_code,
-               r.role_code, r.role_name_zh
-        FROM sys_user u
-        JOIN sys_user_role ur ON u.user_id = ur.user_id
-        JOIN sys_role r ON ur.role_id = r.role_id
-        WHERE r.role_code IN ('ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_CEO', 'ROLE_FIN_CFO')
-          AND u.status = 1
-        ORDER BY u.real_name
-      `);
+      const currentUserId = String(this.cls.get('user.userId') ?? this.cls.get('user.id') ?? '');
+      const currentStore = this.userStoreCode;
+      const params: unknown[] = [currentUserId || null];
+      let scopeClause = '';
+
+      if (!this.isGlobalUser) {
+        params.push(currentStore);
+        scopeClause = `AND (u.store_code = $${params.length} OR u.store_code = 'ALL' OR u.store_code IS NULL)`;
+      }
+
+      const data = await this.em.query(
+        `
+        SELECT u.user_id,
+               u.username,
+               COALESCE(u.real_name, u.real_name_zh, u.username) AS real_name,
+               u.store_code,
+               MIN(r.role_code) AS role_code,
+               MIN(r.role_name_zh) AS role_name_zh,
+               string_agg(DISTINCT m.menu_code, ',' ORDER BY m.menu_code) AS permission_menu_codes
+          FROM sys_user u
+          JOIN sys_user_role ur ON u.user_id = ur.user_id
+          JOIN sys_role r ON ur.role_id = r.role_id
+          JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
+          JOIN sys_menu m ON m.menu_id = rmp.menu_id
+         WHERE u.status = 1
+           AND ($1::text IS NULL OR u.user_id::text <> $1::text)
+           ${scopeClause}
+           AND m.menu_code IN ('MENU_PRC2_ORDER', 'MENU_WORKFLOW_TODO', 'MENU_WORKFLOW')
+           AND (
+             rmp.perm_codes = '*'
+             OR 'A' = ANY(string_to_array(COALESCE(rmp.perm_codes, ''), ','))
+           )
+         GROUP BY u.user_id, u.username, u.real_name, u.real_name_zh, u.store_code
+         ORDER BY real_name
+      `,
+        params,
+      );
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
   }
