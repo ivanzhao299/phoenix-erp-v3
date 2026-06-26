@@ -36,12 +36,23 @@ export class ApInvoicesService {
   private currentUser() {
     const u = this.cls.get('user') as any;
     return {
-      userId:       String(u?.userId ?? u?.id ?? '0'),
-      roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
-    };
-  }
+	      userId:       String(u?.userId ?? u?.id ?? '0'),
+	      roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
+	      permissions:  (u?.permissions ?? []) as string[],
+	      companyCodes: (u?.companyCodes ?? []) as string[],
+	      scopeAll:     !!(u?.scopeAll),
+	    };
+	  }
+
+	  private hasMenuPerm(menuCode: string, permCode?: string): boolean {
+	    const user = this.currentUser();
+	    if (user.permissions.includes('*')) return true;
+	    const entry = user.permissions.find((p) => p.startsWith(`${menuCode}:`));
+	    if (!entry) return false;
+	    if (!permCode) return true;
+	    const granted = new Set((entry.split(':')[1] || '').split(',').map((s) => s.trim()).filter(Boolean));
+	    return permCode.split(',').map((s) => s.trim()).filter(Boolean).every((code) => granted.has(code));
+	  }
 
   /** 生成 AP 编号 AP-YYYYMM-XXXXX */
   private async genApNo(): Promise<string> {
@@ -534,13 +545,11 @@ export class ApInvoicesService {
 
   // ── 10. 从 prc2_ap_ledger 幂等导入 ───────────────────────────────────────
 
-  async importFromPrc2(companyCode?: string) {
-    const user    = this.currentUser();
-    const allowed = ['ROLE_ADMIN','ROLE_FIN_CFO','ROLE_GROUP_FINANCE'];
-    const hasRole = user.roles.some(r => allowed.includes(r));
-    if (!hasRole) {
-      throw new ForbiddenException('仅 ADMIN / FIN_CFO / GROUP_FINANCE 可执行导入');
-    }
+	  async importFromPrc2(companyCode?: string) {
+	    const user = this.currentUser();
+	    if (!this.hasMenuPerm('MENU_FIN2_AP', 'E')) {
+	      throw new ForbiddenException('需要 MENU_FIN2_AP:E 才可执行 AP 导入');
+	    }
 
     // DataScope 过滤
     const params: any[] = [];
