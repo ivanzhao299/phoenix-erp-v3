@@ -137,6 +137,20 @@ for (const file of trackedFiles()) {
     }
 
     if (
+      file.endsWith('apps/web/src/app/(mobile)/mobile/dashboard/page.tsx') &&
+      /hasPermission\(['"](MENU_QA|MENU_LOGISTICS)['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Mobile dashboard quality/delivery visibility must use atomic MENU_QA_* and delivery permissions, not legacy MENU_QA or MENU_LOGISTICS.', line);
+    }
+
+    if (
+      /apps\/api\/src\/modules\/quality\/quality\.controller\.ts$/.test(file) &&
+      /@RequireMenu\(\s*['"]MENU_QA['"]/.test(line)
+    ) {
+      add(file, lineNo, 'Quality APIs must use atomic MENU_QA_OP/MENU_QA_MGR/MENU_QA_MASTER permissions, not legacy MENU_QA.', line);
+    }
+
+    if (
       file.endsWith('apps/web/src/components/layout/Sidebar.tsx') &&
       /id:\s*["']mdc-overview["']/.test(line) &&
       /perm:\s*["']MENU_MASTER_DATA["']/.test(line)
