@@ -532,6 +532,9 @@ for (const file of trackedFiles()) {
   }
 
   if (file.endsWith('apps/web/src/app/(admin)/master-data/page.tsx')) {
+    if (/MENU_MASTER_DATA/.test(text)) {
+      add(file, 1, 'Master-data hub must not use coarse MENU_MASTER_DATA to reveal child tiles or member links; use MENU_MD_* atomic permissions only.', lines[0] || file);
+    }
     const fixedLinks = [
       /<a\s+href=["']\/master-data\/operations["']/,
       /<a\s+href=["']\/master-data\/governance["']/,

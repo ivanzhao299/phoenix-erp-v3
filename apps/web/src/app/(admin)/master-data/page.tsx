@@ -208,10 +208,10 @@ export default function MasterDataHubPage() {
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const canViewCenter = hasPermission('MENU_MD_CENTER', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
-  const canViewGovernance = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
-  const canViewDataQuality = hasPermission('MENU_MD_QUALITY', 'V') || hasPermission('MENU_MASTER_DATA', 'V');
-  const canViewPending = canAccessAny(hasPermission, PENDING_ENTRY_MENUS) || hasPermission('MENU_MASTER_DATA', 'V');
+  const canViewCenter = hasPermission('MENU_MD_CENTER', 'V');
+  const canViewGovernance = hasPermission('MENU_MD_QUALITY', 'V');
+  const canViewDataQuality = hasPermission('MENU_MD_QUALITY', 'V');
+  const canViewPending = canAccessAny(hasPermission, PENDING_ENTRY_MENUS);
   const load = useCallback(async () => {
     if (!canViewCenter) {
       setCenters([]);
@@ -415,7 +415,7 @@ export default function MasterDataHubPage() {
             gridTemplateColumns: meta.members.length > 2 ? 'repeat(2, 1fr)' : '1fr',
             gap: 6
           }}>
-                {meta.members.filter(m => canAccessMenu(hasPermission, TYPE_TO_MENU[m.type]) || hasPermission('MENU_MASTER_DATA', 'V')).map(m => {
+                {meta.members.filter(m => canAccessMenu(hasPermission, TYPE_TO_MENU[m.type])).map(m => {
               const memberStat = c.members.find(x => x.type === m.type);
               const MemberIcon = m.icon;
               return <a key={m.type} href={m.href} style={{
