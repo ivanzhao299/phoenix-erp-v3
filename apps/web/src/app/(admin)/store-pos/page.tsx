@@ -805,7 +805,9 @@ export default function StorePosPage() {
             color: 'var(--text-secondary)',
             marginTop: 60,
             fontSize: 13
-          }}>暂无商品数据</div> : <div style={{
+          }}>{products.length === 0
+            ? <>本店所属公司暂无 <b>ACTIVE 价格本</b>，收银台无可售商品。<br />请先在「销售管理 / 价格管理」为公司 <b>{companyCode || '—'}</b> 配置并启用价格本。</>
+            : <>无匹配「{productQuery}」的商品</>}</div> : <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 8

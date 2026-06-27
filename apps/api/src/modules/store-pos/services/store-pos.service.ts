@@ -407,7 +407,10 @@ export class StorePosService {
   async getProducts(storeCode: string, companyCode: string) {
     // 从 sal_price_items 获取有效的价格本商品
     const rows = await this.ds.query<any[]>(
-      `SELECT pi.product_code, pi.product_name,
+      `SELECT pi.product_code,
+              -- POS-P0-4 修:sal_price_items 无 product_name 列(原 SELECT pi.product_name → 42703 → 商品接口恒 400)。
+              -- 改 JOIN 取真品名:SKU 名优先,回退产品主数据名,再回退编码。
+              COALESCE(ps.sku_name, mp.product_name, pi.product_code) AS product_name,
               pi.grade_code, pi.packaging_spec,
               pi.unit_price, pi.currency_code,
               pi.sku_code,          -- Phase H5: SKU 编码
@@ -415,10 +418,13 @@ export class StorePosService {
               pi.spec_code          -- Phase H5: 标准规格
        FROM sal_price_items pi
        INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
+       LEFT JOIN mst_products mp ON mp.product_code = pi.product_code
+       LEFT JOIN product_skus ps ON ps.sku_code = pi.sku_code
        WHERE pb.status = 'ACTIVE'
          AND pb.company_code = $1
-         AND (pb.valid_from IS NULL OR pb.valid_from <= CURRENT_DATE)
-         AND (pb.valid_to IS NULL OR pb.valid_to >= CURRENT_DATE)
+         -- POS-P0-4 修:列名是 effective_from/effective_to(原误写 valid_from/valid_to → 生产 42703 → 商品接口 400)
+         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
+         AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
          AND pi.unit_price > 0
        ORDER BY pi.sku_code NULLS LAST, pi.product_code, pi.grade_code`,
       [companyCode],
@@ -570,7 +576,7 @@ export class StorePosService {
   }) {
     // 获取账户信息
     const [acct] = await mgr.query(
-      `SELECT id, account_code, account_name, current_balance
+      `SELECT id, account_code, account_name, current_balance, currency_code
        FROM fin_cash_accounts WHERE id = $1`,
       [params.accountId],
     );
@@ -596,7 +602,7 @@ export class StorePosService {
         (txn_no, account_id, account_code, account_name, company_code,
          direction, source_type, source_id, source_no,
          currency_code, amount, balance_after, remark, created_by)
-       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,'CNY',$9,$10,$11,$12)`,
+       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,$13,$9,$10,$11,$12)`,
       [
         txnNo,
         acct.id,
@@ -610,6 +616,7 @@ export class StorePosService {
         newBalance,
         params.remark,
         this.currentUser?.username ?? 'pos',
+        acct.currency_code ?? 'CNY',  // POS-P0-6:收款流水币种随收款账户(去写死 CNY,跨境 LAK/THB 正确)
       ],
     );
   }
