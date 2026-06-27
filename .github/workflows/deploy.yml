@@ -73,6 +73,10 @@ jobs:
 
       - name: Compute changed paths
         id: changes
+        # workflow_dispatch 无 before/base_ref → paths-filter 退到字面量 'HEAD~1'
+        # 会触发 `git fetch origin HEAD~1` 非法 refspec(exit 128)。手动触发改用
+        # MANUAL_MODE 决策,无需 path diff,故此步在 dispatch 时跳过。
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@v3
         with:
           # base 用 HEAD~1(push) 或 PR base
