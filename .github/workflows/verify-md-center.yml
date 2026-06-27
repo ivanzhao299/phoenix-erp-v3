@@ -1,0 +1,49 @@
+name: Verify MENU_MD_CENTER (read-only)
+
+# 一次性只读校验:确认 hotfix 迁移 1782053 在生产落地——
+#   MENU_MD_CENTER 已进 sys_menu + 哪些角色拿到 :V。SSH 进生产只跑 SELECT,零写入。
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify MENU_MD_CENTER in prod (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - name: Read-only SELECT via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            echo "===VERIFY_START==="
+            docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            \echo '-- 1) MENU_MD_CENTER 是否已进 sys_menu --'
+            SELECT menu_code, menu_name_zh, parent_code, route FROM sys_menu WHERE menu_code = 'MENU_MD_CENTER';
+            \echo '-- 2) 迁移登记 --'
+            SELECT name FROM migrations WHERE name LIKE '%SeedMasterDataCenterMenu%';
+            \echo '-- 3) 拿到 MENU_MD_CENTER 授权的角色数 --'
+            SELECT count(DISTINCT r.role_code) AS roles_with_md_center
+            FROM sys_role_menu_permission p
+            JOIN sys_role r ON r.role_id = p.role_id
+            JOIN sys_menu m ON m.menu_id = p.menu_id
+            WHERE m.menu_code = 'MENU_MD_CENTER';
+            \echo '-- 4) 非 ADMIN 粗父菜单残留(应 0) --'
+            SELECT count(*) AS coarse_non_admin
+            FROM sys_role_menu_permission p
+            JOIN sys_role r ON r.role_id = p.role_id
+            JOIN sys_menu m ON m.menu_id = p.menu_id
+            WHERE r.role_code <> 'ROLE_ADMIN'
+              AND m.menu_code IN ('MENU_FIN2','MENU_PRC2','MENU_PRC2_MASTER','MENU_WORKFLOW','MENU_MASTER','MENU_SETTINGS_IT');
+            SQL
+            echo "===VERIFY_END==="
