@@ -51,15 +51,16 @@
 **后端 9 个中心模块 controller：0 处引用粗父码**（精确正则零命中）——干净。
 **前端仅 3 处残留**，全在 `Sidebar.tsx` 组头 perm，且对带 children 的组是**功能性死引用**（`getVisibleMenu` 只按子项原子 perm 过滤，组头 perm 从不被求值）。
 
-✅ **本批已修复**（前端字符串字面量替换，web tsc 0 errors）：
+⏸️ **建议修复·冻结期暂缓**（前端字符串字面量替换，已本地验证 web tsc 0 errors，但触发 freeze gate 故撤回，待解冻或 `ALLOW_FREEZE_TOUCH` 后落地）：
 
-| file:line | 旧（粗码） | 新（原子代表码） |
+| file:line | 现状（粗码） | 建议（原子代表码） |
 |---|---|---|
 | `apps/web/src/components/layout/Sidebar.tsx:132` | `MENU_PRC2_MASTER` | `MENU_PRC2_DASHBOARD` |
 | `apps/web/src/components/layout/Sidebar.tsx:168` | `MENU_FIN2` | `MENU_FIN2_DASHBOARD` |
 | `apps/web/src/components/layout/Sidebar.tsx:194` | `MENU_WORKFLOW` | `MENU_WORKFLOW_TODO` |
 
-行为不变（组在"任一子可见"时显示），消除粗码字面量，对齐主数据/设置组头的干净写法。主数据中心、系统设置中心本就**零残留**。
+行为不变（组在"任一子可见"时显示，组头 perm 不被求值），消除粗码字面量，对齐主数据/设置组头的干净写法。主数据中心、系统设置中心本就**零残留**。
+**注**：`apps/web/**` 属冻结边界（`scripts/ci/check-freeze-boundaries.mjs`），本批不带应用代码改动，此 3 处归入"解冻后批次"。
 
 ## 5. 任务 4 — 五主体四向一致性矩阵（菜单/卡片/按钮/接口）
 
