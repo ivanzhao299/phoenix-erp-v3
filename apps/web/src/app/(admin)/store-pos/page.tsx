@@ -80,6 +80,28 @@ interface SaleRecord {
   created_at: string;
   completed_at?: string;
 }
+interface SaleDetailItem {
+  id: number;
+  product_code: string;
+  product_name: string;
+  grade_code?: string | null;
+  packaging_spec?: string | null;
+  qty: number;
+  unit_price: number;
+  amount: number;
+  batch_no?: string | null;
+}
+interface SaleDetail extends SaleRecord {
+  store_name?: string;
+  company_name?: string;
+  payment_method?: string;
+  subtotal?: number;
+  discount_amount?: number;
+  receivable_amount?: number;
+  created_by_name?: string;
+  void_reason?: string | null;
+  items?: SaleDetailItem[];
+}
 interface ShiftRecord {
   id: number;
   closing_no: string;
@@ -271,6 +293,12 @@ export default function StorePosPage() {
   const [salesTotal, setSalesTotal] = useState(0);
   const [salesPage, setSalesPage] = useState(1);
   const [loadingSales, setLoadingSales] = useState(false);
+  // POS-P1:销售记录详情 / 作废
+  const [detailSale, setDetailSale] = useState<SaleDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<SaleRecord | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
 
   // ── 班次 ──────────────────────────────────────────────────────────────────
   const [currentShift, setCurrentShift] = useState<ShiftRecord | null>(null);
@@ -367,6 +395,43 @@ export default function StorePosPage() {
       setLoadingSales(false);
     }
   }, [storeCode]);
+
+  // ── 销售单详情 ───────────────────────────────────────────────────────────
+  const openDetail = useCallback(async (id: number) => {
+    setLoadingDetail(true);
+    setDetailSale(null);
+    try {
+      const data = await api<SaleDetail>('GET', `/api/v2/store-sales/${id}`);
+      setDetailSale(data);
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, []);
+
+  // ── 作废销售单 ───────────────────────────────────────────────────────────
+  const submitVoid = useCallback(async () => {
+    if (!voidTarget) return;
+    const reason = voidReason.trim();
+    if (!reason) {
+      showToast('请填写作废原因', 'error');
+      return;
+    }
+    setVoiding(true);
+    try {
+      await api('POST', `/api/v2/store-sales/${voidTarget.id}/void`, { reason });
+      showToast(`已作废 ${voidTarget.sale_no}`, 'success');
+      setVoidTarget(null);
+      setVoidReason('');
+      loadSales(salesPage);
+      loadSummary();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setVoiding(false);
+    }
+  }, [voidTarget, voidReason, salesPage, loadSales, loadSummary]);
 
   // ── 加载班次历史 ─────────────────────────────────────────────────────────
   const loadShiftHistory = useCallback(async (page = 1) => {
@@ -756,7 +821,19 @@ export default function StorePosPage() {
               transform: 'translateY(-50%)',
               color: 'var(--text-secondary)'
             }} />
-                <input value={productQuery} onChange={e => setProductQuery(e.target.value)} placeholder="搜索商品..." style={{
+                <input value={productQuery} onChange={e => setProductQuery(e.target.value)}
+              onKeyDown={e => {
+                // POS-P1:扫码/搜码加购 —— 回车时精确命中 sku_code/product_code 即加购(扫码枪天然按回车);
+                //   无精确命中但搜索结果恰好 1 个也加购;否则提示未找到。
+                if (e.key !== 'Enter') return;
+                const q = productQuery.trim();
+                if (!q) return;
+                const exact = products.find(p => p.sku_code === q || p.product_code === q);
+                const target = exact ?? (filteredProducts.length === 1 ? filteredProducts[0] : undefined);
+                if (target) { addToCart(target); setProductQuery(''); }
+                else showToast(`未找到商品「${q}」`, 'error');
+              }}
+              placeholder="扫码或搜索商品（回车加购）" style={{
               width: '100%',
               padding: '6px 8px 6px 28px',
               borderRadius: 6,
@@ -1280,7 +1357,7 @@ export default function StorePosPage() {
                   <tr style={{
               borderBottom: '1px solid var(--border-dark-faint)'
             }}>
-                    {['单号', '类型', '状态', '收款', '金额', '已收', '客户', '时间'].map(h => <th key={h} style={{
+                    {['单号', '类型', '状态', '收款', '金额', '已收', '客户', '时间', '操作'].map(h => <th key={h} style={{
                 padding: '8px 10px',
                 textAlign: 'left',
                 color: 'var(--text-secondary)',
@@ -1337,8 +1414,32 @@ export default function StorePosPage() {
                 color: 'var(--text-secondary)',
                 fontSize: 12
               }}>{fmtDate(s.created_at)}</td>
+                      <td style={{
+                padding: '8px 10px'
+              }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => openDetail(s.id)} style={{
+                    padding: '3px 10px',
+                    borderRadius: 5,
+                    border: '1px solid var(--border-dark)',
+                    background: 'transparent',
+                    color: 'var(--color-accent)',
+                    cursor: 'pointer',
+                    fontSize: 12
+                  }}>详情</button>
+                          {hasPerm('D') && s.status === 'OPEN' && <button onClick={() => { setVoidTarget(s); setVoidReason(''); }} style={{
+                    padding: '3px 10px',
+                    borderRadius: 5,
+                    border: '1px solid var(--status-danger)',
+                    background: 'transparent',
+                    color: 'var(--status-danger)',
+                    cursor: 'pointer',
+                    fontSize: 12
+                  }}>作废</button>}
+                        </div>
+                      </td>
                     </tr>)}
-                  {sales.length === 0 && <tr><td colSpan={8} style={{
+                  {sales.length === 0 && <tr><td colSpan={9} style={{
                 padding: '40px',
                 textAlign: 'center',
                 color: 'var(--text-secondary)'
@@ -1881,6 +1982,132 @@ export default function StorePosPage() {
             fontSize: 13,
             fontWeight: 600
           }}>保存</button>
+            </div>
+          </div>
+        </div>}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Modal: 销售单详情
+       ══════════════════════════════════════════════════════════════════════ */}
+      {(detailSale || loadingDetail) && <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'var(--overlay-mask)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }} onClick={() => { setDetailSale(null); setLoadingDetail(false); }}>
+          <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--text-primary)',
+        borderRadius: 12,
+        padding: 28,
+        width: 560,
+        maxHeight: '82vh',
+        overflowY: 'auto',
+        border: '1px solid var(--border-dark)'
+      }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>销售单详情</h3>
+              <button onClick={() => { setDetailSale(null); setLoadingDetail(false); }} style={{
+            border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-disabled)'
+          }}><X size={18} /></button>
+            </div>
+            {loadingDetail ? <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 160, color: 'var(--text-secondary)' }}>
+              <Loader2 size={22} /> <span style={{ marginLeft: 8 }}>加载中...</span>
+            </div> : detailSale && <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13, marginBottom: 16 }}>
+                {([
+                  ['单号', detailSale.sale_no],
+                  ['类型', SALE_TYPE_MAP[detailSale.sale_type]?.label ?? detailSale.sale_type],
+                  ['状态', STATUS_MAP[detailSale.status]?.label ?? detailSale.status],
+                  ['收款', PAY_STATUS_MAP[detailSale.payment_status]?.label ?? detailSale.payment_status],
+                  ['客户', detailSale.customer_name || '散客'],
+                  ['门店', detailSale.store_name || storeName || storeCode],
+                  ['金额', `¥${fmt(detailSale.total_amount)}`],
+                  ['已收', `¥${fmt(detailSale.paid_amount)}`],
+                  ['应收', `¥${fmt(detailSale.receivable_amount)}`],
+                  ['折扣', `¥${fmt(detailSale.discount_amount)}`],
+                  ['收银员', detailSale.created_by_name || '—'],
+                  ['时间', fmtDate(detailSale.created_at)],
+                ] as [string, string][]).map(([k, v]) => <div key={k}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{k}：</span>
+                  <span style={{ color: 'var(--text-on-dark)' }}>{v}</span>
+                </div>)}
+              </div>
+              {detailSale.status === 'VOID' && detailSale.void_reason && <div style={{
+            padding: '8px 12px', marginBottom: 14, borderRadius: 6,
+            background: 'var(--status-danger-bg)', color: 'var(--status-danger)', fontSize: 13
+          }}>作废原因：{detailSale.void_reason}</div>}
+              <table className={s.table}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-dark-faint)' }}>
+                    {['商品', '规格/等级', '数量', '单价', '小计'].map(h => <th key={h} style={{
+                  padding: '6px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12
+                }}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(detailSale.items ?? []).filter(it => it && it.id != null).map(it => <tr key={it.id} style={{ borderBottom: '1px solid var(--surface-dark)' }}>
+                    <td style={{ padding: '6px 8px', fontSize: 13 }}>{it.product_name || it.product_code}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 12, color: 'var(--text-secondary)' }}>{[it.grade_code, it.packaging_spec].filter(Boolean).join(' / ') || '—'}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 13 }}>{fmt(it.qty)}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 13 }}>¥{fmt(it.unit_price)}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 13, color: 'var(--status-success)' }}>¥{fmt(it.amount)}</td>
+                  </tr>)}
+                  {(!detailSale.items || detailSale.items.filter(it => it && it.id != null).length === 0) && <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>无明细</td></tr>}
+                </tbody>
+              </table>
+            </>}
+          </div>
+        </div>}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Modal: 作废确认
+       ══════════════════════════════════════════════════════════════════════ */}
+      {voidTarget && <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'var(--overlay-mask)',
+      zIndex: 1001,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+          <div style={{
+        background: 'var(--text-primary)',
+        borderRadius: 12,
+        padding: 28,
+        width: 420,
+        border: '1px solid var(--border-dark)'
+      }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>作废销售单</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
+              即将作废 <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{voidTarget.sale_no}</span>，此操作不可撤销。
+            </p>
+            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>作废原因 *</label>
+            <textarea value={voidReason} onChange={e => setVoidReason(e.target.value)} rows={3} placeholder="请填写作废原因" style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '8px 10px',
+          borderRadius: 6,
+          border: '1px solid var(--border-dark)',
+          background: 'var(--surface-dark)',
+          color: 'var(--text-on-dark)',
+          fontSize: 13,
+          resize: 'vertical'
+        }} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => { setVoidTarget(null); setVoidReason(''); }} disabled={voiding} style={{
+            padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)',
+            background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13
+          }}>取消</button>
+              <button onClick={submitVoid} disabled={voiding} style={{
+            padding: '8px 18px', borderRadius: 6, border: 'none',
+            background: 'var(--status-danger)', color: 'var(--text-on-dark)',
+            cursor: voiding ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
+            opacity: voiding ? 0.6 : 1
+          }}>{voiding ? '处理中...' : '确认作废'}</button>
             </div>
           </div>
         </div>}
