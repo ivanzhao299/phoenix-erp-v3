@@ -59,6 +59,7 @@ interface Product {
   packaging_spec?: string;
   unit_price: number;
   retail_price?: number;
+  currency_code?: string; // POS-P0-6:价格本币种,贯穿收款账户过滤 + 销售单币种
   sku_code?: string | null; // Phase H5
   grade_code_std?: string | null; // Phase H5
   spec_code?: string | null; // Phase H5
@@ -502,6 +503,12 @@ export default function StorePosPage() {
   };
   const subtotal = cart.reduce((s, c) => s + c.amount, 0);
   const totalAmount = Math.max(0, subtotal - discountAmount);
+  // POS-P0-6:购物车币种(同一公司价格本单一币种);用于过滤收款账户,后端按此校验现金/AR 同币种
+  const cartCurrency = cart[0]?.currency_code || '';
+  // 币种切换时清空已选收款账户,避免选到不匹配币种的账户(后端会硬拦)
+  useEffect(() => {
+    setCashAccountId(0);
+  }, [cartCurrency]);
 
   // ── 提交销售 ─────────────────────────────────────────────────────────────
   const handleCheckout = async () => {
@@ -540,6 +547,7 @@ export default function StorePosPage() {
         companyName,
         saleType: payType,
         paymentMethod: payType !== 'CREDIT' ? payMethod : undefined,
+        currencyCode: cartCurrency || undefined, // POS-P0-6:传购物车币种;后端缺省按公司价格本解析
         customerCode: customerCode || undefined,
         customerName: customerName || undefined,
         discountAmount,
@@ -1187,9 +1195,10 @@ export default function StorePosPage() {
                 <CashAccountSelector
                   valueField="id"
                   companyCode={companyCode || undefined}
+                  currencyCode={cartCurrency || undefined}
                   value={cashAccountId ? String(cashAccountId) : ''}
                   onChange={(v) => setCashAccountId(Number(v) || 0)}
-                  placeholder="选择收款资金账户"
+                  placeholder={cartCurrency ? `选择 ${cartCurrency} 收款账户` : '选择收款资金账户'}
                 />
               </div>}
 

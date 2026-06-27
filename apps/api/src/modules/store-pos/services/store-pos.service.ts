@@ -45,6 +45,8 @@ export interface CreateSaleDto {
   saleType:       'CASH' | 'CREDIT' | 'MIXED';
   paymentMethod?: string;
   discountAmount?: number;
+  /** POS-P0-6:可选币种覆盖;不传则按公司价格本解析 */
+  currencyCode?:  string;
   items:          SaleItemDto[];
 }
 
@@ -83,6 +85,35 @@ export class StorePosService {
     return `POS-${dateStr}-${String(r.n).padStart(5, '0')}`;
   }
 
+  /**
+   * POS-P0-6:解析销售单币种 —— 唯一权威来源是公司 ACTIVE 价格本的币种。
+   * 价格本单一币种(常态)→ definite=true,该币种权威;
+   * 0 或多币种(异常)→ definite=false,回退 'CNY' 并告警,允许 DTO 兜底。
+   * 销售单据所有金额腿(现金/AR)都以此币种为准,杜绝同单币种漂移。
+   */
+  private async resolveSaleCurrency(
+    companyCode: string,
+  ): Promise<{ currency: string; definite: boolean }> {
+    const rows = await this.ds.query<Array<{ currency_code: string }>>(
+      `SELECT DISTINCT pi.currency_code
+         FROM sal_price_items pi
+         INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
+        WHERE pb.company_code = $1
+          AND pb.status = 'ACTIVE'
+          AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
+          AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
+          AND pi.currency_code IS NOT NULL`,
+      [companyCode],
+    );
+    if (rows.length === 1) return { currency: rows[0].currency_code, definite: true };
+    if (rows.length > 1) {
+      this.logger.warn(
+        `[StorePOS] 公司 ${companyCode} ACTIVE 价格本存在多币种(${rows.map(r => r.currency_code).join('/')}),销售币种回退 CNY`,
+      );
+    }
+    return { currency: 'CNY', definite: false };
+  }
+
   private async getSale(id: number) {
     const [sale] = await this.ds.query<any[]>(
       `SELECT s.*, array_agg(
@@ -113,17 +144,28 @@ export class StorePosService {
     const subtotal = dto.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
     const total    = Math.max(0, subtotal - discount);
 
+    // POS-P0-6:销售单币种以公司价格本为权威,所有金额腿统一以此币种为准。
+    // 客户端可传 currencyCode 作提示,但价格本可判定时(definite)以价格本为准,
+    // 传入若与之冲突则拒绝 —— 防伪造币种绕过资金账户币种校验(账实漂移)。
+    const { currency: derivedCurrency, definite } = await this.resolveSaleCurrency(dto.companyCode);
+    if (dto.currencyCode && definite && dto.currencyCode !== derivedCurrency) {
+      throw new BadRequestException(
+        `销售币种 ${dto.currencyCode} 与公司 ${dto.companyCode} 价格本币种 ${derivedCurrency} 不一致`,
+      );
+    }
+    const currencyCode = definite ? derivedCurrency : (dto.currencyCode ?? derivedCurrency);
+
     // 事务：插入主表 + 明细行
     return this.ds.transaction(async mgr => {
       const [saleRow] = await mgr.query(
         `INSERT INTO sal_store_sales
           (sale_no, store_code, store_name, company_code, company_name,
            customer_code, customer_name, customer_id,
-           sale_type, payment_method,
+           sale_type, payment_method, currency_code,
            subtotal, discount_amount, total_amount, paid_amount, receivable_amount,
            payment_status, status,
            created_by, created_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$13,'UNPAID','OPEN',$14,$15)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$14,'UNPAID','OPEN',$15,$16)
          RETURNING id, sale_no`,
         [
           saleNo,
@@ -136,6 +178,7 @@ export class StorePosService {
           dto.customerId ?? null,
           dto.saleType,
           dto.paymentMethod ?? 'CASH',
+          currencyCode,
           subtotal,
           discount,
           total,
@@ -181,10 +224,11 @@ export class StorePosService {
       // A. FIFO 扣减库存
       const allocs = await this.fifoDeductItems(sale, mgr);
 
-      // B. 写 fin_cash_transactions
+      // B. 写 fin_cash_transactions（币种统一取销售单币种）
       await this.writeCashTransaction(mgr, {
         accountId:    dto.cashAccountId,
         companyCode:  sale.company_code,
+        currencyCode: sale.currency_code ?? 'CNY',
         amount:       Number(sale.total_amount),
         sourceType:   'STORE_SALE',
         sourceId:     sale.id,
@@ -223,9 +267,10 @@ export class StorePosService {
       // A. FIFO 扣减库存
       const allocs = await this.fifoDeductItems(sale, mgr);
 
-      // B. 生成 AR 发票
+      // B. 生成 AR 发票（币种统一取销售单币种）
       const arId = await this.createArInvoice(mgr, {
         companyCode:  sale.company_code,
+        currencyCode: sale.currency_code ?? 'CNY',
         customerCode: sale.customer_code,
         customerName: sale.customer_name ?? '散客',
         amount:       Number(sale.total_amount),
@@ -268,10 +313,11 @@ export class StorePosService {
       // A. FIFO 扣减
       const allocs = await this.fifoDeductItems(sale, mgr);
 
-      // B. 实收部分写 Cash
+      // B. 实收部分写 Cash（与 AR 腿同币种=销售单币种,杜绝同单漂移）
       await this.writeCashTransaction(mgr, {
         accountId:   dto.cashAccountId,
         companyCode: sale.company_code,
+        currencyCode: sale.currency_code ?? 'CNY',
         amount:      paid,
         sourceType:  'STORE_SALE',
         sourceId:    sale.id,
@@ -279,9 +325,10 @@ export class StorePosService {
         remark:      `门店部分收款 ${sale.sale_no} 实收=${paid}`,
       });
 
-      // C. 未收部分生成 AR
+      // C. 未收部分生成 AR（同币种）
       const arId = await this.createArInvoice(mgr, {
         companyCode:  sale.company_code,
+        currencyCode: sale.currency_code ?? 'CNY',
         customerCode: dto.customerCode ?? sale.customer_code,
         customerName: custName,
         amount:       receivable,
@@ -566,23 +613,32 @@ export class StorePosService {
   // ── 私有：Cash Transaction ────────────────────────────────────────────────
 
   private async writeCashTransaction(mgr: any, params: {
-    accountId:   number;
-    companyCode: string;
-    amount:      number;
-    sourceType:  string;
-    sourceId:    number;
-    sourceNo:    string;
-    remark:      string;
+    accountId:    number;
+    companyCode:  string;
+    currencyCode: string;
+    amount:       number;
+    sourceType:   string;
+    sourceId:     number;
+    sourceNo:     string;
+    remark:       string;
   }) {
     // 获取账户信息
     const [acct] = await mgr.query(
-      `SELECT id, account_code, account_name, current_balance
+      `SELECT id, account_code, account_name, current_balance, currency_code
        FROM fin_cash_accounts WHERE id = $1`,
       [params.accountId],
     );
     if (!acct) {
       this.logger.warn(`[StorePOS] cash_account ${params.accountId} 不存在，跳过 cash write`);
       return;
+    }
+
+    // POS-P0-6:资金账户币种必须与销售单币种一致,否则流水/余额会跨币种混记(账实漂移)
+    const acctCurrency = acct.currency_code ?? 'CNY';
+    if (acctCurrency !== params.currencyCode) {
+      throw new BadRequestException(
+        `资金账户「${acct.account_name}」币种为 ${acctCurrency}，与销售单币种 ${params.currencyCode} 不一致，请选择 ${params.currencyCode} 账户收款`,
+      );
     }
 
     const newBalance = Number(acct.current_balance) + params.amount;
@@ -596,13 +652,13 @@ export class StorePosService {
       [params.accountId, newBalance],
     );
 
-    // 写流水
+    // 写流水（币种取销售单币种,已校验=账户币种）
     await mgr.query(
       `INSERT INTO fin_cash_transactions
         (txn_no, account_id, account_code, account_name, company_code,
          direction, source_type, source_id, source_no,
          currency_code, amount, balance_after, remark, created_by)
-       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,'CNY',$9,$10,$11,$12)`,
+       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         txnNo,
         acct.id,
@@ -612,6 +668,7 @@ export class StorePosService {
         params.sourceType,
         params.sourceId,
         params.sourceNo,
+        params.currencyCode,
         params.amount,
         newBalance,
         params.remark,
@@ -624,6 +681,7 @@ export class StorePosService {
 
   private async createArInvoice(mgr: any, params: {
     companyCode:   string;
+    currencyCode:  string;
     customerCode?: string | null;
     customerName:  string;
     amount:        number;
@@ -637,6 +695,8 @@ export class StorePosService {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);  // 默认 30 天账期
 
+    // POS-P0-6:AR 币种取销售单币种(原硬编码 CNY);amount_base/base_currency 暂与原币同值,
+    //   待财务建立 FX 折算后再补本位币换算(当前 POS 不做跨币折算)
     const [row] = await mgr.query(
       `INSERT INTO fin_ar_invoices
         (ar_no, source_type, source_id, source_no,
@@ -645,7 +705,7 @@ export class StorePosService {
          amount_original, amount_base, base_currency,
          balance_amount_original, balance_amount_base,
          due_date, status, collection_status, created_by)
-       VALUES ($1,'STORE_SALE',$2,$3,$4,$5,$6,'CNY',$7,$7,'CNY',$7,$7,$8,'OPEN','UNRECEIVED',$9)
+       VALUES ($1,'STORE_SALE',$2,$3,$4,$5,$6,$7,$8,$8,$7,$8,$8,$9,'OPEN','UNRECEIVED',$10)
        RETURNING id`,
       [
         arNo,
@@ -654,6 +714,7 @@ export class StorePosService {
         params.companyCode,
         params.customerCode ?? null,
         params.customerName,
+        params.currencyCode,
         params.amount,
         dueDate.toISOString().slice(0, 10),
         this.currentUser?.username ?? 'pos',
