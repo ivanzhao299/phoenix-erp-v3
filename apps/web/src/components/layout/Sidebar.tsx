@@ -551,7 +551,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
 
       {/* Bottom */}
       {expanded_ && (
-        <Link href="/settings/profile" prefetch={false} className={styles.profileLink}>
+        <Link href="/profile" prefetch={false} className={styles.profileLink}>
           <Settings size={13} />
           <span>{t('layout.profile_link', '个人中心 / 修改密码')}</span>
         </Link>

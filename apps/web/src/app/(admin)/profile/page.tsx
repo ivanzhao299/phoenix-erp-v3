@@ -24,7 +24,6 @@ import {
 import { Palette, Check, Lock, User as UserIcon, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
 type Theme = '' | 'dark' | 'brand-green' | 'brand-red' | 'brand-blue' | 'brand-gold';
-const STORAGE_KEY = 'phoenix-theme';
 const THEMES: Array<{ key: Theme; label: string; swatch: string; desc: string }> = [
   { key: '',             label: '默认主题', swatch: 'var(--color-primary)',  desc: '深蓝商务 · 默认' },
   { key: 'dark',         label: '深色模式', swatch: 'var(--brand-deep-1)',   desc: '低亮护眼' },
@@ -34,12 +33,6 @@ const THEMES: Array<{ key: Theme; label: string; swatch: string; desc: string }>
   { key: 'brand-gold',   label: '品牌金',   swatch: '#B8860B',                desc: '凤凰品牌 · 金' },
 ];
 
-function applyTheme(theme: Theme) {
-  const html = document.documentElement;
-  if (theme) html.setAttribute('data-theme', theme);
-  else html.removeAttribute('data-theme');
-}
-
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 
 export default function ProfilePage() {
@@ -47,23 +40,14 @@ export default function ProfilePage() {
   const { themeMode, toggleTheme } = useTheme();
   const toast = useToast();
 
-  const [theme, setTheme] = useState<Theme>('');
   const [pwOld, setPwOld] = useState('');
   const [pwNew, setPwNew] = useState('');
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwSaving, setPwSaving] = useState(false);
 
-  useEffect(() => {
-    try {
-      const saved = (localStorage.getItem(STORAGE_KEY) as Theme) || '';
-      setTheme(saved);
-    } catch { /* SSR no-op */ }
-  }, []);
-
+  // 主题统一走 ThemeContext(唯一写 data-theme 的地方);点击即应用并持久化
   const chooseTheme = (key: Theme) => {
-    setTheme(key);
-    applyTheme(key);
-    try { localStorage.setItem(STORAGE_KEY, key); } catch { /* */ }
+    toggleTheme(key);
     toast.success('主题已切换');
   };
 
@@ -198,7 +182,7 @@ export default function ProfilePage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {THEMES.map(t => {
-            const active = theme === t.key;
+            const active = themeMode === t.key;
             return (
               <button
                 key={t.key}
