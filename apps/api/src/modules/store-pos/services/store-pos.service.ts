@@ -576,7 +576,7 @@ export class StorePosService {
   }) {
     // 获取账户信息
     const [acct] = await mgr.query(
-      `SELECT id, account_code, account_name, current_balance, currency_code
+      `SELECT id, account_code, account_name, current_balance
        FROM fin_cash_accounts WHERE id = $1`,
       [params.accountId],
     );
@@ -602,7 +602,7 @@ export class StorePosService {
         (txn_no, account_id, account_code, account_name, company_code,
          direction, source_type, source_id, source_no,
          currency_code, amount, balance_after, remark, created_by)
-       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,$13,$9,$10,$11,$12)`,
+       VALUES ($1,$2,$3,$4,$5,'IN',$6,$7,$8,'CNY',$9,$10,$11,$12)`,
       [
         txnNo,
         acct.id,
@@ -616,7 +616,6 @@ export class StorePosService {
         newBalance,
         params.remark,
         this.currentUser?.username ?? 'pos',
-        acct.currency_code ?? 'CNY',  // POS-P0-6:收款流水币种随收款账户(去写死 CNY,跨境 LAK/THB 正确)
       ],
     );
   }
