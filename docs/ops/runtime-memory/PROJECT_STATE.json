@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-06-25",
+  "last_updated": "2026-06-27",
   "active_module": "Store Payment",
   "current_stage": "PRODUCTION_STORE_PAYMENT_REMOTE_SMOKE_REFRESHED",
   "active_decision": "GO_WITH_CONDITIONS_BUSINESS_UAT_HOLD",
@@ -8,10 +8,21 @@
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
   "raw_url_exposure": "forbidden",
-  "deploy_status": "not_deployed",
-  "push_status": "not_pushed_main",
-  "database_write_status": "approved_store_payment_account_placeholders_executed",
-  "migration_status": "no_migration_in_menu_role_datascope_repair_execution",
+  "deploy_status": "deployed_full_main_20260627_run28277134665_green",
+  "push_status": "pushed_main_6eba282_via_pr2_merge",
+  "database_write_status": "ts_tail_migrations_1782045_1782052_applied_via_deploy_chain",
+  "migration_status": "applied_8_ts_tail_migrations_atomic_menus_plus_rbac_matrix_repair_phaseC_passed",
+  "last_full_deploy": {
+    "date": "2026-06-27",
+    "run": "28277134665",
+    "sha": "6eba2829",
+    "mode": "full",
+    "result": "GREEN",
+    "gates_passed": "tsc_api+web, regression_5domains, ts_migration_down+no_dml, build_api+web, ssh_deploy, db-migrate.sh, typeorm_migration:run, api_health, phase_c_verify",
+    "migrations_applied_tail": "1782045-1782052 (atomic menus seeds + 1782052 RepairRolePermissionMatrixAtomicity: backfill atomic sys_menu + convert grants + remove 56 coarse non-admin grants + D3 cash submenus)",
+    "deploy_chain_bug_fixed": "deploy.yml workflow_dispatch detect-changes HEAD~1 invalid-refspec -> skip paths-filter on dispatch",
+    "post_deploy_pending": "5-user re-login smoke (wanglejin/liuhantao/finance/procurement/admin) four-way menu/card/button/api; perms_version bumped so users must re-login"
+  },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
     "legacy_store_code_alias": "ST-VTE-001",

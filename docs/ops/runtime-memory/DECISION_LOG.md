@@ -901,3 +901,29 @@ Boundaries (本批严守):
 
 Next recommended gate:
 - `APPROVE_RBAC_COARSE_MENU_LIVE_AUDIT`：生产只读跑 audit-role-permission-matrix.mjs（SSH 并发 1）确证 live 残留 → 再 `APPROVE_RBAC_COARSE_MENU_REVOKE_EXECUTION`（备份→撤销→复核）。
+
+---
+
+## 2026-06-27 — 全量生产部署执行(full deploy GREEN)
+
+Decision: 用户授权"通过 A6 自行解决"→ 触发并完成一次 full 生产部署。
+
+Execution:
+- 触发:合并 PR #2 → push main(sha 6eba2829)→ deploy.yml(push 事件,detect-changes 正常 → mode=full)。
+- Run 28277134665 全绿:tsc(API+Web)/ 回归 5 域 / TS 迁移 down()+无DML门 / build api+web / Deploy·full(SSH 生产)。
+- 生产落盘(Deploy·full SSH 步骤):db-migrate.sh baseline + 起新 api + typeorm migration:run(TS 尾 1782045-1782052)+ /api/health + Phase C 验证(无 FAIL)+ 起新 web。
+- 迁移内容:原子菜单 seed(workflow/settings/org/quality-mobile/online-users)+ 1782052 矩阵修复(补原子 sys_menu + 转授权 + 删 56 条非 ADMIN 粗授予 + D3 资金子菜单)。
+
+附带修复:
+- deploy.yml workflow_dispatch 的 detect-changes 因 HEAD~1 非法 refspec 必挂 → 已修(dispatch 跳过 paths-filter,显式 MANUAL_MODE 决策)。
+
+清理:
+- 作废并删除本会话早期手写收敛草案 SQL(与 1782052 重复)+ 与部署链重复的手动 apply 脚本。
+
+Boundaries:
+- 仅本次 full 部署经授权执行;后续部署仍逐次确认。
+- Store Payment 账户激活/QR、historical uploads 写、manual-review 用户纳入 仍各需独立 Gate。
+
+Post-deploy pending:
+- 5 主体重登冒烟(perms_version 已 bump);W4 前端 D1/D2;W5-W8 各 Gate。
+- 清单:docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md

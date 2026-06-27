@@ -1,6 +1,24 @@
 # Next Actions
 
-Last updated: 2026-06-24
+Last updated: 2026-06-27
+
+## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
+
+用户授权下,已对 `main` 做一次 **full 生产部署**(run 28277134665, sha 6eba2829, **全绿**)。
+这与本文件下方早期"不部署"基线相矛盾;以本节为准。
+
+- 已落盘:TS 尾迁移 1782045-1782052(原子菜单 seed + 1782052 矩阵修复:删 56 条非 ADMIN 粗授予 + D3 资金子菜单),Phase C 验证通过。
+- 部署链 bug 已修(workflow_dispatch detect-changes HEAD~1)。
+
+**部署后待办(优先级序):**
+1. `POST_DEPLOY_5USER_RELOGIN_SMOKE` — 王乐金/刘汉涛/财务/采购/admin 重登核 菜单·卡片·按钮·接口四向一致(清单 `docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md`)。perms_version 已 bump,在线用户须重登。
+2. `W4_FRONTEND_D1_D2` — 侧菜单 requiredPerm:'V' + procurement 按钮 gating(冻结期撤回的,现可复位)。
+3. `W5_ATTACHMENT_CONVERGENCE` / `W6_PROCUREMENT_APPROVER_FLOW` / `W7_CHANJET_SIGNED_SMOKE` / `W8_STORE_PAYMENT_PROD_LINE`(各自 Gate)。
+4. 旧基线 Store Payment 线(下方)继续按原 Gate 推进。
+
+---
+
+## (历史) 早期 Next Actions — 部署前基线,保留备查
 
 1. `USE_AGENT_INBOX_FOR_SHORT_COMMANDS`.
 2. `USER_WRITES_SHORT_INTENT_TO_AGENT_INBOX`.
