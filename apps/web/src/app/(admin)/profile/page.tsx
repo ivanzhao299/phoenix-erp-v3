@@ -9,10 +9,11 @@
  *   · 修改密码
  *   · 我的角色（含可见性标识，只读）
  *
- * 主题持久化复用 localStorage('phoenix-theme')，与 ThemeSwitcher 一致。
+ * 主题统一由 ThemeContext 持久化(localStorage 'phoenix_theme')并写 data-theme;
+ * 本页主题卡片只调用 toggleTheme(),不自管持久化/DOM(2026-06-27 统一)。
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
