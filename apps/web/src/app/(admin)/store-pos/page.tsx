@@ -10,7 +10,7 @@ import s from '@/components/ui/admin-ui.module.css'; // G29-B: 表格全局样�
 import { ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus, Search, RefreshCw, CheckCircle, AlertTriangle, Clock, History, LogIn, LogOut, FileText, BarChart2, Loader2, ChevronDown } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
-import { CustomerSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 客户主数据
+import { CustomerSelector, StoreSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 客户主数据 + POS-P0 门店/资金账户选择器
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -261,7 +261,7 @@ export default function StorePosPage() {
 
   // ── 结账 ─────────────────────────────────────────────────────────────────
   const [payType, setPayType] = useState<PayType>('CASH');
-  const [cashAccountId, setCashAccountId] = useState<number>(1);
+  const [cashAccountId, setCashAccountId] = useState<number>(0);  // POS-P0-3:去硬编码默认 1,改由 CashAccountSelector 选(0=未选,结账时强制选)
   const [paidAmount, setPaidAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
   const [processing, setProcessing] = useState(false);
@@ -451,6 +451,11 @@ export default function StorePosPage() {
     const paid = payType === 'CREDIT' ? 0 : Number(paidAmount) || totalAmount;
     if (payType !== 'CREDIT' && paid <= 0) {
       showToast('请输入收款金额', 'error');
+      return;
+    }
+    // POS-P0-3：现金/混合收款必须选资金账户(防"收了钱不入账")
+    if (payType !== 'CREDIT' && !cashAccountId) {
+      showToast('请选择收款资金账户', 'error');
       return;
     }
     if (payType === 'MIXED' && paid >= totalAmount) {
@@ -1097,6 +1102,18 @@ export default function StorePosPage() {
                 <DictSelect dictType="SAL_PAY_METHOD" value={payMethod} onChange={setPayMethod} allowEmpty={false} />
               </div>}
 
+            {/* POS-P0-3：收款资金账户（去硬编码 id=1，按门店所属公司过滤，修"收了钱不入账"） */}
+            {payType !== 'CREDIT' && <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>收款账户 *</label>
+                <CashAccountSelector
+                  valueField="id"
+                  companyCode={companyCode || undefined}
+                  value={cashAccountId ? String(cashAccountId) : ''}
+                  onChange={(v) => setCashAccountId(Number(v) || 0)}
+                  placeholder="选择收款资金账户"
+                />
+              </div>}
+
             {/* 实收金额 */}
             {payType !== 'CREDIT' && <div style={{
           marginBottom: 10
@@ -1691,7 +1708,7 @@ export default function StorePosPage() {
             gridTemplateColumns: '1fr 1fr',
             gap: 6
           }}>
-                  {[['总销售额', `¥${fmt(summary.total_sales)}`], ['现金收款', `¥${fmt(summary.cash_sales)}`], ['销售单数', `${summary.completed_count} 单`], ['赊销额', `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
+                  {[['总销售额', `¥${fmt(summary.total_sales)}`], ['现金收款', `¥${fmt(summary.cash_sales)}`], ['销售单数', `${summary.sale_count} 单`], ['赊销额', `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontSize: 13
@@ -1816,25 +1833,27 @@ export default function StorePosPage() {
           fontSize: 16,
           fontWeight: 600
         }}>门店设置</h3>
-            {[['门店编码 *', setupStoreCode, setSetupStoreCode, '例如 STORE_001'], ['门店名称', setupStoreName, setSetupStoreName, '例如 北京直营店'], ['公司编码 *', setupCompanyCode, setSetupCompanyCode, '例如 COMPANY_001'], ['公司名称', setupCompanyName, setSetupCompanyName, '例如 凤凰生态农业']].map(([label, val, setter, ph]) => <div key={label as string} className={u.mb12}>
-                <label style={{
-            fontSize: 13,
-            color: 'var(--text-disabled)',
-            display: 'block',
-            marginBottom: 3
-          }}>{label as string}</label>
-                <input value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)} placeholder={ph as string} style={{
-            width: '100%',
-            padding: '7px 12px',
-            borderRadius: 6,
-            border: '1px solid var(--border-dark)',
-            background: 'var(--border-dark-faint)',
-            color: 'var(--border)',
-            fontSize: 13,
-            outline: 'none',
-            boxSizing: 'border-box'
-          }} />
-              </div>)}
+            {/* POS-P0-2:门店从主数据选择(去手填),自动带出所属公司,受 DataScope 过滤 */}
+            <div className={u.mb12}>
+              <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>选择门店 *</label>
+              <StoreSelector
+                value={setupStoreCode}
+                onChange={(v) => setSetupStoreCode(v)}
+                onPick={(opt) => {
+                  const r = (opt?.raw ?? {}) as { storeCode?: string; storeName?: string; companyCode?: string };
+                  setSetupStoreCode(r.storeCode ?? '');
+                  setSetupStoreName(r.storeName ?? '');
+                  setSetupCompanyCode(r.companyCode ?? '');
+                  setSetupCompanyName(r.companyCode ?? '');
+                }}
+                placeholder="搜索并选择门店（自动带出所属公司）"
+              />
+              {setupCompanyCode && (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
+                  门店：{setupStoreName || setupStoreCode}　·　所属公司：{setupCompanyCode}
+                </div>
+              )}
+            </div>
             <div style={{
           display: 'flex',
           gap: 8,
