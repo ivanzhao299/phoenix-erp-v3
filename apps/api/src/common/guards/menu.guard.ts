@@ -81,16 +81,18 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
     const user = req.user;
     if (!user) throw new ForbiddenException('User context not found.');
 
-    // 4. menu_code 注册检查（防裸接口穿越，源 = sys_menu 启动期缓存）
+    // 4. ROLE_ADMIN 超管直通(2026-06-19 起;2026-06-27 提到注册检查之前):
+    //    避免 cookie_token 或精简 JWT 不含 permissions 时合法管理员被锁死。
+    //    ⚠️ 必须先于第 5 步注册检查——否则任一 orphan/漏 seed 的 menu_code
+    //    (如 MENU_MD_CENTER 漏 seed 事件)会把超管也锁死,生产整块功能不可用。
+    //    超管本就应访问一切,跳过注册检查对其无安全影响;注册检查仍对非超管生效。
+    if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return true;
+    if (user.role === 'ROLE_ADMIN') return true;
+
+    // 5. menu_code 注册检查（防裸接口穿越，源 = sys_menu 启动期缓存；仅对非超管）
     if (!isMenuRegistered(requirement.menu)) {
       throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
     }
-
-    // 5. ROLE_ADMIN 超管直通(2026-06-19 起):
-    //    避免 cookie_token 或精简 JWT 不含 permissions 时合法管理员被锁死。
-    //    保留 menu 注册检查(第 4 步),只跳过 perm 列表匹配。
-    if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return true;
-    if (user.role === 'ROLE_ADMIN') return true;
 
     // 6. RBAC 检查（统一 util） — 主 menu 或 altMenus 任一 OR 通过即放行
     if (hasPerm(user.permissions, requirement.menu, requirement.perm)) return true;

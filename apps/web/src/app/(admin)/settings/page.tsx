@@ -33,7 +33,7 @@ export default function SettingsPage() {
       title: t('ui.基础管理', '基础管理'),
       color: "var(--color-accent)",
       items: [
-        { path:"/settings/profile",      icon:<User size={20}/>,         title:t('ui.个人中心', '个人中心'),     desc:t('ui.修改个人资料与登录密码', '修改个人资料与登录密码'), visible: true },
+        { path:"/profile",               icon:<User size={20}/>,         title:t('ui.个人中心', '个人中心'),     desc:t('ui.个人资料·主题偏好·登录密码', '个人资料·主题偏好·登录密码'), visible: true },
         { path:"/settings/users",        icon:<User size={20}/>,         title:t('ui.用户管理', '用户管理'),     desc:t('ui.新增冻结与调配系统账号', '新增、冻结与调配系统账号'), visible: userPerm.canView },
         { path:"/settings/roles",        icon:<Shield size={20}/>,       title:t('ui.角色权限', '角色权限'),     desc:t('ui.配置角色及菜单访问权限', '配置角色及菜单访问权限'), visible: rolePerm.canView },
         { path:"/settings/organizations",icon:<Globe size={20}/>,        title:t('ui.组织架构', '组织架构'),     desc:t('ui.公司部门员工层级管理', '公司·部门·员工层级管理'), visible: orgPerm.canView },
