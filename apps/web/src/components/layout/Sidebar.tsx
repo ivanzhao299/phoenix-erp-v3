@@ -72,8 +72,12 @@ export const MENU: MenuItem[] = [
   // 0.1 每日工作台 — 一站式高频录入入口（生产/销售/办公人员均可见）
   { id: "daily-work", path: "/daily-work", Icon: ClipboardList, label: "每日工作台", perm: "MENU_DASHBOARD" },
 
-  // 1. 经营仪表盘 = 集团总部经营驾驶舱，仅财务高层 / CFO / CEO 可见；普通业务员登录直达 /home
-  { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "经营仪表盘", perm: "MENU_FIN_AUDIT" },
+  // 1. 经营仪表盘 = 集团总部经营驾驶舱
+  // P1-2 修:页面(dashboard/page.tsx)与后端(bff.controller api/dashboard)实际都按 MENU_DASHBOARD:V 放行,
+  //   原侧边栏 gate 误用 MENU_FIN_AUDIT(仅 5 角色)→ 31 个能进此页的角色看不到入口(断链)。
+  //   对齐到 MENU_DASHBOARD 与实际强制一致(不改后端=不改可达性,仅修入口可见)。
+  //   注:若业务要"仅高管可见",应改后端+页面 gate 收紧为 MENU_FIN_AUDIT,而非反向放宽侧边栏。
+  { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "经营仪表盘", perm: "MENU_DASHBOARD" },
 
   // 2. 生产管理 — 养殖生产 + 分级包装 + 品质追溯 统一入口
   { id: "production", Icon: Egg, label: "生产管理", perm: "MENU_FARM_DATA", children: [

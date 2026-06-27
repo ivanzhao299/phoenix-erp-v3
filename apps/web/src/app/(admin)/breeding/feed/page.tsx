@@ -70,7 +70,10 @@ export default function FeedLedgerPage() {
     t
   } = useLanguage();
   // G24-A：PBAC 收口
-  const { canEdit } = usePermission('MENU_FARM_FEED');
+  // P1-3 修:饲料台账保存调 POST /api/farm/feed/ledger,后端守卫 MENU_BREEDING:E。
+  //   原 gate 用 MENU_FARM_FEED(仅 1 角色持有)→ 5 个持 MENU_BREEDING:E 的角色看不到保存按钮且后端会 403 漂移。
+  //   对齐到 MENU_BREEDING 与端点守卫一致。
+  const { canEdit } = usePermission('MENU_BREEDING');
   const [date, setDate] = useState(today());
   const [rows, setRows] = useState<FeedRow[]>([]);
   const [houses, setHouses] = useState<string[]>([]);
