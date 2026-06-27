@@ -1,0 +1,85 @@
+# public http smoke
+local_time=2026-06-25T09:01:54+08:00
+--- health ---
+{"status":"OK","service":"Phoenix ERP V3 API","timestamp":"2026-06-25T01:01:55.443Z","uptime":53655,"boot_at":"2026-06-24T10:07:42.681Z","env":"production","node_version":"v20.20.2","jwt":{"loaded":true,"fingerprint":"...317f","rotation_active":false,"expires_in":"8h","clock_tolerance_sec":60},"db":{"connected":true},"security":{"jwt_fallback_in_use":false,"is_production":true,"warning":null}}
+--- store-payment page HEAD ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 307 
+server: nginx
+date: Thu, 25 Jun 2026 01:01:56 GMT
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+location: /login?return=%2Fstore-payment
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+
+--- no-prefix accounts unauth ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 307 
+server: nginx
+date: Thu, 25 Jun 2026 01:01:57 GMT
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+location: /login?return=%2Fstore-payment%2Faccounts
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+/login?return=%2Fstore-payment%2Faccounts
+--- no-prefix records unauth ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 307 
+server: nginx
+date: Thu, 25 Jun 2026 01:01:59 GMT
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+location: /login?return=%2Fstore-payment%2Frecords
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+/login?return=%2Fstore-payment%2Frecords
+--- no-prefix attachment status unauth ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 307 
+server: nginx
+date: Thu, 25 Jun 2026 01:02:00 GMT
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+location: /login?return=%2Fstore-payment%2Fattachments%2FFILE-NONEXISTENT%2Fstatus
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+/login?return=%2Fstore-payment%2Fattachments%2FFILE-NONEXISTENT%2Fstatus
+--- uploads root ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 404 
+server: nginx
+date: Thu, 25 Jun 2026 01:02:01 GMT
+content-type: application/json; charset=utf-8
+content-length: 83
+x-powered-by: Express
+vary: Origin
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"53-iyuA2l6we9zcwwx+5O4ObG5RmCM"
+

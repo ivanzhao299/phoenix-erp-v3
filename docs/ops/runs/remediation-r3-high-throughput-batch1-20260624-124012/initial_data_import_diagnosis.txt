@@ -1,0 +1,57 @@
+Output format is aligned.
+Null display is "[NULL]".
+--- DB_IDENTITY ---
+  database   |  db_user   | schema |          checked_at           
+-------------+------------+--------+-------------------------------
+ phoenix_erp | phoenix_v3 | public | 2026-06-24 04:40:12.815356+00
+(1 row)
+
+--- IMPORT_RELATED_TABLES ---
+      table_name       
+-----------------------
+ file_metadata
+ prc2_init_batch_rows
+ prc2_init_batches
+ wf_definition
+ wf_definition_version
+ wf_form_definition
+(6 rows)
+
+--- TYPEORM_MIGRATION_HISTORY_RECENT ---
+ id |   timestamp   |                            name                             
+----+---------------+-------------------------------------------------------------
+ 10 | 1782042418112 | CreateFileMetadata1782042418112
+  9 | 1782041418112 | CreateStorePaymentTables1782041418112
+  8 | 1782000000000 | W4MasterDataFoundation1782000000000
+  7 | 1781837624061 | FixPrc2ProjectsCompanyCodeNotNull1781837624061
+  6 | 1781837624060 | FixChanjetArSnapshotRemainingNullableUq1781837624060
+  5 | 1781835697682 | FixChanjetArDeptCodeNotNull1781835697682
+  4 | 1781793986478 | CreateChanjetBookCompanyMapAndExtendArSnapshot1781793986478
+  3 | 1781791930631 | CreateChanjetArSnapshot1781791930631
+  2 | 1781787856093 | CreateSysChanjetState1781787856093
+  1 | 1781749821162 | CreateTypeormMetadata1781749821162
+(10 rows)
+
+--- FILE_METADATA_COUNTS ---
+ file_metadata_rows | active_rows | pending_rows | legacy_upload_rows | store_payment_rows 
+--------------------+-------------+--------------+--------------------+--------------------
+                 15 |          15 |            0 |                  0 |                  0
+(1 row)
+
+--- STORE_PAYMENT_TABLE_COUNTS ---
+       table_name       | rows 
+------------------------+------
+ store_payment_accounts |    0
+ store_payment_records  |    0
+(2 rows)
+
+--- INITIAL_IMPORT_SIGNAL_COUNTS ---
+       area        | rows | active_or_enabled 
+-------------------+------+-------------------
+ sys_user          |   42 |                32
+ sys_role          |   55 |                53
+ sys_menu          |  153 |               153
+ mst_stores        |   10 |                10
+ sys_organizations |   50 |                50
+(5 rows)
+

@@ -13,6 +13,7 @@ import {
   ChevronsUpDown, Star, LayoutGrid, List, ChevronRight,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import {
   RolePicker, levelColor,
   type UserRole, type RoleOption,
@@ -314,7 +315,7 @@ export default function UserManagementPage() {
               </div>
             </div>
           </div>
-          <button type="button" onClick={() => loadData()} className={s.btnSecondary}>
+          <button type="button" onClick={() => loadData()} style={secondaryActionButton}>
             <RefreshCw size={13}/> {t("common.refresh", "刷新")}
           </button>
         </div>
@@ -716,7 +717,7 @@ export default function UserManagementPage() {
         title={t("ui.新建用户", "新建用户")} width="520px"
         footer={
           <div className={s.drawerFooter}>
-            <button type="button" onClick={() => setShowDrawer(false)} className={s.btnSecondary}>{t("common.cancel", "取消")}</button>
+            <button type="button" onClick={() => setShowDrawer(false)} style={secondaryActionButton}>{t("common.cancel", "取消")}</button>
             <button type="button" onClick={handleSubmit} disabled={submitting} className={s.btnPrimaryGrad}>
               {submitting ? t("ui.处理中", "处理中...") : t("ui.创建用户", "创建用户")}
             </button>

@@ -80,7 +80,7 @@ export default function LabelPrintPage() {
     t
   } = useLanguage();
   const {
-    hasRole
+    hasPermission
   } = useAuth();
   const {
     brand
@@ -92,7 +92,7 @@ export default function LabelPrintPage() {
   const {
     ctx
   } = useTerminalContext();
-  const isAdmin = hasRole('ROLE_ADMIN', 'ROLE_PKG_MANAGER');
+  const canManagePrinterDriver = hasPermission('MENU_PKG_MGR', 'E');
   const sourceSummary = (sources: {
     houseName: string;
   }[]): string => {
@@ -763,8 +763,8 @@ export default function LabelPrintPage() {
               </div>
             </section>
 
-            {/* 管理员：驱动下载 */}
-            {isAdmin && <section style={{
+            {/* 包装管理权限：驱动下载 */}
+            {canManagePrinterDriver && <section style={{
             background: 'var(--status-warning-bg-faint)',
             border: `1px solid var(--status-warning-border)`,
             borderRadius: 12,
@@ -789,7 +789,7 @@ export default function LabelPrintPage() {
                 borderRadius: 20,
                 background: 'var(--overlay-white-06)',
                 border: `1px solid ${T.BOR}`
-              }}>{t('ui.仅管理员', '仅管理员')}</div>
+              }}>{t('ui.需包装管理权限', '需包装管理权限')}</div>
                 </div>
                 <div style={{
               fontSize: 12,

@@ -7,50 +7,41 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus, Download, CheckCircle, RefreshCw } from "lucide-react";
+import { Plus, Download, CheckCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, secondaryActionButton, actionPill, moneyCell,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 表: wms_stocktake
 // 字段: take_no, warehouse_code, zone_code, book_qty, actual_qty, diff_qty, operator, status, date
-// 权限: ROLE_ADMIN / ROLE_WMS_MGR / ROLE_FIN_CFO 可审批
+// 权限由 MENU_WMS_INOUT 原子权限控制，不再前端硬编码角色。
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_stocktake";
-const getRole = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || "";
-  } catch {
-    return "";
-  }
-};
-const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO"].includes(getRole());
 type Row = Record<string, unknown>;
 export default function StocktakePage() {
+  const { canCreate, canEdit, canDelete, canApprove, canExport } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canApproveInout = canApprove("MENU_WMS_INOUT");
+  const canExportInout = canExport("MENU_WMS_INOUT");
   const {
     t
   } = useLanguage();
 
-  // ✅ 状态 → 全局 badge CSS 类
-  const STATUS_BADGE: Record<string, {
-    cls: string;
-    label: string;
-  }> = {
-    DRAFT: {
-      cls: s.badgeNeutral,
-      label: t("ui.草稿", "草稿")
-    },
-    IN_PROGRESS: {
-      cls: s.badgeInfo,
-      label: t("ui.盘点中", "盘点中")
-    },
-    DONE: {
-      cls: s.badgeWarning,
-      label: t("ui.待审核", "待审核")
-    },
-    APPROVED: {
-      cls: s.badgeSuccess,
-      label: t("status.approved", "已审核")
-    }
+  // g200e:状态 tone → actionPill(tone)
+  const STATUS_BADGE: Record<string, { tone: Tone; label: string }> = {
+    DRAFT:       { tone: "default", label: t("ui.草稿",          "草稿") },
+    IN_PROGRESS: { tone: "info",    label: t("ui.盘点中",        "盘点中") },
+    DONE:        { tone: "warning", label: t("ui.待审核",        "待审核") },
+    APPROVED:    { tone: "success", label: t("status.approved",  "已审核") },
   };
 
   // G4-D：盘点单 — 仓库/库区/货位/品目/盘点员 主数据化；盘点类型 → sys_dict(INV_COUNT_TYPE)；盘点附件统一上传
@@ -150,13 +141,15 @@ export default function StocktakePage() {
   }, [refreshKey]);
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
   const openNew = useCallback(() => {
+    if (!canCreateInout) return;
     setEditing(null);
     setDrawerOpen(true);
-  }, []);
+  }, [canCreateInout]);
   const openEdit = useCallback((row: Row) => {
+    if (!canEditInout) return;
     setEditing(row);
     setDrawerOpen(true);
-  }, []);
+  }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   // CSV 导出
@@ -203,9 +196,10 @@ export default function StocktakePage() {
     }
   }, [editing, refresh]);
   const handleDelete = useCallback((row: Row) => {
+    if (!canDeleteInout) return;
     setDeleteTarget(row);
     setConfirmOpen(true);
-  }, []);
+  }, [canDeleteInout]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -213,9 +207,10 @@ export default function StocktakePage() {
     refresh();
   }, [deleteTarget, refresh]);
   const handleApprove = useCallback((row: Row) => {
+    if (!canApproveInout) return;
     setApproveTarget(row);
     setApproveOpen(true);
-  }, []);
+  }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
     await crudApi.update(TABLE, approveTarget.id as number, {
@@ -261,24 +256,25 @@ export default function StocktakePage() {
     align: "right",
     render: v => {
       const n = Number(v ?? 0);
-      const cls = n === 0 ? s.textSuccess : n > 0 ? s.textInfo : s.textDanger;
-      return <b className={cls}>{n === 0 ? "—" : n > 0 ? `+${n}` : String(n)}</b>;
+      const moneyTone: "default" | "success" | "warning" | "danger" = n === 0 ? "success" : n > 0 ? "default" : "danger";
+      return <span style={moneyCell(moneyTone, "md")}>{n === 0 ? "—" : n > 0 ? `+${n}` : String(n)}</span>;
     }
   }, {
     key: "_rate",
     title: t("ui.差异率", "差异率"),
-    width: 80,
+    width: 100,
     align: "center",
     render: (_, row) => {
       const book = Number(row.sys_qty ?? 0);
       const diff = Number(row.diff_qty ?? 0);
       const rate = book > 0 ? Math.abs(diff) / book * 100 : 0;
       const isHigh = rate > 5;
-      // ✅ 差异率彺章也用 badge 类，不用 inline 颜色
-      const cls = rate === 0 ? s.badgeSuccess : isHigh ? s.badgeDanger : s.badgeWarning;
-      return <span className={`${s.badge} ${cls}`}>
-          {rate.toFixed(2)}%{isHigh ? " ⚠️" : ""}
-        </span>;
+      const tone: Tone = rate === 0 ? "success" : isHigh ? "danger" : "warning";
+      return (
+        <span style={{ ...actionPill(tone), display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {rate.toFixed(2)}%{isHigh && <AlertTriangle size={11} />}
+        </span>
+      );
     }
   }, {
     key: "status",
@@ -286,11 +282,8 @@ export default function StocktakePage() {
     width: 90,
     align: "center",
     render: v => {
-      const cfg = STATUS_BADGE[String(v)] ?? {
-        cls: s.badgeNeutral,
-        label: String(v ?? "—")
-      };
-      return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
+      const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
+      return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
     }
   }, {
     key: "operator",
@@ -299,58 +292,61 @@ export default function StocktakePage() {
   }, {
     key: "_actions",
     title: t("common.operation", "操作"),
-    width: 130,
+    width: 180,
     align: "center",
-    render: (_, row) => <div style={{
-      display: "flex",
-      gap: 6,
-      justifyContent: "center"
-    }}>
-          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-          {isApprover() && row.status === "DONE" && <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
-              <CheckCircle size={11} />{t("ui.审批", "审批")}
-            </button>}
-          <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
-        </div>
+    render: (_, row) => (
+      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+        {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+        {canApproveInout && row.status === "DONE" && (
+          <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
+            <CheckCircle size={11} />{t("ui.审批", "审批")}
+          </button>
+        )}
+        {canDeleteInout && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
+      </div>
+    )
   }];
   return <div>
-      <PageHeader title={t("ui.盘点管理", "盘点管理")} subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认")} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]} actions={<div style={{
-      display: "flex",
-      gap: 8
-    }}>
-            <button type="button" className={s.btnSecondary} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
-              <Download size={14} />{t("common.export", "导出")} CSV
+      <PageHeader
+        title={t("ui.盘点管理", "盘点管理")}
+        subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]}
+        actions={
+          <div style={{ display: "flex", gap: 8 }}>
+            {canExportInout && <button type="button" style={{ ...secondaryActionButton, opacity: allRows.length === 0 ? 0.5 : 1 }} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
+              <Download size={13} />{t("common.export", "导出")} CSV
+            </button>}
+            <button type="button" style={secondaryActionButton} onClick={refresh}>
+              <RefreshCw size={13} />{t("common.refresh", "刷新")}
             </button>
-            <button type="button" className={s.btnSecondary} onClick={refresh}>
-              <RefreshCw size={14} />{t("common.refresh", "刷新")}
-            </button>
-            <button type="button" className={s.btnPrimary} onClick={openNew}>
+            {canCreateInout && <button type="button" style={primaryActionButton} onClick={openNew}>
               <Plus size={14} />{t("ui.新建盘点单", "新建盘点单")}
-            </button>
-          </div>} />
+            </button>}
+          </div>
+        }
+      />
 
-      {/* KPI 统计 */}
-      <div className={`${s.statsRow} ${u.mb20}`}>
-        <div className={`${s.statCard} ${s.statCardPrimary}`}>
-          <div className={s.statValue}>—</div>
-          <div className={s.statLabel}>{t("ui.历史盘点次数", "历史盘点次数")}</div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardWarning}`}>
-          <div className={`${s.statValue} ${s.textWarning}`}>{pending}</div>
-          <div className={s.statLabel}>{t("ui.待审批", "待审批")}</div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardDanger}`}>
-          <div className={`${s.statValue} ${s.textDanger}`}>{highRisk}</div>
-          <div className={s.statLabel}>{t("ui.高风险5%", "高风险(>5%)")}</div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardInfo}`}>
-          <div className={`${s.statValue} ${s.textInfo}`}>{totalDiff.toLocaleString()}</div>
-          <div className={s.statLabel}>{t("ui.累计差异量", "累计差异量")}</div>
-          <div className={s.statSub}>{t("ui.枚", "枚")}</div>
-        </div>
+      {/* g200e KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+        gap: 12,
+        marginBottom: 20,
+      }}>
+        {([
+          { label: t("ui.历史盘点次数", "历史盘点次数"), val: "—",                            tone: "info"    as Tone },
+          { label: t("ui.待审批",       "待审批"),       val: String(pending),                tone: "warning" as Tone },
+          { label: t("ui.高风险5%",     "高风险(>5%)"),  val: String(highRisk),               tone: "danger"  as Tone },
+          { label: t("ui.累计差异量",   "累计差异量"),   val: totalDiff.toLocaleString(),     tone: "brand"   as Tone },
+        ]).map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.val}</div>
+          </div>
+        ))}
       </div>
 
-      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />

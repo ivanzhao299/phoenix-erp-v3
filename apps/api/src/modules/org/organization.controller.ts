@@ -5,7 +5,7 @@
  * 2026-05-31
  *
  * ── 与 OrgController(/api/org) 的边界（G80 评估，2026-06-10）──
- * 本控制器=组织树 Runtime 视角（MENU_ORG_VIEW，树/CRUD/启停，master-data/organizations
+ * 本控制器=组织树 Runtime 视角（MENU_MD_ORG，树/CRUD/启停，master-data/organizations
  * 与 UserOrgBindingPanel 在用）；/api/org/*=管理视角（绑定/数据范围/成员）。
  * 二者故意分离、不合并（详见 org.controller.ts 头注）。
  *
@@ -40,6 +40,9 @@ import { OrgService } from './services/org.service';
 import { SysOrganizationEntity } from './entities/sys-organization.entity';
 import { CreateOrgDto } from './dto/create-org.dto';
 import { UpdateOrgDto } from './dto/update-org.dto';
+
+const ORG_MENU = 'MENU_MD_ORG';
+const USER_MENU = 'MENU_SETTINGS_USER';
 
 // ── 本地工具类型 ──────────────────────────────────────────────────────────────
 
@@ -79,7 +82,7 @@ export class OrganizationController {
    * 注意：NestJS 路由匹配按声明顺序优先，静态段 tree 必须置于 :code 之前
    */
   @Get('tree')
-  @RequireMenu('MENU_ORG_VIEW', 'V')
+  @RequireMenu(ORG_MENU, 'V', [USER_MENU])
   async getOrgTree() {
     const orgs = await this.orgService.listOrgs();
     const tree = buildTree(orgs);
@@ -93,7 +96,7 @@ export class OrganizationController {
    * 示例：GET /api/organizations/by-type?type=SITE
    */
   @Get('by-type')
-  @RequireMenu('MENU_ORG_VIEW', 'V')
+  @RequireMenu(ORG_MENU, 'V', [USER_MENU])
   async getOrgsByType(@Query('type') type: string) {
     const orgs = await this.orgService.listOrgs();
     const data = type
@@ -108,7 +111,7 @@ export class OrganizationController {
    * 获取指定用户的组织授权范围（含项目授权 + 仓库授权）
    */
   @Get('user-scopes/:userId')
-  @RequireMenu('MENU_ORG_VIEW', 'V')
+  @RequireMenu(ORG_MENU, 'V', [USER_MENU])
   async getUserOrgScopes(@Param('userId') userId: string) {
     const id = parseInt(userId, 10);
     const [userOrgs, scopes] = await Promise.all([
@@ -131,7 +134,7 @@ export class OrganizationController {
    * 平铺列表（按 level + orgCode 排序，由 OrgService.listOrgs 保证）
    */
   @Get()
-  @RequireMenu('MENU_ORG_VIEW', 'V')
+  @RequireMenu(ORG_MENU, 'V', [USER_MENU])
   async listOrgs() {
     const data = await this.orgService.listOrgs();
     return { code: 200, data };
@@ -144,7 +147,7 @@ export class OrganizationController {
    * OrgService.getOrg 接受 id，此处先通过 listOrgs 定位 orgCode 对应的记录
    */
   @Get(':code')
-  @RequireMenu('MENU_ORG_VIEW', 'V')
+  @RequireMenu(ORG_MENU, 'V', [USER_MENU])
   async getOrgByCode(@Param('code') code: string) {
     const orgs = await this.orgService.listOrgs();
     const org = orgs.find((o) => o.orgCode === code);
@@ -158,7 +161,7 @@ export class OrganizationController {
    * 创建新组织
    */
   @Post()
-  @RequireMenu('MENU_ORG_MANAGE', 'C')
+  @RequireMenu(ORG_MENU, 'C')
   @HttpCode(HttpStatus.OK)
   async createOrg(@Body() dto: CreateOrgDto) {
     const data = await this.orgService.createOrg(dto);
@@ -171,7 +174,7 @@ export class OrganizationController {
    * 更新组织（先按 orgCode 解析 id，再调用 updateOrg(id, dto)）
    */
   @Patch(':code')
-  @RequireMenu('MENU_ORG_MANAGE', 'C')
+  @RequireMenu(ORG_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   async updateOrg(
     @Param('code') code: string,
@@ -190,7 +193,7 @@ export class OrganizationController {
    * 禁用组织（将 status 设为 INACTIVE）
    */
   @Post(':code/disable')
-  @RequireMenu('MENU_ORG_MANAGE', 'E')
+  @RequireMenu(ORG_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   async disableOrg(@Param('code') code: string) {
     const orgs = await this.orgService.listOrgs();
@@ -206,7 +209,7 @@ export class OrganizationController {
    * 启用组织（将 status 设为 ACTIVE）
    */
   @Post(':code/enable')
-  @RequireMenu('MENU_ORG_MANAGE', 'E')
+  @RequireMenu(ORG_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   async enableOrg(@Param('code') code: string) {
     const orgs = await this.orgService.listOrgs();
@@ -223,7 +226,7 @@ export class OrganizationController {
    * service 双守卫：有子节点不可删、有成员绑定不可删（提示先迁移/移除）。
    */
   @Delete(':code')
-  @RequireMenu('MENU_ORG_MANAGE', 'D')
+  @RequireMenu(ORG_MENU, 'D')
   @HttpCode(HttpStatus.OK)
   async deleteOrg(@Param('code') code: string) {
     const orgs = await this.orgService.listOrgs();

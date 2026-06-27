@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw, Save } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { primaryActionButton, secondaryActionButton, inputField } from '@/components/design-system/cockpit-styles';
 function tok() {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
@@ -136,10 +137,10 @@ export default function FeedLedgerPage() {
         breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.饲料台账', '饲料台账')]}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/warehouse/inbound?action=create&type=FEED" className={s.btnPrimary} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+            <a href="/warehouse/inbound?action=create&type=FEED" style={{ ...primaryActionButton, textDecoration: 'none' }}>
               <Save size={14} />{t('ui.新建饲料入库', '+ 新建饲料入库')}
             </a>
-            <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" className={s.btnSecondary} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+            <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
               {t('ui.新建饲料发放', '+ 新建饲料发放')}
             </a>
           </div>
@@ -159,41 +160,23 @@ export default function FeedLedgerPage() {
       marginBottom: 20,
       flexWrap: 'wrap'
     }}>
-        <button className={s.btnSecondary} onClick={() => setDate(d => addDays(d, -1))} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-      }}>
-          <ChevronLeft size={15} />{t('ui.前一天', '前一天')}
+        <button onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
+          <ChevronLeft size={14} />{t('ui.前一天', '前一天')}
         </button>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        padding: '6px 10px',
-        fontSize: 14,
-        color: 'var(--text-primary)',
-        background: 'var(--bg-card)'
-      }} />
-        <button className={s.btnSecondary} onClick={() => setDate(d => addDays(d, 1))} disabled={isToday} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        opacity: isToday ? 0.4 : 1
-      }}>
-          {t('ui.后一天', '后一天')}<ChevronRight size={15} />
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
+        <button onClick={() => setDate(d => addDays(d, 1))} disabled={isToday} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
+          {t('ui.后一天', '后一天')}<ChevronRight size={14} />
         </button>
-        <button className={s.btnSecondary} onClick={() => loadData(date)} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-      }}>
-          <RefreshCw size={14} />{t('common.refresh', '刷新')}
+        <button onClick={() => loadData(date)} style={secondaryActionButton}>
+          <RefreshCw size={13} />{t('common.refresh', '刷新')}
         </button>
         <div className={u.flex1} />
-        {canEdit && <button className={`${saved ? s.btnSecondary : s.btnPrimary} ${u.flexRow}`} onClick={handleSave} disabled={saving || loading}>
+        {canEdit && (
+          <button onClick={handleSave} disabled={saving || loading} style={saved ? secondaryActionButton : primaryActionButton}>
             <Save size={14} />
-            {saving ? t('ui.保存中', '保存中…') : saved ? t('ui.已保存', '✓ 已保存') : t('common.save', '保存')}
-          </button>}
+            {saving ? t('ui.保存中', '保存中…') : saved ? t('ui.已保存', '已保存') : t('common.save', '保存')}
+          </button>
+        )}
       </div>
 
       {/* 库存预警 */}

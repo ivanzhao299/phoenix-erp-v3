@@ -1,0 +1,32 @@
+{
+  "task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP",
+  "agent": "A2-Security-Regression-Gate",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+  "worktree_branch": "w5-a2-security-regression-gate",
+  "result_file": "docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md",
+  "parsed_at": "2026-06-22T10:29:28.590Z",
+  "commit_hash": null,
+  "changed_files": [
+    "apps/api/src/app.module.ts"
+  ],
+  "frozen_items_touched": true,
+  "business_code_changed": true,
+  "migration_added": null,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "verification_results": [],
+  "conclusion": "PASS WITH CONDITIONS",
+  "recommend_next_agent": [],
+  "conditions": [],
+  "blockers": [
+    "Track A1 blockers as separate approved work.",
+    "Do not treat this A2 result as closure for non-wiring runtime blockers."
+  ],
+  "missing_fields": [
+    "commit_hash",
+    "migration_added",
+    "verification_results",
+    "recommend_next_agent"
+  ]
+}

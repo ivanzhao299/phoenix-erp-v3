@@ -1,10 +1,17 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 采购订单头表  prc2_purchase_orders */
 @Entity('prc2_purchase_orders')
+@Index('idx_prc2_po_status', ['status'])
+@Index('idx_prc2_po_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_prc2_po_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
+@Index('idx_prc2_po_supplier', ['supplierCode'], { where: '"supplier_code" IS NOT NULL' })
+@Index('idx_prc2_po_approval_status', ['approvalStatus'])
+@Index('idx_prc2_po_source_req', ['sourceRequestId'], { where: '"source_request_id" IS NOT NULL' })
+@Index('idx_prc2_po_contract_no', ['contractNo'])
 export class Prc2PurchaseOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
@@ -18,7 +25,9 @@ export class Prc2PurchaseOrderEntity {
   @Column({ name: 'source_req_no', type: 'varchar', length: 80, nullable: true })
   sourceReqNo: string;
 
-  @Column({ name: 'contract_no', type: 'varchar', length: 128, nullable: true, unique: true })
+  // G135：contract_no **不**唯一——一份合同可拆多张采购订单（分公司承担/分期付款等）。
+  //   原 unique 约束使"万象装修一份合同两公司各半"的第二张 PO 撞 23505→"数据已存在"保存失败。
+  @Column({ name: 'contract_no', type: 'varchar', length: 128, nullable: true })
   contractNo: string;
 
   @Column({ name: 'subject', type: 'varchar', length: 256 })

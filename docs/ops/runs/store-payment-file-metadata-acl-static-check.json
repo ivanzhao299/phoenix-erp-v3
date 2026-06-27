@@ -1,0 +1,24 @@
+{
+  "conclusion": "PASS",
+  "failed": [],
+  "checks": {
+    "file_module_registered": true,
+    "file_metadata_entity_exists": true,
+    "file_metadata_migration_exists": true,
+    "migration_has_down": true,
+    "migration_no_data_dml": true,
+    "protected_streamable_file": true,
+    "raw_url_null": true,
+    "path_traversal_guard": true,
+    "mime_whitelist": true,
+    "rbac_check": true,
+    "datascope_check": true,
+    "ownership_check": true,
+    "denied_structured_log": true,
+    "store_payment_status_proxy": true,
+    "store_payment_preview_proxy": true,
+    "store_payment_download_proxy": true,
+    "store_payment_uses_file_access": true,
+    "existing_upload_raw_url_identified": true
+  }
+}

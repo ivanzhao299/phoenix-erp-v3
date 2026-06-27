@@ -4,6 +4,7 @@ import {
 import { ClsService } from 'nestjs-cls';
 
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ShareholderService } from '../services/shareholder.service';
 import {
   CreateProjectDto, UpdateProjectDto, CreateShareholderDto, UpdateShareholderDto,
@@ -18,7 +19,7 @@ const DASH    = 'MENU_SHAREHOLDER_DASHBOARD';
 const CAPITAL = 'MENU_SHAREHOLDER_CAPITAL';
 
 @Controller('api/shareholders')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ShareholderController {
   constructor(
     private readonly svc: ShareholderService,
@@ -31,13 +32,13 @@ export class ShareholderController {
   }
 
   // ── 项目 ──
-  @Get('projects')                @RequireMenu(VIEW, 'V')   listProjects() { return this.svc.listProjects(); }
-  @Get('projects/:projectCode')   @RequireMenu(VIEW, 'V')   getProject(@Param('projectCode') c: string) { return this.svc.getProject(c); }
+  @Get('projects')                @RequireMenu(VIEW, 'V')   listProjects() { return this.svc.listProjects(this.user); }
+  @Get('projects/:projectCode')   @RequireMenu(VIEW, 'V')   getProject(@Param('projectCode') c: string) { return this.svc.getProject(c, this.user); }
   @Post('projects')               @RequireMenu(MANAGE, 'C') createProject(@Body() dto: CreateProjectDto) { return this.svc.createProject(dto); }
   @Patch('projects/:projectCode') @RequireMenu(MANAGE, 'E') updateProject(@Param('projectCode') c: string, @Body() dto: UpdateProjectDto) { return this.svc.updateProject(c, dto); }
 
   // ── 股权结构 ──（放在 :shareholderCode 之前，避免被参数路由吞掉）
-  @Get('equity')        @RequireMenu(VIEW, 'V')   listEquity(@Query('projectCode') p?: string) { return this.svc.listEquity(p); }
+  @Get('equity')        @RequireMenu(VIEW, 'V')   listEquity(@Query('projectCode') p?: string) { return this.svc.listEquity(p, this.user); }
   @Post('equity')       @RequireMenu(MANAGE, 'C')  createEquity(@Body() dto: CreateEquityDto) { return this.svc.createEquity(dto); }
   @Patch('equity/:id')  @RequireMenu(MANAGE, 'E')  updateEquity(@Param('id') id: string, @Body() dto: UpdateEquityDto) { return this.svc.updateEquity(id, dto); }
 
@@ -54,9 +55,9 @@ export class ShareholderController {
 
   // ── 股东驾驶舱（scope 驱动）──
   @Get('dashboard')                @RequireMenu(DASH, 'V') dashboard() { return this.svc.dashboard(this.user); }
-  @Get('finance-bridge')           @RequireMenu(VIEW, 'V') financeBridge(@Query('projectCode') p?: string) { return this.svc.financeBridge(p); }
-  @Get('capital-summary')          @RequireMenu(VIEW, 'V') capitalSummary(@Query('projectCode') p?: string) { return this.svc.capitalSummary(p); }
-  @Get('beneficial')               @RequireMenu(VIEW, 'V') listBeneficial(@Query('projectCode') p?: string) { return this.svc.listBeneficial(p); }
+  @Get('finance-bridge')           @RequireMenu(VIEW, 'V') financeBridge(@Query('projectCode') p?: string) { return this.svc.financeBridge(p, this.user); }
+  @Get('capital-summary')          @RequireMenu(VIEW, 'V') capitalSummary(@Query('projectCode') p?: string) { return this.svc.capitalSummary(p, this.user); }
+  @Get('beneficial')               @RequireMenu(VIEW, 'V') listBeneficial(@Query('projectCode') p?: string) { return this.svc.listBeneficial(p, this.user); }
 
   // ── 资本流引擎（Phase 3）──
   @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(this.user); }

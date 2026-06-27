@@ -7,7 +7,10 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Lock, Shield, FileText, AlertTriangle, Database, Users, Clock } from "lucide-react";
+import { usePermission } from "@/hooks/usePermission";
+import { PermissionDeniedState } from "@/components/design-system/feedback/States";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 const hdr = () => ({
   Authorization: `Bearer ${typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : ""}`
 });
@@ -22,23 +25,36 @@ export default function SecurityPolicyPage() {
   const {
     t
   } = useLanguage();
+  const securityPerm = usePermission("MENU_SETTINGS_SECURITY");
+  const userPerm = usePermission("MENU_SETTINGS_USER");
+  const auditPerm = usePermission("MENU_SETTINGS_AUDIT");
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [frozenUsers, setFrozenUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    Promise.all([fetch("/api/crud/sys_approval_log?limit=50&sort=id&order=desc", {
-      headers: hdr()
-    }).then(r => r.json()).catch(() => ({})), fetch("/api/crud/sys_users?limit=500", {
-      headers: hdr()
-    }).then(r => r.json()).catch(() => ({
-      data: []
-    }))]).then(([ld, ud]) => {
+    if (!securityPerm.canView) {
+      setLoading(false);
+      return;
+    }
+    const auditRequest = auditPerm.canView
+      ? fetch("/api/crud/sys_approval_log?limit=50&sort=id&order=desc", {
+        headers: hdr()
+      }).then(r => r.json()).catch(() => ({}))
+      : Promise.resolve({ data: [] });
+    const usersRequest = userPerm.canView
+      ? fetch("/api/crud/sys_users?limit=500", {
+        headers: hdr()
+      }).then(r => r.json()).catch(() => ({
+        data: []
+      }))
+      : Promise.resolve({ data: [] });
+    Promise.all([auditRequest, usersRequest]).then(([ld, ud]) => {
       setLogs(Array.isArray(ld.data) ? ld.data : Array.isArray(ld) ? ld : []);
       const users = Array.isArray(ud.data) ? ud.data : Array.isArray(ud) ? ud : [];
       setFrozenUsers(users.filter((u: UserRecord) => u.status === "FROZEN" || u.status === "INACTIVE"));
       setLoading(false);
     });
-  }, []);
+  }, [auditPerm.canView, securityPerm.canView, userPerm.canView]);
   const InfoCard = ({
     icon,
     title,
@@ -87,6 +103,12 @@ export default function SecurityPolicyPage() {
     SUBMITTED: "var(--color-accent)",
     CANCELLED: "var(--text-secondary)"
   };
+  if (!securityPerm.canView) {
+    return <div className="animate-fade-in">
+        <PageHeader title={t('ui.安全策略', '安全策略')} subtitle={t('ui.系统登录配置操作审批日志与账户安全状态', '系统登录配置、操作审批日志与账户安全状态')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.安全策略', '安全策略')]} />
+        <PermissionDeniedState message={t('ui.无权限访问安全策略', '无权限访问安全策略，请联系管理员授予 MENU_SETTINGS_SECURITY 查看权限。')} />
+      </div>;
+  }
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.安全策略', '安全策略')} subtitle={t('ui.系统登录配置操作审批日志与账户安全状态', '系统登录配置、操作审批日志与账户安全状态')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.安全策略', '安全策略')]} />
       <div style={{
@@ -97,7 +119,7 @@ export default function SecurityPolicyPage() {
     }}>
         <InfoCard icon={<Clock size={20} />} title={t('ui.Token有效期', 'Token 有效期')} value={t('ui.8小时', '8 小时')} desc={t('ui.登录状态自动失效时间', '登录状态自动失效时间')} />
         <InfoCard icon={<Shield size={20} />} title={t('ui.API请求限制', 'API 请求限制')} value={t('ui.300次15分钟', '300次/15分钟')} desc={t('ui.按IP防暴力破解', '按 IP 防暴力破解')} color="var(--color-warning)" />
-        <InfoCard icon={<Users size={20} />} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "var(--status-danger)" : "var(--status-success)"} />
+        <InfoCard icon={<Users size={20} />} title={t('ui.冻结账户', '冻结账户')} value={!userPerm.canView ? t('ui.受限', '受限') : loading ? "…" : frozenUsers.length} desc={!userPerm.canView ? t('ui.需要用户管理权限查看账户状态', '需要用户管理权限查看账户状态') : frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "var(--status-danger)" : "var(--status-success)"} />
         <InfoCard icon={<Lock size={20} />} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="var(--status-success)" />
       </div>
       <div style={{
@@ -190,7 +212,7 @@ export default function SecurityPolicyPage() {
           fontSize: 14
         }}>{t('ui.审批操作日志最近50条', '审批操作日志（最近50条）')}</span>
         </div>
-        {loading ? <div className={u.emptyPad40}>{t('common.loading', '加载中…')}</div> : logs.length === 0 ? <div className={u.emptyPad40}>{t('ui.暂无审批日志', '暂无审批日志')}</div> : <table className={s.table}>
+        {!auditPerm.canView ? <div className={u.emptyPad40}>{t('ui.需要审计日志权限查看最近审批操作', '需要审计日志权限查看最近审批操作')}</div> : loading ? <div className={u.emptyPad40}>{t('common.loading', '加载中…')}</div> : logs.length === 0 ? <div className={u.emptyPad40}>{t('ui.暂无审批日志', '暂无审批日志')}</div> : <table className={s.table}>
               <thead>
                 <tr>
                   {[t('ui.流程号', '流程号'), t('ui.模块', '模块'), t('ui.操作人', '操作人'), t('ui.操作时间', '操作时间'), t('common.status', '状态')].map(h => <th key={h}>{h}</th>)}

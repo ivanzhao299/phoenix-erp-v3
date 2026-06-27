@@ -1,0 +1,49 @@
+DIR /opt/phoenix-erp-backups
+d 2026-06-24 13:42 4096 /opt/phoenix-erp-backups
+DIR /opt/phoenix-erp/backups
+f 2026-05-20 16:10 194 /opt/phoenix-erp/backups/SHA256SUMS
+d 2026-05-28 15:08 4096 /opt/phoenix-erp/backups
+DIR /var/backups
+f 2026-06-25 00:00 0 /var/backups/dpkg.arch.0
+f 2026-06-24 06:40 783447 /var/backups/dpkg.status.0
+f 2026-06-21 00:00 51200 /var/backups/alternatives.tar.0
+f 2026-06-21 00:00 32 /var/backups/dpkg.arch.1.gz
+f 2026-06-20 06:59 202016 /var/backups/dpkg.status.1.gz
+f 2026-06-18 00:00 32 /var/backups/dpkg.arch.2.gz
+f 2026-06-17 06:43 202013 /var/backups/dpkg.status.2.gz
+f 2026-06-17 00:00 32 /var/backups/dpkg.arch.3.gz
+f 2026-06-16 06:07 202009 /var/backups/dpkg.status.3.gz
+f 2026-06-12 00:00 32 /var/backups/dpkg.arch.4.gz
+f 2026-06-12 00:00 2605 /var/backups/alternatives.tar.1.gz
+f 2026-06-11 06:23 202011 /var/backups/dpkg.status.4.gz
+f 2026-06-11 00:00 32 /var/backups/dpkg.arch.5.gz
+f 2026-06-11 00:00 2608 /var/backups/alternatives.tar.2.gz
+f 2026-06-10 06:48 202012 /var/backups/dpkg.status.5.gz
+f 2026-06-08 00:00 32 /var/backups/dpkg.arch.6.gz
+f 2026-06-08 00:00 2610 /var/backups/alternatives.tar.3.gz
+f 2026-06-07 06:33 202007 /var/backups/dpkg.status.6.gz
+f 2026-05-28 00:00 2598 /var/backups/alternatives.tar.4.gz
+f 2026-05-23 08:51 41576 /var/backups/apt.extended_states.0
+f 2026-05-23 08:51 213 /var/backups/dpkg.statoverride.0
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.6.gz
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.5.gz
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.4.gz
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.3.gz
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.2.gz
+f 2026-05-23 08:51 162 /var/backups/dpkg.statoverride.1.gz
+f 2026-05-22 22:04 4660 /var/backups/apt.extended_states.1.gz
+f 2026-05-21 16:35 4525 /var/backups/apt.extended_states.2.gz
+f 2026-05-20 15:46 4514 /var/backups/apt.extended_states.3.gz
+f 2026-05-14 23:18 4510 /var/backups/apt.extended_states.4.gz
+f 2026-05-10 00:00 2595 /var/backups/alternatives.tar.5.gz
+f 2026-05-02 00:00 2598 /var/backups/alternatives.tar.6.gz
+f 2026-05-01 14:05 4465 /var/backups/apt.extended_states.5.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.6.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.5.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.4.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.3.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.2.gz
+f 2026-04-13 15:33 312 /var/backups/dpkg.diversions.1.gz
+f 2026-04-13 15:33 1518 /var/backups/dpkg.diversions.0
+d 2026-06-25 00:00 4096 /var/backups
+backup_deep_exit=0

@@ -353,6 +353,42 @@ export class CashAccountsService {
     return { ok: true, txnId };
   }
 
+  /**
+   * 批量删除流水（初始化对齐用）。放开"仅 MANUAL 可删"铁律为"无源单据(source_id IS NULL)可删"——
+   * 手工/期初/导入流水均可删；AR/AP/付款/股东等有源单据流水(source_id 非空)仍禁止删(须回源撤销)。
+   * 删后逐个重算受影响账户余额链。需 MENU_FIN2_CASH_TXN:D + 数据域(逐条公司校验)。
+   */
+  async bulkDeleteTransactions(ids: string[], user: any) {
+    const clean = (ids ?? []).filter((x) => /^\d+$/.test(String(x)));
+    if (clean.length === 0) return { deleted: 0, accounts: [] as string[] };
+
+    const rows: Array<{ id: string; account_code: string; company_code: string; source_id: string | null }> = await this.ds.query(
+      `SELECT id, account_code, company_code, source_id FROM fin_cash_transactions WHERE id = ANY($1::bigint[])`,
+      [clean],
+    );
+    if (rows.length === 0) return { deleted: 0, accounts: [] as string[] };
+
+    // 安全线：有源单据的业务流水不可删（防与源单脱账）
+    const blocked = rows.filter((r) => r.source_id != null).length;
+    if (blocked > 0) {
+      throw new BadRequestException(
+        `选中含 ${blocked} 条业务单据流水(有源单据)，不可删除——请回源单据撤销。仅可批量删手工/期初/导入等无源流水。`,
+      );
+    }
+    // 数据域校验（逐条公司）
+    for (const r of rows) this.assertOwnership(r.company_code, user);
+
+    const accounts = [...new Set(rows.map((r) => String(r.account_code)))];
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(`DELETE FROM fin_cash_transactions WHERE id = ANY($1::bigint[])`, [clean]);
+      for (const code of accounts) {
+        const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [code]);
+        await this.rebuildChain(mgr, code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+      }
+    });
+    return { deleted: rows.length, accounts };
+  }
+
   async freeze(id: string, user: any): Promise<FinCashAccountEntity> {
     const acc = await this.findById(id, user);
     if (acc.status !== 'ACTIVE') throw new BadRequestException(`账户当前状态 ${acc.status}，无法冻结`);

@@ -1,0 +1,10 @@
+check_time=2026-06-24T11:11:45+08:00
+host_alias=erp
+ssh_user=root
+ssh_mode=single_low_concurrency_long_timeout
+server_authorized_keys_command=none
+server_logingracetime=60
+server_maxstartups=200:30:600
+server_usedns=no
+server_gssapiauthentication=no
+notes=Remote SSH command-level observability restored enough for short-output server-side-file execution. Long/bursty SSH remains avoided.

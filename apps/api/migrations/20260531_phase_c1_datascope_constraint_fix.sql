@@ -23,12 +23,15 @@ SET LOCAL phx.skip_perms_bump = 'on';
 ALTER TABLE sys_user_orgs DROP CONSTRAINT IF EXISTS sys_user_orgs_data_scope_level_check;
 ALTER TABLE sys_user_orgs DROP CONSTRAINT IF EXISTS chk_user_org_scope_level;
 
--- 添加新约束：5层组织模型完整支持（GROUP > BU > COMPANY > SITE > DEPARTMENT + 兼容旧值）
+-- 添加新约束：与 role_runtime_phase_c 权威全集一致
+-- 修复(G114)：补 'STORE','WAREHOUSE'——否则一旦存在门店/仓库级绑定行，本条窄约束
+--   重跑会因 ON_ERROR_STOP 在到达后续放宽迁移前先报"约束被某行违反"而中止部署。
 ALTER TABLE sys_user_orgs
   ADD CONSTRAINT chk_user_org_scope_level CHECK (
     data_scope_level IN (
       'SELF','PROJECT','COMPANY','REGION','GROUP',  -- 原有值（向后兼容）
-      'BU','SITE','DEPARTMENT'                       -- 新增：组织 5 层模型
+      'BU','SITE','DEPARTMENT',                      -- 组织层级模型
+      'STORE','WAREHOUSE'                            -- 业务实体层级（门店/仓库）
     )
   );
 

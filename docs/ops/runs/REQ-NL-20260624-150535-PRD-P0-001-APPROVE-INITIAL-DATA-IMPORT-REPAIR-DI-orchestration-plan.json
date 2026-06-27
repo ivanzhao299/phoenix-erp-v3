@@ -1,0 +1,231 @@
+{
+  "request_id": "REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI",
+  "request_text": "执行 PRD-P0-001 APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS：按照生产级整改任务列表，做 Initial Data Import Repair Diagnosis；只允许 A5 数据 readiness、A2 安全只读审查、A1 CI 验证并发执行；不执行 DB write，不执行 migration，不部署，不重启，不 push，不修改业务代码，不执行 manual/HOLD。",
+  "risk_level": "LOW/MEDIUM",
+  "route_decision": "HOLD",
+  "route_confidence": 0.95,
+  "route_plan": {
+    "request": "执行 PRD-P0-001 APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS：按照生产级整改任务列表，做 Initial Data Import Repair Diagnosis；只允许 A5 数据 readiness、A2 安全只读审查、A1 CI 验证并发执行；不执行 DB write，不执行 migration，不部署，不重启，不 push，不修改业务代码，不执行 manual/HOLD。",
+    "selected_agents": [],
+    "selected_agents_before_constraints": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness",
+      "A7-Final-QA-Gate",
+      "Codex-Orchestrator"
+    ],
+    "selected_agents_after_constraints": [],
+    "allowed_agents": [
+      "A1-CI-Runtime-Gate",
+      "A2-Security-Regression-Gate",
+      "A5-Data-Readiness"
+    ],
+    "denied_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "hard_constraints": [
+      "no business code changes",
+      "no migration execution",
+      "no deploy",
+      "no push"
+    ],
+    "constraint_conflicts": [],
+    "confidence": 0.95,
+    "matched_keywords": {
+      "A1-CI-Runtime-Gate": [
+        "CI",
+        "验证",
+        "ci",
+        "A1"
+      ],
+      "A2-Security-Regression-Gate": [
+        "安全",
+        "A2"
+      ],
+      "A5-Data-Readiness": [
+        "数据 readiness",
+        "A5",
+        "A5 数据"
+      ],
+      "A7-Final-QA-Gate": [
+        "HOLD",
+        "hold"
+      ]
+    },
+    "risk_domains": [
+      "schema-gate",
+      "human-go"
+    ],
+    "held_reasons": [
+      "DB write request requires human Gate"
+    ],
+    "recommended_sequence": [
+      "Codex-Orchestrator route-review"
+    ],
+    "parallel_groups": [],
+    "fallback_action": "HOLD",
+    "route_decision": "HOLD",
+    "requires_route_review": true,
+    "domains": {
+      "ci": true,
+      "security": true,
+      "dataReadiness": true,
+      "ui": false,
+      "backend": false,
+      "backendMentionedButNegated": false,
+      "deployPlan": false,
+      "finalGate": true,
+      "protectedAttachment": false,
+      "authorizationDesign": false
+    },
+    "agent_scores": {
+      "A1-CI-Runtime-Gate": 9,
+      "A2-Security-Regression-Gate": 7.2,
+      "A5-Data-Readiness": 11.45,
+      "A7-Final-QA-Gate": 5,
+      "Codex-Orchestrator": 2
+    }
+  },
+  "mode": "execute-approved",
+  "dry_run": false,
+  "parallel": 3,
+  "selected_agents": [],
+  "allowed_agents": [
+    "A1-CI-Runtime-Gate",
+    "A2-Security-Regression-Gate",
+    "A5-Data-Readiness"
+  ],
+  "denied_agents": [
+    "A3-Backend-Critical-Path",
+    "A4-Frontend-UAT-Smoke"
+  ],
+  "hard_constraints": [
+    "no business code changes",
+    "no migration execution",
+    "no deploy",
+    "no push"
+  ],
+  "constraint_conflicts": [],
+  "selected_agents_after_constraints": [],
+  "held_reasons": [
+    "DB write or migration execution request requires HOLD",
+    "DB write request requires human Gate"
+  ],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-requirement-spec.md",
+    "agent_route_plan": {
+      "request": "执行 PRD-P0-001 APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS：按照生产级整改任务列表，做 Initial Data Import Repair Diagnosis；只允许 A5 数据 readiness、A2 安全只读审查、A1 CI 验证并发执行；不执行 DB write，不执行 migration，不部署，不重启，不 push，不修改业务代码，不执行 manual/HOLD。",
+      "selected_agents": [],
+      "selected_agents_before_constraints": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness",
+        "A7-Final-QA-Gate",
+        "Codex-Orchestrator"
+      ],
+      "selected_agents_after_constraints": [],
+      "allowed_agents": [
+        "A1-CI-Runtime-Gate",
+        "A2-Security-Regression-Gate",
+        "A5-Data-Readiness"
+      ],
+      "denied_agents": [
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke"
+      ],
+      "hard_constraints": [
+        "no business code changes",
+        "no migration execution",
+        "no deploy",
+        "no push"
+      ],
+      "constraint_conflicts": [],
+      "confidence": 0.95,
+      "matched_keywords": {
+        "A1-CI-Runtime-Gate": [
+          "CI",
+          "验证",
+          "ci",
+          "A1"
+        ],
+        "A2-Security-Regression-Gate": [
+          "安全",
+          "A2"
+        ],
+        "A5-Data-Readiness": [
+          "数据 readiness",
+          "A5",
+          "A5 数据"
+        ],
+        "A7-Final-QA-Gate": [
+          "HOLD",
+          "hold"
+        ]
+      },
+      "risk_domains": [
+        "schema-gate",
+        "human-go"
+      ],
+      "held_reasons": [
+        "DB write request requires human Gate"
+      ],
+      "recommended_sequence": [
+        "Codex-Orchestrator route-review"
+      ],
+      "parallel_groups": [],
+      "fallback_action": "HOLD",
+      "route_decision": "HOLD",
+      "requires_route_review": true,
+      "domains": {
+        "ci": true,
+        "security": true,
+        "dataReadiness": true,
+        "ui": false,
+        "backend": false,
+        "backendMentionedButNegated": false,
+        "deployPlan": false,
+        "finalGate": true,
+        "protectedAttachment": false,
+        "authorizationDesign": false
+      },
+      "agent_scores": {
+        "A1-CI-Runtime-Gate": 9,
+        "A2-Security-Regression-Gate": 7.2,
+        "A5-Data-Readiness": 11.45,
+        "A7-Final-QA-Gate": 5,
+        "Codex-Orchestrator": 2
+      }
+    },
+    "agent_artifacts": [],
+    "orchestration_plan_json": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-execution-summary.md",
+    "approved_execution_result": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-approved-execution-result.json",
+    "approved_execution_summary": "docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-approved-execution-summary.md"
+  },
+  "worktree_checks": [],
+  "worktree_warnings": [],
+  "dispatch_groups": [],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [],
+  "worker_start_commands": [],
+  "safe_merge_commands": [],
+  "baseline_autopilot_lifecycle": {
+    "will_run_after_agent_completion": true,
+    "user_manual_rebase_required": false,
+    "user_manual_merge_required": false,
+    "user_manual_docs_ops_runs_cleanup_required": false
+  },
+  "codex_actually_executed": false,
+  "approval_token_provided": true,
+  "approved_execution_result_json": "REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-approved-execution-result.json",
+  "approved_execution_summary_md": "REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-approved-execution-summary.md"
+}

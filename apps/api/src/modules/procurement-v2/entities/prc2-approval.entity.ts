@@ -1,10 +1,12 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn,
 } from 'typeorm';
 
 /** 审批日志  prc2_approvals */
 @Entity('prc2_approvals')
+@Index('idx_prc2_appr_biz', ['bizType', 'bizId'])
+@Index('idx_prc2_appr_approver', ['approverId'], { where: '"approver_id" IS NOT NULL' })
 export class Prc2ApprovalEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

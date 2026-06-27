@@ -190,7 +190,13 @@ async function request<T = unknown>(
     throw makeError(err?.message || `请求失败 (HTTP ${res.status})`, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent);
   }
 
-  return res.json();
+  const data = await res.json();
+  // 审批提交后，后端经 ApprovalHintInterceptor 注入 __approvalHint（下一审批人）→ 派发全局事件，
+  // 由 ToastContext 统一弹"已提交给 X 审批"。所有走审批的业务接口自动生效。
+  if (data && typeof data === 'object' && (data as { __approvalHint?: unknown }).__approvalHint && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('approval-hint', { detail: (data as { __approvalHint: unknown }).__approvalHint }));
+  }
+  return data as T;
 }
 
 // ── Auth ─────────────────────────────────────────────

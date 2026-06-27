@@ -42,7 +42,13 @@ interface RefItem { refTable: string; refDocType: string; refCount: number; }
 export default function CustomerDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { canView, isSuper } = usePermission("MENU_MASTER_DATA");
+  const customerPerm = usePermission("MENU_MD_CUSTOMER");
+  const salesOrderPerm = usePermission("MENU_SALES2_ORDER");
+  const arPerm = usePermission("MENU_FIN2_AR");
+  const canView = customerPerm.canView || customerPerm.isSuper;
+  const isSuper = customerPerm.isSuper;
+  const canViewOrders = salesOrderPerm.canView || salesOrderPerm.isSuper;
+  const canViewAr = arPerm.canView || arPerm.isSuper;
 
   const code = decodeURIComponent(String(params?.code || ""));
 
@@ -74,25 +80,33 @@ export default function CustomerDetailPage() {
       }
     })();
 
-    // 2) 订单
-    (async () => {
-      try {
-        const r = await request<any>(`/v2/sales/orders?customerCode=${encodeURIComponent(code)}&limit=100`);
-        setOrders(toArr(r));
-      } catch {
-        setOrders([]);
-      }
-    })();
+    // 2) 订单：跨销售域页签仅在持 MENU_SALES2_ORDER 时展示/请求。
+    if (canViewOrders) {
+      (async () => {
+        try {
+          const r = await request<any>(`/v2/sales/orders?customerCode=${encodeURIComponent(code)}&limit=100`);
+          setOrders(toArr(r));
+        } catch {
+          setOrders([]);
+        }
+      })();
+    } else {
+      setOrders([]);
+    }
 
-    // 3) 应收（AR 发票）
-    (async () => {
-      try {
-        const r = await request<any>(`/v2/finance/ar/invoices?customerCode=${encodeURIComponent(code)}&pageSize=100`);
-        setArRows(toArr(r));
-      } catch {
-        setArRows([]);
-      }
-    })();
+    // 3) 应收：跨财务域页签仅在持 MENU_FIN2_AR 时展示/请求。
+    if (canViewAr) {
+      (async () => {
+        try {
+          const r = await request<any>(`/v2/finance/ar/invoices?customerCode=${encodeURIComponent(code)}&pageSize=100`);
+          setArRows(toArr(r));
+        } catch {
+          setArRows([]);
+        }
+      })();
+    } else {
+      setArRows([]);
+    }
 
     // 4) 引用
     (async () => {
@@ -107,7 +121,7 @@ export default function CustomerDetailPage() {
     })();
 
     setLoading(false);
-  }, [code]);
+  }, [code, canViewAr, canViewOrders]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -300,7 +314,7 @@ export default function CustomerDetailPage() {
         }
         tabs={[
           { key: "info", label: "基本信息", content: infoTab },
-          {
+          ...(canViewOrders ? [{
             key: "orders",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -308,8 +322,8 @@ export default function CustomerDetailPage() {
               </span>
             ),
             content: ordersTab,
-          },
-          {
+          }] : []),
+          ...(canViewAr ? [{
             key: "ar",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -317,7 +331,7 @@ export default function CustomerDetailPage() {
               </span>
             ),
             content: arTab,
-          },
+          }] : []),
           {
             key: "refs",
             label: (

@@ -1,0 +1,13 @@
+{
+  "gate": "APPROVE_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_GATE",
+  "remote_execution_dir": "/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-execution-20260624-133412",
+  "created_at": "2026-06-24T13:34:12+08:00",
+  "approved_scope": "Store Payment menu, role permission, DataScope, and one clear user scope candidate only",
+  "manual_review_executed": false,
+  "hold_items_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "secrets_redacted": true
+}

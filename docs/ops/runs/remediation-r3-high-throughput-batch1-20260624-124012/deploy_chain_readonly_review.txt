@@ -1,0 +1,17 @@
+Output format is aligned.
+Null display is "[NULL]".
+--- DB_MIGRATION_HISTORY_RECENT ---
+ id |   timestamp   |                            name                             
+----+---------------+-------------------------------------------------------------
+ 10 | 1782042418112 | CreateFileMetadata1782042418112
+  9 | 1782041418112 | CreateStorePaymentTables1782041418112
+  8 | 1782000000000 | W4MasterDataFoundation1782000000000
+  7 | 1781837624061 | FixPrc2ProjectsCompanyCodeNotNull1781837624061
+  6 | 1781837624060 | FixChanjetArSnapshotRemainingNullableUq1781837624060
+  5 | 1781835697682 | FixChanjetArDeptCodeNotNull1781835697682
+  4 | 1781793986478 | CreateChanjetBookCompanyMapAndExtendArSnapshot1781793986478
+  3 | 1781791930631 | CreateChanjetArSnapshot1781791930631
+  2 | 1781787856093 | CreateSysChanjetState1781787856093
+  1 | 1781749821162 | CreateTypeormMetadata1781749821162
+(10 rows)
+

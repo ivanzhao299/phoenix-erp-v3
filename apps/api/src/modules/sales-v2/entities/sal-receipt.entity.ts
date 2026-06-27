@@ -1,12 +1,25 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { SalDeliveryOrderEntity } from './sal-delivery-order.entity';
+import { SalDeliveryOrderItemEntity } from './sal-delivery-order-item.entity';
 
 /** 签收记录  sal_receipts — Sales V2 Phase 4 */
 @Entity('sal_receipts')
+@Index('idx_sal_rc_delivery', ['deliveryOrderId'])
+@Index('idx_sal_rc_item', ['deliveryItemId'])
+@Index('idx_sal_rc_so', ['salesOrderId'])
+@Index('idx_sal_rc_status', ['status'])
+@Index('idx_sal_rc_signed_at', ['signedAt'])
 export class SalReceiptEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'receipt_no', type: 'varchar', length: 64, unique: true }) receiptNo: string;
   @Column({ name: 'delivery_order_id', type: 'bigint' }) deliveryOrderId: string;
+  @ManyToOne(() => SalDeliveryOrderEntity)
+  @JoinColumn({ name: 'delivery_order_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_receipts_delivery_order_id_fkey' })
+  deliveryOrder?: SalDeliveryOrderEntity;
   @Column({ name: 'delivery_item_id', type: 'bigint' }) deliveryItemId: string;
+  @ManyToOne(() => SalDeliveryOrderItemEntity)
+  @JoinColumn({ name: 'delivery_item_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_receipts_delivery_item_id_fkey' })
+  deliveryItem?: SalDeliveryOrderItemEntity;
   @Column({ name: 'sales_order_id', type: 'bigint' }) salesOrderId: string;
   @Column({ name: 'sales_order_no', type: 'varchar', length: 64 }) salesOrderNo: string;
   @Column({ name: 'customer_code', type: 'varchar', length: 64, nullable: true }) customerCode: string | null;

@@ -241,6 +241,117 @@ export class PermissionsService {
     });
   }
 
+  // ── G119 治理面板：反查 + 角色组合 SoD 校验 ────────────────────────────
+  /** 「谁能干 X」反查：给定菜单 + 操作码，列出有该权的角色（直绑/经权限集）+ 在岗用户。 */
+  async whoCan(menuCode: string, perm: string) {
+    const p = (perm || 'V').trim().toUpperCase().slice(0, 1);
+    if (!menuCode) throw new Error('menu 必填');
+    const like = `%${p}%`;
+    const roles = await this.dataSource.query(`
+      SELECT role_code, role_name_zh, string_agg(DISTINCT src, ',') AS via FROM (
+        SELECT r.role_code, r.role_name_zh, 'direct'::text src
+          FROM sys_role r
+          JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
+          JOIN sys_menu m ON m.menu_id = rmp.menu_id
+         WHERE m.menu_code = $1 AND (rmp.perm_codes = '*' OR rmp.perm_codes LIKE $2)
+        UNION ALL
+        SELECT r.role_code, r.role_name_zh, 'set'::text src
+          FROM sys_role r
+          JOIN sys_role_permission_set rps ON rps.role_id = r.role_id
+          JOIN sys_permission_set_item psi ON psi.set_id = rps.set_id
+          JOIN sys_menu m ON m.menu_id = psi.menu_id
+         WHERE m.menu_code = $1 AND (psi.perm_codes = '*' OR psi.perm_codes LIKE $2)
+      ) t GROUP BY role_code, role_name_zh ORDER BY role_code`, [menuCode, like]);
+    const users = await this.dataSource.query(`
+      SELECT DISTINCT u.user_id, u.username, u.real_name AS real_name_zh
+        FROM sys_user u
+       WHERE u.status = 1 AND u.user_id IN (
+         SELECT ur.user_id FROM sys_user_role ur
+           JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
+           JOIN sys_menu m ON m.menu_id = rmp.menu_id
+          WHERE m.menu_code = $1 AND (rmp.perm_codes = '*' OR rmp.perm_codes LIKE $2)
+         UNION
+         SELECT ur.user_id FROM sys_user_role ur
+           JOIN sys_role_permission_set rps ON rps.role_id = ur.role_id
+           JOIN sys_permission_set_item psi ON psi.set_id = rps.set_id
+           JOIN sys_menu m ON m.menu_id = psi.menu_id
+          WHERE m.menu_code = $1 AND (psi.perm_codes = '*' OR psi.perm_codes LIKE $2)
+         UNION
+         SELECT ups.user_id FROM sys_user_permission_set ups
+           JOIN sys_permission_set_item psi ON psi.set_id = ups.set_id
+           JOIN sys_menu m ON m.menu_id = psi.menu_id
+          WHERE m.menu_code = $1 AND (psi.perm_codes = '*' OR psi.perm_codes LIKE $2)
+       ) ORDER BY u.username`, [menuCode, like]);
+    return { menu_code: menuCode, perm: p, roles, users };
+  }
+
+  /**
+   * 角色组合 SoD 校验：给定一组角色，若它们的「写权限菜单」并集触发岗位分离红线则返回冲突。
+   * 用于给用户分配多角色时的授权前拦截（区别于编辑单角色权限时的检测）。
+   */
+  async checkRoleComboConflicts(roleCodes: string[]) {
+    if (!Array.isArray(roleCodes) || roleCodes.length === 0) return { conflicts: [] };
+    const rows = await this.dataSource.query(`
+      SELECT r.role_code, m.menu_code FROM sys_role r
+        JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
+        JOIN sys_menu m ON m.menu_id = rmp.menu_id
+       WHERE r.role_code = ANY($1) AND (rmp.perm_codes = '*' OR rmp.perm_codes ~ '[CEDA]')
+      UNION
+      SELECT r.role_code, m.menu_code FROM sys_role r
+        JOIN sys_role_permission_set rps ON rps.role_id = r.role_id
+        JOIN sys_permission_set_item psi ON psi.set_id = rps.set_id
+        JOIN sys_menu m ON m.menu_id = psi.menu_id
+       WHERE r.role_code = ANY($1) AND (psi.perm_codes = '*' OR psi.perm_codes ~ '[CEDA]')`, [roleCodes]);
+    const menuToRoles: Record<string, Set<string>> = {};
+    const writeMenus = new Set<string>();
+    for (const r of rows) {
+      writeMenus.add(r.menu_code);
+      (menuToRoles[r.menu_code] ??= new Set()).add(r.role_code);
+    }
+    const all = await this.conflictRepo.find();
+    const conflicts = all
+      .filter((c) => writeMenus.has(c.menu_a) && writeMenus.has(c.menu_b))
+      .map((c) => ({
+        menu_a: c.menu_a, menu_b: c.menu_b, reason_zh: c.reason_zh, severity: c.severity,
+        roles_a: Array.from(menuToRoles[c.menu_a] ?? []),
+        roles_b: Array.from(menuToRoles[c.menu_b] ?? []),
+      }));
+    return { conflicts };
+  }
+
+  // ── PATCH /api/permissions/role/:code/status  角色生命周期 ─────────────
+  /** 软停用 / 恢复角色。DEPRECATED 从编辑页隐藏但保留数据，可恢复。 */
+  async setRoleStatus(roleCode: string, status: string) {
+    const st = (status || '').toUpperCase();
+    if (!['ACTIVE', 'DEPRECATED'].includes(st)) {
+      throw new Error('status 必须是 ACTIVE 或 DEPRECATED');
+    }
+    if (roleCode === 'ROLE_ADMIN' && st === 'DEPRECATED') {
+      throw new Error('超管角色不可停用');
+    }
+    const exists = await this.dataSource.query(
+      `SELECT 1 FROM sys_role WHERE role_code = $1`, [roleCode]);
+    if (!exists.length) throw new Error(`角色 ${roleCode} 不存在`);
+    // 停用前拦截：仍有在岗用户持有则拒绝（避免误停用导致掉权）
+    if (st === 'DEPRECATED') {
+      const held = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS n
+           FROM sys_user_role ur
+           JOIN sys_role r ON r.role_id = ur.role_id
+           JOIN sys_user u ON u.user_id = ur.user_id
+          WHERE r.role_code = $1 AND u.status = 1`, [roleCode]);
+      if (held[0]?.n > 0) {
+        throw new Error(`该角色仍有 ${held[0].n} 个在岗用户持有，请先转移后再停用`);
+      }
+    }
+    await this.dataSource.query(
+      `UPDATE sys_role
+          SET status = $1,
+              deprecated_at = CASE WHEN $1 = 'DEPRECATED' THEN NOW() ELSE NULL END
+        WHERE role_code = $2`, [st, roleCode]);
+    return { role_code: roleCode, status: st };
+  }
+
   // ── GET /api/permissions/stats  顶部统计 ──────────────────────────────
   async getStats() {
     const roleCount = await this.roleRepo.count();

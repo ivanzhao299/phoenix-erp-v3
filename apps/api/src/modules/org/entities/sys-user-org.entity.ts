@@ -2,10 +2,21 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
+  Unique,
+  Check,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
 } from 'typeorm';
+import { SysOrganizationEntity } from './sys-organization.entity';
 
 @Entity('sys_user_orgs')
+@Index('idx_user_orgs_user', ['userId'])
+@Index('idx_user_orgs_org', ['orgId'])
+@Unique('uq_user_org', ['userId', 'orgId'])
+@Check('chk_user_org_scope_level', `data_scope_level IN ('SELF','PROJECT','COMPANY','REGION','GROUP','BU','SITE','DEPARTMENT','STORE','WAREHOUSE')`)
+@Check('chk_user_org_role_scope', `role_scope IS NULL OR role_scope IN ('GROUP','BU','COMPANY','SITE','DEPARTMENT')`)
 export class SysUserOrgEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: number;
@@ -15,6 +26,10 @@ export class SysUserOrgEntity {
 
   @Column({ name: 'org_id', type: 'bigint' })
   orgId: number;
+
+  @ManyToOne(() => SysOrganizationEntity)
+  @JoinColumn({ name: 'org_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sys_user_orgs_org_id_fkey' })
+  org?: SysOrganizationEntity;
 
   @Column({ name: 'is_primary', type: 'boolean' })
   isPrimary: boolean;

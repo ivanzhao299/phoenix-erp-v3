@@ -93,6 +93,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('api-error', handler);
   }, [add]);
 
+  // 审批提交后提示"提交给谁审批"（后端 ApprovalHintInterceptor 注入 + api-client 派发）
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent).detail as { roleZh?: string | null; names?: string[] };
+      const role = d.roleZh || '审批人';
+      const names = d.names && d.names.length ? `（${d.names.join('、')}）` : '';
+      add('success', `已提交，等待【${role}】审批${names}`);
+    };
+    window.addEventListener('approval-hint', handler);
+    return () => window.removeEventListener('approval-hint', handler);
+  }, [add]);
+
   const toast = buildToast(add);
   return (
     <ToastContext.Provider value={toast}>

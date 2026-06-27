@@ -36,8 +36,8 @@ LABEL org.opencontainers.image.title="Phoenix ERP V3 API"
 LABEL org.opencontainers.image.description="NestJS backend for Phoenix ERP V3"
 LABEL org.opencontainers.image.source="https://github.com/ivanzhao299/phoenix-erp"
 
-# 装健康检查需要的 curl
-RUN apk add --no-cache curl tini
+# 装健康检查需要的 curl + tini（PID1）+ su-exec（entrypoint 降权用）
+RUN apk add --no-cache curl tini su-exec
 
 WORKDIR /app
 
@@ -46,10 +46,13 @@ COPY --from=builder /app-deploy/node_modules  ./node_modules
 COPY --from=builder /workspace/apps/api/dist  ./dist
 COPY --from=builder /app-deploy/package.json  ./package.json
 
-# 非 root 用户
+# 非 root 用户 phoenix（node 进程最终以它运行）
+# G133：显式建 /app/uploads/contracts 并归 phoenix——合同附件落盘目录。命名卷 phoenix_uploads
+#   挂载到 /app/uploads；Docker 对**全新**卷从镜像该路径继承属主，故先建好+chown，新卷即 phoenix 可写。
 RUN addgroup -S phoenix && adduser -S phoenix -G phoenix \
+    && mkdir -p /app/uploads/contracts \
     && chown -R phoenix:phoenix /app
-USER phoenix
+# 注意：不设 USER——以 root 启动 entrypoint 先修卷属主（存量 root 卷的关键），再 su-exec 降权到 phoenix。
 
 ENV NODE_ENV=production
 ENV PORT=3100
@@ -59,6 +62,8 @@ EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3100/api/health || exit 1
 
-# tini 当 PID 1：正确处理信号 + zombie reap
-ENTRYPOINT ["/sbin/tini", "--"]
+# G133：以 root 跑 entrypoint——修复命名卷 phoenix_uploads 的属主（存量卷是 root 所有，
+#   非 root 容器写 /app/uploads/contracts 会 EACCES 致上传 500），再用 su-exec 降权到 phoenix 跑 node。
+#   tini 仍是 PID1（正确处理信号 + 收割僵尸）。CMD 通过 "$@" 传入，保持可覆盖。
+ENTRYPOINT ["/sbin/tini", "--", "sh", "-c", "chown -R phoenix:phoenix /app/uploads 2>/dev/null || true; exec su-exec phoenix \"$@\"", "--"]
 CMD ["node", "dist/main"]

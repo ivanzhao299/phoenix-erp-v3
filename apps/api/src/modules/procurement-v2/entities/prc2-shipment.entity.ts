@@ -1,10 +1,13 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 物流/运单  prc2_shipments */
 @Entity('prc2_shipments')
+@Index('idx_prc2_ship_status', ['status'])
+@Index('idx_prc2_ship_po_id', ['poId'], { where: '"po_id" IS NOT NULL' })
+@Index('idx_prc2_ship_tracking', ['trackingNo'], { where: '"tracking_no" IS NOT NULL' })
 export class Prc2ShipmentEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

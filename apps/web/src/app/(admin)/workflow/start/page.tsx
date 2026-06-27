@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { dataSourceLabel } from "@/lib/workflow-data-catalog";
 import u from "@/styles/uix-utils.module.css";
@@ -207,7 +208,7 @@ export default function WorkflowStartPage() {
             <strong>已按常用业务场景进入发起页</strong>
             <span>系统会自动选择流程并生成草稿，字段值仍可人工修改。</span>
           </div>
-          <Link href="/workflow" className={s.btnSecondary}>返回工作流中心</Link>
+          <Link href="/workflow" style={secondaryActionButton}>返回工作流中心</Link>
         </div> : null}
 
       <div style={wizardStyle}>
@@ -268,7 +269,7 @@ export default function WorkflowStartPage() {
               </div>
               <div style={toolbarActionsStyle}>
                 {selected ? <span className={`${s.badge} ${schema ? s.badgeSuccess : s.badgeWarning}`}>{schema ? progressText : "通用说明"}</span> : null}
-                <Link href="/workflow/instances" className={s.btnSecondary}>查看我发起的</Link>
+                <Link href="/workflow/instances" style={secondaryActionButton}>查看我发起的</Link>
               </div>
             </div>
 
@@ -286,8 +287,8 @@ export default function WorkflowStartPage() {
                 </div>
                 <div style={smartMetaStyle}>
                   <span className={s.badge}>{smartSummary}</span>
-                  <button type="button" className={s.btnSecondary} disabled={smartFilling} onClick={clearDraft}>清空</button>
-                  <button type="button" className={s.btnPrimary} disabled={smartFilling} onClick={fillSmartDraft}>
+                  <button type="button" style={secondaryActionButton} disabled={smartFilling} onClick={clearDraft}>清空</button>
+                  <button type="button" style={primaryActionButton} disabled={smartFilling} onClick={fillSmartDraft}>
                     {smartFilling ? "生成中..." : "智能生成草稿"}
                   </button>
                 </div>
@@ -366,12 +367,12 @@ export default function WorkflowStartPage() {
             {error ? <div className={s.errorBanner}>{error}</div> : null}
 
             <div style={footerStyle}>
-              <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
-              {step === "select" ? <button type="button" className={s.btnPrimary} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
-              {step === "fill" ? <button type="button" className={s.btnPrimary} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
+              <Link href="/workflow/tasks/todo" style={secondaryActionButton}>我的待办</Link>
+              {step === "select" ? <button type="button" style={primaryActionButton} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
+              {step === "fill" ? <button type="button" style={primaryActionButton} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
               {step === "confirm" ? <>
-                  <button type="button" className={s.btnSecondary} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
-                  <button type="button" className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
+                  <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
+                  <button type="button" style={primaryActionButton} disabled={!selectedId || submitting} onClick={submit}>
                     {submitting ? "提交中..." : "确认提交"}
                   </button>
                 </> : null}

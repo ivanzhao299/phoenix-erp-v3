@@ -1,0 +1,12 @@
+POSTGRES_DB=phoenix_erp
+POSTGRES_USER=phoenix_v3
+POSTGRES_PASSWORD=[REDACTED]
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+GOSU_VERSION=1.19
+LANG=en_US.utf8
+PG_MAJOR=16
+PG_VERSION=16.14
+PG_SHA256=f6d077142737920858ce958ccdb75c6ee137a63b5b0853c70693d401ac7e3471
+DOCKER_PG_LLVM_DEPS=llvm19-dev 		clang19
+PGDATA=/var/lib/postgresql/data
+

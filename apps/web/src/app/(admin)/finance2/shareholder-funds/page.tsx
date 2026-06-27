@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Users, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Upload, ChevronRight, TrendingDown, DollarSign, ArrowDownLeft } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
-import { AttachmentUploader } from '@/components/design-system';
+import { ManagedAttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2 } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission';
+import { useAuth } from '@/contexts/AuthContext';
 import { currencySymbol } from '@/lib/currency';
 
 import {
-  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, inputFieldClass, formLabel,
-  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  primaryActionButton, secondaryActionButton, inputField, inputFieldClass, formLabel,
   inlineBadge, pillBadge,
   tabBar, tabItem,
   searchToolbar, toolbarFilterPill, sectionTitle,
@@ -47,8 +47,10 @@ interface Contribution {
   amountOriginal: string | number;
   settledAmountOriginal: string | number;
   balanceAmountOriginal: string | number;
+  contributionDate: string | null;
   expectedReturnDate: string | null;
   status: string;
+  createdBy?: string | null;
   sourceType: string;
   remark: string | null;
   createdAt: string;
@@ -110,59 +112,20 @@ const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
   GUARANTEE: 'var(--status-info)',
   PAYMENT_ON_BEHALF: 'var(--status-success)'
 };
-const STATUS_CONFIG: Record<string, {
-  label: string;
-  badgeClass: string;
-}> = {
-  DRAFT: {
-    label: '草稿',
-    badgeClass: 'bg-bg-muted text-text-muted'
-  },
-  PENDING_CONFIRM: {
-    label: '待确认',
-    badgeClass: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
-  },
-  CONFIRMED: {
-    label: '已确认',
-    badgeClass: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-  },
-  PARTIALLY_SETTLED: {
-    label: '部分结算',
-    badgeClass: 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
-  },
-  SETTLED: {
-    label: '已结清',
-    badgeClass: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
-  },
-  CANCELLED: {
-    label: '已取消',
-    badgeClass: 'bg-bg-muted text-text-dim'
-  }
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  DRAFT: { label: '草稿', color: 'var(--text-secondary)' },
+  PENDING_CONFIRM: { label: '待确认', color: 'var(--status-warning)' },
+  CONFIRMED: { label: '已确认', color: 'var(--color-accent)' },
+  PARTIALLY_SETTLED: { label: '部分结算', color: 'var(--color-primary)' },
+  SETTLED: { label: '已结清', color: 'var(--status-success)' },
+  CANCELLED: { label: '已取消', color: 'var(--text-disabled)' },
 };
-const SETTLEMENT_STATUS_CONFIG: Record<string, {
-  label: string;
-  badgeClass: string;
-}> = {
-  DRAFT: {
-    label: '草稿',
-    badgeClass: 'bg-bg-muted text-text-muted'
-  },
-  PENDING_APPROVAL: {
-    label: '待审批',
-    badgeClass: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
-  },
-  APPROVED: {
-    label: '已批准',
-    badgeClass: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-  },
-  SETTLED: {
-    label: '已结清',
-    badgeClass: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
-  },
-  CANCELLED: {
-    label: '已取消',
-    badgeClass: 'bg-bg-muted text-text-dim'
-  }
+const SETTLEMENT_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  DRAFT: { label: '草稿', color: 'var(--text-secondary)' },
+  PENDING_APPROVAL: { label: '待审批', color: 'var(--status-warning)' },
+  APPROVED: { label: '已批准', color: 'var(--color-accent)' },
+  SETTLED: { label: '已结清', color: 'var(--status-success)' },
+  CANCELLED: { label: '已取消', color: 'var(--text-disabled)' },
 };
 const SETTLEMENT_TYPE_LABELS: Record<string, string> = {
   RETURN: '现金归还',
@@ -180,21 +143,21 @@ function fmt(n: number | string | null | undefined): string {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatusBadge({
+function LocalStatusBadge({
   status,
   map
 }: {
   status: string;
   map: Record<string, {
     label: string;
-    badgeClass: string;
+    color: string;
   }>;
 }) {
-  const c = map[status] ?? {
-    label: status,
-    badgeClass: 'bg-bg-muted text-text-muted'
-  };
-  return <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.badgeClass}`}>
+  const c = map[status] ?? { label: status, color: 'var(--text-secondary)' };
+  return <span style={{
+    display: 'inline-block', padding: '1px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+    background: `color-mix(in srgb, ${c.color} 14%, transparent)`, color: c.color,
+  }}>
       {c.label}
     </span>;
 }
@@ -221,21 +184,24 @@ function TypeBadge({
 
 function CreateContributionModal({
   onClose,
-  onCreated
+  onCreated,
+  editing
 }: {
   onClose: () => void;
   onCreated: () => void;
+  editing?: Contribution | null;
 }) {
   const [form, setForm] = useState({
-    shareholderName: '',
-    shareholderCode: '',
-    companyCode: '',
-    companyName: '',
-    contributionType: 'LOAN',
-    currencyCode: 'CNY',
-    amountOriginal: '',
-    expectedReturnDate: '',
-    remark: '',
+    shareholderName: editing?.shareholderName ?? '',
+    shareholderCode: editing?.shareholderCode ?? '',
+    companyCode: editing?.companyCode ?? '',
+    companyName: editing?.companyName ?? '',
+    contributionType: editing?.contributionType ?? 'LOAN',
+    currencyCode: editing?.currencyCode ?? 'CNY',
+    amountOriginal: editing ? String(editing.amountOriginal) : '',
+    contributionDate: editing?.contributionDate ?? '',
+    expectedReturnDate: editing?.expectedReturnDate ?? '',
+    remark: editing?.remark ?? '',
     voucherUrl: '' as string
   });
   const [saving, setSaving] = useState(false);
@@ -257,11 +223,15 @@ function CreateContributionModal({
       setErr('请填写金额');
       return;
     }
+    if (!form.contributionDate) {
+      setErr('请选择股东出资时间');
+      return;
+    }
     setSaving(true);
     setErr('');
     try {
-      const r = await fetch(`${API}/contributions`, {
-        method: 'POST',
+      const r = await fetch(editing ? `${API}/contributions/${editing.id}` : `${API}/contributions`, {
+        method: editing ? 'PATCH' : 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
           shareholderName: form.shareholderName.trim(),
@@ -271,6 +241,7 @@ function CreateContributionModal({
           contributionType: form.contributionType,
           currencyCode: form.currencyCode.trim().toUpperCase(),
           amountOriginal: Number(form.amountOriginal),
+          contributionDate: form.contributionDate || undefined,
           expectedReturnDate: form.expectedReturnDate || undefined,
           remark: form.remark.trim() || undefined,
           voucherUrl: form.voucherUrl || undefined
@@ -278,7 +249,7 @@ function CreateContributionModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '创建失败');
+        throw new Error(d.message ?? (editing ? '保存失败' : '创建失败'));
       }
       onCreated();
     } catch (e: unknown) {
@@ -287,55 +258,44 @@ function CreateContributionModal({
       setSaving(false);
     }
   }
-  const inpClass = inputFieldClass;  // G37：收口为 cockpit-styles 单一来源
-  return <div style={modalMask}>
-      <div style={modalPanel(520)} onClick={e => e.stopPropagation()}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20
-      }}>
-          <div className="text-text" style={{
-          fontWeight: 700,
-          fontSize: 16
-        }}>新建股东资金记录</div>
-          <button onClick={onClose} style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer'
-        }}><X size={18} className="text-text-dim" /></button>
-        </div>
-        {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
+  const inpClass = inputFieldClass;
+  const cancelBtn: React.CSSProperties = { ...secondaryActionButton, flex: 1, padding: '11px 18px', fontSize: 14 };
+  const submitBtn: React.CSSProperties = {
+    flex: 2, padding: '11px 18px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 15,
+    fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--text-on-dark)',
+    background: saving ? 'var(--text-disabled)' : 'var(--color-primary)', opacity: saving ? 0.7 : 1,
+  };
+  return <ModalV2 open title={editing ? '编辑股东资金记录' : '新建股东资金记录'} width={520} onClose={onClose} footer={<>
+        <button onClick={onClose} style={cancelBtn}>取消</button>
+        <button onClick={submit} disabled={saving} style={submitBtn}>{saving ? '保存中…' : (editing ? '保存' : '创建记录')}</button>
+      </>}>
+        {err && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
             {err}
           </div>}
-        <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 12
-      }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <div style={formLabel}>公司 <span className="text-red-500">*</span></div>
-            {/* G39：公司前置；切换公司清空股东，股东随公司收窄 */}
+            <div style={formLabel}>公司 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <CompanySelector value={form.companyCode}
               onChange={v => { set('companyCode', v); set('shareholderCode', ''); set('shareholderName', ''); }}
               onPick={o => set('companyName', o?.label ?? '')} />
           </div>
           <div>
-            <div style={formLabel}>股东 <span className="text-red-500">*</span></div>
-            {/* G39：先选公司 → 股东按 shr_project_equity 权威投资关系过滤 */}
+            <div style={formLabel}>股东 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <ShareholderSelector companyCode={form.companyCode} disabled={!form.companyCode}
               value={form.shareholderCode} onChange={v => set('shareholderCode', v)}
               onPick={o => set('shareholderName', o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
           </div>
           <div>
-            <div style={formLabel}>货币 <span className="text-red-500">*</span></div>
-            {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+            <div style={formLabel}>货币 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
           </div>
           <div>
-            <div style={formLabel}>金额 <span className="text-red-500">*</span></div>
+            <div style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
+          </div>
+          <div>
+            <div style={formLabel}>股东出资时间 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <input type="date" value={form.contributionDate} onChange={e => set('contributionDate', e.target.value)} className={inpClass} />
           </div>
           <div>
             <div style={formLabel}>预计归还日期</div>
@@ -343,34 +303,18 @@ function CreateContributionModal({
           </div>
         </div>
         <div className={u.mt12}>
-          <div style={formLabel}>资金类型 <span className="text-red-500">*</span></div>
-          {/* G4-A：资金类型枚举来自 sys_dict(FIN_CONTRIBUTION_TYPE) */}
+          <div style={formLabel}>资金类型 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
           <DictSelect dictType="FIN_CONTRIBUTION_TYPE" value={form.contributionType} onChange={v => set('contributionType', v)} allowEmpty={false} />
         </div>
         <div className={u.mt12}>
           <div style={formLabel}>出资凭证</div>
-          {/* G4-A：禁止 URL 文本框，统一附件上传 */}
-          <AttachmentUploader value={form.voucherUrl ? [form.voucherUrl] : []} onChange={urls => set('voucherUrl', urls[urls.length - 1] ?? '')} label="上传出资凭证（PDF/图片 ≤15MB）" />
+          <ManagedAttachmentUploader value={form.voucherUrl} onChange={v => set('voucherUrl', String(v))} storage="json-string" label="上传出资凭证（PDF/图片 ≤15MB，可多个）" />
         </div>
         <div className={u.mt12}>
           <div style={formLabel}>备注</div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className={`${inpClass} resize-none`} style={{
-          fontFamily: 'inherit'
-        }} />
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
         </div>
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end',
-        marginTop: 20
-      }}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-violet-300 dark:bg-violet-800 cursor-not-allowed' : 'bg-violet-700 hover:bg-violet-800'}`}>
-            {saving ? '创建中…' : '创建记录'}
-          </button>
-        </div>
-      </div>
-    </div>;
+      </ModalV2>;
 }
 
 // ── Create Settlement Modal ───────────────────────────────────────────────────
@@ -444,85 +388,58 @@ function CreateSettlementModal({
       setSaving(false);
     }
   }
-  const inpClass = inputFieldClass;  // G37：收口为 cockpit-styles 单一来源
-  return <div style={modalMask}>
-      <div style={modalPanel(460)} onClick={e => e.stopPropagation()}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16
-      }}>
-          <div className="text-text" style={{
-          fontWeight: 700,
-          fontSize: 15
-        }}>创建还款/结算</div>
-          <button onClick={onClose} style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer'
-        }}><X size={17} className="text-text-dim" /></button>
-        </div>
-        <div className="bg-bg-muted/50" style={{
-        borderRadius: 10,
-        padding: '10px 14px',
-        marginBottom: 16,
-        fontSize: 12
-      }}>
-          <div className={`text-text-muted ${u.fw600}`}>{contribution.shareholderName} · {contribution.contributionNo}</div>
-          <div className="text-text-muted" style={{
-          marginTop: 2
-        }}>
+  const inpClass = inputFieldClass;
+  const stBtn: React.CSSProperties = {
+    padding: '9px 22px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 14,
+    fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--text-on-dark)',
+    background: saving ? 'var(--text-disabled)' : 'var(--color-primary)', opacity: saving ? 0.7 : 1, flex: 1,
+  };
+  return <ModalV2 open title="创建还款/结算" width={460} onClose={onClose} footer={<>
+        <button onClick={onClose} style={{ ...secondaryActionButton, flex: 1, padding: '9px 18px' }}>取消</button>
+        <button onClick={submit} disabled={saving} style={stBtn}>{saving ? '创建中…' : '创建'}</button>
+      </>}>
+        <div style={{ borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{contribution.shareholderName} · {contribution.contributionNo}</div>
+          <div style={{ marginTop: 2, color: 'var(--text-secondary)' }}>
             未结余额：{currencySymbol(contribution.currencyCode)}{fmt(contribution.balanceAmountOriginal)}
           </div>
         </div>
-        {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
+        {err && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
             {err}
           </div>}
 
         <div className={u.mb12}>
           <div style={formLabel}>结算类型</div>
-          <div style={{
-          display: 'flex',
-          gap: 8,
-          flexWrap: 'wrap'
-        }}>
-            {Object.entries(SETTLEMENT_TYPE_LABELS).map(([k, v]) => <button key={k} onClick={() => set('settlementType', k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${form.settlementType === k ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-border bg-bg-card text-text-muted hover:bg-bg-muted'}`}>{v}</button>)}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(SETTLEMENT_TYPE_LABELS).map(([k, v]) => {
+              const active = form.settlementType === k;
+              return <button key={k} onClick={() => set('settlementType', k)} style={{
+                padding: '5px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: `1px solid ${active ? 'var(--color-primary)' : 'var(--border)'}`,
+                background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'var(--bg-card)',
+                color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+              }}>{v}</button>;
+            })}
           </div>
         </div>
 
         <div className={u.mb12}>
-          <div style={formLabel}>金额 <span className="text-red-500">*</span></div>
+          <div style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
           <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
         </div>
 
         {needsCash && <div className={u.mb12}>
-            <div style={formLabel}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
-            {/* G4-A：资金账户主数据，value=id；按 contribution 币种过滤 */}
+            <div style={formLabel}>现金账户 <span style={{ color: 'var(--status-danger)' }}>*</span>（现金归还必填）</div>
             <CashAccountSelector value={form.cashAccountId} valueField="id" onChange={v => set('cashAccountId', v)} currencyCode={contribution.currencyCode} />
           </div>}
 
         <div className={u.mb16}>
           <div style={formLabel}>
-            备注{needsRemark ? <span className="text-red-500"> *（WRITE_OFF 必填）</span> : ''}
+            备注{needsRemark ? <span style={{ color: 'var(--status-danger)' }}> *（核销必填）</span> : ''}
           </div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={needsRemark ? '请填写核销原因' : '可选'} rows={2} className={`${inpClass} resize-none`} style={{
-          fontFamily: 'inherit'
-        }} />
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={needsRemark ? '请填写核销原因' : '可选'} rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
         </div>
-
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end'
-      }}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 dark:bg-blue-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-            {saving ? '创建中…' : '创建'}
-          </button>
-        </div>
-      </div>
-    </div>;
+      </ModalV2>;
 }
 
 // ── Contribution Detail Drawer ────────────────────────────────────────────────
@@ -530,11 +447,13 @@ function CreateSettlementModal({
 function ContributionDrawer({
   contribution,
   onClose,
-  onRefresh
+  onRefresh,
+  onEdit
 }: {
   contribution: Contribution;
   onClose: () => void;
   onRefresh: () => void;
+  onEdit?: (c: Contribution) => void;
 }) {
   const [detail, setDetail] = useState<{
     settlements?: Settlement[];
@@ -548,25 +467,40 @@ function ContributionDrawer({
     currentBalance: string | number;
   }>>([]);
   const [actionLoading, setActionLoading] = useState('');
+  const [actionErr, setActionErr] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; danger?: boolean; onConfirm: () => void } | null>(null);
+  // P1：提交审批时选审批人（候选 = 后端 eligible-approvers 权限∩数据域过滤）
+  const [pickMode, setPickMode] = useState(false);
+  const [approvers, setApprovers] = useState<Array<{ userId: string; displayName: string; roleNameZh: string | null }>>([]);
+  const [pickedId, setPickedId] = useState('');
+  const [pickLoading, setPickLoading] = useState(false);
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, accs] = await Promise.all([fetch(`${API}/contributions/${contribution.id}`, {
+      const d = await fetch(`${API}/contributions/${contribution.id}`, {
         headers: authHeaders()
-      }).then(r => r.json()), fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100', {
-        headers: authHeaders()
-      }).then(r => r.json())]);
+      }).then(r => r.json());
       setDetail(d);
-      setCashAccounts(accs.items ?? []);
     } finally {
       setLoading(false);
     }
   }, [contribution.id]);
+  // 现金账户仅「创建结算」时才用到 → 懒加载，避免每次打开抽屉白拉 100 条拖慢加载
+  const ensureCashAccounts = useCallback(async () => {
+    if (cashAccounts.length > 0) return;
+    try {
+      const accs = await fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100', {
+        headers: authHeaders()
+      }).then(r => r.json());
+      setCashAccounts(accs.items ?? []);
+    } catch { /* 忽略 */ }
+  }, [cashAccounts.length]);
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
   async function doAction(action: string, payload: Record<string, unknown> = {}) {
     setActionLoading(action);
+    setActionErr('');
     try {
       const r = await fetch(`${API}/contributions/${contribution.id}/${action}`, {
         method: 'POST',
@@ -575,7 +509,7 @@ function ContributionDrawer({
       });
       if (!r.ok) {
         const d = await r.json();
-        alert(d.message ?? '操作失败');
+        setActionErr(d.message ?? '操作失败');
         return;
       }
       onRefresh();
@@ -584,8 +518,22 @@ function ContributionDrawer({
       setActionLoading('');
     }
   }
+  // 打开"选择审批人"——拉取该单据公司下、有股东资金确认权(E)的候选人
+  async function openPickApprover() {
+    setActionErr('');
+    setPickedId('');
+    setPickMode(true);
+    setPickLoading(true);
+    try {
+      const qs = new URLSearchParams({ menuCode: 'MENU_FIN2_SHAREHOLDER', requiredPerm: 'E', companyCode: contribution.companyCode });
+      const r = await fetch(`/api/approval/eligible-approvers?${qs}`, { headers: authHeaders() }).then(res => res.ok ? res.json() : []);
+      setApprovers(Array.isArray(r) ? r : []);
+    } catch { setApprovers([]); }
+    finally { setPickLoading(false); }
+  }
   async function doSettleAction(settlementId: string, action: string) {
     setActionLoading(settlementId + action);
+    setActionErr('');
     try {
       const r = await fetch(`${API}/settlements/${settlementId}/${action}`, {
         method: 'POST',
@@ -593,7 +541,7 @@ function ContributionDrawer({
       });
       if (!r.ok) {
         const d = await r.json();
-        alert(d.message ?? '操作失败');
+        setActionErr(d.message ?? '操作失败');
         return;
       }
       await loadDetail();
@@ -602,208 +550,145 @@ function ContributionDrawer({
       setActionLoading('');
     }
   }
-  const canConfirm = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
-  const canSettle = ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
-  const canCancel = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
-  return <div style={drawerMask}>
-      <div className="bg-bg-card" style={{
-      width: 560,
-      height: '100vh',
-      overflowY: 'auto',
-      padding: 24,
-      boxShadow: '-8px 0 32px var(--overlay-black-10)'
-    }}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 16
-      }}>
-          <div>
-            <div className="text-text" style={{
-            fontWeight: 700,
-            fontSize: 16
-          }}>{contribution.shareholderName}</div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            marginTop: 2
-          }}>{contribution.contributionNo}</div>
-          </div>
-          <button onClick={onClose} style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer'
-        }}><X size={18} className="text-text-dim" /></button>
-        </div>
+  // 确认/提交/取消/结算都是写操作，后端要求 MENU_FIN2_SHAREHOLDER:E（财务确认入账，
+  // 与出纳建单的 :C 分离）。无 :E 权限不显示按钮——避免无权用户点了再被后端 403 拒。
+  const { canEdit: dCanEdit } = usePermission('MENU_FIN2_SHAREHOLDER');
+  const { user: authUser } = useAuth();
+  // 制单/审核分离：自己创建的记录不能自己确认/提交（与后端 assertNotSelfApproval 对齐）。
+  // 取消是撤回自己的草稿，允许；仅确认/提交受自审拦截。
+  const isOwnRecord = !!authUser?.username && contribution.createdBy === authUser.username;
+  const canConfirm = dCanEdit && !isOwnRecord && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
+  const canSettle = dCanEdit && ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
+  const canCancel = dCanEdit && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
+  const actionBtn = (bg: string, fg: string, border: string): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 'var(--radius-md)',
+    fontSize: 12, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer',
+    border: `1px solid ${border}`, background: bg, color: fg, opacity: actionLoading ? 0.5 : 1,
+  });
+  const settleBtnStyle = (bg: string, fg: string, border: string): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+    fontSize: 11, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer',
+    border: `1px solid ${border}`, background: bg, color: fg, opacity: actionLoading ? 0.5 : 1,
+  });
+  return <>
+    <DrawerV2 open title={contribution.shareholderName} width={560} onClose={onClose}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: -8, marginBottom: 16 }}>{contribution.contributionNo}</div>
+
+        {actionErr && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
+            {actionErr}
+          </div>}
 
         {/* 金额总览 */}
         <div style={{
-        background: 'linear-gradient(135deg,var(--violet-900),var(--color-purple-600))',
-        borderRadius: 12,
-        padding: '16px 20px',
-        marginBottom: 18,
-        color: 'var(--bg-card)'
+        background: 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, black))',
+        borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--text-on-dark)',
       }}>
-          <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 12,
-          textAlign: 'center'
-        }}>
-            {[{
-            label: '出资总额',
-            value: fmt(contribution.amountOriginal)
-          }, {
-            label: '已结算',
-            value: fmt(contribution.settledAmountOriginal)
-          }, {
-            label: '未结余额',
-            value: fmt(contribution.balanceAmountOriginal)
-          }].map(c => <div key={c.label}>
-                <div style={{
-              fontSize: 10,
-              opacity: 0.8,
-              marginBottom: 2
-            }}>{c.label}</div>
-                <div style={{
-              fontWeight: 800,
-              fontSize: 16
-            }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
+            {[{ label: '出资总额', value: fmt(contribution.amountOriginal) },
+              { label: '已结算', value: fmt(contribution.settledAmountOriginal) },
+              { label: '未结余额', value: fmt(contribution.balanceAmountOriginal) },
+            ].map(c => <div key={c.label}>
+                <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 2 }}>{c.label}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
               </div>)}
           </div>
-          {contribution.expectedReturnDate && <div style={{
-          textAlign: 'center',
-          marginTop: 10,
-          fontSize: 11,
-          opacity: 0.8
-        }}>
+          {contribution.expectedReturnDate && <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, opacity: 0.8 }}>
               预计归还：{contribution.expectedReturnDate}
             </div>}
         </div>
 
         {/* 基本信息 */}
-        <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 10,
-        marginBottom: 16
-      }}>
-          {[{
-          label: '资金类型',
-          value: <TypeBadge type={contribution.contributionType} />
-        }, {
-          label: '状态',
-          value: <StatusBadge status={contribution.status} map={STATUS_CONFIG} />
-        }, {
-          label: '公司',
-          value: contribution.companyName ?? contribution.companyCode
-        }, {
-          label: '来源',
-          value: contribution.sourceType
-        }].map(r => <div key={r.label} className="bg-bg-muted/50" style={{
-          borderRadius: 8,
-          padding: '8px 12px'
-        }}>
-              <div className="text-text-dim" style={{
-            fontSize: 10,
-            marginBottom: 2
-          }}>{r.label}</div>
-              <div className="text-text" style={{
-            fontSize: 12,
-            fontWeight: 600
-          }}>{r.value}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          {[{ label: '资金类型', value: <TypeBadge type={contribution.contributionType} /> },
+            { label: '状态', value: <LocalStatusBadge status={contribution.status} map={STATUS_CONFIG} /> },
+            { label: '公司', value: contribution.companyName ?? contribution.companyCode },
+            { label: '股东出资时间', value: contribution.contributionDate ?? '—' },
+            { label: '来源', value: contribution.sourceType },
+          ].map(r => <div key={r.label} style={{ borderRadius: 8, padding: '8px 12px', background: 'var(--bg-muted)' }}>
+              <div style={{ fontSize: 10, marginBottom: 2, color: 'var(--text-secondary)' }}>{r.label}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.value}</div>
             </div>)}
         </div>
 
+        {/* 自审提示：已提交待确认时，告诉创建者在等他人确认（制单/审核分离） */}
+        {isOwnRecord && contribution.status === 'PENDING_CONFIRM' && (
+          <div style={{ fontSize: 12, color: 'var(--status-warning)', background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+            已提交，等待他人复核确认 —— 你不能确认自己创建的记录（制单 / 审核分离）
+          </div>
+        )}
         {/* 操作按钮 */}
-        <div style={{
-        display: 'flex',
-        gap: 8,
-        marginBottom: 18,
-        flexWrap: 'wrap'
-      }}>
-          {canConfirm && <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {/* 提交审批：创建者/有编辑权把草稿"交出去"，点击先选审批人 */}
+          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => void openPickApprover()} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
+              <AlertCircle size={12} /> 提交审批
+            </button>}
+          {/* 直接确认入账：仅他人可操作（自审拦截） */}
+          {canConfirm && <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
               <CheckCircle size={12} /> 直接确认
             </button>}
-          {contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-info/20 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors">
-              <AlertCircle size={12} /> 提交确认
+          {/* 编辑草稿：仅草稿可改 */}
+          {dCanEdit && contribution.status === 'DRAFT' && onEdit && <button onClick={() => { onClose(); onEdit(contribution); }} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
+              <AlertCircle size={12} /> 编辑
             </button>}
-          {canSettle && <button onClick={() => setShowSettle(true)} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 transition-colors">
+          {canSettle && <button onClick={() => { void ensureCashAccounts(); setShowSettle(true); }}
+            style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
               <ArrowDownLeft size={12} /> 创建结算
             </button>}
-          {canCancel && <button onClick={() => {
-          if (confirm('确认取消该股东资金记录？')) void doAction('cancel', {});
-        }} disabled={!!actionLoading} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-danger/20 bg-danger/10 text-danger disabled:opacity-50 transition-colors">
-              <X size={12} /> 取消
+          {canCancel && <button onClick={() => setConfirmDialog({
+              title: contribution.status === 'DRAFT' ? '删除草稿' : '取消股东资金记录',
+              message: contribution.status === 'DRAFT' ? '确认删除该草稿？删除后不可恢复。' : '确认取消该股东资金记录？取消后不可恢复。', danger: true,
+              onConfirm: () => { setConfirmDialog(null); void doAction('cancel', {}); },
+            })} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--status-danger) 10%, transparent)', 'var(--status-danger)', 'color-mix(in srgb, var(--status-danger) 30%, transparent)')}>
+              <X size={12} /> {contribution.status === 'DRAFT' ? '删除' : '取消'}
             </button>}
         </div>
 
         {/* 结算记录 */}
-        <div className="text-text-muted" style={{
-        fontWeight: 600,
-        fontSize: 13,
-        marginBottom: 10
-      }}>结算记录</div>
-        {loading ? <div className="text-text-dim text-sm text-center py-6">加载中…</div> : !detail?.settlements?.length ? <div className="text-text-dim text-sm text-center py-5 bg-bg-muted/30 rounded-xl">暂无结算记录</div> : <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8
-      }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--text-secondary)' }}>结算记录</div>
+        {loading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载中…</div>
+          : !detail?.settlements?.length ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13, background: 'var(--bg-muted)', borderRadius: 10 }}>暂无结算记录</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(detail.settlements as Settlement[]).map(s => {
-          const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? {
-            label: s.status,
-            badgeClass: 'bg-bg-muted text-text-muted'
-          };
-          return <div key={s.id} className="bg-bg-muted/50 border border-border" style={{
-            borderRadius: 10,
-            padding: '10px 14px'
-          }}>
-                  <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 6
-            }}>
+          const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, badgeClass: '' };
+          const badgeColor = s.status === 'SETTLED' ? 'var(--status-success)' : s.status === 'PENDING_APPROVAL' ? 'var(--status-warning)' : s.status === 'APPROVED' ? 'var(--color-accent)' : 'var(--text-secondary)';
+          return <div key={s.id} style={{ borderRadius: 10, padding: '10px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <div>
-                      <span className="text-text" style={{
-                  fontWeight: 600,
-                  fontSize: 12
-                }}>{s.settlementNo}</span>
-                      <span className="text-text-dim" style={{
-                  fontSize: 11,
-                  marginLeft: 8
-                }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
+                      <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{s.settlementNo}</span>
+                      <span style={{ fontSize: 11, marginLeft: 8, color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc.badgeClass}`}>{sc.label}</span>
+                    <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${badgeColor} 14%, transparent)`, color: badgeColor }}>{sc.label}</span>
                   </div>
-                  <div className="text-blue-700 dark:text-blue-300" style={{
-              fontWeight: 700,
-              fontSize: 14,
-              marginBottom: 4
-            }}>
-                    {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: 'var(--color-primary)' }}>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}</span>
                   </div>
-                  {s.cashAccountCode && <div className={`text-text-muted ${u.fs11}`}>现金账户：{s.cashAccountCode}</div>}
+                  {s.cashAccountCode && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>现金账户：{s.cashAccountCode}</div>}
 
-                  {!['SETTLED', 'CANCELLED'].includes(s.status) && <div style={{
-              display: 'flex',
-              gap: 6,
-              marginTop: 8
-            }}>
-                      {s.status === 'DRAFT' && <button onClick={() => doSettleAction(s.id, 'submit')} disabled={!!actionLoading} className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-info/20 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors">
+                  {!['SETTLED', 'CANCELLED'].includes(s.status) && <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                      {s.status === 'DRAFT' && <button onClick={() => doSettleAction(s.id, 'submit')} disabled={!!actionLoading}
+                        style={settleBtnStyle('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
                           提交审批
                         </button>}
-                      {s.status === 'PENDING_APPROVAL' && <button onClick={() => doSettleAction(s.id, 'approve-direct')} disabled={!!actionLoading} className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
+                      {s.status === 'PENDING_APPROVAL' && <button onClick={() => doSettleAction(s.id, 'approve-direct')} disabled={!!actionLoading}
+                        style={settleBtnStyle('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
                           直接批准
                         </button>}
-                      {s.status === 'APPROVED' && <button onClick={() => {
-                if (confirm(`确认执行结算 ${s.settlementNo}？将实际操作资金。`)) void doSettleAction(s.id, 'execute');
-              }} disabled={!!actionLoading} className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors">
+                      {s.status === 'APPROVED' && <button onClick={() => setConfirmDialog({
+                          title: '执行结算', message: `确认执行结算 ${s.settlementNo}？将实际操作资金。`,
+                          onConfirm: () => { setConfirmDialog(null); void doSettleAction(s.id, 'execute'); },
+                        })} disabled={!!actionLoading}
+                        style={settleBtnStyle('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
                           执行结算
                         </button>}
-                      <button onClick={() => {
-                if (confirm('确认取消此结算？')) void doSettleAction(s.id, 'cancel');
-              }} disabled={!!actionLoading} className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-danger/20 bg-danger/10 text-danger disabled:opacity-50 transition-colors">
+                      <button onClick={() => setConfirmDialog({
+                          title: '取消结算', message: '确认取消此结算？', danger: true,
+                          onConfirm: () => { setConfirmDialog(null); void doSettleAction(s.id, 'cancel'); },
+                        })} disabled={!!actionLoading}
+                        style={settleBtnStyle('color-mix(in srgb, var(--status-danger) 10%, transparent)', 'var(--status-danger)', 'color-mix(in srgb, var(--status-danger) 30%, transparent)')}>
                         取消
                       </button>
                     </div>}
@@ -811,144 +696,150 @@ function ContributionDrawer({
         })}
           </div>}
 
-        {contribution.remark && <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-300 mt-4">
+        {contribution.remark && <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 10, fontSize: 12, background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', color: 'var(--text-primary)' }}>
             备注：{contribution.remark}
           </div>}
-      </div>
+      </DrawerV2>
 
       {showSettle && <CreateSettlementModal contribution={contribution} accounts={cashAccounts} onClose={() => setShowSettle(false)} onCreated={() => {
       setShowSettle(false);
       void loadDetail();
       onRefresh();
     }} />}
-    </div>;
+      <ConfirmDialogV2 open={!!confirmDialog} title={confirmDialog?.title} message={confirmDialog?.message ?? ''} danger={confirmDialog?.danger}
+        loading={!!actionLoading} onConfirm={() => confirmDialog?.onConfirm()} onCancel={() => setConfirmDialog(null)} />
+
+      {/* P1：提交审批 → 选择审批人 */}
+      {pickMode && <ModalV2 open title="提交审批 · 选择审批人" width={460} onClose={() => setPickMode(false)} footer={<div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button onClick={() => setPickMode(false)} style={{ ...secondaryActionButton, flex: 1 }}>取消</button>
+            <button onClick={() => { setPickMode(false); void doAction('submit-confirm', {}); }} style={{ ...secondaryActionButton, flex: 1.4 }}>不指定，提交待确认</button>
+            <button onClick={() => { if (!pickedId) return; setPickMode(false); void doAction('submit-confirm', { approverUserId: pickedId }); }} disabled={!pickedId}
+              style={{ flex: 1.6, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-on-dark)', background: pickedId ? 'var(--color-primary)' : 'var(--text-disabled)', cursor: pickedId ? 'pointer' : 'not-allowed' }}>提交给所选</button>
+          </div>}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
+            选一位有确认权、且数据域覆盖本公司的审批人；提交后对方会收到待办通知。也可"不指定"，由任一有权同事确认。
+          </div>
+          {pickLoading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载候选人…</div>
+            : approvers.length === 0 ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--status-warning)', fontSize: 12.5, lineHeight: 1.6 }}>
+                无可选审批人（无人同时具备确认权与本公司数据域）。可点"不指定"提交，由有权同事确认。
+              </div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                {approvers.map(a => (
+                  <div key={a.userId} onClick={() => setPickedId(a.userId)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                      border: `1px solid ${pickedId === a.userId ? 'var(--color-primary)' : 'var(--border)'}`,
+                      background: pickedId === a.userId ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'var(--bg-card)' }}>
+                    <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: 8, background: pickedId === a.userId ? 'var(--color-primary)' : 'var(--border)' }} />
+                    <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{a.displayName}</span>
+                    {a.roleNameZh && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>{a.roleNameZh}</span>}
+                  </div>
+                ))}
+              </div>}
+        </ModalV2>}
+    </>;
 }
 
 // ── Summary Tab ───────────────────────────────────────────────────────────────
 
 function SummaryTab({
-  summary
+  summary,
+  pending,
+  canConfirm,
+  onOpen,
+  onViewAll,
 }: {
   summary: ShSummary | null;
+  pending: Contribution[];
+  canConfirm: boolean;
+  onOpen: (c: Contribution) => void;
+  onViewAll?: () => void;
 }) {
-  if (!summary) return <div className="text-text-muted text-sm text-center py-8">加载中…</div>;
-  const statCards = [{
-    label: '出资总额',
-    value: `¥ ${fmt(summary.totalAmountOriginal)}`,
-    colorClass: 'text-violet-700 dark:text-violet-300'
-  }, {
-    label: '已结算',
-    value: `¥ ${fmt(summary.settledAmountOriginal)}`,
-    colorClass: 'text-emerald-700 dark:text-emerald-300'
-  }, {
-    label: '未结余额',
-    value: `¥ ${fmt(summary.balanceAmountOriginal)}`,
-    colorClass: 'text-danger'
-  }, {
-    label: '已确认笔数',
-    value: `${summary.confirmedContributions} 笔`,
-    colorClass: 'text-blue-700 dark:text-blue-300'
-  }, {
-    label: '待确认',
-    value: `${summary.pendingConfirmations} 笔`,
-    colorClass: 'text-warning'
-  }];
+  if (!summary) return <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: 32 }}>加载中…</div>;
+  const statCards: { label: string; value: string; color: string }[] = [
+    { label: '出资总额', value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: 'var(--color-primary)' },
+    { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
+    { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
+    { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: 'var(--color-accent)' },
+    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
+  ];
   return <div>
-      <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-      gap: 12,
-      marginBottom: 24
-    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
         {statCards.map(c => (
           <div key={c.label} style={kpiCard}>
             <div style={statTileLabel}>{c.label}</div>
-            <div className={`font-extrabold ${c.colorClass}`} style={{ fontSize: 20, lineHeight: 1.2, marginTop: 2 }}>{c.value}</div>
+            <div style={{ fontSize: 20, lineHeight: 1.2, marginTop: 2, fontWeight: 800, color: c.color }}>{c.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: 16,
-      marginBottom: 24
-    }}>
+      {/* 待处理明细——就地可确认（替代原"卡片快捷链跳转"，确认入口直接在眼前） */}
+      {pending.length > 0 && <div style={{ ...tableContainer, padding: '16px 18px', marginBottom: 24, borderColor: 'var(--status-warning)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--status-warning)' }}>
+            待处理明细 · {pending.length} 笔（{canConfirm ? '点击记录即可确认入账' : '点击查看详情'}）
+          </div>
+          {onViewAll && <button onClick={onViewAll} style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 12 }}>在台账中查看 →</button>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pending.map(c => (
+            <div key={c.id} onClick={() => onOpen(c)} style={{ ...businessListCard('warning'), cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{c.shareholderName}</span>
+                <TypeBadge type={c.contributionType} />
+                <LocalStatusBadge status={c.status} map={STATUS_CONFIG} />
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{c.contributionNo}</span>
+                <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</span>
+                <ChevronRight size={15} style={{ color: 'var(--text-secondary)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ ...tableContainer, padding: '16px 18px' }}>
           <div style={sectionTitle}>按股东分布</div>
-          {summary.byShareholder.length === 0 ? <div className="text-text-dim text-xs text-center py-4">暂无数据</div> : summary.byShareholder.map(r => <div key={r.shareholder_name} className="border-b border-border/50" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '6px 0'
+          {summary.byShareholder.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>暂无数据</div> : summary.byShareholder.map(r => <div key={r.shareholder_name} style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0',
+          borderBottom: '1px solid color-mix(in srgb, var(--border) 50%, transparent)',
         }}>
               <div>
-                <div className="text-text" style={{
-              fontSize: 12,
-              fontWeight: 600
-            }}>{r.shareholder_name}</div>
-                <div className={`text-text-dim ${u.fs11}`}>{r.cnt} 笔</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.shareholder_name}</div>
+                <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</div>
               </div>
-              <div className="text-violet-700 dark:text-violet-300" style={{
-            fontSize: 13,
-            fontWeight: 700
-          }}>¥ {fmt(r.balance)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance)}</div>
             </div>)}
         </div>
 
         <div style={{ ...tableContainer, padding: '16px 18px' }}>
           <div style={sectionTitle}>按资金类型</div>
-          {summary.byContributionType.length === 0 ? <div className="text-text-dim text-xs text-center py-4">暂无数据</div> : summary.byContributionType.map(r => <div key={r.contribution_type} className="border-b border-border/50" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '6px 0'
+          {summary.byContributionType.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>暂无数据</div> : summary.byContributionType.map(r => <div key={r.contribution_type} style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0',
+          borderBottom: '1px solid color-mix(in srgb, var(--border) 50%, transparent)',
         }}>
               <div className={u.flexRow8}>
                 <TypeBadge type={r.contribution_type} />
-                <span className={`text-text-dim ${u.fs11}`}>{r.cnt} 笔</span>
+                <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</span>
               </div>
-              <div className="text-text-muted" style={{
-            fontSize: 13,
-            fontWeight: 700
-          }}>¥ {fmt(r.total)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.total)}</div>
             </div>)}
         </div>
       </div>
 
       {summary.upcomingReturns.length > 0 && <div style={{
-      ...tableContainer,
-      borderColor: 'var(--status-warning)',
-      padding: '16px 18px',
+      ...tableContainer, borderColor: 'var(--status-warning)', padding: '16px 18px',
     }}>
-          <div className="text-amber-800 dark:text-amber-300" style={{
-        fontWeight: 600,
-        fontSize: 13,
-        marginBottom: 12
-      }}>⚠️ 即将到期归还（30 天内）</div>
-          <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8
-      }}>
-            {summary.upcomingReturns.map(r => <div key={r.id} className="bg-warning/10 border border-warning/20" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '8px 12px',
-          borderRadius: 8
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--status-warning)' }}>即将到期归还（30 天内）</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {summary.upcomingReturns.map(r => <div key={r.id} style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8,
+          background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)',
         }}>
                 <div>
-                  <div className="text-text" style={{
-              fontWeight: 600,
-              fontSize: 12
-            }}>{r.contribution_no}</div>
-                  <div className={`text-text-dim ${u.fs11}`}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
+                  <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{r.contribution_no}</div>
+                  <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
                 </div>
-                <div className="text-warning" style={{
-            fontWeight: 700,
-            fontSize: 14
-          }}>¥ {fmt(r.balance_amount_original)}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--status-warning)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance_amount_original)}</div>
               </div>)}
           </div>
         </div>}
@@ -972,23 +863,14 @@ export default function ShareholderFundsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedC, setSelectedC] = useState<Contribution | null>(null);
+  const [pendingList, setPendingList] = useState<Contribution[]>([]);
+  const [editingC, setEditingC] = useState<Contribution | null>(null);
   const [importLoading, setImportLoading] = useState(false);
-  const loadContributions = useCallback(async () => {
-    setLoading(true);
+  const loadSummary = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (keyword) params.set('keyword', keyword);
-      if (typeFilter) params.set('contributionType', typeFilter);
-      if (statusFilter) params.set('status', statusFilter);
-      params.set('pageSize', '100');
-      const [listRes, sumRes] = await Promise.all([fetch(`${API}/contributions?${params}`, {
+      const sumRes = await fetch(`${API}/contributions/summary`, {
         headers: authHeaders()
-      }).then(r => r.json()), fetch(`${API}/contributions/summary`, {
-        headers: authHeaders()
-      }).then(r => r.ok ? r.json() : null)]);   // G60 防御：非2xx 不把错误体当 summary
-      setContributions(listRes.items ?? []);
-      // G60：后端 contributions/summary 返回 {totals,byType,byStatus}，适配为前端 ShSummary 形状。
-      //   byShareholder / upcomingReturns 后端无对应源 → 空数组（页面对应区显示"暂无数据"）。
+      }).then(r => r.ok ? r.json() : null);
       const raw = sumRes as { totals?: Record<string, unknown>; byType?: Array<Record<string, unknown>>; byStatus?: Array<Record<string, unknown>> } | null;
       if (raw && raw.totals) {
         const t = raw.totals; const byStatus = raw.byStatus ?? [];
@@ -996,7 +878,7 @@ export default function ShareholderFundsPage() {
         setSummary({
           totalContributions:    Number(t.total_count ?? 0),
           confirmedContributions: cntOf(['CONFIRMED', 'ACTIVE', 'SETTLED']),
-          pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING', 'DRAFT']),
+          pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING']) + cntOf(['DRAFT']),
           totalAmountOriginal:    Number(t.total_amount_original ?? 0),
           settledAmountOriginal:  Number(t.total_settled ?? 0),
           balanceAmountOriginal:  Number(t.total_balance ?? 0),
@@ -1007,6 +889,29 @@ export default function ShareholderFundsPage() {
       } else {
         setSummary(null);
       }
+    } catch { /* summary 加载失败不阻塞列表 */ }
+  }, []);
+  // 待处理明细（status=PENDING 经后端展开为 DRAFT+PENDING_CONFIRM）——汇总页就地展示+确认
+  const loadPending = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/contributions?status=PENDING&pageSize=100`, {
+        headers: authHeaders(),
+      }).then(r => (r.ok ? r.json() : { items: [] }));
+      setPendingList(res.items ?? []);
+    } catch { setPendingList([]); }
+  }, []);
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (keyword) params.set('keyword', keyword);
+      if (typeFilter) params.set('contributionType', typeFilter);
+      if (statusFilter) params.set('status', statusFilter);
+      params.set('pageSize', '100');
+      const listRes = await fetch(`${API}/contributions?${params}`, {
+        headers: authHeaders()
+      }).then(r => r.json());
+      setContributions(listRes.items ?? []);
     } finally {
       setLoading(false);
     }
@@ -1022,11 +927,22 @@ export default function ShareholderFundsPage() {
       setLoading(false);
     }
   }, []);
+  // summary 只在首次 + 写操作后加载，不跟随筛选条件
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
+  // 进入汇总页时加载待处理明细（就地确认用）
+  useEffect(() => { if (tab === 'summary') void loadPending(); }, [tab, loadPending]);
+  // 列表请求防抖 300ms
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (tab === 'contributions' || tab === 'summary') void loadContributions();else void loadSettlements();
-  }, [tab, loadContributions, loadSettlements]);
+    if (tab === 'contributions') {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => void loadList(), 300);
+      return () => clearTimeout(debounceRef.current);
+    }
+    if (tab === 'settlements') void loadSettlements();
+  }, [tab, loadList, loadSettlements]);
   async function importFromPrc2() {
-    if (!confirm('确认从 prc2_shareholder_funds 幂等导入股东资金？已导入的记录会被跳过。')) return;
+    if (!confirm('确认从采购系统导入股东资金记录？已存在的记录将自动跳过，不会重复导入。')) return;
     setImportLoading(true);
     try {
       const r = await fetch(`${API}/import-from-prc2`, {
@@ -1039,7 +955,7 @@ export default function ShareholderFundsPage() {
         failed?: number;
       };
       alert(`导入完成：成功 ${d.imported ?? 0}，跳过 ${d.skipped ?? 0}，失败 ${d.failed ?? 0}`);
-      void loadContributions();
+      void Promise.all([loadList(), loadSummary()]);
     } catch {
       alert('导入失败');
     } finally {
@@ -1082,7 +998,9 @@ export default function ShareholderFundsPage() {
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryTab summary={summary} />}
+      {tab === 'summary' && <SummaryTab summary={summary} pending={pendingList} canConfirm={canWrite}
+        onOpen={(c) => setSelectedC(c)}
+        onViewAll={() => { setStatusFilter('PENDING'); setTab('contributions'); }} />}
 
       {tab === 'contributions' && <>
           {/* 筛选 工具栏 */}
@@ -1114,8 +1032,8 @@ export default function ShareholderFundsPage() {
               k: '',
               v: '全部'
             }, {
-              k: 'PENDING_CONFIRM',
-              v: '待确认'
+              k: 'PENDING',
+              v: '待处理'
             }, {
               k: 'CONFIRMED',
               v: '已确认'
@@ -1129,23 +1047,15 @@ export default function ShareholderFundsPage() {
               <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>{v}</button>
             ))}
 
-            <button onClick={() => void loadContributions()} disabled={loading} style={secondaryActionButton}>
+            <button onClick={() => void Promise.all([loadList(), loadSummary()])} disabled={loading} style={secondaryActionButton}>
               <RefreshCw size={14} />
             </button>
           </div>
 
-          {loading ? <div className="text-text-muted text-sm text-center py-12">加载中…</div> : contributions.length === 0 ? <div className="text-text-muted text-sm text-center py-12">
-              <Users size={32} style={{
-          margin: '0 auto 12px',
-          display: 'block',
-          opacity: 0.4
-        }} />
+          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>加载中…</div> : contributions.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>
+              <Users size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
               暂无股东资金记录
-            </div> : <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10
-      }}>
+            </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contributions.map(c => {
                 const tone: Parameters<typeof businessListCard>[0] =
                   c.status === 'SETTLED' ? 'default' :
@@ -1156,54 +1066,32 @@ export default function ShareholderFundsPage() {
                   ...businessListCard(tone),
                   opacity: c.status === 'CANCELLED' ? 0.6 : 1,
                 }}>
-                  <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 6
-          }}>
-                    <span className="text-text" style={{
-              fontWeight: 700,
-              fontSize: 14
-            }}>{c.shareholderName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{c.shareholderName}</span>
                     <TypeBadge type={c.contributionType} />
-                    <StatusBadge status={c.status} map={STATUS_CONFIG} />
-                    <span className="text-text-dim" style={{
-              fontSize: 11,
-              marginLeft: 'auto'
-            }}>{c.contributionNo}</span>
+                    <LocalStatusBadge status={c.status} map={STATUS_CONFIG} />
+                    <span style={{ fontSize: 11, marginLeft: 'auto', color: 'var(--text-secondary)' }}>{c.contributionNo}</span>
                   </div>
-                  <div style={{
-            display: 'flex',
-            gap: 16,
-            alignItems: 'center'
-          }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <div>
-                      <div className={`text-text-dim ${u.fs10}`}>出资总额</div>
-                      <div className="text-text" style={{
-                fontWeight: 700,
-                fontSize: 15
-              }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>出资总额</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</div>
                     </div>
                     <div>
-                      <div className={`text-text-dim ${u.fs10}`}>未结余额</div>
-                      <div style={{
-                fontWeight: 700,
-                fontSize: 15
-              }} className={Number(c.balanceAmountOriginal) > 0 ? 'text-danger' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>股东出资时间</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{c.contributionDate ?? '—'}</div>
+                    </div>
+                    <div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>未结余额</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: Number(c.balanceAmountOriginal) > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
                         {currencySymbol(c.currencyCode)}{fmt(c.balanceAmountOriginal)}
                       </div>
                     </div>
                     {c.expectedReturnDate && <div>
-                        <div className={`text-text-dim ${u.fs10}`}>预计归还</div>
-                        <div className="text-warning" style={{
-                fontSize: 12,
-                fontWeight: 600
-              }}>{c.expectedReturnDate}</div>
+                        <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>预计归还</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-warning)' }}>{c.expectedReturnDate}</div>
                       </div>}
-                    <ChevronRight size={16} className="text-text-dim" style={{
-              marginLeft: 'auto'
-            }} />
+                    <ChevronRight size={16} style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }} />
                   </div>
                 </div>;
               })}
@@ -1211,56 +1099,32 @@ export default function ShareholderFundsPage() {
         </>}
 
       {tab === 'settlements' && <>
-          <div style={{
-        marginBottom: 18,
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center'
-      }}>
-            <span className={`text-text-muted ${u.fs13}`}>共 {settlements.length} 条结算记录</span>
+          <div style={{ marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span className={u.fs13} style={{ color: 'var(--text-secondary)' }}>共 {settlements.length} 条结算记录</span>
             <button onClick={() => void loadSettlements()} style={secondaryActionButton}>
               <RefreshCw size={13} />
             </button>
           </div>
-          {loading ? <div className="text-text-dim text-sm text-center py-12">加载中…</div> : settlements.length === 0 ? <div className="text-text-dim text-sm text-center py-12">暂无结算记录</div> : <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8
+          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>加载中…</div> : settlements.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>暂无结算记录</div> : <div style={{
+        display: 'flex', flexDirection: 'column', gap: 8,
       }}>
               {settlements.map(s => {
-          const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? {
-            label: s.status,
-            badgeClass: 'bg-bg-muted text-text-muted'
-          };
-          return <div key={s.id} className="bg-bg-card border border-border" style={{
-            borderRadius: 12,
-            padding: '12px 16px'
-          }}>
+          const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, color: 'var(--text-secondary)' };
+          return <div key={s.id} style={{ borderRadius: 12, padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                     <div className={u.flexBetween}>
                       <div>
-                        <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 4
-                }}>
-                          <span className="text-text" style={{
-                    fontWeight: 600,
-                    fontSize: 13
-                  }}>{s.settlementNo}</span>
-                          <span className={`text-text-dim ${u.fs11}`}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc.badgeClass}`}>{sc.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{s.settlementNo}</span>
+                          <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
+                          <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${sc.color} 14%, transparent)`, color: sc.color }}>{sc.label}</span>
                         </div>
-                        <div className={`text-text-muted ${u.fs12}`}>
+                        <div className={u.fs12} style={{ color: 'var(--text-secondary)' }}>
                           {s.shareholderName} · 出资单：{s.contributionNo}
                           {s.cashAccountCode ? ` · 现金账户：${s.cashAccountCode}` : ''}
                         </div>
                       </div>
-                      <div className="text-blue-700 dark:text-blue-300" style={{
-                fontWeight: 800,
-                fontSize: 16
-              }}>
-                        {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
+                      <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-primary)' }}>
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}</span>
                       </div>
                     </div>
                   </div>;
@@ -1270,8 +1134,12 @@ export default function ShareholderFundsPage() {
 
       {showCreate && <CreateContributionModal onClose={() => setShowCreate(false)} onCreated={() => {
       setShowCreate(false);
-      void loadContributions();
+      void Promise.all([loadList(), loadSummary()]);
     }} />}
-      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void loadContributions()} />}
+      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onEdit={(c) => setEditingC(c)} onRefresh={() => void Promise.all([loadList(), loadSummary(), loadPending()])} />}
+      {editingC && <CreateContributionModal editing={editingC} onClose={() => setEditingC(null)} onCreated={() => {
+        setEditingC(null);
+        void Promise.all([loadList(), loadSummary(), loadPending()]);
+      }} />}
     </div>;
 }

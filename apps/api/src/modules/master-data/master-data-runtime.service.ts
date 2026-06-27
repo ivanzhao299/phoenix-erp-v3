@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -44,7 +44,37 @@ interface MdTypeConfig {
    *   · 仅当记录已是 ACTIVE/FROZEN（已生效）时才门控；DRAFT/PENDING_APPROVAL（建档中）一律直接改。
    */
   keyFields?: string[];
+  /**
+   * G127：该类型的物理表**没有** effective_date / expire_date 生效期列（如 mst_materials /
+   *   mst_products / biz_projects 这类运营类主数据）。置 true 时 listActive() 跳过生效期过滤，
+   *   避免 SQL 引用不存在的列报错（表现为 /:type/active 返回 400，Selector 加载失败）。
+   *   Why：物料/规格/项目作为 Selector 数据源不需要按生效期窗口过滤，仅 status='ACTIVE' 即可。
+   */
+  noValidityPeriod?: boolean;
 }
+
+// 主数据运行时 DataScope 的菜单上下文必须与类型级权限一致。
+// Controller 已由 MasterDataTypeGuard 按 :type 做原子门禁；这里同步使用同一原子码，
+// 避免公司范围解析/缓存/审计继续落在粗粒度 MENU_MASTER_DATA 上。
+const OBJECT_TYPE_TO_MENU: Record<string, string> = {
+  CUSTOMER: 'MENU_MD_CUSTOMER',
+  SUPPLIER: 'MENU_MD_SUPPLIER',
+  PROJECT: 'MENU_MD_PROJECT',
+  MATERIAL: 'MENU_MD_MATERIAL',
+  CASH_ACCOUNT: 'MENU_MD_CASH_ACCOUNT',
+  PRODUCT: 'MENU_MD_PRODUCT',
+  STORE: 'MENU_MD_STORE',
+  BANK_ACCOUNT: 'MENU_MD_BANK_ACCOUNT',
+  SKU: 'MENU_MD_SKU',
+  WAREHOUSE: 'MENU_MD_WAREHOUSE',
+  GRADE: 'MENU_MD_GRADE',
+  SPEC: 'MENU_MD_PACKAGING',
+  DRIVER: 'MENU_MD_DRIVER',
+  VEHICLE: 'MENU_MD_VEHICLE',
+  ORGANIZATION: 'MENU_MD_ORG',
+  COMPANY: 'MENU_MD_COMPANY',
+  DICT: 'MENU_MD_DICT',
+};
 
 const TYPES: Record<string, MdTypeConfig> = {
   customer: {
@@ -64,7 +94,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   project: {
     // G86 2026-06-12：切换到统一项目主表 biz_projects（MDM-1 已于 06-05 在生产建表；
     //   prc2_projects 为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
-    table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name',
+    table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name', noValidityPeriod: true,  // G127：biz_projects 无生效期列
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
     writableCols: ['project_name','project_short_name','company_code','project_type',
                    'budget_amount','budget_currency','start_date','end_date','manager_name','remark'],
@@ -74,7 +104,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   material: {
     // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
     table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
-    prefix: 'MAT', objectType: 'MATERIAL',
+    prefix: 'MAT', objectType: 'MATERIAL', noValidityPeriod: true,  // G127：mst_materials 无生效期列
     writableCols: ['material_name','material_type','spec','unit','default_currency','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建（业务员选物料找不到可就地新增）
   },
@@ -90,7 +120,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     // FIX 2026-06-05: 真实表名是 mst_products（不是 product_master，后者根本不存在 → HTTP 500）
     // writableCols 按 mst_products 实际列校正（无 product_name_en/uom/default_grade/effective_date/expire_date/remark）
     table: 'mst_products', codeCol: 'product_code', nameCol: 'product_name',
-    prefix: 'PRD', objectType: 'PRODUCT',
+    prefix: 'PRD', objectType: 'PRODUCT', noValidityPeriod: true,  // G127：mst_products 无生效期列（见上行 FIX 注释）
     writableCols: ['product_name','product_name_zh','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
     // G92：产品含零售/批发价 → 审批；关键字段=名称/类目/价格/分级开关，扩展=多语名/单位/保质期/图片/规格
     keyFields: ['product_name','category_code','price_retail','price_wholesale','has_grade','has_spec'],
@@ -98,7 +128,8 @@ const TYPES: Record<string, MdTypeConfig> = {
   store: {
     table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',
     prefix: 'STR', objectType: 'STORE', companyCol: 'company_code',
-    writableCols: ['store_name','address','phone','company_code','manager','effective_date','expire_date','remark'],
+    // G113：加 operation_type(经营类型,字典 STORE_OP_TYPE) + contact(联系人)
+    writableCols: ['store_name','address','phone','company_code','manager','contact','operation_type','effective_date','expire_date','remark'],
     // G92：门店为经营实体 → 审批；关键字段=名称/归属公司/店长，扩展=地址/电话/备注
     keyFields: ['store_name','company_code','manager'],
   },
@@ -198,8 +229,16 @@ const BIZ_TYPE: Record<string, string> = {
 };
 
 // G92：字段级变更审批统一 bizType（独立 md_change_requests 表承载）。
-//   G93 起默认走「规则自动审批网关」，此人工通道转为休眠（保留供未来按类型/字段开人工复核）。
+//   G93 起默认走「规则自动审批网关」；G126 起对下方「财务敏感字段白名单」重新启用人工复核通道。
 const FIELD_CHANGE_BIZ = 'MD_FIELD_CHANGE';
+
+// G126：财务敏感字段白名单——这些字段被改时**不**走 G93 自动落库，而转人工审批（复用 G92 通道）。
+//   Why：授信额度/账期/账期天数直接影响资金风险敞口，养殖/食品行业须财务复核签核后方可生效。
+//   其余字段仍走 G93 自动校验网关即时生效。仅对 live(ACTIVE/FROZEN) 记录生效；草稿态编辑不拦。
+const SENSITIVE_APPROVAL_FIELDS: Record<string, string[]> = {
+  customer: ['credit_limit', 'payment_terms'],
+  supplier: ['credit_days', 'payment_terms'],
+};
 
 // ════════════════════════════════════════════════════════════════════════
 // G93 主数据自动审批网关（2026-06-13，用户拍板：全自动无例外 / 名称+唯一键查重 / 当场退回列原因）
@@ -323,6 +362,19 @@ export class MasterDataRuntimeService {
     return c;
   }
 
+  private async nextCode(c: MdTypeConfig): Promise<string> {
+    if (!c.prefix) return '';
+    try {
+      return await this.codeGen.next(c.prefix);
+    } catch (e: any) {
+      const msg = String(e?.message ?? e ?? '');
+      if (msg.includes('编码前缀未注册')) {
+        throw new BadRequestException(`${msg}；请先执行主数据编码前缀初始化`);
+      }
+      throw e;
+    }
+  }
+
   /** 校验某字典类型下是否存在该值（容错：查询异常一律放行，不阻断业务） */
   private async isDictValue(dictType: string, val: string): Promise<boolean> {
     try {
@@ -405,25 +457,49 @@ export class MasterDataRuntimeService {
 
   /**
    * G71：解析当前用户对该实体的公司可见范围。
-   *   返回 'ALL'（无 company 维度 / 全局 / 内部调用 / 解析失败兜底）
-   *      | 'DENY'（有公司维度但无任何可见公司 → 应返回空）
+   *   返回 'ALL'（无 company 维度 / 全局 / 内部调用）
+   *      | 'DENY'（有公司维度但无任何可见公司，或登录用户的 scope 无法可靠解析）
    *      | string[]（可见公司编码，用于 company_code = ANY(...)）
+   *
+   * 安全边界：
+   *   - 无 user 的内部调用保持不收窄，避免后台治理任务被误伤。
+   *   - 已登录用户的 userId 缺失或 DataScope 解析异常必须 fail-closed。
+   *     否则 Selector/Runtime 在异常态会退化为全集团主数据可见。
    */
   private async allowedCompanies(c: MdTypeConfig): Promise<'ALL' | 'DENY' | string[]> {
     if (!c.companyCol) return 'ALL';                          // 无公司维度（全局共享主数据）
     const user = this.cls.get('user') as Record<string, any> | undefined;
     if (!user) return 'ALL';                                  // 内部调用无用户上下文，不收窄
     const userId = String(user.userId ?? user.id ?? user.sub ?? '');
-    if (!userId) return 'ALL';
+    if (!userId) {
+      this.logger.warn('[MdRuntime] 已登录用户缺少 userId，拒绝公司维度主数据可见范围');
+      return 'DENY';
+    }
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
-      const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
+      const scopeMenu = OBJECT_TYPE_TO_MENU[c.objectType] ?? 'MENU_MD_CENTER';
+      const scope = await this.dataScope.resolve(userId, roles, scopeMenu);
       if (scope.isGlobal) return 'ALL';
       if (!scope.allowedCompanyCodes.length) return 'DENY';   // 无可见公司 → 拒绝全部
       return scope.allowedCompanyCodes;
     } catch (e: any) {
-      this.logger.warn(`[MdRuntime] DataScope 解析失败，降级放行：${e?.message}`);
-      return 'ALL';                                           // 解析异常不阻断（与现有 helper 一致）
+      this.logger.warn(`[MdRuntime] DataScope 解析失败，拒绝公司维度主数据可见范围：${e?.message}`);
+      return 'DENY';
+    }
+  }
+
+  /**
+   * 公司维度主数据写保护：
+   *   - 读路径由 allowedCompanies/list/get 收窄。
+   *   - 写路径也必须校验目标 company_code，否则用户可能在创建或编辑时把主数据挂到不可见公司。
+   */
+  private async assertWritableCompanyScope(c: MdTypeConfig, record: Record<string, any>): Promise<void> {
+    if (!c.companyCol) return;
+    const allowed = await this.allowedCompanies(c);
+    if (allowed === 'ALL') return;
+    const companyCode = String(record[c.companyCol] ?? '').trim();
+    if (allowed === 'DENY' || !companyCode || !allowed.includes(companyCode)) {
+      throw new ForbiddenException('DATA_SCOPE_DENIED');
     }
   }
 
@@ -450,11 +526,15 @@ export class MasterDataRuntimeService {
     const allowed = await this.allowedCompanies(c);
     if (allowed === 'DENY') return [];
     if (allowed !== 'ALL') { params.push(allowed); companyClause = ` AND ${c.companyCol} = ANY($${params.length})`; }
+    // G127：表无生效期列的类型（material/spec/project）跳过 effective_date/expire_date 过滤，
+    //   否则 SQL 引用不存在的列报错 → /:type/active 返 400 → Selector 加载失败。
+    const validityClause = c.noValidityPeriod
+      ? ''
+      : ` AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
+          AND (expire_date    IS NULL OR expire_date    >= CURRENT_DATE)`;
     return this.ds.query(
       `SELECT ${c.codeCol} AS code, ${c.nameCol} AS name FROM ${c.table}
-        WHERE status = 'ACTIVE'
-          AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
-          AND (expire_date    IS NULL OR expire_date    >= CURRENT_DATE)${companyClause}
+        WHERE status = 'ACTIVE'${validityClause}${companyClause}
         ORDER BY ${c.nameCol}`,
       params,
     );
@@ -482,12 +562,13 @@ export class MasterDataRuntimeService {
    */
   async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
+    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
 
     // 自动审批校验（新建校验全字段）
     const errors = await this.validate(type, c, dto, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, dto);
 
     const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
@@ -507,7 +588,7 @@ export class MasterDataRuntimeService {
    */
   async createQuick(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; name: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
+    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
     const name = String(dto[c.nameCol] ?? '').trim();
     if (!name) throw new BadRequestException('名称不能为空');
@@ -515,6 +596,7 @@ export class MasterDataRuntimeService {
     // G93：就地快建也走自动审批校验（查重/必填/格式），不过当场退回
     const errors = await this.validate(type, c, dto, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, dto);
 
     const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
@@ -564,7 +646,7 @@ export class MasterDataRuntimeService {
    */
   async update(
     type: string, code: string, dto: Record<string, any>, operator?: string,
-  ): Promise<{ code: string; pendingChange: boolean; message?: string }> {
+  ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
     const c = this.cfg(type);
     const before = await this.get(type, code);
 
@@ -579,13 +661,68 @@ export class MasterDataRuntimeService {
     if (!changedCols.length) return { code, pendingChange: false };
 
     // 自动审批校验：以「改动后整体记录」为输入、只校验改动列、查重排除自身
+    //   （含敏感字段，保证转审批前格式/值域已正确，避免脏请求进审批队列）
     const merged = { ...before, ...changes };
     const errors = await this.validate(type, c, merged, code, new Set(changedCols));
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+    await this.assertWritableCompanyScope(c, merged);
 
-    await this.applyCols(c, code, changes);
-    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, changedCols), after: { ...changes, _autoApproved: true }, operator: operator ?? 'AUTO' });
-    return { code, pendingChange: false };
+    // G126：拆分「财务敏感字段」与「普通字段」。敏感字段仅对 live(ACTIVE/FROZEN) 记录拦截转审批。
+    const sensitive = SENSITIVE_APPROVAL_FIELDS[type] ?? [];
+    const live = ['ACTIVE', 'FROZEN'].includes(String(before.status));
+    const sensitiveChanges: Record<string, any> = {};
+    const normalChanges: Record<string, any> = {};
+    for (const col of changedCols) {
+      if (sensitive.includes(col) && live) sensitiveChanges[col] = changes[col];
+      else normalChanges[col] = changes[col];
+    }
+
+    // 1) 普通字段（及草稿态一切）→ G93 自动通过立即落库
+    if (Object.keys(normalChanges).length) {
+      await this.applyCols(c, code, normalChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, Object.keys(normalChanges)), after: { ...normalChanges, _autoApproved: true }, operator: operator ?? 'AUTO' });
+    }
+
+    // 2) 财务敏感字段 → 走人工审批（复用 G92 md_change_requests + MD_FIELD_CHANGE 通道）
+    const sensCols = Object.keys(sensitiveChanges);
+    if (!sensCols.length) return { code, pendingChange: false };
+    const sensLabel = sensCols.map((k) => FIELD_LABELS[k] ?? k).join('、');
+
+    try {
+      let crId = 0;
+      await this.ds.transaction(async (mgr) => {
+        const [cr] = await mgr.query(
+          `INSERT INTO md_change_requests
+             (md_type, object_type, object_code, target_table, code_col, changes, before_snapshot, status, requested_by)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,'PENDING',$8)
+           RETURNING id`,
+          [type, c.objectType, code, c.table, c.codeCol,
+            JSON.stringify(sensitiveChanges), JSON.stringify(this.pick(before, sensCols)), operator ?? null],
+        );
+        crId = Number(cr.id);
+        // 启动审批（引擎建实例 + 派审批人；通过后回写 status + 触发 onApproved 把变更应用回主表）
+        await this.approval.startApproval({
+          bizType: FIELD_CHANGE_BIZ, bizId: String(crId), bizNo: `${c.objectType}/${code}`, amount: 0,
+          companyCode: before.company_code ?? undefined,
+          subject: `财务敏感字段变更审批：${before[c.nameCol] ?? code}（${sensLabel}）`,
+        }, mgr);
+      });
+      await this.audit.log({
+        objectType: c.objectType, objectCode: code, action: 'UPDATE',
+        before: this.pick(before, sensCols), after: { ...sensitiveChanges, _pendingApproval: true, _changeRequestId: crId },
+        operator, reason: `财务敏感字段变更提交审批：${sensLabel}`,
+      });
+      return {
+        code, pendingChange: true, changeRequestId: crId, pendingFields: sensCols,
+        message: `财务敏感字段（${sensLabel}）变更已提交审批，通过后生效；原值在通过前保持有效。`,
+      };
+    } catch (e: any) {
+      // 降级：审批链未配置/启动失败 → 直接落库不丢编辑，审计标注（事务已回滚，变更请求未残留）
+      this.logger.warn(`[MdRuntime] ${FIELD_CHANGE_BIZ} 启动失败，降级直接落库：${e?.message}`);
+      await this.applyCols(c, code, sensitiveChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, sensCols), after: { ...sensitiveChanges, _degraded: true }, operator, reason: '财务敏感字段变更（降级·审批不可用直接生效）' });
+      return { code, pendingChange: false };
+    }
   }
 
   /** 生命周期流转：submit/approve/reject/freeze/archive/restore */

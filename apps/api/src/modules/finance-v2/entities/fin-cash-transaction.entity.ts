@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
@@ -22,6 +22,8 @@ import {
  *   OPENING     — 期初余额
  */
 @Entity('fin_cash_transactions')
+@Index('idx_fin_cash_txn_account_date', ['accountId', 'txnDate'])
+@Index('idx_fin_cash_txn_company_date', ['companyCode', 'txnDate'])
 export class FinCashTransactionEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

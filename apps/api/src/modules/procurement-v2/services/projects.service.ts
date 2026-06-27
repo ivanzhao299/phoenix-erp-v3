@@ -71,6 +71,11 @@ export class ProjectsService {
 
   /** 新建 */
   async create(dto: CreateProjectDto): Promise<Prc2ProjectEntity> {
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: dto.companyCode, projectCode: dto.projectCode },
+      '采购项目',
+    );
+
     // 同一公司下 project_code 唯一
     const exists = await this.repo.findOne({
       where: { companyCode: dto.companyCode, projectCode: dto.projectCode },

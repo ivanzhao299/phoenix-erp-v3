@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn,
 } from 'typeorm';
 
@@ -12,6 +12,7 @@ import {
  * 支持多种汇率类型（中间价、买入价、卖出价）和公司级自定义汇率。
  */
 @Entity('fin_exchange_rates')
+@Index('idx_fin_exrate_pair_date', ['fromCurrency', 'toCurrency', 'rateDate'])
 export class FinExchangeRateEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

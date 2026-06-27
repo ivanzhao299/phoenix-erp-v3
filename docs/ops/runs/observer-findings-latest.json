@@ -1,0 +1,594 @@
+{
+  "summary": {
+    "generated_at": "2026-06-24T04:54:26.251Z",
+    "dry_run": true,
+    "run_files_inspected": 699,
+    "task_count": 55,
+    "task_status_counts": {
+      "pending": 55
+    },
+    "registered_agents": 8,
+    "findings_count": 35,
+    "highest_severity": "HIGH",
+    "routing_findings": 8,
+    "baseline_findings": 8,
+    "report_schema_findings": 4,
+    "codex_cli_executed": false,
+    "database_written": false,
+    "deployed": false,
+    "pushed": false,
+    "merged": false
+  },
+  "findings": [
+    {
+      "id": "OBS-0001",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0002",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0003",
+      "severity": "MEDIUM",
+      "category": "routing",
+      "affected_agent": "A5-Data-Readiness",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json: expected A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0004",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0005",
+      "severity": "MEDIUM",
+      "category": "routing",
+      "affected_agent": "A5-Data-Readiness",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md: expected A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0006",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0007",
+      "severity": "MEDIUM",
+      "category": "routing",
+      "affected_agent": "A5-Data-Readiness",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json: expected A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0008",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0009",
+      "severity": "MEDIUM",
+      "category": "routing",
+      "affected_agent": "A5-Data-Readiness",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md: expected A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0010",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0011",
+      "severity": "HIGH",
+      "category": "routing",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness, A4-Frontend-UAT-Smoke, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate but selected A4-Frontend-UAT-Smoke, A1-CI-Runtime-Gate, A5-Data-Readiness, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0012",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0013",
+      "severity": "HIGH",
+      "category": "routing",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness, A4-Frontend-UAT-Smoke, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate but selected A4-Frontend-UAT-Smoke, A1-CI-Runtime-Gate, A5-Data-Readiness, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0014",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0015",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0016",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0017",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/router-v1-case1-route-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0018",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/router-v1-revalidate-case1-route-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0019",
+      "severity": "HIGH",
+      "category": "routing",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness, A4-Frontend-UAT-Smoke, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate but selected A4-Frontend-UAT-Smoke, A1-CI-Runtime-Gate, A5-Data-Readiness, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0020",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0021",
+      "severity": "HIGH",
+      "category": "routing",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness, A4-Frontend-UAT-Smoke, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate but selected A4-Frontend-UAT-Smoke, A1-CI-Runtime-Gate, A5-Data-Readiness, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
+    },
+    {
+      "id": "OBS-0022",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0023",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/store-payment-closed-loop-fix-route-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0024",
+      "severity": "HIGH",
+      "category": "report-schema",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2."
+    },
+    {
+      "id": "OBS-0025",
+      "severity": "HIGH",
+      "category": "report-schema",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2."
+    },
+    {
+      "id": "OBS-0026",
+      "severity": "HIGH",
+      "category": "report-schema",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2."
+    },
+    {
+      "id": "OBS-0027",
+      "severity": "MEDIUM",
+      "category": "report-schema",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP."
+    },
+    {
+      "id": "OBS-0028",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "Codex-Orchestrator",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json;  M docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/GUARDRAILS.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json;  M docs/ops/runtime-memory/STORE_PAYMENT_STATE.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_POLICY.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md; ?? docs/ops/runs/remediation-r3-high-throughput-batch1-20260624-124012/",
+      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
+    },
+    {
+      "id": "OBS-0029",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A1-CI-Runtime-Gate",
+      "evidence": "A1-CI-Runtime-Gate worktree HEAD 9f2a346e is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A1-CI-Runtime-Gate with baseline autopilot."
+    },
+    {
+      "id": "OBS-0030",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "A2-Security-Regression-Gate worktree HEAD eb88e4d1 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A2-Security-Regression-Gate with baseline autopilot."
+    },
+    {
+      "id": "OBS-0031",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A3-Backend-Critical-Path",
+      "evidence": "A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A3-Backend-Critical-Path with baseline autopilot."
+    },
+    {
+      "id": "OBS-0032",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A4-Frontend-UAT-Smoke",
+      "evidence": "A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A4-Frontend-UAT-Smoke with baseline autopilot."
+    },
+    {
+      "id": "OBS-0033",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A5-Data-Readiness",
+      "evidence": "A5-Data-Readiness worktree HEAD f3b7d954 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A5-Data-Readiness with baseline autopilot."
+    },
+    {
+      "id": "OBS-0034",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A6-Staging-Deploy-Runbook",
+      "evidence": "A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
+    },
+    {
+      "id": "OBS-0035",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A7-Final-QA-Gate",
+      "evidence": "A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 001d5e21.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A7-Final-QA-Gate with baseline autopilot."
+    }
+  ],
+  "evolution_tasks": [
+    {
+      "task_id": "OBSERVER-EVOLUTION-001",
+      "source_finding": "OBS-0003",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-002",
+      "source_finding": "OBS-0005",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-003",
+      "source_finding": "OBS-0007",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-004",
+      "source_finding": "OBS-0009",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-005",
+      "source_finding": "OBS-0011",
+      "severity": "HIGH",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-006",
+      "source_finding": "OBS-0013",
+      "severity": "HIGH",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-007",
+      "source_finding": "OBS-0019",
+      "severity": "HIGH",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-008",
+      "source_finding": "OBS-0021",
+      "severity": "HIGH",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
+      "goal": "Create an ops-only router regression task for the missing Agent signals.",
+      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-009",
+      "source_finding": "OBS-0024",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-010",
+      "source_finding": "OBS-0025",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-011",
+      "source_finding": "OBS-0026",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-012",
+      "source_finding": "OBS-0027",
+      "severity": "MEDIUM",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    }
+  ],
+  "suggested_evolution_patterns": [
+    {
+      "pattern_id": "PATTERN-PHX-001",
+      "occurrence": 25
+    },
+    {
+      "pattern_id": "PATTERN-004",
+      "occurrence": 5
+    },
+    {
+      "pattern_id": "PATTERN-PHX-002",
+      "occurrence": 5
+    }
+  ],
+  "suggested_improvements": [
+    {
+      "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
+      "occurrence": 25
+    },
+    {
+      "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "occurrence": 5
+    },
+    {
+      "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+      "occurrence": 5
+    }
+  ],
+  "repeated_pattern_candidates": [
+    {
+      "pattern_id": "PATTERN-PHX-001",
+      "occurrence": 25
+    },
+    {
+      "pattern_id": "PATTERN-004",
+      "occurrence": 5
+    },
+    {
+      "pattern_id": "PATTERN-PHX-002",
+      "occurrence": 5
+    }
+  ],
+  "observer_boundaries": {
+    "codex_cli_executed": false,
+    "business_code_modified": false,
+    "migration_executed": false,
+    "database_written": false,
+    "deployed": false,
+    "pushed": false,
+    "merged": false
+  }
+}

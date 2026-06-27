@@ -1,0 +1,51 @@
+--- sys_menu columns ---
+menu_id:bigint
+menu_code:character varying
+menu_name_zh:character varying
+menu_name_lo:character varying
+domain:character varying
+parent_code:character varying
+sort_order:integer
+icon:character varying
+route:character varying
+created_at:timestamp without time zone
+--- sys_role_menu_permission columns ---
+Connection closed by 47.236.122.224 port 22
+--- prc2_init_batches columns ---
+id:bigint
+batch_no:character varying
+batch_type:character varying
+file_name:character varying
+file_url:text
+status:character varying
+total_rows:integer
+success_rows:integer
+failed_rows:integer
+created_by:bigint
+created_by_name:character varying
+remark:text
+created_at:timestamp with time zone
+updated_at:timestamp with time zone
+--- prc2_init_batch_rows columns ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+--- file_metadata columns ---
+id:bigint
+file_id:character varying
+original_name:character varying
+stored_name:character varying
+storage_path:text
+mime_type:character varying
+size_bytes:bigint
+checksum:character varying
+module_code:character varying
+owner_type:character varying
+owner_id:character varying
+company_code:character varying
+store_code:character varying
+uploaded_by:character varying
+status:character varying
+visibility:character varying
+created_at:timestamp with time zone
+updated_at:timestamp with time zone
+deleted_at:timestamp with time zone

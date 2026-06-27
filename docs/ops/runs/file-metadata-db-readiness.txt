@@ -1,0 +1,44 @@
+  table_name   
+---------------
+ file_metadata
+(1 row)
+
+  column_name  |        data_type         | is_nullable 
+---------------+--------------------------+-------------
+ id            | bigint                   | NO
+ file_id       | character varying        | NO
+ original_name | character varying        | NO
+ stored_name   | character varying        | NO
+ storage_path  | text                     | NO
+ mime_type     | character varying        | NO
+ size_bytes    | bigint                   | NO
+ checksum      | character varying        | NO
+ module_code   | character varying        | NO
+ owner_type    | character varying        | NO
+ owner_id      | character varying        | NO
+ company_code  | character varying        | NO
+ store_code    | character varying        | NO
+ uploaded_by   | character varying        | NO
+ status        | character varying        | NO
+ visibility    | character varying        | NO
+ created_at    | timestamp with time zone | NO
+ updated_at    | timestamp with time zone | NO
+ deleted_at    | timestamp with time zone | YES
+(19 rows)
+
+            indexname            
+---------------------------------
+ IDX_file_metadata_company_store
+ IDX_file_metadata_deleted_at
+ IDX_file_metadata_owner
+ IDX_file_metadata_status
+ IDX_file_metadata_uploaded_by
+ PK_file_metadata
+ UQ_file_metadata_file_id
+(7 rows)
+
+ file_metadata_rows 
+--------------------
+                  0
+(1 row)
+

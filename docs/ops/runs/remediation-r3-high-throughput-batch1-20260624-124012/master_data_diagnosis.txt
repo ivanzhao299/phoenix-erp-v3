@@ -1,0 +1,58 @@
+Output format is aligned.
+Null display is "[NULL]".
+--- STORE_DUPLICATES ---
+ store_code | count 
+------------+-------
+(0 rows)
+
+--- ORG_DUPLICATES ---
+ org_code | count 
+----------+-------
+(0 rows)
+
+--- ROLE_DUPLICATES ---
+ role_code | count 
+-----------+-------
+(0 rows)
+
+--- USER_DUPLICATES ---
+ username | count 
+----------+-------
+(0 rows)
+
+--- MENU_DUPLICATES ---
+ menu_code | count 
+-----------+-------
+(0 rows)
+
+--- PILOT_STORE_COMPANY_ORG_ALIGNMENT ---
+    store_code    |    store_name    | store_company | store_status |     org_code     |     org_name     |  org_company  | org_status |  parent_code  
+------------------+------------------+---------------+--------------+------------------+------------------+---------------+------------+---------------
+ STORE-BKX-001    | 波利坎赛省直营店 | COMP-LAO-AGRI | ACTIVE       | STORE-BKX-001    | 波利坎赛省直营店 | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+ STORE-LPB-001    | 琅勃拉邦直营店   | COMP-LAO-AGRI | ACTIVE       | STORE-LPB-001    | 琅勃拉邦直营店   | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+ STORE-MX-001     | 孟赛直营店       | COMP-LAO-AGRI | ACTIVE       | STORE-MX-001     | 孟赛直营店       | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+ STORE-PSL-001    | 丰沙里省直营店   | COMP-LAO-AGRI | ACTIVE       | STORE-PSL-001    | 丰沙里省直营店   | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+ STORE-VTE-001    | 万象直营店       | COMP-LAO-AGRI | ACTIVE       | STORE-VTE-001    | 万象直营店       | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+ STORE-VTE-WH-001 | 万象仓储中心店   | COMP-LAO-AGRI | ACTIVE       | STORE-VTE-WH-001 | 万象仓储中心店   | COMP-LAO-AGRI | ACTIVE     | COMP-LAO-AGRI
+(6 rows)
+
+--- NULL_OR_BLANK_KEY_FIELDS ---
+           field            | count 
+----------------------------+-------
+ mst_stores.store_code      |     0
+ mst_stores.company_code    |     0
+ sys_organizations.org_code |     0
+ sys_role.role_code         |     0
+ sys_menu.menu_code         |     0
+ sys_user.username          |     0
+(6 rows)
+
+--- STORE_CODE_NAMESPACE_RISKS ---
+           check_name            | count 
+---------------------------------+-------
+ ST-VTE-001 in mst_stores        |     0
+ ST-VTE-001 in sys_organizations |     0
+ STORE-VTE-001 users             |     3
+ ST-VTE-001 users                |     0
+(4 rows)
+

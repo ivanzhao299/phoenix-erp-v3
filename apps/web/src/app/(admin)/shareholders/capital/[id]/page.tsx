@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from '@/components/PageHeader';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 import {
   shareholderApi, ShrContribution, ShrProject, ShrShareholder,
   SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl,
@@ -31,7 +33,7 @@ export default function CapitalFlowDetail() {
   return (
     <div style={{ padding: 24, maxWidth: 880 }}>
       <Link href="/shareholders/capital" style={{ color: 'var(--color-primary)', fontSize: 13, textDecoration: 'none' }}>← 返回资本流列表</Link>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-primary)', margin: '10px 0 16px' }}>资本流详情</h1>
+      <div style={{ marginTop: 10 }}><PageHeader title="资本流详情" /></div>
       {err && <div style={{ color: 'var(--status-danger)' }}>{err}</div>}
       {f && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
@@ -54,19 +56,12 @@ export default function CapitalFlowDetail() {
                 {f.status !== 'DRAFT' && <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400 }}> · 审批后只读</span>}
               </div>
               {(f.attachmentUrls && f.attachmentUrls.length > 0) ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {f.attachmentUrls.map((u, i) => {
-                    const isImg = /\.(png|jpe?g|webp)$/i.test(u);
-                    return (
-                      <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'var(--color-accent)', fontSize: 12 }}>
-                        {isImg
-                          ? <img src={u} alt={`附件${i + 1}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }} />
-                          : <div style={{ width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-muted)', borderRadius: 6, fontSize: 24 }}>📄</div>}
-                        <span>附件{i + 1} ↓</span>
-                      </a>
-                    );
-                  })}
-                </div>
+                <AttachmentUploader
+                  value={f.attachmentUrls}
+                  onChange={() => undefined}
+                  readOnly
+                  label="出资凭证"
+                />
               ) : <div style={{ color: 'var(--text-disabled)', fontSize: 13 }}>{f.attachmentCount ? '附件数已记录，URL 未持久化（历史数据）' : '无附件'}</div>}
             </div>
           </div>

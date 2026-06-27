@@ -1,0 +1,9 @@
+--- identity ---
+mux_client_request_session: read from master failed: Broken pipe
+identity_exit=TIMEOUT
+--- safe_directory_configure ---
+safe_directory_configure_exit=TIMEOUT
+--- checkout_ownership ---
+checkout_ownership_exit=TIMEOUT
+--- git_status ---
+git_status_exit=TIMEOUT

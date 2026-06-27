@@ -1,0 +1,41 @@
+{
+  "request_id": "REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS",
+  "mode": "execute-approved",
+  "approval_token_provided": true,
+  "codex_cli_executed": false,
+  "executed_agents": [],
+  "skipped_agents": [
+    "A2-Security-Regression-Gate",
+    "Codex-Orchestrator"
+  ],
+  "held_reasons": [
+    "migration/schema/entity/table/column request requires HOLD",
+    "deploy/production request requires HOLD",
+    "Codex-Orchestrator: worktree dirty: M docs/ops/AGENT_TASK_BOARD.md\n M scripts/ops/agent-orchestrator.mjs\n?? docs/ops/AI_DELIVERY_PHASE6_1_APPROVED_PARALLEL_EXECUTION_REVIEW.md\n?? docs/ops/ONE_COMMAND_APPROVED_PARALLEL_EXECUTION.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-approved-execution-result.json\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-approved-execution-summary.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-execution-summary.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-requirement-spec.md",
+    "execute-approved only permits A1/A2/A5; selected unsafe agent(s): Codex-Orchestrator"
+  ],
+  "worktree_rebase_results": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "needs_rebase": true,
+      "rebase_performed": true,
+      "errors": []
+    },
+    {
+      "agent": "Codex-Orchestrator",
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": [
+        "worktree dirty: M docs/ops/AGENT_TASK_BOARD.md\n M scripts/ops/agent-orchestrator.mjs\n?? docs/ops/AI_DELIVERY_PHASE6_1_APPROVED_PARALLEL_EXECUTION_REVIEW.md\n?? docs/ops/ONE_COMMAND_APPROVED_PARALLEL_EXECUTION.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-approved-execution-result.json\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-approved-execution-summary.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-execution-summary.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md\n?? docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md\n?? docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-requirement-spec.md"
+      ]
+    }
+  ],
+  "agent_exit_codes": {},
+  "agent_log_files": {},
+  "generated_reports": [],
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "merged": false,
+  "pushed": false
+}

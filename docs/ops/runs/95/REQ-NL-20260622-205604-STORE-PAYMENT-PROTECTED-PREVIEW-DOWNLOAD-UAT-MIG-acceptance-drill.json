@@ -1,0 +1,67 @@
+{
+  "request_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG",
+  "request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UAT 页面计划、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不部署",
+  "dry_run": true,
+  "codex_cli_executed": false,
+  "merge_executed": false,
+  "pushed": false,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "agents": [
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-02-A1",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-04-A3",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-05-A4",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-03-A5",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-06-A6",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "task_id": "REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-07-A7",
+      "task_status": "pending",
+      "worker_dry_run_exit": 0,
+      "can_claim_next": true
+    }
+  ],
+  "created_task_count": 7,
+  "diagnosis_status": 0,
+  "auto_merge_status": 0,
+  "release_state_status": 0,
+  "generated_at": "2026-06-22T12:56:05.728Z"
+}

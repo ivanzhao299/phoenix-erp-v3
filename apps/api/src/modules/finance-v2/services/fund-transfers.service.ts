@@ -117,7 +117,7 @@ export class FundTransfersService {
       ),
     ]);
 
-    return { total: Number(countRes[0]?.cnt ?? 0), page, pageSize, items: rows };
+    return { total: Number(countRes[0]?.cnt ?? 0), page, pageSize, items: this.snakeToCamel(rows) };
   }
 
   async findById(id: string, user: any): Promise<FinFundTransferEntity> {
@@ -331,5 +331,15 @@ export class FundTransfersService {
       params,
     );
     return Number(row[0]?.cnt ?? 0);
+  }
+
+  private snakeToCamel(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return rows.map(r => {
+      const o: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(r)) {
+        o[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = v;
+      }
+      return o;
+    });
   }
 }

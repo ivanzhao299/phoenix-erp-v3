@@ -1,0 +1,17 @@
+A1_PRECHECK=PASS_WITH_CONDITIONS
+A2_PRECHECK=PASS_WITH_CONDITIONS
+A5_PRECHECK=PASS_WITH_CONDITIONS
+menu_present_before=0
+role_permission_present_before=0
+datascope_present_before=0
+user97_store_scope_before=0
+dry_run_expected_menu_candidates=5
+dry_run_expected_role_permission_candidates=11
+dry_run_expected_datascope_candidates=11
+dry_run_expected_user_scope_candidates=1
+manual_review_required_excluded=3
+hold_items_excluded=2
+migration_executed=false
+deploy_executed=false
+restart_executed=false
+push_executed=false

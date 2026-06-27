@@ -1,0 +1,8 @@
+{
+  "source_task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP",
+  "source_agent": "A2-Security-Regression-Gate",
+  "decision": "HOLD",
+  "reason": "missing fields: commit_hash, migration_added, verification_results, recommend_next_agent",
+  "approval_required": true,
+  "follow_up_dispatches": []
+}

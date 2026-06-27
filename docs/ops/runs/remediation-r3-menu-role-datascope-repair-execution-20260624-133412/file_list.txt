@@ -1,0 +1,17 @@
+after_datascope_snapshot.csv
+after_menu_snapshot.csv
+after_role_permission_snapshot.csv
+after_user_scope_snapshot.csv
+before_datascope_snapshot.csv
+before_menu_snapshot.csv
+before_role_permission_snapshot.csv
+before_user_scope_snapshot.csv
+execution_input_candidates.json
+execution_result.txt
+execution_sql_final.sql
+execution_summary.json
+file_list.txt
+manifest.json
+postcheck_summary.txt
+precheck_summary.txt
+rollback_sql_candidate.sql

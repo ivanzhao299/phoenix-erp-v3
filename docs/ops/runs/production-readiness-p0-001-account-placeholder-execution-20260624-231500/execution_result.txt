@@ -1,0 +1,5 @@
+# approved account placeholder execution
+local_time=2026-06-24T23:15:30+08:00
+BEGIN
+INSERT 0 3
+COMMIT

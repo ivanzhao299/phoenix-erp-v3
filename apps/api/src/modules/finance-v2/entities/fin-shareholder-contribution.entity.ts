@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -13,6 +13,7 @@ import {
  * status:            DRAFT → PENDING_CONFIRM → CONFIRMED → PARTIALLY_SETTLED → SETTLED | CANCELLED
  */
 @Entity('fin_shareholder_contributions')
+@Index('idx_fin_sh_contrib_company', ['companyCode', 'status'])
 export class FinShareholderContributionEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
@@ -91,6 +92,10 @@ export class FinShareholderContributionEntity {
 
   @Column({ name: 'balance_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
   balanceAmountBase: number;
+
+  // ── 出资日期 ─────────────────────────────────────────────────────────────
+  @Column({ name: 'contribution_date', type: 'date', nullable: true })
+  contributionDate: string | null;
 
   // ── 利息 ─────────────────────────────────────────────────────────────────
   @Column({ name: 'expected_return_date', type: 'date', nullable: true })

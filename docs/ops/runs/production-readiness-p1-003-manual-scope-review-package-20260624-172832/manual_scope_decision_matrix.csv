@@ -1,0 +1,4 @@
+item_id,user_id,username,real_name,current_store_code,current_roles,current_status,recommended_decision,reason,requires_db_write_if_approved
+P1-003-U296,296,pilot_cashier,陈 丽 (试运行收银),STORE-MS-01,ROLE_CASHIER,HOLD,HOLD_OR_EXCLUDE_FROM_VIENTIANE_PILOT,Not STORE-VTE-001 / 万象直营店; do not grant Vientiane Store Payment scope without business confirmation,true
+P1-003-U299,299,pilot_finance,刘 华 (试运行财务),PILOT-MS,ROLE_FIN_ACCT,HOLD,HOLD_OR_MAP_TO_COMPANY_FINANCE_AFTER_CONFIRMATION,Noncanonical pilot marker; finance scope may be company-level but needs owner evidence,true
+P1-003-U1460,1460,zhuzhao_an,朱召安,ALL,"ROLE_FIN_ACCT,ROLE_TREASURY_MANAGER",HOLD,HOLD_OR_APPROVE_COMPANY_FINANCE_SCOPE,ALL/global finance scope requires explicit business approval,true

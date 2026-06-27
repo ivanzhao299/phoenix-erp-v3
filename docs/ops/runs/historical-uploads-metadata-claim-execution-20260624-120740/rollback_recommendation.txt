@@ -1,0 +1,1 @@
+Rollback/reconcile recommendation: if these 15 metadata rows must be reversed, perform a separate approved DB rollback Gate deleting only the inserted file_id set listed in manifest.json. Do not delete or move upload files.

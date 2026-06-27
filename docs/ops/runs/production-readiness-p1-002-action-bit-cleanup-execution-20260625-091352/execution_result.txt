@@ -1,0 +1,47 @@
+# approved action-bit cleanup execution
+local_time=2026-06-25T09:14:25+08:00
+Pager usage is off.
+BEGIN
+SELECT 6
+--- affected rows before update ---
+ perm_id |   role_code    |         menu_code          | old_perm_codes | new_perm_codes 
+---------+----------------+----------------------------+----------------+----------------
+  343472 | ROLE_ADMIN     | MENU_STORE_PAYMENT         | V,E,C          | V,E
+  343471 | ROLE_ADMIN     | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+  343470 | ROLE_ADMIN     | MENU_STORE_PAYMENT_VOID    | V,E,A          | V,E
+  343477 | ROLE_CASHIER   | MENU_STORE_PAYMENT         | V,E,C          | V,E
+  343467 | ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+  343475 | ROLE_STORE_MGR | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+(6 rows)
+
+--- rollback statements to save before commit ---
+                                   rollback_sql                                   
+----------------------------------------------------------------------------------
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,C' WHERE perm_id = 343472;
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,A' WHERE perm_id = 343471;
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,A' WHERE perm_id = 343470;
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,C' WHERE perm_id = 343477;
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,A' WHERE perm_id = 343467;
+ UPDATE sys_role_menu_permission SET perm_codes = 'V,E,A' WHERE perm_id = 343475;
+(6 rows)
+
+UPDATE 6
+--- affected rows after update ---
+ perm_id |   role_code    |         menu_code          | old_perm_codes | current_perm_codes 
+---------+----------------+----------------------------+----------------+--------------------
+  343472 | ROLE_ADMIN     | MENU_STORE_PAYMENT         | V,E,C          | V,E
+  343471 | ROLE_ADMIN     | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+  343470 | ROLE_ADMIN     | MENU_STORE_PAYMENT_VOID    | V,E,A          | V,E
+  343477 | ROLE_CASHIER   | MENU_STORE_PAYMENT         | V,E,C          | V,E
+  343467 | ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+  343475 | ROLE_STORE_MGR | MENU_STORE_PAYMENT_CONFIRM | V,E,A          | V,E
+(6 rows)
+
+--- export untouched check ---
+         menu_code         | perm_codes 
+---------------------------+------------
+ MENU_STORE_PAYMENT_EXPORT | X
+ MENU_STORE_PAYMENT_EXPORT | X
+(2 rows)
+
+COMMIT

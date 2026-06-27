@@ -20,6 +20,15 @@ export interface GovernanceScores {
     references: { totalReferenceable: number; orphanReferences: number };
     workflow: { pendingApprovals: number; overdue3d: number };
     userOrgs: { totalUsers: number; usersWithOrg: number; usersWithExtraScope: number };
+    /**
+     * W4 — 扩展治理只读统计(site / business-unit / shareholder)。可选;
+     * 旧前端不读不影响。后续 wave 可纳入 overall 评分公式。
+     */
+    extended?: {
+      sites:         { total: number; active: number; archived: number };
+      businessUnits: { total: number; active: number; archived: number };
+      shareholders:  { total: number; active: number; archived: number };
+    };
   };
 }
 
@@ -178,6 +187,35 @@ export class MasterDataGovernanceService {
       if (a.severity === 'HIGH') highAlertCount += parseInt(a.c, 10);
     }
 
+    // ── W4 扩展治理只读统计(site / business-unit / shareholder) ─────────────
+    // 不影响 overall / *_score 任何现有字段;全部走 safe<> 异常返回空数组。
+    const aggregate = (rows: Array<{ status: string; c: string }>) => {
+      let total = 0, active = 0, archived = 0;
+      for (const r of rows) {
+        const n = parseInt(r.c, 10);
+        total += n;
+        const s = (r.status ?? 'ACTIVE').toUpperCase();
+        if (s === 'ACTIVE') active = n;
+        else if (s === 'ARCHIVED') archived = n;
+      }
+      return { total, active, archived };
+    };
+    const sites = aggregate(await this.safe<{ status: string; c: string }>(
+      `SELECT COALESCE(status,'ACTIVE') AS status, COUNT(*)::text AS c
+         FROM sys_organizations WHERE org_type='SITE'
+         GROUP BY COALESCE(status,'ACTIVE')`,
+    ));
+    const businessUnits = aggregate(await this.safe<{ status: string; c: string }>(
+      `SELECT COALESCE(status,'ACTIVE') AS status, COUNT(*)::text AS c
+         FROM biz_business_units
+         GROUP BY COALESCE(status,'ACTIVE')`,
+    ));
+    const shareholders = aggregate(await this.safe<{ status: string; c: string }>(
+      `SELECT COALESCE(status,'ACTIVE') AS status, COUNT(*)::text AS c
+         FROM shr_shareholders
+         GROUP BY COALESCE(status,'ACTIVE')`,
+    ));
+
     return {
       overall,
       org_score: orgScore,
@@ -196,6 +234,7 @@ export class MasterDataGovernanceService {
         references: { totalReferenceable: refTablesCovered, orphanReferences: blockedCount },
         workflow: { pendingApprovals: wfPending, overdue3d: wfOverdue },
         userOrgs: { totalUsers: userTotal, usersWithOrg, usersWithExtraScope },
+        extended: { sites, businessUnits, shareholders },
       },
     };
   }

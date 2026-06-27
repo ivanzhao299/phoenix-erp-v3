@@ -1,0 +1,2 @@
+bash: line 7: /opt/phoenix-erp-backups/db/phoenix_erp_20260625-094612.sql.gz: Permission denied
+backup_creation_exit=1

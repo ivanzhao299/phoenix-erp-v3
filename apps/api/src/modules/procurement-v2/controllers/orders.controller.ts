@@ -36,11 +36,18 @@ export class OrdersController {
     return this.svc.findById(id);
   }
 
-  /** GET /api/v2/procurement/orders/:id/approvals — 审批日志 */
+  /** GET /api/v2/procurement/orders/:id/approvals — 审批日志（仅本单） */
   @Get('orders/:id/approvals')
   @RequireMenu('MENU_PRC2_ORDER', 'V')
   getApprovals(@Param('id') id: string) {
     return this.svc.getApprovals(id);
+  }
+
+  /** GET /api/v2/procurement/orders/:id/process-log — G142 采购全流程日志（申请→订单→收货→付款 时间线） */
+  @Get('orders/:id/process-log')
+  @RequireMenu('MENU_PRC2_ORDER', 'V')
+  processLog(@Param('id') id: string) {
+    return this.svc.processLog(id);
   }
 
   /** GET /api/v2/procurement/orders/:id/ap-ledger — AP 台账 */

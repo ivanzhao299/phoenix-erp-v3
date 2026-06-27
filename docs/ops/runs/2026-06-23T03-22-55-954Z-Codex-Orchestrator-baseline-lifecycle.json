@@ -1,0 +1,32 @@
+{
+  "agent": "Codex-Orchestrator",
+  "branch": "w5-codex-orchestrator",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+  "status": "HOLD",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [
+    {
+      "label": "target worktree",
+      "message": "docs(ops): record generated ops artifacts",
+      "files": [
+        "docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_DECISION.md",
+        "docs/ops/runs/2026-06-23T03-21-22-559Z-A1-CI-Runtime-Gate.md",
+        "docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A1_ASSEMBLED_PROMPT.md"
+      ]
+    }
+  ],
+  "rebase": "not-started",
+  "merge": "not-started",
+  "gate": "not-started",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No",
+  "hold_reason": "git fetch origin failed",
+  "hold_context": {
+    "error": "Connection to ssh.github.com closed by remote host.\r\nclient_loop: send disconnect: Broken pipe\r\nfatal: expected flush after ref listing\n"
+  }
+}

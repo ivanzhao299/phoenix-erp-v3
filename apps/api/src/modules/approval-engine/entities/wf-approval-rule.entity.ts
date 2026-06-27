@@ -1,6 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 @Entity('wf_approval_rules')
+@Index('idx_wf_rule_module_biz', ['moduleCode', 'bizType'])
+@Index('idx_wf_rule_enabled', ['enabled'])
+@Index('idx_wf_rule_priority', ['priority'])
+@Index('idx_wf_rule_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
 export class WfApprovalRuleEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

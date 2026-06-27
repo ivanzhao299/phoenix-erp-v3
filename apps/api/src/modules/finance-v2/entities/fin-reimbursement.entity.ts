@@ -1,5 +1,5 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
+  Entity, PrimaryGeneratedColumn, Column, Index,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -16,6 +16,8 @@ import {
  *   PENDING / APPROVED → CANCELLED
  */
 @Entity('fin_reimbursements')
+@Index('idx_fin_reimb_expense', ['expenseRequestId'])
+@Index('idx_fin_reimb_company_status', ['companyCode', 'status'])
 export class FinReimbursementEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

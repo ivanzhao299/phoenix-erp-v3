@@ -60,7 +60,8 @@ function scoreColor(s: number): { bg: string; fg: string; label: string } {
 }
 
 export default function GovernanceDashboardPage() {
-  const { canView } = usePermission('MENU_MASTER_DATA');  // G79：补权限门(原零检查·安全洞)
+  const qualityPerm = usePermission('MENU_MD_QUALITY');
+  const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
   const [dict, setDict] = useState<DictCoverage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +81,7 @@ export default function GovernanceDashboardPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const cards = scores ? [
     { key: 'org_score',       label: '组织治理', icon: Network,    score: scores.org_score,       weight: 20, hint: `${scores.details.orgs.active}/${scores.details.orgs.total} 活跃` },

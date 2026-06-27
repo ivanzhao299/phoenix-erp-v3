@@ -1,0 +1,36 @@
+--- public uploads root ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 404 
+server: nginx
+date: Wed, 24 Jun 2026 09:21:08 GMT
+content-type: application/json; charset=utf-8
+content-length: 83
+x-powered-by: Express
+vary: Origin
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"53-iyuA2l6we9zcwwx+5O4ObG5RmCM"
+
+--- public uploads likely contract path probe ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 404 
+server: nginx
+date: Wed, 24 Jun 2026 09:21:10 GMT
+content-type: application/json; charset=utf-8
+content-length: 121
+x-powered-by: Express
+vary: Origin
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"79-44Q/FiAUf7mpkrQlyVD814jyE8w"
+
+--- api health ---
+{"status":"OK","service":"Phoenix ERP V3 API","timestamp":"2026-06-24T09:21:11.458Z","uptime":3578,"boot_at":"2026-06-24T08:21:35.291Z","env":"production","node_version":"v20.20.2","jwt":{"loaded":true,"fingerprint":"...317f","rotation_active":false,"expires_in":"8h","clock_tolerance_sec":60},"db":{"connected":true},"security":{"jwt_fallback_in_use":false,"is_production":true,"warning":null}}

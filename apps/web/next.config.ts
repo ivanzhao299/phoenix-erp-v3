@@ -23,8 +23,24 @@ const nextConfig: NextConfig = {
     const target = process.env.API_TARGET || "http://127.0.0.1:3100";
     return [
       {
+        source: "/store-payment/accounts/:path*",
+        destination: `${target}/store-payment/accounts/:path*`,
+      },
+      {
+        source: "/store-payment/records/:path*",
+        destination: `${target}/store-payment/records/:path*`,
+      },
+      {
+        source: "/store-payment/attachments/:path*",
+        destination: `${target}/store-payment/attachments/:path*`,
+      },
+      {
         source: "/api/:path*",
         destination: `${target}/api/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${target}/uploads/:path*`,
       },
     ];
   },

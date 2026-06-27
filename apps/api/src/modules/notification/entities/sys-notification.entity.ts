@@ -1,8 +1,12 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, Index, Check, CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_notifications')
+@Index('idx_notifications_user_status', ['userId', 'status'])
+@Index('idx_notifications_user_created', ['userId', 'createdAt'])
+@Index('idx_notifications_biz', ['bizType', 'bizId'], { where: '"biz_type" IS NOT NULL' })
+@Check('sys_notifications_status_check', `status IN ('UNREAD','READ','ARCHIVED')`)
 export class SysNotificationEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

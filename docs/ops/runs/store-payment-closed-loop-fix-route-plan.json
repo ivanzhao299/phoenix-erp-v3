@@ -1,0 +1,135 @@
+{
+  "request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+  "selected_agents": [
+    "A3-Backend-Critical-Path",
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness",
+    "A4-Frontend-UAT-Smoke",
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "confidence": 0.96,
+  "matched_keywords": {
+    "Codex-Orchestrator": [
+      "方案"
+    ],
+    "A1-CI-Runtime-Gate": [
+      "gate"
+    ],
+    "A2-Security-Regression-Gate": [
+      "菜单码",
+      "角色授权",
+      "角色",
+      "protected preview",
+      "payment"
+    ],
+    "A3-Backend-Critical-Path": [
+      "菜单码",
+      "角色授权",
+      "protected preview",
+      "附件 protected"
+    ],
+    "A4-Frontend-UAT-Smoke": [
+      "页面",
+      "前端",
+      "UI",
+      "UX",
+      "UAT",
+      "ui",
+      "ux",
+      "uat"
+    ],
+    "A5-Data-Readiness": [
+      "数据 readiness"
+    ],
+    "A6-Staging-Deploy-Runbook": [
+      "预发",
+      "部署 runbook"
+    ],
+    "A7-Final-QA-Gate": [
+      "终验"
+    ]
+  },
+  "risk_domains": [
+    "ci",
+    "runtime",
+    "startup",
+    "typecheck",
+    "auth",
+    "rbac",
+    "datascope",
+    "payment",
+    "finance",
+    "chanjet",
+    "audit",
+    "attachment-acl",
+    "backend",
+    "api",
+    "frontend-implementation",
+    "ui-ux-polish",
+    "responsive-layout",
+    "permission-aware-ui",
+    "uat-smoke",
+    "data-readiness",
+    "master-data",
+    "pilot-data",
+    "mapping",
+    "staging",
+    "rollback",
+    "deploy-readiness",
+    "final-qa",
+    "release-decision"
+  ],
+  "held_reasons": [],
+  "recommended_sequence": [
+    "A3-Backend-Critical-Path",
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness",
+    "A4-Frontend-UAT-Smoke",
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "parallel_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    [
+      "A3-Backend-Critical-Path"
+    ],
+    [
+      "A4-Frontend-UAT-Smoke"
+    ],
+    [
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ]
+  ],
+  "fallback_action": "create task pool",
+  "route_decision": "PLAN_READY",
+  "requires_route_review": false,
+  "domains": {
+    "ci": true,
+    "security": true,
+    "dataReadiness": true,
+    "ui": true,
+    "backend": true,
+    "backendMentionedButNegated": false,
+    "deployPlan": true,
+    "finalGate": true,
+    "protectedAttachment": true,
+    "authorizationDesign": true
+  },
+  "agent_scores": {
+    "A1-CI-Runtime-Gate": 6,
+    "A2-Security-Regression-Gate": 8.5,
+    "A3-Backend-Critical-Path": 8,
+    "A4-Frontend-UAT-Smoke": 12,
+    "A5-Data-Readiness": 5.15,
+    "A6-Staging-Deploy-Runbook": 5,
+    "A7-Final-QA-Gate": 4
+  }
+}

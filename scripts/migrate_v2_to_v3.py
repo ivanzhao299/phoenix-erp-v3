@@ -4,7 +4,7 @@ Phoenix ERP — V2 SQLite → V3 PostgreSQL 智能迁移脚本
 基于今天（2026-05-10）的字段审计报告，按实际字段映射规则迁移数据。
 用法: python3 migrate_v2_to_v3.py --sqlite /path/to/phoenix.sqlite
 """
-import sqlite3, argparse, sys
+import os, sqlite3, argparse, sys
 from datetime import datetime
 
 try:
@@ -12,7 +12,13 @@ try:
 except ImportError:
     print("请先: pip3 install psycopg2-binary"); sys.exit(1)
 
-PG_CONFIG = dict(host="127.0.0.1", port=5432, user="mac", password="", dbname="phoenix_erp")
+PG_CONFIG = dict(
+    host=os.getenv("DB_HOST", "127.0.0.1"),
+    port=int(os.getenv("DB_PORT", "5432")),
+    user=os.getenv("DB_USER", "mac"),
+    password=os.getenv("DB_PASSWORD", ""),
+    dbname=os.getenv("DB_NAME", "phoenix_erp"),
+)
 
 # ══════════════════════════════════════════════════════════════════
 # 审计报告中的字段重命名规则 (V2字段名 → V3字段名)
@@ -315,11 +321,11 @@ def migrate(sqlite_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sqlite",      required=True)
-    parser.add_argument("--pg-host",     default="127.0.0.1")
-    parser.add_argument("--pg-port",     default="5432")
-    parser.add_argument("--pg-user",     default="mac")
-    parser.add_argument("--pg-password", default="")
-    parser.add_argument("--pg-db",       default="phoenix_erp")
+    parser.add_argument("--pg-host",     default=PG_CONFIG["host"])
+    parser.add_argument("--pg-port",     default=str(PG_CONFIG["port"]))
+    parser.add_argument("--pg-user",     default=PG_CONFIG["user"])
+    parser.add_argument("--pg-password", default=PG_CONFIG["password"])
+    parser.add_argument("--pg-db",       default=PG_CONFIG["dbname"])
     args = parser.parse_args()
     PG_CONFIG.update(dict(
         host=args.pg_host, port=int(args.pg_port),

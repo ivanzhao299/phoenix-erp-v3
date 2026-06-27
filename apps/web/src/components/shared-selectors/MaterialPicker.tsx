@@ -6,7 +6,7 @@
  *   ① 输入框可直接打字，实时本地过滤已加载的物料列表（按 material_name 包含、忽略大小写）
  *   ② 候选里没有完全匹配项时，下拉底部出现「+ 新建物料「<词>」」入口
  *   ③ 内联表单：物料名称(预填) + 物料类型(DictSelect PRC_MATERIAL_TYPE) + 规格 + 单位
- *      → POST /master-data/runtime/material/quick 直接建 ACTIVE 物料
+ *      → POST /lookup/materials/quick 直接建 ACTIVE 物料
  *      → 新物料并入本地列表 + 自动选中 + invalidateCache + toast
  *
  * value/onChange 走 material_name（采购明细 itemName 存名称）；
@@ -14,9 +14,11 @@
  * 供调用方自动带出 itemCode/spec/unit。
  */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import request from '@/lib/api-client';
 import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
 import { DictSelect } from './DictSelect';
+import { Search } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
 export interface MaterialRow {
@@ -25,6 +27,7 @@ export interface MaterialRow {
   material_type?: string;
   spec?: string;
   unit?: string;
+  existing?: boolean;
 }
 
 interface MaterialPickerProps {
@@ -38,6 +41,7 @@ interface MaterialPickerProps {
 
 // G91：读走开放 lookup 端点（仅 JWT，采购录入用户可拉）；runtime/active 受主数据权限门控会 403
 const MATERIAL_LOOKUP = '/lookup/materials';
+const MATERIAL_QUICK_CREATE = '/lookup/materials/quick';
 
 // 归一化 runtime 返回（兼容 {code,name} 简化形与全行形）
 function normalize(r: any): MaterialRow {
@@ -45,7 +49,7 @@ function normalize(r: any): MaterialRow {
   return {
     material_code: code,
     material_name: r.material_name ?? r.name ?? code,
-    material_type: r.material_type ?? undefined,
+    material_type: r.material_type ?? r.materialType ?? undefined,
     spec: r.spec ?? undefined,
     unit: r.unit ?? undefined,
   };
@@ -65,8 +69,10 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text-primary)', fontSize: 13, outline: 'none',
 };
 
+// G166：下拉改 createPortal 到 body + position:fixed —— 原 absolute 下拉被明细表容器
+//   overflowX:auto(会令 overflow-y 也成 auto)裁切。portal 到顶层按输入框 rect 定位即不被裁。
 const panelStyle: React.CSSProperties = {
-  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+  position: 'fixed', zIndex: 10300,
   maxHeight: 280, overflowY: 'auto', background: 'var(--bg-card)',
   border: '1px solid var(--border)', borderRadius: 8,
   boxShadow: '0 8px 28px rgba(0,0,0,0.18)', padding: 4,
@@ -96,6 +102,28 @@ export function MaterialPicker({
   const [nUnit, setNUnit] = useState('');
 
   const boxRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  useEffect(() => { setMounted(true); }, []);
+
+  // G166：按输入框 rect 定位 portal 下拉；open 时计算 + 滚动/缩放时跟随
+  const updateRect = useCallback(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open, updateRect]);
 
   // 受控 value（外部 itemName）同步进输入框
   useEffect(() => { setQuery(value ?? ''); }, [value]);
@@ -110,9 +138,10 @@ export function MaterialPicker({
   // 点外部关闭
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setOpen(false); setCreating(false);
-      }
+      const t = e.target as Node;
+      // G166：panel 已 portal 到 body（不在 boxRef 内），需同时放行 panelRef，否则点下拉/内联新建即关闭
+      if (boxRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false); setCreating(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -151,8 +180,8 @@ export function MaterialPicker({
     if (!name) { toast.error('物料名称不能为空'); return; }
     setSaving(true);
     try {
-      const res = await request<{ code: string; name: string }>(
-        '/master-data/runtime/material/quick',
+      const res = await request<{ code?: string; name?: string; data?: any }>(
+        MATERIAL_QUICK_CREATE,
         {
           method: 'POST',
           body: JSON.stringify({
@@ -163,18 +192,20 @@ export function MaterialPicker({
           }),
         },
       );
+      const data = res?.data ?? res;
       const row: MaterialRow = {
-        material_code: res.code,
-        material_name: res.name ?? name,
-        material_type: nType || undefined,
-        spec: nSpec.trim() || undefined,
-        unit: nUnit.trim() || undefined,
+        material_code: data.material_code ?? data.code,
+        material_name: data.material_name ?? data.name ?? name,
+        material_type: (data.material_type ?? data.materialType ?? nType) || undefined,
+        spec: (data.spec ?? nSpec.trim()) || undefined,
+        unit: (data.unit ?? nUnit.trim()) || undefined,
+        existing: data.existing === true,
       };
       // 失效缓存并并入本地列表（避免等 5min TTL）
       invalidateCache(`lookup:${MATERIAL_LOOKUP}`);
       setList(prev => [row, ...prev.filter(m => m.material_code !== row.material_code)]);
       pick(row);
-      toast.success(`物料「${row.material_name}」已新建`);
+      toast.success(row.existing ? `物料「${row.material_name}」已存在，已为你选中` : `物料「${row.material_name}」已新建`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '新建物料失败');
     } finally {
@@ -201,8 +232,21 @@ export function MaterialPicker({
 
   return (
     <div ref={boxRef} style={{ position: 'relative', width: '100%' }}>
+      <Search
+        size={13}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          color: 'var(--text-tertiary)',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      />
       <input
-        style={{ ...inputStyle, ...style }}
+        style={{ ...inputStyle, ...style, paddingLeft: 26 }}
         value={query}
         disabled={disabled}
         placeholder={placeholder}
@@ -214,11 +258,11 @@ export function MaterialPicker({
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
       />
-      {open && !disabled && (
-        <div style={panelStyle}>
+      {open && !disabled && mounted && rect && createPortal(
+        <div ref={panelRef} style={{ ...panelStyle, top: rect.top, left: rect.left, width: rect.width }}>
           {filtered.length === 0 && !showCreate && (
             <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              暂无物料
+              暂无可选物料，请输入物料名称后新建
             </div>
           )}
           {filtered.map((m, i) => (
@@ -251,7 +295,7 @@ export function MaterialPicker({
                 background: highlight === filtered.length ? 'var(--bg-muted)' : 'transparent',
               }}
             >
-              + 新建物料「{query.trim()}」
+              + 未找到匹配项，直接新建物料「{query.trim()}」
             </div>
           )}
 
@@ -297,7 +341,8 @@ export function MaterialPicker({
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

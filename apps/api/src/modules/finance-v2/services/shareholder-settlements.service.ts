@@ -137,7 +137,7 @@ export class ShareholderSettlementsService {
       ]),
     ]);
 
-    return { items, total: Number(countRow[0]?.total ?? 0), page, pageSize };
+    return { items: this.snakeToCamel(items), total: Number(countRow[0]?.total ?? 0), page, pageSize };
   }
 
   // ── 单条详情 ─────────────────────────────────────────────────────────────
@@ -458,6 +458,16 @@ export class ShareholderSettlementsService {
          WHERE id = $3`,
         [dto.reason ?? null, this.username(), id],
       );
+    });
+  }
+
+  private snakeToCamel(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return rows.map(r => {
+      const o: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(r)) {
+        o[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = v;
+      }
+      return o;
     });
   }
 }

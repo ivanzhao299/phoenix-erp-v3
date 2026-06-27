@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { Plus, RefreshCw, Search, ChevronRight, X, AlertTriangle, CheckCircle, Clock, CreditCard } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
@@ -521,7 +522,7 @@ export default function SalesV2OrdersPage() {
         padding: '32px 0'
       }}>
             <EmptyState title="暂无订单数据" description="当前筛选条件下没有销售订单" compact />
-          </div> : <table className={s.table}>
+          </div> : <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
               {['订单号', '客户', '金额', '状态', '价格', '信用', '应收', '操作'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
@@ -627,37 +628,15 @@ export default function SalesV2OrdersPage() {
       }}>下一页</button>
         </div>}
 
-      {/* ── 新建订单抽屉 ── */}
-      {showCreate && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-black-50)',
-      zIndex: 100,
-      display: 'flex',
-      justifyContent: 'flex-end'
-    }}>
-          <div style={{
-        width: 560,
-        background: 'var(--bg-card)',
-        height: '100%',
-        overflow: 'auto',
-        padding: 24,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16
-      }}>
-            <div className={u.flexBetween}>
-              <div style={{
-            fontWeight: 700,
-            fontSize: 16
-          }}>新建销售订单</div>
-              <button onClick={() => setShowCreate(false)} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)'
-          }}><X size={18} /></button>
-            </div>
+      {/* ── 新建订单弹窗 ── */}
+      <ModalV2 open={showCreate} title="新建销售订单" onClose={() => setShowCreate(false)} width={580}
+        footer={<>
+          <button className={s.btnSecondary} onClick={() => setShowCreate(false)}>取消</button>
+          <button className={s.btnPrimary} onClick={handleCreate} disabled={actionLoading} style={{ minWidth: 100 }}>
+            {actionLoading ? '创建中…' : '创建草稿'}
+          </button>
+        </>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {actionError && <div style={{
           padding: '8px 12px',
@@ -1030,60 +1009,12 @@ export default function SalesV2OrdersPage() {
           })}
             </div>
 
-            <div style={{
-          display: 'flex',
-          gap: 10,
-          justifyContent: 'flex-end',
-          paddingTop: 8
-        }}>
-              <button className={s.btnSecondary} onClick={() => setShowCreate(false)}>取消</button>
-              <button className={s.btnPrimary} onClick={handleCreate} disabled={actionLoading} style={{
-            minWidth: 100
-          }}>
-                {actionLoading ? '创建中…' : '创建草稿'}
-              </button>
-            </div>
-          </div>
-        </div>}
+        </div>
+      </ModalV2>
 
-      {/* ── 订单详情抽屉 ── */}
-      {detailOrder && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-black-50)',
-      zIndex: 100,
-      display: 'flex',
-      justifyContent: 'flex-end'
-    }}>
-          <div style={{
-        width: 560,
-        background: 'var(--bg-card)',
-        height: '100%',
-        overflow: 'auto',
-        padding: 24,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14
-      }}>
-            <div className={u.flexBetween}>
-              <div>
-                <div style={{
-              fontWeight: 700,
-              fontSize: 16
-            }}>{detailOrder.order_no}</div>
-                <div style={{
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-              marginTop: 2
-            }}>{detailOrder.company_code}</div>
-              </div>
-              <button onClick={() => setDetailOrder(null)} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)'
-          }}><X size={18} /></button>
-            </div>
+      {/* ── 订单详情弹窗 ── */}
+      <ModalV2 open={!!detailOrder} title={detailOrder ? `${detailOrder.order_no} · ${detailOrder.company_code}` : ''} onClose={() => setDetailOrder(null)} width={600}>
+        {detailOrder && <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {actionError && <div style={{
           padding: '8px 12px',
@@ -1219,7 +1150,7 @@ export default function SalesV2OrdersPage() {
             fontWeight: 700,
             marginBottom: 8
           }}>订单明细</div>
-                <table className={s.table}>
+                <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
                   <thead>
                     <tr>
                       {['商品', '规格', '数量', '参考价', '实际价', '底价', '金额'].map(h => <th key={h} style={{
@@ -1281,7 +1212,7 @@ export default function SalesV2OrdersPage() {
                 </button>}
               {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'cancel')}>取消订单</button>}
             </div>
-          </div>
         </div>}
+      </ModalV2>
     </div>;
 }

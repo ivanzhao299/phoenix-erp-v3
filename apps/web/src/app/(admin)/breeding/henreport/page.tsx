@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { secondaryActionButton, inputField } from '@/components/design-system/cockpit-styles';
 function tok() {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
@@ -95,35 +96,15 @@ export default function HenReportPage() {
       marginBottom: 20,
       flexWrap: 'wrap'
     }}>
-        <button className={s.btnSecondary} onClick={() => setDate(d => addDays(d, -1))} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-      }}>
-          <ChevronLeft size={15} />{t('ui.前一天', '前一天')}
+        <button onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
+          <ChevronLeft size={14} />{t('ui.前一天', '前一天')}
         </button>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        padding: '6px 10px',
-        fontSize: 14,
-        color: 'var(--text-primary)',
-        background: 'var(--bg-card)'
-      }} />
-        <button className={s.btnSecondary} onClick={() => setDate(d => addDays(d, 1))} disabled={isToday} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        opacity: isToday ? 0.4 : 1
-      }}>
-          {t('ui.后一天', '后一天')}<ChevronRight size={15} />
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
+        <button onClick={() => setDate(d => addDays(d, 1))} disabled={isToday} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
+          {t('ui.后一天', '后一天')}<ChevronRight size={14} />
         </button>
-        <button className={s.btnSecondary} onClick={() => loadData(date)} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-      }}>
-          <RefreshCw size={14} />{t('common.refresh', '刷新')}
+        <button onClick={() => loadData(date)} style={secondaryActionButton}>
+          <RefreshCw size={13} />{t('common.refresh', '刷新')}
         </button>
       </div>
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, Clock, RefreshCw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, Clock, RefreshCw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -39,6 +40,15 @@ interface ApprovalInstance {
   companyName: string | null;
   projectName: string | null;
   subject: string | null;
+}
+interface ApprovalHistoryResponse {
+  list?: ApprovalInstance[];
+  items?: ApprovalInstance[];
+  data?: ApprovalInstance[] | { list?: ApprovalInstance[]; items?: ApprovalInstance[]; total?: number };
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  message?: string;
 }
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
@@ -85,9 +95,11 @@ const BIZ_TYPE_FILTERS = [{
   label: "股东资金",
   value: "FUND"
 }];
-function fmtDate(s: string) {
+function fmtDate(s?: string | null) {
   if (!s) return "-";
-  return new Date(s).toLocaleString("zh-CN", {
+  const time = new Date(s);
+  if (Number.isNaN(time.getTime())) return "-";
+  return time.toLocaleString("zh-CN", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -106,13 +118,20 @@ async function fetchHistory(page: number, pageSize: number, bizType?: string) {
   const res = await fetch(`/api/approval/history?${params}`, {
     headers: authHdr()
   });
-  if (!res.ok) return {
-    list: [],
-    total: 0,
-    page: 1,
-    pageSize
+  const data = await res.json().catch(() => ({})) as ApprovalHistoryResponse;
+  if (!res.ok) throw new Error(data.message || `加载审批历史失败 (${res.status})`);
+  return normalizeHistory(data, pageSize);
+}
+
+function normalizeHistory(data: ApprovalHistoryResponse, pageSize: number) {
+  const nested = !Array.isArray(data.data) && data.data ? data.data : undefined;
+  const list = data.list ?? data.items ?? (Array.isArray(data.data) ? data.data : undefined) ?? nested?.list ?? nested?.items ?? [];
+  return {
+    list: Array.isArray(list) ? list : [],
+    total: Number(data.total ?? nested?.total ?? (Array.isArray(list) ? list.length : 0)) || 0,
+    page: Number(data.page ?? 1) || 1,
+    pageSize: Number(data.pageSize ?? pageSize) || pageSize
   };
-  return res.json();
 }
 
 // ── 组件 ─────────────────────────────────────────────────────────────────────
@@ -121,14 +140,20 @@ export default function ApprovalHistoryPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [bizType, setBizType] = useState("");
   const pageSize = 20;
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await fetchHistory(page, pageSize, bizType || undefined);
       setList(data.list ?? []);
       setTotal(data.total ?? 0);
+    } catch (err) {
+      setList([]);
+      setTotal(0);
+      setError(err instanceof Error ? err.message : "加载审批历史失败");
     } finally {
       setLoading(false);
     }
@@ -172,7 +197,7 @@ export default function ApprovalHistoryPage() {
                 {f.label}
               </button>)}
           </div>
-          <button className={s.btnSecondary} onClick={load} disabled={loading}>
+          <button style={secondaryActionButton} onClick={load} disabled={loading}>
             <RefreshCw size={14} style={{
             marginRight: 6
           }} />刷新
@@ -183,7 +208,18 @@ export default function ApprovalHistoryPage() {
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
-      }}>加载中…</div> : list.length === 0 ? <div className={s.cardBody} style={{
+      }}>加载中…</div> : error ? <div className={s.cardBody} style={{
+        textAlign: "center",
+        color: "var(--status-danger)",
+        padding: 48
+      }}>
+            <AlertTriangle size={36} style={{
+          margin: "0 auto 12px",
+          opacity: 0.75
+        }} />
+            <p style={{ margin: "0 0 12px" }}>{error}</p>
+            <button style={secondaryActionButton} onClick={load}>重新加载</button>
+          </div> : list.length === 0 ? <div className={s.cardBody} style={{
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
@@ -210,18 +246,18 @@ export default function ApprovalHistoryPage() {
               <tbody>
                 {list.map(inst => {
               const cfg = STATUS_CONFIG[inst.status] ?? {
-                label: inst.status,
+                label: inst.status || "已完成",
                 color: "var(--text-disabled)",
                 icon: null
               };
               return <tr key={inst.id}>
-                      <td>{BIZ_TYPE_LABEL[inst.bizType] ?? inst.bizType}</td>
+                      <td>{BIZ_TYPE_LABEL[inst.bizType] ?? inst.bizType ?? "-"}</td>
                       <td>
                         <span style={{
                     fontWeight: 600,
                     fontFamily: "monospace",
                     fontSize: 12
-                  }}>{inst.bizNo || inst.bizId}</span>
+                  }}>{inst.bizNo || inst.bizId || inst.instanceNo || "-"}</span>
                       </td>
                       <td>
                         <span style={{
@@ -273,9 +309,7 @@ export default function ApprovalHistoryPage() {
             display: "flex",
             gap: 6
           }}>
-                <button className={s.btnSecondary} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{
-              padding: "4px 10px"
-            }}>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{ ...secondaryActionButton, padding: "4px 10px" }}>
                   <ChevronLeft size={14} />
                 </button>
                 <span style={{
@@ -285,9 +319,7 @@ export default function ApprovalHistoryPage() {
             }}>
                   {page} / {totalPages}
                 </span>
-                <button className={s.btnSecondary} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{
-              padding: "4px 10px"
-            }}>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{ ...secondaryActionButton, padding: "4px 10px" }}>
                   <ChevronRight size={14} />
                 </button>
               </div>

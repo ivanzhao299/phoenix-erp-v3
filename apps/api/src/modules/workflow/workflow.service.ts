@@ -297,8 +297,11 @@ export class WorkflowService implements OnModuleInit {
     if (!name) throw new BadRequestException('name required');
     const description = body?.description || `由工作流数据源 ${sourceCode} 自动生成，包含表单和默认审批节点。`;
     const category = body?.category || '通用';
-    const approvalRole = String(body?.approvalRole || body?.approval_role || 'ROLE_ADMIN').trim().toUpperCase();
+    const approvalRole = String(body?.approvalRole || body?.approval_role || 'ROLE_FIN_CFO').trim().toUpperCase();
     this.assertCode(approvalRole);
+    if (ADMIN_ROLES.has(approvalRole)) {
+      throw new BadRequestException('approvalRole must be a business approver role, not an admin/system role');
+    }
 
     const existing = await this.em.query(
       `SELECT id FROM wf_definition WHERE code=$1 LIMIT 1`,
@@ -333,7 +336,7 @@ export class WorkflowService implements OnModuleInit {
       formName: String((formResult.data as any)?.form?.name || `${sourceCode}自动表单`),
       formDescription: description,
       fields: [],
-      approvals: [{ id: 'auto_approval', name: '管理员审批', role: approvalRole }],
+      approvals: [{ id: 'auto_approval', name: '业务审批', role: approvalRole }],
     });
     const latest = await this.em.query(
       `SELECT COALESCE(MAX(version_no),0)::int AS version_no FROM wf_definition_version WHERE definition_id=$1`,
@@ -2032,34 +2035,34 @@ export class WorkflowService implements OnModuleInit {
         { key: 'expense_type', label: '费用类型', type: 'select', required: true, options: [{ label: '差旅费', value: 'travel' }, { label: '招待费', value: 'entertainment' }, { label: '办公费', value: 'office' }, { label: '其它', value: 'other' }] },
         { key: 'store_code', label: '所属门店', type: 'reference', dataSource: 'MST_STORES' },
         { key: 'reason', label: '报销事由', type: 'textarea', required: true, span: 2 },
-      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['finance_approval', '财务复核', 'ROLE_FIN_ACCT']]),
+      ], [['dept_approval', '部门负责人审批', 'ROLE_FIN_CFO'], ['finance_approval', '财务复核', 'ROLE_FIN_ACCT']]),
       this.tpl('PURCHASE_APPROVAL', '采购申请审批', 'PURCHASE', '物料、设备、耗材采购申请，采购和财务联合审批。', 'PURCHASE_REQUEST_FORM', '采购申请单', [
         { key: 'product_code', label: '采购物料', type: 'reference', dataSource: 'MST_PRODUCTS', required: true },
         { key: 'quantity', label: '采购数量', type: 'number', required: true },
         { key: 'budget_amount', label: '预算金额', type: 'amount', required: true },
         { key: 'need_date', label: '期望到货日期', type: 'date' },
         { key: 'reason', label: '采购原因', type: 'textarea', required: true, span: 2 },
-      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['buyer_review', '采购复核', 'ROLE_PRC_BUYER'], ['finance_review', '财务审批', 'ROLE_FIN_CFO']]),
+      ], [['dept_approval', '部门负责人审批', 'ROLE_PRC_BUYER'], ['buyer_review', '采购复核', 'ROLE_PRC_BUYER'], ['finance_review', '财务审批', 'ROLE_FIN_CFO']]),
       this.tpl('PAYMENT_APPROVAL', '付款申请审批', 'FINANCE', '供应商付款、预付款、尾款支付审批。', 'PAYMENT_REQUEST_FORM', '付款申请单', [
         { key: 'payee', label: '收款方', type: 'text', required: true },
         { key: 'amount', label: '付款金额', type: 'amount', required: true },
         { key: 'payment_type', label: '付款类型', type: 'select', required: true, options: [{ label: '预付款', value: 'advance' }, { label: '到货款', value: 'arrival' }, { label: '尾款', value: 'final' }] },
         { key: 'invoice_no', label: '发票/合同编号', type: 'text' },
         { key: 'reason', label: '付款说明', type: 'textarea', required: true, span: 2 },
-      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['finance_approval', '财务总监审批', 'ROLE_FIN_CFO']]),
+      ], [['dept_approval', '部门负责人审批', 'ROLE_FIN_CFO'], ['finance_approval', '财务总监审批', 'ROLE_FIN_CFO']]),
       this.tpl('CONTRACT_APPROVAL', '合同审批流程', 'CONTRACT', '合同签署前的业务、财务、法务/系统管理复核。', 'CONTRACT_REVIEW_FORM', '合同审批单', [
         { key: 'counterparty', label: '合同相对方', type: 'text', required: true },
         { key: 'contract_amount', label: '合同金额', type: 'amount', required: true },
         { key: 'contract_type', label: '合同类型', type: 'select', options: [{ label: '采购合同', value: 'purchase' }, { label: '销售合同', value: 'sales' }, { label: '服务合同', value: 'service' }] },
         { key: 'effective_date', label: '生效日期', type: 'date' },
         { key: 'risk_note', label: '风险说明', type: 'textarea', span: 2 },
-      ], [['biz_review', '业务负责人审批', 'ROLE_SYSOPS'], ['finance_review', '财务复核', 'ROLE_FIN_CFO'], ['final_review', '最终确认', 'ROLE_SYSOPS']]),
+      ], [['biz_review', '业务负责人审批', 'ROLE_FIN_CFO'], ['finance_review', '财务复核', 'ROLE_FIN_CFO'], ['final_review', '最终确认', 'ROLE_FIN_CFO']]),
       this.tpl('LEAVE_APPROVAL', '请假申请审批', 'HR', '员工请假提交，直属负责人审批并备案。', 'LEAVE_REQUEST_FORM', '请假申请单', [
         { key: 'leave_type', label: '假期类型', type: 'select', required: true, options: [{ label: '事假', value: 'personal' }, { label: '病假', value: 'sick' }, { label: '年假', value: 'annual' }, { label: '调休', value: 'comp' }] },
         { key: 'start_time', label: '开始时间', type: 'datetime', required: true },
         { key: 'end_time', label: '结束时间', type: 'datetime', required: true },
         { key: 'reason', label: '请假原因', type: 'textarea', required: true, span: 2 },
-      ], [['manager_approval', '负责人审批', 'ROLE_SYSOPS']]),
+      ], [['manager_approval', '负责人审批', 'ROLE_HR_ADMIN']]),
       this.tpl('STOCK_ADJUST_APPROVAL', '库存调整审批', 'WMS', '库存盘盈盘亏、调账、报损等调整审批。', 'STOCK_ADJUST_FORM', '库存调整单', [
         { key: 'warehouse', label: '仓库/门店', type: 'text', required: true },
         { key: 'product_code', label: '商品/物料', type: 'reference', dataSource: 'MST_PRODUCTS', required: true },
@@ -2073,7 +2076,7 @@ export class WorkflowService implements OnModuleInit {
         { key: 'severity', label: '严重程度', type: 'radio', required: true, options: [{ label: '一般', value: 'normal' }, { label: '严重', value: 'major' }] },
         { key: 'description', label: '异常描述', type: 'textarea', required: true, span: 2 },
         { key: 'proposal', label: '处理建议', type: 'textarea', span: 2 },
-      ], [['qa_review', '品控负责人审批', 'ROLE_QA_MGR'], ['biz_confirm', '业务确认', 'ROLE_SYSOPS']]),
+      ], [['qa_review', '品控负责人审批', 'ROLE_QA_MGR'], ['biz_confirm', '业务确认', 'ROLE_QA_MGR']]),
       this.tpl('STORE_DISCOUNT_APPROVAL', '门店折扣审批', 'STORE', '门店临时折扣、促销让利和特殊价格审批。', 'STORE_DISCOUNT_FORM', '门店折扣申请单', [
         { key: 'store_code', label: '门店', type: 'reference', dataSource: 'MST_STORES', required: true },
         { key: 'discount_rate', label: '折扣比例', type: 'number', required: true },

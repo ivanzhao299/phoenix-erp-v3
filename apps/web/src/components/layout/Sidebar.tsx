@@ -18,7 +18,7 @@ import {
   History, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
-  Rocket, Server, ShieldAlert, Settings2, Landmark,
+  Rocket, Server, ShieldAlert, Settings2, Landmark, Scale,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -51,17 +51,21 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
 }
 
 // ── Menu Tree (Lucide icons) ─────────────────────────────────────
-type MenuItem = {
+export type MenuItem = {
   id: string; path?: string; Icon: LucideIcon; label: string;
+  aliases?: string[];
   perm: string | null;
-  // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
+  requiredPerm?: string;
+  // 受控超级码兜底。高风险目录需优先拆到原子菜单，避免父权限透出无权限子菜单。
   superPerm?: string;
+  // 过渡期兼容码：优先使用原子菜单码；老角色仍可通过旧粗粒度码看见同一入口。
+  altPerms?: string[];
   children?: MenuItem[];
 };
 
 // ── V3 最终菜单架构 — Navigation Final 2026-05-30 ─────────────────
 // 12 个一级菜单，全部业务中文命名，无技术术语
-const MENU: MenuItem[] = [
+export const MENU: MenuItem[] = [
 
   // 0. HOME-1 企业运营工作台（统一首页，登录直达）
   { id: "home", path: "/home", Icon: LayoutDashboard, label: "运营工作台", perm: "MENU_DASHBOARD" },
@@ -126,10 +130,10 @@ const MENU: MenuItem[] = [
 
   // 4. 采购管理 — Procurement V2 正式入口
   { id: "procurement", Icon: Layers3, label: "采购管理", perm: "MENU_PRC2_MASTER", children: [
-    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2"          },
-    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_MASTER"   },
-    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_MASTER"   },
-    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_MASTER"   },
+    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD" },
+    { id: "prc2-supplier",  path: "/procurement2/suppliers",         Icon: Globe,           label: "供应商档案", perm: "MENU_PRC2_SUPPLIER"  },
+    { id: "prc2-project",   path: "/procurement2/projects",          Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_PROJECT"   },
+    { id: "prc2-request",   path: "/procurement2/requests",          Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_REQUEST"   },
     { id: "prc2-order",     path: "/procurement2/orders",            Icon: ShoppingBag,     label: "采购订单",   perm: "MENU_PRC2_ORDER"    },
     { id: "prc2-shipment",  path: "/procurement2/shipments",         Icon: Truck,           label: "物流管理",   perm: "MENU_PRC2_SHIPMENT" },
     { id: "prc2-receipt",   path: "/procurement2/receipts",          Icon: PackageCheck,    label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
@@ -140,7 +144,7 @@ const MENU: MenuItem[] = [
 
   // 5. 销售管理 — 客户 + 价格 + 订单 + 配送 + 退货 + 信用 + 直营店
   { id: "sales", Icon: ShoppingCart, label: "销售管理", perm: "MENU_SALES2", children: [
-    { id: "s2-overview",    path: "/sales2",             Icon: LayoutDashboard, label: "销售总览",   perm: "MENU_SALES2"           },
+    { id: "s2-overview",    path: "/sales2",             Icon: LayoutDashboard, label: "销售总览",   perm: "MENU_SALES2_DASHBOARD", altPerms: ["MENU_SALES2_ORDER", "MENU_SALES2_CUSTOMER", "MENU_SALES2_PRICE", "MENU_SALES2_DELIVERY", "MENU_SALES2_RETURN", "MENU_SALES2_CHANNEL", "MENU_SALES2_REPORT"] },
     { id: "s2-customers",   path: "/sales2/customers",   Icon: Users,           label: "客户管理",   perm: "MENU_SALES2_CUSTOMER"  },
     { id: "s2-channels",    path: "/sales2/channels",    Icon: Network,         label: "渠道管理",   perm: "MENU_SALES2_CHANNEL"   },
     { id: "s2-pricing",     path: "/sales2/pricing",     Icon: Tag,             label: "价格管理",   perm: "MENU_SALES2_PRICE"     },
@@ -149,6 +153,7 @@ const MENU: MenuItem[] = [
     { id: "s2-returns",     path: "/sales2/returns",     Icon: RefreshCw,       label: "退货管理",   perm: "MENU_SALES2_RETURN"    },
     { id: "s2-credit",      path: "/sales2/credit",      Icon: CreditCard,      label: "信用管理",   perm: "MENU_SALES2_CREDIT"    },
     { id: "s2-pos",         path: "/store-pos",          Icon: Banknote,        label: "直营店收银", perm: "MENU_STORE_POS"        },
+    { id: "s2-store-payment", path: "/store-payment",     Icon: Landmark,        label: "统一收款",   perm: "MENU_STORE_PAYMENT"    },
     { id: "s2-store-wb",    path: "/store",              Icon: Store,           label: "门店工作台", perm: "MENU_STORE_MGR"        },
     { id: "s2-store-recv",  path: "/store/receiving",    Icon: PackagePlus,     label: "收货验收",   perm: "MENU_STORE_MGR"        },
     { id: "s2-store-inv",   path: "/store/inventory",    Icon: Archive,         label: "门店库存",   perm: "MENU_STORE_MGR"        },
@@ -161,12 +166,14 @@ const MENU: MenuItem[] = [
 
   // 6. 财务管理 — 应收 + 应付 + 资金 + 费用 + 报表
   { id: "finance", Icon: Wallet, label: "财务管理", perm: "MENU_FIN2", children: [
-    { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2"            },
+    { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2_DASHBOARD"  },
     { id: "f2-ar",        path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收账款",   perm: "MENU_FIN2_AR"         },
     { id: "f2-ar-ledger", path: "/finance2/ar-ledger",          Icon: BookOpen,        label: "应收总账",   perm: "MENU_FIN2_AR_LEDGER"  },
+    { id: "f2-ar-recon",  path: "/finance2/ar-reconciliation",  Icon: Scale,           label: "应收三方对账", perm: "MENU_FIN2_AR_LEDGER"  },
+    { id: "f2-chanjet-sync", path: "/finance2/chanjet-sync",    Icon: BookOpen,        label: "好业财同步",  perm: "MENU_FIN2_AR"         },
     { id: "f2-ap",        path: "/finance2/ap",                 Icon: TrendingDown,    label: "应付账款",   perm: "MENU_FIN2_AP"         },
-    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH"       },
-    { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",   perm: "MENU_FIN2_CASH"       },
+    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH_VIEW" },
+    { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",   perm: "MENU_FIN2_CASH_TRANSFER" },
     { id: "f2-sf",        path: "/finance2/shareholder-funds",  Icon: Users,           label: "股东资金",   perm: "MENU_FIN2_SHAREHOLDER" },
     { id: "f2-expense",   path: "/finance2/expenses",           Icon: Receipt,         label: "费用管理",   perm: "MENU_FIN2_EXPENSE"    },
     { id: "f2-reimburse", path: "/finance2/reimbursements",     Icon: ScrollText,      label: "报销管理",   perm: "MENU_FIN2_REIMBURSE"  },
@@ -185,13 +192,13 @@ const MENU: MenuItem[] = [
 
   // 7. 审批中心 — 工作流统一入口（原"工作流"改名）
   { id: "approval", Icon: ListChecks, label: "审批中心", perm: "MENU_WORKFLOW", children: [
-    { id: "ap-todos",   path: "/workflow/todos",         Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW" },
-    { id: "ap-history", path: "/workflow/history",        Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW" },
-    { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW" },
-    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW" },
-    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW" },
-    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW" },
-    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW" },
+    { id: "ap-todos",   path: "/workflow/todos",         aliases: ["/workflow/tasks/todo"], Icon: ClipboardList,  label: "我的待办",   perm: "MENU_WORKFLOW_TODO"    },
+    { id: "ap-history", path: "/workflow/history",        aliases: ["/workflow/tasks/done"], Icon: History,        label: "我的已办",   perm: "MENU_WORKFLOW_HISTORY" },
+    { id: "ap-notify",  path: "/notifications",           Icon: Bell,           label: "通知中心",   perm: "MENU_WORKFLOW_NOTIFY"  },
+    { id: "ap-flows",   path: "/settings/approval-flows", Icon: Network,        label: "流程配置",   perm: "MENU_WORKFLOW_CONFIG",  requiredPerm: "E" },
+    { id: "ap-rules",   path: "/settings/approval-rules", Icon: Settings2,      label: "审批规则",   perm: "MENU_WORKFLOW_RULES",   requiredPerm: "C" },
+    { id: "ap-forms",   path: "/workflow/forms/runtime",  Icon: FileText,       label: "表单管理",   perm: "MENU_WORKFLOW_FORM",    requiredPerm: "E" },
+    { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW_METRICS", requiredPerm: "X" },
   ]},
 
   // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
@@ -206,30 +213,36 @@ const MENU: MenuItem[] = [
   ]},
 
   // 9. 主数据中心 — 全量主数据统一入口
-  // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>，superPerm=MENU_MASTER_DATA
-  //   作"管理全部主数据"超级兜底（持超级码即见全部；按实体授权者只见对应叶子）。
-  //   与后端 MasterDataTypeGuard 完全对齐（per-type OR 超级码）。
-  //   组织/公司/用户组织走 /api/org → MENU_SYS_ORG；字典→MENU_SETTINGS_DATA；概览/待审批=超级码本身。
+  // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>。
+  //   前端菜单不再用 MENU_MASTER_DATA 展示全部叶子；按实体授权者只见对应叶子。
+  //   具有全局管理职责的角色应显式持有对应 MENU_MD_* 原子权限或 * 通配。
+  //   组织/公司/事业群/数据范围已拆为原子码；字典→MENU_SETTINGS_DATA；概览=MENU_MD_CENTER；待审批按相关主数据叶子权限可见。
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
-    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_SYS_ORG"         },
-    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_SYS_ORG"         },
-    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL",    superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING",   superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MD_SKU",         superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MD_WAREHOUSE",   superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MD_STORE",       superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MD_DRIVER",      superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MD_VEHICLE",     superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
-    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MD_CENTER" },
+    { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG" },
+    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT" },
+    { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY" },
+    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT" },
+    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
+    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },
+    { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL" },
+    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT" },
+    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE" },
+    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING" },
+    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MD_SKU" },
+    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MD_WAREHOUSE" },
+    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MD_STORE" },
+    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MD_DRIVER" },
+    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MD_VEHICLE" },
+    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT" },
+    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT" },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
-    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MASTER_DATA"     },  // G3-B 审批
+    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MD_CUSTOMER",      altPerms: [
+      "MENU_MD_SUPPLIER", "MENU_MD_PROJECT", "MENU_MD_MATERIAL", "MENU_MD_PRODUCT",
+      "MENU_MD_GRADE", "MENU_MD_PACKAGING", "MENU_MD_SKU", "MENU_MD_WAREHOUSE",
+      "MENU_MD_STORE", "MENU_MD_DRIVER", "MENU_MD_VEHICLE", "MENU_MD_CASH_ACCOUNT",
+      "MENU_MD_BANK_ACCOUNT", "MENU_MD_ORG", "MENU_MD_COMPANY", "MENU_SETTINGS_DATA",
+    ] },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
     // G80 Phase 2：用户组织权限已并入「系统设置 · 用户管理」(/settings/users)，此入口下线
   ]},
@@ -237,16 +250,18 @@ const MENU: MenuItem[] = [
   // 10. 系统设置 — 用户/角色/权限/安全
   { id: "settings", Icon: Settings, label: "系统设置", perm: "MENU_SETTINGS_USER", children: [
     { id: "stg-users",       path: "/settings/users",         Icon: Users,       label: "用户管理",   perm: "MENU_SETTINGS_USER" },
-    { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色与权限", perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SYS_ORG"       },
-    { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-brand",       path: "/settings/brand",         Icon: Star,        label: "品牌配置",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-pda",         path: "/settings/pda-terminals", Icon: Smartphone,  label: "终端配置",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-pos",         path: "/settings/pos-config",    Icon: Store,       label: "收银配置",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-stock-cfg",   path: "/settings/store-stock",       Icon: ToggleRight, label: "库存分账",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-notify",      path: "/settings/notifications",     Icon: Bell,        label: "通知设置",   perm: "MENU_SETTINGS_IT"   },
+    { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色与权限", perm: "MENU_SETTINGS_ROLE" },
+    { id: "stg-psets",       path: "/settings/permission-sets", Icon: Layers,    label: "权限集",     perm: "MENU_SETTINGS_PERMISSION_SET" },
+    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SETTINGS_DATA_SCOPE" },
+    { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_CONFIG" },
+    { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_SECURITY" },
+    { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_AUDIT" },
+    { id: "stg-brand",       path: "/settings/brand",         Icon: Star,        label: "品牌配置",   perm: "MENU_SETTINGS_BRAND" },
+    { id: "stg-pda",         path: "/settings/pda-terminals", Icon: Smartphone,  label: "终端配置",   perm: "MENU_SETTINGS_TERMINAL" },
+    { id: "stg-pos",         path: "/settings/pos-config",    Icon: Store,       label: "收银配置",   perm: "MENU_SETTINGS_POS" },
+    { id: "stg-stock-cfg",   path: "/settings/store-stock",       Icon: ToggleRight, label: "库存分账",   perm: "MENU_SETTINGS_STOCK" },
+    { id: "stg-notify",      path: "/settings/notifications",     Icon: Bell,        label: "通知设置",   perm: "MENU_SETTINGS_NOTIFY" },
+    { id: "stg-online-users", path: "/settings/online-users",     Icon: Users,       label: "在线用户",   perm: "MENU_SETTINGS_ONLINE_USER" },
   ]},
 
   // 11. 验收试运行
@@ -259,9 +274,9 @@ const MENU: MenuItem[] = [
   { id: "sysops", Icon: Server, label: "系统运维", perm: "MENU_SYS_MONITOR", children: [
     { id: "sysops-monitor", path: "/system/health",      Icon: Activity,    label: "系统健康",   perm: "MENU_SYS_MONITOR" },
     { id: "sysops-alerts",  path: "/system/alerts",      Icon: ShieldAlert, label: "告警中心",   perm: "MENU_SYS_MONITOR" },
-    { id: "sysops-errors",  path: "/system/error-logs",  Icon: FileWarning, label: "错误日志",   perm: "MENU_SETTINGS_IT" },
-    { id: "sysops-configs", path: "/system/configs",     Icon: Settings2,   label: "配置治理",   perm: "MENU_SYS_CONFIG"  },
-    { id: "sysops-backup",  path: "/system/backup",      Icon: Database,    label: "备份策略",   perm: "MENU_SYS_CONFIG"  },
+    { id: "sysops-errors",  path: "/system/error-logs",  Icon: FileWarning, label: "错误日志",   perm: "MENU_SYS_MONITOR" },
+    { id: "sysops-configs", path: "/system/configs",     Icon: Settings2,   label: "配置治理",   perm: "MENU_SETTINGS_CONFIG"  },
+    { id: "sysops-backup",  path: "/system/backup",      Icon: Database,    label: "备份策略",   perm: "MENU_SETTINGS_CONFIG"  },
   ]},
 
 ];
@@ -274,6 +289,64 @@ const MENU: MenuItem[] = [
  *   3. permissions 含 'MENU_XXX:V' → true（命中）
  *   4. 否则 → false（不渲染该菜单项）
  */
+
+export type PermissionChecker = (menuCode?: string | null, permCode?: string) => boolean;
+
+export function canAccessMenuItem(item: MenuItem, hasPermission: PermissionChecker): boolean {
+  if (!item.perm) return true;
+  if (hasPermission(item.perm, item.requiredPerm)) return true;
+  if (item.superPerm && hasPermission(item.superPerm)) return true;
+  return item.altPerms?.some(code => hasPermission(code, item.requiredPerm)) ?? false;
+}
+
+export function getVisibleMenu(hasPermission: PermissionChecker): MenuItem[] {
+  return MENU.map(item => {
+    if (item.children) {
+      const kids = item.children.filter(child => canAccessMenuItem(child, hasPermission));
+      if (!kids.length) return null;
+      return { ...item, children: kids };
+    }
+    if (!canAccessMenuItem(item, hasPermission)) return null;
+    return item;
+  }).filter(Boolean) as MenuItem[];
+}
+
+export function getFirstAccessiblePath(hasPermission: PermissionChecker, groupId?: string): string | undefined {
+  const menu = getVisibleMenu(hasPermission);
+  const roots = groupId ? menu.filter(item => item.id === groupId) : menu;
+  for (const item of roots) {
+    if (item.path) return item.path;
+    const childPath = item.children?.find(child => child.path)?.path;
+    if (childPath) return childPath;
+  }
+  return undefined;
+}
+
+export function findMenuItemByPath(pathname: string): MenuItem | undefined {
+  let best: MenuItem | undefined;
+  const considerPath = (item: MenuItem, path: string | undefined) => {
+    if (!path) return;
+    if (pathname === path || pathname.startsWith(path + "/")) {
+      const bestLen = best?.path?.length ?? 0;
+      if (path.length > bestLen) best = item;
+    }
+  };
+  const consider = (item: MenuItem) => {
+    considerPath(item, item.path);
+    for (const alias of item.aliases ?? []) considerPath(item, alias);
+  };
+  for (const item of MENU) {
+    consider(item);
+    for (const child of item.children ?? []) consider(child);
+  }
+  return best;
+}
+
+export function canAccessPath(pathname: string, hasPermission: PermissionChecker): boolean {
+  const item = findMenuItemByPath(pathname);
+  if (!item) return true;
+  return canAccessMenuItem(item, hasPermission);
+}
 
 // ── Sidebar Component ────────────────────────────────────────────
 interface SidebarProps {
@@ -290,23 +363,13 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const expanded_ = pinned || hovered;
   const isOverlay = hovered && !pinned;
 
+  const canSeeMenuItem = useCallback((item: MenuItem) => canAccessMenuItem(item, hasPermission), [hasPermission]);
+
   // G12 父守卫 OR 逻辑：父项 perm 不再严格检查，子项过滤后非空即显示父项。
   // 之前问题：宋明光持 MENU_FIN2_CASH 但缺 MENU_FIN2 父权 → 整段财务节点被剔除。
   // PBAC 颗粒度原则：父节点只是分组容器，权限以叶子为准。
   // G8 性能：visibleMenu 仅在 user.permissions 变化时重算。
-  const visibleMenu = useMemo(() => MENU.map(item => {
-    if (item.children) {
-      // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
-      // G56-B：叶子有 superPerm 时，持有 superPerm 亦可见（超级码"管理全部"兜底）
-      const kids = item.children.filter(c =>
-        !c.perm || hasPermission(c.perm) || (!!c.superPerm && hasPermission(c.superPerm)));
-      if (!kids.length) return null;
-      return { ...item, children: kids };
-    }
-    // 叶子项：严格按 perm 检查
-    if (item.perm && !hasPermission(item.perm)) return null;
-    return item;
-  }).filter(Boolean) as MenuItem[], [hasPermission]);
+  const visibleMenu = useMemo(() => getVisibleMenu(hasPermission), [hasPermission]);
 
   const getActive = useCallback((path?: string) => {
     if (!path) return false;
@@ -432,7 +495,14 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
               {item.children && (
                 <Accordion open={isOpen}>
                   {/* Terminal 作业台入口：仅在生产管理分组顶部显示 */}
-                  {item.id === "production" && (
+                  {item.id === "production" && canSeeMenuItem({
+                    id: "terminal-packaging",
+                    path: "/terminal/packaging/dashboard",
+                    Icon: Zap,
+                    label: "包装作业台",
+                    perm: "MENU_PKG_OP",
+                    altPerms: ["MENU_PKG_MGR"],
+                  }) && (
                     <a
                       href="/terminal/packaging/dashboard"
                       target="_blank"
@@ -505,7 +575,11 @@ export function pathTitle(pathname: string): string | undefined {
   };
   for (const item of MENU) {
     consider(item.path, item.label);
+    for (const alias of item.aliases ?? []) consider(alias, item.label);
     for (const c of item.children ?? []) consider(c.path, c.label);
+    for (const c of item.children ?? []) {
+      for (const alias of c.aliases ?? []) consider(alias, c.label);
+    }
   }
   return best?.label;
 }

@@ -1,0 +1,6 @@
+db=phoenix_erp,user=phoenix_v3
+tables
+sys_user
+sys_user_orgs
+sys_user_role
+users

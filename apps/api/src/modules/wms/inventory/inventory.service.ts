@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager, OptimisticLockVersionMismatchError } from 'typeorm';
 import { WmsStockBalanceEntity } from '../entities/wms-stock-balance.entity';
 import { WmsStockLedgerEntity } from '../entities/wms-stock-ledger.entity';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 @Injectable()
 export class InventoryService {
@@ -11,6 +12,17 @@ export class InventoryService {
     @InjectEntityManager() private readonly em: EntityManager,
     private readonly cls: ClsService,
   ) {}
+
+  private assertWritableWarehouse(warehouseCode: string | null | undefined, label: string): void {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
+    if (!warehouseCode) {
+      throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
+    }
+    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权写入该${label}（仓库范围不匹配）`);
+    }
+  }
 
   /**
    * 乐观锁扣减库存
@@ -26,6 +38,7 @@ export class InventoryService {
     biz_type: string;
   }) {
     if (dto.qty <= 0) throw new BadRequestException('扣减数量必须大于0');
+    this.assertWritableWarehouse(dto.warehouse_code, '库存扣减');
     const storeCode = this.cls.get('user.storeCode') || 'ALL';
     const operator = this.cls.get('user.username') || 'SYSTEM';
 
@@ -96,6 +109,7 @@ export class InventoryService {
     biz_type: string;
   }) {
     if (dto.qty <= 0) throw new BadRequestException('入库数量必须大于0');
+    this.assertWritableWarehouse(dto.warehouse_code, '库存入库');
     const storeCode = this.cls.get('user.storeCode') || 'ALL';
     const operator = this.cls.get('user.username') || 'SYSTEM';
 

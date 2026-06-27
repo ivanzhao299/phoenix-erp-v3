@@ -52,6 +52,7 @@ const GUARDED_PREFIXES = [
   '/workflow',
   '/uat',
   '/system',
+  '/store-payment',
 ];
 
 /** 超级管理员专属路由（需要 ROLE_ADMIN 或 ROLE_SYSOPS） */
@@ -102,7 +103,15 @@ export function middleware(request: NextRequest) {
       const dest = token ? '/mobile/home' : '/mobile/login';
       return NextResponse.redirect(new URL(dest, request.url));
     }
-    const dest = token ? '/dashboard' : '/login';
+    // 桌面端根路径：已登录按角色落地——超管→集团驾驶舱，其余一律→运营工作台 /home，
+    //   杜绝普通角色经根路径/书签直达 CEO 画面。
+    let dest = '/login';
+    if (token) {
+      const p = parseJwtPayload(token);
+      const roles: string[] = p && Array.isArray(p.roles) ? p.roles : (p?.role ? [p.role] : []);
+      const isAdmin = roles.includes('ROLE_ADMIN') || roles.includes('ROLE_SYSOPS');
+      dest = isAdmin ? '/dashboard' : '/home';
+    }
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
@@ -160,10 +169,10 @@ export function middleware(request: NextRequest) {
     const roles: string[] = Array.isArray(payload.roles) ? payload.roles : (payload.role ? [payload.role] : []);
     const isAdmin = roles.includes('ROLE_ADMIN') || roles.includes('ROLE_SYSOPS');
     if (!isAdmin) {
-      // 无权限 → 重定向到 dashboard 并附带提示
-      const dashUrl = new URL('/dashboard', request.url);
-      dashUrl.searchParams.set('reason', 'forbidden');
-      return NextResponse.redirect(dashUrl);
+      // 无权限 → 回退到运营工作台 /home（而非 CEO 集团驾驶舱），附带提示
+      const homeUrl = new URL('/home', request.url);
+      homeUrl.searchParams.set('reason', 'forbidden');
+      return NextResponse.redirect(homeUrl);
     }
   }
 

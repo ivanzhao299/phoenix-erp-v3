@@ -1,11 +1,14 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 供应商主档  prc2_suppliers
  *  shared_scope: GROUP=集团共享 / COMPANY=单公司专用 / PROJECT=项目专用 */
 @Entity('prc2_suppliers')
+@Index('idx_prc2_sup_status', ['status'])
+@Index('idx_prc2_sup_scope', ['sharedScope'])
+@Index('idx_prc2_sup_company', ['ownerCompanyCode'], { where: '"owner_company_code" IS NOT NULL' })
 export class Prc2SupplierEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

@@ -1,13 +1,17 @@
 import { Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { IotSyncService } from './iot-sync.service';
 import { MonDeviceService } from './mon-device.service';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+
+const DEVICE_MENU = 'MENU_DEVICE_MONITOR';
 
 /**
  * /api/v3/iot/devices/* 路由
  * DeviceOverview.jsx 使用的聚合数据接口
  */
 @Controller('api/v3/iot/devices')
+@UseGuards(MenuGuard)
+@RequireMenu(DEVICE_MENU, 'V')
 export class IotV3Controller {
   constructor(
     private readonly iotSyncService: IotSyncService,
@@ -19,7 +23,6 @@ export class IotV3Controller {
    * 汇总所有鸡舍的实时快照数据，供"设备监控总览"页面使用
    */
   @Get('all-summary')
-  @UseGuards(AuthGuard('jwt'))
   async getAllSummary() {
     try {
       const em = (this.monDeviceService as any).entityManager;
@@ -160,7 +163,7 @@ export class IotV3Controller {
    * 触发全场实时数据采集
    */
   @Post('sync/realtime')
-  @UseGuards(AuthGuard('jwt'))
+  @RequireMenu(DEVICE_MENU, 'E')
   async syncRealtime() {
     try {
       const result = await this.iotSyncService.syncAllRealtime();

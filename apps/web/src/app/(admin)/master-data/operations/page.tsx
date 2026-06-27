@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
@@ -60,7 +60,8 @@ const TYPE_LABEL: Record<string, string> = {
   dict: '字典'
 };
 export default function OperationsPage() {
-  const { canView } = usePermission("MENU_MASTER_DATA");  // G79：补权限门(原零检查·安全洞)
+  const centerPerm = usePermission("MENU_MD_CENTER");
+  const canView = centerPerm.canView || centerPerm.isSuper;
   const [todo, setTodo] = useState<Todo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,15 +76,15 @@ export default function OperationsPage() {
       setLoading(false);
     }
   }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  const summary = todo ? {
+  const summary = useMemo(() => todo ? {
     pendingTotal: todo.pendingApprovals.reduce((s, p) => s + p.count, 0),
     missingTotal: todo.missingContact.reduce((s, m) => s + m.count, 0),
     duplicateTotal: todo.duplicateCodes.reduce((s, d) => s + d.count, 0),
     blockedTotal: todo.archiveBlocked.length
-  } : null;
+  } : null, [todo]);
+  useEffect(() => {
+    if (canView) void load();
+  }, [canView, load]);
   if (!canView) return <div className={u.emptyPad40}>无权限访问主数据运营工作台</div>;
   return <div>
       <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>

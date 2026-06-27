@@ -1,6 +1,7 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
+import { SalReturnOrderEntity } from './sal-return-order.entity';
 
 /**
  * 退货明细  sal_return_items
@@ -16,12 +17,19 @@ import {
  *   · accepted_qty 正常回库（inv_batches + inv_ledger SALE_RETURN）
  */
 @Entity('sal_return_items')
+@Index('idx_sal_return_items_return_ord', ['returnOrderId'])
+@Index('idx_sal_return_items_product', ['productCode'])
+@Index('idx_sal_return_items_sku_code', ['skuCode'], { where: '"sku_code" IS NOT NULL' })
 export class SalReturnItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
   @Column({ name: 'return_order_id', type: 'bigint' })
   returnOrderId: string;
+
+  @ManyToOne(() => SalReturnOrderEntity)
+  @JoinColumn({ name: 'return_order_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_return_items_return_order_id_fkey' })
+  returnOrder?: SalReturnOrderEntity;
 
   @Column({ name: 'sales_order_item_id', type: 'bigint', nullable: true })
   salesOrderItemId: string | null;

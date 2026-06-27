@@ -3,7 +3,7 @@
  * Production Stabilization Phase 1
  *
  * 路由：/api/system/configs/...
- * 安全：查看 MENU_SYS_CONFIG V，修改 MENU_SYS_CONFIG E（仅 ADMIN）
+ * 安全：查看 MENU_SETTINGS_CONFIG V，修改 MENU_SETTINGS_CONFIG E
  */
 import {
   Controller, Get, Patch, Param, Query, Body, UseGuards,
@@ -23,14 +23,14 @@ export class SysConfigsController {
 
   /** 查询配置列表（按分组） */
   @Get()
-  @RequireMenu('MENU_SYS_CONFIG', 'V')
+  @RequireMenu('MENU_SETTINGS_CONFIG', 'V')
   async list(@Query('group') group?: string) {
     return this.configsService.list(group);
   }
 
   /** 更新配置值 */
   @Patch(':key')
-  @RequireMenu('MENU_SYS_CONFIG', 'E')
+  @RequireMenu('MENU_SETTINGS_CONFIG', 'E')
   async update(
     @Param('key') key: string,
     @Body('value') value: string,

@@ -1,0 +1,3 @@
+ls: cannot access '/opt/phoenix-erp-backups/db/phoenix_erp_20260625-094749.sql.gz': Permission denied
+ls: cannot access '/opt/phoenix-erp-backups/db/phoenix_erp_20260625-094749.sql.gz.sha256': Permission denied
+backup_creation_success_exit=2

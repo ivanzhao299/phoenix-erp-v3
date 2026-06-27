@@ -1,11 +1,13 @@
 "use client";
 import PageHeader from "@/components/PageHeader";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+// g200e 模板 token(2026-06-20)
+import { moneyCell, actionPill } from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // B6: inv_ledger 真实列 — batch_no / change_type / qty_change / operator / store_code / ref_no / note / created_at
-//     旧版 txn_type / qty / txn_time / ref_doc_id / location_code / warehouse_code 全部不存在
 interface InvLedger {
   id: number;
   batch_no:    string;
@@ -17,17 +19,19 @@ interface InvLedger {
   note:        string;
   created_at:  string;
 }
-const TXN_CLS: Record<string, string> = {
-  FARM_IN:      s.textSuccess,
-  EGG_IN:       s.textSuccess,
-  PACK_DONE:    s.textSuccess,
-  TRANSFER_IN:  s.textInfo,
-  SALE_OUT:     s.textDanger,
-  TRANSFER_OUT: s.textWarning,
-  EGG_REVERSED: s.textDanger,
-  FARM_REVERSED: s.textDanger,
-  ADJUST:       s.textWarning,
-  SCRAP:        "",
+
+// g200e:tone 替代 s.textXxx 老 css
+const TXN_TONE: Record<string, Tone> = {
+  FARM_IN:       "success",
+  EGG_IN:        "success",
+  PACK_DONE:     "success",
+  TRANSFER_IN:   "info",
+  SALE_OUT:      "danger",
+  TRANSFER_OUT:  "warning",
+  EGG_REVERSED:  "danger",
+  FARM_REVERSED: "danger",
+  ADJUST:        "warning",
+  SCRAP:         "default",
 };
 
 export default function LedgerPage() {
@@ -38,9 +42,9 @@ export default function LedgerPage() {
       render: v => v ? String(v).slice(0,16).replace("T"," ") : "—" },
     { key: "batch_no",    title: t("ui.批次号", "批次号"),   width: 200 },
     { key: "change_type", title: t("ui.事务类型", "事务类型"), width: 130,
-      render: v => <span className={TXN_CLS[String(v)] ?? ""} style={{ fontWeight: 700, fontSize: 12 }}>{String(v)}</span> },
+      render: v => <span style={actionPill(TXN_TONE[String(v)] ?? "default")}>{String(v)}</span> },
     { key: "qty_change",  title: t("ui.数量变动", "数量变动"), width: 100, align: "right",
-      render: v => <b className={Number(v) >= 0 ? s.textSuccess : s.textDanger}>{Number(v) >= 0 ? `+${v}` : String(v)}</b> },
+      render: v => <span style={moneyCell(Number(v) >= 0 ? "success" : "danger", "md")}>{Number(v) >= 0 ? `+${v}` : String(v)}</span> },
     { key: "ref_no",      title: t("ui.关联单据", "关联单据"), width: 160 },
     { key: "operator",    title: t("ui.操作员", "操作员"),   width: 90  },
     { key: "store_code",  title: t("ui.门店", "门店"),     width: 90  },

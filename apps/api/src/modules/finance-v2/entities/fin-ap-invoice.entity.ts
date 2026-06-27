@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -24,6 +24,9 @@ import {
  *   UNPAID → PARTIAL → PAID
  */
 @Entity('fin_ap_invoices')
+@Index('idx_fin_ap_company_status', ['companyCode', 'status'])
+@Index('idx_fin_ap_supplier_status', ['supplierCode', 'status'], { where: '"supplier_code" IS NOT NULL' })
+@Index('idx_fin_ap_due_date', ['dueDate'], { where: '"due_date" IS NOT NULL' })
 export class FinApInvoiceEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

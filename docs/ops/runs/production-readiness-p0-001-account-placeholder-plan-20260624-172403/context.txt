@@ -1,0 +1,4 @@
+timestamp=20260624-172403
+mode=read-only-plan
+branch=codex/prod-readiness-remediation
+head=57ad7eb65d2433e1fc26779471b9b8644e03da42

@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { Paperclip, X, Loader2, FileText, ImageIcon } from 'lucide-react';
+import { isProtectedFileRef, isUnsafeAttachmentRef } from '@/lib/attachments';
 
 interface FileUploadInputProps {
   value?: string;
@@ -47,10 +48,14 @@ export function FileUploadInput({
         body: fd,
       });
       const json = await res.json().catch(() => ({}));
-      if (json.code === 200 && json.url) {
-        onChange(json.url);
+      if (json.code === 200 && json.fileId) {
+        onChange(String(json.fileId));
+      } else if (json.code === 200 && json.url && !isUnsafeAttachmentRef(String(json.url))) {
+        onChange(String(json.url));
+      } else if (json.code === 200 && json.url) {
+        setError('上传失败：服务端返回裸链接，已按安全策略拒绝');
       } else {
-        setError(json.message || '上传失败，请重试');
+        setError(json.message || '上传失败：服务端未返回受控 fileId');
       }
     } catch {
       setError('网络错误，请检查连接');
@@ -59,9 +64,15 @@ export function FileUploadInput({
     }
   }
 
-  const fileName = value ? decodeURIComponent(value.split('/').pop() || value) : '';
-  const isImage = value ? /\.(jpg|jpeg|png|webp)$/i.test(value) : false;
-  const fullUrl = value ? (value.startsWith('http') ? value : `${base}${value}`) : '';
+  const unsafeRef = value ? isUnsafeAttachmentRef(value) : false;
+  const protectedRef = value ? isProtectedFileRef(value) : false;
+  const fileName = value
+    ? protectedRef
+      ? value
+      : unsafeRef
+        ? '历史附件链接已禁用'
+        : decodeURIComponent(value.split('/').pop() || value)
+    : '';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -86,26 +97,24 @@ export function FileUploadInput({
           background: 'var(--bg-page)',
           fontSize: 13,
         }}>
-          {isImage
-            ? <ImageIcon size={14} color="var(--status-info)" style={{ flexShrink: 0 }} />
-            : <FileText  size={14} color="var(--color-accent)" style={{ flexShrink: 0 }} />
+          {protectedRef
+            ? <FileText size={14} color="var(--color-accent)" style={{ flexShrink: 0 }} />
+            : <ImageIcon size={14} color={unsafeRef ? 'var(--status-warning)' : 'var(--status-info)'} style={{ flexShrink: 0 }} />
           }
-          <a
-            href={fullUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={fileName}
+          <span
+            title={unsafeRef ? '安全策略禁止打开裸链接' : fileName}
             style={{
               flex: 1,
-              color: 'var(--color-primary)',
+              color: unsafeRef ? 'var(--status-warning)' : 'var(--color-primary)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               fontSize: 12,
             }}
           >
-            {fileName || '查看附件'}
-          </a>
+            {fileName || '附件'}
+          </span>
+          {protectedRef && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>受控</span>}
           {!disabled && (
             <>
               <button
@@ -178,21 +187,10 @@ export function FileUploadInput({
         <span style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 2 }}>{error}</span>
       )}
 
-      {/* 图片预览（仅图片���式） */}
-      {isImage && fullUrl && (
-        <a href={fullUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4 }}>
-          <img
-            src={fullUrl}
-            alt="附件预览"
-            style={{
-              maxWidth: '100%',
-              maxHeight: 160,
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              objectFit: 'contain',
-            }}
-          />
-        </a>
+      {value && (
+        <span style={{ fontSize: 12, color: unsafeRef ? 'var(--status-warning)' : 'var(--text-tertiary)', marginTop: 2 }}>
+          {unsafeRef ? '安全策略禁止裸链接访问，请重新上传生成受控附件引用。' : '附件已保存为受控引用，预览/下载需由业务模块受控端点提供。'}
+        </span>
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

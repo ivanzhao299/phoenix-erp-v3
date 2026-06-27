@@ -1,6 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../org/services/data-scope.service';
 
 /**
  * V3 WmsService
@@ -11,16 +13,59 @@ export class WmsService {
   constructor(
     @InjectEntityManager()
     private readonly em: EntityManager,
+    private readonly cls: ClsService,
   ) {}
+
+  private warehouseScope(column = 'warehouse_code', paramOffset = 0): { sql: string; params: unknown[] } {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) {
+      return { sql: '1=1', params: [] };
+    }
+    return {
+      sql: `(${column} = ANY($${paramOffset + 1}) OR ${column} IS NULL)`,
+      params: [scope.allowedWarehouseCodes],
+    };
+  }
+
+  private assertWritableWarehouse(warehouseCode: string | null | undefined, label: string): void {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
+    if (!warehouseCode) {
+      throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
+    }
+    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权写入该${label}（仓库范围不匹配）`);
+    }
+  }
+
+  private orderStoreScope(column = 'store_code', paramOffset = 0): { sql: string; params: unknown[] } {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal) return { sql: '1=1', params: [] };
+
+    const userStoreCode = String(this.cls.get('user.storeCode') || '').trim();
+    const allowedStoreCodes = Array.from(new Set([
+      ...(scope.allowedSiteCodes || []),
+      ...(userStoreCode && userStoreCode !== 'ALL' ? [userStoreCode] : []),
+    ].filter(Boolean)));
+
+    if (allowedStoreCodes.length === 0) return { sql: '1=0', params: [] };
+    return {
+      sql: `${column} = ANY($${paramOffset + 1})`,
+      params: [allowedStoreCodes],
+    };
+  }
 
   // ─── 入库 (Inbound) ─────────────────────────────────────────────────────────
   async getInboundDashboard() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const [pending] = await this.em.query(
-        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING'`,
+        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql}`,
+        scope.params,
       );
       const [processing] = await this.em.query(
-        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING'`,
+        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING' AND ${scope.sql}`,
+        scope.params,
       );
       return {
         code: 200,
@@ -37,8 +82,10 @@ export class WmsService {
 
   async getPendingInbound() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') ORDER BY created_at DESC`,
+        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -48,9 +95,10 @@ export class WmsService {
 
   async getInboundTask(taskNo: string) {
     try {
+      const scope = this.warehouseScope('warehouse_code', 1);
       const tasks = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE task_no = $1`,
-        [taskNo],
+        `SELECT * FROM wms_inbound WHERE task_no = $1 AND ${scope.sql}`,
+        [taskNo, ...scope.params],
       );
       if (!tasks.length) return { code: 404, msg: '任务不存在' };
       const items = await this.em.query(
@@ -112,6 +160,7 @@ export class WmsService {
         return { code: 404, msg: `入库单 ${task_no} 不存在` };
       }
       const task = tasks[0];
+      this.assertWritableWarehouse(task.warehouse_code || null, `入库单 ${task_no}`);
       if (task.status === 'COMPLETED') {
         return { code: 400, msg: `入库单 ${task_no} 已确认（COMPLETED），请勿重复操作`, idempotent: true };
       }
@@ -136,6 +185,7 @@ export class WmsService {
         const baseBatchNo = item.batch_no ||
           `IBN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
         const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
+        this.assertWritableWarehouse(warehouseCode, `入库明细 ${baseBatchNo}`);
         const locationCode  = item.location_code || 'INBOUND-DOCK';
 
         // V2 fidelity: 拦截 EXPIRED / LOCKED / QUARANTINE 已存在批次的累加
@@ -219,6 +269,7 @@ export class WmsService {
     const storeCode = ctx.storeCode || 'ALL';
     const operator = ctx.operator || 'SYS';
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
+    this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
     const batchNos: string[] = [];
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
@@ -250,11 +301,14 @@ export class WmsService {
   // ─── 出库 (Outbound) ────────────────────────────────────────────────────────
   async getOutboundDashboard() {
     try {
+      const scope = this.orderStoreScope('store_code', 0);
       const [pending] = await this.em.query(
-        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'approved'`,
+        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'approved' AND ${scope.sql}`,
+        scope.params,
       );
       const [allocated] = await this.em.query(
-        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'allocated'`,
+        `SELECT COUNT(*) as count FROM ord_orders WHERE status = 'allocated' AND ${scope.sql}`,
+        scope.params,
       );
       return {
         code: 200,
@@ -267,8 +321,10 @@ export class WmsService {
 
   async getPendingOutbound() {
     try {
+      const scope = this.orderStoreScope('store_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM ord_orders WHERE status IN ('approved', 'locked', 'allocated') ORDER BY created_at DESC`,
+        `SELECT * FROM ord_orders WHERE status IN ('approved', 'locked', 'allocated') AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -278,9 +334,10 @@ export class WmsService {
 
   async getOutboundOrder(orderNo: string) {
     try {
+      const scope = this.orderStoreScope('store_code', 1);
       const orders = await this.em.query(
-        `SELECT * FROM ord_orders WHERE order_no = $1`,
-        [orderNo],
+        `SELECT * FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        [orderNo, ...scope.params],
       );
       if (!orders.length) return { code: 404, msg: '订单不存在' };
       const items = await this.em.query(
@@ -306,9 +363,10 @@ export class WmsService {
     const items: Array<{ batch_no: string; qty: number }> = Array.isArray(body?.items) ? body.items : [];
 
     return await this.em.transaction(async (manager) => {
+      const scope = this.orderStoreScope('store_code', 1);
       const ords = await manager.query(
-        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1`,
-        [orderNo],
+        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        [orderNo, ...scope.params],
       );
       if (!ords.length) return { code: 404, msg: '订单不存在' };
       const order = ords[0];
@@ -326,12 +384,13 @@ export class WmsService {
 
           // 检查余量
           const [batch] = await manager.query(
-            `SELECT qty FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
+            `SELECT qty, warehouse_code FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
             [it.batch_no],
           );
           if (!batch) {
             throw new Error(`batch ${it.batch_no} 不存在`);
           }
+          this.assertWritableWarehouse(batch.warehouse_code, `出库批次 ${it.batch_no}`);
           if (Number(batch.qty) < qty) {
             throw new Error(`batch ${it.batch_no} 余量 ${batch.qty} 不足 ${qty}`);
           }
@@ -366,11 +425,12 @@ export class WmsService {
   async receiveSignOrder(orderNo: string, body: any, user: any) {
     const receiver = body?.receiver || user?.username || 'SYS';
     return await this.em.transaction(async (manager) => {
+      const scope = this.orderStoreScope('store_code', 1);
       const result = await manager.query(
         `UPDATE ord_orders SET status='received', updated_at=CURRENT_TIMESTAMP
-         WHERE order_no = $1
+         WHERE order_no = $1 AND ${scope.sql}
          RETURNING order_no, store_code`,
-        [orderNo],
+        [orderNo, ...scope.params],
       );
       if (!result.length) return { code: 404, msg: '订单不存在' };
 
@@ -402,8 +462,10 @@ export class WmsService {
   // ─── 库存 (Inventory) ───────────────────────────────────────────────────────
   async getInventoryBatches() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM inv_batches WHERE qty > 0 ORDER BY created_at DESC LIMIT 200`,
+        `SELECT * FROM inv_batches WHERE qty > 0 AND ${scope.sql} ORDER BY created_at DESC LIMIT 200`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -413,8 +475,10 @@ export class WmsService {
 
   async getReceivingOrders() {
     try {
+      const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status = 'PENDING' ORDER BY created_at DESC`,
+        `SELECT * FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql} ORDER BY created_at DESC`,
+        scope.params,
       );
       return { code: 200, data };
     } catch {
@@ -435,6 +499,13 @@ export class WmsService {
   }
 
   async confirmReceivingOrder(orderNo: string, _body: any, _user: any) {
+    const rows = await this.em.query(
+      `SELECT warehouse_code FROM wms_inbound WHERE task_no = $1 LIMIT 1`,
+      [orderNo],
+    ).catch(() => []);
+    if (rows.length > 0) {
+      this.assertWritableWarehouse(rows[0].warehouse_code || null, `收货单 ${orderNo}`);
+    }
     await this.em.query(
       `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
       [orderNo],
@@ -525,6 +596,8 @@ export class WmsService {
     if (!from_warehouse || !to_warehouse || from_warehouse === to_warehouse) {
       return { code: 400, msg: '源/目标仓库必填且不能相同' };
     }
+    this.assertWritableWarehouse(from_warehouse, '库存调拨源仓库');
+    this.assertWritableWarehouse(to_warehouse, '库存调拨目标仓库');
     if (!Array.isArray(items) || items.length === 0) {
       return { code: 400, msg: '调拨明细 items 必填' };
     }
@@ -549,11 +622,12 @@ export class WmsService {
         if (qty <= 0 || !it?.batch_no) continue;
 
         const [src] = await manager.query(
-          `SELECT batch_no, product_code, qty, expire_date, store_code
+          `SELECT batch_no, product_code, qty, expire_date, store_code, warehouse_code
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [it.batch_no],
         );
         if (!src) throw new Error(`源 batch ${it.batch_no} 不存在`);
+        this.assertWritableWarehouse(src.warehouse_code, `调拨源批次 ${it.batch_no}`);
         if (Number(src.qty) < qty) throw new Error(`源 batch ${it.batch_no} 余量 ${src.qty} 不足 ${qty}`);
 
         // 源 -
@@ -600,6 +674,13 @@ export class WmsService {
 
     return await this.em.transaction(async (manager) => {
       // 标记盘点单已审核
+      const stocktakeRows = await manager.query(
+        `SELECT warehouse_code FROM wms_stocktake WHERE stocktake_no=$1 LIMIT 1`,
+        [stocktake_no],
+      ).catch(() => []);
+      if (stocktakeRows.length > 0) {
+        this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
+      }
       await manager.query(
         `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now() WHERE stocktake_no=$2`,
         [opName, stocktake_no],
@@ -607,6 +688,12 @@ export class WmsService {
 
       // 差额必须有 batch_no 才能真扣账
       if (batch_no && diff !== 0) {
+        const batchRows = await manager.query(
+          `SELECT warehouse_code FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
+          [batch_no],
+        );
+        if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
+        this.assertWritableWarehouse(batchRows[0].warehouse_code, `盘点批次 ${batch_no}`);
         await manager.query(
           `UPDATE inv_batches SET qty = qty + $1::int, updated_at = now() WHERE batch_no = $2`,
           [diff, batch_no],
@@ -714,6 +801,13 @@ export class WmsService {
 
     return await this.em.transaction(async (manager) => {
       // loss-report 复用 wms_stocktake 表 + LR- 前缀（前端约定）
+      const lossRows = await manager.query(
+        `SELECT warehouse_code FROM wms_stocktake WHERE stocktake_no=$1 LIMIT 1`,
+        [loss_no],
+      ).catch(() => []);
+      if (lossRows.length > 0) {
+        this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
+      }
       await manager.query(
         `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()
          WHERE stocktake_no=$2`,
@@ -721,6 +815,12 @@ export class WmsService {
       );
 
       if (batch_no) {
+        const batchRows = await manager.query(
+          `SELECT warehouse_code FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
+          [batch_no],
+        );
+        if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
+        this.assertWritableWarehouse(batchRows[0].warehouse_code, `损耗批次 ${batch_no}`);
         await manager.query(
           `UPDATE inv_batches SET qty = qty - $1::int, updated_at = now() WHERE batch_no = $2`,
           [qty, batch_no],

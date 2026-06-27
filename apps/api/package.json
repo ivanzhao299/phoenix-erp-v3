@@ -27,7 +27,13 @@
     "test:regr:quality": "bash scripts/quality-regression.sh",
     "test:regr:pda": "bash scripts/pda-regression.sh",
     "test:regr:bi": "bash scripts/bi-regression.sh",
-    "test:regr": "bash scripts/system-regression.sh && bash scripts/breeding-regression.sh && bash scripts/packaging-regression.sh && bash scripts/wms-regression.sh && bash scripts/pos-store-regression.sh && bash scripts/finance-regression.sh && bash scripts/quality-regression.sh && bash scripts/pda-regression.sh && bash scripts/bi-regression.sh"
+    "test:regr": "bash scripts/system-regression.sh && bash scripts/breeding-regression.sh && bash scripts/packaging-regression.sh && bash scripts/wms-regression.sh && bash scripts/pos-store-regression.sh && bash scripts/finance-regression.sh && bash scripts/quality-regression.sh && bash scripts/pda-regression.sh && bash scripts/bi-regression.sh",
+    "typeorm": "typeorm -d dist/database/data-source.js",
+    "migration:generate": "pnpm build && pnpm typeorm migration:generate",
+    "migration:create": "typeorm migration:create",
+    "migration:run": "pnpm build && pnpm typeorm migration:run",
+    "migration:revert": "pnpm build && pnpm typeorm migration:revert",
+    "migration:show": "pnpm build && pnpm typeorm migration:show"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

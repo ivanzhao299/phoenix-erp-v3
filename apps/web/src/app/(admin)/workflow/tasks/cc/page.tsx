@@ -7,6 +7,15 @@ import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowCcTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+function statusToneCC(status: string): Tone {
+  if (status === "APPROVED") return "success";
+  if (status === "RUNNING") return "info";
+  if (status === "REJECTED" || status === "CANCELED") return "danger";
+  return "default";
+}
 export default function WorkflowCcPage() {
   const [rows, setRows] = useState<WorkflowCcTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -47,7 +56,7 @@ export default function WorkflowCcPage() {
     }
   }
   return <div>
-      <PageHeader title="抄送我的" subtitle="查看流程知会、同步审批结果和业务变更，不需要审批也能保留阅读记录" breadcrumb={["工作流", "抄送我的"]} actions={<Link href="/workflow/start" className={s.btnPrimary}>发起申请</Link>} />
+      <PageHeader title="抄送我的" subtitle="查看流程知会、同步审批结果和业务变更，不需要审批也能保留阅读记录" breadcrumb={["工作流", "抄送我的"]} actions={<Link href="/workflow/start" style={primaryActionButton}>发起申请</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={summaryStyle}>
@@ -59,8 +68,8 @@ export default function WorkflowCcPage() {
           display: "flex",
           gap: 8
         }}>
-            <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}>刷新</button>
-            <Link href="/workflow/tasks/todo" className={s.btnSecondary}>去处理待办</Link>
+            <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>刷新</button>
+            <Link href="/workflow/tasks/todo" style={secondaryActionButton}>去处理待办</Link>
           </div>
         </div>
       </section>
@@ -73,7 +82,7 @@ export default function WorkflowCcPage() {
                 <h3 className={s.cardTitle}>知会列表</h3>
                 <p className={`${s.modalDesc} ${u.mt4}`}>未读会自动排在前面。</p>
               </div>
-              {unreadCount ? <span className={`${s.badge} ${s.badgeWarning}`}>{unreadCount} 条未读</span> : <span className={`${s.badge} ${s.badgeSuccess}`}>已全部阅读</span>}
+              {unreadCount ? <span style={actionPill('warning')}>{unreadCount} 条未读</span> : <span style={actionPill('success')}>已全部阅读</span>}
             </div>
 
             {rows.length ? <div style={listStyle}>
@@ -121,8 +130,8 @@ export default function WorkflowCcPage() {
               <WorkflowDataView data={selected.form_data_json || {}} schema={selected.form_schema_json} />
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看流程详情</Link>
-                <button type="button" className={s.btnPrimary} disabled={loading || Boolean(selected.read_at)} onClick={() => markRead()}>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看流程详情</Link>
+                <button type="button" style={primaryActionButton} disabled={loading || Boolean(selected.read_at)} onClick={() => markRead()}>
                   {selected.read_at ? "已读" : loading ? "处理中..." : "标记已读"}
                 </button>
               </div>
@@ -173,6 +182,7 @@ function statusText(status?: string) {
   return status || "-";
 }
 function statusBadgeClass(status?: string) {
+  // g200j:保留 fallback className 旧 badge,实际渲染应统一改用 statusToneCC + actionPill
   if (status === "APPROVED") return `${s.badge} ${s.badgeSuccess}`;
   if (status === "RUNNING") return `${s.badge} ${s.badgeInfo}`;
   if (status === "REJECTED" || status === "CANCELED") return `${s.badge} ${s.badgeDanger}`;

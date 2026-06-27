@@ -1,0 +1,26 @@
+{
+  "agent": "A5-Data-Readiness",
+  "branch": "w5-a5-data-readiness",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+  "status": "COMPLETED_MERGED",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [
+    {
+      "label": "target worktree",
+      "message": "docs(ops): record generated ops artifacts",
+      "files": [
+        "docs/ops/A5_STORE_PAYMENT_PILOT_READINESS_EVIDENCE_REPORT.md"
+      ]
+    }
+  ],
+  "rebase": "completed",
+  "merge": "completed",
+  "gate": "PASS",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No"
+}

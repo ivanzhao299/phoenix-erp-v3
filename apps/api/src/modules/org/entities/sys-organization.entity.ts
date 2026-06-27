@@ -2,11 +2,25 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
+  Check,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_organizations')
+@Check('chk_org_type', `org_type IN ('GROUP','COMPANY','FACTORY','PROJECT','WAREHOUSE','STORE','DEPARTMENT','BU','SITE','VIRTUAL_ORGANIZATION')`)
+@Index('idx_orgs_parent', ['parentId'])
+@Index('idx_orgs_type', ['orgType'])
+@Index('idx_orgs_status', ['status'])
+@Index('idx_orgs_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_orgs_code', ['orgCode'])
+@Index('idx_orgs_parent_code', ['parentCode'], { where: '"parent_code" IS NOT NULL' })
+@Index('idx_orgs_site_code', ['siteCode'], { where: '"site_code" IS NOT NULL' })
+@Index('idx_orgs_business_type', ['siteBusinessType'])
+@Index('idx_orgs_sort', ['sortOrder', 'orgCode'])
 export class SysOrganizationEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: number;
@@ -19,6 +33,17 @@ export class SysOrganizationEntity {
 
   @Column({ name: 'parent_id', type: 'bigint', nullable: true })
   parentId: number | null;
+
+  // g197-F 探针: @JoinColumn 加 foreignKeyConstraintName 显式指定 FK 名,
+  // 让 typeorm 比对时按 PG 实际名 sys_organizations_parent_id_fkey 匹配
+  // (typeorm 0.3.10+ 支持此选项)。
+  @ManyToOne(() => SysOrganizationEntity)
+  @JoinColumn({
+    name: 'parent_id',
+    referencedColumnName: 'id',
+    foreignKeyConstraintName: 'sys_organizations_parent_id_fkey',
+  })
+  parent?: SysOrganizationEntity;
 
   @Column({ name: 'org_type', type: 'varchar', length: 32 })
   orgType: 'GROUP' | 'BU' | 'COMPANY' | 'SITE' | 'FACTORY' | 'PROJECT' | 'WAREHOUSE' | 'STORE' | 'DEPARTMENT';

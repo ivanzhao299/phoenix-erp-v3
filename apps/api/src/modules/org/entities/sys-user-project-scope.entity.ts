@@ -2,10 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
+  Unique,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_user_project_scopes')
+@Index('idx_user_proj_user', ['userId'])
+@Unique('uq_user_project', ['userId', 'projectCode'])
 export class SysUserProjectScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

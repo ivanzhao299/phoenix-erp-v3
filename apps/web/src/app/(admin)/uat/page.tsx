@@ -45,6 +45,20 @@ const STATUS_COLOR: Record<string, string> = {
   CLOSED: "var(--text-secondary)",
   REJECTED: "var(--status-danger)"
 };
+// g200n: DB enum → 中文标签([[feedback-hardcoded-english-to-chinese]])
+const STATUS_LABEL: Record<string, string> = {
+  OPEN:        "待处理",
+  IN_PROGRESS: "处理中",
+  RESOLVED:    "已解决",
+  CLOSED:      "已关闭",
+  REJECTED:    "已驳回",
+};
+const SEVERITY_LABEL: Record<string, string> = {
+  LOW:      "低",
+  MEDIUM:   "中",
+  HIGH:     "高",
+  CRITICAL: "严重",
+};
 function Badge({
   label,
   color
@@ -250,11 +264,11 @@ export default function UATPage() {
       flexWrap: "wrap",
       marginBottom: 28
     }}>
-        <MetricCard title="未解决问题" value={feedbackSummary?.openCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} sub="OPEN + IN_PROGRESS" />
-        <MetricCard title="CRITICAL 问题" value={feedbackSummary?.criticalCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} sub="最高严重度" />
+        <MetricCard title="未解决问题" value={feedbackSummary?.openCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} sub="待处理 + 处理中" />
+        <MetricCard title="严重问题" value={feedbackSummary?.criticalCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} sub="最高严重度" />
         <MetricCard title="验收通过率" value={avgPassPct !== null ? `${avgPassPct}%` : "—"} sub="所有模块均值" />
         <MetricCard title="培训场次" value={trainingSummary?.totalCount ?? "—"} sub="累计已完成" />
-        <MetricCard title="上线准备度" value={readinessScore !== null ? `${readinessScore}` : "—"} borderColor={readinessScore !== null ? readinessColor : undefined} valueColor={readinessScore !== null ? readinessColor : undefined} sub={readinessScore !== null ? readinessScore >= 80 ? "✅ 可以上线" : readinessScore >= 60 ? "⚠️ 需要改进" : "❌ 不建议上线" : undefined} />
+        <MetricCard title="上线准备度" value={readinessScore !== null ? `${readinessScore}` : "—"} borderColor={readinessScore !== null ? readinessColor : undefined} valueColor={readinessScore !== null ? readinessColor : undefined} sub={readinessScore !== null ? readinessScore >= 80 ? "可以上线" : readinessScore >= 60 ? "需要改进" : "不建议上线" : undefined} />
       </div>
 
       {/* ── Tabs ── */}
@@ -393,13 +407,13 @@ function FeedbacksTab() {
         <select style={selectStyle} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">全部状态</option>
           {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"].map(s => <option key={s} value={s}>
-              {s}
+              {STATUS_LABEL[s] ?? s}
             </option>)}
         </select>
         <select style={selectStyle} value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
           <option value="">全部严重度</option>
           {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map(s => <option key={s} value={s}>
-              {s}
+              {SEVERITY_LABEL[s] ?? s}
             </option>)}
         </select>
         <button onClick={() => setShowCreateForm(v => !v)} style={{
@@ -487,7 +501,7 @@ function FeedbacksTab() {
             severity: e.target.value
           })}>
                 {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map(s => <option key={s} value={s}>
-                    {s}
+                    {SEVERITY_LABEL[s] ?? s}
                   </option>)}
               </select>
             </div>
@@ -613,7 +627,7 @@ function FeedbacksTab() {
                   }
                 }))}>
                         {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"].map(s => <option key={s} value={s}>
-                            {s}
+                            {STATUS_LABEL[s] ?? s}
                           </option>)}
                       </select>
                       <input style={{
@@ -1507,7 +1521,7 @@ function ReadinessTab({
 }) {
   const score = readiness?.score ?? null;
   const scoreColor = score === null ? "var(--text-secondary)" : score >= 80 ? "var(--status-success)" : score >= 60 ? "var(--status-warning)" : "var(--status-danger)";
-  const statusLabel = score === null ? "—" : score >= 80 ? "✅ 可以上线" : score >= 60 ? "⚠️ 需要改进" : "❌ 不建议上线";
+  const statusLabel = score === null ? "—" : score >= 80 ? "可以上线" : score >= 60 ? "需要改进" : "不建议上线";
   return <div>
       {/* Score display */}
       <div style={{
@@ -1552,7 +1566,7 @@ function ReadinessTab({
           fontWeight: 600,
           fontSize: 13
         }}>
-              ⚠️ 存在 CRITICAL 级别未解决问题，强烈建议上线前处理
+              存在严重级别未解决问题,强烈建议上线前处理
             </div>}
           <button onClick={onRefresh} style={{
           padding: "8px 20px",

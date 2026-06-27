@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -23,6 +23,16 @@ import {
  * status:     ACTIVE / FROZEN / BLACKLIST
  */
 @Entity('sal_customers')
+@Index('idx_sal_customers_company', ['companyCode'])
+@Index('idx_sal_customers_type', ['customerType'])
+@Index('idx_sal_customers_status', ['status'])
+@Index('idx_sal_cust_credit_status', ['creditStatus'])
+@Index('idx_sal_cust_auto_frozen', ['autoFrozen'])
+@Index('idx_sal_cust_risk_level', ['riskLevel'])
+@Index('idx_sal_cust_last_overdue', ['lastOverdueAt'])
+// idx_sal_cust_legacy_code 跳过:DB 列 legacy_customer_code 在 entity 缺
+// (g197 真业务漂移; entity 现状里没有这字段, 加 @Index 会让 typeorm
+// metadata build 阶段炸 "column is missing in the entity")
 export class SalCustomerEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

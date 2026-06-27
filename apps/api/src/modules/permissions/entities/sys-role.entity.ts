@@ -1,10 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, CreateDateColumn } from 'typeorm';
 
 /**
  * sys_role — 角色表（V3 RBAC 设计）
  * 对应 ddl/01_create_rbac_tables.sql
  */
 @Entity('sys_role')
+@Index('idx_sys_role_status', ['status'])
+@Check('chk_sys_role_status', `status IN ('ACTIVE','DEPRECATED')`)
 export class SysRoleEntity {
   @PrimaryGeneratedColumn({ name: 'role_id', type: 'bigint' })
   role_id: number;
@@ -32,6 +34,13 @@ export class SysRoleEntity {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  /** 生命周期：ACTIVE 正常 / DEPRECATED 已停用（从编辑页隐藏，保留可恢复） */
+  @Column({ type: 'varchar', length: 16, default: 'ACTIVE' })
+  status: string;
+
+  @Column({ name: 'deprecated_at', type: 'timestamp', nullable: true })
+  deprecated_at: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   created_at: Date;

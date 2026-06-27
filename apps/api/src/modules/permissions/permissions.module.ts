@@ -7,8 +7,6 @@ import { SysRoleMenuPermissionEntity } from './entities/sys-role-menu-permission
 import { SysRoleConflictEntity } from './entities/sys-role-conflict.entity';
 import { PermissionsService } from './permissions.service';
 import { PermissionsController } from './permissions.controller';
-import { PermissionSetsService } from './permission-sets.service';
-import { PermissionSetsController } from './permission-sets.controller';
 
 @Module({
   imports: [
@@ -20,8 +18,8 @@ import { PermissionSetsController } from './permission-sets.controller';
       SysRoleConflictEntity,
     ]),
   ],
-  controllers: [PermissionsController, PermissionSetsController],
-  providers: [PermissionsService, PermissionSetsService],
-  exports: [PermissionsService, PermissionSetsService],
+  controllers: [PermissionsController],
+  providers: [PermissionsService],
+  exports: [PermissionsService],
 })
 export class PermissionsModule {}

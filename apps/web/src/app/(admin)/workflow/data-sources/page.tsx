@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi } from "@/lib/workflow-api";
 import { WORKFLOW_DATA_CATALOG, dataSourceConfig } from "@/lib/workflow-data-catalog";
 import u from "@/styles/uix-utils.module.css";
@@ -278,7 +279,7 @@ export default function WorkflowDataSourcesPage() {
         sourceCode: selectedCatalog.code,
         name: `${selectedCatalog.name}自动审批流程`,
         category: "通用",
-        approvalRole: "ROLE_ADMIN"
+        approvalRole: "ROLE_FIN_CFO"
       });
       const data = res.data || {};
       const definition = data.definition as {
@@ -342,13 +343,13 @@ export default function WorkflowDataSourcesPage() {
               </div>
             </div>
             <div className={s.toolbarRight}>
-              <button type="button" className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
+              <button type="button" style={secondaryActionButton} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
                 重新巡检
               </button>
-              <button type="button" className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
+              <button type="button" style={secondaryActionButton} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
                 刷新字段元数据
               </button>
-              <button type="button" className={s.btnPrimary} disabled={busy} onClick={syncDefaults}>
+              <button type="button" style={primaryActionButton} disabled={busy} onClick={syncDefaults}>
                 补齐标准数据源
               </button>
             </div>
@@ -395,19 +396,19 @@ export default function WorkflowDataSourcesPage() {
               {selectedMetadata.columns.length > 12 ? <span className={s.tag}>+{selectedMetadata.columns.length - 12} 个字段</span> : null}
             </div> : null}
           <div style={actionsStyle}>
-            <button type="button" className={s.btnSecondary} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
+            <button type="button" style={secondaryActionButton} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
               {existingCodes.has(selectedCatalog.code) ? "该对象已创建" : `创建 ${selectedCatalog.name}`}
             </button>
-            {existingCodes.has(selectedCatalog.code) ? <button type="button" className={s.btnSecondary} disabled={busy} onClick={() => show(selectedCatalog.code)}>
+            {existingCodes.has(selectedCatalog.code) ? <button type="button" style={secondaryActionButton} disabled={busy} onClick={() => show(selectedCatalog.code)}>
                 预览 {selectedCatalog.name}
               </button> : null}
-            {existingCodes.has(selectedCatalog.code) ? <button type="button" className={s.btnSecondary} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
+            {existingCodes.has(selectedCatalog.code) ? <button type="button" style={secondaryActionButton} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
                 生成字段建议
               </button> : null}
-            {existingCodes.has(selectedCatalog.code) ? <button type="button" className={s.btnPrimary} disabled={busy} onClick={createFormFromSelectedSource}>
+            {existingCodes.has(selectedCatalog.code) ? <button type="button" style={primaryActionButton} disabled={busy} onClick={createFormFromSelectedSource}>
                 生成表单
               </button> : null}
-            {existingCodes.has(selectedCatalog.code) ? <button type="button" className={s.btnPrimary} disabled={busy} onClick={createWorkflowFromSelectedSource}>
+            {existingCodes.has(selectedCatalog.code) ? <button type="button" style={primaryActionButton} disabled={busy} onClick={createWorkflowFromSelectedSource}>
                 生成流程
               </button> : null}
           </div>
@@ -481,10 +482,10 @@ function GeneratedLinks({
   return <div style={generatedLinksStyle}>
       <strong>{links.title}</strong>
       <div style={generatedLinkActionsStyle}>
-        {links.start ? <Link className={s.btnPrimary} href={links.start}>立即发起</Link> : null}
-        {links.designer ? <Link className={s.btnSecondary} href={links.designer}>流程设计器</Link> : null}
-        {links.formDesigner ? <Link className={s.btnSecondary} href={links.formDesigner}>表单设计器</Link> : null}
-        {links.list ? <Link className={s.btnSecondary} href={links.list}>查看列表</Link> : null}
+        {links.start ? <Link style={primaryActionButton} href={links.start}>立即发起</Link> : null}
+        {links.designer ? <Link style={secondaryActionButton} href={links.designer}>流程设计器</Link> : null}
+        {links.formDesigner ? <Link style={secondaryActionButton} href={links.formDesigner}>表单设计器</Link> : null}
+        {links.list ? <Link style={secondaryActionButton} href={links.list}>查看列表</Link> : null}
       </div>
     </div>;
 }

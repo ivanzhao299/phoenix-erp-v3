@@ -1,9 +1,10 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 出资台账  shr_capital_contributions */
 @Entity('shr_capital_contributions')
+@Index('idx_shr_contrib_project', ['projectCode', 'shareholderCode'])
 export class ShrCapitalContributionEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

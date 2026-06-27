@@ -1,28 +1,40 @@
 import 'dotenv/config';            // 必须在 AppModule 之前 — 否则 auth.service 文件级 const JWT_SECRET 在 ConfigModule 加载 .env 之前就取了 FALLBACK，与 jwt.strategy 的真实 secret 错配
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { friendlyValidationMessage } from './common/validation-message';   // G140：校验错误中文化
 import * as express from 'express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 
 async function bootstrap() {
+  const isProd = process.env.NODE_ENV === 'production';
+  // Keep this guard before Nest app creation so a bad production env fails closed.
+  if (isProd && process.env.ENABLE_DEV_LOGIN === 'true') {
+    console.error('[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.');
+    process.exit(1);
+  }
+
   // ✅ bodyParser: false — 禁用 NestJS 内置的 100KB body-parser
   //    否则内置 parser 先于自定义中间件执行，logo base64 会触发 413
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
 
   // ── 静态文件：合同/单据上传目录 ───────────────────────────────────────────
+  // 生产默认禁用 /uploads 裸目录暴露；历史兼容需显式 ENABLE_LEGACY_UPLOADS_STATIC=true。
+  // 新上传链路返回 file_metadata 的 FILE-* 受控引用，不再返回裸文件路径。
   const uploadsDir = join(process.cwd(), 'uploads');
   mkdirSync(uploadsDir, { recursive: true });
-  app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
+  if (!isProd || process.env.ENABLE_LEGACY_UPLOADS_STATIC === 'true') {
+    app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
+  } else {
+    console.warn('[SECURITY] /uploads static serving disabled in production. Use protected file endpoints.');
+  }
 
   // ── Body 大小限制（必须在所有中间件最前面注册）────────────────────────────
   // Logo base64 最大约 800KB（前端已限制），正文 JSON 预留至 5MB
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ limit: '5mb', extended: true }));
-
-  const isProd = process.env.NODE_ENV === 'production';
 
   // ── 反向代理信任（Docker / Nginx 链路下正确识别真实客户端 IP）──────────────
   // 不设置时 ThrottlerGuard 会把所有请求都归到同一个 IP bucket（Nginx 内网 IP），
@@ -62,6 +74,8 @@ async function bootstrap() {
     transform: true,          // 自动类型转换（@Type 装饰器生效）
     forbidNonWhitelisted: false, // 不因额外字段直接报错（宽松模式）
     transformOptions: { enableImplicitConversion: true },
+    // G140：校验失败统一返回中文友好提示（取代 "amountOriginal must be a positive number" 这类生硬英文）
+    exceptionFactory: (errors) => new BadRequestException(friendlyValidationMessage(errors)),
   }));
 
   // ── G5-A++ MenuRegistry hydrate（启动期从 sys_menu 加载 menu_code 注册表） ──

@@ -9,6 +9,7 @@ import { MenuGuard } from './common/guards/menu.guard';
 import { StoreCodeInterceptor } from './common/interceptors/store-code.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { OperationLogInterceptor } from './common/interceptors/operation-log.interceptor';
+import { ApprovalHintInterceptor } from './common/interceptors/approval-hint.interceptor';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtStrategy } from './auth/jwt.strategy';
@@ -37,6 +38,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { FileModule } from './modules/file/file.module';
 import { ProcurementV2Module } from './modules/procurement-v2/procurement-v2.module';
 // [Shareholder Runtime Phase 1] 股东权益与出资台账
 import { ShareholderModule } from './modules/shareholder/shareholder.module';
@@ -62,6 +64,12 @@ import { MasterDataCenterModule } from './modules/master-data/master-data-center
 import { DataQualityModule } from './modules/data-quality/data-quality.module';
 // [G6] Business Analytics Center
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BusinessUnitModule } from './modules/business-unit/business-unit.module';
+import { PermissionSetsModule } from './modules/permission-sets/permission-sets.module';
+// [Chanjet] 畅捷通好业财开放平台对接（webhook + token + API）
+import { ChanjetModule } from './modules/chanjet/chanjet.module';
+import { StorePaymentModule } from './modules/store-payment/store-payment.module';
+import { DocumentIntelligenceModule } from './modules/document-intelligence/document-intelligence.module';
 
 
 @Module({
@@ -116,6 +124,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     QualityModule,
     WorkflowModule,
     UploadModule,
+    FileModule,
     ProcurementV2Module,
     ShareholderModule,     // Shareholder Runtime Phase 1
     OrgModule,
@@ -130,6 +139,11 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     MasterDataCenterModule, // G1: 主数据中心（编码生成/审计/数据质量）
     DataQualityModule,      // G5: 数据质量中心（7 维度健康评分 + 告警聚合）
     AnalyticsModule,        // G6: 经营分析中心（8 个分析子中心聚合层）
+    BusinessUnitModule,     // G110/S5: 事业群业务维度（法人树⟂事业群解耦）
+    PermissionSetsModule,   // G118: 权限集（PBAC 两层模型）CRUD
+    ChanjetModule,          // 畅捷通好业财对接（webhook 回调 + token 管理 + API 代理）
+    StorePaymentModule,     // Store Payment: 直营店缴款 runtime endpoints
+    DocumentIntelligenceModule, // 受控附件文档识别/表单回填标准入口
   ],
   controllers: [DebugController, HealthController],
   providers: [
@@ -144,6 +158,11 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: OperationLogInterceptor,
+    },
+    // 审批提交后注入「下一审批人」摘要到响应，前端统一提示"提交给谁审批"
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ApprovalHintInterceptor,
     },
     StoreCodeInterceptor,
     // 统一 401 响应结构（注入 subcode）— 先注册，优先处理 UnauthorizedException

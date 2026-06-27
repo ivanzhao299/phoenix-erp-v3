@@ -1,0 +1,4752 @@
+{
+  "generated_at": "2026-06-26T16:23:50.168Z",
+  "mode": "dry-run",
+  "db": {
+    "database": "phoenix_erp",
+    "user": "mac"
+  },
+  "decision": "DRY_RUN_READY",
+  "plan": {
+    "menu_inserts": [
+      {
+        "menu_code": "MENU_FIN2_DASHBOARD",
+        "menu_name_zh": "财务总览",
+        "domain": "FIN2",
+        "parent_code": "MENU_FIN2",
+        "sort_order": 10,
+        "icon": "LayoutDashboard",
+        "route": "/finance2"
+      }
+    ],
+    "grant_upserts": [
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MASTER_DATA",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PRODUCT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_GRADE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PACKAGING",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_SKU",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_STORE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_MD_MATERIAL",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,D",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,D",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MASTER_DATA",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PRODUCT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_GRADE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PACKAGING",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_SKU",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_STORE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": "V,C"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,C",
+        "final_perm_codes": "V,C",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_MD_MATERIAL",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,E,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,C,E,D,X",
+        "existing_perm_codes": "V,C,E,D,X"
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,E,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_MD_MATERIAL",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,D",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E,D",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,C,E,D,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,E,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,C,E,A,X",
+        "existing_perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V,C,E,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,E",
+        "final_perm_codes": "V,E",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,D,X",
+        "existing_perm_codes": "V,C,E,D,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,D,X",
+        "existing_perm_codes": "V,C,E,D,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V,C,E,D,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_MD_MATERIAL",
+        "source_perm_codes": "V,C,E,X",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A,X",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,X",
+        "existing_perm_codes": "V,X"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_PRC2_MASTER",
+        "target_menu": "MENU_MD_MATERIAL",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MASTER_DATA",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PRODUCT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_GRADE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_PACKAGING",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_SKU",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_MASTER",
+        "target_menu": "MENU_MD_STORE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_VIEW",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_CASH_TRANSFER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,C,E,X",
+        "existing_perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AR_LEDGER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_AP",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_EXPENSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REIMBURSE",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_SHAREHOLDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_FIN2",
+        "target_menu": "MENU_FIN2_REPORT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_DASHBOARD",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SUPPLIER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PROJECT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_REQUEST",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_ORDER",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_PAYMENT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V,C,E",
+        "existing_perm_codes": "V,C,E"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_RECEIPT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_SHIPMENT",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "source_menu": "MENU_PRC2",
+        "target_menu": "MENU_PRC2_FUND",
+        "source_perm_codes": "V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "V,A",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_TODO",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V,A",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_HISTORY",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_NOTIFY",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_CONFIG",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_RULES",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_FORM",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "source_menu": "MENU_WORKFLOW",
+        "target_menu": "MENU_WORKFLOW_METRICS",
+        "source_perm_codes": "A,V",
+        "final_perm_codes": "V",
+        "existing_perm_codes": ""
+      }
+    ],
+    "coarse_deletes": [
+      {
+        "role_id": "24",
+        "role_code": "ROLE_B2B_MGR",
+        "role_name": "大客总监",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "29",
+        "role_code": "ROLE_BU_AGRI_GM",
+        "role_name": "农业事业群总经理",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "30",
+        "role_code": "ROLE_BU_FOOD_GM",
+        "role_name": "食品事业群总经理",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "menu_code": "MENU_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "menu_code": "MENU_PRC2_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "2",
+        "role_code": "ROLE_CEO",
+        "role_name": "集团总裁",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,C,E,D,A,X"
+      },
+      {
+        "role_id": "537",
+        "role_code": "ROLE_COST_ACCOUNTING_MANAGER",
+        "role_name": "成本核算经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "31",
+        "role_code": "ROLE_FACTORY_MGR",
+        "role_name": "场区经理",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "1861",
+        "role_code": "ROLE_FARM_CASHIER",
+        "role_name": "养殖场出纳",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "menu_code": "MENU_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,C"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "menu_code": "MENU_PRC2_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "9",
+        "role_code": "ROLE_FARM_MGR",
+        "role_name": "养殖场长",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "5",
+        "role_code": "ROLE_FIN_ACCT",
+        "role_name": "财务会计",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "6",
+        "role_code": "ROLE_FIN_AR",
+        "role_name": "应收专员",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "menu_code": "MENU_PRC2_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "4",
+        "role_code": "ROLE_FIN_CFO",
+        "role_name": "财务总监",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,C,E,D,A,X"
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "7",
+        "role_code": "ROLE_FIN_COST",
+        "role_name": "成本会计",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "485",
+        "role_code": "ROLE_FINANCE_ANALYST",
+        "role_name": "财务分析经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,X"
+      },
+      {
+        "role_id": "483",
+        "role_code": "ROLE_FINANCE_REVIEW_MANAGER",
+        "role_name": "财务审核经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V,C,E,A,X"
+      },
+      {
+        "role_id": "3",
+        "role_code": "ROLE_HQ_FINANCE",
+        "role_name": "总部财务审计",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,E"
+      },
+      {
+        "role_id": "18",
+        "role_code": "ROLE_LOG_MGR",
+        "role_name": "物流调度",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "1671",
+        "role_code": "ROLE_MENGSAI_DONGPENG_TREASURER",
+        "role_name": "孟赛/东鹏蛋鸡场 出纳",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "1692",
+        "role_code": "ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR",
+        "role_name": "孟赛生产数据主管",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "14",
+        "role_code": "ROLE_PKG_MGR",
+        "role_name": "车间主任",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V,C,E,D,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "menu_code": "MENU_PRC2_MASTER",
+        "perm_codes": "V,C,E,X"
+      },
+      {
+        "role_id": "21",
+        "role_code": "ROLE_PRC_BUYER",
+        "role_name": "采购专员",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A,X"
+      },
+      {
+        "role_id": "12",
+        "role_code": "ROLE_QA_MGR",
+        "role_name": "品控总监",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "13",
+        "role_code": "ROLE_QA_STAFF",
+        "role_name": "质检专员",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "menu_code": "MENU_PRC2_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "8",
+        "role_code": "ROLE_REGION_MGR",
+        "role_name": "区域督导",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "33",
+        "role_code": "ROLE_SALES_MGR",
+        "role_name": "销售经理",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "25",
+        "role_code": "ROLE_SALES_REP",
+        "role_name": "业务员",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "menu_code": "MENU_MASTER",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "22",
+        "role_code": "ROLE_STORE_MGR",
+        "role_name": "直营店店长",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "menu_code": "MENU_FIN2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "484",
+        "role_code": "ROLE_TREASURY_MANAGER",
+        "role_name": "资金经理",
+        "menu_code": "MENU_PRC2",
+        "perm_codes": "V"
+      },
+      {
+        "role_id": "10",
+        "role_code": "ROLE_VET",
+        "role_name": "驻场兽医",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "V,A"
+      },
+      {
+        "role_id": "16",
+        "role_code": "ROLE_WMS_MGR",
+        "role_name": "仓储经理",
+        "menu_code": "MENU_WORKFLOW",
+        "perm_codes": "A,V"
+      }
+    ]
+  },
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}

@@ -1,5 +1,6 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { MasterDataHealthService } from './services/master-data-health.service';
 import { DictHealthService } from './services/dict-health.service';
 import { DataScopeAuditService } from './services/data-scope-audit.service';
@@ -23,7 +24,8 @@ import { DataQualityAggregatorService } from './services/data-quality-aggregator
  * 总评分采用加权平均，权重见 DataQualityAggregatorService。
  */
 @Controller('api/data-quality')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_MD_QUALITY', 'V')
 export class DataQualityController {
   constructor(
     private readonly md:    MasterDataHealthService,

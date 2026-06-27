@@ -1,0 +1,21 @@
+--- identity ---
+ops
+iZt4nj11ry11ofv03yi35vZ
+Wed Jun 24 05:22:14 PM CST 2026
+--- api image ---
+sha256:0cf95dbf649982ae88712994b79d47d154ef514d356c55e4c503668e28b67bfe ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest
+--- upload controller runtime grep ---
+FILE=/app/dist/modules/upload/upload.controller.js
+29:const LEGACY_PENDING = 'LEGACY_PENDING';
+37:        const fileId = this.nextFileId();
+39:        const ownerType = this.safeCode(body.ownerType ?? body.owner_type, LEGACY_PENDING, 64);
+40:        const ownerId = this.safeCode(body.ownerId ?? body.owner_id, LEGACY_PENDING, 128);
+43:        const ownerAssigned = moduleCode !== LEGACY_MODULE_CODE && ownerType !== LEGACY_PENDING && ownerId !== LEGACY_PENDING;
+45:            fileId,
+63:            fileId: metadata.fileId,
+74:            rawUrl: null,
+79:            deprecatedLegacyPath: false,
+80:            url: null,
+--- static uploads mount grep ---
+FILE=/app/dist/main.js
+20:    app.useStaticAssets(uploadsDir, { prefix: '/uploads' });

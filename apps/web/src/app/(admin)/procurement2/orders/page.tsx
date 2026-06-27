@@ -1,18 +1,16 @@
 "use client";
 
+// G158：新建/编辑下沉为独立整页（orders/new、orders/[id]/edit），本列表页瘦身——
+//   只保留列表/筛选/详情抽屉/转单/取消等列表态操作；新建=Link→/new，编辑=Link→/[id]/edit。
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, FileText, ClipboardCheck, Trash2, Send, Eye, ChevronLeft, ChevronRight, Pencil, GitMerge, Clock } from "lucide-react";
+import { Plus, RefreshCw, ChevronLeft, ChevronRight, GitMerge, Clock } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
-import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
-import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
-import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
-import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
+import { ModalV2 } from "@/components/design-system"; // G155 全局模态
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -87,6 +85,11 @@ interface PageResult {
   page: number;
   pageSize: number;
 }
+interface ApprovalCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh?: string | null;
+}
 interface ApprovedPR {
   id: string;
   reqNo: string;
@@ -110,6 +113,10 @@ const STATUS_MAP: Record<string, {
     cls: "badgeNeutral"
   },
   SUBMITTED: {
+    label: "待审批",
+    cls: "badgeInfo"
+  },
+  PENDING_APPROVAL: {       // G135：后端 submit 实际置此状态（原映射只有 SUBMITTED → 详情显示裸英文）
     label: "待审批",
     cls: "badgeInfo"
   },
@@ -148,6 +155,10 @@ const STATUS_MAP: Record<string, {
   CLOSED: {
     label: "已关闭",
     cls: "badgeNeutral"
+  },
+  COMPLETED: {              // G135：历史完结单状态（原映射缺 → 列表/详情显示裸 COMPLETED）
+    label: "已完成",
+    cls: "badgeSuccess"
   }
 };
 const PURCHASE_TYPE_OPTS = [{
@@ -160,29 +171,17 @@ const PURCHASE_TYPE_OPTS = [{
   value: "SERVICE",
   label: "服务/外包"
 }, {
+  value: "CONSTRUCTION",       // G136：装修/工程类采购（与 PRC_PURCHASE_TYPE 字典对应）
+  label: "装修/工程"
+}, {
   value: "FIXED_ASSET",
   label: "固定资产"
 }, {
   value: "OTHER",
   label: "其他"
 }];
-const CURRENCY_OPTS = ["LAK", "CNY", "THB", "USD"];
 const API_ORDERS = "/api/v2/procurement/orders";
 const API_REQUESTS = "/api/v2/procurement/requests";
-const emptyItem = (): OrderItem => ({
-  itemName: "",
-  qty: "",
-  unit: "kg",
-  unitPrice: "",
-  amount: ""
-});
-// G95-D：与采购申请一致——默认多空行、记住上次公司/项目/供应商
-const blankRows = (n = 5): OrderItem[] => Array.from({ length: n }, emptyItem);
-const LAST_SCOPE_KEY = "prc_order_last_scope";
-const readLastScope = (): { companyCode?: string; companyName?: string; projectCode?: string; projectName?: string; supplierCode?: string; supplierName?: string } => {
-  try { return JSON.parse(localStorage.getItem(LAST_SCOPE_KEY) || "{}"); } catch { return {}; }
-};
-const writeLastScope = (v: Record<string, string>) => { try { localStorage.setItem(LAST_SCOPE_KEY, JSON.stringify(v)); } catch { /* ignore */ } };
 function fmtAmt(v?: number | string, currency = "LAK") {
   if (v === undefined || v === null || v === "") return "—";
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -194,6 +193,16 @@ function fmtAmt(v?: number | string, currency = "LAK") {
 function fmtDate(d?: string) {
   return d ? d.slice(0, 10) : "—";
 }
+// G154：操作列改「文字按钮」——企业级运营场景要直观清晰，禁纯图标(看不出含义)。
+const actBtn: React.CSSProperties = {
+  padding: "3px 10px", fontSize: 12, lineHeight: 1.6, borderRadius: 6, whiteSpace: "nowrap",
+  border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)",
+  cursor: "pointer",
+};
+const actBtnTone = (tone: "success" | "info" | "danger"): React.CSSProperties => {
+  const c = tone === "success" ? "var(--status-success)" : tone === "danger" ? "var(--status-danger)" : "var(--status-info, var(--color-primary))";
+  return { ...actBtn, borderColor: c, color: c };
+};
 const inlineInput: React.CSSProperties = {
   flex: "1 1 160px",
   padding: "8px 12px",
@@ -208,21 +217,6 @@ const inlineSelect: React.CSSProperties = {
   ...inlineInput,
   flex: "0 0 auto"
 };
-const thStyle: React.CSSProperties = {
-  padding: "5px 6px",
-  textAlign: "left",
-  fontWeight: 600,
-  fontSize: 11,
-  color: "var(--text-secondary)",
-  borderBottom: "1px solid var(--border)",
-  whiteSpace: "nowrap"
-};
-const tdStyle: React.CSSProperties = {
-  padding: "4px 6px",
-  verticalAlign: "middle"
-};
-// G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
-const cellInp: React.CSSProperties = tableInputCell;
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {
@@ -244,41 +238,24 @@ export default function PurchaseOrdersPage() {
   const [fDateFrom, setFDateFrom] = useState("");
   const [fDateTo, setFDateTo] = useState("");
 
-  // 新建/编辑 抽屉
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<PurchaseOrder | null>(null);
-  const [saving, setSaving] = useState(false);
-  // 表单字段
-  const [fSubject, setFSubject] = useState("");
-  const [fCompanyCode, setFCompanyCode] = useState("");
-  const [fCompanyName, setFCompanyName] = useState("");
-  const [fProjectCode, setFProjectCode] = useState("");
-  const [fProjectName, setFProjectName] = useState("");
-  const [fSupplierCode, setFSupplierCode] = useState("");
-  const [fSupplierName, setFSupplierName] = useState("");
-  const [fPurchaseType, setFPurchaseType] = useState("MATERIAL");
-  const [fCurrencyCode, setFCurrencyCode] = useState("LAK");
-  const [fExpDate, setFExpDate] = useState("");
-  const [fPayDeadline, setFPayDeadline] = useState("");
-  const [fCrossBorder, setFCrossBorder] = useState(false);
-  const [fOrigin, setFOrigin] = useState("");
-  const [fDest, setFDest] = useState("LA");
-  const [fContractNo, setFContractNo] = useState("");
-  const [fContractUrl, setFContractUrl] = useState("");
-  const [fContractNote, setFContractNote] = useState("");
-  const [fRemark, setFRemark] = useState("");
-  const [formItems, setFormItems] = useState<OrderItem[]>([emptyItem()]);
-
   // 详情抽屉
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<PurchaseOrder | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // G142 采购全流程日志（申请→订单→收货→付款 时间线）
+  const [procLog, setProcLog] = useState<{ time: string; docType: string; docNo: string; action: string; operator: string; comment: string }[]>([]);
 
   // 操作对话框（审批通过/驳回已收口至集团审批引擎，见 /workflow/todos）
   const [cancelOpen, setCancelOpen] = useState(false);
   const [actionTarget, setActionTarget] = useState<PurchaseOrder | null>(null);
   const [actionComment, setActionComment] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitTarget, setSubmitTarget] = useState<PurchaseOrder | null>(null);
+  const [submitComment, setSubmitComment] = useState("");
+  const [submitCandidates, setSubmitCandidates] = useState<ApprovalCandidate[]>([]);
+  const [submitApproverId, setSubmitApproverId] = useState("");
+  const [submitCandidateLoading, setSubmitCandidateLoading] = useState(false);
 
   // PR 转 PO 弹窗
   const [convertOpen, setConvertOpen] = useState(false);
@@ -329,185 +306,55 @@ export default function PurchaseOrdersPage() {
     load(page);
   }, [page]); // eslint-disable-line
 
-  function resetForm() {
-    setFSubject("");
-    // G95-D：预填上次公司/项目/供应商（连续建单多为同一组；可改）
-    const last = readLastScope();
-    setFCompanyCode(last.companyCode ?? "");
-    setFCompanyName(last.companyName ?? "");
-    setFProjectCode(last.projectCode ?? "");
-    setFProjectName(last.projectName ?? "");
-    setFSupplierCode(last.supplierCode ?? "");
-    setFSupplierName(last.supplierName ?? "");
-    setFPurchaseType("MATERIAL");
-    setFCurrencyCode("LAK");
-    setFExpDate("");
-    setFPayDeadline("");
-    setFCrossBorder(false);
-    setFOrigin("CN");
-    setFDest("LA");
-    setFContractNo("");
-    setFContractUrl("");
-    setFContractNote("");
-    setFRemark("");
-    setFormItems(blankRows());     // G95-D：默认 5 空行（明细是主体）
-  }
-  function openNew() {
-    setEditing(null);
-    resetForm();
-    setDrawerOpen(true);
-  }
-  async function openEdit(row: PurchaseOrder) {
-    setEditing(row);
-    setFSubject(row.subject ?? "");
-    setFCompanyCode(row.companyCode ?? "");
-    setFCompanyName(row.companyName ?? "");
-    setFProjectCode(row.projectCode ?? "");
-    setFProjectName(row.projectName ?? "");
-    setFSupplierCode(row.supplierCode ?? "");
-    setFSupplierName(row.supplierName ?? "");
-    setFPurchaseType(row.purchaseType ?? "MATERIAL");
-    setFCurrencyCode(row.currencyCode ?? "LAK");
-    setFExpDate(row.expectedDate ?? "");
-    setFPayDeadline(row.payDeadline ?? "");
-    setFCrossBorder(row.crossBorderFlag ?? false);
-    setFContractNo(row.contractNo ?? "");
-    setFContractUrl(row.contractUrl ?? "");
-    setFContractNote(row.contractNote ?? "");
-    setFRemark(row.remark ?? "");
-    try {
-      const res = await fetch(`${API_ORDERS}/${row.id}`, {
-        headers: hdr
-      });
-      if (res.ok) {
-        const d: PurchaseOrder = await res.json();
-        setFormItems(d.items?.length ? d.items.map(i => ({
-          ...i
-        })) : [emptyItem()]);
-      }
-    } catch {
-      setFormItems([emptyItem()]);
-    }
-    setDrawerOpen(true);
-  }
-  function setItemField(idx: number, field: keyof OrderItem, value: string) {
-    setFormItems(prev => {
-      const next = prev.map((it, i) => i === idx ? {
-        ...it,
-        [field]: value
-      } : it);
-      if (field === "qty" || field === "unitPrice") {
-        const it = next[idx];
-        const qty = parseFloat(String(it.qty)) || 0;
-        const price = parseFloat(String(it.unitPrice)) || 0;
-        next[idx] = {
-          ...it,
-          amount: String(Math.round(qty * price * 100) / 100)
-        };
-      }
-      return next;
-    });
-  }
-  async function handleSave() {
-    if (!fSubject.trim()) {
-      toast.error("请填写采购主题");
-      return;
-    }
-    if (!fCompanyCode.trim()) {
-      toast.error("请填写公司代码");
-      return;
-    }
-    if (!fSupplierCode.trim()) {
-      toast.error("请填写供应商代码");
-      return;
-    }
-    // G95-D：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
-    const filledItems = formItems.filter(it => it.itemName.trim());
-    if (filledItems.length === 0) {
-      toast.error("请至少填写一行物料明细");
-      return;
-    }
-    if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("已填物料的数量必须大于 0");
-      return;
-    }
-    setSaving(true);
-    try {
-      const body = {
-        subject: fSubject.trim(),
-        companyCode: fCompanyCode.trim(),
-        companyName: fCompanyName.trim(),
-        projectCode: fProjectCode.trim() || undefined,
-        projectName: fProjectName.trim() || undefined,
-        supplierCode: fSupplierCode.trim(),
-        supplierName: fSupplierName.trim(),
-        purchaseType: fPurchaseType,
-        currencyCode: fCurrencyCode,
-        expectedDate: fExpDate || undefined,
-        payDeadline: fPayDeadline || undefined,
-        crossBorderFlag: fCrossBorder,
-        originCountry: fCrossBorder ? fOrigin : undefined,
-        destinationCountry: fCrossBorder ? fDest : undefined,
-        contractNo: fContractNo.trim() || undefined,
-        contractUrl: fContractUrl.trim() || undefined,
-        contractNote: fContractNote.trim() || undefined,
-        remark: fRemark.trim() || undefined,
-        items: filledItems.map(it => ({
-          itemCode: it.itemCode?.trim() || undefined,
-          itemName: it.itemName.trim(),
-          spec: it.spec?.trim() || undefined,
-          productCode: it.productCode?.trim() || undefined,   // G85-C
-          gradeCode: it.gradeCode?.trim() || undefined,       // G85-C
-          qty: parseFloat(String(it.qty)),
-          unit: it.unit?.trim() || undefined,
-          unitPrice: parseFloat(String(it.unitPrice)) || 0,
-          amount: parseFloat(String(it.amount)) || 0,
-          warehouseCode: it.warehouseCode?.trim() || undefined
-        }))
-      };
-      const url = editing ? `${API_ORDERS}/${editing.id}` : API_ORDERS;
-      const method = editing ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: hdr,
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "保存失败");
-      }
-      // G95-D：记住本次公司/项目/供应商，下次新建默认带出
-      writeLastScope({ companyCode: fCompanyCode.trim(), companyName: fCompanyName.trim(), projectCode: fProjectCode.trim(), projectName: fProjectName.trim(), supplierCode: fSupplierCode.trim(), supplierName: fSupplierName.trim() });
-      toast.success(editing ? "保存成功" : "采购订单已创建");
-      setDrawerOpen(false);
-      load(editing ? page : 1);
-      if (!editing) setPage(1);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  }
   async function openDetail(row: PurchaseOrder) {
     setDetailData(row);
     setDetailOpen(true);
     setDetailLoading(true);
+    setProcLog([]);
     try {
-      const res = await fetch(`${API_ORDERS}/${row.id}`, {
-        headers: hdr
-      });
+      const [res, plRes] = await Promise.all([
+        fetch(`${API_ORDERS}/${row.id}`, { headers: hdr }),
+        fetch(`${API_ORDERS}/${row.id}/process-log`, { headers: hdr }).catch(() => null),
+      ]);
       if (res.ok) setDetailData(await res.json());
+      if (plRes && plRes.ok) { const pl = await plRes.json(); setProcLog(Array.isArray(pl?.timeline) ? pl.timeline : []); }
     } catch {/* ignore */} finally {
       setDetailLoading(false);
     }
   }
-  async function handleSubmit(row: PurchaseOrder) {
+  async function openSubmit(row: PurchaseOrder) {
+    setSubmitTarget(row);
+    setSubmitComment("");
+    setSubmitApproverId("");
+    setSubmitCandidates([]);
+    setSubmitOpen(true);
+    setSubmitCandidateLoading(true);
     try {
-      const res = await fetch(`${API_ORDERS}/${row.id}/submit`, {
+      const qs = new URLSearchParams({ menuCode: "MENU_PRC2_ORDER", requiredPerm: "E" });
+      if (row.companyCode) qs.set("companyCode", row.companyCode);
+      if (row.projectCode) qs.set("projectCode", row.projectCode);
+      const res = await fetch(`/api/approval/eligible-approvers?${qs}`, { headers: hdr });
+      const json = res.ok ? await res.json().catch(() => []) : [];
+      const list = Array.isArray(json) ? json : [];
+      setSubmitCandidates(list);
+      if (list[0]?.userId) setSubmitApproverId(list[0].userId);
+    } catch {
+      setSubmitCandidates([]);
+    } finally {
+      setSubmitCandidateLoading(false);
+    }
+  }
+
+  async function handleSubmit(approverUserId?: string) {
+    if (!submitTarget) return;
+    try {
+      setActionSubmitting(true);
+      const res = await fetch(`${API_ORDERS}/${submitTarget.id}/submit`, {
         method: "POST",
         headers: hdr,
         body: JSON.stringify({
-          comment: ""
+          comment: submitComment,
+          approverUserId: approverUserId || undefined
         })
       });
       if (!res.ok) {
@@ -515,9 +362,12 @@ export default function PurchaseOrdersPage() {
         throw new Error(e.message ?? "提交失败");
       }
       toast.success("已提交审批");
+      setSubmitOpen(false);
       load(page);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "提交失败");
+    } finally {
+      setActionSubmitting(false);
     }
   }
   function openCancel(row: PurchaseOrder) {
@@ -626,9 +476,9 @@ export default function PurchaseOrdersPage() {
           animation: loading ? "spin 1s linear infinite" : "none"
         }} /> 刷新
             </button>
-            <button type="button" className={`${s.btnPrimary} ${u.flexRow}`} onClick={openNew}>
+            <Link href="/procurement2/orders/new" className={`${s.btnPrimary} ${u.flexRow}`} style={{ textDecoration: "none" }}>
               <Plus size={14} /> 新建采购订单
-            </button>
+            </Link>
           </div>} />
 
       {/* 筛选栏 */}
@@ -676,7 +526,23 @@ export default function PurchaseOrdersPage() {
       border: "1px solid var(--border)",
       background: "var(--bg-card)"
     }}>
-        <table className={s.table}>
+        {/* G164：table-layout:fixed + width:100% —— 整页内完整呈现、永不横向滚动；
+            列宽由 colgroup 按比例分配，中文按列宽自动换行（不再逐字竖排）。去掉冗余「币种」列。 */}
+        <table className={s.table} style={{ width: "100%", tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "9%" }} />{/* 订单号 */}
+            <col style={{ width: "15%" }} />{/* 主题 */}
+            <col style={{ width: "13%" }} />{/* 公司 */}
+            <col style={{ width: "11%" }} />{/* 供应商 */}
+            <col style={{ width: "8%" }} />{/* 类型 */}
+            <col style={{ width: "6%" }} />{/* 跨境 */}
+            <col style={{ width: "12%" }} />{/* 合同金额 */}
+            <col style={{ width: "5%" }} />{/* 行数 */}
+            <col style={{ width: "8%" }} />{/* 期望到货 */}
+            <col style={{ width: "8%" }} />{/* 付款截止 */}
+            <col style={{ width: "7%" }} />{/* 状态 */}
+            <col style={{ width: "120px" }} />{/* 操作 */}
+          </colgroup>
           <thead>
             <tr>
               <th>采购订单号</th>
@@ -685,54 +551,32 @@ export default function PurchaseOrdersPage() {
               <th>供应商</th>
               <th>类型</th>
               <th className={u.tac}>跨境</th>
-              <th>币种</th>
-              <th>合同金额</th>
+              <th className={u.tar}>合同金额</th>
               <th className={u.tac}>行数</th>
               <th>期望到货</th>
               <th>付款截止</th>
               <th>状态</th>
-              <th style={{
-              width: 170
-            }}>操作</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={13} className={u.emptyCenter}>加载中…</td></tr> : data.items.length === 0 ? <tr><td colSpan={13} className={u.emptyCenter}>暂无数据</td></tr> : data.items.map(row => {
+            {loading ? <tr><td colSpan={12} className={u.emptyCenter}>加载中…</td></tr> : data.items.length === 0 ? <tr><td colSpan={12} className={u.emptyCenter}>暂无数据</td></tr> : data.items.map(row => {
             const st = STATUS_MAP[row.status] ?? {
               label: row.status,
               cls: "badgeNeutral"
             };
             const typeLabel = PURCHASE_TYPE_OPTS.find(o => o.value === row.purchaseType)?.label ?? row.purchaseType ?? "—";
             return <tr key={row.id}>
-                  <td style={{
-                fontFamily: "monospace",
-                fontSize: 11,
-                whiteSpace: "nowrap"
-              }}>{row.poNo}</td>
-                  <td style={{
-                maxWidth: 150,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>{row.subject}</td>
-                  <td>{row.companyCode}</td>
-                  <td style={{
-                maxWidth: 120,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>
-                    {row.supplierName ?? row.supplierCode}
-                  </td>
+                  <td style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>{row.poNo}</td>
+                  <td style={{ wordBreak: "break-word" }}>{row.subject}</td>
+                  {/* G154：公司显示中文名（无名称才回退编码）；G164：按列宽自动换行 */}
+                  <td style={{ wordBreak: "break-word" }}>{row.companyName || row.companyCode}</td>
+                  <td style={{ wordBreak: "break-word" }}>{row.supplierName ?? row.supplierCode}</td>
                   <td>{typeLabel}</td>
                   <td className={u.tac}>
                     {row.crossBorderFlag ? <span className={`${s.badge} ${s.badgeInfo}`}>跨境</span> : <span className={`${s.badge} ${s.badgeNeutral}`}>本地</span>}
                   </td>
-                  <td>{row.currencyCode ?? "—"}</td>
-                  <td style={{
-                whiteSpace: "nowrap",
-                fontVariantNumeric: "tabular-nums"
-              }}>
+                  <td className={u.tar} style={{ fontVariantNumeric: "tabular-nums", wordBreak: "break-all" }}>
                     {fmtAmt(row.totalAmount, row.currencyCode ?? "LAK")}
                   </td>
                   <td className={u.tac}>{row.itemCount ?? "—"}</td>
@@ -742,34 +586,20 @@ export default function PurchaseOrdersPage() {
                   <td>
                     <div style={{
                   display: "flex",
-                  gap: 4,
+                  gap: 6,
                   flexWrap: "wrap"
                 }}>
-                      <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>
-                        <Eye size={13} />
-                      </button>
+                      <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                       {row.status === "DRAFT" && <>
-                          <button className={s.btnIcon} title="编辑" onClick={() => openEdit(row)}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className={s.btnIcon} title="提交审批" style={{
-                      borderColor: "var(--status-success)",
-                      color: "var(--status-success)"
-                    }} onClick={() => handleSubmit(row)}>
-                            <Send size={13} />
-                          </button>
+                          <Link href={`/procurement2/orders/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>编辑</Link>
+                          <button style={actBtnTone("success")} onClick={() => openSubmit(row)}>提交审批</button>
                         </>}
-                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
-                      borderColor: "var(--status-info, var(--status-success))",
-                      color: "var(--status-info, var(--status-success))",
-                      display: "inline-flex",
-                      alignItems: "center"
-                    }}>
-                          <ClipboardCheck size={13} />
-                        </Link>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
-                          <Trash2 size={13} />
-                        </button>}
+                      {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
+                        <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>
+                      )}
+                      {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
+                        <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>取消</button>
+                      )}
                     </div>
                   </td>
                 </tr>;
@@ -799,259 +629,6 @@ export default function PurchaseOrdersPage() {
             <ChevronRight size={14} />
           </button>
         </div>}
-
-      {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
-      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑：${editing.poNo}` : "新建采购订单"} width="min(1180px, 96vw)">
-        <div style={{
-        padding: "0 4px 80px"
-      }}>
-          <div className={s.formSection}>基础信息</div>
-          <div className={s.fieldRow}>
-            <div className={s.field} style={{
-            gridColumn: "1 / -1"
-          }}>
-              <label className={s.lbl}>采购主题 *</label>
-              <input className={s.inp} value={fSubject} onChange={e => setFSubject(e.target.value)} placeholder="采购主题" />
-            </div>
-          </div>
-          {/* G95：公司/项目并排——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>公司 *</label>
-              {/* G4-B：公司主数据，DataScope 自动过滤 */}
-              {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
-              <CompanySelector value={fCompanyCode} onChange={v => { setFCompanyCode(v); setFProjectCode(""); setFProjectName(""); }} onPick={o => setFCompanyName(o?.label ?? "")} disabled={!!editing} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>项目</label>
-              {/* G4-B：项目主数据；G95-B 按所属公司过滤（先选公司） */}
-              <ProjectSelector value={fProjectCode} onChange={setFProjectCode} onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={fCompanyCode || undefined} />
-            </div>
-          </div>
-
-          <div className={s.formSection} style={{
-          marginTop: 20
-        }}>供应商 & 采购属性</div>
-          {/* G95：供应商占整行——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
-          <div className={s.field}>
-            <label className={s.lbl}>供应商 *</label>
-            {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
-            <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
-          </div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>采购类型</label>
-              {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
-              <DictSelect dictType="PRC_PURCHASE_TYPE" value={fPurchaseType} onChange={setFPurchaseType} allowEmpty={false} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>货币</label>
-              {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
-              <DictSelect dictType="SYS_CURRENCY" value={fCurrencyCode} onChange={setFCurrencyCode} allowEmpty={false} />
-            </div>
-          </div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>期望到货日</label>
-              <input type="date" className={s.inp} value={fExpDate} onChange={e => setFExpDate(e.target.value)} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>付款截止日</label>
-              <input type="date" className={s.inp} value={fPayDeadline} onChange={e => setFPayDeadline(e.target.value)} />
-            </div>
-          </div>
-
-          <div className={s.formSection} style={{
-          marginTop: 20
-        }}>物流信息（可选）</div>
-          <div className={s.field}>
-            <label style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 13,
-            cursor: "pointer"
-          }}>
-              <input type="checkbox" checked={fCrossBorder} onChange={e => setFCrossBorder(e.target.checked)} />
-              跨境采购
-            </label>
-          </div>
-          {fCrossBorder && <div className={s.fieldRow}>
-              <div className={s.field}>
-                <label className={s.lbl}>来源国家</label>
-                <DictSelect dictType="SYS_COUNTRY" value={fOrigin} onChange={setFOrigin} allowEmpty />
-              </div>
-              <div className={s.field}>
-                <label className={s.lbl}>目的国家</label>
-                <DictSelect dictType="SYS_COUNTRY" value={fDest} onChange={setFDest} allowEmpty />
-              </div>
-            </div>}
-
-          <div className={s.formSection} style={{
-          marginTop: 20
-        }}>合同信息（可选）</div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>合同号</label>
-              <input className={s.inp} value={fContractNo} onChange={e => setFContractNo(e.target.value)} placeholder="CT2-..." />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>合同附件</label>
-              {/* G4-B：禁止 URL 文本框，使用统一附件上传组件 */}
-              <AttachmentUploader value={fContractUrl ? [fContractUrl] : []} onChange={urls => setFContractUrl(urls[urls.length - 1] ?? "")} label="上传合同附件（PDF/图片 ≤15MB）" />
-            </div>
-          </div>
-          <div className={s.field}>
-            <label className={s.lbl}>合同摘要</label>
-            <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
-          </div>
-          <div className={s.field}>
-            <label className={s.lbl}>备注</label>
-            <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
-          </div>
-
-          {/* 明细行 */}
-          <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: 20,
-          marginBottom: 8
-        }}>
-            <span className={s.formSection} style={{
-            margin: 0
-          }}>采购明细（{formItems.length} 行）</span>
-            <button type="button" className={s.btnSecondary} style={{
-            padding: "3px 10px",
-            fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 4
-          }} onClick={() => setFormItems(p => [...p, emptyItem()])}>
-              <Plus size={12} /> 添加行
-            </button>
-          </div>
-          <div style={{
-          overflowX: "auto",
-          border: "1px solid var(--border)",
-          borderRadius: 6
-        }}>
-            <table className={s.table} style={{ fontSize: 12 }}>
-              <thead>
-                <tr style={{
-                background: "var(--bg-muted)"
-              }}>
-                  <th style={thStyle}>物料名称 *</th>
-                  <th style={thStyle}>规格</th>
-                  <th style={thStyle}>数量 *</th>
-                  <th style={thStyle}>单位</th>
-                  <th style={thStyle}>单价 *</th>
-                  <th style={{
-                  ...thStyle,
-                  textAlign: "right"
-                }}>小计</th>
-                  <th style={thStyle}>仓库</th>
-                  <th style={{
-                  ...thStyle,
-                  width: 28
-                }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {formItems.map((it, idx) => <tr key={idx} style={{
-                borderBottom: "1px solid var(--border)"
-              }}>
-                    <td style={tdStyle}>
-                      {/* 物料组合框：可搜索 + 找不到就地新建，自动带出 material_code/spec/unit */}
-                      <MaterialPicker value={it.itemName ?? ""} onChange={name => setItemField(idx, "itemName", name)} onPickRaw={m => {
-                    setItemField(idx, "itemCode", m?.material_code ?? "");
-                    setItemField(idx, "spec", m?.spec ?? "");
-                    setItemField(idx, "unit", m?.unit ?? "");
-                  }} style={{
-                    minWidth: 200,
-                    fontSize: 12,
-                    padding: "3px 6px"
-                  }} />
-                    </td>
-                    <td style={tdStyle}><input style={{
-                    ...cellInp,
-                    width: 80,
-                    background: "var(--bg-muted)"
-                  }} value={it.spec ?? ""} readOnly placeholder="由物料自动带出" /></td>
-                    <td style={tdStyle}><input style={{
-                    ...cellInp,
-                    width: 70
-                  }} type="number" min="0" value={it.qty} onChange={e => setItemField(idx, "qty", e.target.value)} /></td>
-                    <td style={tdStyle}><input style={{
-                    ...cellInp,
-                    width: 50
-                  }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="kg" /></td>
-                    <td style={tdStyle}><input style={{
-                    ...cellInp,
-                    width: 90
-                  }} type="number" min="0" value={it.unitPrice} onChange={e => setItemField(idx, "unitPrice", e.target.value)} /></td>
-                    <td style={{
-                  ...tdStyle,
-                  textAlign: "right",
-                  fontVariantNumeric: "tabular-nums",
-                  color: "var(--text-secondary)"
-                }}>
-                      {it.amount ? Number(it.amount).toLocaleString("zh-CN") : "—"}
-                    </td>
-                    <td style={tdStyle}>
-                      {/* G4-B：仓库主数据，按当前公司过滤 */}
-                      <WarehouseSelector value={it.warehouseCode ?? ""} onChange={code => setItemField(idx, "warehouseCode", code)} companyCode={fCompanyCode} style={{
-                    minWidth: 150,
-                    fontSize: 12,
-                    padding: "3px 6px"
-                  }} />
-                    </td>
-                    <td style={tdStyle}>
-                      <button type="button" style={{
-                    border: "none",
-                    background: "none",
-                    cursor: "pointer",
-                    color: "var(--status-danger)",
-                    padding: "0 2px"
-                  }} onClick={() => setFormItems(p => p.length > 1 ? p.filter((_, i) => i !== idx) : p)}>
-                        <Trash2 size={12} />
-                      </button>
-                    </td>
-                  </tr>)}
-              </tbody>
-              <tfoot>
-                <tr style={{
-                borderTop: "2px solid var(--border)"
-              }}>
-                  <td colSpan={5} style={{
-                  textAlign: "right",
-                  padding: "6px 8px",
-                  fontSize: 12,
-                  fontWeight: 600
-                }}>
-                    合计（{fCurrencyCode}）
-                  </td>
-                  <td style={{
-                  textAlign: "right",
-                  padding: "6px 8px",
-                  fontWeight: 700,
-                  fontVariantNumeric: "tabular-nums"
-                }}>
-                    {formItems.reduce((sum, it) => sum + (parseFloat(String(it.amount)) || 0), 0).toLocaleString("zh-CN")}
-                  </td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div className={s.drawerFooter}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button type="button" className={s.btnPrimary} onClick={handleSave} disabled={saving}>
-              {saving ? "保存中…" : "保存草稿"}
-            </button>
-          </div>
-        </div>
-      </RightDrawer>
 
       {/* ── 详情抽屉 ─────────────────────────────────────────────────────────── */}
       <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={detailData ? `采购订单详情：${detailData.poNo}` : "详情"} width={700}>
@@ -1215,7 +792,26 @@ export default function PurchaseOrdersPage() {
                 </div>
               </>}
 
-            {/* 审批日志 */}
+            {/* G142 全流程日志（申请→订单→收货→付款 一条时间线，跨单据） */}
+            {procLog.length > 0 && <>
+                <div className={s.formSection} style={{ marginTop: 20 }}>全流程日志</div>
+                <div style={{ position: "relative", paddingLeft: 18 }}>
+                  <div style={{ position: "absolute", left: 5, top: 4, bottom: 4, width: 2, background: "var(--border)" }} />
+                  {procLog.map((ev, i) => <div key={i} style={{ position: "relative", marginBottom: 12 }}>
+                    <div style={{ position: "absolute", left: -16, top: 4, width: 9, height: 9, borderRadius: "50%", background: "var(--color-accent)", border: "2px solid var(--bg-card)" }} />
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, fontSize: 13 }}>
+                      <span className={`${s.badge} ${s.badgeNeutral}`} style={{ fontSize: 11 }}>{ev.docType}</span>
+                      <span style={{ fontWeight: 600 }}>{ev.action}</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{ev.docNo}</span>
+                      {ev.operator && <span style={{ color: "var(--text-secondary)" }}>· {ev.operator}</span>}
+                      <span style={{ marginLeft: "auto", color: "var(--text-disabled)", fontSize: 12 }}>{ev.time ? new Date(ev.time).toLocaleString("zh-CN") : ""}</span>
+                    </div>
+                    {ev.comment && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{ev.comment}</div>}
+                  </div>)}
+                </div>
+              </>}
+
+            {/* 审批日志（仅本单） */}
             {detailData.approvals && detailData.approvals.length > 0 && <>
                 <div className={s.formSection} style={{
             marginTop: 20
@@ -1334,6 +930,51 @@ export default function PurchaseOrdersPage() {
 
       {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
 
+      <SimpleModal open={submitOpen} onClose={() => setSubmitOpen(false)} title="提交采购订单 · 选择下一审批人">
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 12 }}>
+          <div>订单：<strong style={{ color: "var(--text-primary)" }}>{submitTarget?.poNo ?? submitTarget?.subject}</strong></div>
+          <div>候选人已按采购订单权限、公司/项目数据域过滤。选择后会指定给该审批人；也可按审批规则提交。</div>
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>下一审批人</label>
+          {submitCandidateLoading ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>正在加载可审批人员…</div>
+            : submitCandidates.length === 0 ? <div style={{ padding: 18, textAlign: "center", color: "var(--status-warning)", fontSize: 13, lineHeight: 1.7 }}>未找到可指定审批人，可按审批规则提交；若规则也未配置，后端会阻止提交。</div>
+            : <div style={{ display: "grid", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                {submitCandidates.map(candidate => (
+                  <button key={candidate.userId} type="button" onClick={() => setSubmitApproverId(candidate.userId)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      border: `1px solid ${submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)"}`,
+                      background: submitApproverId === candidate.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "var(--bg-card)",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      textAlign: "left"
+                    }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 8, background: submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)", flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700 }}>{candidate.displayName}</span>
+                    {candidate.roleNameZh && <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-secondary)" }}>{candidate.roleNameZh}</span>}
+                  </button>
+                ))}
+              </div>}
+        </div>
+        <div className={s.field} style={{ marginTop: 12 }}>
+          <label className={s.lbl}>提交说明</label>
+          <textarea className={s.textarea} rows={3} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder="可填写合同、交付、付款或跨境采购注意事项" />
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
+          <button type="button" className={s.btnSecondary} onClick={() => setSubmitOpen(false)}>取消</button>
+          <button type="button" className={s.btnSecondary} disabled={actionSubmitting} onClick={() => handleSubmit(undefined)}>按审批规则提交</button>
+          <button type="button" className={s.btnPrimary} disabled={actionSubmitting || !submitApproverId} onClick={() => handleSubmit(submitApproverId)}>
+            {actionSubmitting ? "提交中…" : "提交给所选审批人"}
+          </button>
+        </div>
+      </SimpleModal>
+
       {/* ── 取消对话框 ─────────────────────────────────────────────────────── */}
       <SimpleModal open={cancelOpen} onClose={() => setCancelOpen(false)} title="取消采购订单">
         <p style={{
@@ -1357,50 +998,8 @@ export default function PurchaseOrdersPage() {
 }
 
 // ── 辅助 ─────────────────────────────────────────────────────────────────────
-function SimpleModal({
-  open,
-  onClose,
-  title,
-  children
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return <div style={{
-    position: "fixed",
-    inset: 0,
-    background: "var(--overlay-black-50)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center"
-  }} onClick={onClose}>
-      <div style={{
-      background: "var(--bg-card)",
-      borderRadius: 10,
-      padding: 20,
-      width: 480,
-      boxShadow: "0 8px 32px var(--overlay-black-30)",
-      maxHeight: "90vh",
-      overflowY: "auto"
-    }} onClick={e => e.stopPropagation()}>
-        <div style={{
-        fontWeight: 700,
-        fontSize: 15,
-        marginBottom: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }}>
-          <FileText size={16} /> {title}
-        </div>
-        {children}
-      </div>
-    </div>;
-}
+// G155：本地手写 SimpleModal 下沉到全局 ModalV2（统一遮罩/头部/关闭/ESC/动画）。
+const SimpleModal = ModalV2;
 function actionLabel(a: string) {
   return ({
     SUBMIT: "提交",

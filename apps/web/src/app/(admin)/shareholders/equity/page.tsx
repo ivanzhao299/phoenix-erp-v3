@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial, EQUITY_STATUS_LABEL, PAID_IN_SOURCE_LABEL, lbl } from '@/lib/shareholder-api';
 import { SummaryBar, sum, yuan } from '../SummaryBar';
+import PageHeader from '@/components/PageHeader';
 const th: React.CSSProperties = {
   textAlign: 'left',
   padding: '10px 12px',
@@ -55,12 +56,7 @@ export default function EquityPage() {
     cursor: 'pointer'
   });
   return <div className={u.p24}>
-      <h1 style={{
-      fontSize: 20,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      marginBottom: 12
-    }}>股权结构 / 实益出资结构</h1>
+      <PageHeader title="股权结构 / 实益出资结构" />
       <div style={{
       display: 'flex',
       gap: 12,

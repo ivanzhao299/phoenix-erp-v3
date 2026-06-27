@@ -4,7 +4,6 @@ import { ProcurementService } from './procurement.service';
 describe('ProcurementService', () => {
   let em: { save: jest.Mock; transaction: jest.Mock; findOne: jest.Mock; query: jest.Mock };
   let cls: { get: jest.Mock };
-  let approval: { submitForApproval: jest.Mock };
   let service: ProcurementService;
 
   beforeEach(() => {
@@ -22,8 +21,7 @@ describe('ProcurementService', () => {
       if (k === 'user.realNameZh') return '测试员';
       return 'tester';
     }) };
-    approval = { submitForApproval: jest.fn() };
-    service = new ProcurementService(em as never, approval as never, cls as never);
+    service = new ProcurementService(em as never, cls as never);
   });
 
   // ── createPurchaseOrder ────────────────────────────────────────────────────
@@ -123,13 +121,15 @@ describe('ProcurementService', () => {
   // ── rejectRequest ─────────────────────────────────────────────────────────
 
   it('rejectRequest updates status to REJECTED', async () => {
-    em.query.mockResolvedValue([]);
+    em.query
+      .mockResolvedValueOnce([{ id: 42, status: 'PENDING' }])
+      .mockResolvedValueOnce([]);
     const result = await service.rejectRequest(42, '预算不足');
     expect(result.code).toBe(200);
-    const sql: string = em.query.mock.calls[0][0];
+    const sql: string = em.query.mock.calls[1][0];
     expect(sql).toContain("status='REJECTED'");
-    expect(em.query.mock.calls[0][1][0]).toBe('预算不足');
-    expect(em.query.mock.calls[0][1][3]).toBe(42);
+    expect(em.query.mock.calls[1][1][0]).toBe('预算不足');
+    expect(em.query.mock.calls[1][1][3]).toBe(42);
   });
 
   // ── convertRequestToPO ────────────────────────────────────────────────────

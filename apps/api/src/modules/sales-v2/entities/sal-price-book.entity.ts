@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -22,6 +22,11 @@ import {
  * status: DRAFT / PENDING_APPROVAL / APPROVED / ACTIVE / EXPIRED / CANCELLED
  */
 @Entity('sal_price_books')
+@Index('idx_sal_price_books_company', ['companyCode'])
+@Index('idx_sal_price_books_status', ['status'])
+@Index('idx_sal_price_books_customer', ['customerCode'], { where: '"customer_code" IS NOT NULL' })
+@Index('idx_sal_price_books_channel', ['channelCode'], { where: '"channel_code" IS NOT NULL' })
+@Index('idx_sal_price_books_priority', ['companyCode', 'status', 'priority'])
 export class SalPriceBookEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

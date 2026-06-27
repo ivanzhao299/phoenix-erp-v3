@@ -1,6 +1,7 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
+import { SalPriceBookEntity } from './sal-price-book.entity';
 
 /**
  * 价格明细  sal_price_items
@@ -13,12 +14,21 @@ import {
  * status:         ACTIVE / DISABLED
  */
 @Entity('sal_price_items')
+@Index('idx_sal_price_items_book', ['priceBookId'])
+@Index('idx_sal_price_items_book_prod', ['priceBookId', 'productCode'])
+@Index('idx_sal_price_items_grade', ['gradeCode', 'packagingSpec'])
+// idx_sal_price_items_sku_code / grade_code_std / spec_code 跳过:
+// entity 缺 sku_code/grade_code_std/spec_code 列(g197 真业务漂移)
 export class SalPriceItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
   @Column({ name: 'price_book_id', type: 'bigint' })
   priceBookId: string;
+
+  @ManyToOne(() => SalPriceBookEntity)
+  @JoinColumn({ name: 'price_book_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_price_items_price_book_id_fkey' })
+  priceBook?: SalPriceBookEntity;
 
   @Column({ name: 'product_code', type: 'varchar', length: 64 })
   productCode: string;

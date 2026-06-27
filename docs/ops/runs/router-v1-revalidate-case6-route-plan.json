@@ -1,0 +1,48 @@
+{
+  "request": "准备预发部署 runbook 和回滚方案，不实际部署",
+  "selected_agents": [
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "confidence": 0.8,
+  "matched_keywords": {
+    "Codex-Orchestrator": [
+      "方案"
+    ]
+  },
+  "risk_domains": [
+    "staging",
+    "rollback",
+    "deploy-readiness",
+    "final-qa",
+    "release-decision"
+  ],
+  "held_reasons": [],
+  "recommended_sequence": [
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "parallel_groups": [
+    [
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ]
+  ],
+  "fallback_action": "create task pool",
+  "route_decision": "PLAN_READY",
+  "requires_route_review": false,
+  "domains": {
+    "ci": false,
+    "security": false,
+    "dataReadiness": false,
+    "ui": false,
+    "backend": false,
+    "backendMentionedButNegated": false,
+    "deployPlan": true,
+    "finalGate": false
+  },
+  "agent_scores": {
+    "A6-Staging-Deploy-Runbook": 3,
+    "A7-Final-QA-Gate": 3
+  }
+}

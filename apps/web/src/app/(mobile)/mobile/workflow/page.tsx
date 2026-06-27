@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, ClipboardCheck, X, CheckCircle, XCircle, Sun, Moon, Clock, Building2, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, RefreshCw, ClipboardCheck, X, CheckCircle, XCircle, Sun, Moon, Clock, Building2, FolderOpen, ChevronDown, ChevronUp, Forward } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
-import { approvalApi, type WorkflowTask, type WorkflowTaskPage, type InstanceDetail } from '@/lib/mobile-api';
+import { approvalApi, type WorkflowTask, type WorkflowTaskPage, type InstanceDetail, type ApprovalReassignCandidate } from '@/lib/mobile-api';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
@@ -28,6 +29,31 @@ const STATUS_COLOR: Record<string, string> = {
   DONE: 'var(--status-success)'
 };
 
+type ApprovalActionMode = 'approve' | 'reject' | 'transfer';
+
+function MobileSheetPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [mounted]);
+
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
 // ── 安全摘要：股东资金不暴露金额/银行字段 ─────────────────────────────────────
 function safeSubject(task: WorkflowTask): string {
   if (task.bizType === 'SHAREHOLDER_FUND') return '股东资金审批待处理';
@@ -45,11 +71,13 @@ function TaskCard({
   task,
   onApprove,
   onReject,
+  onTransfer,
   onDetail
 }: {
   task: WorkflowTask;
   onApprove: (t: WorkflowTask) => void;
   onReject: (t: WorkflowTask) => void;
+  onTransfer: (t: WorkflowTask) => void;
   onDetail: (t: WorkflowTask) => void;
 }) {
   const {
@@ -248,13 +276,15 @@ function TaskCard({
       borderTop: `1px solid ${t.cardBorder}`,
       padding: '12px 16px',
       display: 'flex',
-      gap: 10
+      gap: 10,
+      flexWrap: 'wrap'
     }}>
           <button onClick={e => {
         e.stopPropagation();
         onDetail(task);
       }} style={{
         flex: 1,
+        minWidth: 'calc(50% - 5px)',
         padding: '10px 0',
         borderRadius: 10,
         border: `1px solid ${t.cardBorder}`,
@@ -275,6 +305,7 @@ function TaskCard({
         onApprove(task);
       }} style={{
         flex: 1,
+        minWidth: 'calc(50% - 5px)',
         padding: '10px 0',
         borderRadius: 10,
         border: 'none',
@@ -288,13 +319,35 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <CheckCircle size={14} /> 通过
+            <CheckCircle size={14} /> 同意
+          </button>
+          <button onClick={e => {
+        e.stopPropagation();
+        onTransfer(task);
+      }} style={{
+        flex: 1,
+        minWidth: 'calc(50% - 5px)',
+        padding: '10px 0',
+        borderRadius: 10,
+        border: `1px solid ${t.cardBorder}`,
+        background: 'transparent',
+        color: 'var(--status-info)',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4
+      }}>
+            <Forward size={14} /> 转交
           </button>
           <button onClick={e => {
         e.stopPropagation();
         onReject(task);
       }} style={{
         flex: 1,
+        minWidth: 'calc(50% - 5px)',
         padding: '10px 0',
         borderRadius: 10,
         border: '1.5px solid var(--status-danger)',
@@ -308,13 +361,13 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <XCircle size={14} /> 拒绝
+            <XCircle size={14} /> 不同意
           </button>
         </div>}
     </div>;
 }
 
-// ── 审批确认底栏（通过 / 拒绝） ────────────────────────────────────────────────
+// ── 审批处理底栏（同意 / 不同意 / 转交） ──────────────────────────────────────
 
 function ActionSheet({
   task,
@@ -323,7 +376,7 @@ function ActionSheet({
   onDone
 }: {
   task: WorkflowTask;
-  mode: 'approve' | 'reject';
+  mode: ApprovalActionMode;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -332,25 +385,69 @@ function ActionSheet({
     isDark
   } = useMobileTheme();
   const toast = useToast();
+  const [selectedMode, setSelectedMode] = useState<ApprovalActionMode>(mode);
   const [comment, setComment] = useState('');
+  const [candidates, setCandidates] = useState<ApprovalReassignCandidate[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [candidateLoading, setCandidateLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState('');
+
+  useEffect(() => {
+    setSelectedMode(mode);
+    setComment('');
+    setSelectedUserId('');
+    setErr('');
+  }, [mode, task.instanceId]);
+
+  useEffect(() => {
+    if (selectedMode !== 'transfer') return;
+    let cancelled = false;
+    setCandidateLoading(true);
+    setErr('');
+    approvalApi.getReassignCandidates(task.instanceId)
+      .then(rows => {
+        if (!cancelled) {
+          setCandidates(rows ?? []);
+          setSelectedUserId(rows?.[0]?.userId ?? '');
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : '加载转交候选人失败');
+      })
+      .finally(() => {
+        if (!cancelled) setCandidateLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMode, task.instanceId]);
+
   async function submit() {
-    if (mode === 'reject' && !comment.trim()) {
-      setErr('拒绝原因不能为空');
+    if (selectedMode === 'reject' && !comment.trim()) {
+      setErr('不同意原因不能为空');
+      return;
+    }
+    if (selectedMode === 'transfer' && !selectedUserId) {
+      setErr('请选择转交审批人');
       return;
     }
     setSubmitting(true);
     setErr('');
     try {
-      if (mode === 'approve') {
+      if (selectedMode === 'approve') {
         await approvalApi.approveInstance(task.instanceId, comment.trim() || undefined);
         haptic('success');
         toast.success('审批已通过');
-      } else {
+      } else if (selectedMode === 'reject') {
         await approvalApi.rejectInstance(task.instanceId, comment.trim());
         haptic('success');
-        toast.success('已拒绝');
+        toast.success('已标记为不同意');
+      } else {
+        await approvalApi.reassignInstance(task.instanceId, selectedUserId);
+        haptic('success');
+        const picked = candidates.find(c => c.userId === selectedUserId);
+        toast.success(picked ? `已转交给 ${picked.displayName}` : '已转交审批');
       }
       onDone();
     } catch (e: unknown) {
@@ -362,9 +459,11 @@ function ActionSheet({
       setSubmitting(false);
     }
   }
-  const isApprove = mode === 'approve';
-  const accentColor = isApprove ? 'var(--status-success)' : 'var(--status-danger)';
-  return <div style={{
+  const accentColor = selectedMode === 'approve' ? 'var(--status-success)' : selectedMode === 'reject' ? 'var(--status-danger)' : 'var(--status-info)';
+  const submitText = selectedMode === 'approve' ? '提交同意' : selectedMode === 'reject' ? '提交不同意' : '确认转交审批';
+  const commentLabel = selectedMode === 'approve' ? '审批意见（可选）' : selectedMode === 'reject' ? '不同意原因 *' : '转交说明（可选）';
+  const commentPlaceholder = selectedMode === 'approve' ? '填写审批意见（可不填）' : selectedMode === 'reject' ? '请填写不同意原因…' : '填写转交说明，便于接收人理解背景（可不填）';
+  return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
     zIndex: 300,
@@ -376,6 +475,8 @@ function ActionSheet({
   }}>
       <div style={{
       width: '100%',
+      maxHeight: '86svh',
+      overflowY: 'auto',
       background: isDark ? 'var(--gray-900)' : 'var(--bg-card)',
       borderRadius: '20px 20px 0 0',
       padding: '24px 16px calc(24px + env(safe-area-inset-bottom))'
@@ -390,9 +491,9 @@ function ActionSheet({
             <div style={{
             fontWeight: 700,
             fontSize: 16,
-            color: isApprove ? 'var(--status-success)' : 'var(--status-danger)'
+            color: accentColor
           }}>
-              {isApprove ? '✓ 确认审批通过' : '✗ 拒绝审批'}
+              审批处理
             </div>
             <div style={{
             fontSize: 12,
@@ -413,6 +514,81 @@ function ActionSheet({
           </button>
         </div>
 
+        <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+        marginBottom: 14
+      }}>
+          {([
+          ['approve', '同意', CheckCircle, 'var(--status-success)'],
+          ['reject', '不同意', XCircle, 'var(--status-danger)'],
+          ['transfer', '转交审批', Forward, 'var(--status-info)']
+        ] as const).map(([key, label, Icon, color]) => {
+          const active = selectedMode === key;
+          return <button key={key} type="button" onClick={() => {
+            setSelectedMode(key);
+            setErr('');
+          }} style={{
+            minHeight: 42,
+            borderRadius: 12,
+            border: `1.5px solid ${active ? color : t.cardBorder}`,
+            background: active ? `${color}22` : 'transparent',
+            color: active ? color : t.textSub,
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 5,
+            cursor: 'pointer'
+          }}>
+              <Icon size={15} /> {label}
+            </button>;
+        })}
+        </div>
+
+        {selectedMode === 'transfer' && <div style={{
+        marginBottom: 12
+      }}>
+            <label style={{
+          fontSize: 13,
+          color: t.textSub,
+          display: 'block',
+          marginBottom: 6
+        }}>
+              转交审批人 *
+            </label>
+            <select value={selectedUserId} onChange={e => {
+          setSelectedUserId(e.target.value);
+          setErr('');
+        }} disabled={candidateLoading || candidates.length === 0} style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '11px 12px',
+          borderRadius: 10,
+          border: `1.5px solid ${err && !selectedUserId ? 'var(--status-danger)' : isDark ? 'var(--gray-700)' : 'var(--gray-300)'}`,
+          background: isDark ? 'var(--gray-800)' : 'var(--gray-50)',
+          color: t.text,
+          fontSize: 14,
+          outline: 'none'
+        }}>
+              {candidateLoading && <option value="">候选人加载中…</option>}
+              {!candidateLoading && candidates.length === 0 && <option value="">暂无可转交审批人</option>}
+              {!candidateLoading && candidates.map(c => <option key={c.userId} value={c.userId}>
+                  {c.displayName}{c.roleNameZh ? ` · ${c.roleNameZh}` : ''}
+                </option>)}
+            </select>
+            <div style={{
+          fontSize: 11,
+          color: t.textFaint,
+          marginTop: 5,
+          lineHeight: 1.5
+        }}>
+              候选人由后端按角色权限和数据域过滤，不能手工指定越权人员。
+            </div>
+          </div>}
+
         <div>
           <label style={{
           fontSize: 13,
@@ -420,12 +596,12 @@ function ActionSheet({
           display: 'block',
           marginBottom: 6
         }}>
-            {isApprove ? '审批意见（可选）' : '拒绝原因 *'}
+            {commentLabel}
           </label>
           <textarea value={comment} onChange={e => {
           setComment(e.target.value);
           setErr('');
-        }} placeholder={isApprove ? '填写审批意见（可不填）' : '请填写拒绝原因…'} style={{
+        }} placeholder={commentPlaceholder} style={{
           width: '100%',
           boxSizing: 'border-box',
           padding: '10px 12px',
@@ -451,22 +627,22 @@ function ActionSheet({
             {err}
           </div>}
 
-        <button onClick={submit} disabled={submitting} style={{
+        <button onClick={submit} disabled={submitting || (selectedMode === 'transfer' && (candidateLoading || candidates.length === 0))} style={{
         marginTop: 16,
         width: '100%',
         padding: '14px 0',
-        background: submitting ? 'var(--gray-400)' : accentColor,
+        background: submitting || (selectedMode === 'transfer' && (candidateLoading || candidates.length === 0)) ? 'var(--gray-400)' : accentColor,
         border: 'none',
         borderRadius: 12,
         color: 'var(--bg-card)',
         fontWeight: 700,
         fontSize: 15,
-        cursor: submitting ? 'not-allowed' : 'pointer'
+        cursor: submitting || (selectedMode === 'transfer' && (candidateLoading || candidates.length === 0)) ? 'not-allowed' : 'pointer'
       }}>
-          {submitting ? '提交中…' : isApprove ? '确认通过' : '确认拒绝'}
+          {submitting ? '提交中…' : submitText}
         </button>
       </div>
-    </div>;
+    </div></MobileSheetPortal>;
 }
 
 // ── 详情底栏 ──────────────────────────────────────────────────────────────────
@@ -475,12 +651,14 @@ function DetailSheet({
   task,
   onClose,
   onApprove,
-  onReject
+  onReject,
+  onTransfer
 }: {
   task: WorkflowTask;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onTransfer: () => void;
 }) {
   const {
     t,
@@ -504,7 +682,7 @@ function DetailSheet({
   }, [task.instanceId]);
   const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : 'var(--slate-400)';
   const stepStatusLabel = (s: string) => s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s === 'PENDING' ? '待审批' : s;
-  return <div style={{
+  return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
     zIndex: 300,
@@ -746,13 +924,15 @@ function DetailSheet({
         {/* 操作按钮 */}
         <div style={{
         display: 'flex',
-        gap: 10
+        gap: 10,
+        flexWrap: 'wrap'
       }}>
           <button onClick={() => {
           onClose();
           setTimeout(onApprove, 150);
         }} style={{
           flex: 1,
+          minWidth: 'calc(50% - 5px)',
           padding: '13px 0',
           borderRadius: 12,
           border: 'none',
@@ -762,13 +942,31 @@ function DetailSheet({
           fontSize: 15,
           cursor: 'pointer'
         }}>
-            ✓ 通过
+            ✓ 同意
+          </button>
+          <button onClick={() => {
+          onClose();
+          setTimeout(onTransfer, 150);
+        }} style={{
+          flex: 1,
+          minWidth: 'calc(50% - 5px)',
+          padding: '13px 0',
+          borderRadius: 12,
+          border: `1.5px solid var(--status-info)`,
+          background: 'transparent',
+          color: 'var(--status-info)',
+          fontWeight: 700,
+          fontSize: 15,
+          cursor: 'pointer'
+        }}>
+            ↪ 转交审批
           </button>
           <button onClick={() => {
           onClose();
           setTimeout(onReject, 150);
         }} style={{
           flex: 1,
+          minWidth: 'calc(50% - 5px)',
           padding: '13px 0',
           borderRadius: 12,
           border: '1.5px solid var(--status-danger)',
@@ -778,11 +976,11 @@ function DetailSheet({
           fontSize: 15,
           cursor: 'pointer'
         }}>
-            ✗ 拒绝
+            ✗ 不同意
           </button>
         </div>
       </div>
-    </div>;
+    </div></MobileSheetPortal>;
 }
 
 // ── 历史任务卡片 ───────────────────────────────────────────────────────────────
@@ -872,7 +1070,7 @@ export default function WorkflowPage() {
 
   // Drawers
   const [actionTask, setActionTask] = useState<WorkflowTask | null>(null);
-  const [actionMode, setActionMode] = useState<'approve' | 'reject'>('approve');
+  const [actionMode, setActionMode] = useState<ApprovalActionMode>('approve');
   const [detailTask, setDetailTask] = useState<WorkflowTask | null>(null);
   const loadTodos = useCallback(async () => {
     setLoading(true);
@@ -915,6 +1113,10 @@ export default function WorkflowPage() {
   function openReject(task: WorkflowTask) {
     setActionTask(task);
     setActionMode('reject');
+  }
+  function openTransfer(task: WorkflowTask) {
+    setActionTask(task);
+    setActionMode('transfer');
   }
   function handleActionDone() {
     setActionTask(null);
@@ -1050,7 +1252,7 @@ export default function WorkflowPage() {
       }}>
             {err}
           </div>}
-        {!loading && !err && tab === 'todos' && (todos.length === 0 ? <MobileEmptyState icon="✅" title="暂无待办审批" desc="当前没有需要您处理的审批任务" /> : todos.map(task => <TaskCard key={`${task.taskSource}-${task.taskId}`} task={task} onApprove={openApprove} onReject={openReject} onDetail={t => setDetailTask(t)} />))}
+        {!loading && !err && tab === 'todos' && (todos.length === 0 ? <MobileEmptyState icon="✅" title="暂无待办审批" desc="当前没有需要您处理的审批任务" /> : todos.map(task => <TaskCard key={`${task.taskSource}-${task.taskId}`} task={task} onApprove={openApprove} onReject={openReject} onTransfer={openTransfer} onDetail={t => setDetailTask(t)} />))}
         {!loading && !err && tab === 'history' && (history.length === 0 ? <MobileEmptyState icon="📋" title="暂无已办记录" desc="审批完成的任务会出现在这里" /> : history.map(task => <HistoryCard key={`${task.taskSource}-${task.taskId}`} task={task} />))}
       </div>
 
@@ -1064,6 +1266,9 @@ export default function WorkflowPage() {
     }} onReject={() => {
       setDetailTask(null);
       setTimeout(() => openReject(detailTask), 150);
+    }} onTransfer={() => {
+      setDetailTask(null);
+      setTimeout(() => openTransfer(detailTask), 150);
     }} />}
     </div>;
 }

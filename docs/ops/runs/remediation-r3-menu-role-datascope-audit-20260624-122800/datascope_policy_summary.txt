@@ -1,0 +1,42 @@
+Output format is aligned.
+Null display is "[NULL]".
+ id |                role_code                |       module_code       | scope_type | enabled |          created_at           
+----+-----------------------------------------+-------------------------+------------+---------+-------------------------------
+  8 | ROLE_FINANCE_ANALYST                    | MENU_FIN2               | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 10 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_AP            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 12 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_AR            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 15 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_BUDGET        | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  9 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_EXPENSE       | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 14 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_REPORT        | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 17 | ROLE_FINANCE_ANALYST                    | MENU_FIN2_SHAREHOLDER   | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 20 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2               | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 18 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_AP            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 21 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_AR            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  2 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_BUDGET        | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 13 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_CASH          | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 19 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_EXPENSE       | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 16 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_REIMBURSE     | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  3 | ROLE_FINANCE_REVIEW_MANAGER             | MENU_FIN2_REPORT        | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 22 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_DASHBOARD          | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 23 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_FARM_DAILY         | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 24 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_FARM_DATA          | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 25 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_FARM_QA            | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 28 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_INV_MANUAL_INBOUND | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 26 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_PROD_COLLECTION    | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 27 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_PROD_INBOUND       | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 29 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_WMS_INOUT          | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 30 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_WMS_VIEW           | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+ 31 | ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR | MENU_WORKFLOW           | COMPANY    | t       | 2026-06-05 14:00:58.429498+00
+  5 | ROLE_TREASURY_MANAGER                   | MENU_FIN2               | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  4 | ROLE_TREASURY_MANAGER                   | MENU_FIN2_AP            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  1 | ROLE_TREASURY_MANAGER                   | MENU_FIN2_AR            | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+ 11 | ROLE_TREASURY_MANAGER                   | MENU_FIN2_CASH          | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  6 | ROLE_TREASURY_MANAGER                   | MENU_FIN2_EXPENSE       | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+  7 | ROLE_TREASURY_MANAGER                   | MENU_FIN2_REIMBURSE     | COMPANY    | t       | 2026-06-02 05:08:21.545274+00
+(31 rows)
+
+--- STORE_PAYMENT_RELEVANT_DATASCOPES ---
+ id | role_code | module_code | scope_type | enabled | created_at 
+----+-----------+-------------+------------+---------+------------
+(0 rows)
+

@@ -1,10 +1,12 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 采购申请明细  prc2_request_items */
 @Entity('prc2_request_items')
+@Index('idx_prc2_reqitem_request', ['requestId'])
+@Index('idx_prc2_reqitem_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
 export class Prc2RequestItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

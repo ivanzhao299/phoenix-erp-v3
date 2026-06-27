@@ -16,7 +16,7 @@ export class WorkflowMetricsController {
    * 返回 Workflow 全局健康指标
    */
   @Get('overview')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
   async overview() {
     const [pending, overdue, completedToday, escalated, avgRows] = await Promise.all([
       // 当前 PENDING 步骤数
@@ -76,7 +76,7 @@ export class WorkflowMetricsController {
    * 返回各审批角色的平均处理时长、待办量、超期量
    */
   @Get('bottlenecks')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
   async bottlenecks() {
     const rows = await this.ds.query<{
       role:          string;
@@ -116,7 +116,7 @@ export class WorkflowMetricsController {
    * 超期待办任务列表（Top 20），供健康看板展示
    */
   @Get('overdue-tasks')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
   async overdueTasks() {
     const rows = await this.ds.query<{
       step_id:        string;
@@ -170,7 +170,7 @@ export class WorkflowMetricsController {
    * 已升级待办任务列表（escalation_level > 0），供健康看板展示
    */
   @Get('escalated-tasks')
-  @RequireMenu('MENU_WORKFLOW', 'V')
+  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
   async escalatedTasks() {
     const rows = await this.ds.query<{
       step_id:          string;

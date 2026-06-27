@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, Check, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
@@ -14,6 +14,9 @@ import {
  *   - 不允许超额核销（Service 层校验 + balance_nonneg DDL 兜底）
  */
 @Entity('fin_ar_receipt_allocations')
+@Index('idx_fin_alloc_receipt', ['receiptId'])
+@Index('idx_fin_alloc_ar', ['arInvoiceId'])
+@Check('chk_fin_alloc_positive', `allocated_amount_original > 0`)
 export class FinArReceiptAllocationEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

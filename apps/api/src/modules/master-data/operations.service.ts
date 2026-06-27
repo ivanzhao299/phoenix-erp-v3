@@ -38,6 +38,25 @@ export interface TrendPoint {
   archived: number;
 }
 
+export type MasterDataOperationType =
+  | 'organization' | 'company' | 'project' | 'customer' | 'supplier' | 'store'
+  | 'product' | 'grade' | 'spec' | 'sku' | 'warehouse' | 'driver' | 'vehicle'
+  | 'cash-account' | 'bank-account' | 'dict' | 'site' | 'business-unit' | 'shareholder';
+
+type CenterMember = {
+  type: MasterDataOperationType;
+  table: string;
+  codeCol: string;
+  href: string;
+  filter?: string;
+};
+
+type CenterDefinition = {
+  key: string;
+  label: string;
+  members: CenterMember[];
+};
+
 @Injectable()
 export class MasterDataOperationsService {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
@@ -47,7 +66,7 @@ export class MasterDataOperationsService {
   }
 
   // 6 中心 → 主数据 type 映射（与 master-data-runtime.service TYPES 对齐）
-  private readonly CENTERS = [
+  private readonly CENTERS: CenterDefinition[] = [
     {
       key: 'org', label: '组织中心',
       members: [
@@ -94,15 +113,36 @@ export class MasterDataOperationsService {
         { type: 'dict',    table: 'sys_dict',     codeCol: 'dict_code', href: '/master-data/dictionaries' },
       ],
     },
+    // W4 — 扩展治理(site / business-unit / shareholder 进治理图谱;只读统计,不暴露 CRUD 端点)
+    // user 拍板 #2:门店即 SITE-*-STORE,这里 SITE 子集含全 site_business_type
+    // user 拍板 #4:shareholder scope 走 shr_shareholder_scope,本 center 只展示档案行
+    {
+      key: 'extended-gov', label: '扩展治理',
+      members: [
+        { type: 'site',          table: 'sys_organizations',  codeCol: 'org_code',         href: '/master-data/sites',           filter: "org_type='SITE'" },
+        { type: 'business-unit', table: 'biz_business_units', codeCol: 'bu_code',          href: '/master-data/business-units' },
+        { type: 'shareholder',   table: 'shr_shareholders',   codeCol: 'shareholder_code', href: '/master-data/shareholders' },
+      ],
+    },
   ];
 
+  private isTypeAllowed(type: string, allowedTypes?: ReadonlySet<string>): boolean {
+    return !allowedTypes || allowedTypes.has(type);
+  }
+
+  private filterMembers(members: CenterMember[], allowedTypes?: ReadonlySet<string>): CenterMember[] {
+    return members.filter(m => this.isTypeAllowed(m.type, allowedTypes));
+  }
+
   /** 6 中心实时统计（运营首页用） */
-  async getCenters(): Promise<CenterStat[]> {
+  async getCenters(allowedTypes?: ReadonlySet<string>): Promise<CenterStat[]> {
     const out: CenterStat[] = [];
     for (const c of this.CENTERS) {
+      const centerMembers = this.filterMembers(c.members, allowedTypes);
+      if (!centerMembers.length) continue;
       const members: CenterStat['members'] = [];
       let objectCount = 0, pendingCount = 0, riskCount = 0, scoreSum = 0;
-      for (const m of c.members) {
+      for (const m of centerMembers) {
         const where = (m as any).filter ? `WHERE ${(m as any).filter}` : '';
         const rows = await this.safe<{ status: string; c: string }>(
           `SELECT COALESCE(status,'ACTIVE') AS status, COUNT(*)::text AS c
@@ -139,7 +179,7 @@ export class MasterDataOperationsService {
   }
 
   /** 全局搜索：跨 9 类主数据按 code/name 匹配，每类最多 5 条 */
-  async search(keyword: string): Promise<SearchResult[]> {
+  async search(keyword: string, allowedTypes?: ReadonlySet<string>): Promise<SearchResult[]> {
     const kw = String(keyword || '').trim();
     if (!kw) return [];
     const pattern = `%${kw.replace(/[%_]/g, '\\$&')}%`;
@@ -157,10 +197,15 @@ export class MasterDataOperationsService {
       { type: 'vehicle',   sql: `SELECT vehicle_no AS code, plate_no AS name, status FROM sal_vehicles WHERE vehicle_no ILIKE $1 OR plate_no ILIKE $1 LIMIT 5`, href: '/master-data/vehicles' },
       { type: 'project',   sql: `SELECT project_code AS code, project_name AS name, status FROM shr_projects WHERE project_code ILIKE $1 OR project_name ILIKE $1 LIMIT 5`, href: '/master-data/projects' },
       { type: 'organization', sql: `SELECT org_code AS code, org_name AS name, status FROM sys_organizations WHERE org_code ILIKE $1 OR org_name ILIKE $1 LIMIT 5`, href: '/master-data/organizations' },
+      // W4 — 扩展治理 3 类(只读搜索;不暴露写入端点)
+      { type: 'site',          sql: `SELECT org_code AS code, org_name AS name, status FROM sys_organizations WHERE org_type='SITE' AND (org_code ILIKE $1 OR org_name ILIKE $1) LIMIT 5`, href: '/master-data/sites' },
+      { type: 'business-unit', sql: `SELECT bu_code AS code, bu_name AS name, status FROM biz_business_units WHERE bu_code ILIKE $1 OR bu_name ILIKE $1 LIMIT 5`, href: '/master-data/business-units' },
+      { type: 'shareholder',   sql: `SELECT shareholder_code AS code, shareholder_name AS name, status FROM shr_shareholders WHERE shareholder_code ILIKE $1 OR shareholder_name ILIKE $1 LIMIT 5`, href: '/master-data/shareholders' },
     ];
 
     const out: SearchResult[] = [];
     for (const q of queries) {
+      if (!this.isTypeAllowed(q.type, allowedTypes)) continue;
       const rows = await this.safe<any>(q.sql, [pattern]);
       for (const r of rows) {
         out.push({
@@ -207,11 +252,11 @@ export class MasterDataOperationsService {
   }
 
   /** 运营待办：待审批 + 待补资料 + 重复风险 */
-  async getOperationsTodo() {
+  async getOperationsTodo(allowedTypes?: ReadonlySet<string>) {
     // 待审批：所有 PENDING_APPROVAL 状态的主数据
     const pendingByType: Array<{ type: string; count: number; examples: string[]; href: string }> = [];
     for (const c of this.CENTERS) {
-      for (const m of c.members) {
+      for (const m of this.filterMembers(c.members, allowedTypes)) {
         const where = (m as any).filter ? `WHERE status='PENDING_APPROVAL' AND ${(m as any).filter}` : `WHERE status='PENDING_APPROVAL'`;
         const cnt = await this.safe<{ c: string; sample: string }>(
           `SELECT COUNT(*)::text AS c, STRING_AGG(${m.codeCol}, ',') AS sample FROM ${m.table} ${where}`,
@@ -258,11 +303,18 @@ export class MasterDataOperationsService {
          ORDER BY created_at DESC LIMIT 20`,
     );
 
+    const missingAllowed = new Set(['customer', 'supplier'].filter(type => this.isTypeAllowed(type, allowedTypes)));
+    const duplicateAllowed = new Set(['customer', 'supplier', 'sku'].filter(type => this.isTypeAllowed(type, allowedTypes)));
+
     return {
       pendingApprovals: pendingByType,
-      missingContact: missingContactRows.map(r => ({ source: r.table, count: parseInt(r.cnt, 10) })),
-      duplicateCodes: dupRows.map(r => ({ source: r.src, count: parseInt(r.cnt, 10) })),
-      archiveBlocked: blockedEvents,
+      missingContact: missingContactRows
+        .filter(r => missingAllowed.has(r.table))
+        .map(r => ({ source: r.table, count: parseInt(r.cnt, 10) })),
+      duplicateCodes: dupRows
+        .filter(r => duplicateAllowed.has(r.src))
+        .map(r => ({ source: r.src, count: parseInt(r.cnt, 10) })),
+      archiveBlocked: blockedEvents.filter(e => this.isTypeAllowed(String(e.object_type || '').toLowerCase().replace(/_/g, '-'), allowedTypes)),
       asOf: new Date().toISOString(),
     };
   }

@@ -77,7 +77,7 @@ echo
 # Phase 1: admin 通用路径 200
 # ────────────────────────────────────────────────────────────────────────────
 ADMIN_USER="${ADMIN_USER:-admin}"
-ADMIN_PASS="${ADMIN_PASS:-along888}"
+: "${ADMIN_PASS:?ADMIN_PASS is required; default admin passwords are forbidden}"
 echo "▼ Phase 1: $ADMIN_USER → 全部应 200"
 admin_token=$(login "$ADMIN_USER" "$ADMIN_PASS") || { echo "${R}admin 登录失败，终止${N}"; exit 1; }
 

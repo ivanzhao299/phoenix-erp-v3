@@ -1,0 +1,13 @@
+SELECT 'table|store_payment_accounts|' || to_regclass('public.store_payment_accounts');
+SELECT 'table|store_payment_records|' || to_regclass('public.store_payment_records');
+SELECT 'table|file_metadata|' || to_regclass('public.file_metadata');
+SELECT 'count|store_payment_accounts|' || CASE WHEN to_regclass('public.store_payment_accounts') IS NULL THEN 'TABLE_MISSING' ELSE (SELECT count(*)::text FROM store_payment_accounts) END;
+SELECT 'count|store_payment_records|' || CASE WHEN to_regclass('public.store_payment_records') IS NULL THEN 'TABLE_MISSING' ELSE (SELECT count(*)::text FROM store_payment_records) END;
+SELECT 'count|file_metadata_store_payment|' || CASE WHEN to_regclass('public.file_metadata') IS NULL THEN 'TABLE_MISSING' ELSE (SELECT count(*)::text FROM file_metadata WHERE module_code='STORE_PAYMENT') END;
+SELECT 'menu|MENU_STORE_PAYMENT_ACCOUNT|' || count(*)::text FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT_ACCOUNT';
+SELECT 'menu|MENU_STORE_PAYMENT|' || count(*)::text FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT';
+SELECT 'menu|MENU_STORE_PAYMENT_CONFIRM|' || count(*)::text FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT_CONFIRM';
+SELECT 'menu|MENU_STORE_PAYMENT_VOID|' || count(*)::text FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT_VOID';
+SELECT 'menu|MENU_STORE_PAYMENT_EXPORT|' || count(*)::text FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT_EXPORT';
+SELECT 'store|STORE_VTE_001|' || count(*)::text FROM mst_stores WHERE store_code='STORE-VTE-001' AND status='ACTIVE';
+SELECT 'org|COMP_LAO_AGRI|' || count(*)::text FROM sys_organizations WHERE org_code='COMP-LAO-AGRI' AND status='ACTIVE';

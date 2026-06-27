@@ -1,10 +1,13 @@
 import { Controller, Get, Post, Param, Query, UseGuards, Body } from '@nestjs/common';
 import { MonDeviceService } from './mon-device.service';
 import { IotSyncService } from './iot-sync.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+
+const DEVICE_MENU = 'MENU_DEVICE_MONITOR';
 
 @Controller('api/v3/iot/devices')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu(DEVICE_MENU, 'V')
 export class MonDeviceController {
   constructor(
     private readonly monDeviceService: MonDeviceService,
@@ -34,6 +37,7 @@ export class MonDeviceController {
   }
 
   @Post('sync/realtime')
+  @RequireMenu(DEVICE_MENU, 'E')
   async manualSync() {
     const result = await this.iotSyncService.syncAllRealtime();
     return { ok: true, success: result.successHouses, records: result.totalUpdated, error: result.error };
@@ -41,6 +45,7 @@ export class MonDeviceController {
 
   // G16-3 debug: dump vendor /history 原始返回（查 vendor 真数据形状）
   @Post('history/dump')
+  @RequireMenu(DEVICE_MENU, 'E')
   async dumpHistory(@Body() body: { houseCode: string; date?: string; propertyCodes?: string[] }) {
     const date = body.date || new Date(Date.now() - 86400_000).toISOString().slice(0, 10);
     const codes = body.propertyCodes && body.propertyCodes.length
@@ -51,6 +56,7 @@ export class MonDeviceController {
 
   // G16-3：admin 一键回填全部鸡舍历史（vendor /history API 真数据）
   @Post('history/backfill')
+  @RequireMenu(DEVICE_MENU, 'E')
   async backfillHistory(@Body() body: { days?: number; propertyCodes?: string[]; houseCode?: string }) {
     const days = Math.min(Math.max(Number(body.days) || 7, 1), 30);
     const codes = body.propertyCodes && body.propertyCodes.length
@@ -65,6 +71,7 @@ export class MonDeviceController {
   }
 
   @Post('daily-report/generate')
+  @RequireMenu(DEVICE_MENU, 'E')
   async generateDailyReport(@Body() body: { house_code: string; log_date: string; snapshot_hour?: number }) {
     return this.monDeviceService.generateDailyReportFromIoT(
       body.house_code, body.log_date,
@@ -74,6 +81,7 @@ export class MonDeviceController {
 
   // G16：批量
   @Post('daily-report/batch-generate')
+  @RequireMenu(DEVICE_MENU, 'E')
   async batchGenerate(@Body() body: { house_codes: string[]; log_date: string; snapshot_hour?: number }) {
     return this.monDeviceService.generateDailyReportBatchFromIoT(
       body.house_codes || [], body.log_date,

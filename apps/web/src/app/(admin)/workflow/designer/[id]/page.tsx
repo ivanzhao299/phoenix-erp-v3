@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 type NodeType = "start" | "approval" | "condition" | "cc" | "end";
@@ -72,7 +74,7 @@ const defaultNodes: WorkflowNode[] = [{
   y: 140,
   config: {
     assigneeType: "ROLE",
-    roles: ["ROLE_SYSOPS"]
+    roles: []
   }
 }, {
   id: "end",
@@ -89,9 +91,6 @@ const defaultEdges: WorkflowEdge[] = [{
   to: "end"
 }];
 const fallbackRoleOptions: DirectoryOption[] = [{
-  label: "系统管理员",
-  value: "ROLE_SYSOPS"
-}, {
   label: "财务会计",
   value: "ROLE_FIN_ACCT"
 }, {
@@ -119,6 +118,7 @@ const fallbackRoleOptions: DirectoryOption[] = [{
   label: "物流负责人",
   value: "ROLE_LOG_MGR"
 }];
+const UNSAFE_DEFAULT_APPROVER_ROLES = new Set(["ROLE_ADMIN", "ROLE_SYSOPS"]);
 const fallbackUserOptions: DirectoryOption[] = [];
 const operators = [{
   label: "等于",
@@ -258,7 +258,7 @@ export default function WorkflowDesignerPage() {
       y: 140,
       config: type === "approval" ? {
         assigneeType: "ROLE",
-        roles: ["ROLE_SYSOPS"]
+        roles: []
       } : {}
     };
     setNodes(prev => [...prev, next]);
@@ -326,9 +326,8 @@ export default function WorkflowDesignerPage() {
       setMsg("请先切换到含金额/数字字段的表单，或选择系统推荐的路线。");
       return;
     }
-    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
     const financeRole = pickRole(roleOptions, ["财务"], "ROLE_FIN_ACCT");
-    const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], sysRole);
+    const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], financeRole);
     const amountField = fieldOptions.find(field => field.type === "amount" || field.key.includes("amount") || field.key.includes("money"))?.key || "amount";
     let nextNodes: WorkflowNode[] = [];
     let nextEdges: WorkflowEdge[] = [];
@@ -388,7 +387,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: [managerRole]
         }
       }, {
         id: "end",
@@ -495,7 +494,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: [financeRole]
         }
       }, {
         id: "end",
@@ -547,7 +546,7 @@ export default function WorkflowDesignerPage() {
     setMsg("已整理路线图位置。");
   }
   function autoCompleteForPublish() {
-    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
+    const defaultRole = pickRole(roleOptions, ["负责人", "主管", "经理", "财务"], "");
     let nextNodes = nodes.length ? nodes : defaultNodes;
     let nextEdges = edges;
     if (!nextNodes.some(node => node.type === "start")) {
@@ -578,7 +577,7 @@ export default function WorkflowDesignerPage() {
         y: 140,
         config: {
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: defaultRole ? [defaultRole] : []
         }
       };
       nextNodes = end ? [...nextNodes.filter(node => node.id !== end.id), approval, end] : [...nextNodes, approval];
@@ -590,13 +589,13 @@ export default function WorkflowDesignerPage() {
       const assigneeType = config.assigneeType || "ROLE";
       if (assigneeType === "STARTER") return node;
       if (assigneeType === "USER" && (config.users || []).length) return node;
-      if (assigneeType === "ROLE" && (config.roles || []).length) return node;
+      if (assigneeType === "ROLE" && (config.roles || []).length && !(config.roles || []).some(role => UNSAFE_DEFAULT_APPROVER_ROLES.has(role))) return node;
       return {
         ...node,
         config: {
           ...config,
           assigneeType: "ROLE",
-          roles: [sysRole]
+          roles: defaultRole ? [defaultRole] : []
         }
       };
     });
@@ -753,8 +752,8 @@ export default function WorkflowDesignerPage() {
               <p className={`${s.modalDesc} ${u.mt4}`}>发布前先看一遍业务人员会经历什么。</p>
             </div>
             <div style={toolbarActionsStyle}>
-              <button type="button" className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
-              <button type="button" className={s.btnPrimary} onClick={publish}>发布流程</button>
+              <button type="button" style={secondaryActionButton} onClick={openJson}>高级 JSON</button>
+              <button type="button" style={primaryActionButton} onClick={publish}>发布流程</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -951,21 +950,15 @@ export default function WorkflowDesignerPage() {
               }
             })} placeholder="判断值，如 10000" />
                 </> : null}
-              <button type="button" className={s.btnDanger} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
+              <button type="button" style={actionPill('danger')} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
             </div> : <div className={s.emptyState}><div className={s.emptyStateText}>暂无规则。</div></div>}
         </section>
       </div>
 
-      {jsonOpen ? <div style={modalMaskStyle}>
-          <div className={s.card} style={modalStyle}>
-            <div style={toolbarStyle}>
-              <strong className={s.cardTitle}>高级 JSON 编辑</strong>
-              <button type="button" className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
-            </div>
-            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
-            <button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
-          </div>
-        </div> : null}
+      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
+        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>应用 JSON</button>}>
+        <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
+      </ModalV2>
     </div>;
 }
 function AssigneeEditor({
@@ -995,9 +988,10 @@ function AssigneeEditor({
       </label>
       {assigneeType === "ROLE" ? <label className={s.field}>
           <span className={s.lbl}>选择角色</span>
-          <select className={s.inp} value={config.roles?.[0] || "ROLE_SYSOPS"} onChange={e => onChange({
+          <select className={s.inp} value={config.roles?.[0] || ""} onChange={e => onChange({
         roles: [e.target.value]
       })}>
+            <option value="">请选择业务审批角色</option>
             {roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
           <small style={fieldHelpStyle}>角色来自系统角色数据源，新增角色后会自动出现在这里。</small>
@@ -1075,7 +1069,7 @@ function buildDesignerChecks(nodes: WorkflowNode[], edges: WorkflowEdge[], formV
     const config = node.config || {};
     const type = config.assigneeType || "ROLE";
     if (type === "STARTER") return false;
-    if (type === "ROLE") return !(config.roles || []).length || Boolean(config.roles?.some(role => !roleValues.has(role)));
+    if (type === "ROLE") return !(config.roles || []).length || Boolean(config.roles?.some(role => !roleValues.has(role) || UNSAFE_DEFAULT_APPROVER_ROLES.has(role)));
     return !(config.users || []).length || Boolean(config.users?.some(user => users.length > 0 && !userValues.has(String(user))));
   });
   const conditionEdges = edges.filter(edge => edge.condition);
@@ -1192,6 +1186,7 @@ function validateDesigner(nodes: WorkflowNode[], edges: WorkflowEdge[], fields: 
   nodes.filter(node => node.type === "approval").forEach(node => {
     const config = node.config || {};
     if ((config.assigneeType || "ROLE") === "ROLE" && !(config.roles || []).length) problems.push(`${node.name} 还没有选择审批角色。`);
+    if ((config.assigneeType || "ROLE") === "ROLE" && (config.roles || []).some(role => UNSAFE_DEFAULT_APPROVER_ROLES.has(role))) problems.push(`${node.name} 不能默认流转给系统管理员，请选择业务审批角色。`);
     if (config.assigneeType === "USER" && !(config.users || []).length) problems.push(`${node.name} 还没有指定用户。`);
   });
   return problems;
@@ -1311,7 +1306,8 @@ function assigneeText(node: WorkflowNode, roles: DirectoryOption[], users: Direc
     const labels = selectedUsers.map(id => users.find(user => user.value === String(id))?.label || `用户 ${id}`);
     return labels.length ? labels.join("、") : "未选择用户";
   }
-  const role = config.roles?.[0] || "ROLE_SYSOPS";
+  const role = config.roles?.[0] || "";
+  if (!role) return "未选择角色";
   return roles.find(item => item.value === role)?.label || role;
 }
 function nodeName(id: string, nodes: WorkflowNode[]) {
@@ -1625,22 +1621,6 @@ const dividerStyle: React.CSSProperties = {
   border: 0,
   borderTop: "1px solid var(--border)",
   margin: "16px 0"
-};
-const modalMaskStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 1000,
-  background: "var(--overlay-black-30)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 24
-};
-const modalStyle: React.CSSProperties = {
-  width: "min(900px, 92vw)",
-  maxHeight: "88vh",
-  overflow: "auto",
-  padding: 16
 };
 const textareaStyle: React.CSSProperties = {
   minHeight: 440,

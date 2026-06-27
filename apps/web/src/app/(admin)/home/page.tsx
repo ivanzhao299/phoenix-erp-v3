@@ -19,10 +19,12 @@ import {
   CircleDollarSign, Receipt, CreditCard, Package, CheckCircle2,
   Zap, Bell, Target, ChevronRight,
   ClipboardList as ClipboardListIcon,
+  Bird, EggFried, LineChart, Wheat as WheatIcon, Droplets,
 } from "lucide-react";
 import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
-import { cockpitCard, inlineBadge } from "@/components/design-system/cockpit-styles";
+import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
+import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
 // ── 数据类型 ─────────────────────────────────────────
 interface WorkflowSummary { todo: number; ccUnread: number; overdueTodo: number; running: number; startedRunning: number; }
@@ -33,22 +35,27 @@ interface TodoTask { task_no: string; title: string; node_name: string; created_
 
 // ── 8 大业务中心 ─────────────────────────────────────
 // G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
-const SHORTCUTS: Array<{ key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string }> = [
-  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MASTER' },
-  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MASTER' },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2',           icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2' },
-  { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2' },
-  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2' },
-  { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW' },
-  { key: 'workflow',  label: '审批工作台',   href: '/workflow',               icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW' },
-  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_DATA_QUALITY' },
+type Shortcut = { key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string; altPerms?: string[]; groupId?: string };
+const SHORTCUTS: Shortcut[] = [
+  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER' },
+  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER' },
+  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
+  { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'], groupId: 'sales' },
+  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
+  { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
+  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
+  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY' },
 ];
 
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
 // 优先：每日工作台（高频用户专用）→ 待办 → 角色专属页面
-function ctaFor(role: string | undefined, todo: number): { label: string; href: string; icon: any } {
+function hasAnyPerm(hasPermission: PermissionChecker, menuCodes: string[]) {
+  return menuCodes.some(code => hasPermission(code));
+}
+
+function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker): { label: string; href: string; icon: any } {
   // 高频作业角色：直接送到每日工作台（一站式录入入口）
-  if (role && (
+  if (hasPermission('MENU_DASHBOARD') && role && (
     role.includes('PRODUCTION_DATA_SUPERVISOR') ||
     role.includes('FARM') ||
     role.includes('PKG') ||
@@ -58,14 +65,30 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
   )) {
     return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/tasks/todo', icon: Inbox };
-  if (!role)                 return { label: '进入主数据中心', href: '/master-data', icon: Sparkles };
-  if (role.includes('CASH') || role.includes('TREASURY')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
-  if (role.includes('FIN'))  return { label: '进入财务中心', href: '/finance2', icon: Wallet };
-  if (role.includes('PRC'))  return { label: '进入采购中心', href: '/procurement2', icon: ShoppingBag };
-  if (role.includes('SALES'))return { label: '进入销售中心', href: '/sales2', icon: ShoppingCart };
-  if (role.includes('WMS'))  return { label: '进入库存中心', href: '/warehouse', icon: Warehouse };
-  return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
+  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
+  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
+  if (role?.includes('FIN')) {
+    const financePath = getFirstAccessiblePath(hasPermission, 'finance');
+    if (financePath) return { label: '进入财务中心', href: financePath, icon: Wallet };
+  }
+  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
+    const procurementPath = getFirstAccessiblePath(hasPermission, 'procurement');
+    if (procurementPath) return { label: '进入采购中心', href: procurementPath, icon: ShoppingBag };
+  }
+  if (role?.includes('SALES')) {
+    const salesPath = getFirstAccessiblePath(hasPermission, 'sales');
+    if (salesPath) return { label: '进入销售中心', href: salesPath, icon: ShoppingCart };
+  }
+  if (role?.includes('WMS')) {
+    const inventoryPath = getFirstAccessiblePath(hasPermission, 'inventory');
+    if (inventoryPath) return { label: '进入库存中心', href: inventoryPath, icon: Warehouse };
+  }
+  const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
+  if (masterPath) return { label: '进入主数据中心', href: masterPath, icon: Sparkles };
+  if (hasPermission('MENU_MD_QUALITY')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
+  if (hasPermission('MENU_DASHBOARD')) return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
+  const firstPath = getFirstAccessiblePath(hasPermission);
+  return { label: firstPath ? '进入我的工作区' : '查看我的待办', href: firstPath || '/workflow/todos', icon: Inbox };
 }
 
 // G18-4 IA：home 不再 redirect 到 daily-work。
@@ -76,10 +99,10 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
-  const hasMasterPerm = hasPermission('MENU_MASTER');
-  // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
-  const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
-  const hasCentersPerm = hasPermission('MENU_MD_CENTER') || hasMasterPerm;
+  const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
+  // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
+  const hasQualityPerm = hasPermission('MENU_MD_QUALITY');
+  const hasCentersPerm = hasPermission('MENU_MD_CENTER');
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
@@ -92,15 +115,16 @@ export default function HomePage() {
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
+    // 可选总览 widget：silent=true → 任何权限/数据问题静默降级，不弹全局 toast
     const requests: Promise<any>[] = [
-      request<{ data: WorkflowSummary }>('/workflow/tasks/summary').then(r => r.data).catch(() => null),
-      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6').then(r => r.data || []).catch(() => [] as TodoTask[]),
+      request<{ data: WorkflowSummary }>('/workflow/tasks/summary', { silent: true }).then(r => r.data).catch(() => null),
+      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6', { silent: true }).then(r => r.data || []).catch(() => [] as TodoTask[]),
     ];
     requests.push(hasQualityPerm
-      ? request<QualityScores>('/data-quality/scores').catch(() => null)
+      ? request<QualityScores>('/data-quality/scores', { silent: true }).catch(() => null)
       : Promise.resolve(null));
     requests.push(hasCentersPerm
-      ? request<CenterStat[]>('/master-data/operations/centers').catch(() => [])
+      ? request<CenterStat[]>('/master-data/operations/centers', { silent: true }).catch(() => [])
       : Promise.resolve([]));
 
     Promise.all(requests).then(([s, t, q, c]) => {
@@ -139,7 +163,7 @@ export default function HomePage() {
   const role = (user as any)?.role || ((user as any)?.roles && (user as any).roles[0]) || '';
   const displayName: string = (user as any)?.realNameZh || (user as any)?.username || '用户';
   const todoCount = summary?.todo ?? 0;
-  const cta = ctaFor(role, todoCount);
+  const cta = ctaFor(role, todoCount, hasPermission);
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 6)  return '凌晨好';
@@ -173,32 +197,28 @@ export default function HomePage() {
         todoCount={todoCount}
         overdueCount={summary?.overdueTodo ?? 0}
         highAlertCount={scores?.highAlertCount ?? 0}
-        hasMasterPerm={hasMasterPerm}
+        masterDataPath={masterDataPath}
         showAlertBubble={hasQualityPerm}
       />
 
-      {/* G19-E / G20-2：养殖运营 KPI 卡片网格（HeroBanner 之下） */}
+      {/* g200m(2026-06-20):养殖 KPI 6 卡 emoji→lucide,自写卡 → kpiCardCompact(tone) */}
       {hasPermission('MENU_FARM_DATA') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {[
-            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', accent: '#3B82F6', icon: '🐔' },
-            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', accent: '#10B981', icon: '🥚' },
-            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', accent: '#10B981', icon: '📈' },
-            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', accent: '#F59E0B', icon: '🌾' },
-            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', accent: '#06B6D4', icon: '💧' },
-            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', accent: (farmKpi.alarmCount ?? 0) > 0 ? '#EF4444' : '#10B981', icon: '⚠️' },
-          ].map(k => (
-            <div key={k.label} style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: k.accent,
-              borderRadius: 10, padding: '14px 18px',
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 14 }}>{k.icon}</span> {k.label}
+          {([
+            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', tone: 'info' as const, Icon: Bird },
+            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', tone: 'success' as const, Icon: EggFried },
+            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', tone: 'success' as const, Icon: LineChart },
+            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
+            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', tone: 'info' as const, Icon: Droplets },
+            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', tone: ((farmKpi.alarmCount ?? 0) > 0 ? 'danger' : 'success') as 'danger' | 'success', Icon: AlertTriangle },
+          ]).map(k => (
+            <div key={k.label} style={kpiCardCompact(k.tone)}>
+              <div style={kpiCardCompactLabel}>
+                <k.Icon size={13} /> {k.label}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <div style={{ ...kpiCardCompactValue(k.tone), display: 'flex', alignItems: 'baseline', gap: 4 }}>
                 {k.value}
-                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{k.unit}</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'inherit' }}>{k.unit}</span>
               </div>
             </div>
           ))}
@@ -246,11 +266,11 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════
 // Hero 欢迎横幅
 // ══════════════════════════════════════════════════════
-function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, hasMasterPerm, showAlertBubble }: {
+function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, masterDataPath, showAlertBubble }: {
   greeting: string; userName: string; briefing: string;
   ctaLabel: string; ctaHref: string; CtaIcon: any;
   todoCount: number; overdueCount: number; highAlertCount: number;
-  hasMasterPerm: boolean; showAlertBubble: boolean;
+  masterDataPath?: string; showAlertBubble: boolean;
 }) {
   return (
     <div style={{
@@ -304,9 +324,9 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
           }}>
             <CtaIcon size={14} /> {ctaLabel} <ArrowRight size={12} />
           </Link>
-          {/* 主数据中心副 CTA — 仅持有 MENU_MASTER 权限的用户可见（避免普通业务员误入） */}
-          {hasMasterPerm && (
-            <Link href="/master-data" style={{
+          {/* 主数据中心副 CTA — 只跳转到用户实际可访问的第一个主数据叶子入口。 */}
+          {masterDataPath && (
+            <Link href={masterDataPath} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '7px 16px', borderRadius: 8,
               background: 'var(--bg-muted)', border: '1px solid var(--border)',
@@ -373,7 +393,7 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
           共 <strong style={{ color: 'var(--color-primary)' }}>{todoCount}</strong> 单
         </span>
-        <Link href="/workflow/tasks/todo" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        <Link href="/workflow/todos" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
           全部 <ChevronRight size={12} />
         </Link>
       </div>
@@ -396,7 +416,7 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
             const isUrgent = due && !isOverdue ? (due.getTime() - Date.now()) < 24 * 3600 * 1000 : false;
             const dotColor = isOverdue ? 'var(--status-danger)' : isUrgent ? 'var(--status-warning)' : 'var(--color-primary)';
             return (
-              <Link key={i} href={`/workflow/tasks/todo?taskNo=${encodeURIComponent(t.task_no)}`} style={{
+              <Link key={i} href={`/workflow/todos?taskNo=${encodeURIComponent(t.task_no)}`} style={{
                 position: 'relative', display: 'flex', gap: 12, padding: '10px 12px 10px 16px', marginLeft: -12,
                 borderRadius: 8, textDecoration: 'none', color: 'inherit',
                 transition: 'background 0.12s',
@@ -435,19 +455,19 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
 // ══════════════════════════════════════════════════════
 // 经营概览（紧凑 5 卡 horizontal）
 // ══════════════════════════════════════════════════════
-function BusinessOverview({ hasPermission }: { hasPermission: (m: string) => boolean }) {
+function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker }) {
   // G20-3 IA 立宪（B1 欠债治理）：经营概览 vs 业务中心导航职责划清
   //   · BusinessOverview = 财务指标导航（销售/现金/应收/应付）
   //   · SHORTCUTS         = 业务中心 8 大入口（客户/供应商/采购/销售/财务/库存/工作流/数据质量）
   //   删"库存"卡 — 与 SHORTCUTS.inventory 完全重叠（同 href / 同 perm，纯重复）
   //   后续 G21+ 计划：BusinessOverview 进一步改为纯指标卡（带今日数字、删 href），与 SHORTCUTS 完全分离
   const allCards = [
-    { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2' },
-    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH' },
+    { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'] },
+    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH_VIEW' },
     { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
     { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },
   ];
-  const cards = allCards.filter(c => hasPermission(c.perm));
+  const cards = allCards.filter(c => hasPermission(c.perm) || (c.altPerms?.some(p => hasPermission(p)) ?? false));
   if (cards.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
@@ -605,9 +625,12 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
 // ══════════════════════════════════════════════════════
 // 8 大业务中心 tile 阵列
 // ══════════════════════════════════════════════════════
-function ShortcutsGrid({ hasPermission }: { hasPermission: (m: string) => boolean }) {
+function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) {
   // G11：按权限过滤业务中心 — 无权访问的不显示
-  const visible = SHORTCUTS.filter(s => hasPermission(s.perm));
+  const visible = SHORTCUTS.filter(s => {
+    const href = s.groupId ? getFirstAccessiblePath(hasPermission, s.groupId) : s.href;
+    return Boolean(href) && (hasPermission(s.perm) || (s.altPerms?.some(p => hasPermission(p)) ?? false));
+  });
   if (visible.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
@@ -623,8 +646,11 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: (m: string) => boolea
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 一键直达（{visible.length}）</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-        {visible.map(s => (
-          <Link key={s.key} href={s.href} style={{
+        {visible.map(s => {
+          const href = s.groupId ? (getFirstAccessiblePath(hasPermission, s.groupId) || '') : s.href;
+          if (!href) return null;
+          return (
+          <Link key={s.key} href={href} style={{
             position: 'relative', overflow: 'hidden',
             padding: 12, borderRadius: 10,
             background: `${s.gradient}, var(--bg-page)`,
@@ -643,7 +669,8 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: (m: string) => boolea
             <strong style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{s.label}</strong>
             <ArrowRight size={12} style={{ color: s.accent }} />
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

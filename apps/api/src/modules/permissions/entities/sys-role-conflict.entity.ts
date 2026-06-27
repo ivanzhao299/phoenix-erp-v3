@@ -10,7 +10,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn } from
  *   severity=WARN | BLOCK | INFO
  */
 @Entity('sys_role_conflict')
-@Unique(['menu_a', 'menu_b'])
+@Unique('sys_role_conflict_menu_a_menu_b_key', ['menu_a', 'menu_b'])
 export class SysRoleConflictEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

@@ -1,6 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 @Entity('wf_approval_instances')
+@Index('idx_wf_inst_biz', ['bizType', 'bizId'])
+@Index('idx_wf_inst_status', ['status'])
+@Index('idx_wf_inst_module', ['moduleCode'])
+@Index('idx_wf_inst_started_by', ['startedBy'], { where: '"started_by" IS NOT NULL' })
+@Index('idx_wf_inst_rule_id', ['ruleId'], { where: '"rule_id" IS NOT NULL' })
+@Index('idx_wf_inst_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_wf_inst_form', ['formSubmissionId'], { where: '"form_submission_id" IS NOT NULL' })
 export class WfApprovalInstanceEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

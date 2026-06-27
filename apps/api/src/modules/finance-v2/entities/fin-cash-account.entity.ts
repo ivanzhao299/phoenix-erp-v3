@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -26,6 +26,7 @@ import {
  *   所有余额变动必须先写流水，再更新账户余额（同事务）。
  */
 @Entity('fin_cash_accounts')
+@Index('idx_fin_cash_accounts_company', ['companyCode', 'status'])
 export class FinCashAccountEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

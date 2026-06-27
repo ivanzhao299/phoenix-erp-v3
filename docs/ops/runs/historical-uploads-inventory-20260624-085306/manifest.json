@@ -1,0 +1,36 @@
+{
+  "audit_dir": "/opt/phoenix-erp-backups/remediation-r2-historical-uploads-inventory-20260624-085306",
+  "roots": [
+    "/var/lib/docker/volumes/phoenix_uploads/_data"
+  ],
+  "file_count": 74,
+  "total_size_bytes": 66718630,
+  "extension_counts": {
+    ".pdf": 38,
+    ".png": 17,
+    ".jpg": 19
+  },
+  "category_counts": {
+    "CONTRACT_ATTACHMENT_CANDIDATE": 74
+  },
+  "risk_file_count": 0,
+  "orphan_candidate_count": 0,
+  "metadata_claim_candidate_count": 74,
+  "duplicate_basename_count": 0,
+  "empty_file_count": 0,
+  "executable_file_count": 0,
+  "unexpected_extension_count": 0,
+  "sensitive_name_count": 0,
+  "path_traversal_name_count": 0,
+  "generated_files": [
+    "manifest.json",
+    "uploads_contracts_inventory_summary.txt",
+    "uploads_contracts_file_list_sample.txt",
+    "uploads_contracts_file_type_summary.txt",
+    "uploads_contracts_size_summary.txt",
+    "uploads_contracts_risk_summary.txt",
+    "historical_uploads_metadata_candidate_summary.txt",
+    "orphan_uploads_candidate_summary.txt",
+    "inventory-records.json"
+  ]
+}

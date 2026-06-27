@@ -1,0 +1,31 @@
+{
+  "gate": "APPROVE_LEGACY_UPLOAD_TO_FILE_METADATA_GATE",
+  "date": "2026-06-24",
+  "result": "GO_WITH_CONDITIONS",
+  "modified_code": true,
+  "modified_backend": true,
+  "modified_frontend": false,
+  "migration_executed": false,
+  "db_write_executed_by_gate": false,
+  "metadata_rows_written_by_gate": 0,
+  "deployment_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "deleted_files": false,
+  "moved_files": false,
+  "raw_url_returned_by_updated_code": false,
+  "uploads_path_returned_by_updated_code": false,
+  "storage_path_returned_by_updated_code": false,
+  "legacy_pending_strategy": "LEGACY_UPLOAD / LEGACY_PENDING / PENDING / PROTECTED",
+  "generic_protected_endpoint_available": false,
+  "a1_result": "PASS_WITH_CONDITIONS",
+  "a2_result": "PASS_WITH_CONDITIONS",
+  "a5_result": "GO_WITH_CONDITIONS",
+  "conditions": [
+    "Local API build could not run because node_modules are missing.",
+    "Remote SSH smoke failed during banner exchange.",
+    "Production-side runtime was not deployed or restarted in this Gate.",
+    "Generic protected file endpoint is not available yet.",
+    "Existing frontend legacy upload consumers still need migration away from json.url."
+  ]
+}

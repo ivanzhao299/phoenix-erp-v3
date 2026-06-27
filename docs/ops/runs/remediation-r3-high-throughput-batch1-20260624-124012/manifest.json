@@ -1,0 +1,18 @@
+{
+  "gate": "ENABLE_PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_MODE",
+  "remote_audit_dir": "/opt/phoenix-erp-backups/remediation-r3-high-throughput-batch1-20260624-124012",
+  "started_at": "2026-06-24T12:40:12+08:00",
+  "parallel_mode": "enabled",
+  "parallel_limit": 4,
+  "remote_ssh_parallel_limit": 2,
+  "db_write_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "files_deleted": false,
+  "files_moved": false,
+  "nginx_changed": false,
+  "env_changed": false,
+  "secrets_redacted": true
+}

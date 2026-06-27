@@ -1,0 +1,5 @@
+# p0-001 minimal count probe default ssh
+local_time=2026-06-24T19:55:09+08:00
+accounts=0
+records=0
+menus=5

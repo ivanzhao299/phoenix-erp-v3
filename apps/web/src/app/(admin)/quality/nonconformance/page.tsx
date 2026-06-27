@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AlertTriangle, CheckCircle, Clock, RefreshCw, Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -10,16 +10,24 @@ import { crudApi } from "@/lib/api-client";
 import { UserSelector, BatchSelector } from "@/components/shared-selectors/MasterDataSelectors";
 import s from "@/components/ui/admin-ui.module.css";
 import u from "@/styles/uix-utils.module.css";
-const STATUS_CLS: Record<string, string> = {
-  OPEN: "badgeDanger",
-  CLOSED: "badgeSuccess",
-  PENDING: "badgeWarning"
+import {
+  primaryActionButton, secondaryActionButton, actionPill, inputField, formLabel,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  detailInfoBox, drawerFooter, MONO_FONT,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+
+const STATUS_TONE: Record<string, Tone> = {
+  OPEN:    "danger",
+  CLOSED:  "success",
+  PENDING: "warning",
 };
-const SEVERITY_CLS: Record<string, string> = {
-  HIGH: "badgeDanger",
-  CRITICAL: "badgeDanger",
-  MEDIUM: "badgeWarning",
-  LOW: "badgeNeutral"
+const SEVERITY_TONE: Record<string, Tone> = {
+  HIGH:     "danger",
+  CRITICAL: "danger",
+  MEDIUM:   "warning",
+  LOW:      "default",
 };
 interface NCRow {
   id: number;
@@ -73,15 +81,15 @@ export default function NonconformancePage() {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json"
   };
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     crudApi.list<NCRow>("qa_non_conformance", {
       limit: 200
     }).then(res => setData(res.data || [])).catch(() => {}).finally(() => setLoading(false));
-  };
+  }, []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   const open = data.filter(r => (r.status || "").toUpperCase() !== "CLOSED").length;
   const closed = data.filter(r => (r.status || "").toUpperCase() === "CLOSED").length;
   const high = data.filter(r => r.severity === "HIGH" || r.severity === "CRITICAL").length;
@@ -135,83 +143,41 @@ export default function NonconformancePage() {
       setSaving(false);
     }
   };
+  const KPIS: { label: string; value: string; tone: Tone; Icon: typeof AlertTriangle }[] = [
+    { label: t("status.pending", "待处置"),   value: String(open),     tone: "danger",  Icon: AlertTriangle },
+    { label: t("ui.已关闭",      "已关闭"),   value: String(closed),   tone: "success", Icon: CheckCircle   },
+    { label: t("ui.高严重性",    "高严重性"), value: String(high),     tone: "danger",  Icon: AlertTriangle },
+    { label: t("ui.今日新增",    "今日新增"), value: String(todayNcr), tone: "warning", Icon: Clock         },
+  ];
   return <div className="animate-fade-in">
-      <PageHeader title={t("ui.不合格品处置", "不合格品处置")} subtitle={t("ui.不合格品追踪评估与关闭", "不合格品追踪、评估与关闭")} breadcrumb={[t("ui.品质追溯", "品质追溯"), t("ui.不合格品", "不合格品")]} actions={<div style={{
-      display: "flex",
-      gap: 8
-    }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={load} disabled={loading}>
-              <RefreshCw size={14} style={{
-          animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> {t("common.refresh", "刷新")}
+      <PageHeader title={t("ui.不合格品处置", "不合格品处置")} subtitle={t("ui.不合格品追踪评估与关闭", "不合格品追踪、评估与关闭")} breadcrumb={[t("ui.品质追溯", "品质追溯"), t("ui.不合格品", "不合格品")]}
+        actions={
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={load} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> {t("common.refresh", "刷新")}
             </button>
-            <button type="button" className={`${s.btnDanger} ${u.flexRow}`} onClick={() => {
-        setEditing(null);
-        setForm(DEF);
-        setDrawerOpen(true);
-      }}>
+            <button type="button" onClick={() => { setEditing(null); setForm(DEF); setDrawerOpen(true); }} style={{ ...primaryActionButton, background: "var(--status-danger)" }}>
               <Plus size={14} /> {t("ui.新增NCR", "新增 NCR")}
             </button>
-          </div>} />
+          </div>
+        }
+      />
 
-      {/* KPI */}
-      <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))",
-      gap: 12,
-      marginBottom: 20
-    }}>
-        {[{
-        label: t("status.pending", "待处置"),
-        value: String(open),
-        accent: "var(--status-danger)",
-        icon: <AlertTriangle size={18} />
-      }, {
-        label: t("ui.已关闭", "已关闭"),
-        value: String(closed),
-        accent: "var(--status-success)",
-        icon: <CheckCircle size={18} />
-      }, {
-        label: t("ui.高严重性", "高严重性"),
-        value: String(high),
-        accent: "var(--status-danger)",
-        icon: <AlertTriangle size={18} />
-      }, {
-        label: t("ui.今日新增", "今日新增"),
-        value: String(todayNcr),
-        accent: "var(--status-warning)",
-        icon: <Clock size={18} />
-      }].map(k => <div key={k.label} style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderLeft: `var(--card-accent-width) solid ${k.accent}`,
-        borderRadius: "var(--radius-lg)",
-        padding: "14px 18px"
-      }}>
-            <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          marginBottom: 8,
-          color: k.accent,
-          fontSize: 11,
-          fontWeight: 700,
-          textTransform: "uppercase"
-        }}>{k.icon}{k.label}</div>
-            <div style={{
-          fontSize: 26,
-          fontWeight: 800,
-          color: k.accent
-        }}>{k.value}</div>
-          </div>)}
+      {/* g200g KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 20 }}>
+        {KPIS.map(k => {
+          const Icon = k.Icon;
+          return (
+            <div key={k.label} style={kpiCardCompact(k.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {k.label}</div>
+              <div style={kpiCardCompactValue(k.tone)}>{k.value}</div>
+            </div>
+          );
+        })}
       </div>
 
-      <div style={{
-      background: "var(--bg-card)",
-      border: "1px solid var(--border)",
-      borderRadius: "var(--radius-lg)",
-      overflow: "hidden"
-    }}>
+      {/* g200g 表格容器 — detailInfoBox(非 KPI 风格) */}
+      <div style={{ ...detailInfoBox, background: "var(--bg-card)", padding: 0, overflow: "hidden" }}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -233,52 +199,38 @@ export default function NonconformancePage() {
             const st = r.status || "OPEN";
             const isClosed = st.toLowerCase() === "closed";
             return <tr key={r.id}>
-                  <td style={{
-                fontFamily: "monospace",
-                fontSize: 12,
-                color: "var(--color-primary)"
-              }}>{r.nc_no || `NCR-${r.id}`}</td>
+                  <td style={{ fontFamily: MONO_FONT, fontSize: 12, color: "var(--color-primary)" }}>{r.nc_no || `NCR-${r.id}`}</td>
                   <td className={u.muted}>{r.source || "—"}</td>
-                  <td style={{
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>{r.issue_desc || "—"}</td>
+                  <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.issue_desc || "—"}</td>
                   <td>{r.qty || 0}</td>
                   <td>
-                    <span className={`${s.badge} ${s[SEVERITY_CLS[r.severity || ""] ?? 'badgeNeutral']}`}>{r.severity || "—"}</span>
+                    <span style={actionPill(SEVERITY_TONE[r.severity || ""] || "default")}>{r.severity || "—"}</span>
                   </td>
                   <td className={u.muted12}>{r.action_taken || "—"}</td>
                   <td>
-                    <span className={`${s.badge} ${s[STATUS_CLS[st] ?? 'badgeNeutral']}`}>{STATUS_LABEL[st] || st}</span>
+                    <span style={actionPill(STATUS_TONE[st] || "default")}>{STATUS_LABEL[st] || st}</span>
                   </td>
-                  <td style={{
-                display: "flex",
-                gap: 6
-              }}>
-                    <button type="button" className={s.btnSecondary} style={{
-                  padding: "4px 8px",
-                  fontSize: 12
-                }} onClick={() => {
-                  setEditing(r);
-                  setForm({
-                    source: r.source || "",
-                    issue_desc: r.issue_desc || "",
-                    qty: String(r.qty || ""),
-                    handler: r.handler || "",
-                    action_taken: r.action_taken || "评估封存",
-                    severity: r.severity || "MEDIUM",
-                    batch_no: r.batch_no || ""
-                  });
-                  setDrawerOpen(true);
-                }}>
+                  <td style={{ display: "flex", gap: 6 }}>
+                    <button type="button" onClick={() => {
+                      setEditing(r);
+                      setForm({
+                        source: r.source || "",
+                        issue_desc: r.issue_desc || "",
+                        qty: String(r.qty || ""),
+                        handler: r.handler || "",
+                        action_taken: r.action_taken || "评估封存",
+                        severity: r.severity || "MEDIUM",
+                        batch_no: r.batch_no || "",
+                      });
+                      setDrawerOpen(true);
+                    }} style={actionPill("default")}>
                       {t("common.edit", "编辑")}
                     </button>
-                    {!isClosed && <button type="button" className={s.btnSuccess} style={{
-                  padding: "4px 8px",
-                  fontSize: 12
-                }} onClick={() => close_ncr(r.id)}>{t("common.close", "关闭")}</button>}
+                    {!isClosed && (
+                      <button type="button" onClick={() => close_ncr(r.id)} style={actionPill("success")}>
+                        {t("common.close", "关闭")}
+                      </button>
+                    )}
                   </td>
                 </tr>;
           })}
@@ -321,134 +273,45 @@ export default function NonconformancePage() {
           label: string;
           type: string;
           ph: string;
-        }[]).map(f => <div key={f.key}>
-              <label style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            display: "block",
-            marginBottom: 6
-          }}>{f.label}</label>
-              {f.type === "batch" ? <BatchSelector value={form[f.key as keyof Form]} onChange={v => setForm(p => ({
-            ...p,
-            [f.key]: v
-          }))} /> : f.type === "textarea" ? <textarea value={form[f.key as keyof Form]} onChange={e => setForm(p => ({
-            ...p,
-            [f.key]: e.target.value
-          }))} rows={3} placeholder={f.ph} style={{
-            width: "100%",
-            padding: "10px 12px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            color: "var(--text-primary)",
-            fontSize: 14,
-            outline: "none",
-            resize: "vertical",
-            boxSizing: "border-box"
-          }} /> : <input type={f.type} value={form[f.key as keyof Form]} onChange={e => setForm(p => ({
-            ...p,
-            [f.key]: e.target.value
-          }))} placeholder={f.ph} style={{
-            width: "100%",
-            padding: "10px 12px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            color: "var(--text-primary)",
-            fontSize: 14,
-            outline: "none",
-            boxSizing: "border-box"
-          }} />}
-            </div>)}
+        }[]).map(f => (
+            <div key={f.key}>
+              <label style={formLabel}>{f.label}</label>
+              {f.type === "batch" ? (
+                <BatchSelector value={form[f.key as keyof Form]} onChange={v => setForm(p => ({ ...p, [f.key]: v }))} />
+              ) : f.type === "textarea" ? (
+                <textarea value={form[f.key as keyof Form]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} rows={3} placeholder={f.ph} style={{ ...inputField, resize: "vertical" }} />
+              ) : (
+                <input type={f.type} value={form[f.key as keyof Form]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} style={inputField} />
+              )}
+            </div>
+          ))}
           <div>
-            <label style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            display: "block",
-            marginBottom: 6
-          }}>{t("ui.责任人", "责任人")}</label>
-            <UserSelector value={form.handler} onChange={v => setForm(p => ({
-            ...p,
-            handler: v
-          }))} />
+            <label style={formLabel}>{t("ui.责任人", "责任人")}</label>
+            <UserSelector value={form.handler} onChange={v => setForm(p => ({ ...p, handler: v }))} />
           </div>
           <div>
-            <label style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            display: "block",
-            marginBottom: 6
-          }}>{t("ui.严重性", "严重性")}</label>
-            <select value={form.severity} onChange={e => setForm(p => ({
-            ...p,
-            severity: e.target.value
-          }))} style={{
-            width: "100%",
-            padding: "10px 12px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            color: "var(--text-primary)",
-            fontSize: 14,
-            outline: "none"
-          }}>
+            <label style={formLabel}>{t("ui.严重性", "严重性")}</label>
+            <select value={form.severity} onChange={e => setForm(p => ({ ...p, severity: e.target.value }))} style={inputField}>
               {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            display: "block",
-            marginBottom: 6
-          }}>{t("ui.处置方式", "处置方式")}</label>
-            <select value={form.action_taken} onChange={e => setForm(p => ({
-            ...p,
-            action_taken: e.target.value
-          }))} style={{
-            width: "100%",
-            padding: "10px 12px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            color: "var(--text-primary)",
-            fontSize: 14,
-            outline: "none"
-          }}>
-              {[{
-              v: "评估封存",
-              l: t("ui.评估封存", "评估封存")
-            }, {
-              v: "降级使用",
-              l: t("ui.降级使用", "降级使用")
-            }, {
-              v: "销毁处理",
-              l: t("ui.销毁处理", "销毁处理")
-            }, {
-              v: "退货供应商",
-              l: t("ui.退货供应商", "退货供应商")
-            }, {
-              v: "其他",
-              l: t("ui.其他", "其他")
-            }].map(({
-              v,
-              l
-            }) => <option key={v} value={v}>{l}</option>)}
+            <label style={formLabel}>{t("ui.处置方式", "处置方式")}</label>
+            <select value={form.action_taken} onChange={e => setForm(p => ({ ...p, action_taken: e.target.value }))} style={inputField}>
+              {[
+                { v: "评估封存",   l: t("ui.评估封存",   "评估封存") },
+                { v: "降级使用",   l: t("ui.降级使用",   "降级使用") },
+                { v: "销毁处理",   l: t("ui.销毁处理",   "销毁处理") },
+                { v: "退货供应商", l: t("ui.退货供应商", "退货供应商") },
+                { v: "其他",       l: t("ui.其他",       "其他") },
+              ].map(({ v, l }) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
-          <div style={{
-          display: "flex",
-          gap: 10,
-          paddingTop: 8
-        }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
-            setDrawerOpen(false);
-            setEditing(null);
-            setForm(DEF);
-          }}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnDanger} style={{
-            flex: 2
-          }} disabled={saving} onClick={save}>{saving ? t("ui.保存中", "保存中…") : t("common.save", "保存")}</button>
+          <div style={drawerFooter}>
+            <button type="button" onClick={() => { setDrawerOpen(false); setEditing(null); setForm(DEF); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t("common.cancel", "取消")}</button>
+            <button type="button" onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", background: "var(--status-danger)", opacity: saving ? 0.6 : 1 }}>
+              {saving ? t("ui.保存中", "保存中…") : t("common.save", "保存")}
+            </button>
           </div>
         </div>
       </RightDrawer>

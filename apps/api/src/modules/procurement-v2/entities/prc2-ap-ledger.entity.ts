@@ -1,10 +1,14 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 应付账款台账  prc2_ap_ledger */
 @Entity('prc2_ap_ledger')
+@Index('idx_prc2_ap_status', ['status'])
+@Index('idx_prc2_ap_supplier', ['supplierCode'], { where: '"supplier_code" IS NOT NULL' })
+@Index('idx_prc2_ap_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_prc2_ap_due_date', ['dueDate'], { where: '"due_date" IS NOT NULL' })
 export class Prc2ApLedgerEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

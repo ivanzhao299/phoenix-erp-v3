@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { EntityWorkspace, Panel } from "@/components/design-system";
-import { inlineBadge } from "@/components/design-system/cockpit-styles";
+import { inlineBadge, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
@@ -98,7 +98,7 @@ export default function RoleDetailPage() {
   const router = useRouter();
   const toast = useToast();
   const { t } = useLanguage();
-  const { canEdit } = usePermission("MENU_SETTINGS_IT");
+  const { canEdit } = usePermission("MENU_SETTINGS_ROLE");
 
   const roleCode = decodeURIComponent(String(params?.code || ""));
 
@@ -313,7 +313,7 @@ export default function RoleDetailPage() {
           <div className={s.emptyState}>
             <Shield size={40} />
             <div className={s.emptyStateText}>{t("ui.未找到该角色", "未找到该角色")}</div>
-            <button type="button" onClick={() => router.push("/settings/roles")} className={s.btnSecondary} style={{ marginTop: 12 }}>
+            <button type="button" onClick={() => router.push("/settings/roles")} style={{ ...secondaryActionButton, marginTop: 12 }}>
               {t("common.back", "返回")}
             </button>
           </div>

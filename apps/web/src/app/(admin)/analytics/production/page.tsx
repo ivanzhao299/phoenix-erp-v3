@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Egg, TrendingDown, Calendar, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -110,7 +110,7 @@ export default function ProductionAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -129,11 +129,11 @@ export default function ProductionAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   // 统计
   const totalEggs = reports.reduce((s, r) => s + getEggs(r), 0);

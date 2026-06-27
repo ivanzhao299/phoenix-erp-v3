@@ -1,0 +1,52 @@
+{
+  "agent": "Codex-Orchestrator",
+  "branch": "w5-codex-orchestrator",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+  "status": "HOLD",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [
+    {
+      "label": "main worktree",
+      "message": "docs(ops): record generated ops artifacts",
+      "files": [
+        "docs/ops/agent-queue/events.jsonl",
+        "docs/ops/agent-queue/tasks.json",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A3-Backend-Critical-Path.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-execution-summary.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md",
+        "docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md"
+      ]
+    }
+  ],
+  "rebase": "not-started",
+  "merge": "not-started",
+  "gate": "not-started",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No",
+  "hold_reason": "git rebase main failed; manual intervention required",
+  "hold_context": {
+    "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+    "conflicts": "docs/ops/agent-queue/events.jsonl\ndocs/ops/agent-queue/tasks.json",
+    "next": "Run git rebase --continue or git rebase --abort in the target worktree.",
+    "error": "Rebasing (1/1)\rerror: could not apply 5a465916... docs(ops): finalize V3E and prepare Store Payment business loop\nhint: Resolve all conflicts manually, mark them as resolved with\nhint: \"git add/rm <conflicted_files>\", then run \"git rebase --continue\".\nhint: You can instead skip this commit: run \"git rebase --skip\".\nhint: To abort and get back to the state before \"git rebase\", run \"git rebase --abort\".\nhint: Disable this message with \"git config set advice.mergeConflict false\"\nCould not apply 5a465916... # docs(ops): finalize V3E and prepare Store Payment business loop\n"
+  }
+}

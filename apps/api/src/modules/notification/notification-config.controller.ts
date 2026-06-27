@@ -18,13 +18,16 @@
  */
 
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, NotFoundException,
+  Controller, Get, Post, Put, Delete, Body, Param, Query, Req, NotFoundException, UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { NotificationDispatcherService } from './notification-dispatcher.service';
 
 @Controller('api/notifications/config')
+@UseGuards(AuthGuard('jwt'), MenuGuard)
 export class NotificationConfigController {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
@@ -33,6 +36,7 @@ export class NotificationConfigController {
 
   // ── 规则 ─────────────────────────────────────────────────────────────────
   @Get('rules')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async listRules(@Query('category') category?: string, @Query('status') status?: string) {
     const where: string[] = [];
     const args: any[] = [];
@@ -43,6 +47,7 @@ export class NotificationConfigController {
   }
 
   @Get('rules/:code')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async getRule(@Param('code') code: string) {
     const rows = await this.ds.query(`SELECT * FROM sys_notification_rules WHERE rule_code=$1 LIMIT 1`, [code]);
     if (!rows[0]) throw new NotFoundException(code);
@@ -50,6 +55,7 @@ export class NotificationConfigController {
   }
 
   @Post('rules')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'C')
   async createRule(@Body() body: any) {
     const r = await this.ds.query(
       `INSERT INTO sys_notification_rules
@@ -67,6 +73,7 @@ export class NotificationConfigController {
   }
 
   @Put('rules/:code')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'E')
   async updateRule(@Param('code') code: string, @Body() body: any) {
     await this.ds.query(
       `UPDATE sys_notification_rules SET
@@ -95,6 +102,7 @@ export class NotificationConfigController {
   }
 
   @Delete('rules/:code')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'D')
   async deleteRule(@Param('code') code: string) {
     await this.ds.query(`DELETE FROM sys_notification_rules WHERE rule_code=$1`, [code]);
     return { ok: true };
@@ -102,6 +110,7 @@ export class NotificationConfigController {
 
   // ── 模板 ─────────────────────────────────────────────────────────────────
   @Get('templates')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async listTemplates(@Query('template_code') code?: string) {
     if (code) {
       return await this.ds.query(
@@ -113,6 +122,7 @@ export class NotificationConfigController {
   }
 
   @Post('templates')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'C')
   async createTemplate(@Body() body: any) {
     const r = await this.ds.query(
       `INSERT INTO sys_notification_templates (template_code, locale, channel, title_tmpl, content_tmpl, variables, status)
@@ -124,6 +134,7 @@ export class NotificationConfigController {
   }
 
   @Put('templates/:id')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'E')
   async updateTemplate(@Param('id') id: string, @Body() body: any) {
     await this.ds.query(
       `UPDATE sys_notification_templates SET
@@ -139,6 +150,7 @@ export class NotificationConfigController {
   }
 
   @Delete('templates/:id')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'D')
   async deleteTemplate(@Param('id') id: string) {
     await this.ds.query(`DELETE FROM sys_notification_templates WHERE id=$1`, [id]);
     return { ok: true };
@@ -146,11 +158,13 @@ export class NotificationConfigController {
 
   // ── 渠道 ─────────────────────────────────────────────────────────────────
   @Get('channels')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async listChannels() {
     return await this.ds.query(`SELECT * FROM sys_notification_channels ORDER BY channel_code`);
   }
 
   @Put('channels/:code')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'E')
   async updateChannel(@Param('code') code: string, @Body() body: any) {
     await this.ds.query(
       `UPDATE sys_notification_channels SET
@@ -169,6 +183,7 @@ export class NotificationConfigController {
 
   // ── 日志 ─────────────────────────────────────────────────────────────────
   @Get('logs')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'V')
   async listLogs(
     @Query('status') status?: string,
     @Query('rule_code') ruleCode?: string,
@@ -190,6 +205,7 @@ export class NotificationConfigController {
 
   /** 手动触发测试一条规则（管理员用） */
   @Post('test/:code')
+  @RequireMenu('MENU_SETTINGS_NOTIFY', 'E')
   async testFire(@Param('code') code: string, @Body() body: any) {
     await this.dispatcher.fire(code, body || {});
     return { ok: true, msg: '已触发，请查看日志' };

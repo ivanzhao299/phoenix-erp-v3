@@ -10,6 +10,13 @@ import PageHeader from "@/components/PageHeader";
 import { RefreshCw, BarChart2, Package, CheckCircle2, TrendingUp, Layers } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  primaryActionButton, inputField, toolbarFilterPill,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  detailInfoBox,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 async function apiFetch(path: string) {
   const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") : null;
@@ -84,55 +91,53 @@ export default function DailyReportPage() {
         subtitle={t("ui.包装日报副标题", "查询每日包装汇总数据，按品级分组统计，展示近 7 日趋势")}
         breadcrumb={[t("ui.包装中心", "包装中心"), t("ui.包装日报", "包装日报")]}
         actions={
-          <button type="button" className={s.btnPrimaryGrad} onClick={loadReport} disabled={loading}>
-            {loading ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={14} />}
+          <button type="button" onClick={loadReport} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.5 : 1 }}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             {t("common.refresh", "刷新")}
           </button>
         }
       />
 
-      {/* 日期选择 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+      {/* g200f 日期选择 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
         <label style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>{t("ui.查询日期", "查询日期")}：</label>
-        <input type="date" className={s.inp} value={date}
-          onChange={e => setDate(e.target.value)}
-          style={{ width: 160, height: 36, padding: "0 12px" }} />
-        <button type="button" className={s.btnPrimaryGrad} onClick={loadReport} disabled={loading}>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
+        <button type="button" onClick={loadReport} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.5 : 1 }}>
           {loading ? t("ui.查询中", "查询中...") : t("common.search", "查询")}
         </button>
         {[t("ui.今天", "今天"), t("ui.昨天", "昨天")].map((label, i) => (
-          <button key={label} type="button" className={s.tabPill}
-            onClick={() => {
-              const d = new Date(Date.now() - i * 86400 * 1000).toISOString().slice(0, 10);
-              setDate(d);
-            }}>
+          <button key={label} type="button" onClick={() => {
+            const d = new Date(Date.now() - i * 86400 * 1000).toISOString().slice(0, 10);
+            setDate(d);
+          }} style={toolbarFilterPill(false)}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* KPI 卡片 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
-        {[
-          { icon: <Package size={20} />, label: t("ui.今日包装量", "今日包装量"), value: s_total.toLocaleString(), unit: t("ui.枚", "枚"), color: "var(--color-accent)" },
-          { icon: <BarChart2 size={20} />, label: t("ui.计划完成率", "计划完成率"), value: `${s_pct}%`, unit: "", color: s_pct >= 100 ? "var(--status-success)" : "var(--status-warning)" },
-          { icon: <CheckCircle2 size={20} />, label: t("ui.完工任务数", "完工任务数"), value: String(s_tasks), unit: t("ui.个", "个"), color: "var(--status-special)" },
-          { icon: <TrendingUp size={20} />, label: t("ui.计划总量", "计划总量"), value: s_plan.toLocaleString(), unit: t("ui.枚", "枚"), color: "var(--color-accent)" },
-        ].map(kpi => (
-          <div key={kpi.label} className={s.kpiCard}>
-            <div className={s.kpiIcon} style={{ color: kpi.color, background: `${kpi.color}18` }}>{kpi.icon}</div>
-            <div>
-              <div className={s.kpiValue} style={{ color: kpi.color }}>
-                {kpi.value} <span style={{ fontSize: 12, fontWeight: 400 }}>{kpi.unit}</span>
+      {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 24 }}>
+        {([
+          { Icon: Package,      label: t("ui.今日包装量",   "今日包装量"),   value: s_total.toLocaleString(), unit: t("ui.枚", "枚"), tone: "info"    as Tone },
+          { Icon: BarChart2,    label: t("ui.计划完成率",   "计划完成率"),   value: `${s_pct}%`,              unit: "",               tone: (s_pct >= 100 ? "success" : "warning") as Tone },
+          { Icon: CheckCircle2, label: t("ui.完工任务数",   "完工任务数"),   value: String(s_tasks),          unit: t("ui.个", "个"), tone: "brand"   as Tone },
+          { Icon: TrendingUp,   label: t("ui.计划总量",     "计划总量"),     value: s_plan.toLocaleString(),  unit: t("ui.枚", "枚"), tone: "info"    as Tone },
+        ]).map(kpi => {
+          const Icon = kpi.Icon;
+          return (
+            <div key={kpi.label} style={kpiCardCompact(kpi.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {kpi.label}</div>
+              <div style={{ ...kpiCardCompactValue(kpi.tone), display: "flex", alignItems: "baseline", gap: 4 }}>
+                {kpi.value}
+                {kpi.unit && <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-secondary)" }}>{kpi.unit}</span>}
               </div>
-              <div className={s.kpiLabel}>{kpi.label}</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* 班次汇总明细 */}
-      <div className={s.card}>
+      {/* g200f 班次汇总 — detailInfoBox(非 KPI 风格) */}
+      <div style={{ ...detailInfoBox, background: "var(--bg-card)", padding: 0 }}>
         <div className={s.cardHeader}>
           <Layers size={15} style={{ color: "var(--color-primary)" }} />
           <span className={s.cardTitle}>{t("ui.班次汇总明细", "班次汇总明细")} — {date}</span>

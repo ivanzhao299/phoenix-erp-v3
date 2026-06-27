@@ -5,7 +5,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Sidebar, pathTitle } from "@/components/layout/Sidebar";
+import { Sidebar, canAccessPath, findMenuItemByPath, getFirstAccessiblePath, pathTitle } from "@/components/layout/Sidebar";
+import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
+import { ApprovalNotifier } from "@/components/layout/ApprovalNotifier"; // G167：审批信息中心（铃铛/红点/横幅/声音）
+import { OnlineUsersIndicator } from "@/components/layout/OnlineUsersIndicator"; // G171：在线用户(管理员可见)
 import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
@@ -113,7 +116,7 @@ const RAIL_W = "56px";
 const FULL_W = "220px";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, hasPermission } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -147,6 +150,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // 菜单级前端门禁：如果 URL 命中已登记菜单但当前用户无该叶子权限，
+  // 直接跳到其可访问的第一个菜单，避免向用户展示"无权限子段/无权限菜单"。
+  useEffect(() => {
+    if (loading || !user) return;
+    if (pathname === "/profile" || pathname.startsWith("/settings/profile")) return;
+    const matched = findMenuItemByPath(pathname);
+    if (!matched) return;
+    if (canAccessPath(pathname, hasPermission)) return;
+    const fallback = getFirstAccessiblePath(hasPermission) || "/login";
+    if (fallback !== pathname) router.replace(fallback);
+  }, [loading, user, pathname, hasPermission, router]);
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-base)" }}>
@@ -183,6 +198,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main */}
       <main className={styles.main}>
+        {/* 影子模式横幅（impersonate 时显示，可一键退出）*/}
+        <ImpersonationBanner />
         {/* Header */}
         <header className={styles.header}>
           <div className={styles.headerLeft}>
@@ -224,13 +241,19 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
 
+            {/* G171：在线用户小指示（管理员可见，403 自动隐藏） */}
+            <OnlineUsersIndicator />
+
+            {/* G167/G171：消息中心 — 铃铛 + 红点未读数 + 下拉消息列表（新消息弹横幅 + 声音） */}
+            <ApprovalNotifier />
+
             {/* User info — 点击进入个人中心 /profile（主题切换迁移到个人中心，topbar 不再放）*/}
             <div
               className={styles.userChip}
               role="button"
               tabIndex={0}
-              onClick={() => router.push('/profile')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push('/profile'); }}
+              onClick={() => router.push('/settings/profile')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push('/settings/profile'); }}
               title={t('layout.go_to_profile', '进入个人中心')}
               style={{ cursor: 'pointer' }}
             >

@@ -1,0 +1,17 @@
+Output format is aligned.
+Null display is "[NULL]".
+STORE_PAYMENT_DATASCOPE_ROWS
+ store_payment_datascope_rows 
+------------------------------
+                            0
+(1 row)
+
+PILOT_USERS_SCOPE_GAPS
+ user_id |   username    |     real_name      |  store_code   |     roles      | org_scope_count 
+---------+---------------+--------------------+---------------+----------------+-----------------
+     296 | pilot_cashier | 陈 丽 (试运行收银) | STORE-MS-01   | ROLE_CASHIER   |               0
+     299 | pilot_finance | 刘 华 (试运行财务) | PILOT-MS      | ROLE_FIN_ACCT  |               0
+      97 | store_mgr1    | 苏小明             | STORE-VTE-001 | ROLE_STORE_MGR |               0
+    1460 | zhuzhao_an    | 朱召安             | ALL           | ROLE_FIN_ACCT  |               0
+(4 rows)
+

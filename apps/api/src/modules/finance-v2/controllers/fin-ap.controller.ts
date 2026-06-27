@@ -29,7 +29,7 @@ import {
  *   POST   /api/v2/finance/ap/import-from-prc2  — 从 prc2_ap_ledger 幂等导入
  *
  * 权限：MENU_FIN2_AP（所有接口）
- *   import-from-prc2 额外要求 ROLE_ADMIN / ROLE_FIN_CFO / ROLE_GROUP_FINANCE
+ *   import-from-prc2 要求 MENU_FIN2_AP:E，并继续受 DataScope 公司范围过滤。
  */
 @Controller('api/v2/finance/ap')
 @UseGuards(MenuGuard, DataScopeGuard)

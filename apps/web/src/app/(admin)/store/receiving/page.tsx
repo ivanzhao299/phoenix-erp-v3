@@ -6,15 +6,18 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { actionPill } from "@/components/design-system/cockpit-styles";
+
 // B4: store_receiving 真实列 — order_no (PK) / wave_no / store_code / status / operator / confirmed_at
 //     旧版 receive_no / batch_no / qty 全部 DB 不存在
 //     枚举 STATUS_CLS 含 PENDING/DONE/RECEIVED 三套互不一致 — 收敛为 PENDING/ACCEPTED/REJECTED
-const STATUS_CLS: Record<string,string> = {
-  "PENDING":  s.badgeWarning,
-  "ACCEPTED": s.badgeSuccess,
-  "REJECTED": s.badgeDanger,
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+/* g200k(2026-06-20):状态 tone + 中文 label,按 [feedback_hardcoded_english_to_chinese] */
+const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
+  PENDING:  { tone: "warning", label: "待验收" },
+  ACCEPTED: { tone: "success", label: "已验收" },
+  REJECTED: { tone: "danger",  label: "已拒收" },
 };
 
 const TABLE="store_receiving";
@@ -25,7 +28,10 @@ export default function Page(){
       { key: "store_code", title: t('ui.门店', '门店'), width: 100 },
       { key: "operator", title: t('ui.收货员', '收货员'), width: 100 },
       { key: "confirmed_at", title: t('ui.确认时间', '确认时间'), width: 160 },
-      { key: "status", title: t('common.status', '状态'), width: 80, render:(v:unknown)=><span className={`${s.badge} ${STATUS_CLS[String(v)]??s.badgeNeutral}`}>{String(v)}</span>}];
+      { key: "status", title: t('common.status', '状态'), width: 90, render:(v:unknown)=>{
+        const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      }}];
   const FIELDS:FormField[]=[  { key: "order_no", label: t('ui.收货单号', '收货单号'), type: "text", required: true, placeholder: t('ui.留空自动生成SR', '留空自动生成 SR-XXXXXX') },
     { key: "wave_no", label: t('ui.波次号', '波次号'), type: "text" },
     { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },

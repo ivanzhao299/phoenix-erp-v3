@@ -1,0 +1,141 @@
+# Phoenix ERP Production Readiness Task List
+
+Generated at: 2026-06-24 14:49 CST
+
+Current baseline: `8ebf8089 docs(ops): record baseline lifecycle report`
+
+## Purpose
+
+This task list consolidates the previous audit, readiness, remediation, runtime gate, security, attachment, deployment-chain, and Store Payment pilot reports into one prioritized production-readiness backlog.
+
+The goal is to move Phoenix ERP toward production-grade use as quickly as possible without bundling unrelated high-risk work. Each task below is intentionally framed as a single Gate or tightly bounded remediation unit.
+
+## Source Reports Reviewed
+
+- `docs/ops/A1_CI_RUNTIME_GATE_REPORT.md`
+- `docs/ops/PRODUCTION_GO_NO_GO.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_BACKLOG.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_ROADMAP.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_ACTION_BIT_COMPATIBILITY_PLAN.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_FILE_SECURITY_PRECHECK_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_TO_FILE_METADATA_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_INVENTORY_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_RESTORE_SSH_AND_METADATA_CLAIM_DRY_RUN_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_REPORT.md`
+- `docs/ops/OBSERVER_FINDINGS_REPORT.md`
+- `docs/ops/AGENT_PLATFORM_V2_95_FINAL_READINESS_REPORT.md`
+
+## Priority Rules
+
+- `P0` blocks production-grade use or formal production release judgment.
+- `P1` is high risk and must be closed or explicitly accepted before production GO.
+- `P2` improves reliability, operability, or platform maturity after P0/P1 are contained.
+- `P3` is hygiene, observability, or backlog cleanup.
+
+No task in this list authorizes production deployment, production migration, push, DB write, restart, seed, cleanup, or business-code changes. Those actions still require a dedicated Gate and explicit approval.
+
+## Fastest Safe Sequence
+
+1. Run `PRD-P0-002 A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_PLAN`.
+2. Run `PRD-P0-003 DEPLOY_CHAIN_HARDENING_PLAN`.
+3. Run `PRD-P0-004 LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
+4. If the user approves production DB write, run `PRD-P0-001 STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_PLAN` as a narrow disabled/pending account-placeholder Gate.
+5. Run `PRD-P1-001 HISTORICAL_UPLOADS_SECOND_PASS_OR_MANUAL_REVIEW`.
+6. Run `PRD-P1-002 ACTION_BIT_LEGACY_CLEANUP_PLAN`.
+7. Run `PRD-P1-003 MANUAL_SCOPE_AND_DATASCOPE_MODEL_CLEANUP`.
+8. Re-run A1/A2/A5/A6/A7 production readiness gates and update `PRODUCTION_GO_NO_GO.md`.
+
+## P0 Tasks
+
+| Task ID | Priority | Title | Source Evidence | Owner Agents | Required Gate | Status | Acceptance Criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PRD-P0-001 | P0 | Initial data import repair diagnosis | `PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`; `PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_PLAN.md`; `PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REPORT.md`; `PRODUCTION_READINESS_P0_001_INITIAL_DATA_REFRESH_REPORT.md`; `PRODUCTION_READINESS_P0_001_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_PACKAGE.md`; `PRODUCTION_READINESS_P0_001_ACCOUNT_PLACEHOLDER_PRECHECK_REFRESH_REPORT.md`; `PRODUCTION_READINESS_P0_001_ACCOUNT_PLACEHOLDER_EXECUTION_REPORT.md` | A5, A2, A1 | `APPROVE_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_EXECUTION` | GO_WITH_CONDITIONS | Approved execution inserted exactly three disabled/inactive Store Payment placeholder accounts for `STORE-VTE-001 / COMP-LAO-AGRI`. Post-check confirmed `accounts_total=3`, `candidate_accounts=3`, `records_total=0`, and Store Payment `file_metadata=0`. Finance confirmation, real account activation, QR metadata, and business UAT remain future Gates. |
+| PRD-P0-002 | P0 | A1 runtime/security blocker remediation | `A1_CI_RUNTIME_GATE_REPORT.md`; `A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_PLAN.md`; `A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_EXECUTION_REPORT.md` | A2, A3, A1 | `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` | GO_WITH_CONDITIONS | Bounded fixes implemented for dev-login production fail-fast, SSE unauthorized handling, admin impersonation, Chanjet signature/timestamp/nonce validation, sensitive log masking, and procurement test drift. API build/typecheck/Jest and W5 authorized closeout PASS. Chanjet valid-signature smoke remains a runtime condition. |
+| PRD-P0-003 | P0 | Deploy-chain hardening dry-run | `PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md`; `PRODUCTION_GO_NO_GO.md`; `PRODUCTION_DEPLOY_CHAIN_HARDENING_PLAN.md`; `PRODUCTION_DEPLOY_CHAIN_HARDENING_DRY_RUN_REPORT.md`; `PRODUCTION_READINESS_P0_003_DEPLOY_CHAIN_REMOTE_REFRESH_RETRY_REPORT.md`; `PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_EVIDENCE_REPAIR_REPORT.md` | A6, A2, A1 | Evidence repair completed; future cleanup of backup artifacts remains separate | GO_WITH_CONDITIONS / REMOTE_EVIDENCE_REPAIRED | Remote checkout inspection now works after `safe.directory`; remote HEAD is `540de0ef`, compose path is proven, runtime image IDs are captured, and a current DB backup exists. Remaining condition: SSH banner instability is mitigated but not eliminated. The three untracked backup artifacts were moved to `/opt/phoenix-erp-backups/deploy-artifacts/20260625-100916/` by `PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md`. |
+| PRD-P0-004 | P0 | Legacy upload runtime verification gate | `PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_TO_FILE_METADATA_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md`; `PRODUCTION_LEGACY_UPLOAD_RUNTIME_VERIFICATION_PLAN.md`; `PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_LOCAL_COMPAT_FIX_REPORT.md`; `PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_RUNTIME_VERIFICATION_REPORT.md`; `PRODUCTION_READINESS_UPLOAD_RESPONSE_COMPAT_FIX_REPORT.md` | A3, A2, A1, A6 | `APPROVE_LEGACY_UPLOAD_RUNTIME_WRITE_PROBE` | GO WITH CONDITIONS / COMPAT FIX READY FOR DEPLOY | Upload response keeps `rawUrl: null` and now uses compatibility `url=fileId` to support old frontend bundles without returning naked `/uploads`. Public `/uploads` probes returned 404, not raw listing. A true upload response smoke remains a separate write-probe Gate because it writes a binary and file_metadata row. |
+| PRD-P0-005 | P0 | Re-run production GO/NO-GO after P0 closures | `PRODUCTION_GO_NO_GO.md`; `PRODUCTION_GO_NO_GO_REEVALUATION_REPORT.md`; A1/A2/A5/A6/A7 reports | A7, A1, A2, A5, A6 | Reevaluation completed | GO_WITH_CONDITIONS | CI/CD, W5, production health, deploy-chain evidence, DB backup, Store Payment readiness, and rollback evidence are sufficient for controlled production operation under listed conditions. |
+
+### P0 Detail Notes
+
+`PRD-P0-001` account-placeholder execution is complete with conditions. It wrote only three disabled/inactive Store Payment placeholder accounts and did not create payment records or file metadata. Remaining work must stay in separate finance confirmation, QR metadata, activation, and business UAT Gates.
+
+`PRD-P0-002` implementation is complete with conditions. Earlier Store Payment work progressed under conditions, and the main remaining security condition is runtime/provider validation for Chanjet valid-signature callbacks after deploy-chain hardening.
+
+`PRD-P0-003` remote evidence was repaired in the P1-007 evidence Gate. `safe.directory` now allows checkout inspection, compose path and image IDs are captured, and a current DB backup exists. SSH banner instability remains an operational condition, not a full blocker.
+
+`PRD-P0-004` has runtime-static evidence that the running production API contains the hardened upload response shape. It still has conditions because a true upload response probe would write a binary and `file_metadata` row, and the legacy API static `/uploads` mount still exists internally.
+
+## P1 Tasks
+
+| Task ID | Priority | Title | Source Evidence | Owner Agents | Required Gate | Status | Acceptance Criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PRD-P1-001 | P1 | Historical uploads second-pass owner correlation or manual review | `PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_REPORT.md`; `PRODUCTION_READINESS_P1_001_UNRESOLVED_UPLOADS_REVIEW_PACKAGE.md`; `PRODUCTION_READINESS_P1_001_SECOND_PASS_OWNER_CORRELATION_REPORT.md` | A5, A2, A1 | Completed second-pass review; future DB write requires deterministic owner evidence | REVIEWED / HOLD_FAIL_CLOSED | Second-pass review produced `0` deterministic owner candidates. The 59 unresolved files remain fail-closed, with no `file_metadata` write, no raw URL, no file move/delete, and no production exposure. This item no longer blocks continuing higher-value production readiness work, but historical completeness remains HOLD until owner evidence exists. |
+| PRD-P1-002 | P1 | Store Payment action-bit legacy cleanup | `PRODUCTION_SERVER_REMEDIATION_R3_ACTION_BIT_COMPATIBILITY_PLAN.md`; `PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md`; `PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_PLAN.md`; `PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_EXECUTION_PACKAGE.md`; `PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_EXECUTION_REPORT.md` | A2, A3, A1 | `APPROVE_ACTION_BIT_LEGACY_CLEANUP_EXECUTION_GATE` | GO | Removed six Store Payment-only temporary `C/A` compatibility grants. Post-check confirmed `legacy_ca_rows=0`, `MENU_STORE_PAYMENT_EXPORT` remains `X`, account rows remain `3`, and payment records remain `0`. |
+| PRD-P1-003 | P1 | Manual scope and DataScope model cleanup | `PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md`; `PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`; `PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_DATASCOPE_CLEANUP_PLAN.md`; `PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_REVIEW_PACKAGE.md`; `PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_EXCLUSION_DECISION_REPORT.md` | A5, A2, A1 | Current Gate closed by exclusion; future inclusion requires named business approval | GO_WITH_CONDITIONS / EXCLUDED_FROM_CURRENT_PILOT_GATE | Users 296, 299, and 1460 remain excluded from the current Store Payment Vientiane pilot. No DB write was executed; no noncanonical store/global marker was converted into scope. Future inclusion requires a separate approval Gate with exact SQL and rollback. |
+| PRD-P1-004 | P1 | Master data remediation plan | `PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md` | A5, A2, A1 | `APPROVE_MASTER_DATA_REMEDIATION_PLAN` | GO WITH CONDITIONS | Keep `STORE-VTE-001` canonical, preserve `ST-VTE-001` as documented legacy alias risk, and avoid broad auto-rewrites. |
+| PRD-P1-005 | P1 | Store Payment remote readiness smoke | Store Payment controlled pilot reports; production remediation backlog; `PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REPORT.md`; `PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REFRESH_REPORT.md` | A1, A2, A5, A6 | `APPROVE_STORE_PAYMENT_REMOTE_READINESS_SMOKE` | GO_WITH_CONDITIONS / BUSINESS_UAT_STILL_HOLD | Remote `/store-payment` and no-prefix Store Payment routes now redirect anonymous users to login. Tables and menu codes exist. Read-only DB smoke confirms `store_payment_accounts=3`, all disabled/inactive, `store_payment_records=0`, Store Payment `file_metadata=0`, menus=5, grants=11. Business UAT still requires authenticated smoke, QR metadata, and/or finance-confirmed activation Gate. |
+| PRD-P1-006 | P1 | Production auth/CORS/cookie settings review | `PRODUCTION_SERVER_REMEDIATION_BACKLOG.md`; `A1_CI_RUNTIME_GATE_REPORT.md`; `PRODUCTION_READINESS_P1_006_AUTH_CORS_COOKIE_REVIEW_REPORT.md` | A2, A1 | `APPROVE_PRODUCTION_AUTH_COOKIE_CORS_REVIEW` | GO WITH CONDITIONS | Production health proves JWT fallback is disabled and unauth API fails closed. Local middleware now guards `/store-payment`. Cookie flags and final CORS values still need a credentialed/operator smoke after deploy. |
+| PRD-P1-007 | P1 | Rollback path and backup restore validation | `PRODUCTION_GO_NO_GO.md`; production remediation reports; `PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_VALIDATION_REPORT.md`; `PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_EVIDENCE_REPAIR_REPORT.md` | A6, A1, A7 | Evidence repair completed; isolated restore drill remains future Gate | GO_WITH_CONDITIONS / ROLLBACK_EVIDENCE_READY_FOR_RUNBOOK | `safe.directory` fixed remote checkout inspection; remote HEAD, compose path, runtime image IDs, current DB backup path, SHA256, and gzip integrity are captured. No restore/rollback was executed. Full DR maturity still needs an isolated restore drill and backup-artifact hygiene. |
+
+## P2 Tasks
+
+| Task ID | Priority | Title | Source Evidence | Owner Agents | Required Gate | Status | Acceptance Criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PRD-P2-001 | P2 | Separate remediation, staging, and production workflows | `PRODUCTION_SERVER_REMEDIATION_BACKLOG.md`; `PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md` | A6, Codex-Orchestrator | `APPROVE_WORKFLOW_SEPARATION_PLAN` | Proposed | Operators can tell whether a task targets docs-only, local, staging, or production, with separate approval language and evidence paths. |
+| PRD-P2-002 | P2 | Standardize production evidence collection | Production remediation reports | Codex-Orchestrator, A1, A6 | `APPROVE_PRODUCTION_EVIDENCE_STANDARD` | Proposed | Every production-side Gate records environment, timestamp, remote evidence path, command class, write/no-write flags, and rollback notes. |
+| PRD-P2-003 | P2 | Normalize file storage strategy | R2 uploads reports | A2, A3, A6 | `APPROVE_FILE_STORAGE_NORMALIZATION_PLAN` | Proposed | Legacy upload behavior, file_metadata, protected endpoints, storage path privacy, and future object storage strategy are aligned. |
+| PRD-P2-004 | P2 | Platform maturity closeout to 95%+ | `AGENT_PLATFORM_V2_95_FINAL_READINESS_REPORT.md`; `OBSERVER_FINDINGS_REPORT.md` | Codex-Orchestrator, A1, A2, A5 | `APPROVE_AGENT_PLATFORM_95_CLOSEOUT` | 91% baseline | Revalidate stale Observer findings, parse real reports through diagnosis, clean old queue tasks, and prove low-risk auto-merge sample. |
+| PRD-P2-005 | P2 | Production health dashboard plan | Production remediation backlog | A6, A1 | `APPROVE_PRODUCTION_HEALTH_DASHBOARD_PLAN` | Proposed | Define dashboard checks for app health, DB health, migration state, queue health, auth/security smoke, and file exposure smoke. |
+
+## P3 Tasks
+
+| Task ID | Priority | Title | Source Evidence | Owner Agents | Required Gate | Status | Acceptance Criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PRD-P3-001 | P3 | Observer stale finding revalidation | `OBSERVER_FINDINGS_REPORT.md` | Codex-Orchestrator | `APPROVE_OBSERVER_FINDING_REVALIDATION` | Proposed | Mark fixed router/platform findings as closed or stale, keep only reproducible issues in the active backlog. |
+| PRD-P3-002 | P3 | Archive completed Gate artifacts | `AGENT_TASK_BOARD.md`; `docs/ops/runs/**` | Codex-Orchestrator | `APPROVE_OPS_ARTIFACT_ARCHIVE_PLAN` | Proposed | Keep recent evidence accessible while reducing task-board noise and stale runs clutter. |
+| PRD-P3-003 | P3 | Update operator short-command playbook | Agent Inbox reports and runtime memory | Codex-Orchestrator | Docs-only | Proposed | Make the Agent Inbox command pattern the default entrypoint for future production remediation. |
+
+## Production Readiness Definition Of Done
+
+Phoenix ERP should not be labeled production-grade until all of the following are true:
+
+1. All `P0` tasks are `GO` or explicitly accepted as `GO WITH CONDITIONS`.
+2. No unresolved `P1` defect remains without named owner, expiry date, and explicit risk acceptance.
+3. A1 runtime/security gate is no longer FAIL.
+4. A2 security review confirms no raw URL exposure, auth bypass, RBAC bypass, DataScope bypass, or sensitive-log leak remains in approved release scope.
+5. A5 confirms master data, Store Payment pilot data, and initial import readiness for the intended environment.
+6. A6 confirms deployment path, rollback path, backup state, and remote checkout hygiene.
+7. A7 records final GO/HOLD/ROLLBACK decision in `PRODUCTION_GO_NO_GO.md`.
+8. No production push, deploy, DB write, migration, restart, seed, cleanup, or reset occurs without a dedicated approval Gate.
+
+## Recommended Next Single Gate
+
+`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`
+
+Rationale:
+
+- `PRD-P0-002` has been implemented with conditions.
+- `PRD-P0-001` now has a narrow disabled-placeholder SQL package and rollback SQL, but execution is HOLD until the user approves the DB write and immediate precheck succeeds.
+- `PRD-P0-003` local deploy-chain dry-run is documented, but remote refresh is HOLD due SSH connection instability.
+- `PRD-P0-004` now has production runtime-static evidence for the hardened upload response. Any upload/restart/write probe still requires separate approval.
+
+## Explicit Non-Actions
+
+- Do not run production migration from this task list.
+- Do not write production DB from this task list.
+- Do not push.
+- Do not deploy.
+- Do not restart services.
+- Do not mutate remote server configuration.
+- Do not auto-claim the 59 unresolved historical files.
+- Do not execute manual-review scope rows automatically.
+- Do not remove temporary action-bit compatibility without a dedicated cleanup Gate.

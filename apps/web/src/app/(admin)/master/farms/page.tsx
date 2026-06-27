@@ -8,6 +8,13 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
+import { actionPill } from "@/components/design-system/cockpit-styles";
+
+// g200m: status 列 ACTIVE/INACTIVE → 中文 + actionPill 色
+const STATUS_CFG: Record<string, { label: string; tone: 'success' | 'default' }> = {
+  ACTIVE:   { label: '运营中', tone: 'success' },
+  INACTIVE: { label: '停用',   tone: 'default' },
+};
 
 // V3 表: brd_farms — 主键 farm_code (VARCHAR, 非 id)
 // 实际列: farm_code, farm_name, location, houses(INT), capacity(INT), status, created_at, updated_at
@@ -23,13 +30,13 @@ function getToken() {
 export default function Page() {
   const toast = useToast();
   const { t } = useLanguage();
-  // G5-E：页面级 perm 守卫 — 业务录入用户（如孟赛生产数据主管）不应能进入主数据维护页
-  const { canView } = usePermission("MENU_MASTER");
+  // 页面级 perm 守卫：养殖场主档按养殖主数据原子码控制，不再依赖旧 MENU_MASTER 父级权限。
+  const { canView } = usePermission("MENU_FARM_MASTER");
   if (!canView) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
         <h3>无权限访问</h3>
-        <p>「养殖场主数据」需要 MENU_MASTER:V 权限。请联系系统管理员。</p>
+        <p>「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。</p>
       </div>
     );
   }
@@ -40,7 +47,11 @@ export default function Page() {
     { key: "location",  title: t("ui.所在地区", "所在地区") },
     { key: "houses",    title: t("ui.规划栋数", "规划栋数"),   width: 90 },
     { key: "capacity",  title: t("ui.设计容量羽", "设计容量（羽）"), width: 130 },
-    { key: "status",    title: t("common.status", "状态"),     width: 80 },
+    { key: "status",    title: t("common.status", "状态"),     width: 80,
+      render: (v: unknown) => {
+        const cfg = STATUS_CFG[String(v ?? '')] ?? { label: String(v ?? '—'), tone: 'default' as const };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      } },
   ];
 
   // G4-E：场站主数据 — 公司主数据化 + 负责人 UserSelector

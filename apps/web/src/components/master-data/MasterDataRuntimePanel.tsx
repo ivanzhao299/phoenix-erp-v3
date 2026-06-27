@@ -1,8 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal, Info } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
+import { useDictOptions } from "@/hooks/useDictOptions";  // g200o:列表 dict 转译
 import {
   CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
   WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector, UserSelector, FarmSelector,
@@ -10,7 +13,8 @@ import {
 import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-system";
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
-  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  drawerMask, drawerPanelFlex, drawerBody, drawerHeaderFlex, drawerHeaderTitle, drawerCloseButton, drawerFooterFlex,
+  drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
@@ -30,6 +34,8 @@ export interface MdField {
   onPickKeys?: Record<string, string>;   // 主数据自动带出：{ 目标key: raw字段名 }（onPick 有 ?? label 兜底）
   filterBy?: { warehouseField?: string; zoneField?: string; companyField?: string };  // 级联过滤
   readOnlyOnEdit?: boolean;
+  // g200p: 分组(同 group 字段渲染到同一 section);page 模式下按 group 切 Panel;drawer 模式无效
+  group?: string;
 }
 
 export interface MasterDataRuntimePanelProps {
@@ -42,6 +48,10 @@ export interface MasterDataRuntimePanelProps {
   objectType?: string;   // G5.5-D：用于引用关系查询（CUSTOMER/SUPPLIER/...）；默认按 type 推断
   /** UIX-7：点击编码触发详情 drawer（产品化 — 不传则编码列仅显示） */
   onCodeClick?: (code: string, row: Record<string, any>) => void;
+  /** g200p:编辑模式 — drawer(默认,字段少时用) / page(字段多于 8 时,路由到全屏页) */
+  mode?: "drawer" | "page";
+  /** g200p:page 模式下,新建/编辑跳转的路由前缀。默认 `/master-data/<type>s` */
+  pageRoutePrefix?: string;
 }
 
 type StatusTone = 'default' | 'success' | 'warning' | 'danger';
@@ -54,9 +64,92 @@ const STATUS_LABEL: Record<string, { label: string; tone: StatusTone }> = {
   REJECTED:         { label: "已驳回",   tone: 'danger' },
 };
 
+// 把后端裸错误码译成面向用户的中文提示（避免页面直接甩 MENU_PERMISSION_DENIED 这类技术码）
+function friendlyError(raw: string, title: string): string {
+  const m = raw || "";
+  if (/MENU_PERMISSION_DENIED|forbidden|403/i.test(m)) {
+    return `您没有「${title}」的访问权限。如需开通，请联系系统管理员。`;
+  }
+  if (/unauthorized|401|登录/i.test(m)) return "登录已失效，请重新登录后再试。";
+  if (/network|fetch|timeout|超时/i.test(m)) return "网络异常或服务暂不可用，请稍后重试。";
+  return m || "加载失败";
+}
+
+// g200p: 字段渲染抽公共函数 — 抽屉(RuntimePanel)和路由全屏页(MasterDataFormPage)共用
+export function renderMdFieldInput(
+  f: MdField,
+  form: Record<string, any>,
+  setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+): React.ReactNode {
+  // G83：主数据选择器化 — 函数式 setForm 防 onChange→onPick 顺序污染
+  const code = String(form[f.key] ?? "");
+  const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
+  const onPick = (o: any) => {
+    if (!f.onPickKeys) return;
+    setForm(prev => {
+      const next = { ...prev };
+      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
+      return next;
+    });
+  };
+  const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
+  const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
+  const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
+  switch (f.type) {
+    case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
+    case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "project":   return <ProjectSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+    case "warehouse": return <WarehouseSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+    case "zone":      return <ZoneSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} />;
+    case "location":  return <LocationSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} zoneCode={filterZone} />;
+    case "sku":       return <SkuSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "user":      return <UserSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "farm":      return <FarmSelector value={code} onChange={onChange} onPick={onPick} />;
+  }
+  if (f.dictType)
+    return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
+  if (f.type === "select")
+    return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
+      <option value="">请选择</option>
+      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>;
+  if (f.type === "readonly")
+    return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
+  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+    value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
+}
+
+// G130/Governance: 主数据类型 → 专属菜单码（镜像后端 MasterDataTypeGuard 的 TYPE_TO_MENU）。
+// 按类型维护人门控增/改按钮；ROLE_ADMIN 或 "*" 仍通过 usePermission 的 isSuper 处理，
+// 不再把 MENU_MASTER_DATA 当作所有主数据叶子的可见性兜底。
+const TYPE_TO_MENU: Record<string, string> = {
+  customer: "MENU_MD_CUSTOMER", supplier: "MENU_MD_SUPPLIER", project: "MENU_MD_PROJECT",
+  product: "MENU_MD_PRODUCT", grade: "MENU_MD_GRADE", spec: "MENU_MD_PACKAGING", sku: "MENU_MD_SKU",
+  warehouse: "MENU_MD_WAREHOUSE", store: "MENU_MD_STORE", driver: "MENU_MD_DRIVER", vehicle: "MENU_MD_VEHICLE",
+  "cash-account": "MENU_MD_CASH_ACCOUNT", "bank-account": "MENU_MD_BANK_ACCOUNT", material: "MENU_MD_MATERIAL",
+};
+
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
-  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
-  const { canCreate, canEdit } = usePermission("MENU_MASTER_DATA");
+  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
+  // g200o:聚合 fields 中所有 dictType,列表 cell 用 codeMap 转译,避免 DB enum 暴露
+  const dictTypes = useMemo(() => Array.from(new Set(fields.filter(f => f.dictType).map(f => f.dictType!))), [fields]);
+  const { codeMap: dictCodeMap } = useDictOptions(dictTypes.length > 0 ? dictTypes : "");
+  // 列 key → field 反查(dict 转译用)
+  const fieldByKey = useMemo(() => {
+    const m: Record<string, MdField> = {};
+    fields.forEach(f => { m[f.key] = f; });
+    return m;
+  }, [fields]);
+  const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MD_CENTER");
+  const canCreate = perType.canCreate || perType.isSuper;
+  const canEdit = perType.canEdit || perType.isSuper;
+  // G131：支持业务单据页(如采购供应商档案)直达「新增」——?create=1 自动开新增抽屉，
+  //   存完后 returnTo 自动回跳来源页（采购员无需手动绕回）。
+  //   用 window.location 读 query（避免 useSearchParams 强制 Suspense 边界 / 整页 CSR bailout）。
+  const router = useRouter();
+  const [returnTo, setReturnTo] = useState("");
+  const [autoCreate, setAutoCreate] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,11 +168,21 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     try {
       const qs = filterStatus ? `?status=${filterStatus}` : "";
       setRows(await request<Record<string, any>[]>(`/master-data/runtime/${type}${qs}`));
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "加载失败"); }
+    } catch (e: unknown) { setError(friendlyError(e instanceof Error ? e.message : "", title)); }
     finally { setLoading(false); }
   }, [type, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+  // G131：挂载时读 query（?create=1 / returnTo）；create=1 且有权 → 自动打开「新增」抽屉
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setReturnTo(sp.get("returnTo") || "");
+    setAutoCreate(sp.get("create") === "1");
+  }, []);
+  useEffect(() => {
+    if (autoCreate && canCreate) { setForm({}); setEditing({}); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, canCreate]);
 
   // G5.5-D：按需懒加载行的引用计数（避免一次性查询全部）
   const fetchRefCount = useCallback(async (code: string) => {
@@ -93,8 +196,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     }
   }, [resolvedObjectType, refCounts]);
 
-  const openNew = () => { setForm({}); setEditing({}); };
-  const openEdit = (row: Record<string, any>) => { setForm({ ...row }); setEditing(row); };
+  // g200p: page 模式跳路由,drawer 模式开抽屉
+  const routePrefix = pageRoutePrefix ?? `/master-data/${type}s`;
+  const openNew = () => {
+    if (mode === "page") router.push(`${routePrefix}/new`);
+    else { setForm({}); setEditing({}); }
+  };
+  const openEdit = (row: Record<string, any>) => {
+    if (mode === "page") router.push(`${routePrefix}/${encodeURIComponent(row[codeKey])}/edit`);
+    else { setForm({ ...row }); setEditing(row); }
+  };
 
   const save = async () => {
     for (const f of fields) {
@@ -116,6 +227,10 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         }
       }
       setEditing(null); await load();
+      // G131：从业务页直达新增的，新建成功后自动回跳来源页（带 created 标记供来源页刷新/提示）
+      if (isNew && returnTo) {
+        router.push(`${returnTo}${returnTo.includes("?") ? "&" : "?"}created=1`);
+      }
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
   };
@@ -204,7 +319,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           >{r[codeKey]}</button>
                         ) : r[codeKey]}
                       </td>
-                      {columns.map(c => <td key={c.key} style={tdStyle} title={String(r[c.key] ?? "")}>{r[c.key] ?? "—"}</td>)}
+                      {columns.map(c => {
+                        const raw = r[c.key];
+                        const dt  = fieldByKey[c.key]?.dictType;
+                        // g200o:dict 字段查 codeMap 转中文,fallback 原值
+                        const shown = dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
+                        return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
+                      })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         <span style={{ ...inlineBadge(st.tone), whiteSpace: "nowrap" }}>{st.label}</span>
                       </td>
@@ -242,71 +363,52 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           )}
       </div>
 
-      {/* 新增/编辑抽屉 — 全局 drawer token */}
-      {editing !== null && (
+      {/* 新增/编辑抽屉 — g200o-2 flex 三段 + Portal 渲染到 body 顶层
+           (绕过 animate-fade-in 的 transform 让 fixed containing block 锚到祖先的问题) */}
+      {editing !== null && typeof document !== 'undefined' && createPortal(
         <div style={drawerMask} onClick={() => setEditing(null)}>
-          <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
-            <div style={drawerHeader}>
+          <div style={drawerPanelFlex(480)} onClick={e => e.stopPropagation()}>
+            <div style={drawerHeaderFlex}>
               <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
-            {editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码：<span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{editing[codeKey]}</span>（自动生成，不可修改）</div>}
-            {!editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码将在保存时自动生成（不可手填）</div>}
+            <div style={drawerBody}>
+            {/* g200o-1:hero 块 — 编辑显示编码 + 名称;新增显示 inlineAlert 提示 */}
+            {editing[codeKey] ? (
+              <div style={drawerHeroBox}>
+                <div>
+                  <div style={drawerHeroLabel}>{title}编码</div>
+                  <div style={drawerHeroCodeValue}>{editing[codeKey]}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={drawerHeroLabel}>名称</div>
+                  <div style={drawerHeroNameValue}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ ...inlineAlert("info"), marginBottom: 18 }}>
+                <Info size={14} />
+                <span>编码将在保存时自动生成,无需手填</span>
+              </div>
+            )}
             {fields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {(() => {
-                  // G83：主数据选择器化 — onChange/onPick 均用函数式 setForm，避免选择器内 onChange→onPick 连续调用导致名称带出被覆盖
-                  const code = String(form[f.key] ?? "");
-                  const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
-                  const onPick = (o: any) => {
-                    if (!f.onPickKeys) return;
-                    setForm(prev => {
-                      const next = { ...prev };
-                      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
-                      return next;
-                    });
-                  };
-                  const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
-                  const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
-                  const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
-                  switch (f.type) {
-                    case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "project":   return <ProjectSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
-                    case "warehouse": return <WarehouseSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
-                    case "zone":      return <ZoneSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} />;
-                    case "location":  return <LocationSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} zoneCode={filterZone} />;
-                    case "sku":       return <SkuSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "user":      return <UserSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "farm":      return <FarmSelector value={code} onChange={onChange} onPick={onPick} />;
-                  }
-                  if (f.dictType)
-                    // G66：字段挂字典 → 走 DictSelect（仅 ACTIVE），消除硬编码 options 重复
-                    return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
-                  if (f.type === "select")
-                    return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
-                      <option value="">请选择</option>
-                      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>;
-                  if (f.type === "readonly")
-                    return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
-                  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
-                })()}
+                {renderMdFieldInput(f, form, setForm)}
               </div>
             ))}
-            <div style={drawerFooter}>
+            </div>
+            <div style={drawerFooterFlex}>
               <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
                 {saving ? "保存中…" : "保存"}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

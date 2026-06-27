@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, 
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // P1C 包装收口
 
 // ═══════════════════════════════════════════════════════════════
@@ -11,7 +12,8 @@ import { PackagingInventoryIntegrationService } from '../sales-v2/services/packa
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 @Controller('api/dashboard')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_DASHBOARD', 'V')
 export class DashboardBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -382,7 +384,8 @@ export class DashboardBffController {
 
 // ── Users (增强版：支持多角色分配) ───────────────────────────────────────────
 @Controller('api/users')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_SETTINGS_USER', 'V')
 export class UsersBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -440,6 +443,7 @@ export class UsersBffController {
 
   /** POST /api/users — 新建用户（含初始角色）*/
   @Post()
+  @RequireMenu('MENU_SETTINGS_USER', 'C')
   async createUser(@Body() body: any, @Req() req: any) {
     const { username, real_name_zh, role, store_code, password, user_type, org_bindings } = body || {};
     if (!username || !real_name_zh) return { code: 400, msg: '用户名和姓名为必填项' };
@@ -478,6 +482,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id — 更新基本信息（含组织绑定 org_bindings）*/
   @Put(':id')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async updateUser(@Param('id') id: string, @Body() body: any) {
     try {
       const fields: string[] = [];
@@ -529,6 +534,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/status — 启用/冻结 */
   @Put(':id/status')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setStatus(@Param('id') id: string, @Body() body: any) {
     try {
       const s = String(body?.status || '').toUpperCase();
@@ -541,6 +547,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/role — 设置主角色（保留已有副角色）*/
   @Put(':id/role')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setRole(@Param('id') id: string, @Body() body: any) {
     const { role } = body || {};
     if (!role) return { code: 400, msg: 'role 必填' };
@@ -563,6 +570,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/roles — 全量设置用户角色列表（多角色）*/
   @Put(':id/roles')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async setRoles(@Param('id') id: string, @Body() body: any) {
     // body: { roles: [{ role_code, is_primary }] }
     const { roles } = body || {};
@@ -601,6 +609,7 @@ export class UsersBffController {
 
   /** PUT /api/users/:id/password — 重置密码 */
   @Put(':id/password')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
   async resetPassword(@Param('id') id: string, @Body() body: any) {
     const { password } = body || {};
     if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
@@ -619,7 +628,8 @@ export class UsersBffController {
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 @Controller('api/analytics')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_DASHBOARD', 'V', ['MENU_ANALYTICS'])
 export class AnalyticsBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -833,7 +843,8 @@ export class AnalyticsBffController {
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
 @Controller('api/audit')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_SETTINGS_AUDIT', 'V')
 export class AuditBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -848,6 +859,7 @@ export class AuditBffController {
   }
 
   @Post('workbench/sample')
+  @RequireMenu('MENU_SETTINGS_AUDIT', 'E')
   async sampleAudit(@Body() body: any) {
     return { code: 200, msg: '抽样审计已记录', data: { sample_id: `SAMPLE-${Date.now()}` } };
   }
@@ -868,6 +880,7 @@ export class AuditBffController {
   }
 
   @Post('anti-fraud/:id/freeze')
+  @RequireMenu('MENU_SETTINGS_AUDIT', 'E')
   async freezeAccount(@Param('id') id: string) {
     return { code: 200, msg: `账户 ${id} 已标记冻结`, data: { id } };
   }
@@ -875,7 +888,8 @@ export class AuditBffController {
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
 @Controller('api/pricing')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_SALES2_PRICE', 'V')
 export class PricingBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -895,6 +909,7 @@ export class PricingBffController {
   }
 
   @Put('floating/:id')
+  @RequireMenu('MENU_SALES2_PRICE', 'E')
   async updateFloating(@Param('id') id: string, @Body() body: any) {
     return { code: 200, msg: '浮动价格已更新' };
   }
@@ -912,7 +927,8 @@ export class PricingBffController {
 
 // ── Wholesale ─────────────────────────────────────────────────────────────────
 @Controller('api/wholesale')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_SALES2_CUSTOMER', 'V')
 export class WholesaleBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
@@ -943,6 +959,7 @@ export class WholesaleBffController {
   }
 
   @Put('distributors/:id')
+  @RequireMenu('MENU_SALES2_CUSTOMER', 'E')
   async updateDistributor(@Param('id') id: string, @Body() body: any) {
     return { code: 200, msg: '经销商信息已更新' };
   }
@@ -952,7 +969,8 @@ export class WholesaleBffController {
 // Terminal 作业台专用接口，区别于 PC 端的 PackagingBffController
 // 接口前缀：/api/packaging/terminal
 @Controller('api/packaging/terminal')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_PKG_OP', 'V')
 export class PackagingTerminalBffController {
   constructor(
     @InjectEntityManager() private readonly em: EntityManager,
@@ -1028,6 +1046,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('shifts/open')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async openShift(@Body() body: any, @Req() req: any) {
     const today = this.today;
     const lineId = body.lineId || body.line_id || 'line-01';
@@ -1071,6 +1090,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('shifts/:id/close')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const [existing] = await this.safe(
       this.em.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1`, [id]),
@@ -1146,6 +1166,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('source-batches/receive')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async receiveBatch(@Body() body: any, @Req() req: any) {
     const today = this.today;
     const houseSlug = (body.houseCode || body.house_code || 'X')
@@ -1235,6 +1256,7 @@ export class PackagingTerminalBffController {
 
   // ── 来源批次数量更正 ─────────────────────────────────────────────────────────
   @Patch('source-batches/correct')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async correctBatch(@Body() body: any, @Req() req: any) {
     const operatorId = req.user?.id || req.user?.user_id;
     const date = body.productionDate || this.today;
@@ -1299,6 +1321,7 @@ export class PackagingTerminalBffController {
 
   // ── 首检 ───────────────────────────────────────────────────────────────────
   @Post('qc/first-inspection')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async submitQCInspection(@Body() body: any, @Req() req: any) {
     const inspectorId = req.user?.id || req.user?.user_id;
     const inspectorName = req.user?.name || req.user?.username || '';
@@ -1359,6 +1382,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('exceptions')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async reportException(@Body() body: any, @Req() req: any) {
     const reportedBy = req.user?.name || req.user?.username || '';
     const reporterId = req.user?.id || req.user?.user_id;
@@ -1383,6 +1407,7 @@ export class PackagingTerminalBffController {
 
   // ── 标签打印日志 ────────────────────────────────────────────────────────────
   @Post('labels/print-log')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async recordPrintLog(@Body() body: any, @Req() req: any) {
     const printedBy = req.user?.name || req.user?.username || '';
 
@@ -1496,6 +1521,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('grading/submit')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async submitGrading(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
@@ -1628,6 +1654,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('packing/submit')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async submitPacking(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
@@ -1708,6 +1735,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('warehouse/confirm')
+  @RequireMenu('MENU_PKG_OP', 'E')
   async confirmHandover(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;

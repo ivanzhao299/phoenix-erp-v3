@@ -1,12 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle, Clock, RefreshCw, AlertOctagon, CalendarClock, Info, PartyPopper,
+} from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, secondaryActionButton,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  inlineAlert, MONO_FONT, actionPill,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 临期预警页面 (对应 V2: ExpiryAlert.jsx)
 // 数据来源: inv_batches (expire_date + qty_available)
@@ -23,33 +33,13 @@ interface AlertItem {
   severity: 'critical' | 'high' | 'medium' | 'low';
 }
 
-// ✅ 严重级别 → 全局 CSS 类（消除所有硬编码 rgba/hex）
-const SEV_CONFIG = {
-  critical: {
-    cardCls: s.alertCritical,
-    badgeCls: s.severityBadgeCritical,
-    textCls: s.textDanger,
-    icon: '🚨'
-  },
-  high: {
-    cardCls: s.alertHigh,
-    badgeCls: s.severityBadgeHigh,
-    textCls: s.textWarning,
-    icon: '⚠️'
-  },
-  medium: {
-    cardCls: s.alertMedium,
-    badgeCls: s.severityBadgeMedium,
-    textCls: s.textWarning,
-    icon: '📅'
-  },
-  low: {
-    cardCls: s.alertLow,
-    badgeCls: s.severityBadgeLow,
-    textCls: s.textSuccess,
-    icon: 'ℹ️'
-  }
-} as const;
+// g200e:严重级别 tone + lucide 图标(替代 emoji)
+const SEV_CONFIG: Record<"critical" | "high" | "medium" | "low", { tone: Tone; Icon: typeof AlertOctagon }> = {
+  critical: { tone: "danger",  Icon: AlertOctagon   },
+  high:     { tone: "warning", Icon: AlertTriangle  },
+  medium:   { tone: "warning", Icon: CalendarClock  },
+  low:      { tone: "success", Icon: Info           },
+};
 export default function ExpiryAlertPage() {
   const {
     t
@@ -136,157 +126,110 @@ export default function ExpiryAlertPage() {
     });
   }, [confirm]);
 
-  // ✅ KPI 数组：用 cardCls/valCls 替代 color/bg hex 字符串
-  const KPI_COUNTS = [{
-    label: t("ui.3天到期", "3天到期"),
-    val: alerts.filter(a => a.severity === 'critical').length,
-    cardCls: s.statCardDanger,
-    valCls: s.textDanger
-  }, {
-    label: t("ui.5天到期", "5天到期"),
-    val: alerts.filter(a => ['critical', 'high'].includes(a.severity)).length,
-    cardCls: s.statCardWarning,
-    valCls: s.textWarning
-  }, {
-    label: t("ui.7天到期", "7天到期"),
-    val: alerts.filter(a => ['critical', 'high', 'medium'].includes(a.severity)).length,
-    cardCls: s.statCardWarning,
-    valCls: s.textWarning
-  }, {
-    label: t("ui.14天到期", "14天到期"),
-    val: alerts.length,
-    cardCls: s.statCardPrimary,
-    valCls: s.statValue
-  }];
+  // g200e:KPI 4 卡 tone → kpiCardCompact(tone)
+  const KPI_COUNTS = useMemo<{ label: string; val: number; tone: Tone }[]>(() => [
+    { label: t("ui.3天到期",  "3天到期"),  val: alerts.filter(a => a.severity === "critical").length,                          tone: "danger"  },
+    { label: t("ui.5天到期",  "5天到期"),  val: alerts.filter(a => ["critical","high"].includes(a.severity)).length,            tone: "warning" },
+    { label: t("ui.7天到期",  "7天到期"),  val: alerts.filter(a => ["critical","high","medium"].includes(a.severity)).length, tone: "warning" },
+    { label: t("ui.14天到期", "14天到期"), val: alerts.length,                                                                  tone: "info"    },
+  ], [alerts, t]);
   return <div className="animate-fade-in">
-      <PageHeader title={t("ui.临期预警", "临期预警")} subtitle={t("ui.保质期即将到期批次预警管理FEFO先到期先出策略", "保质期即将到期批次预警管理（FEFO 先到期先出策略）")} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.临期预警", "临期预警")]} actions={<button type="button" className={s.btnSecondary} onClick={loadAlerts} disabled={loading}>
-            <RefreshCw size={14} style={{
-        animation: loading ? 'spin 1s linear infinite' : 'none'
-      }} />
+      <PageHeader
+        title={t("ui.临期预警", "临期预警")}
+        subtitle={t("ui.保质期即将到期批次预警管理FEFO先到期先出策略", "保质期即将到期批次预警管理（FEFO 先到期先出策略）")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.临期预警", "临期预警")]}
+        actions={
+          <button type="button" style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }} onClick={loadAlerts} disabled={loading}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             {t("common.refresh", "刷新")}
-          </button>} />
+          </button>
+        }
+      />
 
-      {/* KPI 统计 — 用 CSS module 类，无 inline 颜色 */}
-      <div className={`${s.statsRow} ${u.mb20}`}>
-        {KPI_COUNTS.map(c => <div key={c.label} className={`${s.statCard} ${c.cardCls}`}>
-            <div className={`${s.statValue} ${c.valCls}`}>{loading ? '…' : c.val}</div>
-            <div className={s.statLabel}>{c.label}</div>
-            <div className={s.statSub}>{t("ui.批次", "批次")}</div>
-          </div>)}
+      {/* g200e:KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+        gap: 12,
+        marginBottom: 20,
+      }}>
+        {KPI_COUNTS.map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={{ ...kpiCardCompactValue(c.tone), display: "flex", alignItems: "baseline", gap: 4 }}>
+              {loading ? "…" : c.val}
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 400 }}>{t("ui.批次", "批次")}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* 告警列表 */}
-      {loading ? <div style={{
-      textAlign: 'center',
-      padding: 60,
-      color: 'var(--text-secondary)'
-    }}>{t("ui.加载临期数据中", "加载临期数据中…")}</div> : alerts.length === 0 ? <div style={{
-      textAlign: 'center',
-      padding: 48,
-      border: '1px dashed var(--border)',
-      borderRadius: 12,
-      color: 'var(--text-secondary)',
-      fontSize: 14
-    }}>
-          🎉 {t("ui.太棒了当前没有任何库存处于临期预警状态", "太棒了！当前没有任何库存处于临期预警状态")}
-        </div> : <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12
-    }}>
+      {/* g200e 告警列表 — 业务列表卡(白底 + 左 tone 色条),非 KPI 卡风格,避免与顶部重复 */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 60, color: "var(--text-secondary)" }}>
+          {t("ui.加载临期数据中", "加载临期数据中…")}
+        </div>
+      ) : alerts.length === 0 ? (
+        <div style={{ ...inlineAlert("success"), justifyContent: "center", padding: "16px 20px", fontSize: 14 }}>
+          <PartyPopper size={16} /> {t("ui.太棒了当前没有任何库存处于临期预警状态", "太棒了！当前没有任何库存处于临期预警状态")}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {alerts.map(a => {
-        const cfg = SEV_CONFIG[a.severity];
-        const sevLabel = SEV_LABEL[a.severity];
-        return /* ✅ alertCard + alertCritical/High/Medium/Low 替代所有 inline hex 颜色 */<div key={a.id} className={`${s.alertCard} ${cfg.cardCls}`}>
-                <span style={{
-            fontSize: 28,
-            flexShrink: 0
-          }}>{cfg.icon}</span>
-
-                <div style={{
-            flex: 1,
-            minWidth: 0
-          }}>
-                  <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              marginBottom: 4
-            }}>
-                    <span style={{
-                fontWeight: 700,
-                fontSize: 15
-              }}>{a.batchNo}</span>
-                    <span className={`${s.severityBadge} ${cfg.badgeCls}`}>{sevLabel}</span>
+            const cfg = SEV_CONFIG[a.severity];
+            const sevLabel = SEV_LABEL[a.severity];
+            const SevIcon = cfg.Icon;
+            const sevColor =
+              cfg.tone === "danger"  ? "var(--status-danger)"  :
+              cfg.tone === "warning" ? "var(--status-warning)" :
+              cfg.tone === "success" ? "var(--status-success)" : "var(--status-info)";
+            return (
+              <div key={a.id} style={{
+                display: "flex", alignItems: "center", gap: 14,
+                padding: "14px 16px",
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: `4px solid ${sevColor}`,
+                borderRadius: 10,
+              }}>
+                <SevIcon size={28} color={sevColor} style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{a.batchNo}</span>
+                    <span style={actionPill(cfg.tone)}>{sevLabel}</span>
                   </div>
-                  <div style={{
-              fontSize: 13,
-              color: 'var(--text-primary)'
-            }}>{a.skuCode}</div>
-                  <div style={{
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-              marginTop: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{a.skuCode}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
                     <Clock size={11} /> {a.warehouse} · {t("ui.库存", "库存")} {a.qty} {t("ui.枚", "枚")} · {t("ui.到期", "到期")} {a.expDate}
                   </div>
                 </div>
-
-                {/* 倒计时 — 用 textCls 类控制颜色 */}
-                <div style={{
-            textAlign: 'center',
-            flexShrink: 0
-          }}>
-                  <div className={cfg.textCls} style={{
-              fontSize: 36,
-              fontWeight: 900,
-              lineHeight: 1
-            }}>{a.daysLeft}</div>
-                  <div style={{
-              fontSize: 11,
-              color: 'var(--text-secondary)'
-            }}>{t("ui.天后到期", "天后到期")}</div>
+                <div style={{ textAlign: "center", flexShrink: 0, minWidth: 64 }}>
+                  <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: sevColor, fontFamily: MONO_FONT }}>{a.daysLeft}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t("ui.天后到期", "天后到期")}</div>
                 </div>
-
-                {/* 操作按钮 */}
-                <div style={{
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6
-          }}>
-                  <button type="button" className={s.btnPrimary} onClick={() => setConfirm({
-              open: true,
-              type: 'outbound',
-              item: a
-            })} style={{
-              fontSize: 12,
-              padding: '6px 14px'
-            }}>
+                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button type="button" style={{ ...primaryActionButton, fontSize: 12, padding: "6px 14px" }}
+                    onClick={() => setConfirm({ open: true, type: "outbound", item: a })}>
                     <AlertTriangle size={12} />{t("ui.安排出库", "安排出库")}
                   </button>
-                  <button type="button" className={s.btnSecondary} disabled title={t("ui.降价促销功能待接入促销系统", "降价促销功能待接入促销系统")} style={{
-              fontSize: 12,
-              padding: '6px 14px',
-              opacity: 0.5,
-              cursor: 'not-allowed'
-            }}>
+                  <button type="button" style={{ ...secondaryActionButton, fontSize: 12, padding: "6px 14px", opacity: 0.5, cursor: "not-allowed" }}
+                    disabled title={t("ui.降价促销功能待接入促销系统", "降价促销功能待接入促销系统")}>
                     {t("ui.降价促销", "降价促销")}
                   </button>
                 </div>
-              </div>;
-      })}
-        </div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      {/* FEFO 提示 — 用 alertLow 类（绿色低风险提示条） */}
-      <div className={`${s.alertCard} ${s.alertLow}`} style={{
-      marginTop: 20,
-      fontSize: 13
-    }}>
-        <strong>{t("ui.FEFO出库策略", "FEFO 出库策略")}</strong>：{t("ui.系统遵循先进先出先到期先出原则拣货时自动优先分配临期批次最大化库存周转效率", "系统遵循先进先出、先到期先出原则，拣货时自动优先分配临期批次，最大化库存周转效率。")}
+      {/* g200e FEFO 提示 → inlineAlert('success') */}
+      <div style={{ ...inlineAlert("success"), marginTop: 20, fontSize: 13, lineHeight: 1.6 }}>
+        <Info size={14} />
+        <span>
+          <strong>{t("ui.FEFO出库策略", "FEFO 出库策略")}</strong>：
+          {t("ui.系统遵循先进先出先到期先出原则拣货时自动优先分配临期批次最大化库存周转效率", "系统遵循先进先出、先到期先出原则，拣货时自动优先分配临期批次，最大化库存周转效率。")}
+        </span>
       </div>
 
       <ConfirmDialog open={confirm.open} title={confirm.type === 'outbound' ? t("ui.确认安排出库", "确认安排出库") : t("ui.确认发布降价促销", "确认发布降价促销")} message={confirm.type === 'outbound' ? `${t("ui.系统将对批次生成FEFO加急出库单", "系统将对批次")} [${confirm.item?.batchNo}] ${t("ui.生成FEFO加急出库单剩余", "生成 FEFO 加急出库单（剩余")}${confirm.item?.daysLeft}${t("ui.天是否确认", "天），是否确认？")}` : `${t("ui.确认对批次发布全网门店7折临期促销指令吗", "确认对批次")} [${confirm.item?.batchNo}] ${t("ui.发布全网门店7折临期促销指令吗", "发布全网门店 7 折临期促销指令吗？")}`} onConfirm={handleConfirm} onCancel={() => setConfirm({

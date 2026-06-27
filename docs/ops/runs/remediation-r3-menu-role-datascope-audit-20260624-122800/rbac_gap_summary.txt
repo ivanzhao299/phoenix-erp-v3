@@ -1,0 +1,30 @@
+Output format is aligned.
+Null display is "[NULL]".
+STORE_PAYMENT_MENU_COUNT
+ present_count 
+---------------
+             0
+(1 row)
+
+STORE_PAYMENT_GRANT_COUNT
+ grant_count 
+-------------
+           0
+(1 row)
+
+EXPECTED_GRANT_GAPS
+   role_code    |         menu_code          | grant_status | perm_codes 
+----------------+----------------------------+--------------+------------
+ ROLE_ADMIN     | MENU_STORE_PAYMENT         | MISSING      | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_ACCOUNT | MISSING      | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_CONFIRM | MISSING      | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_EXPORT  | MISSING      | [NULL]
+ ROLE_ADMIN     | MENU_STORE_PAYMENT_VOID    | MISSING      | [NULL]
+ ROLE_CASHIER   | MENU_STORE_PAYMENT         | MISSING      | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT         | MISSING      | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_CONFIRM | MISSING      | [NULL]
+ ROLE_FIN_ACCT  | MENU_STORE_PAYMENT_EXPORT  | MISSING      | [NULL]
+ ROLE_STORE_MGR | MENU_STORE_PAYMENT         | MISSING      | [NULL]
+ ROLE_STORE_MGR | MENU_STORE_PAYMENT_CONFIRM | MISSING      | [NULL]
+(11 rows)
+

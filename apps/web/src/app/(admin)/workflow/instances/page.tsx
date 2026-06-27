@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 const STATUS_FILTERS = [{
@@ -72,7 +73,7 @@ export default function WorkflowInstancesPage() {
     return map;
   }, [rows]);
   return <div>
-      <PageHeader title="流程实例" subtitle="查看我发起或参与过的流程，跟踪当前审批状态" breadcrumb={["工作流", "流程实例"]} actions={<Link href="/workflow/start" className={s.btnPrimary}>发起申请</Link>} />
+      <PageHeader title="流程实例" subtitle="查看我发起或参与过的流程，跟踪当前审批状态" breadcrumb={["工作流", "流程实例"]} actions={<Link href="/workflow/start" style={primaryActionButton}>发起申请</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={{
@@ -106,9 +107,7 @@ export default function WorkflowInstancesPage() {
           marginTop: 4,
           fontSize: 13
         }}>{loadError}</div>
-            <button type="button" className={s.btnSecondary} style={{
-          marginTop: 8
-        }} onClick={() => void load()}>重试</button>
+            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>重试</button>
           </div>
         </section>}
 

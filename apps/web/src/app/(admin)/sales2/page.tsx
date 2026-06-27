@@ -15,6 +15,7 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { NavCard } from "@/components/ui/NavCard";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { KPI_GRID, type AccentColor } from "@/lib/design-tokens";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -52,15 +53,16 @@ interface NavCardDef {
   title:  string;
   desc:   string;
   accent: AccentColor;
+  perm:   string;
 }
 
 const NAV_CARDS: NavCardDef[] = [
-  { href: "/sales2/customers", Icon: Users,        title: "客户主档",  accent: "indigo", desc: "统一客户主档 · 渠道分类 · 信用档案" },
-  { href: "/sales2/pricing",   Icon: Tag,          title: "价格管理",  accent: "green",  desc: "价格本 · 品级单价 · 客户专属价 · 审批工作流" },
-  { href: "/sales2/orders",    Icon: ShoppingCart, title: "销售订单",  accent: "blue",   desc: "下单 · 审批 · 分配 · 拣货 · 发货 · 签收" },
-  { href: "/sales2/delivery",  Icon: Truck,        title: "配送管理",  accent: "amber",  desc: "配送单 · 装车 · 发车 · 到达 · 签收 · 应收生成" },
-  { href: "/sales2/credit",    Icon: CreditCard,   title: "信用管理",  accent: "red",    desc: "信用额度 · 冻结 · 逾期预警 · 信用台账" },
-  { href: "/sales2/reports",   Icon: BarChart2,    title: "经营分析",  accent: "violet", desc: "销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存" },
+  { href: "/sales2/customers", Icon: Users,        title: "客户主档",  accent: "indigo", perm: "MENU_SALES2_CUSTOMER", desc: "统一客户主档 · 渠道分类 · 信用档案" },
+  { href: "/sales2/pricing",   Icon: Tag,          title: "价格管理",  accent: "green",  perm: "MENU_SALES2_PRICE", desc: "价格本 · 品级单价 · 客户专属价 · 审批工作流" },
+  { href: "/sales2/orders",    Icon: ShoppingCart, title: "销售订单",  accent: "blue",   perm: "MENU_SALES2_ORDER", desc: "下单 · 审批 · 分配 · 拣货 · 发货 · 签收" },
+  { href: "/sales2/delivery",  Icon: Truck,        title: "配送管理",  accent: "amber",  perm: "MENU_SALES2_DELIVERY", desc: "配送单 · 装车 · 发车 · 到达 · 签收 · 应收生成" },
+  { href: "/sales2/credit",    Icon: CreditCard,   title: "信用管理",  accent: "red",    perm: "MENU_SALES2_CREDIT", desc: "信用额度 · 冻结 · 逾期预警 · 信用台账" },
+  { href: "/sales2/reports",   Icon: BarChart2,    title: "经营分析",  accent: "violet", perm: "MENU_SALES2_REPORT", desc: "销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存" },
 ];
 
 // ── 区块标题 ──────────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ const NAV_GRID:  React.CSSProperties = { display: "grid", gridTemplateColumns: "
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function SalesV2Page() {
+  const { hasPermission } = useAuth();
   const [stats,    setStats]    = useState<OrderStats | null>(null);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -146,7 +149,7 @@ export default function SalesV2Page() {
       {/* ── 子模块入口 ───────────────────────────────────────────────────── */}
       <SectionLabel>功能入口</SectionLabel>
       <div style={NAV_GRID}>
-        {NAV_CARDS.map((c) => (
+        {NAV_CARDS.filter(c => hasPermission(c.perm, "V")).map((c) => (
           <NavCard key={c.href} icon={c.Icon} title={c.title} description={c.desc} href={c.href} accent={c.accent} />
         ))}
       </div>

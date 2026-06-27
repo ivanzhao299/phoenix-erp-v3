@@ -1,0 +1,11 @@
+total 36
+drwxr-xr-x  2 root root 4096 Jun 24 12:40 .
+drwx------ 21 root root 4096 Jun 24 12:40 ..
+-rw-r--r--  1 root root  400 Jun 24 12:40 batch_summary.txt
+-rw-r--r--  1 root root 1266 Jun 24 12:40 deploy_chain_file_review.txt
+-rw-r--r--  1 root root  899 Jun 24 12:40 deploy_chain_readonly_review.txt
+-rw-r--r--  1 root root    0 Jun 24 12:40 file_list.txt
+-rw-r--r--  1 root root 2193 Jun 24 12:40 initial_data_import_diagnosis.txt
+-rw-r--r--  1 root root  575 Jun 24 12:40 manifest.json
+-rw-r--r--  1 root root 2386 Jun 24 12:40 master_data_diagnosis.txt
+-rw-r--r--  1 root root 2288 Jun 24 12:40 unresolved_uploads_owner_diagnosis.txt

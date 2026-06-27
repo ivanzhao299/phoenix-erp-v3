@@ -4,14 +4,20 @@ Phoenix ERP — V2 SQLite vs V3 PostgreSQL 表/字段对比分析
 基于审计报告字段映射规则，输出匹配情况
 用法: python3 compare_v2_v3.py --sqlite /path/to/phoenix.sqlite
 """
-import sqlite3, argparse, sys
+import os, sqlite3, argparse, sys
 
 try:
     import psycopg2
 except ImportError:
     print("请先: pip3 install psycopg2-binary"); sys.exit(1)
 
-PG_CONFIG = dict(host="127.0.0.1", port=5432, user="mac", password="", dbname="phoenix_erp")
+PG_CONFIG = dict(
+    host=os.getenv("DB_HOST", "127.0.0.1"),
+    port=int(os.getenv("DB_PORT", "5432")),
+    user=os.getenv("DB_USER", "mac"),
+    password=os.getenv("DB_PASSWORD", ""),
+    dbname=os.getenv("DB_NAME", "phoenix_erp"),
+)
 
 # 表名映射规则（与迁移脚本一致）
 TABLE_REMAP = {
@@ -136,11 +142,11 @@ def main(sqlite_path):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--sqlite", required=True)
-    ap.add_argument("--pg-host",     default="127.0.0.1")
-    ap.add_argument("--pg-port",     default="5432")
-    ap.add_argument("--pg-user",     default="mac")
-    ap.add_argument("--pg-password", default="")
-    ap.add_argument("--pg-db",       default="phoenix_erp")
+    ap.add_argument("--pg-host",     default=PG_CONFIG["host"])
+    ap.add_argument("--pg-port",     default=str(PG_CONFIG["port"]))
+    ap.add_argument("--pg-user",     default=PG_CONFIG["user"])
+    ap.add_argument("--pg-password", default=PG_CONFIG["password"])
+    ap.add_argument("--pg-db",       default=PG_CONFIG["dbname"])
     args = ap.parse_args()
     PG_CONFIG.update(dict(host=args.pg_host, port=int(args.pg_port),
         user=args.pg_user, password=args.pg_password, dbname=args.pg_db))

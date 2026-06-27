@@ -1,6 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 @Entity('wf_approval_rule_steps')
+@Index('idx_wf_rule_step_rule_id', ['ruleId'])
+@Index('idx_wf_rule_step_no', ['ruleId', 'stepNo'])
 export class WfApprovalRuleStepEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

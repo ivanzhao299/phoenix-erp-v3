@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { currencySymbol } from '@/lib/currency';  // G61 多币种符号
 import u from "@/styles/uix-utils.module.css";
 import { PieChart, BarChart2, TrendingDown, TrendingUp, Wallet, Users, Receipt, Building2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight } from 'lucide-react';
@@ -15,6 +15,8 @@ import {
   tableContainer, tablePagination, kpiCard,
   heroBanner, heroBannerTitle, heroBannerSubtitle, heroBannerKpi, heroTagChip,
   subTabBar, subTabItem, sectionTitle, statTile, statTileLabel, statTileValue,
+  // g200a 模板 token(2026-06-19)
+  inlineAlert,
 } from '@/components/design-system/cockpit-styles';
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 
@@ -143,10 +145,12 @@ function Td({
   right?: boolean;
   bold?: boolean;
 }) {
+  // g199c 推广(2026-06-19):右对齐列默认数字列,加 tabular-nums 让金额对齐
   return <td className={bold ? 'text-text' : 'text-text-muted'} style={{
     textAlign: right ? 'right' : 'left',
     fontWeight: bold ? 700 : undefined,
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    ...(right ? { fontVariantNumeric: 'tabular-nums' as const } : {}),
   }}>{children}</td>;
 }
 function AgingBar({
@@ -257,19 +261,29 @@ function OverviewTab() {
   useEffect(() => {
     apiFetch<OverviewData>('/api/v2/finance/reports/overview').then(setData).finally(() => setLoading(false));
   }, []);
+  // ⚠️ React #310 修复:hooks 必须在所有 early return 之前调用,顺序固定。
+  //    之前 useMemo 在 if (loading) return 之后 → 第一次 render(loading=true)只 3 个 hooks,
+  //    第二次(loading=false)5 个 hooks → 数量不一致崩页。
+  // G61:现金/可支配资金按币种(跨币种不可裸求和成单一 ¥)。
+  //    现金 = byCurrency;可支配 = 现金各币种 + CNY 行并入 (应收 − 应付 − 待报销)(本币口径)。
+  const cashRows = useMemo(
+    () => (data?.byCurrency ?? []).map(r => ({ ccy: r.currencyCode, amount: r.cashBalance })),
+    [data?.byCurrency],
+  );
+  const cnyAdj = (data?.arOpen ?? 0) - (data?.apOpen ?? 0) - (data?.reimbursementPendingAmount ?? 0);
+  const disposableRows = useMemo(() => {
+    const rows = cashRows.length > 0
+      ? cashRows.map(r => ({ ccy: r.ccy, amount: r.amount + (r.ccy === 'CNY' ? cnyAdj : 0) }))
+      : [];
+    if (cnyAdj !== 0 && cashRows.length > 0 && !rows.some(r => r.ccy === 'CNY')) {
+      rows.push({ ccy: 'CNY', amount: cnyAdj });
+    }
+    return rows;
+  }, [cashRows, cnyAdj]);
+
   if (loading) return <Spinner />;
   if (!data) return <Empty text="加载失败" />;
   const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
-  // G61：现金/可支配资金按币种（跨币种不可裸求和成单一 ¥）。
-  //   现金 = byCurrency；可支配 = 现金各币种 + CNY 行并入 (应收 − 应付 − 待报销)（本币口径）。
-  const cashRows = (data.byCurrency ?? []).map(r => ({ ccy: r.currencyCode, amount: r.cashBalance }));
-  const cnyAdj = (data.arOpen ?? 0) - (data.apOpen ?? 0) - (data.reimbursementPendingAmount ?? 0);
-  const disposableRows = cashRows.length > 0
-    ? cashRows.map(r => ({ ccy: r.ccy, amount: r.amount + (r.ccy === 'CNY' ? cnyAdj : 0) }))
-    : [];
-  if (cnyAdj !== 0 && cashRows.length > 0 && !disposableRows.some(r => r.ccy === 'CNY')) {
-    disposableRows.push({ ccy: 'CNY', amount: cnyAdj });
-  }
   return <div>
       {/* 可支配资金 主 KPI（按币种） */}
       <div style={{ ...heroBanner, flexDirection: 'column', alignItems: 'stretch' }}>
@@ -888,13 +902,9 @@ function ExpenseTab() {
               </div>
             ))}
           </div>
-          {reimbData.avgProcessingDays !== null && <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300" style={{
-        borderRadius: 10,
-        padding: '12px 16px',
-        fontSize: 13
-      }}>
-              ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
-            </div>}
+          {reimbData.avgProcessingDays !== null && <div style={{ ...inlineAlert('success'), fontSize: 13, padding: '12px 16px' }}>
+            ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
+          </div>}
         </>}
     </div>;
 }
@@ -928,11 +938,12 @@ function ShareholderTab() {
   useEffect(() => {
     apiFetch<ShSummaryData>('/api/v2/finance/reports/shareholder-summary').then(setData).finally(() => setLoading(false));
   }, []);
+  // React #310 修复:useMemo 必须在 early return 之前(同 OverviewTab)
+  const totalBal = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.balanceAmount, 0), [data?.byShareholder]);
+  const totalIn = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.totalAmount, 0), [data?.byShareholder]);
+  const totalSt = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.settledAmount, 0), [data?.byShareholder]);
   if (loading) return <Spinner />;
   if (!data) return <Empty text="加载失败" />;
-  const totalBal = data.byShareholder.reduce((s, r) => s + r.balanceAmount, 0);
-  const totalIn = data.byShareholder.reduce((s, r) => s + r.totalAmount, 0);
-  const totalSt = data.byShareholder.reduce((s, r) => s + r.settledAmount, 0);
   return <div>
       <div style={{
       display: 'grid',
@@ -1021,7 +1032,7 @@ function ProjectTab() {
   useEffect(() => {
     apiFetch<ProjectRow[]>('/api/v2/finance/reports/project-finance').then(setData).finally(() => setLoading(false));
   }, []);
-  const rows = data?.filter(r => !filter || r.projectCode.toLowerCase().includes(filter.toLowerCase())) ?? [];
+  const rows = useMemo(() => data?.filter(r => !filter || r.projectCode.toLowerCase().includes(filter.toLowerCase())) ?? [], [data, filter]);
   if (loading) return <Spinner />;
   return <div>
       <div style={{
@@ -1088,6 +1099,8 @@ function CompanyTab() {
   useEffect(() => {
     apiFetch<CompanyRow[]>('/api/v2/finance/reports/company-finance').then(setData).finally(() => setLoading(false));
   }, []);
+  const totalCashBalance = useMemo(() => data?.reduce((s, r) => s + r.cashBalance, 0) ?? 0, [data]);
+  const totalNetPosition = useMemo(() => data?.reduce((s, r) => s + r.netOperatingPosition, 0) ?? 0, [data]);
   if (loading) return <Spinner />;
   if (!data?.length) return <Empty text="暂无公司财务数据" />;
   return <div>
@@ -1098,8 +1111,8 @@ function CompanyTab() {
       marginBottom: 20
     }}>
         <KpiCard label="公司总数" value={`${data.length} 家`} icon={Building2} color="var(--status-neutral)" />
-        <KpiCard label="合计现金余额" value={fmtMoney(data.reduce((s, r) => s + r.cashBalance, 0))} icon={Wallet} color="var(--color-primary)" />
-        <KpiCard label="合计可支配资金" value={fmtMoney(data.reduce((s, r) => s + r.netOperatingPosition, 0))} icon={PieChart} color="var(--color-primary)" />
+        <KpiCard label="合计现金余额" value={fmtMoney(totalCashBalance)} icon={Wallet} color="var(--color-primary)" />
+        <KpiCard label="合计可支配资金" value={fmtMoney(totalNetPosition)} icon={PieChart} color="var(--color-primary)" />
       </div>
 
       <TableWrapper>

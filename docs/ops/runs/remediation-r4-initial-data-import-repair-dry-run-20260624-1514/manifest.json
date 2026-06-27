@@ -1,0 +1,49 @@
+{
+  "gate": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN",
+  "generated_at": "2026-06-24T15:14:00+08:00",
+  "decision": "GO_WITH_CONDITIONS",
+  "fresh_remote_evidence": "UNAVAILABLE_SSH_BANNER_OR_CONNECTION_CLOSED",
+  "source_evidence": [
+    "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md",
+    "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md",
+    "docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_REPORT.md"
+  ],
+  "candidate_groups": [
+    {
+      "candidate_id": "INIT-DRYRUN-STORE-PAYMENT-ACCOUNTS",
+      "status": "CANDIDATE_NEEDS_FRESH_READONLY_CONFIRMATION",
+      "action": "Generate disabled/pending Store Payment account candidates only if store_payment_accounts is still empty and finance-approved account placeholders are required.",
+      "write_allowed_now": false
+    },
+    {
+      "candidate_id": "INIT-DRYRUN-STORE-PAYMENT-RECORDS",
+      "status": "NO_ACTION_RECOMMENDED",
+      "action": "Do not create production payment records as repair data.",
+      "write_allowed_now": false
+    },
+    {
+      "candidate_id": "INIT-DRYRUN-IMPORT-BATCH-ROWS",
+      "status": "CANDIDATE_NEEDS_FRESH_READONLY_CONFIRMATION",
+      "action": "Classify import batch rows into NO_ACTION, AUTO_RETRY_CANDIDATE, MANUAL_REVIEW_REQUIRED, HOLD after fresh read-only row evidence.",
+      "write_allowed_now": false
+    },
+    {
+      "candidate_id": "INIT-DRYRUN-STORE-PAYMENT-FILE-METADATA",
+      "status": "HOLD_WITHOUT_OWNER_EVIDENCE",
+      "action": "Do not create Store Payment file_metadata rows without deterministic account/record/file owner evidence.",
+      "write_allowed_now": false
+    }
+  ],
+  "forbidden_actions": [
+    "DB write",
+    "migration",
+    "seed",
+    "deploy",
+    "restart",
+    "push",
+    "cleanup",
+    "reset",
+    "manual/HOLD item execution"
+  ],
+  "next_gate": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN"
+}

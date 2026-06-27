@@ -1,0 +1,7 @@
+Output format is aligned.
+Null display is "[NULL]".
+ store_payment_menu_count | store_payment_grant_count | store_payment_datascope_count | duplicate_menu_code_count | orphan_menu_count 
+--------------------------+---------------------------+-------------------------------+---------------------------+-------------------
+                        0 |                         0 |                             0 |                         0 |                 1
+(1 row)
+

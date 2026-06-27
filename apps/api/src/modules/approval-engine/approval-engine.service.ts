@@ -13,6 +13,7 @@ import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-st
 import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
 import { AssignmentResolverService, ApproverType } from '../workflow/assignment-resolver.service';
+import { ALL_PERM_CODES, hasPerm, PermCode } from '../../auth/permissions.util';
 
 export interface StartApprovalParams {
   moduleCode?: string;
@@ -27,6 +28,8 @@ export interface StartApprovalParams {
   projectName?: string;
   subject?: string;
   conditionOverrides?: Record<string, any>;
+  /** 未固化流程：发起人提交时指定的审批人 userId（开放式选人）。设置后走单步动态实例，不需预配规则。 */
+  pickedApproverId?: string;
 }
 
 @Injectable()
@@ -59,6 +62,32 @@ export class ApprovalEngineService {
       userName: String(u?.name ?? u?.username ?? ''),
       roles:    u?.roles ?? (u?.role ? [u.role] : []),
     };
+  }
+
+  /**
+   * 把第一步审批人摘要存入 CLS（角色中文名 + 持有该角色的人姓名），供响应拦截器注入前端。
+   * 角色制审批下"下一审批人"是一个角色 + 可能多人，名字取 sys_user.real_name。
+   */
+  private async stashApprovalHint(
+    approverRole: string | null,
+    resolved: { displayName: string }[],
+    stepNo: number,
+    mgr: EntityManager,
+  ): Promise<void> {
+    try {
+      let roleZh: string | null = null;
+      if (approverRole) {
+        const r = await mgr.query(
+          `SELECT role_name_zh FROM sys_role WHERE role_code = $1 LIMIT 1`,
+          [approverRole],
+        );
+        roleZh = r?.[0]?.role_name_zh ?? approverRole;
+      }
+      const names = [...new Set(resolved.map((a) => a.displayName).filter(Boolean))];
+      this.cls.set('approvalHint', { roleZh, names, stepNo });
+    } catch {
+      /* 提示性信息，失败不影响主流程 */
+    }
   }
 
   /** 生成实例编号 WF-YYYYMMDD-00001 */
@@ -138,11 +167,116 @@ export class ApprovalEngineService {
    *
    * 如果没有匹配规则 → 自动将业务状态改为 APPROVED（无需审批）并返回 null
    */
+  /** 候选审批人（端点用）：权限 ∩ 数据域过滤，自动排除发起人自己（自审分离） */
+  async listEligibleApprovers(query: {
+    menuCode: string; requiredPerm?: string; companyCode?: string; projectCode?: string;
+  }): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
+    const current = this.currentUser();
+    const menuCode = String(query.menuCode ?? '').trim();
+    if (!menuCode) throw new BadRequestException('menuCode is required');
+    if (!this.canQueryApproverCandidates(menuCode)) {
+      throw new ForbiddenException('无权查询该业务的审批候选人');
+    }
+    const { userId } = current;
+    return this.assignmentResolver.resolveEligibleApprovers({ ...query, excludeUserId: userId || undefined });
+  }
+
+  private canQueryApproverCandidates(menuCode: string): boolean {
+    const user = this.cls.get('user') as Record<string, any> | undefined;
+    const roles = Array.isArray(user?.roles) ? user?.roles : (user?.role ? [user.role] : []);
+    if (roles.includes('ROLE_ADMIN') || user?.role === 'ROLE_ADMIN' || user?.username === 'admin') return true;
+    const permissions = user?.permissions as string[] | undefined;
+    if (permissions?.includes('*')) return true;
+    // 发起人只要拥有该业务菜单任一权限位，即可查询该业务的审批候选人。
+    // 候选人本身仍由 AssignmentResolver 按 menuCode + requiredPerm + DataScope 二次筛选。
+    return ALL_PERM_CODES.some((perm: PermCode) => hasPerm(permissions, menuCode, perm));
+  }
+
+  /**
+   * 转交审批（P2）：把进行中实例的「当前步」改派给另一合格审批人。
+   * 仅 发起人 / 当前审批人 / ADMIN 可转交；转交对象经 resolveEligibleApprovers 权威校验
+   * （权限 ∩ 数据域 ∩ 非发起人）。改派后通知新审批人。
+   */
+  async reassignStep(instanceId: string, toUserId: string): Promise<{ ok: true; toName: string }> {
+    const { userId, roles } = this.currentUser();
+    return this.ds.transaction(async (mgr) => {
+      const instance = await mgr.findOne(WfApprovalInstanceEntity, { where: { id: instanceId } });
+      if (!instance) throw new NotFoundException('审批实例不存在');
+      if (instance.status !== 'PENDING') throw new BadRequestException(`实例当前状态 ${instance.status}，不可转交`);
+
+      const pendingSteps = await mgr.find(WfApprovalInstanceStepEntity, {
+        where: { instanceId, stepNo: instance.currentStepNo, status: 'PENDING' as any },
+      });
+      if (pendingSteps.length === 0) throw new BadRequestException('当前步无待审批节点');
+
+      // 权限：发起人 / 当前审批人 / ADMIN 可转交
+      const isStarter = String(instance.startedBy ?? '') === String(userId);
+      const isCurrentApprover = pendingSteps.some((s) => String(s.approverUserId ?? '') === String(userId));
+      if (!isStarter && !isCurrentApprover && !roles.includes('ROLE_ADMIN')) {
+        throw new ForbiddenException('只有发起人或当前审批人可转交审批');
+      }
+
+      // 转交对象权威校验（权限 ∩ 数据域 ∩ 非发起人）
+      const eligible = await this.assignmentResolver.resolveEligibleApprovers({
+        menuCode:      instance.moduleCode ?? this.bizRegistry.getModuleCode(instance.bizType),
+        requiredPerm:  'E',
+        companyCode:   instance.companyCode ?? undefined,
+        projectCode:   instance.projectCode ?? undefined,
+        excludeUserId: instance.startedBy ?? undefined,
+      });
+      const picked = eligible.find((e) => e.userId === String(toUserId));
+      if (!picked) throw new BadRequestException('转交对象无权审批该单据，或不在其数据域范围内');
+
+      // 改派当前步 → USER 型指向新审批人
+      for (const s of pendingSteps) {
+        s.approverType = 'USER';
+        s.approverUserId = picked.userId;
+        s.approverName = picked.displayName;
+      }
+      await mgr.save(WfApprovalInstanceStepEntity, pendingSteps);
+
+      // 通知新审批人
+      setImmediate(() => {
+        this.notify
+          .onTaskCreated({
+            instanceId:     instance.id,
+            bizType:        instance.bizType,
+            bizId:          instance.bizId,
+            bizNo:          instance.bizNo,
+            subject:        instance.subject ?? undefined,
+            starterUserId:  instance.startedBy ?? undefined,
+            assigneeUserId: picked.userId,
+          })
+          .catch(() => {/* ignore */});
+      });
+
+      return { ok: true, toName: picked.displayName };
+    });
+  }
+
+  /** 转交候选人：用实例自身的 moduleCode/companyCode 解析合格审批人（前端转交下拉用，无需前端拼 menuCode） */
+  async reassignCandidates(instanceId: string) {
+    const instance = await this.instanceRepo.findOne({ where: { id: instanceId } });
+    if (!instance) throw new NotFoundException('审批实例不存在');
+    return this.assignmentResolver.resolveEligibleApprovers({
+      menuCode:      instance.moduleCode ?? this.bizRegistry.getModuleCode(instance.bizType),
+      requiredPerm:  'E',
+      companyCode:   instance.companyCode ?? undefined,
+      projectCode:   instance.projectCode ?? undefined,
+      excludeUserId: instance.startedBy ?? undefined,
+    });
+  }
+
   async startApproval(
     params: StartApprovalParams,
     mgr: EntityManager,
   ): Promise<WfApprovalInstanceEntity | null> {
     const { userId } = this.currentUser();
+
+    // 未固化流程：发起人指定了审批人 → 建单步动态实例（不需预配规则）
+    if (params.pickedApproverId) {
+      return this.startDynamicApproval(params, mgr, userId);
+    }
 
     // 1. 查找匹配规则
     const rule = await this.resolveRule(
@@ -240,6 +374,11 @@ export class ApprovalEngineService {
         );
       }
 
+      // 第一步审批人 → CLS，供 ApprovalHintInterceptor 注入响应，前端提示"提交给谁审批"
+      if (rs.stepNo === ruleSteps[0].stepNo) {
+        await this.stashApprovalHint(rs.approverRole ?? null, resolved, rs.stepNo, mgr);
+      }
+
       // 计算 due_at：由 sla_hours 决定，默认 48h
       const slaHours = rs.slaHours ?? 48;
       const dueAt = new Date(Date.now() + slaHours * 3600 * 1000);
@@ -304,6 +443,95 @@ export class ApprovalEngineService {
     });
 
     return savedInstance;
+  }
+
+  /**
+   * 单步动态审批实例（开放式选人 / 未固化流程）：用发起人指定的审批人建一步 USER 实例，
+   * 不依赖预配审批规则。审批人资格在此用 resolveEligibleApprovers 权威校验（权限 ∩ 数据域 ∩ 非发起人）。
+   */
+  private async startDynamicApproval(
+    params: StartApprovalParams,
+    mgr: EntityManager,
+    starterUserId: string,
+  ): Promise<WfApprovalInstanceEntity> {
+    const moduleCode = params.moduleCode ?? this.bizRegistry.getModuleCode(params.bizType);
+
+    // 权威校验：所选人必须有该业务确认权 + 数据域覆盖 + 非发起人（前端下拉不可信）
+    const eligible = await this.assignmentResolver.resolveEligibleApprovers({
+      menuCode:      moduleCode,
+      requiredPerm:  'E',
+      companyCode:   params.companyCode,
+      projectCode:   params.projectCode,
+      excludeUserId: starterUserId || undefined,
+    });
+    const picked = eligible.find((e) => e.userId === String(params.pickedApproverId));
+    if (!picked) {
+      throw new BadRequestException('所选审批人无权审批该单据，或不在其数据域范围内');
+    }
+
+    // 幂等：已有实例则返回/拒绝
+    const existing = await mgr.findOne(WfApprovalInstanceEntity, {
+      where: { bizType: params.bizType, bizId: params.bizId },
+    });
+    if (existing) {
+      if (existing.status === 'PENDING') return existing;
+      throw new ConflictException(`该单据已有审批实例（状态：${existing.status}）`);
+    }
+
+    const instanceNo = await this.generateInstanceNo(mgr);
+    const instance = await mgr.save(
+      WfApprovalInstanceEntity,
+      mgr.create(WfApprovalInstanceEntity, {
+        instanceNo,
+        moduleCode,
+        bizType:       params.bizType,
+        bizId:         params.bizId,
+        bizNo:         params.bizNo,
+        ruleId:        null,
+        totalSteps:    1,
+        currentStepNo: 1,
+        status:        'PENDING',
+        startedBy:     starterUserId || null,
+        amount:        params.amount ?? null,
+        currencyCode:  params.currencyCode ?? null,
+        companyCode:   params.companyCode ?? null,
+        companyName:   params.companyName ?? null,
+        projectCode:   params.projectCode ?? null,
+        projectName:   params.projectName ?? null,
+        subject:       params.subject ?? null,
+      }),
+    );
+    await mgr.save(
+      WfApprovalInstanceStepEntity,
+      mgr.create(WfApprovalInstanceStepEntity, {
+        instanceId:         instance.id,
+        stepNo:             1,
+        approverType:       'USER',
+        approverUserId:     picked.userId,
+        approverName:       picked.displayName,
+        allowAdminOverride: false,
+        status:             'PENDING',
+        dueAt:              new Date(Date.now() + 48 * 3600 * 1000),
+      }),
+    );
+
+    // 审批人提示（g183 复用）+ 通知被指定的审批人
+    this.cls.set('approvalHint', { roleZh: picked.roleNameZh, names: [picked.displayName], stepNo: 1 });
+    setImmediate(() => {
+      this.notify
+        .onTaskCreated({
+          instanceId:     instance.id,
+          bizType:        params.bizType,
+          bizId:          params.bizId,
+          bizNo:          params.bizNo,
+          subject:        params.subject,
+          starterUserId:  starterUserId || undefined,
+          assigneeUserId: picked.userId,
+        })
+        .catch(() => {/* ignore */});
+    });
+
+    return instance;
   }
 
   // ── 严格角色校验（Phase B/C）────────────────────────────────────────────
@@ -594,6 +822,24 @@ export class ApprovalEngineService {
         AND (
           s.approver_role = ANY($1::varchar[])
           OR s.approver_user_id = $2
+          -- G137：ROLE_ADMIN(老板/超管)兜底可见 allow_admin_override 步骤；
+          -- G151：兜底改为「仅卡住才进超管待办」——日常步骤不再灌入超管待办(否则老板兼超管时
+          --   每一步都进他待办、还能一人连批两步破坏分离)。仅以下三种「卡住」情形才进：
+          --   ① 步骤已超期(is_overdue)；② 角色类步骤但该角色无在职持有人；③ 指派用户已停用。
+          OR (
+            s.allow_admin_override = true
+            AND 'ROLE_ADMIN' = ANY($1::varchar[])
+            AND (
+              s.is_overdue = true
+              OR (s.approver_role IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM sys_user u2
+                    JOIN sys_user_role ur2 ON ur2.user_id = u2.user_id
+                    JOIN sys_role r2 ON r2.role_id = ur2.role_id
+                    WHERE r2.role_code = s.approver_role AND u2.status = 1))
+              OR (s.approver_user_id IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM sys_user u3 WHERE u3.user_id = s.approver_user_id AND u3.status = 1))
+            )
+          )
         )
         ${scopeWhere}
       ORDER BY i.started_at ASC
@@ -611,6 +857,7 @@ export class ApprovalEngineService {
       where: { instanceId },
       order: { stepNo: 'ASC' },
     });
+    this.assertInstanceReadable(instance, steps);
 
     // Phase I: 若审批实例关联了表单提交，一并返回表单快照（含 schema 用于前端渲染）
     let formSubmission: any = null;
@@ -633,27 +880,125 @@ export class ApprovalEngineService {
     return { ...instance, steps, formSubmission };
   }
 
+  private assertInstanceReadable(instance: WfApprovalInstanceEntity, steps: WfApprovalInstanceStepEntity[]): void {
+    const { userId, roles } = this.currentUser();
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
+
+    if (scope && !scope.isGlobal && instance.companyCode) {
+      const allowedCompanies = new Set((scope.allowedCompanyCodes ?? []).map((code) => String(code)));
+      if (!allowedCompanies.has(String(instance.companyCode))) {
+        throw new ForbiddenException('无权查看该审批实例：公司数据域不匹配');
+      }
+    }
+
+    if (roles.includes('ROLE_ADMIN')) return;
+    if (String(instance.startedBy ?? '') === String(userId)) return;
+
+    const readableByUser = steps.some((step) => {
+      const assignedToUser = step.approverUserId && String(step.approverUserId) === String(userId);
+      const assignedToRole = step.approverRole && roles.includes(step.approverRole);
+      const actedByUser = step.actorUserId && String(step.actorUserId) === String(userId);
+      return assignedToUser || assignedToRole || actedByUser;
+    });
+    if (!readableByUser) {
+      throw new ForbiddenException('无权查看该审批实例');
+    }
+  }
+
   async getInstanceByBiz(bizType: string, bizId: string): Promise<any | null> {
     const inst = await this.instanceRepo.findOne({ where: { bizType, bizId } });
     if (!inst) return null;
     const steps = await this.stepRepo.find({ where: { instanceId: inst.id }, order: { stepNo: 'ASC' } });
+    this.assertInstanceReadable(inst, steps);
     return { ...inst, steps };
   }
 
   /** 获取审批历史（已完成的实例） */
   async getHistory(page: number, pageSize: number, bizType?: string): Promise<any> {
-    const skip = (page - 1) * pageSize;
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.min(100, Math.max(1, Number(pageSize) || 20));
+    const offset = (safePage - 1) * safePageSize;
+    const { userId, roles } = this.currentUser();
+    const isAdmin = roles.includes('ROLE_ADMIN');
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
 
-    const qb = this.instanceRepo.createQueryBuilder('i')
-      .where("i.status IN ('APPROVED','REJECTED','CANCELLED')")
-      .orderBy('i.finishedAt', 'DESC')
-      .skip(skip)
-      .take(pageSize);
+    const params: any[] = [];
+    const where: string[] = ["i.status IN ('APPROVED','REJECTED','CANCELLED')"];
 
-    if (bizType) qb.andWhere('i.bizType = :bt', { bt: bizType });
+    if (bizType) {
+      params.push(bizType);
+      where.push(`i.biz_type = $${params.length}`);
+    }
 
-    const [list, total] = await qb.getManyAndCount();
-    return { list, total, page, pageSize };
+    if (scope && !scope.isGlobal && Array.isArray(scope.allowedCompanyCodes) && scope.allowedCompanyCodes.length > 0) {
+      params.push(scope.allowedCompanyCodes);
+      where.push(`(i.company_code = ANY($${params.length}::varchar[]) OR i.company_code IS NULL)`);
+    }
+
+    if (!isAdmin) {
+      params.push(userId);
+      const userParam = `$${params.length}`;
+      params.push(roles);
+      const rolesParam = `$${params.length}`;
+      where.push(`(
+        i.started_by = ${userParam}
+        OR EXISTS (
+          SELECT 1
+            FROM wf_approval_instance_steps s
+           WHERE s.instance_id = i.id
+             AND (
+               s.actor_user_id = ${userParam}
+               OR s.approver_user_id = ${userParam}
+               OR s.approver_role = ANY(${rolesParam}::varchar[])
+             )
+        )
+      )`);
+    }
+
+    const whereSql = where.join('\n        AND ');
+    const countRows = await this.ds.query(
+      `SELECT COUNT(*)::int AS total
+         FROM wf_approval_instances i
+        WHERE ${whereSql}`,
+      params,
+    );
+
+    params.push(safePageSize);
+    const limitParam = `$${params.length}`;
+    params.push(offset);
+    const offsetParam = `$${params.length}`;
+
+    const list = await this.ds.query(
+      `SELECT
+          i.id::text             AS "id",
+          i.instance_no          AS "instanceNo",
+          i.module_code          AS "moduleCode",
+          i.biz_type             AS "bizType",
+          i.biz_id::text         AS "bizId",
+          i.biz_no               AS "bizNo",
+          i.total_steps          AS "totalSteps",
+          i.current_step_no      AS "currentStepNo",
+          i.status               AS "status",
+          i.started_by::text     AS "startedBy",
+          i.started_at           AS "startedAt",
+          i.finished_at          AS "finishedAt",
+          i.amount               AS "amount",
+          i.currency_code        AS "currencyCode",
+          i.company_code         AS "companyCode",
+          i.company_name         AS "companyName",
+          i.project_code         AS "projectCode",
+          i.project_name         AS "projectName",
+          i.subject              AS "subject"
+         FROM wf_approval_instances i
+        WHERE ${whereSql}
+        ORDER BY i.finished_at DESC NULLS LAST, i.started_at DESC
+        LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      params,
+    );
+
+    return { list, total: Number(countRows?.[0]?.total ?? 0), page: safePage, pageSize: safePageSize };
   }
 
   // ── 内部：更新业务状态 ────────────────────────────────────────────────────
@@ -680,7 +1025,8 @@ export class ApprovalEngineService {
        JOIN wf_approval_instances i ON i.id = s.instance_id
        WHERE s.status='PENDING' AND i.status='PENDING'
          AND s.step_no = i.current_step_no
-         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2)`,
+         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2
+              OR (s.allow_admin_override = true AND 'ROLE_ADMIN' = ANY($1::varchar[])))`,
       [roles, userId],
     );
     return parseInt(rows[0]?.cnt ?? '0', 10);

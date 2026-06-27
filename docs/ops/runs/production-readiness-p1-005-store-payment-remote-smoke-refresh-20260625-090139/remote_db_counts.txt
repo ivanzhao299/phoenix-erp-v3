@@ -1,0 +1,9 @@
+# remote db count smoke
+local_time=2026-06-25T09:02:01+08:00
+accounts=3
+active_accounts=0
+disabled_accounts=3
+records=0
+store_payment_file_metadata=0
+menus=5
+grants=11

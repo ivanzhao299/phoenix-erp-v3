@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -100,7 +102,9 @@ function NatureBadge({
   };
   return <span className={`${s.badge} ${colorMap[nature] ?? s.badgeNeutral}`}>{FUND_NATURE_LABELS[nature] ?? nature}</span>;
 }
-function StatusBadge({
+// G160：改名 FundStatusBadge，消除与全局 design-system StatusBadge 的重名遮蔽
+// （全局 StatusBadge 标签/配色无法与本页 FUND 状态完全一致，故保留本地实现）
+function FundStatusBadge({
   status
 }: {
   status: string;
@@ -342,6 +346,7 @@ export default function ShareholderFundsPage() {
   return <div style={{
     padding: 16
   }}>
+      <PageHeader title="股东资金" subtitle="股东出资 / 代付资金池" breadcrumb={["采购管理", "股东资金"]} />
       {/* Summary cards */}
       <SummaryCards summary={summary} />
 
@@ -495,17 +500,13 @@ export default function ShareholderFundsPage() {
             }}>{row.relatedPoNo || "—"}</td>
                 <td className={u.muted12}>{row.projectName || row.projectCode || "—"}</td>
                 <td className={u.fs12}>{row.occurredDate || "—"}</td>
-                <td><StatusBadge status={row.status} /></td>
+                <td><FundStatusBadge status={row.status} /></td>
                 <td style={{
               display: "flex",
               gap: 4
             }}>
-                  <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>
-                    <Eye size={13} />
-                  </button>
-                  {row.status === "DRAFT" && <button className={s.btnIcon} title="提交审批" onClick={() => handleSubmit(row.id)} disabled={submitting}>
-                      <Send size={13} />
-                    </button>}
+                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                  {row.status === "DRAFT" && <button style={actBtnTone("success")} onClick={() => handleSubmit(row.id)} disabled={submitting}>提交审批</button>}
                 </td>
               </tr>)}
           </tbody>
@@ -561,7 +562,7 @@ export default function ShareholderFundsPage() {
             flexWrap: "wrap"
           }}>
                 <NatureBadge nature={detail.fundNature} />
-                <StatusBadge status={detail.status} />
+                <FundStatusBadge status={detail.status} />
               </div>
             </div>
 
@@ -635,7 +636,8 @@ export default function ShareholderFundsPage() {
 
       {/* 新建股东资金 */}
       <RightDrawer open={createOpen} onClose={() => setCreateOpen(false)} title="新建股东资金（手工登记）" width={480}>
-        <div style={{
+        {/* G158：表单仅 open 时挂载 */}
+        {createOpen && <div style={{
         padding: "0 24px 24px",
         display: "flex",
         flexDirection: "column",
@@ -719,16 +721,21 @@ export default function ShareholderFundsPage() {
             currencyCode: v
           }))} allowEmpty={false} />
           </label>
+          {/* G164：CTA 加宽更舒展（原按钮太小） */}
           <button className={s.btnPrimary} onClick={handleCreate} disabled={submitting} style={{
-          marginTop: 8,
+          marginTop: 12,
+          width: "100%",
+          padding: "11px 18px",
+          fontSize: 14,
+          fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 6
         }}>
-            <Plus size={14} /> {submitting ? "保存中…" : "保存为草稿"}
+            <Plus size={15} /> {submitting ? "保存中…" : "保存为草稿"}
           </button>
-        </div>
+        </div>}
       </RightDrawer>
     </div>;
 }

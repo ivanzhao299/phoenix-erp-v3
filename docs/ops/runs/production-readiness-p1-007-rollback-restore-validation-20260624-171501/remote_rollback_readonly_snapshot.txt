@@ -1,0 +1,22 @@
+--- remote host identity ---
+ops
+iZt4nj11ry11ofv03yi35vZ
+Wed Jun 24 05:15:07 PM CST 2026
+--- phoenix containers ---
+phoenix-v3-web|ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest|Up 3 minutes (healthy)
+phoenix-v3-api|ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest|Up 53 minutes (healthy)
+phoenix-v3-db|postgres:16-alpine|Up 4 weeks (healthy)
+--- image ids ---
+/phoenix-v3-web|ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest|sha256:99d4c73fd87861a2f7273ca7a866ef7a17c356e9e9b6bb7452705bd546ae0650
+/phoenix-v3-api|ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest|sha256:0cf95dbf649982ae88712994b79d47d154ef514d356c55e4c503668e28b67bfe
+--- remote checkout ---
+/opt/phoenix-erp
+CHECKOUT_UNAVAILABLE
+fatal: detected dubious ownership in repository at '/opt/phoenix-erp'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /opt/phoenix-erp
+--- backup dirs summary ---
+Connection closed by 47.236.122.224 port 22
+--- compose files ---
+Connection closed by 47.236.122.224 port 22

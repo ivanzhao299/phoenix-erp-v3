@@ -7,17 +7,16 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { CheckSquare, Plus } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
+} from "@/components/design-system/cockpit-styles";
 
 // ✅ V3 表: wms_inbound
 const TABLE = "wms_inbound";
-
-const getRole = () => {
-  try { return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || ""; }
-  catch { return ""; }
-};
-const isManager = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_PKG_MGR"].includes(getRole());
 
 // B1 + B8: wms_inbound 真实列对齐 — type / item / qty / warehouse_code / operator / date / remark / inbound_no
 //          状态枚举改用后端 wms.service 同款 (PENDING / PROCESSING / COMPLETED / CANCELLED)
@@ -27,6 +26,11 @@ type Row = Record<string, unknown>;
 
 export default function InboundPage() {
   const { t } = useLanguage();
+  const { canCreate, canEdit, canDelete, canApprove } = useAuth();
+  const canCreateInout = canCreate("MENU_WMS_INOUT");
+  const canEditInout = canEdit("MENU_WMS_INOUT");
+  const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canApproveInout = canApprove("MENU_WMS_INOUT");
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
   const [saving,        setSaving]        = useState(false);
@@ -44,12 +48,14 @@ export default function InboundPage() {
     RETURN:     t("ui.退货入库", "退货入库"),
   };
 
-  const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-    PENDING:    { cls: s.badgeWarning, label: t("status.pending",   "待审核") },
-    PROCESSING: { cls: s.badgeWarning, label: t("ui.审核中",        "审核中") },
-    COMPLETED:  { cls: s.badgeSuccess, label: t("ui.已入库",        "已入库") },
-    DONE:       { cls: s.badgeSuccess, label: t("ui.已入库",        "已入库") },  // 历史数据兼容
-    CANCELLED:  { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
+  // g200e:状态徽章用 actionPill(tone),替换 s.badgeXxx 老 css module
+  type BadgeTone = "warning" | "success" | "default" | "danger";
+  const STATUS_BADGE: Record<string, { tone: BadgeTone; label: string }> = {
+    PENDING:    { tone: "warning", label: t("status.pending",   "待审核") },
+    PROCESSING: { tone: "warning", label: t("ui.审核中",        "审核中") },
+    COMPLETED:  { tone: "success", label: t("ui.已入库",        "已入库") },
+    DONE:       { tone: "success", label: t("ui.已入库",        "已入库") },  // 历史数据兼容
+    CANCELLED:  { tone: "default", label: t("status.cancelled", "已取消") },
   };
 
   // G30：入库单"品目"业务模型修正
@@ -77,8 +83,8 @@ export default function InboundPage() {
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { setEditing(null); setDrawerOpen(true); }, []);
-  const openEdit    = useCallback((row: Row) => { setEditing(row); setDrawerOpen(true); }, []);
+  const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setDrawerOpen(true); }, [canCreateInout]);
+  const openEdit    = useCallback((row: Row) => { if (!canEditInout) return; setEditing(row); setDrawerOpen(true); }, [canEditInout]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleSave = useCallback(async (values: Row) => {
@@ -101,14 +107,14 @@ export default function InboundPage() {
     } finally { setSaving(false); }
   }, [editing, refresh]);
 
-  const handleDelete   = useCallback((row: Row) => { setDeleteTarget(row); setConfirmOpen(true); }, []);
+  const handleDelete   = useCallback((row: Row) => { if (!canDeleteInout) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout]);
   const confirmDelete  = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
     setConfirmOpen(false); refresh();
   }, [deleteTarget, refresh]);
 
-  const handleApprove  = useCallback((row: Row) => { setApproveTarget(row); setApproveOpen(true); }, []);
+  const handleApprove  = useCallback((row: Row) => { if (!canApproveInout) return; setApproveTarget(row); setApproveOpen(true); }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
     await crudApi.update(TABLE, approveTarget.id as number, { status: "COMPLETED" });
@@ -122,24 +128,24 @@ export default function InboundPage() {
     { key: "warehouse_code", title: t("ui.仓库",     "仓库"),      width: 120 },
     { key: "item",           title: t("ui.品目",     "品目"),      width: 150 },
     { key: "qty",            title: t("ui.数量",     "数量"),      width: 80, align: "right",
-      render: v => { const n = Number(v ?? 0); return <b className={n > 0 ? s.textSuccess : ""}>{n}</b>; } },
+      render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
       render: v => {
-        const cfg = STATUS_BADGE[String(v)] ?? { cls: s.badgeNeutral, label: String(v ?? "—") };
-        return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
+        const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as BadgeTone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
       }},
     { key: "operator",       title: t("ui.操作员",   "操作员"),    width: 90  },
-    { key: "_actions",       title: t("common.operation", "操作"), width: 140, align: "center",
+    { key: "_actions",       title: t("common.operation", "操作"), width: 180, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-          {isManager() && row.status === "PENDING" && (
-            <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
+          {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+          {canApproveInout && row.status === "PENDING" && (
+            <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
               <CheckSquare size={11} />{t("ui.审核", "审核")}
             </button>
           )}
-          {isManager() && (
-            <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
+          {canDeleteInout && (
+            <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
       )
@@ -152,22 +158,17 @@ export default function InboundPage() {
         title={t("ui.入库管理", "入库管理")}
         subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.入库管理", "入库管理")]}
-        actions={
-          <button type="button" className={s.btnPrimary} onClick={openNew}>
+        actions={canCreateInout ? (
+          <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建入库单", "新建入库单")}
           </button>
-        }
+        ) : undefined}
       />
 
-      {/* ✅ 过滤标签 — 使用全局 tabPill / tabPillActive（深色主题自适应）*/}
+      {/* g200e:过滤 tab pill 用 toolbarFilterPill token,替换 s.tabPill 老类 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {SOURCE_TYPES.map(tp => (
-          <button
-            key={tp}
-            type="button"
-            onClick={() => setTypeFilter(tp)}
-            className={`${s.tabPill} ${typeFilter === tp ? s.tabPillActive : ""}`}
-          >
+          <button key={tp} type="button" onClick={() => setTypeFilter(tp)} style={toolbarFilterPill(typeFilter === tp)}>
             {tp === "" ? t("ui.全部", "全部") : SOURCE_LABEL[tp]}
           </button>
         ))}
@@ -177,9 +178,9 @@ export default function InboundPage() {
         table={TABLE}
         columns={COLUMNS}
         params={typeFilter ? { type: typeFilter } as any : undefined}
-        onNew={openNew}
-        onEdit={openEdit}
-        onDelete={handleDelete}
+        onNew={canCreateInout ? openNew : undefined}
+        onEdit={canEditInout ? openEdit : undefined}
+        onDelete={canDeleteInout ? handleDelete : undefined}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("common.no_data", "暂无入库记录")}

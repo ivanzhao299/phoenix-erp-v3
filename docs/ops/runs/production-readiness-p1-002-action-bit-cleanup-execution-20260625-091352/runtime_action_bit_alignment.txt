@@ -1,0 +1,16 @@
+# runtime action-bit alignment check
+local_time=2026-06-25T09:14:04+08:00
+87:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_ACCOUNT', 'V'),
+95:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_ACCOUNT', 'E'),
+103:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_ACCOUNT', 'E'),
+112:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+120:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'E'),
+128:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+136:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_ACCOUNT', 'V'),
+144:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+152:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+160:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+169:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT', 'V'),
+178:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_CONFIRM', 'E'),
+187:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_CONFIRM', 'E'),
+196:    (0, menu_guard_1.RequireMenu)('MENU_STORE_PAYMENT_VOID', 'E'),

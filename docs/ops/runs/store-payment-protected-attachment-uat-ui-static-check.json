@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-06-23T06:08:30.879Z",
+  "file": "apps/web/src/app/(admin)/store-payment/page.tsx",
+  "checks": {
+    "uses_store_payment_rewrite_paths": true,
+    "qr_account_status_loader": true,
+    "direct_protected_status": true,
+    "preview_download_buttons": true,
+    "fail_closed_allowed_status": true,
+    "raw_url_blocked": true,
+    "uploads_not_linked": true,
+    "no_raw_http_open": true,
+    "object_url_only_after_fetch": true
+  },
+  "pass": true
+}

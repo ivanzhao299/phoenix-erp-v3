@@ -106,7 +106,7 @@ export class SystemController implements OnModuleInit {
 
   @Put('brand')
   @UseGuards(MenuGuard)
-  @RequireMenu('MENU_SETTINGS_IT', 'E')
+  @RequireMenu('MENU_SETTINGS_BRAND', 'E')
   async updateBrand(@Body() body: any) {
     try {
       await this.ensureTable(); // 防御：确保表存在再写入

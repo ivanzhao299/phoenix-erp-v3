@@ -1,0 +1,17 @@
+# post execution verification
+local_time=2026-06-24T23:15:45+08:00
+         check_name          | value 
+-----------------------------+-------
+ accounts_total              | 3
+ candidate_accounts          | 3
+ records_total               | 0
+ store_payment_file_metadata | 0
+(4 rows)
+
+ id |      account_code       | company_code  |  store_code   | currency | payment_method |  status  | is_active | qr_attachment_id | fin_cash_account_id |    created_by     |    updated_by     
+----+-------------------------+---------------+---------------+----------+----------------+----------+-----------+------------------+---------------------+-------------------+-------------------
+  2 | SP-VTE-BCEL-CNY-PENDING | COMP-LAO-AGRI | STORE-VTE-001 | CNY      | QR_PENDING     | DISABLED | f         |                  |                     | codex-p0-001-plan | codex-p0-001-plan
+  1 | SP-VTE-BCEL-LAK-PENDING | COMP-LAO-AGRI | STORE-VTE-001 | LAK      | QR_PENDING     | DISABLED | f         |                  |                     | codex-p0-001-plan | codex-p0-001-plan
+  3 | SP-VTE-BCEL-USD-PENDING | COMP-LAO-AGRI | STORE-VTE-001 | USD      | QR_PENDING     | DISABLED | f         |                  |                     | codex-p0-001-plan | codex-p0-001-plan
+(3 rows)
+

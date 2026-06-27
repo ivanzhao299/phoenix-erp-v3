@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -114,7 +114,7 @@ export default function InventoryAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -133,11 +133,11 @@ export default function InventoryAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   // 统计
   const activeBatches = batches.filter(

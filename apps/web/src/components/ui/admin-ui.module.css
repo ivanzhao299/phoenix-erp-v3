@@ -60,14 +60,15 @@
 }
 .lbl.required::after { content: " *"; color: var(--status-danger); }
 
-.field { margin-bottom: 14px; }
-.fieldRow  { display: grid; grid-template-columns: 1fr 1fr;     gap: 12px; margin-bottom: 14px; }
-.fieldRow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+/* G164：表单整体收紧——更紧凑、企业级、便于操作（原 margin/section 偏松散，全平台表单一致变紧凑） */
+.field { margin-bottom: 10px; }
+.fieldRow  { display: grid; grid-template-columns: 1fr 1fr;     gap: 12px 16px; margin-bottom: 10px; }
+.fieldRow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-bottom: 10px; }
 
 /* 表单分组标题（抽屉内区块分隔）*/
 .formSection {
-  margin: 20px 0 14px;
-  padding-bottom: 8px;
+  margin: 16px 0 10px;
+  padding-bottom: 7px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   font-weight: 700;

@@ -9,6 +9,7 @@ import { FinExpenseController }         from './controllers/fin-expense.controll
 import { FinancialReportsController }   from './controllers/financial-reports.controller';
 import { FinanceOrderBridgeController } from './controllers/finance-order-bridge.controller';
 import { FinArLedgerController }        from './controllers/fin-ar-ledger.controller';
+import { FinArReconciliationController } from './controllers/fin-ar-reconciliation.controller';
 import { ApAdapterService }     from './services/ap-adapter.service';
 import { ApInvoicesService }    from './services/ap-invoices.service';
 import { ArInvoicesService }    from './services/ar-invoices.service';
@@ -22,6 +23,7 @@ import { ExpenseRequestsService }          from './services/expense-requests.ser
 import { ReimbursementsService }           from './services/reimbursements.service';
 import { FinancialReportsService }         from './services/financial-reports.service';
 import { ArLedgerService }                 from './services/ar-ledger.service';
+import { ArReconciliationService }         from './services/ar-reconciliation.service';
 import {
   FinApInvoiceEntity,
   FinArInvoiceEntity,
@@ -104,6 +106,7 @@ import {
     FinancialReportsController,
     FinanceOrderBridgeController,
     FinArLedgerController,
+    FinArReconciliationController,
   ],
   providers: [
     ApAdapterService, ApInvoicesService,
@@ -113,6 +116,7 @@ import {
     ExpenseRequestsService, ReimbursementsService,
     FinancialReportsService,
     ArLedgerService,
+    ArReconciliationService,
   ],
   exports: [
     ApAdapterService, ApInvoicesService,

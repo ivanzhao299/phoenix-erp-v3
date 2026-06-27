@@ -131,6 +131,10 @@ export class ShipmentsService {
 
   async create(dto: CreateShipmentDto) {
     return this.ds.transaction(async mgr => {
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        '采购运单',
+      );
       const prefix = `SHP2-${format(new Date(), 'yyyyMMdd')}-`;
       const shipmentNo = await genNo(mgr, prefix, Prc2ShipmentEntity as never, 's', 'shipmentNo');
 
@@ -175,6 +179,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (!['DRAFT', 'READY'].includes(shp.status))
         throw new ConflictException(`当前状态 ${shp.status} 不允许编辑`);
 
@@ -204,6 +212,11 @@ export class ShipmentsService {
       if (dto.customsCurrency    !== undefined) shp.customsCurrency    = dto.customsCurrency;
       if (dto.remark             !== undefined) shp.remark             = dto.remark;
 
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
+
       return mgr.save(Prc2ShipmentEntity, shp);
     });
   }
@@ -214,6 +227,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (shp.status !== 'DRAFT') throw new ConflictException(`当前状态 ${shp.status} 不允许备货`);
       shp.status = 'READY';
       await mgr.save(Prc2ShipmentEntity, shp);
@@ -228,6 +245,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (shp.status !== 'READY') throw new ConflictException(`当前状态 ${shp.status} 不允许发运`);
       shp.status = 'IN_TRANSIT';
       if (!shp.departureDate) shp.departureDate = format(new Date(), 'yyyy-MM-dd');
@@ -243,6 +264,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (shp.status !== 'IN_TRANSIT') throw new ConflictException(`当前状态 ${shp.status} 不允许进入报关`);
       shp.status        = 'CUSTOMS_CLEARING';
       shp.customsStatus = 'CLEARING';
@@ -259,6 +284,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (!['CUSTOMS_CLEARING', 'IN_TRANSIT'].includes(shp.status))
         throw new ConflictException(`当前状态 ${shp.status} 不允许到货`);
       shp.status       = 'ARRIVED';
@@ -277,6 +306,10 @@ export class ShipmentsService {
     return this.ds.transaction(async mgr => {
       const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id } });
       if (!shp) throw new NotFoundException(`运单 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: shp.companyCode, projectCode: shp.projectCode },
+        '采购运单',
+      );
       if (!['DRAFT', 'READY'].includes(shp.status))
         throw new ConflictException(`当前状态 ${shp.status} 不允许取消`);
       shp.status = 'CANCELLED';

@@ -2,10 +2,18 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
+  Unique,
+  Check,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_data_scopes')
+@Index('idx_data_scopes_role', ['roleCode'])
+@Index('idx_data_scopes_module', ['moduleCode'])
+@Index('idx_data_scopes_enabled', ['enabled'], { where: '"enabled" = TRUE' })
+@Unique('uq_data_scope_role_module', ['roleCode', 'moduleCode'])
+@Check('sys_data_scopes_scope_type_check', `scope_type IN ('SELF','PROJECT','COMPANY','REGION','GROUP')`)
 export class SysDataScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

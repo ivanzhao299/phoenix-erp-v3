@@ -46,6 +46,9 @@ export class CreateShareholderContributionDto {
   amountBase?: number;
 
   @IsOptional() @IsString()
+  contributionDate?: string;
+
+  @IsOptional() @IsString()
   expectedReturnDate?: string;
 
   @IsOptional() @IsNumber() @Min(0) @Type(() => Number)
@@ -97,6 +100,9 @@ export class UpdateShareholderContributionDto {
   amountBase?: number;
 
   @IsOptional() @IsString()
+  contributionDate?: string;
+
+  @IsOptional() @IsString()
   expectedReturnDate?: string;
 
   @IsOptional() @IsNumber() @Min(0) @Type(() => Number)
@@ -120,8 +126,11 @@ export class QueryShareholderContributionDto {
   @IsIn(['INVESTMENT', 'LOAN', 'ADVANCE', 'GUARANTEE', 'PAYMENT_ON_BEHALF'])
   contributionType?: string;
 
+  // PENDING 是「待处理」聚合筛选关键字（非真实状态）——service.list 会展开成
+  // status IN ('DRAFT','PENDING_CONFIRM')。必须在白名单内，否则 ValidationPipe
+  // 会把前端"待处理"卡片/筛选发来的 status=PENDING 拦成 400，导致列表空白。
   @IsOptional()
-  @IsIn(['DRAFT', 'PENDING_CONFIRM', 'CONFIRMED', 'PARTIALLY_SETTLED', 'SETTLED', 'CANCELLED'])
+  @IsIn(['DRAFT', 'PENDING_CONFIRM', 'CONFIRMED', 'PARTIALLY_SETTLED', 'SETTLED', 'CANCELLED', 'PENDING'])
   status?: string;
 
   @IsOptional() @IsString()

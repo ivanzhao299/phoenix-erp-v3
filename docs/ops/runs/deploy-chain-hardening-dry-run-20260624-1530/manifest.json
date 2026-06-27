@@ -1,0 +1,16 @@
+{
+  "run_id": "deploy-chain-hardening-dry-run-20260624-1530",
+  "timestamp": "2026-06-24T15:30:00+08:00",
+  "mode": "read-only dry-run",
+  "remote_host": "47.236.122.224",
+  "remote_write_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "nginx_reload_executed": false,
+  "migration_executed": false,
+  "db_write_executed": false,
+  "push_executed": false,
+  "remote_refresh_status": "HOLD_SSH_BANNER_EXCHANGE_OR_CONNECTION_CLOSED",
+  "local_deploy_workflow": ".github/workflows/deploy.yml",
+  "local_staging_workflow": ".github/workflows/staging-deploy.yml"
+}

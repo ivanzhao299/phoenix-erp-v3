@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-06-23T06:17:04.849Z",
+  "file_id": "FILE-SP-PROOF-UAT-001",
+  "status": {
+    "fileId": "FILE-SP-PROOF-UAT-001",
+    "originalName": "store-payment-proof-record-uat.pdf",
+    "mimeType": "application/pdf",
+    "sizeBytes": 657,
+    "status": "ACTIVE",
+    "visibility": "PROTECTED",
+    "moduleCode": "STORE_PAYMENT",
+    "ownerType": "STORE_PAYMENT_RECORD",
+    "ownerId": "1",
+    "previewAvailable": true,
+    "downloadAvailable": true,
+    "accessStatus": "allowed",
+    "rawUrl": null
+  },
+  "status_smoke_pass": true,
+  "preview": {
+    "http_code": 200,
+    "bytes": 657,
+    "headers": [
+      "X-Content-Type-Options: nosniff",
+      "Content-Type: application/pdf",
+      "Content-Disposition: inline; filename=\"store-payment-proof-record-uat.pdf\"",
+      "Cache-Control: private, no-store"
+    ]
+  },
+  "preview_smoke_pass": true,
+  "download": {
+    "http_code": 200,
+    "bytes": 657,
+    "headers": [
+      "X-Content-Type-Options: nosniff",
+      "Content-Type: application/pdf",
+      "Content-Disposition: attachment; filename=\"store-payment-proof-record-uat.pdf\"",
+      "Cache-Control: private, no-store"
+    ]
+  },
+  "download_smoke_pass": true,
+  "no_auth_status_code": 401,
+  "missing_status_code": 404,
+  "no_auth_fail_closed": true,
+  "missing_fail_closed": true,
+  "raw_url_returned": false,
+  "uploads_exposed": false,
+  "storage_path_exposed": false,
+  "conclusion": "GO_WITH_CONDITIONS"
+}

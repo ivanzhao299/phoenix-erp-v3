@@ -16,6 +16,9 @@ import {
   searchToolbar, toolbarFilterPill, toolbarSearchInput,
   tableContainer, tablePagination,
   tabBar, tabItem, kpiCard,
+  // g200a 模板 token(2026-06-19)
+  MONO_FONT, actionPill, moneyCell,
+  detailInfoBox, recordRow, inlineAlert, actionGroupBox,
 } from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -329,7 +332,7 @@ function CreateModal({
       setSaving(false);
     }
   };
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -426,20 +429,11 @@ function CreateModal({
             height: 60 }} value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" />
           </div>
 
-          {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2">
-              <AlertCircle size={13} /> {err}
-            </div>}
+          {err && <div style={inlineAlert('danger')}><AlertCircle size={13} /> {err}</div>}
 
-          <div style={{
-          display: 'flex',
-          gap: 10,
-          justifyContent: 'flex-end',
-          marginTop: 4
-        }}>
-            <button onClick={onClose} style={secondaryActionButton}>
-              取消
-            </button>
-            <button onClick={handleSubmit} disabled={saving} className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-indigo-300 dark:bg-indigo-700 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+          <div style={drawerFooter}>
+            <button onClick={onClose} style={secondaryActionButton}>取消</button>
+            <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? '创建中…' : '确认创建'}
             </button>
           </div>
@@ -488,188 +482,110 @@ function DetailDrawer({
     }
   };
   const canCancel = detail && !['PAID', 'CANCELLED'].includes(detail.status) && Number(detail.paid_amount_original) === 0;
-  return <div style={drawerMask}>
-      <div className="bg-bg-card" style={{
-      width: 480,
-      maxWidth: '95vw',
-      height: '100%',
-      overflowY: 'auto',
-      boxShadow: '-8px 0 40px var(--overlay-black-12)',
-      padding: 28,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 18
-    }}>
-        {/* Header */}
-        <div className={u.flexBetween}>
-          <div className="text-text" style={{
-          fontWeight: 700,
-          fontSize: 16
-        }}>应付发票详情</div>
-          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
-            <X size={18} className="text-text-dim" />
-          </button>
+  /* g200a DetailDrawer 整体改造(2026-06-19):同 ar/ArDetailDrawer 模式 */
+  return <div style={drawerMask} onClick={onClose}>
+      <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
+        <div style={drawerHeader}>
+          <div style={drawerHeaderTitle}>应付发票详情</div>
+          <button onClick={onClose} style={drawerCloseButton}><X size={18} /></button>
         </div>
 
-        {loading && <div className="text-text-muted" style={{
-        textAlign: 'center',
-        padding: 40
-      }}>加载中…</div>}
+        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>}
 
-        {!loading && detail && <>
-            {/* 基本信息 */}
-            <div className="bg-bg-muted" style={{
-          borderRadius: 10,
-          padding: 16
-        }}>
-              <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 10
-          }}>
-                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+        {!loading && detail && <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* 基本信息块 */}
+            <div style={detailInfoBox}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, fontWeight: 700, fontSize: 13, color: 'var(--status-info)' }}>
                   {detail.ap_no}
                 </span>
-                <div style={{
-              display: 'flex',
-              gap: 6
-            }}>
+                <div style={{ display: 'flex', gap: 6 }}>
                   <SourceBadge type={detail.source_type} />
                   <StatusBadge status={detail.status} size="sm" />
                 </div>
               </div>
-              <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px 16px',
-            fontSize: 12
-          }}>
-                {[['供应商', detail.supplier_name], ['公司', detail.company_code + (detail.company_name ? ` ${detail.company_name}` : '')], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['来源单号', detail.source_no ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => <div key={k}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
+                {[['供应商', detail.supplier_name], ['公司', detail.company_code + (detail.company_name ? ` ${detail.company_name}` : '')], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['来源单号', detail.source_no ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => (
+                  <div key={k}>
                     <span className="text-text-muted">{k}：</span>
                     <span className={`text-text ${u.fw500}`}>{v}</span>
-                  </div>)}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* 金额 */}
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 10
-        }}>
-              {[{
-            label: '发票金额',
-            value: fmtMoney(detail.amount_original, detail.currency_code),
-            colorClass: 'text-text'
-          }, {
-            label: '已付金额',
-            value: fmtMoney(detail.paid_amount_original, detail.currency_code),
-            colorClass: 'text-emerald-600 dark:text-emerald-400'
-          }, {
-            label: '待付余额',
-            value: fmtMoney(detail.balance_amount_original, detail.currency_code),
-            colorClass: Number(detail.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'
-          }].map(item => <div key={item.label} className="bg-bg-page border border-border" style={{
-            borderRadius: 10,
-            padding: '12px 14px',
-            textAlign: 'center'
-          }}>
-                  <div className="text-text-muted" style={{
-              fontSize: 10,
-              marginBottom: 4
-            }}>{item.label}</div>
-                  <div className={`text-xs font-extrabold ${item.colorClass}`}>{item.value}</div>
-                </div>)}
+            {/* 3 金额卡 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {([
+                { label: '发票金额', value: fmtMoney(detail.amount_original,         detail.currency_code), tone: 'default' as const },
+                { label: '已付金额', value: fmtMoney(detail.paid_amount_original,    detail.currency_code), tone: 'success' as const },
+                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
+              ]).map(item => (
+                <div key={item.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                  <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ ...moneyCell(item.tone, 'md'), display: 'block', textAlign: 'center' }}>{item.value}</div>
+                </div>
+              ))}
             </div>
 
-            {/* 账龄 */}
-            {detail.aging_bucket !== 'NOT_DUE' && <div className="bg-danger/10 border border-danger/20 rounded-lg px-3 py-2 text-xs text-danger flex items-center gap-1.5">
-                <AlertTriangle size={13} />
-                账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
-              </div>}
+            {/* 账龄告警 */}
+            {detail.aging_bucket !== 'NOT_DUE' && (
+              <div style={inlineAlert('danger')}>
+                <AlertTriangle size={13} /> 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
+              </div>
+            )}
 
             {/* 付款核销记录 */}
             <div>
-              <div className="text-text-muted" style={{
-            fontSize: 13,
-            fontWeight: 600,
-            marginBottom: 8
-          }}>
+              <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                 付款核销记录（{detail.allocations.length} 条）
               </div>
-              {detail.allocations.length === 0 ? <div className="text-text-muted" style={{
-            textAlign: 'center',
-            padding: '16px 0',
-            fontSize: 12
-          }}>
-                  暂无付款记录
-                </div> : <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8
-          }}>
-                  {detail.allocations.map(a => <div key={a.id} className="bg-success/10 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs">
-                      <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 4
-              }}>
-                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{a.alloc_no}</span>
-                        <span className="font-bold text-emerald-800 dark:text-emerald-200">
-                          {fmtMoney(a.amount_original, a.currency_code)}
-                        </span>
-                      </div>
-                      <div className="text-text-muted">
-                        {fmtDate(a.payment_date)}
-                        {a.payment_method && <span> · {a.payment_method}</span>}
-                        {a.reference_no && <span> · {a.reference_no}</span>}
-                      </div>
-                    </div>)}
-                </div>}
+              {detail.allocations.length === 0 ? (
+                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无付款记录</div>
+              ) : detail.allocations.map(a => (
+                <div key={a.id} style={recordRow('success')}>
+                  <div>
+                    <div style={{ fontFamily: MONO_FONT, color: 'var(--status-success)', fontWeight: 600, marginBottom: 2 }}>{a.alloc_no}</div>
+                    <div className="text-text-muted" style={{ fontSize: 11 }}>
+                      {fmtDate(a.payment_date)}
+                      {a.payment_method && <span> · {a.payment_method}</span>}
+                      {a.reference_no && <span> · {a.reference_no}</span>}
+                    </div>
+                  </div>
+                  <div style={moneyCell('success', 'md')}>{fmtMoney(a.amount_original, a.currency_code)}</div>
+                </div>
+              ))}
             </div>
 
             {/* 取消区域 */}
-            {canCancel && <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-3.5 bg-orange-50 dark:bg-orange-900/20">
-                {!showCancel ? <button onClick={() => setShowCancel(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-danger/20 bg-bg-card text-sm text-danger cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Ban size={13} /> 取消应付发票
-                  </button> : <div>
-                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">
-                      确认取消应付发票
-                    </div>
-                    <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="取消原因（可选）" className="w-full h-14 px-2.5 py-2 rounded-lg border border-danger/20 bg-bg-page text-xs text-text resize-none outline-none box-border" />
-                    {cancelErr && <div className="text-xs text-danger mt-1.5">{cancelErr}</div>}
-                    <div style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 10
-            }}>
-                      <button onClick={() => {
-                setShowCancel(false);
-                setCancelErr('');
-              }} className="px-3.5 py-1.5 rounded-lg border border-border bg-bg-page text-xs text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
-                        放弃
-                      </button>
-                      <button onClick={handleCancel} disabled={cancelling} className={`px-3.5 py-1.5 rounded-lg border-0 text-xs font-semibold text-white transition-colors ${cancelling ? 'bg-red-300 dark:bg-red-800 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 cursor-pointer'}`}>
+            {canCancel && (
+              <div style={actionGroupBox}>
+                {!showCancel ? (
+                  <button onClick={() => setShowCancel(true)} style={actionPill('danger')}>
+                    <Ban size={11} /> 取消应付发票
+                  </button>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>确认取消应付发票</div>
+                    <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="取消原因（可选）" style={{ ...inputField, height: 56, resize: 'none', fontFamily: 'inherit' }} />
+                    {cancelErr && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{cancelErr}</div>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>放弃</button>
+                      <button onClick={handleCancel} disabled={cancelling} style={actionPill('danger', cancelling)}>
                         {cancelling ? '处理中…' : '确认取消'}
                       </button>
                     </div>
-                  </div>}
-              </div>}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {detail.status === 'CANCELLED' && <div className="bg-bg-muted border border-border" style={{
-          borderRadius: 10,
-          padding: '12px 14px',
-          fontSize: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6
-        }}>
-                <span className="text-text-muted flex items-center gap-1.5">
-                  <Ban size={13} /> 此应付发票已取消
-                </span>
-              </div>}
-          </>}
+            {detail.status === 'CANCELLED' && (
+              <div style={inlineAlert('warning')}>
+                <Ban size={13} /> 此应付发票已取消
+              </div>
+            )}
+          </div>}
       </div>
     </div>;
 }
@@ -794,15 +710,17 @@ export default function Finance2ApPage() {
           </div>} />
 
       {/* 导入结果 */}
-      {importResult && <div className={`flex justify-between items-center px-4 py-3 rounded-xl mb-4 text-xs border ${importResult.failed > 0 ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' : 'bg-success/10 border-emerald-200 dark:border-emerald-800'}`}>
-          <span className={importResult.failed > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-emerald-700 dark:text-emerald-300'}>
+      {importResult && (
+        <div style={{ ...inlineAlert(importResult.failed > 0 ? 'warning' : 'success'), justifyContent: 'space-between', marginBottom: 16 }}>
+          <span>
             导入完成：共 {importResult.total} 条，成功 {importResult.imported}，
             跳过 {importResult.skipped}，失败 {importResult.failed}
           </span>
-          <button onClick={() => setImportResult(null)} className="bg-transparent border-0 cursor-pointer p-0.5">
-            <X size={14} className="text-text-dim" />
+          <button onClick={() => setImportResult(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
+            <X size={14} />
           </button>
-        </div>}
+        </div>
+      )}
 
       {/* KPI 汇总 */}
       <div style={{
@@ -915,10 +833,10 @@ export default function Finance2ApPage() {
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
                   </td>
-                  <td className={`text-text ${u.nowrap}`}>
+                  <td className={`text-text ${u.nowrap}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
-                  <td className={`${Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'} ${u.nowrap}`}>
+                  <td className={`${Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'} ${u.nowrap}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
                   <td>

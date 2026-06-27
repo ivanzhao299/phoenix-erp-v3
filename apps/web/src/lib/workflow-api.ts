@@ -113,6 +113,12 @@ export interface WorkflowTaskSummary {
   startedRunning: number;
 }
 
+export interface ApprovalReassignCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh: string | null;
+}
+
 export interface WorkflowMonitorTask extends WorkflowTask {
   starter_id?: number;
   assignee_user_name?: string;
@@ -233,4 +239,28 @@ export const workflowApi = {
     req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/comment`, { method: "POST", body: JSON.stringify({ comment }) }),
   transfer: (id: number, data: Record<string, unknown>) =>
     req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/transfer`, { method: "POST", body: JSON.stringify(data) }),
+  approvalReassignCandidates: async (instanceId: number) => {
+    const res = await fetch(`/api/approval/instances/${instanceId}/reassign-candidates`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token()}`,
+      },
+    });
+    const data = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(data?.message || `请求失败 (${res.status})`);
+    return (Array.isArray(data) ? data : data?.data ?? []) as ApprovalReassignCandidate[];
+  },
+  approvalReassign: async (instanceId: number, toUserId: string) => {
+    const res = await fetch(`/api/approval/instances/${instanceId}/reassign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token()}`,
+      },
+      body: JSON.stringify({ toUserId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.message || `请求失败 (${res.status})`);
+    return data as { ok?: boolean; toName?: string };
+  },
 };

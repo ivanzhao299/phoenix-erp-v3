@@ -1,8 +1,9 @@
 "use client";
 import PageHeader from "@/components/PageHeader";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+// g200e 模板 token(2026-06-20)
+import { moneyCell } from "@/components/design-system/cockpit-styles";
 
 // B6: inv_batches 真实列 — batch_no / product_code / qty / warehouse_code / location_code / expire_date / store_code
 //     旧版引用的 sku_code / house_code / grading_date / pack_type / status 全部不存在 → 整页空白
@@ -28,7 +29,7 @@ export default function StockQueryPage() {
     { key: "expire_date",    title: t("ui.保质期至", "保质期至"), width: 110,
       render: v => v ? String(v).slice(0, 10) : "—" },
     { key: "qty",            title: t("ui.库存数量", "库存数量"), width: 100, align: "right",
-      render: v => <b className={Number(v) > 0 ? s.textSuccess : s.textWarning}>{Number(v) || 0}</b> },
+      render: v => <span style={moneyCell(Number(v) > 0 ? "success" : "warning", "md")}>{Number(v) || 0}</span> },
     { key: "store_code",     title: t("ui.归属门店", "归属门店"), width: 100, align: "center" },
   ];
 

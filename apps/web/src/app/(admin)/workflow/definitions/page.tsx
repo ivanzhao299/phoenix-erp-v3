@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
@@ -26,10 +27,10 @@ export default function WorkflowDefinitionsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const template = useMemo(() => FLOW_TEMPLATES.find(item => item.key === selectedTemplate) || FLOW_TEMPLATES[0], [selectedTemplate]);
-  const load = () => workflowApi.definitions().then(res => setRows(res.data || []));
+  const load = useCallback(() => workflowApi.definitions().then(res => setRows(res.data || [])), []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   function openFromTemplate(nextTemplate: WorkflowTemplate = FLOW_TEMPLATES[0]) {
     setSource(null);
     setSelectedTemplate(nextTemplate.key);
@@ -143,10 +144,10 @@ export default function WorkflowDefinitionsPage() {
             <p className={`${s.modalDesc} ${u.mt4}`}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
           </div>
           <div style={toolbarActionsStyle}>
-            <button type="button" className={s.btnSecondary} disabled={generating} onClick={generateIndustryTemplates}>
+            <button type="button" style={secondaryActionButton} disabled={generating} onClick={generateIndustryTemplates}>
               {generating ? "生成中..." : "AI生成行业模板"}
             </button>
-            <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>新增流程</button>
+            <button type="button" style={primaryActionButton} onClick={() => openFromTemplate()}>新增流程</button>
           </div>
         </div>
       </section>
@@ -175,8 +176,8 @@ export default function WorkflowDefinitionsPage() {
       </section>
 
       <RightDrawer open={drawerOpen} title={source ? "复制现有流程" : "新增流程"} width={640} onClose={() => setDrawerOpen(false)} footer={<div style={footerStyle}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
+            <button type="button" style={secondaryActionButton} onClick={() => setDrawerOpen(false)}>取消</button>
+            <button type="button" style={primaryActionButton} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
           </div>}>
         <div style={drawerStackStyle}>
           <section>
@@ -314,15 +315,15 @@ function approvalRole(category: string) {
   const map: Record<string, string> = {
     财务: "ROLE_FIN_CFO",
     采购: "ROLE_PRC_BUYER",
-    合同: "ROLE_SYSOPS",
-    人事: "ROLE_SYSOPS",
+    合同: "ROLE_FIN_CFO",
+    人事: "ROLE_HR_ADMIN",
     仓储: "ROLE_WMS_MGR",
     品控: "ROLE_QA_MGR",
     门店: "ROLE_STORE_MGR",
     养殖: "ROLE_FARM_MGR",
     物流: "ROLE_LOG_MGR"
   };
-  return map[category] || "ROLE_SYSOPS";
+  return map[category] || "ROLE_FIN_CFO";
 }
 const toolbarActionsStyle: React.CSSProperties = {
   display: "flex",

@@ -2,8 +2,9 @@
 
 .mask {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay-mask);
   z-index: 10200;
+  padding: 16px;
   display: flex; align-items: center; justify-content: center;
   animation: fdIn 0.15s ease;
 }
@@ -13,8 +14,8 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 28px 32px;
-  width: 380px;
+  padding: 24px;
+  width: min(380px, 100%);
   max-width: 92vw;
   text-align: center;
   box-shadow: var(--shadow-lg);
@@ -59,20 +60,36 @@
 
 /* 变体 */
 .danger {
-  background: linear-gradient(135deg, var(--status-danger), #b91c1c);
-  box-shadow: 0 2px 8px rgba(198,40,40,0.25);
+  background: linear-gradient(135deg, var(--status-danger), var(--status-danger-dark));
+  box-shadow: 0 2px 8px var(--status-danger-bg-medium);
 }
-.danger:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(198,40,40,0.4); }
+.danger:hover:not(:disabled) { box-shadow: 0 4px 14px var(--status-danger-bg-medium); }
 
 .warn {
-  background: linear-gradient(135deg, var(--status-warning), #d97706);
-  box-shadow: 0 2px 8px rgba(249,168,37,0.25);
+  background: linear-gradient(135deg, var(--status-warning), var(--status-warning-dark));
+  box-shadow: 0 2px 8px var(--status-warning-bg-medium);
 }
-.warn:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(249,168,37,0.4); }
+.warn:hover:not(:disabled) { box-shadow: 0 4px 14px var(--status-warning-bg-medium); }
 
 /* 默认（非危险）：主色渐变 */
 .primary {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #2563eb 100%);
-  box-shadow: 0 2px 8px rgba(31,56,100,0.25);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  box-shadow: 0 2px 8px var(--status-info-bg-medium);
 }
-.primary:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(31,56,100,0.4); }
+.primary:hover:not(:disabled) { box-shadow: 0 4px 14px var(--status-info-bg-medium); }
+
+@media (max-width: 640px) {
+  .dialog {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .btnCancel,
+  .btnConfirm {
+    width: 100%;
+    height: 40px;
+  }
+}

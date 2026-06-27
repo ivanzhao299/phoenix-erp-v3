@@ -1,10 +1,14 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 股东资金池  prc2_shareholder_funds */
 @Entity('prc2_shareholder_funds')
+@Index('idx_prc2_sfund_shareholder', ['shareholderId'], { where: '"shareholder_id" IS NOT NULL' })
+@Index('idx_prc2_sfund_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_prc2_sfund_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
+@Index('idx_prc2_sfund_status', ['status'])
 export class Prc2ShareholderFundEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

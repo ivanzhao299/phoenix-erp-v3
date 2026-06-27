@@ -7,6 +7,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
@@ -48,7 +49,8 @@ export class OrgService {
    *   org 树仅 COMPANY 级有 company_code，子组织(部门/场站) company_code 为空、靠 parent_id
    *   挂到公司——故用递归 CTE 取「用户可见公司的整棵子树」，避免简单 company_code 过滤
    *   误删自家子组织、或放行 NULL 泄露他司子组织。
-   *   全局(isGlobal/ROLE_ADMIN)/内部调用(无 user)/解析失败 → 返回全部(不收窄)。
+   *   全局(isGlobal/ROLE_ADMIN)/内部调用(无 user) → 返回全部(不收窄)。
+   *   已登录用户 scope 缺失或解析失败 → fail-closed，避免异常态透出全量组织树。
    */
   async listOrgs(): Promise<SysOrganizationEntity[]> {
     const scope = await this.resolveOrgCompanyScope();
@@ -77,31 +79,161 @@ export class OrgService {
     const user = this.cls.get('user') as Record<string, any> | undefined;
     if (!user) return 'ALL';                                  // 内部调用无用户上下文
     const userId = String(user.userId ?? user.id ?? user.sub ?? '');
-    if (!userId) return 'ALL';
+    if (!userId) return 'DENY';
     const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     try {
-      const s = await this.dataScopeService.resolve(userId, roles, 'MENU_SYS_ORG');
+      const s = await this.dataScopeService.resolve(userId, roles, 'MENU_MD_ORG');
       if (s.isGlobal) return 'ALL';
       if (!s.allowedCompanyCodes.length) return 'DENY';
       return s.allowedCompanyCodes;
     } catch {
-      return 'ALL';                                           // 解析异常不阻断（与 G71 一致）
+      return 'DENY';
     }
+  }
+
+  private async visibleOrgIds(scope: 'ALL' | 'DENY' | string[]): Promise<'ALL' | number[]> {
+    if (scope === 'ALL') return 'ALL';
+    if (scope === 'DENY') return [];
+    const rows: Array<{ id: number }> = await this.ds.query(
+      `WITH RECURSIVE roots AS (
+         SELECT id FROM sys_organizations WHERE company_code = ANY($1)
+       ), subtree AS (
+         SELECT id FROM sys_organizations WHERE id IN (SELECT id FROM roots)
+         UNION
+         SELECT o.id FROM sys_organizations o JOIN subtree s ON o.parent_id = s.id
+       )
+       SELECT id FROM subtree`,
+      [scope],
+    );
+    return rows.map((r) => Number(r.id));
+  }
+
+  private async isOrgVisible(id: number): Promise<boolean> {
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'ALL') return true;
+    if (scope === 'DENY') return false;
+    const [row] = await this.ds.query(
+      `WITH RECURSIVE ancestors AS (
+         SELECT id, parent_id, org_code, org_type, company_code
+           FROM sys_organizations
+          WHERE id = $1
+         UNION ALL
+         SELECT p.id, p.parent_id, p.org_code, p.org_type, p.company_code
+           FROM sys_organizations p
+           JOIN ancestors a ON a.parent_id = p.id
+       )
+       SELECT 1
+         FROM ancestors
+        WHERE company_code = ANY($2)
+           OR (org_type = 'COMPANY' AND COALESCE(company_code, org_code) = ANY($2))
+        LIMIT 1`,
+      [id, scope],
+    );
+    return !!row;
+  }
+
+  private async assertOrgVisible(id: number): Promise<void> {
+    if (!(await this.isOrgVisible(id))) {
+      throw new NotFoundException(`Organization ${id} not found`);
+    }
+  }
+
+  private async assertOrgWriteScope(dto: CreateOrgDto | UpdateOrgDto, requirePlacement = false): Promise<void> {
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'ALL') return;
+    if (scope === 'DENY') throw new ForbiddenException('DATA_SCOPE_DENIED');
+
+    if ('parentId' in dto && dto.parentId != null) {
+      await this.assertOrgVisible(Number(dto.parentId));
+    }
+
+    const companyCode = String(dto.companyCode ?? '').trim();
+    if (companyCode && !scope.includes(companyCode)) {
+      throw new ForbiddenException('DATA_SCOPE_DENIED');
+    }
+
+    if ('orgType' in dto && dto.orgType === 'COMPANY') {
+      const companyIdentity = companyCode || String((dto as CreateOrgDto).orgCode ?? '').trim();
+      if (!companyIdentity || !scope.includes(companyIdentity)) {
+        throw new ForbiddenException('DATA_SCOPE_DENIED');
+      }
+    }
+
+    if (requirePlacement && (!('parentId' in dto) || dto.parentId == null)) {
+      if (!companyCode && dto.orgType !== 'COMPANY') {
+        throw new ForbiddenException('DATA_SCOPE_DENIED');
+      }
+    }
+  }
+
+  private async assertCompanyScopedCodeVisible(
+    table: 'biz_projects' | 'wms_warehouses',
+    codeCol: 'project_code' | 'warehouse_code',
+    code: string,
+    label: string,
+  ): Promise<void> {
+    const cleanCode = String(code ?? '').trim();
+    if (!cleanCode) throw new BadRequestException(`${label}不能为空`);
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'DENY') throw new ForbiddenException('DATA_SCOPE_DENIED');
+    const activeClause = table === 'biz_projects'
+      ? `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'
+          AND deleted_at IS NULL`
+      : `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'`;
+
+    const [row] = await this.ds.query(
+      `SELECT ${codeCol} AS code, company_code
+         FROM ${table}
+        WHERE ${codeCol} = $1
+          ${activeClause}
+        LIMIT 1`,
+      [cleanCode],
+    );
+    if (!row) throw new BadRequestException(`${label}「${cleanCode}」不存在或已归档`);
+    if (scope === 'ALL') return;
+    const companyCode = String(row.company_code ?? '').trim();
+    if (!companyCode || !scope.includes(companyCode)) {
+      throw new ForbiddenException('DATA_SCOPE_DENIED');
+    }
+  }
+
+  private async visibleCompanyScopedCodes(
+    table: 'biz_projects' | 'wms_warehouses',
+    codeCol: 'project_code' | 'warehouse_code',
+  ): Promise<'ALL' | string[]> {
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'ALL') return 'ALL';
+    if (scope === 'DENY') return [];
+    const activeClause = table === 'biz_projects'
+      ? `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'
+          AND deleted_at IS NULL`
+      : `AND COALESCE(status, 'ACTIVE') <> 'ARCHIVED'`;
+    const rows: Array<{ code: string }> = await this.ds.query(
+      `SELECT ${codeCol} AS code
+         FROM ${table}
+        WHERE company_code = ANY($1)
+          ${activeClause}`,
+      [scope],
+    );
+    return rows.map((r) => String(r.code));
   }
 
   async getOrg(id: number): Promise<SysOrganizationEntity> {
     const org = await this.orgRepo.findOne({ where: { id } });
     if (!org) throw new NotFoundException(`Organization ${id} not found`);
+    await this.assertOrgVisible(id);
     return org;
   }
 
   async createOrg(dto: CreateOrgDto): Promise<SysOrganizationEntity> {
+    await this.assertOrgWriteScope(dto, true);
     let level = 1;
     let path = `/${dto.orgCode}/`;
 
     if (dto.parentId) {
       const parent = await this.orgRepo.findOne({ where: { id: dto.parentId } });
       if (!parent) throw new BadRequestException(`Parent org ${dto.parentId} not found`);
+      await this.assertOrgVisible(parent.id);
       level = parent.level + 1;
       path = `${parent.path}${dto.orgCode}/`;
     }
@@ -125,6 +257,7 @@ export class OrgService {
 
   async updateOrg(id: number, dto: UpdateOrgDto): Promise<SysOrganizationEntity> {
     const org = await this.getOrg(id);
+    await this.assertOrgWriteScope(dto);
     const { parentCode, ...rest } = dto;
     Object.assign(org, rest);
 
@@ -133,6 +266,7 @@ export class OrgService {
     if (parentCode !== undefined && parentCode !== '' && parentCode !== org.parentCode) {
       const parent = await this.orgRepo.findOne({ where: { orgCode: parentCode } });
       if (!parent) throw new BadRequestException(`上级组织「${parentCode}」不存在`);
+      await this.assertOrgVisible(parent.id);
       if (Number(parent.id) === Number(org.id)) {
         throw new BadRequestException('不能将组织设为自己的上级');
       }
@@ -206,6 +340,7 @@ export class OrgService {
   }
 
   async deleteOrg(id: number): Promise<void> {
+    await this.assertOrgVisible(id);
     const children = await this.orgRepo.find({ where: { parentId: id } });
     if (children.length > 0) {
       throw new BadRequestException(`该组织下还有 ${children.length} 个子节点，请先迁移或删除子节点`);
@@ -222,15 +357,14 @@ export class OrgService {
 
   /** 返回全部组织（前端构建树），按 level + sortOrder + orgCode 排序 */
   async getOrgTree(): Promise<SysOrganizationEntity[]> {
-    return this.orgRepo.find({
-      order: { level: 'ASC', sortOrder: 'ASC', orgCode: 'ASC' },
-    });
+    return this.listOrgs();
   }
 
   /** 按 orgCode 查询单个组织，不存在时抛 404 */
   async getOrgByCode(orgCode: string): Promise<SysOrganizationEntity> {
     const org = await this.orgRepo.findOne({ where: { orgCode } });
     if (!org) throw new NotFoundException(`Organization "${orgCode}" not found`);
+    await this.assertOrgVisible(org.id);
     return org;
   }
 
@@ -250,10 +384,8 @@ export class OrgService {
 
   /** 按 orgType 过滤 */
   async getOrgsByType(orgType: string): Promise<SysOrganizationEntity[]> {
-    return this.orgRepo.find({
-      where: { orgType: orgType as SysOrganizationEntity['orgType'] },
-      order: { level: 'ASC', sortOrder: 'ASC', orgCode: 'ASC' },
-    });
+    const orgs = await this.listOrgs();
+    return orgs.filter((org) => org.orgType === orgType);
   }
 
   /**
@@ -268,12 +400,27 @@ export class OrgService {
     siteCodes: string[];
     departmentCodes: string[];
   }> {
+    const visibleIds = await this.visibleOrgIds(await this.resolveOrgCompanyScope());
+    if (Array.isArray(visibleIds) && !visibleIds.length) {
+      return {
+        scopeAll: false,
+        groupCodes: [],
+        buCodes: [],
+        companyCodes: [],
+        siteCodes: [],
+        departmentCodes: [],
+      };
+    }
+    const params: any[] = [userId];
+    const scopeClause = Array.isArray(visibleIds)
+      ? ` AND uo.org_id = ANY($${params.push(visibleIds)})`
+      : '';
     const rows: Array<{ org_type: string; org_code: string }> = await this.ds.query(
       `SELECT o.org_type, o.org_code
        FROM sys_user_orgs uo
        JOIN sys_organizations o ON o.id = uo.org_id
-       WHERE uo.user_id = $1`,
-      [userId],
+       WHERE uo.user_id = $1${scopeClause}`,
+      params,
     );
 
     const groupCodes: string[] = [];
@@ -305,19 +452,26 @@ export class OrgService {
   // ── 用户-组织关系 ───────────────────────────────────────────────────────────
 
   async getUserOrgs(userId: number): Promise<any[]> {
+    const visibleIds = await this.visibleOrgIds(await this.resolveOrgCompanyScope());
+    if (Array.isArray(visibleIds) && !visibleIds.length) return [];
+    const params: any[] = [userId];
+    const scopeClause = Array.isArray(visibleIds)
+      ? ` AND uo.org_id = ANY($${params.push(visibleIds)})`
+      : '';
     return this.ds.query(`
       SELECT uo.id, uo.user_id, uo.org_id, uo.is_primary, uo.data_scope_level, uo.created_at,
              o.org_code, o.org_name, o.org_type, o.level, o.path, o.status,
              o.company_code, o.project_code, o.warehouse_code
       FROM sys_user_orgs uo
       JOIN sys_organizations o ON o.id = uo.org_id
-      WHERE uo.user_id = $1
+      WHERE uo.user_id = $1${scopeClause}
       ORDER BY uo.is_primary DESC, o.level ASC
-    `, [userId]);
+    `, params);
   }
 
   /** 获取某组织下的所有成员（含用户信息 + 数据范围等级） */
   async getOrgMembers(orgId: number): Promise<any[]> {
+    await this.assertOrgVisible(orgId);
     // G88：别名统一 camelCase（原 snake_case 导致前端 m.userOrgId=undefined →
     //      移除/改数据范围实际请求 /user-orgs/undefined，静默失败）
     return this.ds.query(`
@@ -355,6 +509,7 @@ export class OrgService {
   }
 
   async assignUserOrg(dto: AssignUserOrgDto): Promise<SysUserOrgEntity> {
+    await this.assertOrgVisible(dto.orgId);
     const existing = await this.userOrgRepo.findOne({
       where: { userId: dto.userId, orgId: dto.orgId },
     });
@@ -363,6 +518,7 @@ export class OrgService {
       existing.dataScopeLevel = dto.dataScopeLevel ?? existing.dataScopeLevel;
       const saved = await this.userOrgRepo.save(existing);
       this.dataScopeService.invalidate(String(dto.userId));
+      await this.syncPrimaryStoreCode(dto.userId);   // G129
       return saved;
     }
 
@@ -374,33 +530,76 @@ export class OrgService {
     });
     const saved = await this.userOrgRepo.save(uo);
     this.dataScopeService.invalidate(String(dto.userId));
+    await this.syncPrimaryStoreCode(dto.userId);     // G129
     return saved;
   }
 
   async updateUserOrg(id: number, dto: UpdateUserOrgDto): Promise<SysUserOrgEntity> {
     const uo = await this.userOrgRepo.findOne({ where: { id } });
     if (!uo) throw new NotFoundException(`UserOrg ${id} not found`);
+    await this.assertOrgVisible(uo.orgId);
     Object.assign(uo, dto);
     const saved = await this.userOrgRepo.save(uo);
     this.dataScopeService.invalidate(String(uo.userId));
+    await this.syncPrimaryStoreCode(uo.userId);      // G129
     return saved;
   }
 
   async removeUserOrg(id: number): Promise<void> {
     const uo = await this.userOrgRepo.findOne({ where: { id } });
+    if (uo) await this.assertOrgVisible(uo.orgId);
     if (uo) this.dataScopeService.invalidate(String(uo.userId));
     await this.userOrgRepo.delete(id);
+    if (uo) await this.syncPrimaryStoreCode(uo.userId);  // G129
+  }
+
+  /**
+   * G129：同步 sys_user.store_code = 主组织绑定的 org_code（GROUP → 'ALL'）。
+   * Why：行级数据范围过滤的**实际驱动**是 sys_user.store_code（generic-crud
+   *   effectiveQuery[scopeField]=userStoreCode），而非 sys_user_orgs 本身。G122 已一次性
+   *   回填，但**管理员在系统设置 UI 改组织绑定时未同步 store_code** → 会重新引入 G122 修过的
+   *   行级范围漂移（场长看空养殖、店长看空销售等假空）。此处把 G122 的规则接进 UI 写路径，
+   *   使「组织绑定」改动在系统设置 UI 上即等效。bump perms_version 强制目标用户重登拿新 storeCode。
+   */
+  private async syncPrimaryStoreCode(userId: number): Promise<void> {
+    const rows = await this.userOrgRepo.manager.query(
+      `SELECT CASE WHEN uo.data_scope_level = 'GROUP' THEN 'ALL' ELSE o.org_code END AS code
+         FROM sys_user_orgs uo
+         JOIN sys_organizations o ON o.id = uo.org_id
+        WHERE uo.user_id = $1 AND uo.is_primary = true
+        LIMIT 1`,
+      [userId],
+    );
+    const code: string | undefined = rows[0]?.code;
+    if (!code) return;   // 无主绑定 → 保持 store_code 不动（避免误清）
+    await this.userOrgRepo.manager.query(
+      `UPDATE sys_user
+          SET store_code = $1, perms_version = COALESCE(perms_version, 0) + 1, updated_at = NOW()
+        WHERE user_id = $2 AND COALESCE(store_code, '') <> $1`,
+      [code, userId],
+    );
   }
 
   // ── 用户额外授权 ─────────────────────────────────────────────────────────────
 
   async getUserScopes(userId: number) {
-    const projects = await this.userProjRepo.find({ where: { userId } });
-    const warehouses = await this.userWhRepo.find({ where: { userId } });
+    const visibleProjectCodes = await this.visibleCompanyScopedCodes('biz_projects', 'project_code');
+    const visibleWarehouseCodes = await this.visibleCompanyScopedCodes('wms_warehouses', 'warehouse_code');
+    const projects = visibleProjectCodes === 'ALL'
+      ? await this.userProjRepo.find({ where: { userId } })
+      : visibleProjectCodes.length
+        ? await this.userProjRepo.find({ where: { userId, projectCode: In(visibleProjectCodes) } })
+        : [];
+    const warehouses = visibleWarehouseCodes === 'ALL'
+      ? await this.userWhRepo.find({ where: { userId } })
+      : visibleWarehouseCodes.length
+        ? await this.userWhRepo.find({ where: { userId, warehouseCode: In(visibleWarehouseCodes) } })
+        : [];
     return { projects, warehouses };
   }
 
   async addProjectScope(userId: number, projectCode: string): Promise<SysUserProjectScopeEntity> {
+    await this.assertCompanyScopedCodeVisible('biz_projects', 'project_code', projectCode, '项目');
     const existing = await this.userProjRepo.findOne({ where: { userId, projectCode } });
     if (existing) return existing;
     const s = this.userProjRepo.create({ userId, projectCode });
@@ -411,11 +610,13 @@ export class OrgService {
 
   async removeProjectScope(id: number): Promise<void> {
     const s = await this.userProjRepo.findOne({ where: { id } });
+    if (s) await this.assertCompanyScopedCodeVisible('biz_projects', 'project_code', s.projectCode, '项目');
     if (s) this.dataScopeService.invalidate(String(s.userId));
     await this.userProjRepo.delete(id);
   }
 
   async addWarehouseScope(userId: number, warehouseCode: string): Promise<SysUserWarehouseScopeEntity> {
+    await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', warehouseCode, '仓库');
     const existing = await this.userWhRepo.findOne({ where: { userId, warehouseCode } });
     if (existing) return existing;
     const s = this.userWhRepo.create({ userId, warehouseCode });
@@ -426,6 +627,7 @@ export class OrgService {
 
   async removeWarehouseScope(id: number): Promise<void> {
     const s = await this.userWhRepo.findOne({ where: { id } });
+    if (s) await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', s.warehouseCode, '仓库');
     if (s) this.dataScopeService.invalidate(String(s.userId));
     await this.userWhRepo.delete(id);
   }

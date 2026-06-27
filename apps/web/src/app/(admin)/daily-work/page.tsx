@@ -68,9 +68,9 @@ const ALL_CARDS: QuickCard[] = [
 
   // ───── 财务现金 ─────
   { key: 'cash_in',     title: '现金收款',          desc: '直营店 / 客户收款 · 老币+人民币',
-    icon: Wallet,        href: '/finance2/cash-accounts?action=receive',              accent: '#06B6D4', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+    icon: Wallet,        href: '/finance2/cash-accounts?action=receive',              accent: '#06B6D4', perm: 'MENU_FIN2_CASH_TXN',      permOp: 'C' },
   { key: 'cash_out',    title: '现金付款',          desc: '采购 / 工资 / 运费',
-    icon: Receipt,       href: '/finance2/cash-accounts?action=pay',                  accent: '#7C3AED', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+    icon: Receipt,       href: '/finance2/cash-accounts?action=pay',                  accent: '#7C3AED', perm: 'MENU_FIN2_CASH_TXN',      permOp: 'C' },
 
   // ───── 销售 ─────
   { key: 'sale_create', title: '销售出库',          desc: '客户订单 / 散户零售',
@@ -80,9 +80,9 @@ const ALL_CARDS: QuickCard[] = [
 
   // ───── 通用 ─────
   { key: 'todo',        title: '我的待办',          desc: '待处理审批任务',
-    icon: Inbox,         href: '/workflow/tasks/todo',                                accent: '#3B82F6', perm: 'MENU_WORKFLOW',           permOp: 'V' },
+    icon: Inbox,         href: '/workflow/todos',                                     accent: '#3B82F6', perm: 'MENU_WORKFLOW_TODO',      permOp: 'V' },
   { key: 'my_submit',   title: '我的提交',          desc: '本人发起的所有单据 · 审批进度',
-    icon: Send,          href: '/workflow/instances?owner=me',                        accent: '#6B7280', perm: 'MENU_WORKFLOW',           permOp: 'V' },
+    icon: Send,          href: '/workflow/instances?owner=me',                        accent: '#6B7280', perm: 'MENU_WORKFLOW_HISTORY',   permOp: 'V' },
 ];
 
 export default function DailyWorkPage() {

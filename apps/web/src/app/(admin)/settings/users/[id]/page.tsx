@@ -2,16 +2,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { EntityWorkspace, SelectField } from "@/components/design-system";
-import { inlineBadge } from "@/components/design-system/cockpit-styles";
+import { inlineBadge, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { Panel } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
-import { Users, Shield, Key, Lock, Unlock, Building2 } from "lucide-react";
+import { Users, Shield, Key, Lock, Unlock, Building2, Eye } from "lucide-react";
+import { enterImpersonation } from "@/lib/impersonate";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
 import { RolePicker, levelColor, type UserRole, type RoleOption } from "@/components/settings/RolePicker";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ConfirmDialogV2 } from "@/components/design-system/dialogs/ConfirmDialogV2";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -46,6 +48,9 @@ export default function UserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<{ open: boolean; nextStatus?: string }>({ open: false });
+  const [sodConflicts, setSodConflicts] = useState<Array<{menu_a: string; menu_b: string; reason_zh: string; severity: string}>>([]);
+  const [showSodConfirm, setShowSodConfirm] = useState(false);
+  const [showImpersonateConfirm, setShowImpersonateConfirm] = useState(false);
 
   // 基本信息表单
   const [form, setForm] = useState({
@@ -90,12 +95,9 @@ export default function UserDetailPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── 保存基本信息 + 角色（与列表页抽屉一致的端点）────────────────────────────
-  const handleSave = async () => {
+  // ── 实际保存逻辑（SoD 检查通过后调用）────────────────────────────────────────
+  const doSave = async () => {
     if (!user) return;
-    if (!canEdit) { toast.error(t("ui.无编辑权限", "无编辑权限")); return; }
-    if (user.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
-    if (!form.real_name_zh) { toast.error(t("ui.姓名为必填项", "姓名为必填项")); return; }
     setSubmitting(true);
     try {
       // 更新基本信息
@@ -140,6 +142,50 @@ export default function UserDetailPage() {
     } finally { setSubmitting(false); }
   };
 
+  // ── 保存基本信息 + 角色（与列表页抽屉一致的端点）────────────────────────────
+  const handleSave = async () => {
+    if (!user) return;
+    if (!canEdit) { toast.error(t("ui.无编辑权限", "无编辑权限")); return; }
+    if (user.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
+    if (!form.real_name_zh) { toast.error(t("ui.姓名为必填项", "姓名为必填项")); return; }
+
+    // G119 SoD 授权前拦截：多角色组合若触发岗位分离红线则 BLOCK 阻止 / WARN 二次确认
+    if (selectedRoles.length > 0) {
+      try {
+        const sod = await fetch("/api/permissions/check-role-combo", {
+          method: "POST", headers: hdr(),
+          body: JSON.stringify({ role_codes: selectedRoles.map(r => r.role_code) }),
+        }).then(r => r.json());
+        const conflicts: Array<{ menu_a: string; menu_b: string; reason_zh: string; severity: string }> = sod?.data?.conflicts || [];
+        const blocks = conflicts.filter(c => c.severity === "BLOCK");
+        if (blocks.length > 0) {
+          toast.error(t("ui.角色组合触发BLOCK岗位分离冲突", "角色组合触发 BLOCK 级岗位分离冲突，无法保存：") + blocks.map(c => `${c.menu_a}↔${c.menu_b}`).join("、"));
+          return;
+        }
+        if (conflicts.length > 0) {
+          setSodConflicts(conflicts);
+          setShowSodConfirm(true);
+          return;
+        }
+      } catch { /* SoD 校验异常不阻断主流程 */ }
+    }
+
+    await doSave();
+  };
+
+  // ── 影子登录 ────────────────────────────────────────────────────────────────────
+  const doImpersonate = async () => {
+    if (!user) return;
+    const reason = window.prompt("请输入影子登录原因（不少于 6 个字符，用于审计）", "排障查看用户真实权限与页面");
+    if (!reason || reason.trim().length < 6) {
+      toast.error("影子登录必须填写不少于 6 个字符的审计原因");
+      return;
+    }
+    setShowImpersonateConfirm(false);
+    try { await enterImpersonation(user.username, reason.trim()); }
+    catch (e: any) { toast.error(t("ui.影子登录失败", "影子登录失败") + ": " + (e.message || String(e))); }
+  };
+
   // ── 冻结 / 解冻 ──────────────────────────────────────────────────────────────
   const doToggleStatus = async () => {
     if (!user) return;
@@ -182,7 +228,7 @@ export default function UserDetailPage() {
           <div className={s.emptyState}>
             <Users size={40}/>
             <div className={s.emptyStateText}>{t("ui.未找到该用户", "未找到该用户")}</div>
-            <button type="button" onClick={() => router.push("/settings/users")} className={s.btnSecondary} style={{ marginTop: 12 }}>
+            <button type="button" onClick={() => router.push("/settings/users")} style={{ ...secondaryActionButton, marginTop: 12 }}>
               {t("common.back", "返回")}
             </button>
           </div>
@@ -300,6 +346,12 @@ export default function UserDetailPage() {
           {submitting ? t("ui.处理中", "处理中...") : t("common.save", "保存")}
         </button>
       )}
+      {!isAdmin && user.status === "ACTIVE" && (
+        <button type="button" className={s.btnSm} title={t("ui.以该用户身份查看真实界面影子模式", "以该用户身份查看真实界面（影子模式，仅测试/排障）")}
+          onClick={() => setShowImpersonateConfirm(true)}>
+          <Eye size={12}/>{t("ui.以其身份查看", "以其身份查看")}
+        </button>
+      )}
       {!isAdmin && (
         <button type="button" onClick={handleToggle}
           className={`${s.btnSm} ${user.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
@@ -342,6 +394,24 @@ export default function UserDetailPage() {
         danger={confirm.nextStatus === "FROZEN"}
         onConfirm={doToggleStatus}
         onCancel={() => setConfirm({ open: false })}
+      />
+
+      <ConfirmDialogV2
+        open={showSodConfirm}
+        title="岗位分离风险"
+        message={<>该用户的角色组合存在岗位分离风险（WARN）：{sodConflicts.map((c, i) => <div key={i}>· {c.reason_zh}</div>)}<br/>仍要保存吗？</>}
+        confirmLabel="仍要保存"
+        onConfirm={() => { setShowSodConfirm(false); doSave(); }}
+        onCancel={() => setShowSodConfirm(false)}
+      />
+
+      <ConfirmDialogV2
+        open={showImpersonateConfirm}
+        title="影子登录"
+        message={`确认以「${user?.real_name_zh || user?.username}」身份查看？将切换到影子模式，可随时退出。`}
+        confirmLabel="确认切换"
+        onConfirm={doImpersonate}
+        onCancel={() => setShowImpersonateConfirm(false)}
       />
     </div>
   );

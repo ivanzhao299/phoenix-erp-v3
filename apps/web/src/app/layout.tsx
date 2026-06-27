@@ -41,6 +41,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" data-theme="light" suppressHydrationWarning className={inter.className}>
+      <head>
+        {/* runtime-design-system.css — UI 样式热更新通道(globals.css 之后,确保覆盖优先级)。
+            nginx 拦截优先 host /opt/phoenix/static-overrides/ 覆盖文件,no-cache 重验证。
+            部署:fast-css 模式 scp 即可 3-10s 上线,见 docs/deployment-tiers.md */}
+        <link rel="stylesheet" href="/runtime-design-system.css" />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

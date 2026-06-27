@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search, Forward } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -93,6 +94,9 @@ interface InstanceDetail {
     actedAt: string;
   }[];
 }
+
+type ApprovalDecision = "approve" | "reject" | "transfer";
+type ReassignCandidate = { userId: string; displayName: string; roleNameZh: string | null };
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 const BIZ_TYPE_LABEL: Record<string, string> = {
@@ -200,7 +204,8 @@ async function fetchTodos(params: {
   if (params.bizType) p.set("bizType", params.bizType);
   if (params.keyword) p.set("keyword", params.keyword);
   const res = await fetch(`/api/workflow/my-tasks?${p.toString()}`, {
-    headers: authHdr()
+    headers: authHdr(),
+    cache: "no-store"   // G150：禁浏览器缓存，避免审批后刷新仍读到旧待办列表
   });
   if (!res.ok) return {
     items: [],
@@ -212,7 +217,8 @@ async function fetchTodos(params: {
 }
 async function fetchDetail(instanceId: string): Promise<InstanceDetail | null> {
   const res = await fetch(`/api/approval/instances/${instanceId}`, {
-    headers: authHdr()
+    headers: authHdr(),
+    cache: "no-store"
   });
   if (!res.ok) return null;
   return res.json();
@@ -224,6 +230,22 @@ async function approveInstance(instanceId: string, comment: string) {
     body: JSON.stringify({
       comment
     })
+  });
+  return res.json();
+}
+async function fetchReassignCandidates(instanceId: string): Promise<ReassignCandidate[]> {
+  const res = await fetch(`/api/approval/instances/${instanceId}/reassign-candidates`, {
+    headers: authHdr(),
+    cache: "no-store"
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+async function reassignInstance(instanceId: string, toUserId: string) {
+  const res = await fetch(`/api/approval/instances/${instanceId}/reassign`, {
+    method: "POST",
+    headers: authHdr(),
+    body: JSON.stringify({ toUserId })
   });
   return res.json();
 }
@@ -252,7 +274,11 @@ export default function ApprovalTodosPage() {
   const [detail, setDetail] = useState<InstanceDetail | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [comment, setComment] = useState("");
+  const [decision, setDecision] = useState<ApprovalDecision>("approve");
   const [submitting, setSubmitting] = useState(false);
+  const [candidates, setCandidates] = useState<ReassignCandidate[]>([]);
+  const [pickedTo, setPickedTo] = useState("");
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   // 筛选状态
   const [taskSource, setTaskSource] = useState("");
@@ -307,6 +333,9 @@ export default function ApprovalTodosPage() {
   const openDetail = async (todo: UnifiedTask) => {
     setSelected(todo);
     setComment("");
+    setDecision("approve");
+    setCandidates([]);
+    setPickedTo("");
     setDrawerOpen(true);
     if (todo.taskSource === "APPROVAL_ENGINE") {
       setDetail(await fetchDetail(todo.instanceId));
@@ -314,6 +343,29 @@ export default function ApprovalTodosPage() {
       setDetail(null);
     }
   };
+  useEffect(() => {
+    if (!drawerOpen || !selected || decision !== "transfer") return;
+    let alive = true;
+    setPickedTo("");
+    setReassignLoading(true);
+    fetchReassignCandidates(selected.instanceId)
+      .then(rows => {
+        if (!alive) return;
+        setCandidates(rows);
+        setPickedTo(rows[0]?.userId ?? "");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setCandidates([]);
+        setPickedTo("");
+      })
+      .finally(() => {
+        if (alive) setReassignLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [drawerOpen, selected?.instanceId, decision]);
   const handleApprove = async () => {
     if (!selected) return;
     setSubmitting(true);
@@ -324,6 +376,9 @@ export default function ApprovalTodosPage() {
       } else {
         toast.success(r.finished ? "审批完成，单据已通过" : "已通过，等待下一级审批");
         setDrawerOpen(false);
+        // G150：乐观移除——点完即从列表消失，不等整页刷新；随后 load() 对账
+        //   （若本人恰是下一级审批人，会在 load() 后以新步骤正确重新出现）
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {
@@ -346,6 +401,7 @@ export default function ApprovalTodosPage() {
       } else {
         toast.error("已拒绝，单据流程终止");
         setDrawerOpen(false);
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {
@@ -353,6 +409,30 @@ export default function ApprovalTodosPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+  const handleReassign = async () => {
+    if (!selected || !pickedTo) return;
+    setSubmitting(true);
+    try {
+      const r = await reassignInstance(selected.instanceId, pickedTo);
+      if (r.statusCode && r.statusCode >= 400) {
+        toast.error(r.message || "转交失败");
+      } else {
+        toast.success(`已转交给 ${r.toName ?? "审批人"}`);
+        setDrawerOpen(false);
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
+        load();
+      }
+    } catch {
+      toast.error("网络错误");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const submitDecision = () => {
+    if (decision === "approve") void handleApprove();
+    else if (decision === "reject") void handleReject();
+    else void handleReassign();
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
   return <div>
@@ -405,10 +485,7 @@ export default function ApprovalTodosPage() {
           <button className={`${s.btnSecondary} ${u.fs12}`} onClick={resetFilter}>
             重置
           </button>
-          <button className={s.btnSecondary} onClick={() => load()} disabled={loading} style={{
-          fontSize: 12,
-          marginLeft: "auto"
-        }}>
+          <button onClick={() => load()} disabled={loading} style={{ ...secondaryActionButton, fontSize: 12, marginLeft: "auto" }}>
             <RefreshCw size={13} style={{
             marginRight: 5
           }} />
@@ -740,26 +817,46 @@ export default function ApprovalTodosPage() {
           margin: "0 0 12px",
           color: "var(--text-primary)"
         }}>审批意见</h4>
-            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="请输入审批意见（拒绝时必填）" className={s.textarea} rows={3} style={{
+            <p className={s.modalDesc} style={{ margin: "0 0 10px" }}>
+              默认同意。候选转交人由后端按角色权限、公司/项目数据域和自审分离规则过滤。
+            </p>
+            <div style={decisionTabsStyle}>
+              <button type="button" onClick={() => setDecision("approve")} style={decisionButtonStyle(decision === "approve", "success")}>
+                <CheckCircle size={14} /> 同意
+              </button>
+              <button type="button" onClick={() => setDecision("reject")} style={decisionButtonStyle(decision === "reject", "danger")}>
+                <XCircle size={14} /> 不同意
+              </button>
+              <button type="button" onClick={() => setDecision("transfer")} style={decisionButtonStyle(decision === "transfer", "info")}>
+                <Forward size={14} /> 转交审批
+              </button>
+            </div>
+            {decision === "transfer" && <div style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-muted)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>转交给（有确认权且数据域覆盖本单据的人）</div>
+              {reassignLoading ? <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 8 }}>加载候选人…</div>
+                : candidates.length === 0 ? <div style={{ fontSize: 12, color: "var(--status-warning)", padding: 8 }}>无可转交对象（无人同时具备确认权与本单据数据域）</div>
+                : <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+                    {candidates.map(c => (
+                      <label key={c.userId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, cursor: "pointer", background: pickedTo === c.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "transparent" }}>
+                        <input type="radio" name="reassignTo" checked={pickedTo === c.userId} onChange={() => setPickedTo(c.userId)} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{c.displayName}</span>
+                        {c.roleNameZh && <span style={{ fontSize: 11, color: "var(--text-secondary)", marginLeft: "auto" }}>{c.roleNameZh}</span>}
+                      </label>
+                    ))}
+                  </div>}
+            </div>}
+            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder={decision === "approve" ? "填写审批意见（可不填）" : decision === "reject" ? "请填写不同意原因…" : "填写转交说明，便于接收人理解背景（可不填）"} className={s.textarea} rows={3} style={{
           width: "100%",
           marginBottom: 16
         }} />
             <div style={{
           display: "flex",
-          gap: 12
+          gap: 12,
+          justifyContent: "flex-end",
+          flexWrap: "wrap"
         }}>
-              <button className={`${s.btnDanger} ${u.flex1}`} onClick={handleReject} disabled={submitting}>
-                <XCircle size={14} style={{
-              marginRight: 6
-            }} />拒绝
-              </button>
-              <button className={s.btnPrimary} onClick={handleApprove} disabled={submitting} style={{
-            flex: 2
-          }}>
-                <CheckCircle size={14} style={{
-              marginRight: 6
-            }} />
-                {submitting ? "处理中…" : "审批通过"}
+              <button onClick={submitDecision} disabled={submitting || (decision === "transfer" && (reassignLoading || !pickedTo))} style={decision === "reject" ? { ...actionPill('danger'), justifyContent: "center", minWidth: 160 } : decision === "transfer" ? { ...actionPill('info'), justifyContent: "center", minWidth: 180 } : { ...primaryActionButton, justifyContent: "center", minWidth: 160 }}>
+                {submitting ? "处理中…" : decision === "approve" ? "提交同意" : decision === "reject" ? "提交不同意" : "确认转交审批"}
               </button>
             </div>
           </div>}
@@ -804,4 +901,33 @@ export default function ApprovalTodosPage() {
           </div>}
       </RightDrawer>
     </div>;
+}
+
+const decisionTabsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+  marginBottom: 12,
+  padding: 4,
+  borderRadius: "var(--radius-md)",
+  background: "var(--bg-page)",
+  border: "1px solid var(--border)"
+};
+
+function decisionButtonStyle(active: boolean, tone: "success" | "danger" | "info"): React.CSSProperties {
+  const color = tone === "success" ? "var(--status-success)" : tone === "danger" ? "var(--status-danger)" : "var(--status-info)";
+  return {
+    minHeight: 40,
+    borderRadius: "var(--radius-sm)",
+    border: `1px solid ${active ? color : "transparent"}`,
+    background: active ? `color-mix(in srgb, ${color} 14%, transparent)` : "transparent",
+    color: active ? color : "var(--text-secondary)",
+    fontWeight: 800,
+    cursor: "pointer",
+    transition: "background .16s ease, color .16s ease, border-color .16s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6
+  };
 }

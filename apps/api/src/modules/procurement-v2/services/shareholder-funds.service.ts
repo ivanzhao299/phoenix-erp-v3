@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ConflictException, BadRequestException,
+  Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -127,7 +127,14 @@ export class ShareholderFundsService {
     if (q.shareholderId) qb.andWhere('f.shareholderId = :si',  { si: q.shareholderId });
 
     // 数据范围过滤（DataScope）
-    this.scopeHelper.applyToQb(qb, { alias: 'f' });
+    // G156：SELF 级（ROLE_SHAREHOLDER_VIEW）只能看本人名下——applyToQb 无 SELF 分支，
+    //   原仅按公司/项目过滤，股东只读角色可能看到他人资金。补 SELF 隔离（镜像 payments.listShareholderFunds）。
+    const scope = this.cls.get('dataScope') as { isGlobal?: boolean; scopeLevel?: string; userId?: string } | undefined;
+    if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF') {
+      qb.andWhere('f.shareholderId = :selfUserId', { selfUserId: scope.userId });
+    } else {
+      this.scopeHelper.applyToQb(qb, { alias: 'f' });
+    }
 
     const [items, total] = await qb.getManyAndCount();
     return { items, total, page, pageSize };
@@ -138,6 +145,15 @@ export class ShareholderFundsService {
   async findOne(id: string): Promise<Prc2ShareholderFundEntity> {
     const fund = await this.fundRepo.findOne({ where: { id } });
     if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
+    // G156 安全：补归属校验——原 findOne 无任何 scope 校验，持 MENU_PRC2_FUND V 权者凭 id 可读
+    //   任意公司/股东的资金详情（越权读金融数据）。其余单据 findById 都有 assertOwnership，唯独此处漏。
+    this.scopeHelper.assertOwnership({ companyCode: fund.companyCode, projectCode: fund.projectCode }, '股东资金');
+    // SELF 级（股东只读）还须本人名下
+    const scope = this.cls.get('dataScope') as { isGlobal?: boolean; scopeLevel?: string; userId?: string } | undefined;
+    if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF'
+        && String(fund.shareholderId ?? '') !== String(scope.userId ?? '')) {
+      throw new ForbiddenException('无权访问该股东资金（仅可查看本人名下）');
+    }
     return fund;
   }
 
@@ -145,6 +161,10 @@ export class ShareholderFundsService {
 
   async create(dto: CreateShareholderFundDto): Promise<Prc2ShareholderFundEntity> {
     return this.ds.transaction(async mgr => {
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        '股东资金',
+      );
       const fundNo = await this.generateFundNo(mgr);
       const rate   = Number(dto.exchangeRate ?? 1);
       const amtBase = Number(dto.amountOriginal) * rate;
@@ -191,6 +211,10 @@ export class ShareholderFundsService {
     return this.ds.transaction(async mgr => {
       const fund = await mgr.findOne(Prc2ShareholderFundEntity, { where: { id } });
       if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: fund.companyCode, projectCode: fund.projectCode },
+        '股东资金',
+      );
       if (fund.status !== 'DRAFT') {
         throw new ConflictException(`只有草稿状态才可提交（当前状态：${fund.status}）`);
       }
@@ -226,6 +250,10 @@ export class ShareholderFundsService {
     return this.ds.transaction(async mgr => {
       const fund = await mgr.findOne(Prc2ShareholderFundEntity, { where: { id } });
       if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
+      this.scopeHelper.assertWritableOwnership(
+        { companyCode: fund.companyCode, projectCode: fund.projectCode },
+        '股东资金',
+      );
       if (!['DRAFT', 'PENDING_APPROVAL'].includes(fund.status)) {
         throw new ConflictException(`当前状态 ${fund.status} 不允许取消`);
       }

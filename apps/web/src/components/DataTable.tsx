@@ -70,9 +70,8 @@ function DataTable<T extends object = Record<string, unknown>>({
           <Search size={15} style={{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', color:'var(--text-secondary)' }} />
           <input type="text" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }}
             placeholder={searchPlaceholder}
-            style={{ width:'100%', paddingLeft:'32px', paddingRight:'10px', height:'34px', border:'1px solid var(--border)', borderRadius:'var(--radius-md)', fontSize:'13px', outline:'none', transition:'border-color 0.18s', backgroundColor:'var(--bg-page)', color:'var(--text-primary)' }}
-            onFocus={e => e.target.style.borderColor = 'var(--color-primary)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            className="phx-input"
+            style={{ width:'100%', paddingLeft:'32px', paddingRight:'10px', height:'34px' }}
           />
         </div>
         {filters}

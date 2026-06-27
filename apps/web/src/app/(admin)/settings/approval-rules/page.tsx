@@ -6,7 +6,9 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialogV2 } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
+import { usePermission } from "@/hooks/usePermission";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -249,6 +251,8 @@ function slaSummary(st: RuleStep): string {
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 export default function ApprovalRulesPage() {
   const toast = useToast();
+  const workflowPerm = usePermission('MENU_WORKFLOW_RULES');
+  const canManageRules = workflowPerm.check('C') || workflowPerm.check('E') || workflowPerm.check('D');
   const [rules, setRules] = useState<ApprovalRule[]>([]);
   const [delRule, setDelRule] = useState<ApprovalRule | null>(null);
   const [total, setTotal] = useState(0);
@@ -278,7 +282,7 @@ export default function ApprovalRulesPage() {
     steps: RuleStep[];
   }>({
     ruleCode: "",
-    moduleCode: "MENU_WORKFLOW",
+    moduleCode: "MENU_WORKFLOW_RULES",
     bizType: "PO",
     orgType: "",
     companyCode: "",
@@ -291,6 +295,7 @@ export default function ApprovalRulesPage() {
     remark: "",
     steps: [emptyStep(1)]
   });
+
   const [saving, setSaving] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
@@ -316,7 +321,7 @@ export default function ApprovalRulesPage() {
     setEditing(null);
     setForm({
       ruleCode: "",
-      moduleCode: "MENU_WORKFLOW",
+      moduleCode: "MENU_WORKFLOW_RULES",
       bizType: "PO",
       orgType: "",
       companyCode: "",
@@ -466,6 +471,10 @@ export default function ApprovalRulesPage() {
       };
     });
   };
+  if (!canManageRules) {
+    return <div className={u.emptyPad40}>无权限访问审批规则配置。请联系系统管理员授予工作流管理权限。</div>;
+  }
+
   return <div>
       <PageHeader title="审批规则管理" subtitle={`共 ${total} 条规则 — 配置各业务模块的审批步骤和条件`} breadcrumb={["系统设置", "审批规则"]} />
 
@@ -497,13 +506,13 @@ export default function ApprovalRulesPage() {
               <option value="true">已启用</option>
               <option value="false">已禁用</option>
             </select>
-            <button className={s.btnSecondary} onClick={load} disabled={loading}>
+            <button style={secondaryActionButton} onClick={load} disabled={loading}>
               <RefreshCw size={14} style={{
               marginRight: 6
             }} />刷新
             </button>
           </div>
-          <button className={s.btnPrimary} onClick={openCreate}>
+          <button style={primaryActionButton} onClick={openCreate}>
             <Plus size={14} style={{
             marginRight: 6
           }} />新建规则
@@ -999,9 +1008,7 @@ export default function ApprovalRulesPage() {
             <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setDrawerOpen(false)}>
               取消
             </button>
-            <button className={s.btnPrimary} onClick={handleSave} disabled={saving} style={{
-            flex: 2
-          }}>
+            <button onClick={handleSave} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>
               {saving ? "保存中…" : editing ? "保存修改" : "创建规则"}
             </button>
           </div>

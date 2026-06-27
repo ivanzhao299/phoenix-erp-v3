@@ -75,8 +75,10 @@ export class FinShareholderController {
   }
 
   /** POST /api/v2/finance/shareholders/contributions */
+  // G170：新建出资改判 'C'(创建)，与确认/直接入账('E')分开——支持"出纳建单、财务确认"的职责分离。
+  //   原来 create/edit/submit/confirm/cancel 全判 'E'，给了建单权就等于给了确认入账权。
   @Post('contributions')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU, 'C')
   createContribution(@Body() dto: CreateShareholderContributionDto) {
     return this.contribSvc.createManual(dto, this.scopedUser);
   }
@@ -95,8 +97,8 @@ export class FinShareholderController {
   @Post('contributions/:id/submit-confirm')
   @RequireMenu(MENU, 'E')
   @HttpCode(HttpStatus.OK)
-  submitConfirm(@Param('id') id: string) {
-    return this.contribSvc.submitConfirm(id, this.scopedUser);
+  submitConfirm(@Param('id') id: string, @Body() body?: { approverUserId?: string }) {
+    return this.contribSvc.submitConfirm(id, this.scopedUser, body?.approverUserId);
   }
 
   /** POST /api/v2/finance/shareholders/contributions/:id/confirm-direct */

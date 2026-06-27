@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
+import { usePermission } from '@/hooks/usePermission';
 import { RefreshCw, AlertTriangle, CheckCircle, AlertCircle, ShieldCheck, Database, BookOpen, Link2, Boxes, GitPullRequestArrow, Code2 } from 'lucide-react';
 
 /**
@@ -50,7 +51,43 @@ function severityColor(s: 'LOW'|'MEDIUM'|'HIGH'): string {
   return s === 'HIGH' ? 'var(--status-danger)' : s === 'MEDIUM' ? 'var(--status-warning)' : 'var(--color-accent)';
 }
 
+// g200n: 告警 DB enum → 中文([[feedback-hardcoded-english-to-chinese]])
+const SEVERITY_LABEL: Record<string, string> = {
+  HIGH:   '高',
+  MEDIUM: '中',
+  LOW:    '低',
+};
+const SOURCE_LABEL: Record<string, string> = {
+  'master-data':  '主数据',
+  'master_data':  '主数据',
+  'MASTER-DATA':  '主数据',
+  'MASTER_DATA':  '主数据',
+  traceability:   '追溯',
+  inventory:      '库存',
+  datascope:      '权限',
+  dict:           '字典',
+  workflow:       '审批',
+  code:           '编码',
+  TRACEABILITY:   '追溯',
+  INVENTORY:      '库存',
+  DATASCOPE:      '权限',
+  DICT:           '字典',
+  WORKFLOW:       '审批',
+  CODE:           '编码',
+};
+const TYPE_LABEL: Record<string, string> = {
+  DUPLICATE_NAME:    '名称重复',
+  DUPLICATE_CODE:    '编码重复',
+  MISSING_REQUIRED:  '必填缺失',
+  ORPHAN_REFERENCE:  '孤立引用',
+  STATUS_INVALID:    '状态异常',
+  NULL_REFERENCE:    '空引用',
+  STALE_RECORD:      '陈旧记录',
+};
+
 export default function DataQualityPage() {
+  const qualityPerm = usePermission('MENU_MD_QUALITY');
+  const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +107,7 @@ export default function DataQualityPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const cards = scores ? [
     { key: 'masterData',   label: '主数据健康', icon: Database,           score: scores.masterData,   weight: scores.weights.masterData,   path: '/data-quality/master-data' },
@@ -81,6 +118,8 @@ export default function DataQualityPage() {
     { key: 'workflow',     label: '审批健康',   icon: GitPullRequestArrow, score: scores.workflow,    weight: scores.weights.workflow,     path: '/data-quality/workflow' },
     { key: 'code',         label: '编码规范',   icon: Code2,              score: scores.code,         weight: scores.weights.code,         path: '/data-quality/code' },
   ] : [];
+
+  if (!canView) return <div className={u.emptyPad40}>无权限访问数据质量驾驶舱</div>;
 
   return (
     <div>
@@ -214,13 +253,13 @@ export default function DataQualityPage() {
                     minWidth: 56, padding: '2px 8px', borderRadius: 6,
                     background: `${sev}1a`, color: sev, fontSize: 11, fontWeight: 700, textAlign: 'center',
                   }}>
-                    {a.severity}
+                    {SEVERITY_LABEL[a.severity] ?? a.severity}
                   </div>
                   <div className={u.flex1}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{a.source}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{SOURCE_LABEL[a.source] ?? a.source}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>·</span>
-                      <span style={{ fontSize: 11, color: sev, fontWeight: 600 }}>{a.type}</span>
+                      <span style={{ fontSize: 11, color: sev, fontWeight: 600 }}>{TYPE_LABEL[a.type] ?? a.type}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>
                         影响 {a.count} 条
                       </span>

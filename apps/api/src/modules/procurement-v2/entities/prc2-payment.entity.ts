@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -12,6 +12,11 @@ import {
  *  - shareholder_ 股东代付时形成的投资款/借款记录
  */
 @Entity('prc2_payments')
+@Index('idx_prc2_pay_status', ['status'])
+@Index('idx_prc2_pay_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_prc2_pay_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
+@Index('idx_prc2_pay_shareholder', ['shareholderId'], { where: '"shareholder_id" IS NOT NULL' })
+@Index('idx_prc2_pay_date', ['paymentDate'], { where: '"payment_date" IS NOT NULL' })
 export class Prc2PaymentEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

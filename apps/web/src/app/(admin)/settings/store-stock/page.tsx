@@ -7,6 +7,7 @@ import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ToggleRight, ToggleLeft, Store, ShieldCheck } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import u from "@/styles/uix-utils.module.css";
 const hdr = () => ({
   "Content-Type": "application/json",

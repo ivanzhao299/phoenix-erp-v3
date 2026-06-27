@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
+import { ConfirmDialogV2 } from "@/components/design-system"; // G161：统一全局确认弹窗
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -267,6 +270,7 @@ export default function ShipmentsPage() {
   return <div style={{
     padding: 16
   }}>
+      <PageHeader title="采购物流" subtitle="运单 / 在途跟踪" breadcrumb={["采购管理", "采购物流"]} />
       {/* Filter bar */}
       <div style={{
       display: "flex",
@@ -378,15 +382,11 @@ export default function ShipmentsPage() {
               gap: 4,
               flexWrap: "wrap"
             }}>
-                  <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
-                  {(nextActions[row.status] ?? []).map(a => <button key={a.type} className={a.color === "danger" ? s.btnIconDanger : s.btnIcon} title={a.label} onClick={() => openAction(row, a.type)}>
-                      {a.type === "ready" && <Package size={13} />}
-                      {a.type === "dispatch" && <Send size={13} />}
-                      {a.type === "customs" && <AlertTriangle size={13} />}
-                      {a.type === "arrive" && <CheckCircle size={13} />}
-                      {a.type === "cancel" && <X size={13} />}
-                    </button>)}
-                  {["DRAFT", "READY"].includes(row.status) && <button className={s.btnIconDanger} title="取消" onClick={() => openAction(row, "cancel")}><X size={13} /></button>}
+                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                  {(nextActions[row.status] ?? []).map(a => (
+                    <button key={a.type} style={a.color === "danger" ? actBtnTone("danger") : actBtnTone("primary")} onClick={() => openAction(row, a.type)}>{a.label}</button>
+                  ))}
+                  {["DRAFT", "READY"].includes(row.status) && <button style={actBtnTone("danger")} onClick={() => openAction(row, "cancel")}>取消</button>}
                 </td>
               </tr>)}
           </tbody>
@@ -418,7 +418,8 @@ export default function ShipmentsPage() {
 
       {/* ── New Shipment Drawer ── */}
       <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title="新建物流运单" width={600}>
-        <div style={{
+        {/* G158：重表单仅 open 时挂载 */}
+        {formOpen && <div style={{
         padding: "0 24px 24px"
       }}>
           <div className={s.formSection}>
@@ -560,7 +561,7 @@ export default function ShipmentsPage() {
               {formSaving ? "保存中..." : "创建运单"}
             </button>
           </div>
-        </div>
+        </div>}
       </RightDrawer>
 
       {/* ── Detail Drawer ── */}
@@ -611,71 +612,32 @@ export default function ShipmentsPage() {
           </div>}
       </RightDrawer>
 
-      {/* ── Action Modal ── */}
-      {actionTarget && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "var(--overlay-black-50)",
-      zIndex: 1000,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }} onClick={() => setActionTarget(null)}>
-          <div style={{
-        background: "var(--bg-card)",
-        borderRadius: 12,
-        padding: 24,
-        width: 400,
-        maxWidth: "90vw"
-      }} onClick={e => e.stopPropagation()}>
-            <div style={{
-          fontWeight: 700,
-          fontSize: 16,
-          marginBottom: 12
-        }}>
-              {actionType === "ready" && "确认备货"}
-              {actionType === "dispatch" && "确认发运"}
-              {actionType === "customs" && "进入报关"}
-              {actionType === "arrive" && "确认到货"}
-              {actionType === "cancel" && "取消运单"}
-            </div>
-            <div style={{
-          fontSize: 13,
-          color: "var(--text-secondary)",
-          marginBottom: 16
-        }}>
-              运单：{actionTarget.shipmentNo}
-            </div>
-            {actionType === "customs" && <div className={u.mb12}>
-                <label className={u.muted12}>报关单号</label>
-                <input className={s.inp} value={customsDeclNo} onChange={e => setCustomsDeclNo(e.target.value)} placeholder="可选" style={{
-            marginTop: 4
-          }} />
-              </div>}
-            {actionType === "arrive" && <div className={u.mb12}>
-                <label className={u.muted12}>实际到货日期</label>
-                <input type="date" className={s.inp} value={actualArrivalDate} onChange={e => setActualArrivalDate(e.target.value)} style={{
-            marginTop: 4
-          }} />
-              </div>}
-            <div className={u.mb16}>
-              <label className={u.muted12}>备注（可选）</label>
-              <textarea className={s.textarea} rows={2} value={actionComment} onChange={e => setActionComment(e.target.value)} style={{
-            marginTop: 4
-          }} />
-            </div>
-            <div style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "flex-end"
-        }}>
-              <button className={s.btnSecondary} onClick={() => setActionTarget(null)}>取消</button>
-              <button className={actionType === "cancel" ? s.btnDanger : s.btnPrimary} onClick={handleAction} disabled={actionSaving}>
-                {actionSaving ? "处理中..." : "确认"}
-              </button>
-            </div>
+      {/* G161：自写 fixed overlay → 全局 ConfirmDialogV2 */}
+      <ConfirmDialogV2 open={!!actionTarget} danger={actionType === "cancel"}
+        title={
+          actionType === "ready" ? "确认备货" :
+          actionType === "dispatch" ? "确认发运" :
+          actionType === "customs" ? "进入报关" :
+          actionType === "arrive" ? "确认到货" :
+          actionType === "cancel" ? "取消运单" : "确认"
+        }
+        message={<>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>运单：{actionTarget?.shipmentNo}</div>
+          {actionType === "customs" && <div className={u.mb12}>
+            <label className={u.muted12}>报关单号</label>
+            <input className={s.inp} value={customsDeclNo} onChange={e => setCustomsDeclNo(e.target.value)} placeholder="可选" style={{ marginTop: 4 }} />
+          </div>}
+          {actionType === "arrive" && <div className={u.mb12}>
+            <label className={u.muted12}>实际到货日期</label>
+            <input type="date" className={s.inp} value={actualArrivalDate} onChange={e => setActualArrivalDate(e.target.value)} style={{ marginTop: 4 }} />
+          </div>}
+          <div className={u.mb16}>
+            <label className={u.muted12}>备注（可选）</label>
+            <textarea className={s.textarea} rows={2} value={actionComment} onChange={e => setActionComment(e.target.value)} style={{ marginTop: 4 }} />
           </div>
-        </div>}
+        </>}
+        confirmLabel={actionSaving ? "处理中..." : "确认"} loading={actionSaving}
+        onConfirm={handleAction} onCancel={() => setActionTarget(null)} />
     </div>;
 }
 function DetailRow({

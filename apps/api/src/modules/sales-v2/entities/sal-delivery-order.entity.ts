@@ -1,4 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { SalVehicleEntity } from './sal-vehicle.entity';
+import { SalDriverEntity } from './sal-driver.entity';
 
 /**
  * 配送单  sal_delivery_orders — Sales V2 Phase 4
@@ -8,6 +10,12 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
  *   → PARTIALLY_SIGNED → COMPLETED | CANCELLED
  */
 @Entity('sal_delivery_orders')
+@Index('idx_sal_do_company', ['companyCode'])
+@Index('idx_sal_do_status', ['status'])
+@Index('idx_sal_do_wave_date', ['waveDate'])
+@Index('idx_sal_do_driver', ['driverId'])
+@Index('idx_sal_do_vehicle', ['vehicleId'])
+@Index('idx_sal_do_created_at', ['createdAt'])
 export class SalDeliveryOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'delivery_no', type: 'varchar', length: 64, unique: true }) deliveryNo: string;
@@ -16,8 +24,14 @@ export class SalDeliveryOrderEntity {
   @Column({ name: 'route_code', type: 'varchar', length: 64, nullable: true }) routeCode: string | null;
   @Column({ name: 'route_name', type: 'varchar', length: 256, nullable: true }) routeName: string | null;
   @Column({ name: 'vehicle_id', type: 'bigint', nullable: true }) vehicleId: string | null;
+  @ManyToOne(() => SalVehicleEntity)
+  @JoinColumn({ name: 'vehicle_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_delivery_orders_vehicle_id_fkey' })
+  vehicle?: SalVehicleEntity;
   @Column({ name: 'vehicle_no', type: 'varchar', length: 64, nullable: true }) vehicleNo: string | null;
   @Column({ name: 'driver_id', type: 'bigint', nullable: true }) driverId: string | null;
+  @ManyToOne(() => SalDriverEntity)
+  @JoinColumn({ name: 'driver_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_delivery_orders_driver_id_fkey' })
+  driver?: SalDriverEntity;
   @Column({ name: 'driver_name', type: 'varchar', length: 256, nullable: true }) driverName: string | null;
   @Column({ name: 'wave_date', type: 'date', nullable: true }) waveDate: string | null;
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'PLANNED' }) status: string;

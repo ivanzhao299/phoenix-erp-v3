@@ -25,17 +25,18 @@ WHERE conrelid = 'sys_user_orgs'::regclass
 
 -- ── 检查 2：sys_organizations 关键组织节点存在 ────────────────────────────────
 \echo ''
-\echo '【检查2】sys_organizations 关键节点（集团/事业群/公司/场区）'
+-- G112 解耦：事业群(BU)已从法人树抽除、降为业务维度(biz_bu_membership)，
+--   故不再断言 BU-AGRI/BU-FOOD 节点存在；公司现直挂集团。
+\echo '【检查2】sys_organizations 关键节点（集团/公司/场区，BU 已解耦为维度）'
 SELECT
   CASE WHEN COUNT(*) FILTER (WHERE org_code = 'ORG-GROUP') = 1
-        AND COUNT(*) FILTER (WHERE org_code = 'BU-AGRI')  = 1
-        AND COUNT(*) FILTER (WHERE org_code = 'BU-FOOD')  = 1
         AND COUNT(*) FILTER (WHERE org_code = 'COMP-LAO-AGRI')    = 1
         AND COUNT(*) FILTER (WHERE org_code = 'COMP-LAO-FOOD')    = 1
         AND COUNT(*) FILTER (WHERE org_code = 'COMP-LAO-XINGCHI') = 1
         AND COUNT(*) FILTER (WHERE org_code = 'SITE-VTE-SLAUGHTER') = 1
-       THEN '✅ PASS — 关键组织节点齐全（' || COUNT(*) || ' 个节点）'
-       ELSE '❌ FAIL — 组织树不完整（仅 ' || COUNT(*) || ' 个节点）'
+        AND COUNT(*) FILTER (WHERE org_type = 'BU') = 0   -- BU 节点应已抽除
+       THEN '✅ PASS — 关键组织节点齐全且 BU 已解耦（' || COUNT(*) || ' 个节点）'
+       ELSE '❌ FAIL — 组织树关键节点缺失（' || COUNT(*) || ' 个节点）'
   END AS result
 FROM sys_organizations;
 

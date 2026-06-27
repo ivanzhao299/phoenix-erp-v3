@@ -9,8 +9,14 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { actionPill } from "@/components/design-system/cockpit-styles";
 
-const STATUS_CLS: Record<string,string> = {"ACTIVE":s.badgeSuccess, "DISCONTINUED":s.badgeNeutral, "INACTIVE":s.badgeNeutral};
+// g200m: status DB enum → 中文 + actionPill
+const STATUS_CFG: Record<string, { label: string; tone: 'success' | 'default' }> = {
+  ACTIVE:       { label: '启用',   tone: 'success' },
+  DISCONTINUED: { label: '已停产', tone: 'default' },
+  INACTIVE:     { label: '已停产', tone: 'default' },
+};
 
 // ✅ V3 表: mst_products
 const TABLE = "mst_products";
@@ -24,7 +30,11 @@ export default function Page() {
     { key: "product_name", title: t("ui.品级名称", "品级名称"), width: 160 },
     { key: "pack_type",    title: t("ui.包装类型", "包装类型"), width: 110 },
     { key: "unit",         title: t("ui.单位", "单位"),         width: 70 },
-    { key: "status",       title: t("common.status", "状态"),   width: 80 },
+    { key: "status",       title: t("common.status", "状态"),   width: 80,
+      render: (v: unknown) => {
+        const cfg = STATUS_CFG[String(v ?? '')] ?? { label: String(v ?? '—'), tone: 'default' as const };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      } },
   ];
 
   const FIELDS: FormField[] = [

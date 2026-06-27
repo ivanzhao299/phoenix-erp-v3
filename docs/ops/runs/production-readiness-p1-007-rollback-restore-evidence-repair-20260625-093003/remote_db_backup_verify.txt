@@ -1,0 +1,2 @@
+ls: cannot access '/opt/phoenix-erp-backups/db': Permission denied
+backup_verify_exit=0

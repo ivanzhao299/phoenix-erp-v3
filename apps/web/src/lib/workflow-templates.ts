@@ -45,7 +45,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "store_code", label: "所属门店", type: "reference", dataSource: "MST_STORES" },
       { key: "reason", label: "报销事由", type: "textarea", required: true, span: 2 },
     ],
-    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_SYSOPS" }, { id: "finance_approval", name: "财务复核", role: "ROLE_FIN_ACCT" }],
+    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_FIN_CFO" }, { id: "finance_approval", name: "财务复核", role: "ROLE_FIN_ACCT" }],
   },
   {
     key: "purchase",
@@ -63,7 +63,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "need_date", label: "期望到货日期", type: "date" },
       { key: "reason", label: "采购原因", type: "textarea", required: true, span: 2 },
     ],
-    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_SYSOPS" }, { id: "buyer_review", name: "采购复核", role: "ROLE_PRC_BUYER" }, { id: "finance_review", name: "财务审批", role: "ROLE_FIN_CFO" }],
+    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_PRC_BUYER" }, { id: "buyer_review", name: "采购复核", role: "ROLE_PRC_BUYER" }, { id: "finance_review", name: "财务审批", role: "ROLE_FIN_CFO" }],
   },
   {
     key: "payment",
@@ -81,7 +81,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "invoice_no", label: "发票/合同编号", type: "text" },
       { key: "reason", label: "付款说明", type: "textarea", required: true, span: 2 },
     ],
-    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_SYSOPS" }, { id: "finance_approval", name: "财务总监审批", role: "ROLE_FIN_CFO" }],
+    approvals: [{ id: "dept_approval", name: "部门负责人审批", role: "ROLE_FIN_CFO" }, { id: "finance_approval", name: "财务总监审批", role: "ROLE_FIN_CFO" }],
   },
   {
     key: "contract",
@@ -99,7 +99,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "effective_date", label: "生效日期", type: "date" },
       { key: "risk_note", label: "风险说明", type: "textarea", span: 2 },
     ],
-    approvals: [{ id: "biz_review", name: "业务负责人审批", role: "ROLE_SYSOPS" }, { id: "finance_review", name: "财务复核", role: "ROLE_FIN_CFO" }, { id: "final_review", name: "最终确认", role: "ROLE_SYSOPS" }],
+    approvals: [{ id: "biz_review", name: "业务负责人审批", role: "ROLE_FIN_CFO" }, { id: "finance_review", name: "财务复核", role: "ROLE_FIN_CFO" }, { id: "final_review", name: "最终确认", role: "ROLE_FIN_CFO" }],
   },
   {
     key: "leave",
@@ -116,7 +116,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "end_time", label: "结束时间", type: "datetime", required: true },
       { key: "reason", label: "请假原因", type: "textarea", required: true, span: 2 },
     ],
-    approvals: [{ id: "manager_approval", name: "负责人审批", role: "ROLE_SYSOPS" }],
+    approvals: [{ id: "manager_approval", name: "负责人审批", role: "ROLE_HR_ADMIN" }],
   },
   {
     key: "stock_adjust",
@@ -152,7 +152,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { key: "description", label: "异常描述", type: "textarea", required: true, span: 2 },
       { key: "proposal", label: "处理建议", type: "textarea", span: 2 },
     ],
-    approvals: [{ id: "qa_review", name: "品控负责人审批", role: "ROLE_QA_MGR" }, { id: "biz_confirm", name: "业务确认", role: "ROLE_SYSOPS" }],
+    approvals: [{ id: "qa_review", name: "品控负责人审批", role: "ROLE_QA_MGR" }, { id: "biz_confirm", name: "业务确认", role: "ROLE_QA_MGR" }],
   },
   {
     key: "store_discount",

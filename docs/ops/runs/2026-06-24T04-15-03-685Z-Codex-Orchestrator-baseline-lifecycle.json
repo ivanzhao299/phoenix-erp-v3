@@ -1,0 +1,35 @@
+{
+  "agent": "Codex-Orchestrator",
+  "branch": "w5-codex-orchestrator",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+  "status": "COMPLETED_MERGED",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [
+    {
+      "label": "target worktree",
+      "message": "docs(ops): record generated ops artifacts",
+      "files": [
+        "docs/ops/AGENT_TASK_BOARD.md",
+        "docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md",
+        "docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md",
+        "docs/ops/runtime-memory/DECISION_LOG.md",
+        "docs/ops/runtime-memory/GUARDRAILS.md",
+        "docs/ops/runtime-memory/NEXT_ACTIONS.md",
+        "docs/ops/runtime-memory/PROJECT_STATE.json",
+        "docs/ops/runtime-memory/STORE_PAYMENT_STATE.md",
+        "docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_REPORT.md",
+        "docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/"
+      ]
+    }
+  ],
+  "rebase": "completed",
+  "merge": "completed",
+  "gate": "PASS",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No"
+}

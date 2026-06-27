@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { GroupAnalyticsService } from './services/group-analytics.service';
 import { FinanceAnalyticsService } from './services/finance-analytics.service';
 import { SalesAnalyticsAggregatorService } from './services/sales-analytics-aggregator.service';
@@ -18,7 +19,8 @@ import { ForecastAnalyticsService } from './services/forecast-analytics.service'
  *   ?dateFrom=YYYY-MM-DD ?dateTo=YYYY-MM-DD
  */
 @Controller('api/v2/analytics')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), MenuGuard)
+@RequireMenu('MENU_DASHBOARD', 'V', ['MENU_ANALYTICS'])
 export class AnalyticsController {
   constructor(
     private readonly group:        GroupAnalyticsService,

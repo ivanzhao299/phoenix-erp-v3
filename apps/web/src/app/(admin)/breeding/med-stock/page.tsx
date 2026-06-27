@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RefreshCw, Search } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 function tok() {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
@@ -189,31 +190,22 @@ export default function MedStockPage() {
       marginBottom: 20,
       borderBottom: '2px solid var(--border)'
     }}>
-        {TABS.map(tb => <button key={tb.key} onClick={() => setTab(tb.key)} className={tab === tb.key ? s.btnPrimary : s.btnSecondary} style={{
-        borderRadius: '8px 8px 0 0',
-        padding: '8px 18px',
-        fontWeight: 600,
-        fontSize: 13
-      }}>
+        {TABS.map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key)} style={{ ...(tab === tb.key ? primaryActionButton : secondaryActionButton), borderRadius: "8px 8px 0 0" }}>
             {tb.label}
-          </button>)}
+          </button>
+        ))}
         <div className={u.flex1} />
-        {(tab === 'inbound' || tab === 'outbound') && canEdit && <button className={saved ? s.btnSecondary : s.btnPrimary} onClick={handleSave} disabled={saving || !hasChanges} style={{
-        alignSelf: 'flex-start',
-        marginBottom: 2,
-        opacity: hasChanges ? 1 : 0.5
-      }}>
-            {saving ? '提交中…' : saved ? '✓ 已保存' : '提交'}
-          </button>}
-        {tab === 'stock' && <button className={s.btnSecondary} onClick={loadStock} style={{
-        alignSelf: 'flex-start',
-        marginBottom: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4
-      }}>
-            <RefreshCw size={14} />刷新
-          </button>}
+        {(tab === 'inbound' || tab === 'outbound') && canEdit && (
+          <button onClick={handleSave} disabled={saving || !hasChanges} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
+            {saving ? '提交中…' : saved ? '已保存' : '提交'}
+          </button>
+        )}
+        {tab === 'stock' && (
+          <button onClick={loadStock} style={{ ...secondaryActionButton, alignSelf: 'flex-start', marginBottom: 2 }}>
+            <RefreshCw size={13} />刷新
+          </button>
+        )}
       </div>
 
       {error && <div style={{
@@ -408,12 +400,8 @@ export default function MedStockPage() {
           color: 'var(--text-primary)',
           background: 'var(--bg-card)'
         }} />
-            <button className={s.btnSecondary} onClick={loadLedger} style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4
-        }}>
-              <RefreshCw size={14} />查询
+            <button onClick={loadLedger} style={secondaryActionButton}>
+              <RefreshCw size={13} />查询
             </button>
           </div>
           <div style={{

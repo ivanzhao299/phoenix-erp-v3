@@ -1,0 +1,16 @@
+db_identity={"database":"phoenix_erp","db_user":"phoenix_v3","schema":"public"}
+input_file_count=74
+dry_run_rows_count=74
+auto_claim_ready_count=15
+manual_review_required_count=0
+unresolved_or_hold_count=59
+searched_columns_count=245
+db_write_executed=false
+file_metadata_inserted=false
+files_deleted=false
+files_moved=false
+deploy_executed=false
+restart_executed=false
+push_executed=false
+raw_url_generated=false
+uploads_public_url_generated=false

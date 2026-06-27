@@ -1,6 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 @Entity('wf_approval_instance_steps')
+@Index('idx_wf_istep_instance_id', ['instanceId'])
+@Index('idx_wf_istep_instance_step', ['instanceId', 'stepNo'])
+@Index('idx_wf_istep_status', ['status'])
+@Index('idx_wf_istep_approver_user', ['approverUserId'], { where: '"approver_user_id" IS NOT NULL' })
+@Index('idx_wf_istep_due_at', ['dueAt'], { where: '"due_at" IS NOT NULL' })
+@Index('idx_wf_istep_overdue', ['isOverdue'], { where: '"is_overdue" = TRUE' })
+@Index('idx_wf_istep_task', ['sourceTaskId'], { where: '"source_task_id" IS NOT NULL' })
 export class WfApprovalInstanceStepEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

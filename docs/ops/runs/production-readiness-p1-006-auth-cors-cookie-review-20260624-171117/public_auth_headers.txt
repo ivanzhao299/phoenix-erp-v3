@@ -1,0 +1,88 @@
+--- public api health headers/body ---
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Wed, 24 Jun 2026 09:11:18 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 395
+Connection: keep-alive
+x-powered-by: Express
+Vary: Origin, Accept-Encoding
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"18b-QacdHcfXb14YJ9rmFwdkZtM/YBs"
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+
+{"status":"OK","service":"Phoenix ERP V3 API","timestamp":"2026-06-24T09:11:18.670Z","uptime":2985,"boot_at":"2026-06-24T08:21:35.291Z","env":"production","node_version":"v20.20.2","jwt":{"loaded":true,"fingerprint":"...317f","rotation_active":false,"expires_in":"8h","clock_tolerance_sec":60},"db":{"connected":true},"security":{"jwt_fallback_in_use":false,"is_production":true,"warning":null}}--- root headers ---
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 307 Temporary Redirect
+Server: nginx
+Date: Wed, 24 Jun 2026 09:11:19 GMT
+Connection: keep-alive
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+location: /login
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+
+--- login page headers ---
+curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to erp.eggslao.com:443 
+HTTP/1.1 200 Connection established
+
+--- unauth current-user maybe ---
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 404 Not Found
+Server: nginx
+Date: Wed, 24 Jun 2026 09:11:21 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 10705
+Connection: keep-alive
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-nextjs-cache: HIT
+x-nextjs-prerender: 1
+x-nextjs-prerender: 1
+x-nextjs-stale-time: 300
+ETag: "2mwesawxkz87t"
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+
+[HTML BODY OMITTED]
+HTTP/1.1 200 Connection established
+
+HTTP/1.1 401 Unauthorized
+Server: nginx
+Date: Wed, 24 Jun 2026 09:11:22 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 80
+Connection: keep-alive
+x-powered-by: Express
+Vary: Origin, Accept-Encoding
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"50-55fnKXy0793N4+wgvE7ZLQPT8Lo"
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+
+{"code":401,"message":"未提供 Token","error":"Unauthorized","statusCode":401}

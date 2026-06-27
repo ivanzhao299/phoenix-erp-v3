@@ -1,0 +1,5 @@
+# p0-001 store company grant probe default ssh
+local_time=2026-06-24T19:55:26+08:00
+store=STORE-VTE-001,COMP-LAO-AGRI,ACTIVE
+org=COMP-LAO-AGRI,ACTIVE
+grants=11

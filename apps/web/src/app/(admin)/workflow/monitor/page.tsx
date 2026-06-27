@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowMonitorTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 export default function WorkflowMonitorPage() {
@@ -57,7 +58,7 @@ export default function WorkflowMonitorPage() {
     }
   }
   return <div>
-      <PageHeader title="流程督办" subtitle="查看正在流转的审批任务，识别超时与长期等待项，并对卡点流程发起催办" breadcrumb={["工作流", "流程督办"]} actions={<Link href="/workflow/instances?status=RUNNING" className={s.btnSecondary}>流转中实例</Link>} />
+      <PageHeader title="流程督办" subtitle="查看正在流转的审批任务，识别超时与长期等待项，并对卡点流程发起催办" breadcrumb={["工作流", "流程督办"]} actions={<Link href="/workflow/instances?status=RUNNING" style={secondaryActionButton}>流转中实例</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={metricGridStyle}>
@@ -76,7 +77,7 @@ export default function WorkflowMonitorPage() {
                 <h3 className={s.cardTitle}>当前卡点</h3>
                 <p className={`${s.modalDesc} ${u.mt4}`}>超时、临近超时和等待最久的任务优先展示。</p>
               </div>
-              <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}>刷新</button>
+              <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>刷新</button>
             </div>
 
             {rows.length ? <div style={listStyle}>
@@ -130,8 +131,8 @@ export default function WorkflowMonitorPage() {
               </div>
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看详情</Link>
-                <button type="button" className={s.btnPrimary} disabled={loading} onClick={urge}>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看详情</Link>
+                <button type="button" style={primaryActionButton} disabled={loading} onClick={urge}>
                   {loading ? "催办中..." : "发送催办"}
                 </button>
               </div>

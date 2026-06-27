@@ -52,7 +52,7 @@ export class ApprovalRulesService {
         userId || null,
         userName || null,
         roles[0] || null,
-        'MENU_WORKFLOW',
+        'MENU_WORKFLOW_RULES',
         action,
         'APPROVAL_RULE',
         bizId || null,

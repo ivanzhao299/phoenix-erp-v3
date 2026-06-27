@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Activity, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, RefreshCw, BarChart3, ArrowUpCircle, Bell, Wifi, WifiOff } from 'lucide-react';
 import s from "@/components/ui/admin-ui.module.css";
+import { usePermission } from "@/hooks/usePermission";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -267,17 +268,27 @@ function PushHealthCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function WorkflowMetricsPage() {
+  const workflowPerm = usePermission('MENU_WORKFLOW_METRICS');
+  const canViewMetrics = workflowPerm.check('X') || workflowPerm.check('E') || workflowPerm.check('D');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<OverdueTask[]>([]);
   const [escalatedTasks, setEscalatedTasks] = useState<EscalatedTask[]>([]);
   const [pushHealth, setPushHealth] = useState<PushHealth | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);   // G135：Web Push 配置告警仅管理员可见
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshingAt, setRefreshingAt] = useState<Date | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    // G137：VAPID/Web Push 是服务器运维配置，只有**字面系统管理员账号(admin)**才需处理。
+    //   原 G135 按 ROLE_ADMIN/'*' 判定 → 老板赵永伟也是 ROLE_ADMIN 超管 → 仍被红 banner 占满。
+    //   收紧为 username==='admin'：业务超管(CEO/老板)不再看到这条服务器配置告警。
+    try {
+      const su = JSON.parse(localStorage.getItem('phoenix_user') || '{}');
+      setIsAdmin(su.username === 'admin');
+    } catch { /* ignore */ }
     try {
       const [ov, bn, od, es, ph] = await Promise.all([apiFetch<Overview>('/api/workflow/metrics/overview'), apiFetch<Bottleneck[]>('/api/workflow/metrics/bottlenecks'), apiFetch<OverdueTask[]>('/api/workflow/metrics/overdue-tasks'), apiFetch<EscalatedTask[]>('/api/workflow/metrics/escalated-tasks'), apiFetch<PushHealth>('/api/notifications/push/health').catch(() => null)]);
       setOverview(ov);
@@ -305,6 +316,10 @@ export default function WorkflowMetricsPage() {
       minute: '2-digit'
     });
   }
+  if (!canViewMetrics) {
+    return <div className={u.emptyPad40}>无权限访问审批看板。请联系系统管理员授予工作流统计权限。</div>;
+  }
+
   return <div style={{
     padding: '28px 32px',
     maxWidth: 1200,
@@ -382,7 +397,9 @@ export default function WorkflowMetricsPage() {
         </div>}
 
       {/* ── Push 健康状态 ── */}
-      {pushHealth && <div className={u.mb24}>
+      {/* G135：Web Push 配置卡仅管理员可见——已配置时也只对管理员展示；非管理员(如审批人赵永伟)不再被
+          "未配置"红 banner 占满视线（VAPID 是服务器配置事项，他们无从处理） */}
+      {pushHealth && isAdmin && <div className={u.mb24}>
           <PushHealthCard health={pushHealth} />
         </div>}
 

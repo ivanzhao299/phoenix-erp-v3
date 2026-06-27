@@ -42,7 +42,13 @@ interface RefItem { refTable: string; refDocType: string; refCount: number; }
 export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { canView, isSuper } = usePermission("MENU_MASTER_DATA");
+  const supplierPerm = usePermission("MENU_MD_SUPPLIER");
+  const purchaseOrderPerm = usePermission("MENU_PRC2_ORDER");
+  const apPerm = usePermission("MENU_FIN2_AP");
+  const canView = supplierPerm.canView || supplierPerm.isSuper;
+  const isSuper = supplierPerm.isSuper;
+  const canViewPurchaseOrders = purchaseOrderPerm.canView || purchaseOrderPerm.isSuper;
+  const canViewAp = apPerm.canView || apPerm.isSuper;
 
   const code = decodeURIComponent(String(params?.code || ""));
 
@@ -74,25 +80,33 @@ export default function SupplierDetailPage() {
       }
     })();
 
-    // 2) 采购单
-    (async () => {
-      try {
-        const r = await request<any>(`/v2/procurement/orders?supplierCode=${encodeURIComponent(code)}&limit=100`);
-        setOrders(toArr(r));
-      } catch {
-        setOrders([]);
-      }
-    })();
+    // 2) 采购单：跨采购域页签仅在持 MENU_PRC2_ORDER 时展示/请求。
+    if (canViewPurchaseOrders) {
+      (async () => {
+        try {
+          const r = await request<any>(`/v2/procurement/orders?supplierCode=${encodeURIComponent(code)}&limit=100`);
+          setOrders(toArr(r));
+        } catch {
+          setOrders([]);
+        }
+      })();
+    } else {
+      setOrders([]);
+    }
 
-    // 3) 应付（AP）
-    (async () => {
-      try {
-        const r = await request<any>(`/v2/finance/ap?supplierCode=${encodeURIComponent(code)}&pageSize=100`);
-        setApRows(toArr(r));
-      } catch {
-        setApRows([]);
-      }
-    })();
+    // 3) 应付：跨财务域页签仅在持 MENU_FIN2_AP 时展示/请求。
+    if (canViewAp) {
+      (async () => {
+        try {
+          const r = await request<any>(`/v2/finance/ap?supplierCode=${encodeURIComponent(code)}&pageSize=100`);
+          setApRows(toArr(r));
+        } catch {
+          setApRows([]);
+        }
+      })();
+    } else {
+      setApRows([]);
+    }
 
     // 4) 引用
     (async () => {
@@ -107,7 +121,7 @@ export default function SupplierDetailPage() {
     })();
 
     setLoading(false);
-  }, [code]);
+  }, [code, canViewAp, canViewPurchaseOrders]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -301,7 +315,7 @@ export default function SupplierDetailPage() {
         }
         tabs={[
           { key: "info", label: "基本信息", content: infoTab },
-          {
+          ...(canViewPurchaseOrders ? [{
             key: "orders",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -309,8 +323,8 @@ export default function SupplierDetailPage() {
               </span>
             ),
             content: ordersTab,
-          },
-          {
+          }] : []),
+          ...(canViewAp ? [{
             key: "ap",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -318,7 +332,7 @@ export default function SupplierDetailPage() {
               </span>
             ),
             content: apTab,
-          },
+          }] : []),
           {
             key: "refs",
             label: (

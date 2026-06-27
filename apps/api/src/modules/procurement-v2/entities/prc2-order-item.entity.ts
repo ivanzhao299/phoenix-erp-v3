@@ -1,11 +1,14 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 采购订单明细  prc2_order_items
  *  说明：每行可归属不同项目（支持一张PO跨项目采购场景） */
 @Entity('prc2_order_items')
+@Index('idx_prc2_poi_po_id', ['poId'])
+@Index('idx_prc2_poi_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
+@Index('idx_prc2_order_items_product', ['productCode'], { where: '"product_code" IS NOT NULL' })
 export class Prc2OrderItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

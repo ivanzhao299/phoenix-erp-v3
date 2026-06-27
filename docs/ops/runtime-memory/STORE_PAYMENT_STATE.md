@@ -1,0 +1,986 @@
+# Store Payment Runtime State
+
+Last updated: 2026-06-24
+
+## Production-Side Menu / Role / DataScope Repair Execution
+
+Conclusion: GO WITH CONDITIONS.
+
+Remote execution directory:
+
+`/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-execution-20260624-134210`
+
+Local evidence directory:
+
+`docs/ops/runs/remediation-r3-menu-role-datascope-repair-execution-20260624-134210/`
+
+Execution result:
+
+- Store Payment menus present: 5.
+- Store Payment role permissions present: 11.
+- Store Payment DataScope rows present: 11.
+- Clear user scope row present: 1.
+- MANUAL_REVIEW_REQUIRED rows executed: 0.
+- HOLD items executed: 0.
+- DB write executed: yes, approved Store Payment scope only.
+- Migration executed: no.
+- Deploy / restart / push executed: no.
+- Permission deletion: no.
+- Non-Store Payment permission expansion: no.
+
+Runtime compatibility decisions:
+
+- Action-bit target remains `V/E/X`.
+- Store Payment-only legacy `C/A` compatibility grants were inserted where current runtime requires them.
+- Remote `sys_data_scopes.scope_type` does not support `STORE` or `ALL`.
+- DataScope execution used runtime-compatible `SELF`, `COMPANY`, and `GROUP`.
+
+Next recommended single Gate:
+
+`APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`
+
+## Production-Side High Throughput Remediation Batch 1
+
+Conclusion: GO WITH CONDITIONS / HOLD ITEMS PRESENT.
+
+High-throughput diagnosis mode was enabled with `default_parallel_limit=4` and `remote_ssh_parallel_limit=2`. The batch remained read-only and did not execute DB writes, migration, deploy, restart, push, file delete/move, Nginx change, env change, or business-code change.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r3-high-throughput-batch1-20260624-124012`
+
+Local evidence directory:
+
+`docs/ops/runs/remediation-r3-high-throughput-batch1-20260624-124012/`
+
+Results:
+
+- Menu / Role / DataScope audit: `READY_FOR_MENU_ROLE_DATASCOPE_REPAIR_APPROVAL`.
+- Initial data import diagnosis: `GO_WITH_CONDITIONS`.
+- Master data diagnosis: `GO_WITH_CONDITIONS`.
+- Unresolved uploads owner diagnosis: `HOLD`; 59 files remain without owner evidence.
+- Deploy-chain hardening review: `HOLD_FOR_HARDENING_PLAN`; remote checkout has local Nginx modification and backup artifacts.
+- A7 summary: `GO_WITH_CONDITIONS / HOLD_ITEMS_PRESENT`.
+
+Next recommended Gates:
+
+1. `APPROVE_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_GATE`
+2. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_PLAN`
+3. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`
+4. `APPROVE_UNRESOLVED_UPLOADS_SECOND_PASS_OWNER_CORRELATION_DRY_RUN`
+5. `APPROVE_DEPLOY_CHAIN_HARDENING_PLAN`
+
+## Production-Side Menu / Role / DataScope Repair Dry-Run
+
+Conclusion: READY_FOR_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_APPROVAL WITH CONDITIONS.
+
+Remote dry-run directory:
+
+`/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947`
+
+Local evidence directory:
+
+`docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/`
+
+Candidate counts:
+
+- Menu repair candidates: 5.
+- Role authorization repair candidates: 11.
+- DataScope repair candidates: 11.
+- User scope repair candidates: 1.
+- MANUAL_REVIEW_REQUIRED: 3.
+- HOLD items: 2.
+
+Boundaries:
+
+- No DB write.
+- No SQL execution.
+- No menu / role / DataScope / user-scope modification.
+- No migration.
+- No deploy or restart.
+- No push.
+
+Next recommended Gate:
+
+`APPROVE_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_GATE`
+
+Execution conditions:
+
+1. choose code-aligned `E` policy or separately approve temporary `C/A` compatibility;
+2. execute only clear candidates;
+3. exclude MANUAL_REVIEW_REQUIRED users;
+4. do not auto-delete over-wide grants.
+
+## Current Decision
+
+HOLD for production-side schema/data remediation.
+
+R1 migration-state audit is complete with conditions. The remote remediation target is `main@87b5781`; it contains the Store Payment table migration file but does not contain the File Metadata migration file. The audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`. `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`. No migration, DB write, deploy, restart, or push was executed.
+
+Next approved step required: `APPROVE_UPLOADS_FILE_SECURITY_REMEDIATION_PRECHECK`.
+
+## Production-Side File Metadata Migration Execution Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r1-file-metadata-migration-20260623-235224`
+
+Facts:
+
+- `1782042418112-CreateFileMetadata.ts` existed on the remote host.
+- Pending migration list contained exactly `1782042418112-CreateFileMetadata.ts`.
+- Target DB was `phoenix_erp`.
+- Target schema was `public`.
+- `file_metadata` was absent before execution.
+- File Metadata history count was 0 before execution.
+- R0 backup was present.
+- The Gate created `public.file_metadata`.
+- The Gate added migration history row `1782042418112:CreateFileMetadata1782042418112`.
+- `file_metadata` row count after migration was 0.
+- Store Payment tables remained present.
+- No Store Payment schema repair, menu / role sync, master data repair, UAT fixture insert, deploy, restart, or push was executed.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_MIGRATION_COMPLETE`.
+
+## Production-Side Uploads / File Security Precheck Result
+
+Conclusion: READY_FOR_UPLOADS_FILE_SECURITY_REMEDIATION_PLAN.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r2-uploads-file-security-precheck-20260624-001809`
+
+Facts:
+
+- Upload volume `phoenix_uploads` is mounted at `/app/uploads` in the API container.
+- Upload inventory found 74 files, total size about 63.8M.
+- Observed extensions: PDF, JPG, PNG.
+- No executable upload files were reported.
+- Active Nginx config proxies `/uploads/` to the API container.
+- A legacy uploaded contract file was directly reachable from `http://127.0.0.1:3100/uploads/contracts/[REDACTED_BASENAME]` with HTTP 200.
+- `POST /api/upload/contract` remains active and returns `/uploads/contracts/${file.filename}`.
+- `file_metadata` exists remotely but has 0 rows.
+- Store Payment protected attachment code paths use `FileAccessService` and keep `rawUrl: null`.
+- No file delete, file move, permission change, Nginx change, env change, DB write, migration, deploy, restart, or push was executed.
+
+Risk summary:
+
+- Confirmed P0: 1.
+- Confirmed P1: 3.
+- Confirmed P2: 2.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_FILE_SECURITY_PRECHECK_READY`.
+
+## Production-Side Uploads Exposure Hardening Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r2-uploads-exposure-hardening-20260624-011703`
+
+Facts:
+
+- Active Nginx `/uploads/` was changed from proxying to API static file serving to `return 403`.
+- `/etc/nginx/conf.d/erp.eggslao.com.conf` was backed up before change.
+- `/opt/phoenix-erp/nginx/erp.eggslao.com.conf` was backed up before change.
+- `nginx -t` passed with pre-existing warnings unrelated to this Gate.
+- `nginx -s reload` executed successfully.
+- Public HTTPS `/uploads/` with `Host: erp.eggslao.com` returns `403`.
+- Public HTTPS `/uploads/contracts/` with `Host: erp.eggslao.com` returns `403`.
+- API internal `127.0.0.1:3100/uploads/contracts/[file]` remains `200`.
+- API health returned `200`.
+- Web health returned `307` to `/login`.
+- API restart was not executed.
+- Application deploy was not executed.
+- DB write, migration, file delete, file move, and push were not executed.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENED`.
+
+## Production-Side Legacy Upload To File Metadata Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Facts:
+
+- `POST /api/upload/contract` source code now writes `file_metadata`.
+- The new response returns `fileId`, safe metadata, `rawUrl: null`, `previewUrl: null`, `downloadUrl: null`, and compatibility `url=fileId`.
+- The new response does not return `/uploads/contracts/...`.
+- `storage_path` is stored only in `file_metadata` and is not returned.
+- Missing module / owner input is stored as `LEGACY_UPLOAD / LEGACY_PENDING / LEGACY_PENDING` with `status=PENDING` and `visibility=PROTECTED`.
+- No generic `/files/:fileId/status|preview|download` endpoint exists yet; the response does not fake one.
+- Runtime deployment and service restart were not executed.
+- Runtime metadata rows written by this Gate: 0.
+- Remote SSH smoke failed during banner exchange, so fresh remote row count / health / Nginx evidence was unavailable in this run.
+- No historical files were deleted or moved.
+- No migration, Nginx change, production env change, deploy, restart, or push was executed.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_METADATA_READY`.
+
+## Production-Side Historical Uploads Inventory Result
+
+Conclusion: READY_FOR_HISTORICAL_UPLOADS_METADATA_CLAIM_APPROVAL.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r2-historical-uploads-inventory-20260624-085306`
+
+Facts:
+
+- Inventory root was `/var/lib/docker/volumes/phoenix_uploads/_data`.
+- Historical upload file count: 74.
+- Total size: 66,718,630 bytes / 63.6 MB.
+- Type distribution: 38 PDF, 19 JPG, 17 PNG.
+- All files were under `contracts/`.
+- Static risk file count: 0.
+- Duplicate basename count: 0.
+- Empty file count: 0.
+- Executable file count: 0.
+- Unexpected extension count: 0.
+- Sensitive filename match count: 0.
+- Path traversal filename risk count: 0.
+- Metadata claim candidate count: 74.
+- Orphan candidate count by filesystem classification: 0.
+- Candidate category: `CONTRACT_ATTACHMENT_CANDIDATE`.
+- No DB write, `file_metadata` insert, file delete, file move, permission change, migration, deploy, restart, push, Nginx change, or env change occurred.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_INVENTORY_READY`.
+
+## Production-Side Historical Uploads Metadata Claim Dry-Run Result
+
+Conclusion: READY_FOR_METADATA_CLAIM_EXECUTION_APPROVAL.
+
+Facts:
+
+- Input inventory file count: 74.
+- SSH observability was restored with conditions and the dry-run executed with low-concurrency remote file output.
+- Remote dry-run directory: `/opt/phoenix-erp-backups/remediation-r2-restore-ssh-and-metadata-claim-dry-run-20260624-111145`.
+- Local pulled evidence exists under `docs/ops/runs/restore-ssh-and-metadata-claim-dry-run-20260624-111145/`.
+- dry-run rows generated: 74.
+- `AUTO_CLAIM_READY`: 15.
+- `MANUAL_REVIEW_REQUIRED`: 0.
+- `UNRESOLVED_OR_HOLD`: 59.
+- AUTO sources: 14 from `prc2_purchase_orders.contract_url`, 1 from `prc2_payments.voucher_url`.
+- No DB write occurred.
+- No `file_metadata` insert occurred.
+- No file delete, file move, migration, deploy, restart, push, Nginx change, env change, or business-code change occurred.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_DRY_RUN_READY`.
+
+## Production-Side Historical Uploads Metadata Claim Execution Result
+
+Conclusion: GO.
+
+Remote execution directory:
+
+`/opt/phoenix-erp-backups/remediation-r2-historical-uploads-metadata-claim-execution-20260624-120740`
+
+Facts:
+
+- Approved execution scope was limited to 15 AUTO_CLAIM_READY rows.
+- Inserted `file_metadata` rows: 15.
+- Skipped rows: 0.
+- Failed rows: 0.
+- Continuing HOLD files: 59.
+- Contract tables were not modified.
+- Business tables were not modified.
+- Upload files were not deleted or moved.
+- File permissions were not changed.
+- No migration, deploy, restart, push, Nginx change, or env change occurred.
+- Public HTTPS `/uploads` remained `403`.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIMED_PARTIAL`.
+
+## Production-Side Menu / Role / DataScope Remote Audit Result
+
+Conclusion: READY_FOR_MENU_ROLE_DATASCOPE_REPAIR_APPROVAL.
+
+Remote evidence directory:
+
+`/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-audit-20260624-122800`
+
+Facts:
+
+- Store Payment menu codes present remotely: 0 of 5.
+- Store Payment role-menu grants present remotely: 0.
+- Store Payment DataScope rows present remotely: 0.
+- Expected Store Payment grant gaps: 11.
+- Pilot / finance role users without organization scope rows: 4.
+- Duplicate menu code count: 0.
+- Orphan menu count: 1.
+- Running remote Store Payment code has guards and explicit menu requirements.
+- Running remote Store Payment code still uses older action bits (`C/A`) while current target policy is `V/E/X`.
+- No DB write, menu modification, role modification, user-scope modification, migration, deploy, restart, or push was executed.
+
+Current production-side remediation stage: `PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_AUDIT_READY`.
+
+Next recommended Gate:
+
+`APPROVE_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_GATE`.
+
+## Prior Controlled Pilot Decision
+
+GO WITH CONDITIONS.
+
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed. The staging-only workflow/env/compose skeleton is now ready. The production server connection card has been sanitized and can produce a same-host staging candidate only with explicit isolation approval. Real staging execution still waits for user approval and GitHub `staging` environment secrets.
+
+## Completed Facts
+
+1. Store Payment migration has been executed for the approved local target.
+2. `store_payment_accounts` exists.
+3. `store_payment_records` exists.
+4. `MENU_STORE_PAYMENT_ACCOUNT` is registered.
+5. `MENU_STORE_PAYMENT` is registered.
+6. `MENU_STORE_PAYMENT_CONFIRM` is registered.
+7. `MENU_STORE_PAYMENT_VOID` is registered.
+8. `MENU_STORE_PAYMENT_EXPORT` is registered.
+9. Store Payment role grants have been written: 23 grants.
+10. Canonical store code is `STORE-VTE-001`.
+11. Legacy alias is `ST-VTE-001`.
+12. Store name is 万象直营店.
+13. Company code is `COMP-LAO-AGRI`.
+14. Pilot store payment accounts have been initialized as disabled / pending placeholders: 3.
+15. A3 Backend Gate completed protected attachment controlled status endpoints.
+16. Backend does not return raw URL for Store Payment proof / QR attachment access.
+17. Backend preview/download remains disabled.
+18. DataScope alias handling is in place for `STORE-VTE-001` and `ST-VTE-001`.
+19. Store Payment action-bit alignment is V/E/X.
+20. A4 Frontend Gate completed `/store-payment`.
+21. A3 protected attachment Gate added Store Payment attachment status / preview / download routes.
+22. Attachment status verifies Store Payment ownership, RBAC, and DataScope before returning controlled state.
+23. Preview/download routes verify ownership, RBAC, and DataScope, then return a denied-safe not-implemented response.
+24. File Metadata / ACL Gate created `file_metadata` and added `FileAccessService`.
+25. Store Payment protected status / preview / download routes now use `file_metadata.file_id`.
+26. Existing upload module source has been changed to return `fileId` + protected metadata with `rawUrl: null` and compatibility `url=fileId`; production runtime proof still requires CI/CD deploy verification.
+27. Current `file_metadata` row count is 1 after local UAT metadata setup; no seed was executed.
+28. A4 protected preview/download UI draft is implemented.
+29. Frontend calls only Store Payment protected attachment endpoints for status / preview / download.
+30. Frontend remains fail-closed when metadata is missing, pending, disabled, denied, or rawUrl appears.
+31. Local `file_metadata` UAT row `FILE-SP-UAT-001` exists.
+32. `FILE-SP-UAT-001` is associated with Store Payment account `id=1`.
+33. `store_payment_accounts.id=1` has `qr_attachment_id=FILE-SP-UAT-001`.
+34. Protected status smoke passed for `FILE-SP-UAT-001`.
+35. Protected preview smoke passed for `FILE-SP-UAT-001`.
+36. Protected download smoke passed for `FILE-SP-UAT-001`.
+37. `/store-payment` page-level QR status UAT smoke passed for `FILE-SP-UAT-001`.
+38. `/store-payment` page-level QR preview UAT smoke passed through the protected endpoint.
+39. `/store-payment` page-level QR download UAT smoke passed through the protected endpoint.
+40. `/store-payment` did not display `rawUrl`, did not construct `/uploads`, and did not leak `storage_path`.
+41. Local UAT record `SP-UAT-PROOF-001` exists in `store_payment_records`.
+42. `SP-UAT-PROOF-001` references proof file `FILE-SP-PROOF-UAT-001`.
+43. `FILE-SP-PROOF-UAT-001` exists in `file_metadata` as owner `STORE_PAYMENT_RECORD:1`.
+44. Record proof status endpoint smoke passed.
+45. Record proof preview endpoint smoke passed with backend protected PDF streaming.
+46. Record proof download endpoint smoke passed with backend protected PDF streaming.
+47. `/store-payment` detail drawer proof preview/download page smoke passed.
+
+## Frontend State
+
+- Page entry: `/store-payment`
+- Menu entry: 销售管理 / 统一收款
+- Account list: implemented.
+- Payment record list: implemented.
+- New payment record form: implemented.
+- Detail drawer: implemented.
+- Confirm / reject / void actions: implemented.
+- Filters: status, date range, submitted by, account, payment method.
+- Status labels: `pending`, `confirmed`, `rejected`, `voided`, `disabled`, `pending_config`, `access_pending`.
+- UAT smoke instructions: implemented.
+
+## Permission State
+
+| Menu Code | Action Bit | Status |
+| --- | --- | --- |
+| `MENU_STORE_PAYMENT_ACCOUNT` | V/E | Implemented in frontend |
+| `MENU_STORE_PAYMENT` | V/E | Implemented in frontend |
+| `MENU_STORE_PAYMENT_CONFIRM` | V/E | Implemented in frontend |
+| `MENU_STORE_PAYMENT_VOID` | V/E | Implemented in frontend |
+| `MENU_STORE_PAYMENT_EXPORT` | X | Reserved; real export disabled |
+
+## Attachment Safety State
+
+- proof preview: controlled UI ready, disabled unless backend status is allowed.
+- proof download: controlled UI ready, disabled unless backend status is allowed.
+- QR preview: protected account QR UAT passed for `FILE-SP-UAT-001`.
+- QR download: protected account QR UAT passed for `FILE-SP-UAT-001`.
+- proof preview: protected record proof UAT passed for `FILE-SP-PROOF-UAT-001`.
+- proof download: protected record proof UAT passed for `FILE-SP-PROOF-UAT-001`.
+- Raw URL exposure: forbidden.
+- `/uploads` path construction: forbidden.
+- `http(s)` attachment links: forbidden.
+- Store Payment attachment status endpoint: implemented.
+- Store Payment attachment preview/download: backend streaming implemented with ACL; usable only when metadata exists and checks pass.
+- denied access audit: structured log implemented.
+- frontend preview/download: protected account QR UAT passed for the local metadata fixture; still not production-enabled.
+
+## Protected Attachment UAT Smoke Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Page-level UAT evidence:
+
+- Page entry: `/store-payment`.
+- Test file: `FILE-SP-UAT-001`.
+- Associated object: `store_payment_accounts.id=1` via `qr_attachment_id`.
+- QR status request used `/store-payment/attachments/FILE-SP-UAT-001/status`.
+- QR preview request used `/store-payment/attachments/FILE-SP-UAT-001/preview`.
+- QR download request used `/store-payment/attachments/FILE-SP-UAT-001/download`.
+- rawUrl displayed: no.
+- `/uploads` used: no.
+- `storage_path` leaked: no.
+- missing metadata rows still fail closed with disabled preview/download buttons.
+
+Current stage: `STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_VERIFIED`.
+
+## Record Proof Attachment UAT Fixture Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Local UAT data:
+
+- payment record: `SP-UAT-PROOF-001`
+- record id: `1`
+- file id: `FILE-SP-PROOF-UAT-001`
+- file: `store-payment-proof-record-uat.pdf`
+- MIME: `application/pdf`
+- module: `STORE_PAYMENT`
+- owner: `STORE_PAYMENT_RECORD:1`
+- company: `COMP-LAO-AGRI`
+- store: `STORE-VTE-001`
+- status: `ACTIVE`
+- visibility: `PROTECTED`
+
+Endpoint smoke:
+
+- status: PASS, `accessStatus=allowed`, `rawUrl=null`.
+- preview: PASS, backend streamed PDF with `Content-Disposition: inline`.
+- download: PASS, backend streamed PDF with `Content-Disposition: attachment`.
+- no-auth access: 401.
+- missing file id: 404.
+
+Page-level UAT evidence:
+
+- Record list displayed `SP-UAT-PROOF-001`.
+- Detail drawer loaded proof status through `/store-payment/records/1/proof-attachment`.
+- Preview used `/store-payment/attachments/FILE-SP-PROOF-UAT-001/preview`.
+- Download used `/store-payment/attachments/FILE-SP-PROOF-UAT-001/download`.
+- rawUrl displayed: no.
+- `/uploads` used: no.
+- `storage_path` leaked: no.
+
+Current stage: `STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_VERIFIED`.
+
+## A6 Staging Deploy Runbook Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Runbook:
+
+- `docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK.md`
+
+Report:
+
+- `docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK_REPORT.md`
+
+Result:
+
+- A6 staging deploy runbook completed.
+- staging deploy executed: no.
+- push executed: no.
+- remote DB write executed: no.
+- production migration executed: no.
+- A2 runbook review: PASS WITH CONDITIONS.
+- A1 runbook validation: PASS WITH CONDITIONS.
+- A5 staging data review: GO WITH CONDITIONS.
+- A7 Final QA Gate is allowed as the next review Gate.
+
+Current stage: `STORE_PAYMENT_STAGING_RUNBOOK_READY`.
+
+## A7 Final QA Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Reports:
+
+- `docs/ops/A7_STORE_PAYMENT_FINAL_QA_GATE_REPORT.md`
+- `docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md`
+
+Result:
+
+- A7 Final QA Gate completed.
+- Missing input: none.
+- A2 final review: PASS WITH CONDITIONS.
+- A1 final validation: PASS WITH CONDITIONS.
+- A5 final readiness: GO WITH CONDITIONS.
+- Controlled pilot: allowed with conditions.
+- Staging deploy application: allowed.
+- Production deploy: not allowed.
+- Push: not allowed.
+- Remote DB write: not allowed.
+- Production migration: not allowed.
+
+Current stage: `STORE_PAYMENT_CONTROLLED_PILOT_READY`.
+
+## Staging Deploy Approval Prep Result
+
+Conclusion: READY_FOR_USER_APPROVAL.
+
+Reports:
+
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md`
+- `docs/ops/STORE_PAYMENT_BUSINESS_UAT_SCOPE.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md`
+
+Result:
+
+- staging deploy approval package completed.
+- approval matrix completed.
+- business UAT scope completed.
+- A2 review: PASS WITH CONDITIONS.
+- A1 validation: PASS WITH CONDITIONS.
+- A5 review: GO WITH CONDITIONS.
+- deploy executed: no.
+- push executed: no.
+- remote DB write executed: no.
+- staging migration executed: no.
+- production migration executed: no.
+
+Current stage: `STORE_PAYMENT_STAGING_APPROVAL_READY`.
+
+## Staging Controlled Pilot Deploy Attempt
+
+Conclusion: HOLD.
+
+Report:
+
+- `docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md`
+
+Business UAT guide:
+
+- `docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md`
+
+Result:
+
+- push to remote: PASS, non-main branch `w5-codex-orchestrator`, commit `0e71753c`.
+- push to main: not executed.
+- staging deploy: not executed.
+- staging DB migration: not executed.
+- staging menu / role sync: not executed.
+- staging file storage configuration: not executed.
+- protected attachment staging smoke: not executed.
+- `/store-payment` staging smoke: not executed.
+- production deploy: no.
+- production migration: no.
+- production remote DB write: no.
+
+## Production Server Remediation R1 Migration State Audit
+
+Conclusion: HOLD.
+
+Reports:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_STATE_AUDIT_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_REPAIR_PLAN.md`
+
+Remote evidence:
+
+- audit directory: `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510`
+- remote branch: `main`
+- remote commit: `87b5781`
+- Store Payment migration file: present and hash-matched to local approved file.
+- File Metadata migration file: missing.
+- `store_payment_accounts`: missing in audited DB.
+- `store_payment_records`: missing in audited DB.
+- `file_metadata`: missing in audited DB.
+- `file_metadata` missing cause: `CODE_NOT_DEPLOYED`.
+
+Safety:
+
+- migration executed: no.
+- DB write: no.
+- deploy: no.
+- restart: no.
+- push: no.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: HOLD.
+
+Next action:
+
+- Approve remote code alignment and schema repair precheck before any migration execution.
+
+## Production Server Remediation R1 Schema Repair Precheck
+
+Conclusion: READY_FOR_REMOTE_CODE_ALIGNMENT_APPROVAL.
+
+Reports:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_REPAIR_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_SEQUENCE_PLAN.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_PRECHECK_REPORT.md`
+
+Key decisions:
+
+- Remote code alignment is required before File Metadata migration repair.
+- File Metadata missing cause remains `CODE_NOT_DEPLOYED`.
+- Store Payment history/table drift is provisionally classified as `HISTORY_TABLE_DRIFT`.
+- Wrong DB target, wrong schema target, table dropped after migration, and manual migration history insertion remain possible and require the later drift reconciliation Gate.
+- Fresh SSH DB identity recheck failed with banner timeout; no DB write, migration, deploy, restart, or push was executed.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: HOLD.
+
+Next action:
+
+- User approval for `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
+
+## Production Server Remediation R1 Remote Code Alignment Execution
+
+Conclusion: GO WITH CONDITIONS.
+
+Report:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_EXECUTION_REPORT.md`
+
+Remote evidence:
+
+- evidence directory: `/opt/phoenix-erp-backups/remediation-r1-code-alignment-20260623-225600`
+- deploy path: `/opt/phoenix-erp`
+- before commit: `87b5781`
+- after commit: `7507b12a`
+- branch: `main`
+- transfer method: Git bundle over SSH, `git fetch` from bundle, then `git merge --ff-only`
+
+Verified after alignment:
+
+- File Metadata migration exists remotely.
+- Store Payment migration still exists remotely and hash matches.
+- Store Payment backend/frontend files exist remotely.
+- File Metadata / ACL files exist remotely under `apps/api/src/modules/file/**`.
+
+Safety:
+
+- migration executed: no.
+- DB write: no.
+- deploy: no.
+- service restart: no.
+- push main: no.
+- production workflow triggered: no.
+
+Condition:
+
+- Remote worktree still contains pre-existing untracked artifact `docker-compose.yml.bak-20260522-180813`.
+- Store Payment schema/table drift remains unresolved.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: HOLD.
+
+Next action:
+
+- `APPROVE_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE`.
+
+## Production Server Remediation R1 Store Payment Schema Drift Reconciliation
+
+Conclusion: READY_FOR_SCHEMA_REPAIR_EXECUTION_APPROVAL, with practical next Gate `FILE_METADATA_MIGRATION_EXECUTION_GATE`.
+
+Report:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_REPORT.md`
+
+Remote evidence:
+
+- evidence directory: `/opt/phoenix-erp-backups/remediation-r1-schema-drift-reconciliation-20260623-232820`
+- DB: `phoenix_erp`
+- current schema: `public`
+- search path: `"$user", public`
+- migration table: `public.migrations`
+- Store Payment migration history count: 1
+- File Metadata migration history count: 0
+- `public.store_payment_accounts`: present
+- `public.store_payment_records`: present
+- `public.file_metadata`: missing
+
+Classification:
+
+- Original Store Payment history/table drift: `UNKNOWN_HOLD`, because the original table-missing condition is not reproduced.
+- Current Store Payment table readiness: GO WITH CONDITIONS.
+- Current File Metadata readiness: HOLD.
+
+Safety:
+
+- migration executed: no.
+- DB write: no.
+- deploy: no.
+- restart: no.
+- push: no.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: GO WITH CONDITIONS for Store Payment tables; HOLD for File Metadata.
+
+Next action:
+
+- `APPROVE_FILE_METADATA_MIGRATION_EXECUTION_GATE`.
+
+HOLD reason:
+
+- No staging-only deployment target, staging DB connection, staging file storage path, or staging-specific workflow was discoverable.
+- Existing GitHub deploy workflow targets production on `push main`, so main push was blocked.
+
+Current stage: `STORE_PAYMENT_STAGING_DEPLOY_HOLD`.
+
+## Staging Target Bootstrap Gate Result
+
+Conclusion: READY_FOR_STAGING_TARGET_INPUTS.
+
+Artifacts:
+
+- `.github/workflows/staging-deploy.yml`
+- `.env.staging.example`
+- `docker-compose.staging.yml`
+- `deploy/staging/README.md`
+- `docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md`
+- `docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md`
+
+Result:
+
+- staging-only workflow skeleton added.
+- staging env example added.
+- staging compose skeleton added.
+- staging required inputs documented.
+- staging approval v2 documented.
+- deploy executed: no.
+- push main executed: no.
+- remote DB write executed: no.
+- staging migration executed: no.
+- production migration executed: no.
+- production triggered: no.
+
+Current stage: `STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY`.
+
+## Server Card Staging Target Intake
+
+Conclusion: STAGING_TARGET_CANDIDATE_READY.
+
+Artifacts:
+
+- `docs/ops/SERVER_CARD_INTAKE_SANITIZED_SUMMARY.md`
+- `docs/ops/STAGING_TARGET_DERIVATION_FROM_SERVER_CARD.md`
+- `docs/ops/STORE_PAYMENT_GITHUB_STAGING_SECRETS_SETUP_FROM_SERVER_CARD.md`
+- `docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md`
+- `docs/ops/SERVER_CARD_STAGING_TARGET_INTAKE_REPORT.md`
+
+Result:
+
+- Server connection card received and sanitized.
+- The card is classified as production-oriented.
+- Same-host staging can be considered only as a candidate.
+- Candidate staging deploy path: `/opt/phoenix-erp-staging`.
+- Candidate staging DB: `phoenix_erp_staging`.
+- Candidate staging file storage: `/data/phoenix-erp-staging/files`.
+- Production DB reuse as staging DB: forbidden.
+- Production file storage reuse as staging file storage: forbidden.
+- Production deploy path reuse as staging deploy path: forbidden.
+- A2 review: PASS WITH CONDITIONS.
+- A1 validation: PASS WITH CONDITIONS.
+- A5 review: GO WITH CONDITIONS.
+- Deploy executed: no.
+- Push executed: no.
+- DB write executed: no.
+- Migration executed: no.
+- Production triggered: no.
+
+Current stage: `STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY`.
+
+## Production Server Remediation Intake
+
+Conclusion: READY_FOR_REMEDIATION_PLAN.
+
+Artifacts:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_INTAKE_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_BACKLOG.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_ROADMAP.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_FIRST_FIX_BATCH.md`
+
+Result:
+
+- User reclassified the current server as a production-side pre-production / remediation target.
+- Public API health is reachable and reports `env=production` with DB connected.
+- SSH read-only command inventory timed out during banner exchange, so OS/Docker/DB/process details remain unverified.
+- Historical docs and Store Payment gates were summarized.
+- P0 remediation issues: 8.
+- P1 remediation issues: 7.
+- First fix batch recommends backup/snapshot, DB backup, migration-state audit, data import diagnosis, master-data scan, RBAC/DataScope diagnosis, and upload/file-storage security diagnosis.
+- DB write executed: no.
+- migration executed: no.
+- service restart executed: no.
+- deploy executed: no.
+- push executed: no.
+
+Current stage: `PRODUCTION_SERVER_REMEDIATION_INTAKE_READY`.
+
+## Production Server Remediation R0 Backup And Observability
+
+Conclusion: GO WITH CONDITIONS.
+
+Report:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_AND_OBSERVABILITY_REPORT.md`
+
+Result:
+
+- SSH observability restored with conditions; long sessions remain unstable.
+- R0 backup directory: `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`.
+- Server/process/docker/disk/git snapshots completed.
+- DB backup completed: `phoenix_erp-20260623-211849.dump`, 8,333,500 bytes.
+- env/deploy/nginx backups completed into protected backup directory.
+- uploads inventory completed.
+- DB read-only diagnostics partial.
+- Remote `file_metadata` missing was detected.
+- migration history remains partially unknown.
+- initialization import, master data, menu/role/DataScope diagnostics remain pending.
+- DB write executed: no.
+- migration executed: no.
+- deploy executed: no.
+- service restart executed: no.
+- push executed: no.
+
+Current stage: `PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_BASELINE_READY`.
+
+## Current Conditions
+
+- Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, protected account QR attachment preview/download, and protected record proof preview/download against local metadata.
+- Frontend preview/download buttons are present and remain controlled by backend status.
+- Frontend preview/download must not be treated as fully available until file metadata UAT data exists and A2 reviews the UI path.
+- Staging deployment requires a separate A6 runbook Gate.
+- Final GO / HOLD / ROLLBACK requires a separate A7 Gate.
+
+## Current Non-Goals
+
+- No production deployment.
+- No push.
+- No remote production DB write.
+- No frontend attachment preview / download yet.
+- No production attachment preview / download yet.
+- No raw URL exposure.
+- No new non-Store Payment feature.
+
+## File Metadata / ACL Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented foundation:
+
+- `file_metadata` table.
+- `FileMetadataEntity`.
+- `FileAccessService`.
+- MIME whitelist.
+- path traversal protection.
+- upload-root path confinement.
+- RBAC check.
+- DataScope check.
+- owner/module reference check.
+- structured denied access log.
+- Store Payment protected status / preview / download proxy.
+
+DB state:
+
+- `file_metadata` table exists.
+- indexes exist.
+- row count: 0.
+- no seed executed.
+- no business data written.
+
+A4 state:
+
+- A4 protected preview/download UI draft is complete.
+- Next step is Store Payment attachment metadata UAT data setup.
+
+## Protected Attachment Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented endpoints:
+
+- `GET /store-payment/attachments/:attachmentId/status`
+- `GET /store-payment/attachments/:attachmentId/preview`
+- `GET /store-payment/attachments/:attachmentId/download`
+
+Current behavior:
+
+- `status` returns controlled access-pending state after Store Payment ownership, RBAC, and DataScope checks.
+- `preview` and `download` perform the same checks, then reject with `STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE`.
+- `rawUrl` remains `null`.
+- `/uploads` and `http(s)` attachment IDs are rejected as unsafe.
+- A4 must keep preview/download disabled.
+
+## A4 Protected Preview / Download UI Draft Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented frontend behavior:
+
+- proof attachment status display.
+- QR attachment status display.
+- protected status endpoint wiring when a `file_id` is available.
+- protected preview/download buttons.
+- loading state.
+- error state.
+- disabled / access_pending / denied / missing / unsafe raw URL messages.
+- no raw URL display.
+- no `/uploads` link construction.
+- no `http(s)` raw link opening.
+- blob/object URL handling only after protected endpoint succeeds.
+
+Current condition:
+
+- Because `file_metadata` now has one local UAT row, controlled UAT can verify the protected QR attachment path while missing proof metadata should still show pending / missing states.
+- Real preview/download remains conditional on backend status returning allowed.
+
+## Attachment Metadata UAT Data Setup Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Local UAT data:
+
+- `file_id`: `FILE-SP-UAT-001`
+- file: `store-payment-proof-uat.pdf`
+- MIME: `application/pdf`
+- module: `STORE_PAYMENT`
+- owner: `STORE_PAYMENT_ACCOUNT:1`
+- company: `COMP-LAO-AGRI`
+- store: `STORE-VTE-001`
+- status: `ACTIVE`
+- visibility: `PROTECTED`
+
+Endpoint smoke:
+
+- status: PASS, `accessStatus=allowed`, `rawUrl=null`.
+- preview: PASS, backend streamed PDF with `Content-Disposition: inline`.
+- download: PASS, backend streamed PDF with `Content-Disposition: attachment`.
+- no-auth access: 401.
+- missing file id: 404.
+
+Important boundary:
+
+- The local test file is a non-sensitive UAT PDF stored under local upload roots and excluded from git.
+- This is local UAT data only, not production data.

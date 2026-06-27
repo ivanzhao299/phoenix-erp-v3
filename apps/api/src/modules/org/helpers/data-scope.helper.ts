@@ -172,4 +172,59 @@ export class DataScopeHelper {
       }
     }
   }
+
+  /**
+   * 写入接口归属校验：用于 create/update/submit/approve/cancel 等会改变业务状态的入口。
+   *
+   * 与只读详情校验不同，写入必须有明确 companyCode；PROJECT 级用户如果配置了
+   * allowedProjectCodes，也必须写入到允许的项目内。否则会出现用户通过构造 payload
+   * 新建/修改其它公司或项目数据的风险。
+   */
+  assertWritableOwnership(
+    opts: { companyCode?: string | null; projectCode?: string | null },
+    label: string,
+  ): void {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal) return;
+
+    const { companyCode, projectCode } = opts;
+
+    if (scope.allowedCompanyCodes.length === 0) {
+      throw new ForbiddenException(`无权写入该${label}（数据范围未配置）`);
+    }
+    if (!companyCode) {
+      throw new ForbiddenException(`无权写入该${label}（缺少公司归属）`);
+    }
+    if (!scope.allowedCompanyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权写入该${label}（公司范围不匹配）`);
+    }
+
+    if (scope.scopeLevel === 'PROJECT' && scope.allowedProjectCodes.length > 0) {
+      if (!projectCode) {
+        throw new ForbiddenException(`无权写入该${label}（缺少项目归属）`);
+      }
+      if (!scope.allowedProjectCodes.includes(projectCode)) {
+        throw new ForbiddenException(`无权写入该${label}（项目范围不匹配）`);
+      }
+    }
+  }
+
+  /**
+   * 写入接口仓库范围校验：仅当用户配置了仓库范围时收紧。
+   * 没有仓库授权清单时保持历史公司/项目 DataScope 语义，避免误伤未配置仓库维度的角色。
+   */
+  assertWritableWarehouse(
+    warehouseCode: string | null | undefined,
+    label: string,
+  ): void {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
+
+    if (!warehouseCode) {
+      throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
+    }
+    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权写入该${label}（仓库范围不匹配）`);
+    }
+  }
 }

@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-06-23T06:18:07.118Z",
+  "page_entry": "/store-payment",
+  "file_id": "FILE-SP-PROOF-UAT-001",
+  "payment_no": "SP-UAT-PROOF-001",
+  "record_id": "1",
+  "proof_access_hit": true,
+  "proof_status_ui_pass": true,
+  "proof_preview_ui_pass": true,
+  "proof_download_ui_pass": true,
+  "protected_endpoint_used": true,
+  "status_endpoint_hit": true,
+  "preview_endpoint_hit": true,
+  "download_endpoint_hit": true,
+  "preview_button_visible": true,
+  "preview_button_disabled": false,
+  "download_button_visible": true,
+  "download_button_disabled": false,
+  "raw_url_displayed": false,
+  "uploads_path_used": false,
+  "storage_path_leaked": false,
+  "fail_closed_evidence": {
+    "raw_url_blocked_text_present": true,
+    "protected_endpoint_text_present": true,
+    "unsafe_requests": []
+  },
+  "endpoint_hits": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/records/1/proof-attachment"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-PROOF-UAT-001/preview"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-PROOF-UAT-001/download"
+    }
+  ],
+  "errors": [],
+  "conclusion": "GO_WITH_CONDITIONS",
+  "status_endpoint_note": "Page detail uses /store-payment/records/1/proof-attachment status proxy because list DTO does not expose proofAttachmentId; direct /store-payment/attachments/FILE-SP-PROOF-UAT-001/status is covered by endpoint smoke."
+}

@@ -1,0 +1,18 @@
+{
+  "gate": "APPROVE_MENU_ROLE_DATASCOPE_REMOTE_AUDIT",
+  "remote_audit_dir": "/opt/phoenix-erp-backups/remediation-r3-menu-role-datascope-audit-20260624-122800",
+  "started_at": "2026-06-24T12:28:02+08:00",
+  "completed_at": "2026-06-24T12:28:02+08:00",
+  "db_write_executed": false,
+  "menu_modified": false,
+  "role_modified": false,
+  "user_scope_modified": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "nginx_changed": false,
+  "env_changed": false,
+  "secrets_redacted": true,
+  "required_files": ["manifest.json","menu_inventory.txt","role_inventory.txt","role_menu_permission_matrix.txt","user_role_inventory.txt","user_org_store_scope_inventory.txt","datascope_policy_summary.txt","store_payment_permission_audit.txt","rbac_gap_summary.txt","datascope_gap_summary.txt","menu_role_datascope_risk_summary.txt"]
+}

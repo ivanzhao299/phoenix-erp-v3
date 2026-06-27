@@ -1,9 +1,10 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 股东项目  shr_projects */
 @Entity('shr_projects')
+@Index('idx_shr_projects_company', ['companyCode'])
 export class ShrProjectEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

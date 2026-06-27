@@ -1,0 +1,33 @@
+--- docker containers ---
+phoenix-v3-web|ghcr.io/ivanzhao299/phoenix-erp-v3/web:latest|Up 36 hours (healthy)
+phoenix-v3-api|ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest|Up 2 days (healthy)
+quantsys-prod-frontend-1|quantsys-prod-frontend|Up 3 days
+quantsys-prod-backend-1|quantsys-prod-backend|Up 3 days (healthy)
+quantsys-prod-scheduler-1|quantsys-prod-scheduler|Up 3 days
+quantsys-prod-db-1|postgres:16-alpine|Up 3 days (healthy)
+quantsys-prod-redis-1|redis:7-alpine|Up 4 days
+jinhu-smart-park-prod-web|jinhu-smart-park-prod-web|Up 10 days (healthy)
+jinhu-smart-park-prod-api|jinhu-smart-park-prod-api|Up 10 days (healthy)
+jinhu-smart-park-prod-postgres|postgres:16-alpine|Up 3 weeks (healthy)
+phoenix-v3-db|postgres:16-alpine|Up 4 weeks (healthy)
+--- app directory git ---
+main
+7507b12a
+ M nginx/erp.eggslao.com.conf
+?? docker-compose.yml.bak-20260522-180813
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011137
+?? nginx/erp.eggslao.com.conf.bak-uploads-hardening-20260624-011703
+--- workflow files ---
+ci-build.yml
+ci-security.yml
+ci-smoke.yml
+deploy.yml
+dump-prod-schema.yml
+regression.yml
+staging-deploy.yml
+--- deploy files ---
+deploy/server-setup.sh
+deploy/staging/README.md
+--- compose files ---
+docker-compose.staging.yml
+docker-compose.yml

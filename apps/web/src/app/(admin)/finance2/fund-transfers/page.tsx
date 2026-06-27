@@ -14,6 +14,8 @@ import {
   inlineBadge, pillBadge,
   searchToolbar, toolbarFilterPill, toolbarSearchInput,
   tableContainer,
+  // g200a 模板 token(2026-06-19)
+  actionPill, inlineAlert,
 } from '@/components/design-system/cockpit-styles';
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -182,7 +184,7 @@ function CreateTransferModal({
     }
   }
   const selectClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 box-border";
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -203,9 +205,7 @@ function CreateTransferModal({
           </button>
         </div>
 
-        {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
-            {err}
-          </div>}
+        {err && <div style={{ ...inlineAlert('danger'), marginBottom: 14 }}>{err}</div>}
 
         <div style={{
         display: 'flex',
@@ -255,20 +255,13 @@ function CreateTransferModal({
           </div>
         </div>
 
-        <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-300 my-3.5 leading-relaxed">
+        <div style={{ ...inlineAlert('warning'), margin: '14px 0', lineHeight: 1.6 }}>
           💡 创建后状态为「草稿」，需提交审批 → 审批通过 → 执行，才会实际扣减账户余额。
         </div>
 
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end',
-        marginTop: 6
-      }}>
-          <button onClick={onClose} style={secondaryActionButton}>
-            取消
-          </button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 dark:bg-blue-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+        <div style={drawerFooter}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? '创建中…' : '创建草稿'}
           </button>
         </div>
@@ -440,7 +433,8 @@ export default function FundTransfersPage() {
               }}>
                       <div className="text-blue-700 dark:text-blue-300" style={{
                   fontWeight: 800,
-                  fontSize: 18
+                  fontSize: 18,
+                  fontVariantNumeric: 'tabular-nums'
                 }}>
                         {currencySymbol(t.currencyCode)}{fmt(t.amountOriginal)}
                       </div>
@@ -461,16 +455,16 @@ export default function FundTransfersPage() {
           marginTop: 12,
           paddingTop: 12
         }}>
-                  {t.status === 'DRAFT' && <button onClick={() => doAction(t.id, 'submit', `确认提交转账单 ${t.transferNo} 至审批？`)} disabled={actionLoading === t.id + 'submit'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-info/20 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors">
-                      <Send size={12} /> 提交审批
-                    </button>}
-                  {t.status === 'PENDING_APPROVAL' && <button onClick={() => doAction(t.id, 'approve')} disabled={actionLoading === t.id + 'approve'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
-                      <CheckCircle size={12} /> 审批通过
-                    </button>}
-                  {t.status === 'APPROVED' && <button onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${currencySymbol(t.currencyCode)}${fmt(t.amountOriginal)}。`)} disabled={actionLoading === t.id + 'execute'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors">
-                      <Play size={12} /> 执行转账
-                    </button>}
-                  <button onClick={() => doAction(t.id, 'cancel', `确认取消转账单 ${t.transferNo}？`)} disabled={actionLoading === t.id + 'cancel'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-danger/20 bg-danger/10 text-danger disabled:opacity-50 transition-colors">
+                  {t.status === 'DRAFT' && <button onClick={() => doAction(t.id, 'submit', `确认提交转账单 ${t.transferNo} 至审批？`)} disabled={actionLoading === t.id + 'submit'} style={actionPill('info', actionLoading === t.id + 'submit')}>
+                    <Send size={12} /> 提交审批
+                  </button>}
+                  {t.status === 'PENDING_APPROVAL' && <button onClick={() => doAction(t.id, 'approve')} disabled={actionLoading === t.id + 'approve'} style={actionPill('success', actionLoading === t.id + 'approve')}>
+                    <CheckCircle size={12} /> 审批通过
+                  </button>}
+                  {t.status === 'APPROVED' && <button onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${currencySymbol(t.currencyCode)}${fmt(t.amountOriginal)}。`)} disabled={actionLoading === t.id + 'execute'} style={actionPill('success', actionLoading === t.id + 'execute')}>
+                    <Play size={12} /> 执行转账
+                  </button>}
+                  <button onClick={() => doAction(t.id, 'cancel', `确认取消转账单 ${t.transferNo}？`)} disabled={actionLoading === t.id + 'cancel'} style={actionPill('danger', actionLoading === t.id + 'cancel')}>
                     <X size={12} /> 取消
                   </button>
                 </div>}

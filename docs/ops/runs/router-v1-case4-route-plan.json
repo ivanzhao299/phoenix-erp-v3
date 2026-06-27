@@ -1,0 +1,39 @@
+{
+  "request": "新增数据库 migration 修改 store_payment_records 并部署上线",
+  "selected_agents": [],
+  "confidence": 0.95,
+  "matched_keywords": {
+    "A2-Security-Regression-Gate": [
+      "payment"
+    ]
+  },
+  "risk_domains": [
+    "schema-gate",
+    "human-go"
+  ],
+  "held_reasons": [
+    "migration/schema/entity/table/column requires Schema Gate and human approval",
+    "deploy/production request requires A6/A7 and human GO"
+  ],
+  "recommended_sequence": [
+    "Codex-Orchestrator route-review"
+  ],
+  "parallel_groups": [],
+  "fallback_action": "HOLD",
+  "route_decision": "HOLD",
+  "requires_route_review": true,
+  "domains": {
+    "ci": false,
+    "security": true,
+    "dataReadiness": false,
+    "ui": false,
+    "backend": false,
+    "backendMentionedButNegated": false,
+    "deployPlan": false,
+    "finalGate": false
+  },
+  "agent_scores": {
+    "A2-Security-Regression-Gate": 4.1,
+    "Codex-Orchestrator": 2
+  }
+}

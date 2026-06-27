@@ -15,6 +15,11 @@ export interface PagePermission {
   read:  string[];
 }
 
+interface MobileMenuPermission {
+  write: string[];
+  read: string[];
+}
+
 // ── 角色常量 ──────────────────────────────────────────────────────────────────
 
 export const R = {
@@ -250,6 +255,110 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
   },
 };
 
+/**
+ * 手机端 pageKey → 后台原子菜单码映射。
+ *
+ * 运行时如果 JWT 已携带 MENU_* 权限快照，则以这里的原子菜单为准；旧角色矩阵只在
+ * 没有权限快照时兜底。这样可避免“角色名命中矩阵但该用户未被授予菜单权限”时仍显示
+ * 手机端卡片或进入页面。
+ */
+export const PAGE_MENU_PERMS: Record<string, MobileMenuPermission> = {
+  dashboard: {
+    write: [],
+    read: [
+      'MENU_DASHBOARD',
+      'MENU_FARM_DATA',
+      'MENU_FARM_DAILY',
+      'MENU_FARM_VET',
+      'MENU_PKG_OP',
+      'MENU_PKG_MGR',
+      'MENU_QA_OP',
+      'MENU_QA_MGR',
+      'MENU_QA_MASTER',
+      'MENU_MD_QUALITY',
+      'MENU_WMS_VIEW',
+      'MENU_WMS_INOUT',
+      'MENU_SALES2_INVENTORY',
+      'MENU_SALES2_DASHBOARD',
+      'MENU_DEVICE_MONITOR',
+      'MENU_MOBILE_DELIVERY',
+      'MENU_SALES2_DELIVERY',
+    ],
+  },
+  feed: {
+    write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA'],
+    read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_PRC2_REQUEST', 'MENU_WMS_VIEW'],
+  },
+  mortality: {
+    write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_FARM_VET'],
+    read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_FARM_VET', 'MENU_QA_OP', 'MENU_QA_MGR'],
+  },
+  egglog: {
+    write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA'],
+    read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_WMS_VIEW', 'MENU_QA_OP', 'MENU_QA_MGR'],
+  },
+  henhouse: {
+    write: ['MENU_FARM_MASTER', 'MENU_FARM_DATA'],
+    read: ['MENU_FARM_MASTER', 'MENU_FARM_DATA'],
+  },
+  henreport: {
+    write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA'],
+    read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_DASHBOARD'],
+  },
+  analytics: {
+    write: [],
+    read: ['MENU_DASHBOARD', 'MENU_SALES2_DASHBOARD', 'MENU_FIN2_REPORT'],
+  },
+  packaging: {
+    write: ['MENU_PKG_OP', 'MENU_PKG_MGR'],
+    read: ['MENU_PKG_OP', 'MENU_PKG_MGR'],
+  },
+  quality: {
+    write: ['MENU_QA_OP', 'MENU_QA_MGR'],
+    read: ['MENU_QA_OP', 'MENU_QA_MGR', 'MENU_QA_MASTER', 'MENU_MD_QUALITY'],
+  },
+  egg: {
+    write: ['MENU_WMS_INOUT'],
+    read: ['MENU_WMS_VIEW', 'MENU_WMS_INOUT', 'MENU_SALES2_INVENTORY'],
+  },
+  sales: {
+    write: ['MENU_SALES2_ORDER'],
+    read: ['MENU_SALES2_ORDER', 'MENU_SALES2_DASHBOARD', 'MENU_SALES2_INVENTORY'],
+  },
+  medicine: {
+    write: ['MENU_FARM_VET'],
+    read: ['MENU_FARM_VET', 'MENU_FARM_DATA'],
+  },
+  delivery: {
+    write: ['MENU_MOBILE_DELIVERY', 'MENU_SALES2_DELIVERY'],
+    read: ['MENU_MOBILE_DELIVERY', 'MENU_SALES2_DELIVERY'],
+  },
+  terminal: {
+    write: ['MENU_PKG_OP', 'MENU_PKG_MGR'],
+    read: ['MENU_PKG_OP', 'MENU_PKG_MGR'],
+  },
+  prc_request: {
+    write: ['MENU_PRC2_REQUEST'],
+    read: ['MENU_PRC2_REQUEST'],
+  },
+  prc_order: {
+    write: ['MENU_PRC2_ORDER'],
+    read: ['MENU_PRC2_ORDER'],
+  },
+  workflow: {
+    write: ['MENU_WORKFLOW_TODO'],
+    read: ['MENU_WORKFLOW_TODO', 'MENU_WORKFLOW_HISTORY'],
+  },
+  notifications: {
+    write: [],
+    read: ['MENU_WORKFLOW_NOTIFY', 'MENU_SETTINGS_NOTIFY'],
+  },
+  expenses: {
+    write: ['MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'],
+    read: ['MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'],
+  },
+};
+
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 /** 检查角色对某页面的访问级别 */
@@ -274,17 +383,46 @@ export function canWrite(pageKey: string, role?: string | null): boolean {
 
 // ── 统一手机端门控（JWT 动态权限 + 多角色矩阵 + 别名）─────────────────────────
 
-/** JWT permissions → 访问级别。菜单码约定：MOBILE_<PAGEKEY_UPPERCASE> */
+function hasPermissionEntry(
+  permissions: string[],
+  menuCode: string,
+  actionCodes?: string[],
+): boolean {
+  if (permissions.includes('*')) return true;
+  const entry = permissions.find(p => p.startsWith(`${menuCode}:`));
+  if (!entry) return false;
+  if (!actionCodes || actionCodes.length === 0) return true;
+  const granted = new Set((entry.split(':')[1] ?? '').split(',').map(s => s.trim()).filter(Boolean));
+  return actionCodes.some(code => granted.has(code));
+}
+
+function hasAnyMenuPermission(
+  permissions: string[],
+  menuCodes: string[],
+  actionCodes?: string[],
+): boolean {
+  return menuCodes.some(menu => hasPermissionEntry(permissions, menu, actionCodes));
+}
+
+/** JWT permissions → 访问级别。优先 MENU_* 原子菜单，兼容旧 MOBILE_<PAGEKEY> */
 export function getMobileAccessFromJWT(
   permissions: string[] | undefined | null,
   pageKey: string,
 ): AccessLevel {
   if (!permissions || permissions.length === 0) return 'none';
   if (permissions.includes('*')) return 'write';            // 超管通配
-  const entry = permissions.find(p => p.startsWith(`MOBILE_${pageKey.toUpperCase()}:`));
-  if (!entry) return 'none';
-  const codes = entry.split(':')[1] ?? '';
-  return (codes.includes('C') || codes.includes('E')) ? 'write' : 'read';
+
+  const legacyEntry = permissions.find(p => p.startsWith(`MOBILE_${pageKey.toUpperCase()}:`));
+  if (legacyEntry) {
+    const codes = legacyEntry.split(':')[1] ?? '';
+    return (codes.includes('C') || codes.includes('E') || codes.includes('A')) ? 'write' : 'read';
+  }
+
+  const menuPerm = PAGE_MENU_PERMS[pageKey];
+  if (!menuPerm) return 'none';
+  if (hasAnyMenuPermission(permissions, menuPerm.write, ['C', 'E', 'A'])) return 'write';
+  if (hasAnyMenuPermission(permissions, [...menuPerm.read, ...menuPerm.write], ['V', 'C', 'E', 'A', 'X'])) return 'read';
+  return 'none';
 }
 
 /** 多角色矩阵访问级别：取用户所有角色（含别名展开）中的最高级别 */
@@ -306,12 +444,13 @@ export interface MobileSubject {
 
 /**
  * 手机端统一访问级别——单一权威入口（首页卡片 + 页面守卫共用）。
- * 优先级：① JWT 动态权限(MOBILE_*) → ② 多角色硬编码矩阵(含别名)。
+ * 优先级：① JWT 动态权限(MENU_* / MOBILE_*) → ② 多角色硬编码矩阵(含别名)。
  * 同时考虑 roles[] 全集与 role 主角色，杜绝"主角色未覆盖→白屏"。
  */
 export function getMobileAccessLevel(pageKey: string, subject: MobileSubject): AccessLevel {
   const jwt = getMobileAccessFromJWT(subject.permissions, pageKey);
   if (jwt !== 'none') return jwt;
+  if ((subject.permissions?.length ?? 0) > 0 && PAGE_MENU_PERMS[pageKey]) return 'none';
   const all = [...(subject.roles ?? []), subject.role];
   return getAccessLevelMulti(pageKey, all);
 }

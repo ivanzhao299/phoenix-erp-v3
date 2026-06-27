@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-26T23:42:55.944Z",
+  "mode": "dry-run",
+  "db": {
+    "database": "phoenix_erp",
+    "user": "mac"
+  },
+  "inspected_coarse_menus": [
+    "MENU_FIN2",
+    "MENU_PRC2",
+    "MENU_PRC2_MASTER",
+    "MENU_WORKFLOW",
+    "MENU_MASTER",
+    "MENU_SETTINGS_IT"
+  ],
+  "finding_count": 0,
+  "severity": "HOLD",
+  "findings": [],
+  "db_error": "psql: error: connection to server on socket \"/tmp/.s.PGSQL.5432\" failed: timeout expired\n",
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false
+}

@@ -28,10 +28,12 @@ import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Save, Download, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
 import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -472,10 +474,10 @@ export default function DailyPage() {
       gap: 10,
       flexWrap: 'wrap'
     }}>
-            <button type="button" className={s.btnSecondary} onClick={() => historyRef.current?.scrollIntoView({
+            <button type="button" style={secondaryActionButton} onClick={() => historyRef.current?.scrollIntoView({
         behavior: 'smooth'
       })}>{t('ui.历史记录', '历史记录')}</button>
-            {canExport && <button type="button" className={s.btnSecondary} onClick={handleExport}>
+            {canExport && <button type="button" style={secondaryActionButton} onClick={handleExport}>
                 <Download size={14} />{t('ui.导出报表', '导出报表')}
               </button>}
             {canEdit && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
@@ -487,7 +489,7 @@ export default function DailyPage() {
       }}>
                 <Cpu size={15} />{generating ? t('ui.生成中...', '生成中...') : t('ui.⚡ 设备数据一键填入', '⚡ 设备数据一键填入')}
               </button>}
-            {canEdit && <button type="button" className={s.btnPrimary} onClick={handleSubmit}>
+            {canEdit && <button type="button" style={primaryActionButton} onClick={handleSubmit}>
                 <Save size={15} />{t('ui.提交日报', '提交日报')}
               </button>}
           </div>} />
@@ -747,7 +749,7 @@ export default function DailyPage() {
         {/* G14：底部大型保存按钮（PageHeader 顶部按钮另保留） */}
         {canEdit && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-            <button type="button" className={s.btnPrimary} onClick={handleSubmit} style={{ minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, gap: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, justifyContent: 'center' }}>
               <Save size={18} /> {t('ui.提交日报', '提交日报')}
             </button>
           </div>
@@ -828,23 +830,7 @@ export default function DailyPage() {
         const tolerance = Math.max(3, eggsNum * 0.03);
         const inTolerance = eggsNum === 0 || Math.abs(diff) <= tolerance;
         return (
-          <div onClick={() => setGradeModalRowId(null)} style={{
-            position: 'fixed', inset: 0, background: 'var(--overlay-black-50)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-          }}>
-            <div onClick={e => e.stopPropagation()} style={{
-              background: 'var(--bg-card)', borderRadius: 12, padding: 24,
-              minWidth: 560, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto',
-              boxShadow: '0 20px 60px var(--overlay-black-30)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                  {shiftLabel(row.shift)} · {t('ui.9 档分级录入', '9 档分级录入')}
-                </h3>
-                <button type="button" onClick={() => setGradeModalRowId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>
-                  <XIcon size={18} />
-                </button>
-              </div>
+          <ModalV2 open={true} onClose={() => setGradeModalRowId(null)} title={`${shiftLabel(row.shift)} · ${t('ui.9 档分级录入', '9 档分级录入')}`} width={600}>
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
                 <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> 枚 · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> 枚</div>
                 {eggsNum > 0 && !inTolerance && (
@@ -877,72 +863,48 @@ export default function DailyPage() {
                 </tbody>
               </table>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                <button type="button" className={s.btnSecondary} onClick={() => {
+                <button type="button" style={secondaryActionButton} onClick={() => {
                   setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: {} } : r));
                 }}>
                   {t('ui.清空', '清空')}
                 </button>
-                <button type="button" className={s.btnPrimary} onClick={() => setGradeModalRowId(null)}>
+                <button type="button" style={primaryActionButton} onClick={() => setGradeModalRowId(null)}>
                   {t('ui.确定', '确定')}
                 </button>
               </div>
-            </div>
-          </div>
+          </ModalV2>
         );
       })()}
 
       {/* G16：设备数据一键填入 — 选时点 modal */}
-      {showGenModal && (
-        <div onClick={() => setShowGenModal(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--bg-card)', borderRadius: 12, padding: 24,
-            minWidth: 420, maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <Cpu size={18} color="var(--color-primary)" />
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                {t('ui.设备数据一键填入', '设备数据一键填入')}
-              </h3>
-            </div>
-            <div style={{ padding: 12, background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-              <div>· {t('ui.饲料/用水', '饲料/用水')} = {t('ui.今日累计读数 − 昨日累计读数（当日用量）', '今日累计读数 − 昨日累计读数（当日用量）')}</div>
-              <div>· {t('ui.温度/湿度', '温度/湿度')} = {t('ui.当日均值', '当日均值')}</div>
-              <div>· {t('ui.填入晨班行；如需分摊到其它班次请手动拆分', '填入晨班行；如需分摊到其它班次请手动拆分')}</div>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>
-                {t('ui.采集时点（0-23 小时，留空 = 全天 24h 累计）', '采集时点（0-23 小时，留空 = 全天 24h 累计）')}
-              </label>
-              <input
-                type="number" min={0} max={23} step={1}
-                value={genHour}
-                onChange={e => {
-                  const v = e.target.value;
-                  if (v === '') { setGenHour(''); return; }
-                  const n = Number(v);
-                  if (!Number.isNaN(n) && n >= 0 && n <= 23) setGenHour(n);
-                }}
-                placeholder="17"
-                className={s.inp}
-                style={{ width: '100%', padding: '8px 12px', fontSize: 14 }}
-              />
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {t('ui.建议每天 17:00 集蛋后采集一次', '建议每天 17:00 集蛋后采集一次')}
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" className={s.btnSecondary} onClick={() => setShowGenModal(false)}>
-                {t('common.cancel', '取消')}
-              </button>
-              <button type="button" className={s.btnPrimary} onClick={handleGenerateFromDevice}>
-                <Cpu size={14} />{t('common.confirm', '确认')}
-              </button>
-            </div>
+      <ModalV2 open={showGenModal} onClose={() => setShowGenModal(false)} title={t('ui.设备数据一键填入', '设备数据一键填入')} width={520}>
+        <div style={{ padding: 12, background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
+          <div>· {t('ui.饲料/用水', '饲料/用水')} = {t('ui.今日累计读数 − 昨日累计读数（当日用量）', '今日累计读数 − 昨日累计读数（当日用量）')}</div>
+          <div>· {t('ui.温度/湿度', '温度/湿度')} = {t('ui.当日均值', '当日均值')}</div>
+          <div>· {t('ui.填入晨班行；如需分摊到其它班次请手动拆分', '填入晨班行；如需分摊到其它班次请手动拆分')}</div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>
+            {t('ui.采集时点（0-23 小时，留空 = 全天 24h 累计）', '采集时点（0-23 小时，留空 = 全天 24h 累计）')}
+          </label>
+          <input type="number" min={0} max={23} step={1} value={genHour} onChange={e => {
+            const v = e.target.value;
+            if (v === '') { setGenHour(''); return; }
+            const n = Number(v);
+            if (!Number.isNaN(n) && n >= 0 && n <= 23) setGenHour(n);
+          }} placeholder="17" className={s.inp} style={{ width: '100%', padding: '8px 12px', fontSize: 14 }} />
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {t('ui.建议每天 17:00 集蛋后采集一次', '建议每天 17:00 集蛋后采集一次')}
           </div>
         </div>
-      )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" style={secondaryActionButton} onClick={() => setShowGenModal(false)}>
+            {t('common.cancel', '取消')}
+          </button>
+          <button type="button" style={primaryActionButton} onClick={handleGenerateFromDevice}>
+            <Cpu size={14} />{t('common.confirm', '确认')}
+          </button>
+        </div>
+      </ModalV2>
     </div>;
 }

@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -25,6 +25,11 @@ import {
  *   UNRECEIVED → PARTIAL → RECEIVED
  */
 @Entity('fin_ar_invoices')
+@Index('idx_fin_ar_company_status', ['companyCode', 'status'])
+@Index('idx_fin_ar_customer_status', ['customerCode', 'status'], { where: '"customer_code" IS NOT NULL' })
+@Index('idx_fin_ar_due_date', ['dueDate'], { where: '"due_date" IS NOT NULL' })
+@Index('idx_fin_ar_source_no', ['sourceNo'], { where: '"source_no" IS NOT NULL' })
+// idx_fin_ar_inv_sal_cust 跳过:DB 列 sal_customer_id 在 entity 缺(g197 真业务漂移)
 export class FinArInvoiceEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

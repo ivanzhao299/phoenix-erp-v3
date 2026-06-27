@@ -45,6 +45,17 @@ export class ShareholderContributionsService {
     }
   }
 
+  // 制单/审核分离（SoD）：禁止确认自己创建的记录——必须由他人复核确认。
+  // 即使一人同时握有建单(:C)+确认(:E)权限，自己建的单也得换个人确认，杜绝自建自批。
+  private assertNotSelfApproval(createdBy: string | null, action: string) {
+    const me = this.username();
+    if (me && createdBy && String(createdBy) === String(me)) {
+      throw new ForbiddenException(
+        `不能${action}自己创建的股东出资记录——制单与审核须分离，请由他人复核确认`,
+      );
+    }
+  }
+
   private userCompanyCodes(user: any): string[] | null {
     if (user?.dataScope?.scopeAll) return null;
     return user?.dataScope?.companyCodes ?? [];
@@ -112,7 +123,7 @@ export class ShareholderContributionsService {
              contribution_type, fund_nature,
              currency_code, amount_original, exchange_rate, amount_base, base_currency,
              settled_amount_original, settled_amount_base, balance_amount_original, balance_amount_base,
-             expected_return_date, interest_rate,
+             contribution_date, expected_return_date, interest_rate,
              status, wf_instance_id, cash_account_id,
              remark, created_by, updated_by, created_at, updated_at
       FROM fin_shareholder_contributions WHERE 1=1
@@ -137,8 +148,13 @@ export class ShareholderContributionsService {
       params.push(dto.contributionType);
     }
     if (dto.status) {
-      sql += ` AND status = $${idx++}`;
-      params.push(dto.status);
+      if (dto.status === 'PENDING') {
+        sql += ` AND status = ANY($${idx++})`;
+        params.push(['DRAFT', 'PENDING_CONFIRM']);
+      } else {
+        sql += ` AND status = $${idx++}`;
+        params.push(dto.status);
+      }
     }
     if (dto.keyword) {
       sql += ` AND (shareholder_name ILIKE $${idx} OR contribution_no ILIKE $${idx} OR company_name ILIKE $${idx})`;
@@ -165,7 +181,7 @@ export class ShareholderContributionsService {
       ]),
     ]);
 
-    return { items, total: Number(countRow[0]?.total ?? 0), page, pageSize };
+    return { items: this.snakeToCamel(items), total: Number(countRow[0]?.total ?? 0), page, pageSize };
   }
 
   // ── 单条详情（含 settlements） ────────────────────────────────────────────
@@ -182,7 +198,11 @@ export class ShareholderContributionsService {
     );
     if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
     this.assertOwnership(row.company_code, user);
-    return row;
+    const [camel] = this.snakeToCamel([row]);
+    if (Array.isArray(camel.settlements)) {
+      camel.settlements = this.snakeToCamel(camel.settlements as Record<string, unknown>[]);
+    }
+    return camel;
   }
 
   // ── 采购股东代付自动入账（G85-B：付款执行时同事务调用） ─────────────────────
@@ -250,9 +270,9 @@ export class ShareholderContributionsService {
             currency_code, amount_original, exchange_rate, amount_base, base_currency,
             settled_amount_original, settled_amount_base,
             balance_amount_original, balance_amount_base,
-            expected_return_date, interest_rate,
+            contribution_date, expected_return_date, interest_rate,
             status, cash_account_id, remark, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
         [
           contributionNo,
           dto.shareholderCode ?? null,
@@ -268,6 +288,7 @@ export class ShareholderContributionsService {
           amtOrig, rate, amtBase, 'CNY',
           0, 0,
           amtOrig, amtBase,
+          dto.contributionDate ?? null,
           dto.expectedReturnDate ?? null,
           dto.interestRate ?? null,
           'DRAFT',
@@ -314,6 +335,7 @@ export class ShareholderContributionsService {
       if (dto.contributionType !== undefined) set('contribution_type',   dto.contributionType);
       if (dto.fundNature       !== undefined) set('fund_nature',         dto.fundNature);
       if (dto.currencyCode     !== undefined) set('currency_code',       dto.currencyCode);
+      if (dto.contributionDate !== undefined) set('contribution_date', dto.contributionDate);
       if (dto.expectedReturnDate !== undefined) set('expected_return_date', dto.expectedReturnDate);
       if (dto.interestRate     !== undefined) set('interest_rate',       dto.interestRate);
       if (dto.cashAccountId    !== undefined) set('cash_account_id',     dto.cashAccountId);
@@ -337,17 +359,12 @@ export class ShareholderContributionsService {
       }
 
       set('updated_by', this.username());
-      set('updated_at', 'now()');
-      // updated_at 是字面量不能作参数
-      // 重新处理：
-      const updatedAtIdx = fields.length;
-      fields[updatedAtIdx - 1] = 'updated_at = now()';
-      vals.pop();
 
-      if (fields.length === 0) return row;
-
+      // updated_at 用 SQL 字面量 now()（不占参数位）；WHERE id 用下一个参数位 $pidx。
+      // 原实现 set('updated_at','now()') 让 pidx 多自增 1、又 pop 掉值却不回退 pidx，
+      // 导致 WHERE id 的 $pidx 越界 → UPDATE 必失败（"保存失败"根因）。
       await qr.query(
-        `UPDATE fin_shareholder_contributions SET ${fields.join(', ')} WHERE id = $${pidx}`,
+        `UPDATE fin_shareholder_contributions SET ${fields.join(', ')}, updated_at = now() WHERE id = $${pidx}`,
         [...vals, id],
       );
 
@@ -358,12 +375,14 @@ export class ShareholderContributionsService {
 
   // ── 提交审批（DRAFT→PENDING_CONFIRM） ─────────────────────────────────────
 
-  async submitConfirm(id: string, user: any): Promise<FinShareholderContributionEntity> {
+  async submitConfirm(id: string, user: any, pickedApproverId?: string): Promise<FinShareholderContributionEntity> {
     return this.ds.transaction(async mgr => {
       const qr = mgr.queryRunner!;
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
       this.assertOwnership(row.companyCode, user);
+      // 提交审批=创建者把自己的草稿"交出去"，是创建者本就该做的动作，不拦自审；
+      // 真正拦自审的是"确认入账"confirmDirect（自己批自己）。
       if (row.status !== 'DRAFT') {
         throw new ConflictException(`只有草稿状态才可提交（当前：${row.status}）`);
       }
@@ -387,13 +406,13 @@ export class ShareholderContributionsService {
           projectCode:  row.projectCode ?? undefined,
           projectName:  row.projectName ?? undefined,
           subject:      `${row.shareholderName} · ${row.contributionType}`,
+          pickedApproverId,
         }, mgr);
-      } catch {
-        // 无审批规则时自动确认
-        await qr.query(
-          `UPDATE fin_shareholder_contributions SET status = 'CONFIRMED', updated_by = $1, updated_at = now() WHERE id = $2`,
-          [this.username(), id],
-        );
+      } catch (e) {
+        // 指定了审批人却失败（如所选人无权/不在数据域）→ 抛出让发起人改选；
+        // 未指定审批人的"无审批规则" → 停在 PENDING_CONFIRM 等他人确认（制单/审核分离，
+        // 不再自动入账），由另一持 MENU_FIN2_SHAREHOLDER:E 的非创建者在台账「确认」完成。
+        if (pickedApproverId) throw e;
       }
 
       const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
@@ -408,6 +427,7 @@ export class ShareholderContributionsService {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
       this.assertOwnership(row.companyCode, user);
+      this.assertNotSelfApproval(row.createdBy, '确认');
       if (!['DRAFT', 'PENDING_CONFIRM'].includes(row.status)) {
         throw new ConflictException(`当前状态 ${row.status} 不允许直接确认`);
       }
@@ -567,5 +587,16 @@ export class ShareholderContributionsService {
       byType,
       byStatus,
     };
+  }
+
+  // raw SQL 返回 snake_case 列名，前端期望 camelCase → 统一转换
+  private snakeToCamel(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return rows.map(r => {
+      const o: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(r)) {
+        o[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = v;
+      }
+      return o;
+    });
   }
 }

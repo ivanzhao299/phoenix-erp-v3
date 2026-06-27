@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-06-23T22:30:00+08:00",
+  "source": "local_precheck_using_r1_manifest_plus_fresh_ssh_probe",
+  "r1_audit_dir": "/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510",
+  "remote_branch": "main",
+  "remote_commit": "87b5781",
+  "local_verified_commit": "7315bfb6",
+  "store_payment_migration_file_remote": "present",
+  "file_metadata_migration_file_remote": "missing",
+  "store_payment_accounts_table_present": false,
+  "store_payment_records_table_present": false,
+  "file_metadata_table_present": false,
+  "store_payment_drift_classification": "HISTORY_TABLE_DRIFT",
+  "store_payment_drift_unresolved_possibilities": [
+    "WRONG_DATABASE_TARGET",
+    "WRONG_SCHEMA_TARGET",
+    "TABLE_DROPPED_AFTER_MIGRATION",
+    "MANUAL_HISTORY_INSERT"
+  ],
+  "file_metadata_missing_cause": "CODE_NOT_DEPLOYED",
+  "fresh_ssh_probe": "FAILED_BANNER_TIMEOUT",
+  "db_write_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "restart_executed": false,
+  "push_executed": false,
+  "recommended_next_gate": "REMOTE_CODE_ALIGNMENT_EXECUTION_GATE"
+}

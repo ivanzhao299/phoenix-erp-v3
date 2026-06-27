@@ -9,6 +9,7 @@ import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
+import { DrawerV2 } from '@/components/design-system/drawers/DrawerV2';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -16,6 +17,9 @@ import {
   inlineBadge, pillBadge,
   searchToolbar, toolbarFilterPill, toolbarSearchInput,
   tableContainer, tablePagination,
+  // g200a 模板 token(2026-06-19)
+  MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionPill, moneyCell, inlineAlert,
 } from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -181,7 +185,7 @@ function CreateExpenseModal({
   }))} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
     boxSizing: 'border-box'
   }} />;
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(460)} onClick={e => e.stopPropagation()}>
         <div className="text-text" style={{
         fontWeight: 800,
@@ -216,16 +220,10 @@ function CreateExpenseModal({
         boxSizing: 'border-box'
       }} />)}
         {field('备注', inp('remark', 'text', '选填'))}
-        {error && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 ${u.mb12}`}>
-            {error}
-          </div>}
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end'
-      }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
-          <button onClick={() => void submit()} disabled={saving} className={`px-4 py-2 rounded-lg border-0 text-sm font-bold text-white cursor-pointer transition-colors ${saving ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+        {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>{error}</div>}
+        <div style={drawerFooter}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={() => void submit()} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? '创建中...' : '创建草稿'}
           </button>
         </div>
@@ -276,45 +274,10 @@ function ExpenseDrawer({
       setActing(false);
     }
   };
-  if (loading || !data) return <div className="bg-bg-card text-text-muted" style={{
-    position: 'fixed',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 520,
-    padding: 28,
-    boxShadow: '-2px 0 16px var(--overlay-black-10)',
-    zIndex: 500
-  }}>
-      <div>加载中...</div>
-    </div>;
-  return <div className="bg-bg-card" style={{
-    position: 'fixed',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 540,
-    padding: 28,
-    boxShadow: '-2px 0 20px var(--overlay-black-12)',
-    zIndex: 500,
-    overflowY: 'auto'
-  }}>
-      <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 20
-    }}>
-        <div>
-          <div className="text-text" style={{
-          fontWeight: 800,
-          fontSize: 16
-        }}>{data.expense_no}</div>
-          <div style={{
-          marginTop: 4
-        }}><StatusBadge status={data.status} /></div>
-        </div>
-        <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">关闭</button>
+  return <DrawerV2 open title={loading || !data ? '费用详情' : data.expense_no} onClose={onClose} width={540}>
+      {loading || !data ? <div className="text-text-muted" style={{ padding: 28 }}>加载中...</div> : <>
+      <div style={{ marginBottom: 20 }}>
+        <StatusBadge status={data.status} />
       </div>
 
       {/* 基本信息 */}
@@ -356,7 +319,7 @@ function ExpenseDrawer({
         {data.status === 'DRAFT' && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)} disabled={acting} style={primaryActionButton}>
             <Send size={13} /> 提交审批
           </button>}
-        {['DRAFT', 'REJECTED'].includes(data.status) && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)} disabled={acting} className="px-3 py-1.5 rounded-lg border border-danger/20 bg-danger/10 text-danger text-xs font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
+        {['DRAFT', 'REJECTED'].includes(data.status) && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)} disabled={acting} style={actionPill('danger', acting)}>
             取消申请
           </button>}
       </div>
@@ -433,12 +396,13 @@ function ExpenseDrawer({
             fontSize: 13,
             fontWeight: 700
           }}>{r.reimb_no}</div>
-                <div className={`text-text-muted ${u.fs11}`}>{currencySymbol(data.currency_code)}{fmt(r.reimb_amount_original)}</div>
+                <div className={`text-text-muted ${u.fs11}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(data.currency_code)}{fmt(r.reimb_amount_original)}</div>
               </div>
               <StatusBadge status={r.status} />
             </div>)}
         </div>}
-    </div>;
+    </>}
+    </DrawerV2>;
 }
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
@@ -501,53 +465,27 @@ export default function ExpensesPage() {
             )}
           </div>} />
 
-      {/* KPI 快览 */}
+      {/* g200a KPI 6 卡(2026-06-19):Tailwind 浅色背景 → kpiCardCompact token */}
       {summary && <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-      gap: 10,
-      marginBottom: 20
-    }}>
-          {[{
-        label: '申请总数',
-        value: String(summary.totalExpenses),
-        accent: 'bg-indigo-50 dark:bg-indigo-950/40',
-        valueClass: 'text-indigo-600 dark:text-indigo-400'
-      }, {
-        label: '审批中',
-        value: String(summary.pendingApproval),
-        accent: 'bg-amber-50 dark:bg-amber-950/40',
-        valueClass: 'text-warning'
-      }, {
-        label: '已审批',
-        value: String(summary.approved),
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40',
-        valueClass: 'text-emerald-600 dark:text-emerald-400'
-      }, {
-        label: '已报销',
-        value: String(summary.reimbursed),
-        accent: 'bg-indigo-50 dark:bg-indigo-950/40',
-        valueClass: 'text-indigo-600 dark:text-indigo-400'
-      }, {
-        label: '待报销',
-        value: String(summary.pendingReimb),
-        accent: 'bg-amber-50 dark:bg-amber-950/40',
-        valueClass: 'text-warning'
-      }, {
-        label: '今日已付款',
-        value: String(summary.paidToday) + ' 笔',
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40',
-        valueClass: 'text-emerald-600 dark:text-emerald-400'
-      }].map(c => <div key={c.label} className={`rounded-xl ${c.accent}`} style={{
-        padding: '12px 16px'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+        gap: 10,
+        marginBottom: 20,
       }}>
-              <div className="text-text-muted" style={{
-          fontSize: 11,
-          marginBottom: 2
-        }}>{c.label}</div>
-              <div className={`text-lg font-extrabold ${c.valueClass}`}>{c.value}</div>
-            </div>)}
-        </div>}
+        {([
+          { label: '申请总数',  value: String(summary.totalExpenses),         tone: 'brand'   as const },
+          { label: '审批中',    value: String(summary.pendingApproval),       tone: 'warning' as const },
+          { label: '已审批',    value: String(summary.approved),              tone: 'success' as const },
+          { label: '已报销',    value: String(summary.reimbursed),            tone: 'brand'   as const },
+          { label: '待报销',    value: String(summary.pendingReimb),          tone: 'warning' as const },
+          { label: '今日已付款', value: String(summary.paidToday) + ' 笔',    tone: 'success' as const },
+        ]).map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
+          </div>
+        ))}
+      </div>}
 
       {/* 筛选 工具栏 */}
       <div style={searchToolbar}>
@@ -572,9 +510,9 @@ export default function ExpensesPage() {
         </select>
       </div>
 
-      {error && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 ${u.mb12}`}>
-          <AlertTriangle size={13} />{error}
-        </div>}
+      {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>
+        <AlertTriangle size={13} />{error}
+      </div>}
 
       {/* 列表 */}
       <div style={tableContainer}>
@@ -649,7 +587,8 @@ export default function ExpensesPage() {
         }}>
               <div className="text-text" style={{
             fontWeight: 800,
-            fontSize: 15
+            fontSize: 15,
+            fontVariantNumeric: 'tabular-nums'
           }}>{currencySymbol(item.currency_code)}{fmt(item.amount_original)}</div>
               <div className={`text-text-muted ${u.fs11}`}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
             </div>

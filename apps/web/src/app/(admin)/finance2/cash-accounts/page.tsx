@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import u from "@/styles/uix-utils.module.css";
 import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity, Pencil, ArrowLeftRight, Trash2 } from 'lucide-react';
@@ -9,12 +9,16 @@ import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 import { currencySymbol } from '@/lib/currency';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
   drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
   inlineBadge, pillBadge,
   searchToolbar, toolbarFilterPill,
+  // g200a 模板 token
+  MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionPill, moneyCell, txnRow, drawerHeroBox,
 } from '@/components/design-system/cockpit-styles';
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -212,7 +216,7 @@ function CreateAccountModal({
       setSaving(false);
     }
   }
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(520)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -332,16 +336,10 @@ function CreateAccountModal({
         }} />
         </div>
 
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end',
-        marginTop: 20
-      }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">
-            取消
-          </button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+        {/* g200a 模态底栏(2026-06-19):用 drawerFooter + secondaryActionButton/primaryActionButton token。*/}
+        <div style={drawerFooter}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? '创建中…' : '创建账户'}
           </button>
         </div>
@@ -402,7 +400,7 @@ function EditAccountModal({
       setSaving(false);
     }
   }
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>编辑账户</div>
@@ -436,9 +434,10 @@ function EditAccountModal({
           <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+        {/* g200a 模态底栏(2026-06-19):token 化(同 CreateAccountModal)。*/}
+        <div style={drawerFooter}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? '保存中…' : '保存'}
           </button>
         </div>
@@ -474,6 +473,13 @@ function TransactionDrawer({
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ direction: 'IN' | 'OUT'; amount: string; txn_date: string; remark: string }>({ direction: 'IN', amount: '', txn_date: '', remark: '' });
   const [savingTxn, setSavingTxn] = useState(false);
+  const [pendingDeleteTxnId, setPendingDeleteTxnId] = useState<string | null>(null);
+  // G189 批量删除（初始化对齐：删导入/手工/期初等无源流水）
+  const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  function toggleTxnSel(id: string) {
+    setSelectedTxnIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
   async function doEditTxn(txnId: string) {
     const amt = Number(editForm.amount);
     if (!Number.isFinite(amt) || amt <= 0) { alert('金额必须为正数'); return; }
@@ -490,15 +496,18 @@ function TransactionDrawer({
       onChanged();
     } finally { setSavingTxn(false); }
   }
-  async function doDeleteTxn(txnId: string) {
-    if (!window.confirm('确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。')) return;
+  function doDeleteTxn(txnId: string) {
+    setPendingDeleteTxnId(txnId);
+  }
+  async function confirmDeleteTxn() {
+    if (!pendingDeleteTxnId) return;
     setSavingTxn(true);
     try {
-      const r = await fetch(`${API}/transactions/${txnId}`, { method: 'DELETE', headers: authHeaders() });
+      const r = await fetch(`${API}/transactions/${pendingDeleteTxnId}`, { method: 'DELETE', headers: authHeaders() });
       if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? '删除失败'); return; }
       await loadTxns();
       onChanged();
-    } finally { setSavingTxn(false); }
+    } finally { setSavingTxn(false); setPendingDeleteTxnId(null); }
   }
   const loadTxns = useCallback(() => {
     setLoading(true);
@@ -509,9 +518,27 @@ function TransactionDrawer({
     }).finally(() => setLoading(false));
   }, [account.id]);
   useEffect(() => { void loadTxns(); }, [loadTxns]);
+  async function doBulkDelete() {
+    if (selectedTxnIds.size === 0) return;
+    if (!confirm(`确认批量删除选中的 ${selectedTxnIds.size} 条流水？仅手工/期初/导入等无源单据流水会被删除；删后自动重算余额。此操作不可恢复。`)) return;
+    setBulkDeleting(true);
+    try {
+      const r = await fetch(`${API}/transactions/bulk-delete`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ ids: [...selectedTxnIds] }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(d.message ?? '批量删除失败'); return; }
+      alert(`已删除 ${d.deleted ?? 0} 条流水，重算 ${d.accounts?.length ?? 0} 个账户余额`);
+      setSelectedTxnIds(new Set());
+      await loadTxns();
+      onChanged();
+    } catch { alert('批量删除失败'); }
+    finally { setBulkDeleting(false); }
+  }
   // 同币种、非本账户、未关闭 → 可作为改挂目标
-  const reassignTargets = accounts.filter(a =>
-    a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED');
+  const reassignTargets = useMemo(() => accounts.filter(a =>
+    a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED'), [accounts, account.id, account.currency_code]);
   async function doReassign(txnId: string) {
     if (!reassignTarget) { alert('请选择目标账户'); return; }
     setReassigning(true);
@@ -534,72 +561,45 @@ function TransactionDrawer({
       setReassigning(false);
     }
   }
-  return <div style={drawerMask}>
-      <div className="bg-bg-card" style={{
-      width: 520,
-      height: '100vh',
-      overflowY: 'auto',
-      padding: 24,
-      boxShadow: '-8px 0 32px var(--overlay-black-10)'
-    }}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 18
-      }}>
+  return <div style={drawerMask} onClick={onClose}>
+      <div style={drawerPanel(520)} onClick={e => e.stopPropagation()}>
+        {/* g200a 抽屉头部(2026-06-19):用 drawerHeader/drawerHeaderTitle/drawerCloseButton token,
+            替代之前 marginBottom 18 无下分割线的自写头(扫读时与余额块粘连)。*/}
+        <div style={drawerHeader}>
           <div>
-            <div className="text-text" style={{
-            fontWeight: 700,
-            fontSize: 16
-          }}>{account.account_name}</div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            marginTop: 2
-          }}>{account.account_code} · {account.currency_code}</div>
+            <div style={drawerHeaderTitle}>{account.account_name}</div>
+            <div className="text-text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+              {account.account_code} · {account.currency_code}
+            </div>
           </div>
-          <button onClick={onClose} style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer'
-        }}>
-            <X size={18} className="text-text-dim" />
+          <button onClick={onClose} style={drawerCloseButton}>
+            <X size={18} />
           </button>
         </div>
 
-        {/* 余额卡片 */}
-        <div style={{
-        background: 'linear-gradient(135deg,var(--color-accent),var(--status-info))',
-        borderRadius: 12,
-        padding: '16px 20px',
-        marginBottom: 18,
-        color: 'var(--bg-card)'
-      }}>
-          <div style={{
-          fontSize: 12,
-          opacity: 0.8
-        }}>当前余额</div>
-          <div style={{
-          fontSize: 28,
-          fontWeight: 800,
-          letterSpacing: -1
-        }}>
-            {currencySymbol(account.currency_code)}{fmt(account.current_balance)}
+        {/* g200a 余额块(2026-06-19):去渐变蓝,用 drawerHeroBox token(灰底克制) + moneyCell(lg)。*/}
+        <div style={drawerHeroBox}>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>当前余额</div>
+            <div style={{ ...moneyCell('default', 'lg'), fontSize: 24, letterSpacing: -0.5 }}>
+              {currencySymbol(account.currency_code)}{fmt(account.current_balance)}
+            </div>
           </div>
-          <div style={{
-          fontSize: 12,
-          opacity: 0.7,
-          marginTop: 4
-        }}>
-            期初余额 {fmt(account.opening_balance)}
+          <div className="text-text-muted" style={{ fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
+            期初 <span style={{ fontFamily: MONO_FONT }}>{fmt(account.opening_balance)}</span>
           </div>
         </div>
 
-        <div className="text-text-muted" style={{
-        fontWeight: 600,
-        fontSize: 13,
-        marginBottom: 12
-      }}>最近 50 条流水</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span className="text-text-muted" style={{ fontWeight: 600, fontSize: 13 }}>
+            最近 50 条流水{canDeleteTxn && selectedTxnIds.size > 0 ? ` · 已选 ${selectedTxnIds.size}` : ''}
+          </span>
+          {canDeleteTxn && selectedTxnIds.size > 0 && (
+            <button onClick={() => void doBulkDelete()} disabled={bulkDeleting} style={actionPill('danger', bulkDeleting)}>
+              <Trash2 size={11} /> {bulkDeleting ? '删除中…' : `批量删除 (${selectedTxnIds.size})`}
+            </button>
+          )}
+        </div>
 
         {loading ? <div className="text-text-muted" style={{
         textAlign: 'center',
@@ -614,48 +614,32 @@ function TransactionDrawer({
         flexDirection: 'column',
         gap: 8
       }}>
-            {txns.map(t => <div key={t.id} className={t.direction === 'IN' ? 'bg-success/10 border border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          padding: '10px 12px',
-          borderRadius: 10
-        }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            {txns.map(t => (
+              /* g200a 流水行(2026-06-19):去 Tailwind 浅绿/浅橙背景,用 txnRow(direction) — 白底 + 左 3px 色条标方向。
+                 金额用 moneyCell(success/warning, md);余额尾巴 moneyCell(default, sm)。*/
+              <div key={t.id} style={txnRow(t.direction === 'IN' ? 'IN' : 'OUT')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%' }}>
+                  {canDeleteTxn && <input type="checkbox" checked={selectedTxnIds.has(t.id)} onChange={() => toggleTxnSel(t.id)} style={{ width: 15, height: 15, flexShrink: 0, cursor: 'pointer' }} />}
                   <div className={u.flex1}>
-                    <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                marginBottom: 2
-              }}>
-                      {t.direction === 'IN' ? <TrendingUp size={13} className="text-success" /> : <TrendingDown size={13} className="text-orange-600 dark:text-orange-400" />}
-                      <span className="text-text-muted" style={{
-                  fontSize: 12,
-                  fontWeight: 600
-                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      {t.direction === 'IN'
+                        ? <TrendingUp size={13} className="text-success" />
+                        : <TrendingDown size={13} style={{ color: 'var(--status-warning)' }} />}
+                      <span className="text-text-muted" style={{ fontSize: 12, fontWeight: 600 }}>
                         {SOURCE_TYPE_LABELS[t.source_type ?? ''] ?? t.source_type ?? '-'}
                       </span>
                       {t.source_no && <span className={`text-text-dim ${u.fs11}`}>{t.source_no}</span>}
                     </div>
                     <div className={`text-text-muted ${u.fs11}`}>
-                      {new Date(t.txn_date).toLocaleString('zh-CN', {
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                      {new Date(t.txn_date).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       {t.remark && ` · ${t.remark}`}
                     </div>
                   </div>
                   <div className={u.tar}>
-                    <div style={{
-                fontWeight: 700,
-                fontSize: 14
-              }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
+                    <div style={moneyCell(t.direction === 'IN' ? 'success' : 'warning', 'md')}>
                       {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                     </div>
-                    <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balance_after)}</div>
+                    <div style={{ ...moneyCell('default', 'sm'), color: 'var(--text-dim)', fontWeight: 400 }}>余 {fmt(t.balance_after)}</div>
                   </div>
                 </div>
 
@@ -664,53 +648,66 @@ function TransactionDrawer({
                   /* G103 修改手工流水（金额/方向/日期/摘要） */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', padding: '8px 0' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <select value={editForm.direction} onChange={e => setEditForm(f => ({ ...f, direction: e.target.value as 'IN' | 'OUT' }))} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none" style={{ width: 80 }}>
+                      <select value={editForm.direction} onChange={e => setEditForm(f => ({ ...f, direction: e.target.value as 'IN' | 'OUT' }))} style={{ ...inputField, width: 80, fontSize: 12, padding: '5px 8px' }}>
                         <option value="IN">收款</option>
                         <option value="OUT">付款</option>
                       </select>
-                      <input type="number" min="0" step="0.01" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} placeholder="金额" className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none" style={{ flex: 1, boxSizing: 'border-box' }} />
-                      <input type="date" value={editForm.txn_date} onChange={e => setEditForm(f => ({ ...f, txn_date: e.target.value }))} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none" style={{ width: 130, boxSizing: 'border-box' }} />
+                      <input type="number" min="0" step="0.01" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} placeholder="金额" style={{ ...inputField, flex: 1, fontSize: 12, padding: '5px 8px' }} />
+                      <input type="date" value={editForm.txn_date} onChange={e => setEditForm(f => ({ ...f, txn_date: e.target.value }))} style={{ ...inputField, width: 130, fontSize: 12, padding: '5px 8px' }} />
                     </div>
-                    <input value={editForm.remark} onChange={e => setEditForm(f => ({ ...f, remark: e.target.value }))} placeholder="摘要 / 备注" className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none w-full" style={{ boxSizing: 'border-box' }} />
+                    <input value={editForm.remark} onChange={e => setEditForm(f => ({ ...f, remark: e.target.value }))} placeholder="摘要 / 备注" style={{ ...inputField, fontSize: 12, padding: '5px 8px' }} />
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                      <button onClick={() => setEditId(null)} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text-muted cursor-pointer">取消</button>
-                      <button onClick={() => void doEditTxn(t.id)} disabled={savingTxn} className={`px-3 py-1 rounded-lg text-xs font-semibold text-white border-0 ${savingTxn ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}>{savingTxn ? '保存中…' : '保存修改'}</button>
+                      <button onClick={() => setEditId(null)} style={actionPill('default')}>取消</button>
+                      <button onClick={() => void doEditTxn(t.id)} disabled={savingTxn} style={actionPill('brand', savingTxn)}>
+                        {savingTxn ? '保存中…' : '保存修改'}
+                      </button>
                     </div>
                   </div>
                 ) : reassignId === t.id ? (
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
-                    <select value={reassignTarget} onChange={e => setReassignTarget(e.target.value)} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none" style={{ flex: 1, boxSizing: 'border-box' }}>
+                    <select value={reassignTarget} onChange={e => setReassignTarget(e.target.value)} style={{ ...inputField, flex: 1, fontSize: 12, padding: '5px 8px' }}>
                       <option value="">选择目标账户（同币种 {account.currency_code}）…</option>
                       {reassignTargets.map(a => <option key={a.id} value={a.id}>{a.account_code} · {a.account_name}</option>)}
                     </select>
-                    <button onClick={() => void doReassign(t.id)} disabled={reassigning || !reassignTarget} className={`px-3 py-1 rounded-lg text-xs font-semibold text-white border-0 ${reassigning || !reassignTarget ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}>
+                    <button onClick={() => void doReassign(t.id)} disabled={reassigning || !reassignTarget} style={actionPill('brand', reassigning || !reassignTarget)}>
                       {reassigning ? '改挂中…' : '确认'}
                     </button>
-                    <button onClick={() => { setReassignId(null); setReassignTarget(''); }} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text-muted cursor-pointer">取消</button>
+                    <button onClick={() => { setReassignId(null); setReassignTarget(''); }} style={actionPill('default')}>取消</button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {canEdit && (
-                      <button onClick={() => { setReassignId(t.id); setReassignTarget(''); }} className="flex items-center gap-1 self-start px-2 py-0.5 rounded text-[11px] font-medium text-text-muted border border-border bg-bg-page hover:bg-bg-muted cursor-pointer transition-colors">
+                      <button onClick={() => { setReassignId(t.id); setReassignTarget(''); }} style={actionPill('default')}>
                         <ArrowLeftRight size={10} /> 改挂账户
                       </button>
                     )}
                     {/* 修改 / 删除：仅手工录入的流水（业务单据带出的流水须回源单据修正） */}
                     {canEditTxn && t.source_type === 'MANUAL' && (
-                      <button onClick={() => { setEditId(t.id); setEditForm({ direction: t.direction === 'OUT' ? 'OUT' : 'IN', amount: String(t.amount ?? ''), txn_date: (t.txn_date ?? '').slice(0, 10), remark: t.remark ?? '' }); }} className="flex items-center gap-1 self-start px-2 py-0.5 rounded text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 bg-bg-page hover:bg-bg-muted cursor-pointer transition-colors">
+                      <button onClick={() => { setEditId(t.id); setEditForm({ direction: t.direction === 'OUT' ? 'OUT' : 'IN', amount: String(t.amount ?? ''), txn_date: (t.txn_date ?? '').slice(0, 10), remark: t.remark ?? '' }); }} style={actionPill('info')}>
                         <Pencil size={10} /> 修改
                       </button>
                     )}
                     {canDeleteTxn && t.source_type === 'MANUAL' && (
-                      <button onClick={() => void doDeleteTxn(t.id)} disabled={savingTxn} className="flex items-center gap-1 self-start px-2 py-0.5 rounded text-[11px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 bg-bg-page hover:bg-bg-muted cursor-pointer transition-colors">
+                      <button onClick={() => void doDeleteTxn(t.id)} disabled={savingTxn} style={actionPill('danger', savingTxn)}>
                         <Trash2 size={10} /> 删除
                       </button>
                     )}
                   </div>
                 )}
-              </div>)}
+              </div>
+            ))}
           </div>}
       </div>
+      <ConfirmDialogV2
+        open={!!pendingDeleteTxnId}
+        title="删除流水"
+        message="确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。"
+        danger
+        confirmLabel="删除"
+        loading={savingTxn}
+        onConfirm={confirmDeleteTxn}
+        onCancel={() => setPendingDeleteTxnId(null)}
+      />
     </div>;
 }
 
@@ -785,13 +782,13 @@ export default function CashAccountsPage() {
     }
   }
   // 账户总余额跨币种，单一符号会误导(USD/THB 账户被当人民币)。按币种分组展示。
-  const totalBalanceDisplay = (() => {
+  const totalBalanceDisplay = useMemo(() => {
     const rows = (summary?.byCurrency ?? []).filter(r => Number(r.balance) !== 0 || Number(r.cnt) > 0);
     if (rows.length === 0) return fmt(summary?.totalBalance ?? 0);
     return rows
       .map(r => `${currencySymbol(r.currency_code)}${fmt(r.balance)}`)
       .join('  /  ');
-  })();
+  }, [summary]);
   return <div>
       <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
         <div style={{ display: 'flex', gap: 8 }}>
@@ -813,53 +810,30 @@ export default function CashAccountsPage() {
         </div>
       } />
 
-      {/* KPI 卡片 */}
+      {/* g200a KPI 卡片(2026-06-19):统一 kpiCardCompact token,白底 + 左 3px 色条 + MONO 数字。
+          替代之前 4 种 Tailwind 浅色背景方案(暗色漏覆盖、视觉过重)。*/}
       <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-      gap: 14,
-      marginBottom: 24
-    }}>
-        {[{
-        label: '账户总余额',
-        value: totalBalanceDisplay,
-        icon: <DollarSign size={18} className="text-blue-500" />,
-        accent: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800'
-      }, {
-        label: '账户总数',
-        value: `${summary?.totalAccounts ?? 0} 个`,
-        icon: <Wallet size={18} className="text-violet-500" />,
-        accent: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800'
-      }, {
-        label: '正常账户',
-        value: `${summary?.activeCount ?? 0} 个`,
-        icon: <Activity size={18} className="text-emerald-500" />,
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
-      }, {
-        label: '冻结账户',
-        value: `${summary?.frozenCount ?? 0} 个`,
-        icon: <Lock size={18} className="text-amber-500" />,
-        accent: 'bg-amber-50 dark:bg-amber-950/40 border-warning/20'
-      }].map(c => <div key={c.label} className={`border-[1.5px] rounded-2xl ${c.accent}`} style={{
-        padding: '16px 18px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
+        gap: 12,
+        marginBottom: 24,
       }}>
-            <div className="w-10 h-10 rounded-xl bg-bg-page flex items-center justify-center flex-shrink-0">
-              {c.icon}
+        {([
+          { label: '账户总余额', value: totalBalanceDisplay,                icon: DollarSign, tone: 'info'    as const },
+          { label: '账户总数',   value: `${summary?.totalAccounts ?? 0} 个`, icon: Wallet,     tone: 'brand'   as const },
+          { label: '正常账户',   value: `${summary?.activeCount ?? 0} 个`,   icon: Activity,   tone: 'success' as const },
+          { label: '冻结账户',   value: `${summary?.frozenCount ?? 0} 个`,   icon: Lock,       tone: 'warning' as const },
+        ]).map(c => {
+          const Icon = c.icon;
+          return (
+            <div key={c.label} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}>
+                <Icon size={13} /> {c.label}
+              </div>
+              <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
             </div>
-            <div>
-              <div className="text-text-muted" style={{
-            fontSize: 11,
-            marginBottom: 2
-          }}>{c.label}</div>
-              <div className="text-text" style={{
-            fontSize: 18,
-            fontWeight: 800
-          }}>{c.value}</div>
-            </div>
-          </div>)}
+          );
+        })}
       </div>
 
       {/* 筛选 + 搜索 工具栏 */}
@@ -969,65 +943,70 @@ export default function CashAccountsPage() {
                 </div>
               </div>
 
-              {/* 余额 */}
-              <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600" style={{
-          borderRadius: 10,
-          padding: '10px 14px',
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+              {/* g200a 余额块(2026-06-19):去渐变蓝(暗色色系冲突),回归克制灰底 + MONO 数字。*/}
+              <div style={{
+                background: 'var(--bg-muted)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '10px 14px',
+                marginBottom: 12,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
                 <div>
-                  <div className="text-text-muted" style={{
-              fontSize: 10,
-              marginBottom: 2
-            }}>当前余额</div>
-                  <div className="text-blue-800 dark:text-blue-300" style={{
-              fontWeight: 800,
-              fontSize: 18
-            }}>
+                  <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 2 }}>当前余额</div>
+                  <div style={moneyCell('default', 'lg')}>
                     {currencySymbol(acc.currency_code)}{fmt(acc.current_balance)}
                   </div>
                 </div>
-                {acc.bank_name && <div className="text-text-muted" style={{
-            fontSize: 11,
-            textAlign: 'right'
-          }}>
+                {acc.bank_name && (
+                  <div className="text-text-muted" style={{ fontSize: 11, textAlign: 'right' }}>
                     <div>{acc.bank_name}</div>
-                    {acc.bank_account_no && <div className="text-text-dim">{acc.bank_account_no.slice(-4).padStart(acc.bank_account_no.length, '*')}</div>}
-                  </div>}
+                    {acc.bank_account_no && (
+                      <div className="text-text-dim" style={{ fontFamily: MONO_FONT }}>
+                        {acc.bank_account_no.slice(-4).padStart(acc.bank_account_no.length, '*')}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* 操作按钮 */}
-              <div onClick={e => e.stopPropagation()} style={{
-          display: 'flex',
-          gap: 8,
-          flexWrap: 'wrap'
-        }}>
-                {canEditAccount && acc.status !== 'CLOSED' && <button onClick={() => setEditAccount(acc)} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-info/20 bg-info/10 text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+              {/* g200a 操作按钮(2026-06-19):5 种 Tailwind 自写色 → 统一 actionPill(tone) token。
+                  保持语义色:编辑 info / 重算 brand / 冻结 warning / 解冻 success / 关闭 default。*/}
+              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {canEditAccount && acc.status !== 'CLOSED' && (
+                  <button onClick={() => setEditAccount(acc)} style={actionPill('info')}>
                     <Pencil size={11} /> 编辑/期初
-                  </button>}
-                {canEditAccount && <button onClick={() => {
-            if (confirm(`重算账户「${acc.account_name}」余额？将按 期初 + 全部流水 重建余额台账。`)) {
-              void doAction(acc.id, 'recompute');
-            }
-          }} disabled={actionLoading === acc.id + 'recompute'} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-800 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50">
+                  </button>
+                )}
+                {canEditAccount && (
+                  <button
+                    onClick={() => { if (confirm(`重算账户「${acc.account_name}」余额？将按 期初 + 全部流水 重建余额台账。`)) { void doAction(acc.id, 'recompute'); } }}
+                    disabled={actionLoading === acc.id + 'recompute'}
+                    style={actionPill('brand', actionLoading === acc.id + 'recompute')}
+                  >
                     <RefreshCw size={11} /> 重算余额
-                  </button>}
-                {acc.status === 'ACTIVE' && <button onClick={() => doAction(acc.id, 'freeze')} disabled={actionLoading === acc.id + 'freeze'} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-warning/20 bg-warning/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50">
+                  </button>
+                )}
+                {acc.status === 'ACTIVE' && (
+                  <button onClick={() => doAction(acc.id, 'freeze')} disabled={actionLoading === acc.id + 'freeze'} style={actionPill('warning', actionLoading === acc.id + 'freeze')}>
                     <Lock size={11} /> 冻结
-                  </button>}
-                {acc.status === 'FROZEN' && <button onClick={() => doAction(acc.id, 'unfreeze')} disabled={actionLoading === acc.id + 'unfreeze'} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50">
+                  </button>
+                )}
+                {acc.status === 'FROZEN' && (
+                  <button onClick={() => doAction(acc.id, 'unfreeze')} disabled={actionLoading === acc.id + 'unfreeze'} style={actionPill('success', actionLoading === acc.id + 'unfreeze')}>
                     <Unlock size={11} /> 解冻
-                  </button>}
-                {acc.status !== 'CLOSED' && <button onClick={() => {
-            if (confirm(`确认关闭账户「${acc.account_name}」？关闭后不可恢复，且余额必须为零。`)) {
-              void doAction(acc.id, 'close');
-            }
-          }} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-border bg-bg-muted text-text-muted hover:bg-bg-muted transition-colors">
+                  </button>
+                )}
+                {acc.status !== 'CLOSED' && (
+                  <button
+                    onClick={() => { if (confirm(`确认关闭账户「${acc.account_name}」？关闭后不可恢复，且余额必须为零。`)) { void doAction(acc.id, 'close'); } }}
+                    style={actionPill('default')}
+                  >
                     <X size={11} /> 关闭
-                  </button>}
+                  </button>
+                )}
               </div>
             </div>)}
         </div>}
@@ -1082,11 +1061,11 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
   // 账户很多 → 可搜索组合框（按账户名/编号/币种过滤），取代长下拉
   const [acctSearch, setAcctSearch] = useState('');
   const [acctOpen, setAcctOpen] = useState(false);
-  const activeAccounts = accounts.filter(a => a.status === 'ACTIVE');
-  const acctFiltered = acctSearch.trim()
+  const activeAccounts = useMemo(() => accounts.filter(a => a.status === 'ACTIVE'), [accounts]);
+  const acctFiltered = useMemo(() => acctSearch.trim()
     ? activeAccounts.filter(a => `${a.account_name} ${a.account_code} ${a.currency_code}`.toLowerCase().includes(acctSearch.trim().toLowerCase()))
-    : activeAccounts;
-  const selectedAcct = activeAccounts.find(a => a.account_code === accountCode);
+    : activeAccounts, [activeAccounts, acctSearch]);
+  const selectedAcct = useMemo(() => activeAccounts.find(a => a.account_code === accountCode), [activeAccounts, accountCode]);
 
   const label = direction === 'IN' ? '收款' : '付款';
   const color = direction === 'IN' ? 'var(--status-success)' : 'var(--status-danger)';

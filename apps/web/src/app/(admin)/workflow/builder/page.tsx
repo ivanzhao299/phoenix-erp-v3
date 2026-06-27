@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowFormField } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
@@ -17,13 +18,8 @@ type ApprovalStep = {
   role: string;
 };
 type BuildStage = "scene" | "form" | "route" | "finish";
+const UNSAFE_DEFAULT_APPROVER_ROLES = new Set(["ROLE_ADMIN", "ROLE_SYSOPS"]);
 const FALLBACK_ROLES: RoleOption[] = [{
-  label: "系统管理员",
-  value: "ROLE_SYSOPS"
-}, {
-  label: "管理员",
-  value: "ROLE_ADMIN"
-}, {
   label: "财务会计",
   value: "ROLE_FIN_ACCT"
 }, {
@@ -39,6 +35,14 @@ const FALLBACK_ROLES: RoleOption[] = [{
   label: "品控负责人",
   value: "ROLE_QA_MGR"
 }];
+function safeApprovalRole(role?: string) {
+  const value = String(role || "");
+  return UNSAFE_DEFAULT_APPROVER_ROLES.has(value) ? "" : value;
+}
+function safeApprovalSteps(steps: ApprovalStep[], fallbackName = "负责人审批"): ApprovalStep[] {
+  const next = steps.length ? steps : [{ id: "approval_1", name: fallbackName, role: "" }];
+  return next.map(step => ({ ...step, role: safeApprovalRole(step.role) }));
+}
 const FIELD_PALETTE: WorkflowFormField[] = [{
   key: "amount",
   label: "申请金额",
@@ -84,11 +88,11 @@ export default function WorkflowBuilderPage() {
   const [category, setCategory] = useState(template?.category || "通用");
   const [description, setDescription] = useState(template?.description || "");
   const [fields, setFields] = useState<WorkflowFormField[]>(template?.fields || []);
-  const [steps, setSteps] = useState<ApprovalStep[]>(template?.approvals || [{
+  const [steps, setSteps] = useState<ApprovalStep[]>(safeApprovalSteps(template?.approvals || [{
     id: "approval_1",
     name: "负责人审批",
-    role: "ROLE_SYSOPS"
-  }]);
+    role: ""
+  }]));
   const [ccRole, setCcRole] = useState("");
   const [roles, setRoles] = useState<RoleOption[]>(FALLBACK_ROLES);
   const [busy, setBusy] = useState(false);
@@ -119,11 +123,11 @@ export default function WorkflowBuilderPage() {
     setCategory(next.category);
     setDescription(next.description);
     setFields(next.fields);
-    setSteps(next.approvals.length ? next.approvals : [{
+    setSteps(safeApprovalSteps(next.approvals.length ? next.approvals : [{
       id: "approval_1",
       name: `${next.category}审批`,
-      role: "ROLE_SYSOPS"
-    }]);
+      role: ""
+    }], `${next.category}审批`));
     setCcRole("");
     setStage("form");
     setResult(null);
@@ -164,7 +168,7 @@ export default function WorkflowBuilderPage() {
     setSteps(current => [...current, {
       id: `approval_${current.length + 1}`,
       name: `第 ${current.length + 1} 级审批`,
-      role: roles[0]?.value || "ROLE_SYSOPS"
+      role: ""
     }]);
   }
   function updateStep(id: string, patch: Partial<ApprovalStep>) {
@@ -187,6 +191,10 @@ export default function WorkflowBuilderPage() {
     }
     if (steps.length === 0) {
       setError("至少保留一个审批步骤。");
+      return;
+    }
+    if (steps.some(step => !step.role || UNSAFE_DEFAULT_APPROVER_ROLES.has(step.role))) {
+      setError("请为每一级审批选择明确的业务角色，不能默认流转给系统管理员。");
       return;
     }
     setBusy(true);
@@ -229,7 +237,7 @@ export default function WorkflowBuilderPage() {
     }
   }
   return <div>
-      <PageHeader title="流程搭建工作区" subtitle="按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码" breadcrumb={["工作流", "流程搭建工作区"]} actions={<Link href="/workflow/definitions" className={s.btnSecondary}>流程列表</Link>} />
+      <PageHeader title="流程搭建工作区" subtitle="按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码" breadcrumb={["工作流", "流程搭建工作区"]} actions={<Link href="/workflow/definitions" style={secondaryActionButton}>流程列表</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={stepsHeaderStyle}>
@@ -331,7 +339,7 @@ function FormStep(props: {
               <option value="date">日期</option>
               <option value="datetime">日期时间</option>
             </select>
-            <button type="button" className={s.btnSecondary} onClick={props.onAddCustomField}>加入字段</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddCustomField}>加入字段</button>
           </div>
         </div>
       </section>
@@ -343,7 +351,7 @@ function FormStep(props: {
               <h3 className={s.cardTitle}>表单预览</h3>
               <p className={`${s.modalDesc} ${u.mt4}`}>字段会按这个顺序出现在发起申请页面。</p>
             </div>
-            <button type="button" className={s.btnPrimary} onClick={props.onNext}>下一步：排审批</button>
+            <button type="button" style={primaryActionButton} onClick={props.onNext}>下一步：排审批</button>
           </div>
           <div style={fieldListStyle}>
             {props.fields.map(field => <div key={field.key} style={fieldItemStyle}>
@@ -384,7 +392,7 @@ function RouteStep(props: {
               <h3 className={s.cardTitle}>审批路线</h3>
               <p className={`${s.modalDesc} ${u.mt4}`}>像排队一样排审批步骤，从上到下依次流转。</p>
             </div>
-            <button type="button" className={s.btnSecondary} onClick={props.onAddStep}>添加一级审批</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddStep}>添加一级审批</button>
           </div>
 
           <div style={approvalListStyle}>
@@ -396,6 +404,7 @@ function RouteStep(props: {
                 <select className={s.inp} value={step.role} onChange={e => props.onUpdateStep(step.id, {
               role: e.target.value
             })}>
+                  <option value="">请选择审批角色</option>
                   {props.roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
                 <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} disabled={props.steps.length <= 1} onClick={() => props.onRemoveStep(step.id)}>移除</button>
@@ -422,10 +431,7 @@ function RouteStep(props: {
             {props.ccRole ? <RouteNode label="抄送备案" desc={roleLabel(props.roles, props.ccRole)} tone="cc" /> : null}
             <RouteNode label="流程完成" desc="自动归档，可在实例中追踪" tone="end" />
           </div>
-          <button type="button" className={s.btnPrimary} style={{
-          width: "100%",
-          marginTop: 16
-        }} disabled={props.busy} onClick={props.onBuild}>
+          <button type="button" disabled={props.busy} onClick={props.onBuild} style={{ ...primaryActionButton, width: "100%", marginTop: 16, justifyContent: "center" }}>
             {props.busy ? "正在生成..." : "一键生成并发布"}
           </button>
         </div>
@@ -470,9 +476,9 @@ function FinishStep({
             <Info label="表单 ID" value={String(result.formId)} />
           </div> : null}
         <div style={finishActionsStyle}>
-          {result ? <Link href={`/workflow/start?code=${result.code}`} className={s.btnPrimary}>马上发起试用</Link> : null}
-          {result ? <Link href={`/workflow/designer/${result.definitionId}`} className={s.btnSecondary}>高级微调</Link> : null}
-          <Link href="/workflow/definitions" className={s.btnSecondary}>回到流程列表</Link>
+          {result ? <Link href={`/workflow/start?code=${result.code}`} style={primaryActionButton}>马上发起试用</Link> : null}
+          {result ? <Link href={`/workflow/designer/${result.definitionId}`} style={secondaryActionButton}>高级微调</Link> : null}
+          <Link href="/workflow/definitions" style={secondaryActionButton}>回到流程列表</Link>
         </div>
       </div>
     </section>;

@@ -1,0 +1,454 @@
+{
+  "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+  "request_text": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+  "risk_level": "LOW",
+  "mode": "closed-loop",
+  "dry_run": true,
+  "parallel": 3,
+  "selected_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness",
+    "A3-Backend-Critical-Path",
+    "A4-Frontend-UAT-Smoke",
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "held_reasons": [],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+    "agent_artifacts": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md --dry-run"
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run"
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A5-Data-Readiness.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A5-Data-Readiness.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A5-Data-Readiness.md --dry-run"
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A3-Backend-Critical-Path.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A3-Backend-Critical-Path.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A3-Backend-Critical-Path.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A3-Backend-Critical-Path.md --dry-run"
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A4-Frontend-UAT-Smoke.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A4-Frontend-UAT-Smoke.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A4-Frontend-UAT-Smoke.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A4-Frontend-UAT-Smoke.md --dry-run"
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A6-Staging-Deploy-Runbook.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A6-Staging-Deploy-Runbook.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A6-Staging-Deploy-Runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --prompt docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A6-Staging-Deploy-Runbook.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A6-Staging-Deploy-Runbook.md --dry-run"
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A7-Final-QA-Gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --prompt docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md --dry-run"
+      }
+    ],
+    "agent_queue": {
+      "tasks_file": "docs/ops/agent-queue/tasks.json",
+      "events_file": "docs/ops/agent-queue/events.jsonl",
+      "created_tasks": [
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A2-Security-Regression-Gate",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A2-Security-Regression-Gate",
+          "status": "pending",
+          "priority": "P0",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+          "branch": "w5-a2-security-regression-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-02-A1",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A1-CI-Runtime-Gate",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A1-CI-Runtime-Gate",
+          "status": "pending",
+          "priority": "P0",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+          "branch": "w5-a1-ci-runtime-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-03-A5",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A5-Data-Readiness",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A5-Data-Readiness",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A5-Data-Readiness.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+          "branch": "w5-a5-data-readiness",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-04-A3",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A3-Backend-Critical-Path",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A3-Backend-Critical-Path",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A3-Backend-Critical-Path.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+          "branch": "w5-a3-backend-critical-path",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-05-A4",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A4-Frontend-UAT-Smoke",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A4-Frontend-UAT-Smoke",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A4-Frontend-UAT-Smoke.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+          "branch": "w5-a4-frontend-uat-smoke",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-06-A6",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A6-Staging-Deploy-Runbook",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A6-Staging-Deploy-Runbook",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A6-Staging-Deploy-Runbook.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+          "branch": "w5-a6-staging-deploy-runbook",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-07-A7",
+          "request_id": "REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION",
+          "title": "Closed-loop task for A7-Final-QA-Gate",
+          "source_request": "为当前 ERP 需求生成 seven-agent 并行闭环计划，覆盖 A1/A2/A5/A3/A4/A6/A7，不执行 migration，不部署，不写库",
+          "agent": "A7-Final-QA-Gate",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "LOW",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+          "branch": "w5-a7-final-qa-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        }
+      ]
+    },
+    "orchestration_plan_json": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-execution-summary.md"
+  },
+  "worktree_checks": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a2-security-regression-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a1-ci-runtime-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a5-data-readiness",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+      "branch": "w5-a3-backend-critical-path",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a3-backend-critical-path",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+      "branch": "w5-a4-frontend-uat-smoke",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a4-frontend-uat-smoke",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+      "branch": "w5-a6-staging-deploy-runbook",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a6-staging-deploy-runbook",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+      "branch": "w5-a7-final-qa-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a7-final-qa-gate",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "worktree_warnings": [
+    "A5-Data-Readiness: worktree may need rebase onto main",
+    "A3-Backend-Critical-Path: worktree may need rebase onto main",
+    "A4-Frontend-UAT-Smoke: worktree may need rebase onto main",
+    "A6-Staging-Deploy-Runbook: worktree may need rebase onto main",
+    "A7-Final-QA-Gate: worktree may need rebase onto main"
+  ],
+  "dispatch_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    [
+      "A3-Backend-Critical-Path"
+    ],
+    [
+      "A4-Frontend-UAT-Smoke"
+    ],
+    [
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ]
+  ],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [
+    "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A5-Data-Readiness.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A3-Backend-Critical-Path.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A3-Backend-Critical-Path.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A4-Frontend-UAT-Smoke.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A4-Frontend-UAT-Smoke.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A6-Staging-Deploy-Runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --prompt docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A6-Staging-Deploy-Runbook.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A6-Staging-Deploy-Runbook.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A7-Final-QA-Gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --prompt docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md --dry-run"
+  ],
+  "worker_start_commands": [
+    "node scripts/ops/agent-worker.mjs --agent A2-Security-Regression-Gate --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A1-CI-Runtime-Gate --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A5-Data-Readiness --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A3-Backend-Critical-Path --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A4-Frontend-UAT-Smoke --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A6-Staging-Deploy-Runbook --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A7-Final-QA-Gate --claim-next --dry-run"
+  ],
+  "safe_merge_commands": [
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a2-security-regression-gate --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a1-ci-runtime-gate --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a5-data-readiness --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a3-backend-critical-path --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a6-staging-deploy-runbook --dry-run",
+    "cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a7-final-qa-gate --dry-run"
+  ],
+  "codex_actually_executed": false,
+  "approval_token_provided": false,
+  "approved_execution_result_json": null,
+  "approved_execution_summary_md": null
+}

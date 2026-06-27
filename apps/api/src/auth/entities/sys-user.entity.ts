@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
 /**
  * 对应 V3.0 PostgreSQL 的 sys_user 表
  * 字段名严格与数据库实际列名一致
  */
 @Entity('sys_user')
+@Index('idx_user_store', ['store_code'])
 export class SysUserEntity {
   @PrimaryGeneratedColumn()
   id: number;

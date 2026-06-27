@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { ClsService }       from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   CreateApInvoiceDto,
   UpdateApInvoiceDto,
@@ -35,13 +36,17 @@ export class ApInvoicesService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     return {
-      userId:       String(u?.userId ?? u?.id ?? '0'),
-      roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
-    };
-  }
+	      userId:       String(u?.userId ?? u?.id ?? '0'),
+	      roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
+	      permissions:  (u?.permissions ?? []) as string[],
+	      companyCodes: (scope?.allowedCompanyCodes ?? u?.companyCodes ?? []) as string[],
+	      projectCodes: (scope?.allowedProjectCodes ?? u?.projectCodes ?? []) as string[],
+	      scopeLevel:   scope?.scopeLevel ?? u?.scopeLevel ?? 'SELF',
+	      scopeAll:     scope ? !!scope.isGlobal : !!(u?.scopeAll),
+	    };
+	  }
 
   /** 生成 AP 编号 AP-YYYYMM-XXXXX */
   private async genApNo(): Promise<string> {
@@ -70,9 +75,27 @@ export class ApInvoicesService {
   /** DataScope WHERE 子句 */
   private scopeWhere(alias: string, params: any[]): string {
     const user = this.currentUser();
-    if (user.scopeAll || user.companyCodes.length === 0) return '';
+    if (user.scopeAll) return '';
+    if (user.companyCodes.length === 0) return 'AND 1=0';
     params.push(user.companyCodes);
     return `AND ${alias}.company_code = ANY($${params.length}::text[])`;
+  }
+
+  /** 写入归属校验：create/import 等入口必须落在当前 DataScope 内。 */
+  private assertWritableOwnership(companyCode?: string | null, projectCode?: string | null): void {
+    const user = this.currentUser();
+    if (user.scopeAll) return;
+    if (!companyCode) throw new ForbiddenException('无权写入 AP Invoice（缺少公司归属）');
+    if (!user.companyCodes.length) throw new ForbiddenException('无权写入 AP Invoice（数据范围未配置）');
+    if (!user.companyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权写入公司 ${companyCode} 的 AP Invoice`);
+    }
+    if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+      if (!projectCode) throw new ForbiddenException('无权写入 AP Invoice（缺少项目归属）');
+      if (!user.projectCodes.includes(projectCode)) {
+        throw new ForbiddenException(`无权写入项目 ${projectCode} 的 AP Invoice`);
+      }
+    }
   }
 
   /** assertOwnership：确认 invoice 的 company_code 在当前用户 DataScope 内 */
@@ -87,6 +110,9 @@ export class ApInvoicesService {
     if (!rows.length) throw new NotFoundException(`AP Invoice #${invoiceId} 不存在`);
     const inv  = rows[0];
     const user = this.currentUser();
+    if (!user.scopeAll && user.companyCodes.length === 0) {
+      throw new ForbiddenException('无权访问 AP Invoice（数据范围未配置）');
+    }
     if (!user.scopeAll && user.companyCodes.length > 0 &&
         !user.companyCodes.includes(inv.company_code)) {
       throw new ForbiddenException(`无权访问公司 ${inv.company_code} 的 AP Invoice`);
@@ -109,6 +135,8 @@ export class ApInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conditions.push(`i.company_code = ANY($${params.length}::text[])`);
+    } else if (!user.scopeAll) {
+      conditions.push('1=0');
     }
 
     if (q.companyCode)   { params.push(q.companyCode);   conditions.push(`i.company_code   = $${params.length}`); }
@@ -186,6 +214,7 @@ export class ApInvoicesService {
 
   async createManual(dto: CreateApInvoiceDto) {
     const user  = this.currentUser();
+    this.assertWritableOwnership(dto.companyCode, dto.projectCode);
     const apNo  = await this.genApNo();
     const exRate = dto.exchangeRate ?? 1;
     const amtBase = dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
@@ -244,6 +273,7 @@ export class ApInvoicesService {
     remark?:      string; createdBy?: string;
   }) {
     const user   = this.currentUser();
+    this.assertWritableOwnership(opts.companyCode, opts.projectCode);
     const apNo   = await this.genApNo();
     const exRate = opts.exchangeRate ?? 1;
     const amtBase = opts.amountBase ?? Math.round(opts.amountOriginal * exRate * 100) / 100;
@@ -425,6 +455,8 @@ export class ApInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+    } else if (!user.scopeAll) {
+      conds.push('1=0');
     }
     if (companyCode) {
       params.push(companyCode);
@@ -484,6 +516,8 @@ export class ApInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+    } else if (!user.scopeAll) {
+      conds.push('1=0');
     }
     if (companyCode) {
       params.push(companyCode);
@@ -534,13 +568,8 @@ export class ApInvoicesService {
 
   // ── 10. 从 prc2_ap_ledger 幂等导入 ───────────────────────────────────────
 
-  async importFromPrc2(companyCode?: string) {
-    const user    = this.currentUser();
-    const allowed = ['ROLE_ADMIN','ROLE_FIN_CFO','ROLE_GROUP_FINANCE'];
-    const hasRole = user.roles.some(r => allowed.includes(r));
-    if (!hasRole) {
-      throw new ForbiddenException('仅 ADMIN / FIN_CFO / GROUP_FINANCE 可执行导入');
-    }
+	  async importFromPrc2(companyCode?: string) {
+	    const user = this.currentUser();
 
     // DataScope 过滤
     const params: any[] = [];
@@ -548,8 +577,16 @@ export class ApInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+    } else if (!user.scopeAll) {
+      conds.push('1=0');
     }
     if (companyCode) {
+      if (!user.scopeAll && user.companyCodes.length === 0) {
+        throw new ForbiddenException('无权导入 AP Invoice（数据范围未配置）');
+      }
+      if (!user.scopeAll && !user.companyCodes.includes(companyCode)) {
+        throw new ForbiddenException(`无权导入公司 ${companyCode} 的 AP Invoice`);
+      }
       params.push(companyCode);
       conds.push(`company_code = $${params.length}`);
     }
@@ -564,6 +601,7 @@ export class ApInvoicesService {
 
     for (const row of prc2Rows) {
       try {
+        this.assertWritableOwnership(row.company_code, row.project_code);
         // 幂等检查：同 source_type=PO + source_id 不重复导入
         const exists = await this.ds.query(
           `SELECT id FROM fin_ap_invoices WHERE source_type='PO' AND source_id = $1 LIMIT 1`,
