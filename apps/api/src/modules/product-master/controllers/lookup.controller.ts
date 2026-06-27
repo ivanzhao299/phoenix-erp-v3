@@ -652,7 +652,7 @@ export class LookupController {
     if (company)  { params.push(company);  where += ` AND company_code=$${params.length}`; }
     if (!scope.isGlobal) { params.push(scope.companyCodes); where += ` AND company_code = ANY($${params.length})`; }
     const rows = await this.em.query(
-      `SELECT account_code AS "accountCode", account_name AS "accountName",
+      `SELECT id AS "id", account_code AS "accountCode", account_name AS "accountName",
               company_code AS "companyCode", currency_code AS "currencyCode",
               account_type AS "accountType", current_balance AS "currentBalance", status
          FROM fin_cash_accounts
