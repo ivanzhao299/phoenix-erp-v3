@@ -22,6 +22,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { hasPerm } from '../../../auth/permissions.util';
 
 export interface SaleItemDto {
   productCode:    string;
@@ -114,6 +115,95 @@ export class StorePosService {
     return { currency: 'CNY', definite: false };
   }
 
+  /**
+   * POS-P1 改价:校验购物车手改单价是否在价带内(沿用 sales-engine.validatePrice 语义)。
+   * 价带来源=公司 ACTIVE 价格本(与 getProducts 同源,取并集,避免多价格本误判)。
+   * - 低于 floor_price → 需店长授权(MENU_STORE_POS:A);无授权则拦截。
+   * - 高于 ceiling_price → 放行(卖高不拦,与 sales-engine 一致)。
+   * - 不在价带表(理论不应出现,商品都来自 getProducts)→ 跳过,不误拦。
+   */
+  private async validateCartPrices(
+    companyCode: string,
+    items: SaleItemDto[],
+  ): Promise<void> {
+    const bands = await this.ds.query<Array<{
+      product_code:   string;
+      grade_code:     string | null;
+      packaging_spec: string | null;
+      sku_code:       string | null;
+      floor_price:    number | null;
+    }>>(
+      `SELECT pi.product_code, pi.grade_code, pi.packaging_spec, pi.sku_code, pi.floor_price
+         FROM sal_price_items pi
+         INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
+        WHERE pb.company_code = $1
+          AND pb.status = 'ACTIVE'
+          AND pi.status = 'ACTIVE'
+          AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
+          AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
+          AND pi.floor_price IS NOT NULL`,
+      [companyCode],
+    );
+    if (!bands.length) return;
+
+    // 同 product+grade 可有多 packaging_spec 价(LOOSE/30_PCS_TRAY...),按完整身份匹配,否则取错行价带 → 误拦/漏拦。
+    // 身份键:sku_code 优先,否则 product|grade|spec;grade/spec 为 NULL 表"不限"(通配行),查找时逐级回退到通配。
+    // 同公司可有多 ACTIVE 价格本(priority),同身份重复时取最严(MAX)floor —— 确定性 + 安全方向(宁可触发店长授权,绝不漏拦)。
+    const skuKey  = (sku?: string | null) => sku ? `sku:${sku}` : null;
+    const fullKey = (p?: string | null, g?: string | null, s?: string | null) =>
+      `${p ?? ''}|${g ?? ''}|${s ?? ''}`;
+    const floorOf = new Map<string, number>();
+    const setMax = (key: string, f: number) => {
+      const cur = floorOf.get(key);
+      if (cur == null || f > cur) floorOf.set(key, f);
+    };
+    for (const b of bands) {
+      const f = Number(b.floor_price);
+      const sk = skuKey(b.sku_code);
+      if (sk) setMax(sk, f);
+      // 按该价带行自身的(grade,spec)粒度登记(可能含 NULL 通配)
+      setMax(fullKey(b.product_code, b.grade_code, b.packaging_spec), f);
+    }
+
+    const resolveFloor = (it: SaleItemDto): number | undefined => {
+      // 由最具体到通配逐级回退,mirror sales-engine 的 product:grade ?? product 语义(并加 spec 精度)
+      const candidates = [
+        skuKey(it.skuCode),
+        fullKey(it.productCode, it.gradeCode, it.packagingSpec),
+        fullKey(it.productCode, it.gradeCode, null),
+        fullKey(it.productCode, null, it.packagingSpec),
+        fullKey(it.productCode, null, null),
+      ].filter((k): k is string => !!k);
+      for (const k of candidates) {
+        if (floorOf.has(k)) return floorOf.get(k);
+      }
+      return undefined;
+    };
+
+    const violations: string[] = [];
+    for (const it of items) {
+      const floor = resolveFloor(it);
+      if (floor != null && Number(it.unitPrice) < floor) {
+        violations.push(`${it.productName}(${it.unitPrice} < 最低价 ${floor})`);
+      }
+    }
+    if (!violations.length) return;
+
+    const user = this.currentUser;
+    const canOverride =
+      (user?.permissions?.includes('*') ?? false) ||
+      hasPerm(user?.permissions, 'MENU_STORE_POS', 'A');
+    if (canOverride) {
+      this.logger.warn(
+        `[StorePOS] 低于最低价改价已由 ${user?.username ?? '?'} 授权放行: ${violations.join('; ')}`,
+      );
+      return;
+    }
+    throw new BadRequestException(
+      `以下商品改价低于最低价,需店长授权(MENU_STORE_POS:A):${violations.join('; ')}`,
+    );
+  }
+
   private async getSale(id: number) {
     const [sale] = await this.ds.query<any[]>(
       `SELECT s.*, array_agg(
@@ -143,6 +233,9 @@ export class StorePosService {
     // 计算金额
     const subtotal = dto.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
     const total    = Math.max(0, subtotal - discount);
+
+    // POS-P1 改价:手改单价低于最低价 → 需店长授权(MENU_STORE_POS:A),否则拦截
+    await this.validateCartPrices(dto.companyCode, dto.items);
 
     // POS-P0-6:销售单币种以公司价格本为权威,所有金额腿统一以此币种为准。
     // 客户端可传 currencyCode 作提示,但价格本可判定时(definite)以价格本为准,
@@ -460,6 +553,7 @@ export class StorePosService {
               COALESCE(ps.sku_name, mp.product_name, pi.product_code) AS product_name,
               pi.grade_code, pi.packaging_spec,
               pi.unit_price, pi.currency_code,
+              pi.floor_price, pi.ceiling_price,   -- POS-P1 改价:价带,前端提示 + 后端兜底校验
               pi.sku_code,          -- Phase H5: SKU 编码
               pi.grade_code_std,    -- Phase H5: 标准等级
               pi.spec_code          -- Phase H5: 标准规格
