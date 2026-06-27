@@ -92,7 +92,7 @@ export default function UserManagementPage() {
 
   // ── Pagination ────────────────────────────────────────────────────────────────
   const [page,     setPage]     = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(100);  // 默认显示更多用户(原 20 易误判"用户不全";后端 /api/users 本就全量返回)
 
   // ── 新建抽屉 / Form（编辑已迁移至路由式全宽详情页 /settings/users/[id]）──────────
   const [showDrawer, setShowDrawer] = useState(false);

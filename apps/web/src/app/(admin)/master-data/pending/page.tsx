@@ -182,7 +182,8 @@ export default function MasterDataPendingPage() {
     setLoading(true);
     setError("");
     try {
-      const results = await Promise.allSettled(visibleTypes.map(t => request<Record<string, any>[]>(`/master-data/runtime/${t.type}?status=PENDING_APPROVAL`)));
+      // silent:true —— 单类型查询失败(如某表缺列 42703→400)不弹全局 toast、不污染整页;allSettled 已兜该类型为空
+      const results = await Promise.allSettled(visibleTypes.map(t => request<Record<string, any>[]>(`/master-data/runtime/${t.type}?status=PENDING_APPROVAL`, { silent: true })));
       const map: Record<string, Record<string, any>[]> = {};
       visibleTypes.forEach((t, i) => {
         map[t.type] = results[i].status === "fulfilled" ? (results[i] as PromiseFulfilledResult<any>).value : [];

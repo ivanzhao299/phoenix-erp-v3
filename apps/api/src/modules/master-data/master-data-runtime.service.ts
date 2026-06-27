@@ -51,6 +51,12 @@ interface MdTypeConfig {
    *   Why：物料/规格/项目作为 Selector 数据源不需要按生效期窗口过滤，仅 status='ACTIVE' 即可。
    */
   noValidityPeriod?: boolean;
+  /**
+   * 列表排序列(默认 'updated_at')。某些主数据表无 updated_at(如 sys_dict 仅 created_at),
+   * 硬用 updated_at 排序 → Postgres 42703(undefined_column)→ 全局过滤器映射成 HTTP 400
+   * (表现为 /master-data/pending 扇出查询整页冒 400)。为这类表显式配可用排序列。
+   */
+  orderBy?: string;
 }
 
 // 主数据运行时 DataScope 的菜单上下文必须与类型级权限一致。
@@ -199,6 +205,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   },
   dict: {
     table: 'sys_dict', codeCol: 'dict_code', nameCol: 'dict_label_zh',
+    orderBy: 'created_at',  // sys_dict 无 updated_at 列,用 created_at 排序避免 42703→400
     objectType: 'DICT',  // dict_code 业务约定不走自动编码
     writableCols: ['dict_code','dict_type','name','dict_label_zh','dict_label_lo','dict_label_en','dict_value','sort_no','config_json','effective_date','expire_date'],
   },
@@ -513,7 +520,7 @@ export class MasterDataRuntimeService {
     if (allowed !== 'ALL') { params.push(allowed); where.push(`${c.companyCol} = ANY($${params.length})`); }
     if (opts.status) { params.push(opts.status); where.push(`status = $${params.length}`); }
     if (opts.keyword) { params.push(`%${opts.keyword}%`); where.push(`(${c.codeCol} ILIKE $${params.length} OR ${c.nameCol} ILIKE $${params.length})`); }
-    const sql = `SELECT * FROM ${c.table} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY updated_at DESC NULLS LAST LIMIT ${Math.min(opts.limit ?? 200, 1000)}`;
+    const sql = `SELECT * FROM ${c.table} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${c.orderBy ?? 'updated_at'} DESC NULLS LAST LIMIT ${Math.min(opts.limit ?? 200, 1000)}`;
     return this.ds.query(sql, params);
   }
 
