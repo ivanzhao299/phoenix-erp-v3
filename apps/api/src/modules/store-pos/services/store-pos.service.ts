@@ -451,6 +451,7 @@ export class StorePosService {
   async voidSale(id: number, reason: string) {
     const sale = await this.getSale(id);
     if (sale.status === 'VOID') throw new BadRequestException('已作废，不可重复操作');
+    if (sale.status === 'RETURNED') throw new BadRequestException('已退货，不可作废');
     if (sale.status === 'COMPLETED') {
       throw new BadRequestException('已完成的销售单不可直接作废，请走退货流程');
     }
@@ -467,6 +468,91 @@ export class StorePosService {
       `[StorePOS] 作废 ${sale.sale_no} by ${user?.username ?? '?'} reason=${reason}`,
     );
     return { ok: true, saleNo: sale.sale_no };
+  }
+
+  // ── 5.5 退货 / 冲红（整单冲红）────────────────────────────────────────────
+  /**
+   * 已完成单整单退货:库存反向入 QUARANTINE 退货批(待 QC 复检),资金按收款方式红冲
+   *   —— 现金腿 fin_cash_transactions OUT 退款 + 账户余额回减;赊销腿负额 fin_ar_invoices 红字。
+   * 状态 COMPLETED → RETURNED(日结/汇总按 status='COMPLETED' 统计,退货后自动排除,净额正确)。
+   * 仅 COMPLETED 可退(未完成单走作废);RETURNED 不可重复退。
+   */
+  async returnSale(id: number, reason: string) {
+    const sale = await this.getSale(id);
+    if (sale.status === 'RETURNED') throw new BadRequestException('已退货，不可重复操作');
+    if (sale.status !== 'COMPLETED') {
+      throw new BadRequestException(`仅已完成的销售单可退货（当前状态 ${sale.status}）；未完成单请用作废`);
+    }
+
+    // 直接取明细行(含 sku_code/grade/spec/id;getSale 的 json 不含 sku_code,会丢 SKU 追溯)
+    const items: any[] = await this.ds.query(
+      `SELECT * FROM sal_store_sale_items WHERE sale_id = $1`, [id],
+    );
+
+    const currency = sale.currency_code ?? 'CNY';
+    const user     = this.currentUser;
+    const rsn      = reason?.trim() || '整单退货';
+
+    await this.ds.transaction(async mgr => {
+      // 行锁 + 事务内复检:杜绝并发双退(TOCTOU)双退款/双红冲/双入库
+      const [locked] = await mgr.query(
+        `SELECT status FROM sal_store_sales WHERE id = $1 FOR UPDATE`, [id],
+      );
+      if (!locked || locked.status !== 'COMPLETED') {
+        throw new BadRequestException(
+          locked?.status === 'RETURNED'
+            ? '已退货，不可重复操作'
+            : `仅已完成的销售单可退货（当前状态 ${locked?.status ?? '不存在'}）`,
+        );
+      }
+
+      // A. 库存反向:每行入 QUARANTINE 退货批 + inv_ledger SALE_RETURN
+      await this.reverseInventory(mgr, sale, items);
+
+      // B. 现金腿红冲(已收现金 → OUT 退款)
+      const paid = Number(sale.paid_amount) || 0;
+      if (paid > 0) {
+        if (!sale.cash_account_id) {
+          throw new BadRequestException('该单有现金收款但缺收款账户,无法退款');
+        }
+        await this.writeCashRefund(mgr, {
+          accountId:    Number(sale.cash_account_id),
+          companyCode:  sale.company_code,
+          currencyCode: currency,
+          amount:       paid,
+          sourceId:     sale.id,
+          sourceNo:     sale.sale_no,
+          remark:       `门店退货退款 ${sale.sale_no}（${rsn}）`,
+        });
+      }
+
+      // C. 赊销腿红冲(应收 → 负额 AR 红字)
+      const receivable = Number(sale.receivable_amount) || 0;
+      if (receivable > 0) {
+        await this.writeArCreditNote(mgr, {
+          companyCode:  sale.company_code,
+          currencyCode: currency,
+          customerCode: sale.customer_code,
+          customerName: sale.customer_name ?? '散客',
+          amount:       receivable,
+          sourceId:     sale.id,
+          sourceNo:     sale.sale_no,
+        });
+      }
+
+      // D. 更新销售单状态
+      await mgr.query(
+        `UPDATE sal_store_sales
+         SET status = 'RETURNED', returned_at = NOW(), return_reason = $2
+         WHERE id = $1`,
+        [id, rsn],
+      );
+    });
+
+    this.logger.warn(
+      `[StorePOS] 退货 ${sale.sale_no} by ${user?.username ?? '?'} reason=${rsn} (现金退 ${sale.paid_amount} / AR 冲 ${sale.receivable_amount})`,
+    );
+    return this.getSale(id);
   }
 
   // ── 6. 查询 ──────────────────────────────────────────────────────────────
@@ -811,6 +897,120 @@ export class StorePosService {
         params.currencyCode,
         params.amount,
         dueDate.toISOString().slice(0, 10),
+        this.currentUser?.username ?? 'pos',
+      ],
+    );
+    return Number(row.id);
+  }
+
+  // ── 私有：退货反向（库存 / 现金 / AR）──────────────────────────────────────
+
+  /** 退货库存反向：每行入 QUARANTINE 退货批（待 QC 复检）+ inv_ledger SALE_RETURN（沿用 sales-v2 退货入库语义） */
+  private async reverseInventory(mgr: any, sale: any, items: any[]) {
+    for (const item of items) {
+      const qty = Number(item.qty) || 0;
+      if (qty <= 0) continue;
+      // 退货批按销售明细行 id 唯一(避免同 product_code 多规格行撞键合批 + 控制 batch_no 长度)
+      const batchNo = `RET-${sale.sale_no}-${item.id}`;
+      // 入 QUARANTINE 退货批（同 batch_no 累加，幂等）；status 取自 INV_STOCK_STATUS 5 态
+      await mgr.query(
+        `INSERT INTO inv_batches
+           (batch_no, product_code, company_code, qty, qty_available, quality_grade,
+            packaging_spec, source_type, source_no, status, sku_code, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$4,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,NOW(),NOW())
+         ON CONFLICT (batch_no) DO UPDATE SET
+           qty           = inv_batches.qty + EXCLUDED.qty,
+           qty_available = inv_batches.qty_available + EXCLUDED.qty_available,
+           updated_at    = NOW()`,
+        [batchNo, item.product_code, sale.company_code, qty,
+         item.grade_code ?? null, item.packaging_spec ?? null, sale.sale_no, item.sku_code ?? null],
+      );
+      await mgr.query(
+        `INSERT INTO inv_ledger
+           (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, created_at)
+         VALUES ($1,'SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,NOW())`,
+        [batchNo, qty, this.currentUser?.username ?? 'pos', sale.store_code, sale.sale_no,
+         `门店退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code, item.sku_code ?? null],
+      );
+    }
+  }
+
+  /** 现金退款（writeCashTransaction 的反向：OUT + 账户余额回减；币种须与销售单一致） */
+  private async writeCashRefund(mgr: any, params: {
+    accountId:    number;
+    companyCode:  string;
+    currencyCode: string;
+    amount:       number;
+    sourceId:     number;
+    sourceNo:     string;
+    remark:       string;
+  }) {
+    const [acct] = await mgr.query(
+      `SELECT id, account_code, account_name, current_balance, currency_code
+       FROM fin_cash_accounts WHERE id = $1`,
+      [params.accountId],
+    );
+    if (!acct) {
+      throw new BadRequestException(`退款资金账户 ${params.accountId} 不存在`);
+    }
+    const acctCurrency = acct.currency_code ?? 'CNY';
+    if (acctCurrency !== params.currencyCode) {
+      throw new BadRequestException(
+        `退款账户「${acct.account_name}」币种 ${acctCurrency} 与销售单币种 ${params.currencyCode} 不一致`,
+      );
+    }
+    const newBalance = Number(acct.current_balance) - params.amount;
+    const dateStr    = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const [seq]      = await mgr.query(`SELECT nextval('seq_store_sale_no') AS n`);
+    const txnNo      = `CASH-POSRET-${dateStr}-${String(seq.n).padStart(6, '0')}`;
+
+    await mgr.query(
+      `UPDATE fin_cash_accounts SET current_balance = $2, updated_at = NOW() WHERE id = $1`,
+      [params.accountId, newBalance],
+    );
+    await mgr.query(
+      `INSERT INTO fin_cash_transactions
+        (txn_no, account_id, account_code, account_name, company_code,
+         direction, source_type, source_id, source_no,
+         currency_code, amount, balance_after, remark, created_by)
+       VALUES ($1,$2,$3,$4,$5,'OUT','STORE_SALE_RETURN',$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        txnNo, acct.id, acct.account_code, acct.account_name, params.companyCode,
+        params.sourceId, params.sourceNo, params.currencyCode,
+        params.amount, newBalance, params.remark, this.currentUser?.username ?? 'pos',
+      ],
+    );
+  }
+
+  /** AR 红字冲销（createArInvoice 的负额版：amount<0，source_type=STORE_SALE_RETURN，与原应收净抵） */
+  private async writeArCreditNote(mgr: any, params: {
+    companyCode:   string;
+    currencyCode:  string;
+    customerCode?: string | null;
+    customerName:  string;
+    amount:        number;
+    sourceId:      number;
+    sourceNo:      string;
+  }): Promise<number> {
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const [seq]   = await mgr.query(`SELECT nextval('seq_store_sale_no') AS n`);
+    const arNo    = `CR-POS-${dateStr}-${String(seq.n).padStart(6, '0')}`;
+    const neg     = -Math.abs(params.amount);
+
+    const [row] = await mgr.query(
+      `INSERT INTO fin_ar_invoices
+        (ar_no, source_type, source_id, source_no,
+         company_code, customer_code, customer_name,
+         currency_code,
+         amount_original, amount_base, base_currency,
+         balance_amount_original, balance_amount_base,
+         due_date, status, collection_status, created_by)
+       VALUES ($1,'STORE_SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,$8,$7,$8,$8,$9,'OPEN','UNRECEIVED',$10)
+       RETURNING id`,
+      [
+        arNo, params.sourceId, params.sourceNo, params.companyCode,
+        params.customerCode ?? null, params.customerName, params.currencyCode,
+        neg, dateStr.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
         this.currentUser?.username ?? 'pos',
       ],
     );

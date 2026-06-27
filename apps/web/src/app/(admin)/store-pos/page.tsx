@@ -170,6 +170,11 @@ const STATUS_MAP: Record<string, {
     label: '已作废',
     color: 'var(--status-danger)',
     bg: 'var(--status-danger-bg)'
+  },
+  RETURNED: {
+    label: '已退货',
+    color: 'var(--status-warning)',
+    bg: 'var(--status-warning-bg)'
   }
 };
 const PAY_STATUS_MAP: Record<string, {
@@ -302,6 +307,10 @@ export default function StorePosPage() {
   const [voidTarget, setVoidTarget] = useState<SaleRecord | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
+  // POS-P1c:退货/冲红
+  const [returnTarget, setReturnTarget] = useState<SaleRecord | null>(null);
+  const [returnReason, setReturnReason] = useState('');
+  const [returning, setReturning] = useState(false);
 
   // ── 班次 ──────────────────────────────────────────────────────────────────
   const [currentShift, setCurrentShift] = useState<ShiftRecord | null>(null);
@@ -435,6 +444,29 @@ export default function StorePosPage() {
       setVoiding(false);
     }
   }, [voidTarget, voidReason, salesPage, loadSales, loadSummary]);
+
+  // ── 退货 / 冲红 ──────────────────────────────────────────────────────────
+  const submitReturn = useCallback(async () => {
+    if (!returnTarget) return;
+    const reason = returnReason.trim();
+    if (!reason) {
+      showToast('请填写退货原因', 'error');
+      return;
+    }
+    setReturning(true);
+    try {
+      await api('POST', `/api/v2/store-sales/${returnTarget.id}/return`, { reason });
+      showToast(`已退货 ${returnTarget.sale_no}`, 'success');
+      setReturnTarget(null);
+      setReturnReason('');
+      loadSales(salesPage);
+      loadSummary();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setReturning(false);
+    }
+  }, [returnTarget, returnReason, salesPage, loadSales, loadSummary]);
 
   // ── 加载班次历史 ─────────────────────────────────────────────────────────
   const loadShiftHistory = useCallback(async (page = 1) => {
@@ -1477,6 +1509,15 @@ export default function StorePosPage() {
                     cursor: 'pointer',
                     fontSize: 12
                   }}>作废</button>}
+                          {hasPerm('D') && s.status === 'COMPLETED' && <button onClick={() => { setReturnTarget(s); setReturnReason(''); }} style={{
+                    padding: '3px 10px',
+                    borderRadius: 5,
+                    border: '1px solid var(--status-warning)',
+                    background: 'transparent',
+                    color: 'var(--status-warning)',
+                    cursor: 'pointer',
+                    fontSize: 12
+                  }}>退货</button>}
                         </div>
                       </td>
                     </tr>)}
@@ -2149,6 +2190,59 @@ export default function StorePosPage() {
             cursor: voiding ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
             opacity: voiding ? 0.6 : 1
           }}>{voiding ? '处理中...' : '确认作废'}</button>
+            </div>
+          </div>
+        </div>}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Modal: 退货 / 冲红确认
+       ══════════════════════════════════════════════════════════════════════ */}
+      {returnTarget && <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'var(--overlay-mask)',
+      zIndex: 1001,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+          <div style={{
+        background: 'var(--text-primary)',
+        borderRadius: 12,
+        padding: 28,
+        width: 440,
+        border: '1px solid var(--border-dark)'
+      }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>退货 / 冲红</h3>
+            <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-secondary)' }}>
+              即将整单退货 <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{returnTarget.sale_no}</span>（¥{fmt(returnTarget.total_amount)}）。
+            </p>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--text-disabled)' }}>
+              将反向：库存入隔离退货批（待复检）、已收现金退款（¥{fmt(returnTarget.paid_amount)}）、应收红冲。此操作不可撤销。
+            </p>
+            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>退货原因 *</label>
+            <textarea value={returnReason} onChange={e => setReturnReason(e.target.value)} rows={3} placeholder="请填写退货原因" style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '8px 10px',
+          borderRadius: 6,
+          border: '1px solid var(--border-dark)',
+          background: 'var(--surface-dark)',
+          color: 'var(--text-on-dark)',
+          fontSize: 13,
+          resize: 'vertical'
+        }} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => { setReturnTarget(null); setReturnReason(''); }} disabled={returning} style={{
+            padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)',
+            background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13
+          }}>取消</button>
+              <button onClick={submitReturn} disabled={returning} style={{
+            padding: '8px 18px', borderRadius: 6, border: 'none',
+            background: 'var(--status-warning)', color: 'var(--text-on-dark)',
+            cursor: returning ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
+            opacity: returning ? 0.6 : 1
+          }}>{returning ? '处理中...' : '确认退货'}</button>
             </div>
           </div>
         </div>}

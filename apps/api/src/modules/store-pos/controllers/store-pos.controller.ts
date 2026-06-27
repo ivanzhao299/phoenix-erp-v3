@@ -197,4 +197,15 @@ export class StorePosController {
   ) {
     return this.posService.voidSale(id, dto.reason);
   }
+
+  // ─── 退货 / 冲红 ──────────────────────────────────────────────────────────
+
+  @Post(':id/return')
+  @RequireMenu('MENU_STORE_POS', 'D')
+  returnSale(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { reason: string },
+  ) {
+    return this.posService.returnSale(id, dto.reason);
+  }
 }
