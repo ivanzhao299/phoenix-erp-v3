@@ -23,10 +23,17 @@ export class UatFeedbackController {
     @Query('severity')                                          severity?:    string,
     @Query('moduleCode')                                        moduleCode?:  string,
     @Query('companyCode')                                       companyCode?: string,
+    @Query('mine')                                              mine?:        string,
     @Query('page',  new DefaultValuePipe(1),  ParseIntPipe)    page?:        number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe)    limit?:       number,
   ) {
-    return this.feedbackService.list({ status, severity, moduleCode, companyCode, page, limit });
+    // mine=1：只看自己提的反馈（反馈窗口「我的反馈」用，避免回显他人工单）
+    let reporterId: number | undefined;
+    if (mine === '1' || mine === 'true') {
+      const user = this.cls.get('user');
+      reporterId = user?.userId ?? user?.id;
+    }
+    return this.feedbackService.list({ status, severity, moduleCode, companyCode, reporterId, page, limit });
   }
 
   @Get('summary')

@@ -31,6 +31,10 @@ export interface UpdateFeedbackDto {
   assigneeId?:   number;
   assigneeName?: string;
   resolution?:   string;
+  // 智能体自愈流转(供后续智能体回写处理态/方案/修复引用)
+  agentStatus?:  string;
+  agentNote?:    string;
+  agentRef?:     string;
 }
 
 const VALID_STATUSES = ['OPEN','IN_PROGRESS','RESOLVED','CLOSED','REJECTED'] as const;
@@ -47,6 +51,7 @@ export class UatFeedbackService {
     severity?:    string;
     moduleCode?:  string;
     companyCode?: string;
+    reporterId?:  number;
     page?:        number;
     limit?:       number;
   }) {
@@ -58,6 +63,7 @@ export class UatFeedbackService {
     const values: any[] = [];
     let idx = 1;
 
+    if (params.reporterId)  { conditions.push(`reporter_id = $${idx++}`);  values.push(params.reporterId); }
     if (params.status)      { conditions.push(`status = $${idx++}`);       values.push(params.status);     }
     if (params.severity)    { conditions.push(`severity = $${idx++}`);     values.push(params.severity);   }
     if (params.moduleCode)  { conditions.push(`module_code = $${idx++}`);  values.push(params.moduleCode); }
@@ -69,6 +75,7 @@ export class UatFeedbackService {
         `SELECT id, feedback_no, title, module_code, company_code,
                 feedback_type, severity, status,
                 reporter_id, reporter_name, assignee_name,
+                agent_status, agent_ref,
                 created_at, updated_at
          FROM uat_feedbacks WHERE ${where}
          ORDER BY
@@ -150,6 +157,9 @@ export class UatFeedbackService {
     if (dto.assigneeId   !== undefined) { setClauses.push(`assignee_id = $${idx++}`);   values.push(dto.assigneeId); }
     if (dto.assigneeName !== undefined) { setClauses.push(`assignee_name = $${idx++}`); values.push(dto.assigneeName); }
     if (dto.resolution   !== undefined) { setClauses.push(`resolution = $${idx++}`);    values.push(dto.resolution); }
+    if (dto.agentStatus  !== undefined) { setClauses.push(`agent_status = $${idx++}`);  values.push(dto.agentStatus); }
+    if (dto.agentNote    !== undefined) { setClauses.push(`agent_note = $${idx++}`);    values.push(dto.agentNote); }
+    if (dto.agentRef     !== undefined) { setClauses.push(`agent_ref = $${idx++}`);     values.push(dto.agentRef); }
 
     values.push(id);
     await this.ds.query(

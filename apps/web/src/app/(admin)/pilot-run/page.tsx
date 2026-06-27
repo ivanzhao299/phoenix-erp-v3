@@ -17,6 +17,7 @@ import {
   RotateCcw, Wallet, AlertTriangle, CheckCircle2, XCircle, Clock,
   FileText, ChevronDown, ChevronUp, Loader2,
 } from "lucide-react";
+import FeedbackWidget from "@/components/uat/FeedbackWidget";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -387,6 +388,9 @@ export default function PilotRunPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+
+      {/* 试运行问题反馈浮窗（人性化入口 → /api/uat/feedbacks，后续接入智能体自动修正） */}
+      <FeedbackWidget />
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start gap-4 justify-between">
