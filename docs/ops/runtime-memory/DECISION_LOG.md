@@ -875,3 +875,29 @@ Boundaries:
 Next recommended action:
 
 - Use `docs/ops/agent-inbox/USER_INTENT.md` for the next short command.
+
+---
+
+## 2026-06-27 — RBAC 父权限清账（下一批·4 任务）
+
+Agent: web 会话子代理编排（3 并行只读子代理 + 主代理综合）。
+
+Decision: 完成父权限清账审计批次；仅落地前端 3 处死引用清理；其余写库项 Gated。
+
+What was done:
+- 任务1（粗父菜单清零·源头侧）：seed 仍有 ~60+ 条「非 ADMIN×6 粗父菜单」授予，无后续 DELETE；MENU_WORKFLOW 最严重。静态不可断 live 最终态 → 单列 Gate。
+- 任务2（最小权限精修）：ROLE_FIN_ACCT 跨 5 域最严重（g5a 旧码）；REVIEW_MANAGER 最干净。每角色给"建议最小集 vs 当前集"。
+- 任务3（中心页残余父权限）：后端 0 处；前端仅 3 处 Sidebar 组头死引用，**已清理**（→ 原子代表码），web tsc 0 errors。
+- 任务4（五主体四向矩阵）：4 类系统性 drift——D1 侧菜单任意位 vs 后端精确位；D2 procurement 页按钮零 gating；D3 g35 资金子菜单派生漏 REVIEW_MANAGER/ANALYST（真实功能缺失）；D4/D6 父码/legacy 死码。含 18 条可执行实测清单。
+
+Artifacts:
+- `docs/ops/RBAC_PARENT_PERMISSION_CLEARANCE_AUDIT_20260627.md`
+- `docs/ops/runs/rbac-parent-clearance-20260627/0{1,2}_*.sql`（草案，未执行）
+- 代码：`apps/web/src/components/layout/Sidebar.tsx:132,168,194`
+
+Boundaries (本批严守):
+- No DB write. No migration execution. No deploy/restart. No push main.
+- 草案 SQL 故意不入 apps/api/migrations/，避免生产 Deploy 自动执行。
+
+Next recommended gate:
+- `APPROVE_RBAC_COARSE_MENU_LIVE_AUDIT`：生产只读跑 audit-role-permission-matrix.mjs（SSH 并发 1）确证 live 残留 → 再 `APPROVE_RBAC_COARSE_MENU_REVOKE_EXECUTION`（备份→撤销→复核）。
