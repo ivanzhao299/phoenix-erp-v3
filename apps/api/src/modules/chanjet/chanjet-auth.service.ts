@@ -271,6 +271,15 @@ export class ChanjetAuthService implements OnModuleInit {
 
     if (!accessToken) {
       const err = json.error as Record<string, unknown> | undefined;
+      const code = String(err?.code ?? '');
+      // 4041 = appTicket 已失效:自动向平台请求 resend 新 appTicket(异步推回 /api/chanjet/callback →
+      //   setAppTicket),本次请求无法同步拿到新 ticket,给可读引导让用户稍后重试,实现自愈。
+      //   修复前:appTicket 一旦过期,getOpenToken 永久 4041(bootstrap 只在内存无 ticket 时 resend,
+      //   而过期 ticket 仍在内存/PG → 跳过 resend → 死锁)。
+      if (code === '4041') {
+        void this.triggerAppTicket().catch((e) => this.log.warn(`4041 自愈 resend 失败: ${(e as Error).message}`));
+        throw new Error('好业财 appTicket 已过期,已自动向平台请求重新推送授权票据,请约 10 秒后重试同步。(code=4041)');
+      }
       throw new Error(`获取 openToken 失败: code=${err?.code} msg=${err?.msg} hint=${err?.hint}`);
     }
 

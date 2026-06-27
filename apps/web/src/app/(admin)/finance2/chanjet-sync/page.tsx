@@ -283,6 +283,24 @@ export default function ChanjetSyncPage() {
             <Cloud size={14} /> {syncing ? '同步中…' : '同步好业财 → PG'}
           </button>
         )}
+        {canEdit && (
+          <button
+            onClick={async () => {
+              try {
+                const r = await request<{ success?: boolean; error?: string }>('/chanjet/trigger-ticket', { method: 'POST' });
+                alert(r?.success === false
+                  ? `刷新授权失败：${r?.error || '未知错误'}`
+                  : '已请求好业财重新推送授权票据(appTicket)。请约 10 秒后再点"同步好业财 → PG"。');
+              } catch (e) {
+                alert(`刷新授权失败：${e instanceof Error ? e.message : '网络错误'}`);
+              }
+            }}
+            title='appTicket 过期(code=4041 appTicket已失效)时点此，让好业财重新推送授权票据'
+            style={secondaryActionButton}
+          >
+            <RefreshCw size={14} /> 刷新授权
+          </button>
+        )}
         <button onClick={load} disabled={loading} title="刷新" style={secondaryActionButton}>
           <RefreshCw size={14} />
         </button>
