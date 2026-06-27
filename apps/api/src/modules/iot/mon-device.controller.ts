@@ -14,10 +14,10 @@ export class MonDeviceController {
     private readonly iotSyncService: IotSyncService,
   ) {}
 
-  @Get('all-summary')
-  async getAllSummary() {
-    return this.monDeviceService.getAllSummary();
-  }
+  // P1-4 修:'all-summary' 与 'sync/realtime' 原与 IotV3Controller 同路由冲突(两个 @Controller('api/v3/iot/devices')
+  //   都注册,IotV3 在 iot.module 后注册→实际由 IotV3 提供服务,本控制器的同名方法被静默影子化)。
+  //   移除本处影子重复(行为不变:IotV3 继续提供 all-summary/sync-realtime),本控制器专注 per-house + admin 路由。
+  //   getAllSummary 逻辑仍在 MonDeviceService,未删除,其它调用方不受影响。
 
   @Get(':houseCode/overview')
   async getOverview(@Param('houseCode') houseCode: string) {
@@ -36,12 +36,7 @@ export class MonDeviceController {
     return this.monDeviceService.getHouseTrendsV3(houseCode, props, range);
   }
 
-  @Post('sync/realtime')
-  @RequireMenu(DEVICE_MENU, 'E')
-  async manualSync() {
-    const result = await this.iotSyncService.syncAllRealtime();
-    return { ok: true, success: result.successHouses, records: result.totalUpdated, error: result.error };
-  }
+  // P1-4:'sync/realtime' 同样移除(与 IotV3 冲突,IotV3 提供);见上方说明。
 
   // G16-3 debug: dump vendor /history 原始返回（查 vendor 真数据形状）
   @Post('history/dump')
