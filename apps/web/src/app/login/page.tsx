@@ -179,6 +179,8 @@ const TERMINAL_ROLES = new Set(["ROLE_PKG_OP",
 // 质检员
 "ROLE_WH_CLERK",
 // 仓管员
+"ROLE_WMS_OP",
+// 仓储操作员（PDA 仓储终端）
 "ROLE_LINE_SUPERVISOR" // 班组长
 ]);
 
@@ -224,7 +226,8 @@ const ROLE_HOME: Record<string, string> = {
   // 现场作业角色 → Terminal 作业台（PKG_OP 用 Terminal 而非普通包装页）
   ROLE_PKG_OP: "/terminal/packaging/dashboard",
   ROLE_QC_INSPECTOR: "/terminal/packaging/dashboard",
-  ROLE_WH_CLERK: "/terminal/packaging/dashboard",
+  ROLE_WH_CLERK: "/terminal/wms/inbound",          // 仓管员 → PDA 仓储入库终端
+  ROLE_WMS_OP: "/terminal/wms/inbound",            // 仓储操作员 → PDA 仓储入库终端
   ROLE_LINE_SUPERVISOR: "/terminal/packaging/dashboard",
   // G8 补全（2026-06-06 SSH 实测发现 11 个生产角色无 ROLE_HOME 映射，登录后被
   // fallback 误送 /home 而非业务专属页）

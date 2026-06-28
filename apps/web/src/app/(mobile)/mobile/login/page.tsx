@@ -80,7 +80,8 @@ const MOBILE_ROLE_HOME: Record<string, string> = {
   // 现场操作员直接进作业台
   ROLE_PKG_OP: '/terminal/packaging/dashboard',
   ROLE_QC_INSPECTOR: '/terminal/packaging/dashboard',
-  ROLE_WH_CLERK: '/terminal/packaging/dashboard',
+  ROLE_WH_CLERK: '/terminal/wms/inbound',
+  ROLE_WMS_OP: '/terminal/wms/inbound',
   ROLE_LINE_SUPERVISOR: '/terminal/packaging/dashboard'
 };
 function MobileLoginInner() {

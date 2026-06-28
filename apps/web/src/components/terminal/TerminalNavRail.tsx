@@ -14,6 +14,11 @@ import {
   Tag,
   Warehouse,
   AlertTriangle,
+  Home,
+  PackagePlus,
+  PackageMinus,
+  ClipboardCheck,
+  Truck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -25,7 +30,8 @@ interface NavStep {
   labelFb: string;
 }
 
-const STEPS: NavStep[] = [
+// 包装作业线（原有，保持不变）
+const PACKAGING_STEPS: NavStep[] = [
   { id: 'dashboard',          path: '/terminal/packaging/dashboard',          icon: LayoutDashboard, labelKey: 'terminal.dashboard',          labelFb: '概览' },
   { id: 'source-receive',     path: '/terminal/packaging/source-receive',     icon: Egg,             labelKey: 'terminal.source_receive',     labelFb: '集蛋' },
   { id: 'grading',            path: '/terminal/packaging/grading',            icon: BarChart2,       labelKey: 'terminal.grading',            labelFb: '分级' },
@@ -34,6 +40,26 @@ const STEPS: NavStep[] = [
   { id: 'warehouse-handover', path: '/terminal/packaging/warehouse-handover', icon: Warehouse,       labelKey: 'terminal.warehouse_handover', labelFb: '入库' },
   { id: 'exceptions',         path: '/terminal/packaging/exceptions',         icon: AlertTriangle,   labelKey: 'terminal.exceptions',         labelFb: '异常' },
 ];
+
+// 仓储作业线（PDA 终端，逐批扩展）
+const WMS_STEPS: NavStep[] = [
+  { id: 'wms-home',      path: '/terminal/home',          icon: Home,         labelKey: 'terminal.home',         labelFb: '首页' },
+  { id: 'wms-inbound',   path: '/terminal/wms/inbound',   icon: PackagePlus,  labelKey: 'terminal.wms_inbound',  labelFb: '入库' },
+  { id: 'wms-outbound',  path: '/terminal/wms/outbound',  icon: PackageMinus, labelKey: 'terminal.wms_outbound', labelFb: '出库' },
+  { id: 'wms-stocktake', path: '/terminal/wms/stocktake', icon: ClipboardCheck, labelKey: 'terminal.wms_stocktake', labelFb: '盘点' },
+];
+
+// 配送作业线（PDA 终端）
+const DELIVERY_STEPS: NavStep[] = [
+  { id: 'dlv-home',   path: '/terminal/home',     icon: Home,  labelKey: 'terminal.home',          labelFb: '首页' },
+  { id: 'dlv-orders', path: '/terminal/delivery', icon: Truck, labelKey: 'terminal.delivery_jobs', labelFb: '配送' },
+];
+
+function stepsForPath(pathname: string): { steps: NavStep[]; titleKey: string; titleFb: string } {
+  if (pathname.startsWith('/terminal/wms'))      return { steps: WMS_STEPS,      titleKey: 'terminal.wms_title',      titleFb: '仓储\n作业台' };
+  if (pathname.startsWith('/terminal/delivery')) return { steps: DELIVERY_STEPS, titleKey: 'terminal.delivery_title', titleFb: '配送\n作业台' };
+  return { steps: PACKAGING_STEPS, titleKey: 'terminal.title', titleFb: '包装\n作业台' };
+}
 
 export default function TerminalNavRail() {
   const pathname = usePathname();
@@ -44,6 +70,8 @@ export default function TerminalNavRail() {
   const { openExceptionCount } = useTerminalContext();
   const [showLogout, setShowLogout] = useState(false);
   const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const { steps, titleKey, titleFb } = stepsForPath(pathname);
 
   const handleAvatarPressStart = () => {
     const timer = setTimeout(() => setShowLogout(true), 2000);
@@ -101,7 +129,7 @@ export default function TerminalNavRail() {
       <div style={{ width: 52, height: 1, background: 'var(--brand-deep-3)', margin: '20px 0 16px', flexShrink: 0 }} />
 
       {/* Nav items */}
-      {STEPS.map(step => {
+      {steps.map(step => {
         const active = isActive(step.path);
         const isException = step.id === 'exceptions';
         return (
@@ -178,7 +206,7 @@ export default function TerminalNavRail() {
           {user?.name || user?.username}
         </div>
         <div style={{ fontSize: 10, color: 'var(--slate-700)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line', marginTop: 4 }}>
-          {t('terminal.title', '包装\n作业台')}
+          {t(titleKey, titleFb)}
         </div>
       </div>
     </nav>
