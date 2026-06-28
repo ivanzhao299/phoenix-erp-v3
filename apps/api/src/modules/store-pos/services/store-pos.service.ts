@@ -715,6 +715,7 @@ export class StorePosService {
           );
         } else {
           // PATH B: 旧 product+grade 匹配
+          // 安全:grade_code 用绑定参数($3),严禁字符串插值(SQL 注入)
           batches = await mgr.query(
             `SELECT batch_no, qty_available, expire_date
              FROM inv_batches
@@ -724,10 +725,12 @@ export class StorePosService {
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
-               ${item.grade_code ? `AND quality_grade = '${item.grade_code}'` : ''}
+               ${item.grade_code ? `AND quality_grade = $3` : ''}
              ORDER BY expire_date ASC NULLS LAST, created_at ASC
              FOR UPDATE`,
-            [item.product_code, sale.company_code],
+            item.grade_code
+              ? [item.product_code, sale.company_code, item.grade_code]
+              : [item.product_code, sale.company_code],
           );
         }
 

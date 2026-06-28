@@ -171,14 +171,15 @@ export class UatFeedbackService {
 
   /** 统计摘要（用于 Dashboard） */
   async getSummary(companyCode?: string) {
-    const filter = companyCode ? `AND company_code = '${companyCode}'` : '';
+    // 安全:companyCode 用绑定参数,严禁字符串插值(SQL 注入)
     const rows = await this.ds.query<any[]>(
       `SELECT
          COUNT(*) FILTER (WHERE status NOT IN ('CLOSED','REJECTED','RESOLVED')) AS open_count,
          COUNT(*) FILTER (WHERE severity = 'CRITICAL' AND status NOT IN ('CLOSED','REJECTED','RESOLVED')) AS critical_count,
          COUNT(*) FILTER (WHERE status = 'RESOLVED') AS resolved_count,
          COUNT(*) AS total
-       FROM uat_feedbacks WHERE 1=1 ${filter}`,
+       FROM uat_feedbacks WHERE 1=1 ${companyCode ? 'AND company_code = $1' : ''}`,
+      companyCode ? [companyCode] : [],
     );
     return rows[0];
   }
