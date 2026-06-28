@@ -38,6 +38,8 @@ export interface UpdateFeedbackDto {
 }
 
 const VALID_STATUSES = ['OPEN','IN_PROGRESS','RESOLVED','CLOSED','REJECTED'] as const;
+// L3:智能体处理态枚举(校验回写,防脏值)
+const VALID_AGENT_STATUS = ['NONE','QUEUED','ANALYZING','PROPOSED','APPLIED','FAILED','SKIPPED'] as const;
 
 @Injectable()
 export class UatFeedbackService {
@@ -157,7 +159,12 @@ export class UatFeedbackService {
     if (dto.assigneeId   !== undefined) { setClauses.push(`assignee_id = $${idx++}`);   values.push(dto.assigneeId); }
     if (dto.assigneeName !== undefined) { setClauses.push(`assignee_name = $${idx++}`); values.push(dto.assigneeName); }
     if (dto.resolution   !== undefined) { setClauses.push(`resolution = $${idx++}`);    values.push(dto.resolution); }
-    if (dto.agentStatus  !== undefined) { setClauses.push(`agent_status = $${idx++}`);  values.push(dto.agentStatus); }
+    if (dto.agentStatus  !== undefined) {
+      if (!(VALID_AGENT_STATUS as readonly string[]).includes(dto.agentStatus)) {
+        throw new BadRequestException(`无效 agent_status: ${dto.agentStatus}`);
+      }
+      setClauses.push(`agent_status = $${idx++}`);  values.push(dto.agentStatus);
+    }
     if (dto.agentNote    !== undefined) { setClauses.push(`agent_note = $${idx++}`);    values.push(dto.agentNote); }
     if (dto.agentRef     !== undefined) { setClauses.push(`agent_ref = $${idx++}`);     values.push(dto.agentRef); }
 

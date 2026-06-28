@@ -85,6 +85,10 @@ export class SysBackupService {
     const cronExpr = dto.cronExpr       ?? cur.cron_expr;
     const retain   = dto.retentionDays  ?? cur.retention_days;
     if (retain < 1 || retain > 3650) throw new BadRequestException('保留天数应在 1~3650');
+    // L4:cron 表达式基本格式校验(5 段:分 时 日 月 周),防写入畸形串致定时静默失效
+    if (cronExpr.trim().split(/\s+/).length !== 5) {
+      throw new BadRequestException('cron 表达式应为 5 段（分 时 日 月 周），例：0 3 * * *');
+    }
     await this.ds.query(
       `INSERT INTO sys_backup_config (id, enabled, cron_expr, retention_days, updated_at)
        VALUES (1,$1,$2,$3,NOW())

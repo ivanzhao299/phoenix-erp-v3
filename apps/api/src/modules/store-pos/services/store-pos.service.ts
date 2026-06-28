@@ -805,10 +805,10 @@ export class StorePosService {
     sourceNo:     string;
     remark:       string;
   }) {
-    // 获取账户信息
+    // L1:FOR UPDATE 锁账户行,杜绝并发现金写的余额 read-modify-write 丢更新
     const [acct] = await mgr.query(
       `SELECT id, account_code, account_name, current_balance, currency_code
-       FROM fin_cash_accounts WHERE id = $1`,
+       FROM fin_cash_accounts WHERE id = $1 FOR UPDATE`,
       [params.accountId],
     );
     if (!acct) {
@@ -824,16 +824,17 @@ export class StorePosService {
       );
     }
 
-    const newBalance = Number(acct.current_balance) + params.amount;
     const dateStr    = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const [seq]      = await mgr.query(`SELECT nextval('seq_store_sale_no') AS n`);
     const txnNo      = `CASH-POS-${dateStr}-${String(seq.n).padStart(6, '0')}`;
 
-    // 更新账户余额
-    await mgr.query(
-      `UPDATE fin_cash_accounts SET current_balance = $2, updated_at=NOW() WHERE id=$1`,
-      [params.accountId, newBalance],
+    // L1:原子增量 + RETURNING 取准 balance_after(不再 read-then-write)
+    const [upd] = await mgr.query(
+      `UPDATE fin_cash_accounts SET current_balance = current_balance + $2, updated_at=NOW()
+       WHERE id=$1 RETURNING current_balance`,
+      [params.accountId, params.amount],
     );
+    const newBalance = Number(upd.current_balance);
 
     // 写流水（币种取销售单币种,已校验=账户币种）
     await mgr.query(
@@ -948,9 +949,10 @@ export class StorePosService {
     sourceNo:     string;
     remark:       string;
   }) {
+    // L1:FOR UPDATE 锁账户行,杜绝并发余额丢更新
     const [acct] = await mgr.query(
       `SELECT id, account_code, account_name, current_balance, currency_code
-       FROM fin_cash_accounts WHERE id = $1`,
+       FROM fin_cash_accounts WHERE id = $1 FOR UPDATE`,
       [params.accountId],
     );
     if (!acct) {
@@ -962,15 +964,17 @@ export class StorePosService {
         `退款账户「${acct.account_name}」币种 ${acctCurrency} 与销售单币种 ${params.currencyCode} 不一致`,
       );
     }
-    const newBalance = Number(acct.current_balance) - params.amount;
     const dateStr    = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const [seq]      = await mgr.query(`SELECT nextval('seq_store_sale_no') AS n`);
     const txnNo      = `CASH-POSRET-${dateStr}-${String(seq.n).padStart(6, '0')}`;
 
-    await mgr.query(
-      `UPDATE fin_cash_accounts SET current_balance = $2, updated_at = NOW() WHERE id = $1`,
-      [params.accountId, newBalance],
+    // L1:原子减量 + RETURNING 取准 balance_after
+    const [upd] = await mgr.query(
+      `UPDATE fin_cash_accounts SET current_balance = current_balance - $2, updated_at = NOW()
+       WHERE id = $1 RETURNING current_balance`,
+      [params.accountId, params.amount],
     );
+    const newBalance = Number(upd.current_balance);
     await mgr.query(
       `INSERT INTO fin_cash_transactions
         (txn_no, account_id, account_code, account_name, company_code,
