@@ -9,7 +9,7 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
-import { renderMdFieldInput, type MdField } from "./MasterDataRuntimePanel";
+import { renderMdFieldInput, multilingualNameFields, type MdField } from "./MasterDataRuntimePanel";
 
 /**
  * g200p: MasterDataFormPage — 主数据"新建/编辑"全屏路由页(替代字段多于 8 的抽屉)。
@@ -41,12 +41,19 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  // task #25：多语言类型在末尾追加英文/老挝文名称字段（单独分组"多语言名称"成 Panel）；
+  //   已在页面 fields 里配过的语言键不重复注入（如 products 已有 product_name_lo）
+  const allFields = useMemo(() => {
+    const have = new Set(fields.map(f => f.key));
+    return [...fields, ...multilingualNameFields(type, nameKey).filter(f => !have.has(f.key))];
+  }, [fields, type, nameKey]);
+
   // 按 group 分组(无 group 字段归入"基本信息")
   const groups = useMemo(() => {
     const order: string[] = [];
     const buckets: Record<string, MdField[]> = {};
     const DEFAULT = "基本信息";
-    fields.forEach(f => {
+    allFields.forEach(f => {
       const g = f.group ?? DEFAULT;
       if (!buckets[g]) { buckets[g] = []; order.push(g); }
       buckets[g].push(f);

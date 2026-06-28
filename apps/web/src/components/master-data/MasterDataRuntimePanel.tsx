@@ -17,6 +17,7 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * MasterDataRuntimePanel — 通用核心主数据 Runtime 面板（G3-A）
@@ -130,8 +131,31 @@ const TYPE_TO_MENU: Record<string, string> = {
   "cash-account": "MENU_MD_CASH_ACCOUNT", "bank-account": "MENU_MD_BANK_ACCOUNT", material: "MENU_MD_MATERIAL",
 };
 
+// task #25：名称支持多语言维护的类型（DB 已补 <nameKey>_en / <nameKey>_lo 列；见迁移
+//   AddMasterDataMultilingualNames + 服务 writableCols）。列表名称列按当前语言显示，
+//   新建/编辑表单额外暴露英文/老挝文名称输入。vehicle 的"名称"是车牌（语言中性）故不含。
+export const I18N_NAME_TYPES = new Set<string>([
+  "customer", "supplier", "project", "material", "cash-account", "product",
+  "store", "bank-account", "sku", "warehouse", "grade", "spec", "driver",
+]);
+
+/** task #25：为多语言类型追加「英文名称 / 老挝文名称」表单字段（抽屉与全屏页共用）。 */
+export function multilingualNameFields(type: string, nameKey: string): MdField[] {
+  if (!I18N_NAME_TYPES.has(type)) return [];
+  return [
+    { key: `${nameKey}_en`, label: "名称（English）", type: "text", group: "多语言名称" },
+    { key: `${nameKey}_lo`, label: "名称（ລາວ 老挝文）", type: "text", group: "多语言名称" },
+  ];
+}
+
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
+  const { tField } = useLanguage();  // task #25：列表名称列按当前语言显示
+  // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
+  const formFields = useMemo(() => {
+    const have = new Set(fields.map(f => f.key));
+    return [...fields, ...multilingualNameFields(type, nameKey).filter(f => !have.has(f.key))];
+  }, [fields, type, nameKey]);
   // g200o:聚合 fields 中所有 dictType,列表 cell 用 codeMap 转译,避免 DB enum 暴露
   const dictTypes = useMemo(() => Array.from(new Set(fields.filter(f => f.dictType).map(f => f.dictType!))), [fields]);
   const { codeMap: dictCodeMap } = useDictOptions(dictTypes.length > 0 ? dictTypes : "");
@@ -322,8 +346,12 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                       {columns.map(c => {
                         const raw = r[c.key];
                         const dt  = fieldByKey[c.key]?.dictType;
+                        // task #25：名称列按当前语言取 <nameKey>_<lang>（缺则回退中文）；
+                        //   兼容部分页面把名称列配成 <nameKey>_zh（如 products/warehouses）
+                        const i18nName = I18N_NAME_TYPES.has(type) && (c.key === nameKey || c.key === `${nameKey}_zh`);
                         // g200o:dict 字段查 codeMap 转中文,fallback 原值
-                        const shown = dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
+                        const shown = i18nName ? tField(r, nameKey)
+                          : dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
                         return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
                       })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -391,7 +419,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <span>编码将在保存时自动生成,无需手填</span>
               </div>
             )}
-            {fields.map(f => (
+            {formFields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
