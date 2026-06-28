@@ -160,9 +160,9 @@ export class FarmService {
     //   再用 scope.farmCode / scope.siteCode 比对真实归属，避免把 SITE-*
     //   误当 LPH_* 比较导致同农场用户被拒。
     if (!scope.isGlobal && body.house_code) {
-      const houseRow: Array<{ farm_code: string | null; site_code: string | null }> =
+      const houseRow: Array<{ farm_code: string | null; site_code: string | null; company_code: string | null }> =
         await this.entityManager.query(
-          `SELECT farm_code, site_code FROM brd_houses WHERE house_code=$1 LIMIT 1`,
+          `SELECT farm_code, site_code, company_code FROM brd_houses WHERE house_code=$1 LIMIT 1`,
           [body.house_code],
         );
       if (houseRow.length === 0) {
@@ -170,14 +170,22 @@ export class FarmService {
       }
       const realFarm = houseRow[0].farm_code;
       const realSite = houseRow[0].site_code;
+      const realCompany = houseRow[0].company_code;
       if (scope.farmCode && realFarm && realFarm !== scope.farmCode) {
         throw new BadRequestException(`无权写入其他农场的数据（鸡舍 ${body.house_code} 属于 ${realFarm}）`);
       }
       if (scope.siteCode && realSite && realSite !== scope.siteCode) {
         throw new BadRequestException(`无权写入其他场区的数据（鸡舍 ${body.house_code} 属于 ${realSite}）`);
       }
-      // 自动补全 farm_code（防止前端漏传）
+      // 公司维度强校验：鸡舍归属公司必须在用户数据域内（farm/site 同农场但跨公司时兜底拦截，堵住静默越权）
+      const allowedCompanies = (scope.companyCodes ?? []).filter(Boolean);
+      if (allowedCompanies.length && realCompany && !allowedCompanies.includes(realCompany)) {
+        throw new BadRequestException(`无权写入其他公司的数据（鸡舍 ${body.house_code} 属于 ${realCompany}）`);
+      }
+      // 强绑定：farm/site/company 一律以鸡舍权威值落库，不信前端传值（防跨公司错绑/漏绑）
       if (!body.farm_code && realFarm) body.farm_code = realFarm;
+      if (!body.site_code && realSite) body.site_code = realSite;
+      if (realCompany) body.company_code = realCompany;
     }
 
     if (eggs < 0 || mortality < 0) {

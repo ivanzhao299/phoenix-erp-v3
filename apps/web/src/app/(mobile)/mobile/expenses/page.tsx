@@ -129,6 +129,27 @@ export default function MobileExpensesPage() {
   const [expTypeOpts, setExpTypeOpts] = useState(Object.entries(EXPENSE_TYPES).map(([value, label]) => ({ value, label })));
   useEffect(() => { mobileApi.getDict('FIN_EXPENSE_TYPE').then(d => { if (d.length) setExpTypeOpts(d); }); }, []);
 
+  // 公司下拉：/api/lookup/companies 已按 DataScope 过滤（仅返回用户归属公司）；唯一则自动选中
+  const [companyOpts, setCompanyOpts] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    apiFetch<{ data: Array<{ companyCode?: string; orgCode?: string; orgNameCn?: string; orgName?: string }> }>('/api/lookup/companies')
+      .then(res => {
+        const opts = (res.data || []).map(c => ({
+          value: c.companyCode || c.orgCode || '',
+          label: c.orgNameCn || c.orgName || c.companyCode || c.orgCode || '',
+        })).filter(o => o.value);
+        setCompanyOpts(opts);
+        if (opts.length === 1) setForm(f => (f.companyCode ? f : { ...f, companyCode: opts[0].value }));
+      })
+      .catch(() => {});
+  }, []);
+
+  // 币种走字典 SYS_CURRENCY（兜底常用 4 种，零回归）
+  const [currencyOpts, setCurrencyOpts] = useState<{ value: string; label: string }[]>(
+    ['CNY', 'USD', 'EUR', 'HKD'].map(c => ({ value: c, label: c })),
+  );
+  useEffect(() => { mobileApi.getDict('SYS_CURRENCY').then(d => { if (d.length) setCurrencyOpts(d); }); }, []);
+
   // 选中的记录（查看详情）
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ExpenseRecord | null>(null);
@@ -593,22 +614,16 @@ export default function MobileExpensesPage() {
         marginBottom: 18
       }}>新建费用申请</div>
 
-          {[{
-        label: '公司代码 *',
-        key: 'companyCode' as const,
-        placeholder: 'e.g. COMP001'
-      }].map(({
-        label,
-        key,
-        placeholder
-      }) => <div key={key} className={u.mb14}>
-              <div style={{
-          fontSize: 12,
-          color: sub,
-          marginBottom: 6
-        }}>{label}</div>
-              {inp(key, 'text', placeholder)}
-            </div>)}
+          <div className={u.mb14}>
+            <div style={{ fontSize: 12, color: sub, marginBottom: 6 }}>公司 *</div>
+            <select value={form.companyCode} onChange={e => setForm(f => ({ ...f, companyCode: e.target.value }))} style={{
+              width: '100%', padding: '10px 12px', borderRadius: 10,
+              border: `1.5px solid ${border}`, background: card, color: text, fontSize: 14,
+            }}>
+              <option value="">{companyOpts.length ? '— 请选择公司 —' : '（无可选公司，请联系管理员）'}</option>
+              {companyOpts.map(o => <option key={o.value} value={o.value}>{o.label}（{o.value}）</option>)}
+            </select>
+          </div>
 
           <div className={u.mb14}>
             <div style={{
@@ -650,7 +665,7 @@ export default function MobileExpensesPage() {
           color: text,
           fontSize: 14
         }}>
-              {['CNY', 'USD', 'EUR', 'HKD'].map(c => <option key={c} value={c}>{c}</option>)}
+              {currencyOpts.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
 
