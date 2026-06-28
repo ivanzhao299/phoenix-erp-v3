@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Eye, Plus, Send } from "lucide-react";
@@ -54,22 +55,23 @@ interface ListResult {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const FUND_NATURE_LABELS: Record<string, string> = {
-  INVESTMENT: "投资款",
-  LOAN: "借款",
-  ADVANCE: "垫付",
-  NORMAL: "普通"
-};
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "草稿",
-  PENDING_APPROVAL: "审批中",
-  APPROVED: "已批准",
-  CONFIRMED: "已确认",
-  REJECTED: "已拒绝",
-  CANCELLED: "已取消",
-  SETTLED: "已结算",
-  VOID: "已作废"
-};
+type TFn = (key: string, fallback: string) => string;
+const buildFundNatureLabels = (t: TFn): Record<string, string> => ({
+  INVESTMENT: t('prc2.nature_investment', "投资款"),
+  LOAN: t('prc2.nature_loan', "借款"),
+  ADVANCE: t('prc2.nature_advance_pay', "垫付"),
+  NORMAL: t('prc2.nature_plain', "普通")
+});
+const buildStatusLabels = (t: TFn): Record<string, string> => ({
+  DRAFT: t('prc2.status_draft', "草稿"),
+  PENDING_APPROVAL: t('prc2.fstatus_pending', "审批中"),
+  APPROVED: t('prc2.fstatus_approved', "已批准"),
+  CONFIRMED: t('prc2.fstatus_confirmed', "已确认"),
+  REJECTED: t('prc2.fstatus_rejected', "已拒绝"),
+  CANCELLED: t('prc2.cancelled_done', "已取消"),
+  SETTLED: t('prc2.fstatus_settled', "已结算"),
+  VOID: t('prc2.fstatus_void', "已作废")
+});
 function getToken() {
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
 }
@@ -94,6 +96,8 @@ function NatureBadge({
 }: {
   nature: string;
 }) {
+  const { t } = useLanguage();
+  const FUND_NATURE_LABELS = buildFundNatureLabels(t);
   const colorMap: Record<string, string> = {
     INVESTMENT: s.badgeInfo,
     LOAN: s.badgeWarning,
@@ -109,6 +113,8 @@ function FundStatusBadge({
 }: {
   status: string;
 }) {
+  const { t } = useLanguage();
+  const STATUS_LABELS = buildStatusLabels(t);
   const colorMap: Record<string, string> = {
     DRAFT: s.badgeNeutral,
     PENDING_APPROVAL: s.badgeWarning,
@@ -129,6 +135,8 @@ function SummaryCards({
 }: {
   summary: SummaryRow[];
 }) {
+  const { t } = useLanguage();
+  const FUND_NATURE_LABELS = buildFundNatureLabels(t);
   // Group by fundNature
   const byNature: Record<string, {
     totalOriginal: number;
@@ -184,6 +192,9 @@ function SummaryCards({
 
 export default function ShareholderFundsPage() {
   const toast = useToast();
+  const { t } = useLanguage();
+  const FUND_NATURE_LABELS = buildFundNatureLabels(t);
+  const STATUS_LABELS = buildStatusLabels(t);
 
   // ── List state ────────────────────────────────────────────────────────────
   const [items, setItems] = useState<FundRecord[]>([]);
@@ -275,11 +286,11 @@ export default function ShareholderFundsPage() {
   };
   const handleCreate = async () => {
     if (!createForm.shareholderName.trim()) {
-      toast.error("股东名称不能为空");
+      toast.error(t('prc2.err_shareholder_required', "股东名称不能为空"));
       return;
     }
     if (!createForm.amountOriginal || Number(createForm.amountOriginal) <= 0) {
-      toast.error("金额必须大于0");
+      toast.error(t('prc2.err_amount_gt_zero', "金额必须大于0"));
       return;
     }
     setSubmitting(true);
@@ -295,10 +306,10 @@ export default function ShareholderFundsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.message ?? "创建失败");
+        toast.error(data.message ?? t('prc2.create_failed', "创建失败"));
         return;
       }
-      toast.success("已创建股东资金（草稿）");
+      toast.success(t('prc2.fund_created_draft', "已创建股东资金（草稿）"));
       setCreateOpen(false);
       setCreateForm({
         shareholderId: "",
@@ -316,7 +327,7 @@ export default function ShareholderFundsPage() {
       });
       loadList(1);
     } catch {
-      toast.error("网络错误");
+      toast.error(t('prc2.network_error', "网络错误"));
     } finally {
       setSubmitting(false);
     }
@@ -330,14 +341,14 @@ export default function ShareholderFundsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.message ?? "提交失败");
+        toast.error(data.message ?? t('prc2.submit_failed', "提交失败"));
         return;
       }
-      toast.success("已提交审批");
+      toast.success(t('prc2.submitted_approval', "已提交审批"));
       setDetailOpen(false);
       loadList(1);
     } catch {
-      toast.error("网络错误");
+      toast.error(t('prc2.network_error', "网络错误"));
     } finally {
       setSubmitting(false);
     }
@@ -346,7 +357,7 @@ export default function ShareholderFundsPage() {
   return <div style={{
     padding: 16
   }}>
-      <PageHeader title="股东资金" subtitle="股东出资 / 代付资金池" breadcrumb={["采购管理", "股东资金"]} />
+      <PageHeader title={t('prc2.shareholder_fund_title', "股东资金")} subtitle={t('prc2.shareholder_fund_subtitle', "股东出资 / 代付资金池")} breadcrumb={[t('prc2.bc_procurement', "采购管理"), t('prc2.shareholder_fund_title', "股东资金")]} />
       {/* Summary cards */}
       <SummaryCards summary={summary} />
 
@@ -358,7 +369,7 @@ export default function ShareholderFundsPage() {
       marginBottom: 12,
       alignItems: "center"
     }}>
-        <input placeholder="搜索编号 / 股东姓名 / 采购订单号" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()} style={{
+        <input placeholder={t('prc2.fund_search_ph', "搜索编号 / 股东姓名 / 采购订单号")} value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()} style={{
         padding: "6px 10px",
         border: "1px solid var(--border)",
         borderRadius: 6,
@@ -375,11 +386,11 @@ export default function ShareholderFundsPage() {
         background: "var(--bg-input)",
         color: "var(--text-primary)"
       }}>
-          <option value="">全部性质</option>
-          <option value="INVESTMENT">投资款</option>
-          <option value="LOAN">借款</option>
-          <option value="ADVANCE">垫付</option>
-          <option value="NORMAL">普通</option>
+          <option value="">{t('prc2.filter_all_nature', "全部性质")}</option>
+          <option value="INVESTMENT">{t('prc2.nature_investment', "投资款")}</option>
+          <option value="LOAN">{t('prc2.nature_loan', "借款")}</option>
+          <option value="ADVANCE">{t('prc2.nature_advance_pay', "垫付")}</option>
+          <option value="NORMAL">{t('prc2.nature_plain', "普通")}</option>
         </select>
         <select value={currencyCode} onChange={e => setCurrencyCode(e.target.value)} style={{
         padding: "6px 10px",
@@ -389,13 +400,13 @@ export default function ShareholderFundsPage() {
         background: "var(--bg-input)",
         color: "var(--text-primary)"
       }}>
-          <option value="">全部币种</option>
-          <option value="CNY">CNY 人民币</option>
-          <option value="LAK">LAK 老挝基普</option>
-          <option value="THB">THB 泰铢</option>
-          <option value="USD">USD 美元</option>
+          <option value="">{t('prc2.filter_all_currency', "全部币种")}</option>
+          <option value="CNY">{t('prc2.ccy_cny', "CNY 人民币")}</option>
+          <option value="LAK">{t('prc2.ccy_lak', "LAK 老挝基普")}</option>
+          <option value="THB">{t('prc2.ccy_thb', "THB 泰铢")}</option>
+          <option value="USD">{t('prc2.ccy_usd', "USD 美元")}</option>
         </select>
-        <input placeholder="股东ID" value={shareholderId} onChange={e => setShareholderId(e.target.value)} style={{
+        <input placeholder={t('prc2.shareholder_id_ph', "股东ID")} value={shareholderId} onChange={e => setShareholderId(e.target.value)} style={{
         padding: "6px 10px",
         border: "1px solid var(--border)",
         borderRadius: 6,
@@ -412,7 +423,7 @@ export default function ShareholderFundsPage() {
         background: "var(--bg-input)",
         color: "var(--text-primary)"
       }} />
-        <span className={u.muted12}>至</span>
+        <span className={u.muted12}>{t('prc2.date_to', "至")}</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{
         padding: "6px 8px",
         border: "1px solid var(--border)",
@@ -426,26 +437,26 @@ export default function ShareholderFundsPage() {
         alignItems: "center",
         gap: 4
       }}>
-          <Search size={13} /> 查询
+          <Search size={13} /> {t('prc2.search', "查询")}
         </button>
         <button className={s.btnSecondary} onClick={handleReset} style={{
         display: "flex",
         alignItems: "center",
         gap: 4
       }}>
-          <RefreshCw size={13} /> 重置
+          <RefreshCw size={13} /> {t('prc2.reset', "重置")}
         </button>
         <span style={{
         marginLeft: "auto",
         fontSize: 12,
         color: "var(--text-secondary)"
-      }}>共 {total} 条</span>
+      }}>{t('prc2.total_count_prefix', "共")} {total} {t('prc2.records_suffix', "条")}</span>
         <button className={s.btnPrimary} onClick={() => setCreateOpen(true)} style={{
         display: "flex",
         alignItems: "center",
         gap: 4
       }}>
-          <Plus size={13} /> 新建资金
+          <Plus size={13} /> {t('prc2.new_fund', "新建资金")}
         </button>
       </div>
 
@@ -454,23 +465,23 @@ export default function ShareholderFundsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>资金编号</th>
-              <th>股东姓名</th>
-              <th>资金性质</th>
-              <th>币种</th>
-              <th>金额</th>
-              <th>汇率</th>
-              <th>CNY换算</th>
-              <th>关联PO</th>
-              <th>项目</th>
-              <th>发生日期</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>{t('prc2.fund_no', "资金编号")}</th>
+              <th>{t('prc2.shareholder_name', "股东姓名")}</th>
+              <th>{t('prc2.fund_nature', "资金性质")}</th>
+              <th>{t('prc2.currency_short', "币种")}</th>
+              <th>{t('prc2.amount', "金额")}</th>
+              <th>{t('prc2.exchange_rate', "汇率")}</th>
+              <th>{t('prc2.cny_converted', "CNY换算")}</th>
+              <th>{t('prc2.po_no_related', "关联PO")}</th>
+              <th>{t('prc2.project', "项目")}</th>
+              <th>{t('prc2.occurred_date', "发生日期")}</th>
+              <th>{t('prc2.status', "状态")}</th>
+              <th>{t('prc2.action', "操作")}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={12} className={u.emptyCenter}>加载中...</td></tr>}
-            {!loading && items.length === 0 && <tr><td colSpan={12} className={u.emptyCenter}>暂无数据</td></tr>}
+            {loading && <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.loading_dots3', "加载中...")}</td></tr>}
+            {!loading && items.length === 0 && <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.empty_no_data', "暂无数据")}</td></tr>}
             {!loading && items.map(row => <tr key={row.id}>
                 <td style={{
               fontFamily: "monospace",
@@ -505,8 +516,8 @@ export default function ShareholderFundsPage() {
               display: "flex",
               gap: 4
             }}>
-                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
-                  {row.status === "DRAFT" && <button style={actBtnTone("success")} onClick={() => handleSubmit(row.id)} disabled={submitting}>提交审批</button>}
+                  <button style={actBtn} onClick={() => openDetail(row)}>{t('prc2.view', "查看")}</button>
+                  {row.status === "DRAFT" && <button style={actBtnTone("success")} onClick={() => handleSubmit(row.id)} disabled={submitting}>{t('prc2.submit_approval', "提交审批")}</button>}
                 </td>
               </tr>)}
           </tbody>
@@ -524,20 +535,20 @@ export default function ShareholderFundsPage() {
         const p = page - 1;
         setPage(p);
         loadList(p);
-      }}>上一页</button>
+      }}>{t('prc2.prev_page', "上一页")}</button>
           <span style={{
         lineHeight: "30px",
         fontSize: 13
-      }}>第 {page} / {totalPages} 页</span>
+      }}>{t('prc2.page_label', "第")} {page} / {totalPages} {t('prc2.page_unit', "页")}</span>
           <button className={s.btnSecondary} disabled={page >= totalPages} onClick={() => {
         const p = page + 1;
         setPage(p);
         loadList(p);
-      }}>下一页</button>
+      }}>{t('prc2.next_page', "下一页")}</button>
         </div>}
 
       {/* Detail Drawer */}
-      <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={`股东资金详情 - ${detail?.fundNo ?? ""}`} width={560}>
+      <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={`${t('prc2.fund_detail', "股东资金详情")} - ${detail?.fundNo ?? ""}`} width={560}>
         {detail && <div style={{
         padding: "0 24px 24px"
       }}>
@@ -571,14 +582,14 @@ export default function ShareholderFundsPage() {
             fontWeight: 600,
             marginBottom: 12,
             fontSize: 13
-          }}>资金信息</div>
-              <Row label="资金编号" value={detail.fundNo} mono />
-              <Row label="股东姓名" value={detail.shareholderName} />
-              <Row label="股东ID" value={detail.shareholderId || "—"} />
-              <Row label="资金性质" value={FUND_NATURE_LABELS[detail.fundNature] ?? detail.fundNature} />
-              <Row label="来源类型" value={detail.sourceType || "—"} />
-              <Row label="发生日期" value={detail.occurredDate || "—"} />
-              <Row label="状态" value={STATUS_LABELS[detail.status] ?? detail.status} />
+          }}>{t('prc2.fund_info', "资金信息")}</div>
+              <Row label={t('prc2.fund_no', "资金编号")} value={detail.fundNo} mono />
+              <Row label={t('prc2.shareholder_name', "股东姓名")} value={detail.shareholderName} />
+              <Row label={t('prc2.shareholder_id', "股东ID")} value={detail.shareholderId || "—"} />
+              <Row label={t('prc2.fund_nature', "资金性质")} value={FUND_NATURE_LABELS[detail.fundNature] ?? detail.fundNature} />
+              <Row label={t('prc2.source_type', "来源类型")} value={detail.sourceType || "—"} />
+              <Row label={t('prc2.occurred_date', "发生日期")} value={detail.occurredDate || "—"} />
+              <Row label={t('prc2.status', "状态")} value={STATUS_LABELS[detail.status] ?? detail.status} />
             </div>
 
             <div className={s.formSection} style={{
@@ -588,12 +599,12 @@ export default function ShareholderFundsPage() {
             fontWeight: 600,
             marginBottom: 12,
             fontSize: 13
-          }}>金额信息</div>
-              <Row label="原币" value={detail.currencyCode} />
-              <Row label="金额（原币）" value={`${detail.currencyCode} ${fmtNum(detail.amountOriginal)}`} />
-              <Row label="汇率" value={Number(detail.exchangeRate).toFixed(6)} />
-              <Row label="基准货币" value={detail.baseCurrency} />
-              <Row label="金额（基准）" value={`${detail.baseCurrency} ${fmtNum(detail.amountBase)}`} />
+          }}>{t('prc2.amount_info', "金额信息")}</div>
+              <Row label={t('prc2.original_currency', "原币")} value={detail.currencyCode} />
+              <Row label={t('prc2.amount_original', "金额（原币）")} value={`${detail.currencyCode} ${fmtNum(detail.amountOriginal)}`} />
+              <Row label={t('prc2.exchange_rate', "汇率")} value={Number(detail.exchangeRate).toFixed(6)} />
+              <Row label={t('prc2.base_currency', "基准货币")} value={detail.baseCurrency} />
+              <Row label={t('prc2.amount_base', "金额（基准）")} value={`${detail.baseCurrency} ${fmtNum(detail.amountBase)}`} />
             </div>
 
             <div className={s.formSection} style={{
@@ -603,12 +614,12 @@ export default function ShareholderFundsPage() {
             fontWeight: 600,
             marginBottom: 12,
             fontSize: 13
-          }}>关联信息</div>
-              <Row label="关联PO" value={detail.relatedPoNo || "—"} mono />
-              <Row label="关联付款ID" value={detail.relatedPaymentId || "—"} />
-              <Row label="公司" value={detail.companyName || detail.companyCode || "—"} />
-              <Row label="项目" value={detail.projectName || detail.projectCode || "—"} />
-              <Row label="备注" value={detail.remark || "—"} />
+          }}>{t('prc2.related_info', "关联信息")}</div>
+              <Row label={t('prc2.po_no_related', "关联PO")} value={detail.relatedPoNo || "—"} mono />
+              <Row label={t('prc2.related_payment_id', "关联付款ID")} value={detail.relatedPaymentId || "—"} />
+              <Row label={t('prc2.company', "公司")} value={detail.companyName || detail.companyCode || "—"} />
+              <Row label={t('prc2.project', "项目")} value={detail.projectName || detail.projectCode || "—"} />
+              <Row label={t('prc2.remark', "备注")} value={detail.remark || "—"} />
             </div>
 
             <div style={{
@@ -616,7 +627,7 @@ export default function ShareholderFundsPage() {
           color: "var(--text-secondary)",
           marginTop: 16
         }}>
-              创建于 {new Date(detail.createdAt).toLocaleString("zh-CN")}
+              {t('prc2.created_at', "创建于")} {new Date(detail.createdAt).toLocaleString("zh-CN")}
             </div>
             {detail.status === "DRAFT" && <div style={{
           padding: "16px 24px 0"
@@ -628,14 +639,14 @@ export default function ShareholderFundsPage() {
             justifyContent: "center",
             gap: 6
           }} onClick={() => handleSubmit(detail.id)} disabled={submitting}>
-                  <Send size={14} /> {submitting ? "提交中…" : "提交审批"}
+                  <Send size={14} /> {submitting ? t('prc2.submitting', "提交中…") : t('prc2.submit_approval', "提交审批")}
                 </button>
               </div>}
           </div>}
       </RightDrawer>
 
       {/* 新建股东资金 */}
-      <RightDrawer open={createOpen} onClose={() => setCreateOpen(false)} title="新建股东资金（手工登记）" width={480}>
+      <RightDrawer open={createOpen} onClose={() => setCreateOpen(false)} title={t('prc2.new_fund_manual', "新建股东资金（手工登记）")} width={480}>
         {/* G158：表单仅 open 时挂载 */}
         {createOpen && <div style={{
         padding: "0 24px 24px",
@@ -645,27 +656,27 @@ export default function ShareholderFundsPage() {
       }}>
           {/* G39：公司前置 → 切公司清空股东/项目，股东与项目随公司收窄 */}
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>公司</span>
+            <span className={u.muted12}>{t('prc2.company', "公司")}</span>
             <CompanySelector value={createForm.companyCode} onChange={v => setCreateForm(prev => ({
               ...prev, companyCode: v, shareholderId: "", shareholderName: "", projectCode: "", projectName: ""
             }))} onPick={o => setCreateForm(prev => ({ ...prev, companyName: o?.label ?? "" }))} />
           </label>
           {/* G39：股东按公司过滤（先选公司） */}
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>股东 *</span>
+            <span className={u.muted12}>{t('prc2.shareholder_required', "股东 *")}</span>
             <ShareholderSelector companyCode={createForm.companyCode} disabled={!createForm.companyCode}
               value={createForm.shareholderId ?? ""} onChange={v => setCreateForm(prev => ({ ...prev, shareholderId: v }))}
               onPick={o => setCreateForm(prev => ({ ...prev, shareholderName: o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "" }))} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>金额 *</span>
-            <input type="number" placeholder="输入原币金额" value={createForm.amountOriginal} onChange={e => setCreateForm(prev => ({
+            <span className={u.muted12}>{t('prc2.amount_required', "金额 *")}</span>
+            <input type="number" placeholder={t('prc2.amount_original_ph', "输入原币金额")} value={createForm.amountOriginal} onChange={e => setCreateForm(prev => ({
               ...prev, amountOriginal: e.target.value
             }))} className={inputFieldClass} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>汇率</span>
-            <input type="number" placeholder="对基准货币汇率，默认1" value={createForm.exchangeRate} onChange={e => setCreateForm(prev => ({
+            <span className={u.muted12}>{t('prc2.exchange_rate', "汇率")}</span>
+            <input type="number" placeholder={t('prc2.exchange_rate_ph', "对基准货币汇率，默认1")} value={createForm.exchangeRate} onChange={e => setCreateForm(prev => ({
               ...prev, exchangeRate: e.target.value
             }))} className={inputFieldClass} />
           </label>
@@ -675,7 +686,7 @@ export default function ShareholderFundsPage() {
           flexDirection: "column",
           gap: 4
         }}>
-            <span className={u.muted12}>项目</span>
+            <span className={u.muted12}>{t('prc2.project', "项目")}</span>
             {/* G39：项目也按公司过滤 */}
             <ProjectSelector companyCode={createForm.companyCode} value={createForm.projectCode} onChange={v => setCreateForm(prev => ({
             ...prev,
@@ -686,14 +697,14 @@ export default function ShareholderFundsPage() {
           }))} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>发生日期</span>
+            <span className={u.muted12}>{t('prc2.occurred_date', "发生日期")}</span>
             <input type="date" value={createForm.occurredDate} onChange={e => setCreateForm(prev => ({
               ...prev, occurredDate: e.target.value
             }))} className={inputFieldClass} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>备注</span>
-            <input type="text" placeholder="可选" value={createForm.remark} onChange={e => setCreateForm(prev => ({
+            <span className={u.muted12}>{t('prc2.remark', "备注")}</span>
+            <input type="text" placeholder={t('prc2.optional', "可选")} value={createForm.remark} onChange={e => setCreateForm(prev => ({
               ...prev, remark: e.target.value
             }))} className={inputFieldClass} />
           </label>
@@ -703,7 +714,7 @@ export default function ShareholderFundsPage() {
           flexDirection: "column",
           gap: 4
         }}>
-            <span className={u.muted12}>资金性质</span>
+            <span className={u.muted12}>{t('prc2.fund_nature', "资金性质")}</span>
             <DictSelect dictType="FIN_FUND_NATURE" value={createForm.fundNature} onChange={v => setCreateForm(p => ({
             ...p,
             fundNature: v
@@ -715,7 +726,7 @@ export default function ShareholderFundsPage() {
           flexDirection: "column",
           gap: 4
         }}>
-            <span className={u.muted12}>币种</span>
+            <span className={u.muted12}>{t('prc2.currency_short', "币种")}</span>
             <DictSelect dictType="SYS_CURRENCY" value={createForm.currencyCode} onChange={v => setCreateForm(p => ({
             ...p,
             currencyCode: v
@@ -733,7 +744,7 @@ export default function ShareholderFundsPage() {
           justifyContent: "center",
           gap: 6
         }}>
-            <Plus size={15} /> {submitting ? "保存中…" : "保存为草稿"}
+            <Plus size={15} /> {submitting ? t('prc2.saving_dots1', "保存中…") : t('prc2.save_as_draft', "保存为草稿")}
           </button>
         </div>}
       </RightDrawer>

@@ -10,6 +10,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
 import { DrawerV2 } from '@/components/design-system/drawers/DrawerV2';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -135,6 +136,7 @@ function CreateExpenseModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     companyCode: '',
     companyName: '',
@@ -149,7 +151,7 @@ function CreateExpenseModal({
   const [error, setError] = useState('');
   const submit = async () => {
     if (!form.companyCode || !form.amountOriginal) {
-      setError('公司代码和金额必填');
+      setError(t('fin2.expenses.company_amount_required','公司代码和金额必填'));
       return;
     }
     setSaving(true);
@@ -170,7 +172,7 @@ function CreateExpenseModal({
       });
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '创建失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.create_failed','创建失败'));
     } finally {
       setSaving(false);
     }
@@ -191,9 +193,9 @@ function CreateExpenseModal({
         fontWeight: 800,
         fontSize: 16,
         marginBottom: 20
-      }}>新建费用申请</div>
+      }}>{t('fin2.expenses.create_title','新建费用申请')}</div>
         {/* G4-A：公司主数据，自动带出名称，DataScope 自动过滤 */}
-        {field('公司 *', <CompanySelector value={form.companyCode} onChange={v => setForm(f => ({
+        {field(`${t('fin2.common.company','公司')} *`, <CompanySelector value={form.companyCode} onChange={v => setForm(f => ({
         ...f,
         companyCode: v
       }))} onPick={o => setForm(f => ({
@@ -201,30 +203,30 @@ function CreateExpenseModal({
         companyName: o?.label ?? ''
       }))} />)}
         {/* G4-A：费用类型枚举来自 sys_dict(FIN_EXPENSE_TYPE) */}
-        {field('费用类型 *', <DictSelect dictType="FIN_EXPENSE_TYPE" value={form.expenseType} onChange={v => setForm(f => ({
+        {field(`${t('fin2.expenses.expense_type','费用类型')} *`, <DictSelect dictType="FIN_EXPENSE_TYPE" value={form.expenseType} onChange={v => setForm(f => ({
         ...f,
         expenseType: v
       }))} allowEmpty={false} />)}
         {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
-        {field('币种 *', <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => setForm(f => ({
+        {field(`${t('fin2.common.currency','币种')} *`, <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => setForm(f => ({
         ...f,
         currencyCode: v
       }))} allowEmpty={false} />)}
-        {field('金额 *', inp('amountOriginal', 'number', '0.00'))}
-        {field('费用日期', inp('expenseDate', 'date'))}
-        {field('费用说明', <textarea value={form.description} onChange={e => setForm(f => ({
+        {field(`${t('fin2.common.amount','金额')} *`, inp('amountOriginal', 'number', '0.00'))}
+        {field(t('fin2.expenses.expense_date','费用日期'), inp('expenseDate', 'date'))}
+        {field(t('fin2.expenses.expense_desc','费用说明'), <textarea value={form.description} onChange={e => setForm(f => ({
         ...f,
         description: e.target.value
-      }))} rows={3} placeholder="费用用途、说明..." className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
+      }))} rows={3} placeholder={t('fin2.expenses.expense_desc_ph','费用用途、说明...')} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
         resize: 'vertical',
         boxSizing: 'border-box'
       }} />)}
-        {field('备注', inp('remark', 'text', '选填'))}
+        {field(t('fin2.common.remark','备注'), inp('remark', 'text', t('fin2.expenses.optional_fill','选填')))}
         {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>{error}</div>}
         <div style={drawerFooter}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={() => void submit()} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? '创建中...' : '创建草稿'}
+            {saving ? t('fin2.expenses.creating_dots','创建中...') : t('fin2.expenses.create_draft','创建草稿')}
           </button>
         </div>
       </div>
@@ -242,6 +244,7 @@ function ExpenseDrawer({
   onClose: () => void;
   onRefresh: () => void;
 }) {
+  const { t } = useLanguage();
   const [data, setData] = useState<ExpenseRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -269,13 +272,13 @@ function ExpenseDrawer({
       await load();
       onRefresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '操作失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.op_failed','操作失败'));
     } finally {
       setActing(false);
     }
   };
-  return <DrawerV2 open title={loading || !data ? '费用详情' : data.expense_no} onClose={onClose} width={540}>
-      {loading || !data ? <div className="text-text-muted" style={{ padding: 28 }}>加载中...</div> : <>
+  return <DrawerV2 open title={loading || !data ? t('fin2.expenses.detail_title','费用详情') : data.expense_no} onClose={onClose} width={540}>
+      {loading || !data ? <div className="text-text-muted" style={{ padding: 28 }}>{t('fin2.expenses.loading_dots','加载中...')}</div> : <>
       <div style={{ marginBottom: 20 }}>
         <StatusBadge status={data.status} />
       </div>
@@ -292,7 +295,7 @@ function ExpenseDrawer({
         gap: '8px 16px',
         fontSize: 13
       }}>
-          {[['申请人', data.requester_name ?? '—'], ['公司', data.company_name ?? data.company_code], ['费用类型', EXPENSE_TYPES[data.expense_type] ?? data.expense_type], ['币种', data.currency_code], ['申请金额', `${currencySymbol(data.currency_code)}${fmt(data.amount_original)}`], ['费用日期', data.expense_date ?? '—'], ['创建时间', new Date(data.created_at).toLocaleString('zh-CN')]].map(([k, v]) => <div key={k}><span className="text-text-muted">{k}：</span><span className={u.fw600}>{v}</span></div>)}
+          {[[t('fin2.expenses.requester','申请人'), data.requester_name ?? '—'], [t('fin2.common.company','公司'), data.company_name ?? data.company_code], [t('fin2.expenses.expense_type','费用类型'), EXPENSE_TYPES[data.expense_type] ?? data.expense_type], [t('fin2.common.currency','币种'), data.currency_code], [t('fin2.expenses.request_amount','申请金额'), `${currencySymbol(data.currency_code)}${fmt(data.amount_original)}`], [t('fin2.expenses.expense_date','费用日期'), data.expense_date ?? '—'], [t('fin2.expenses.created_at','创建时间'), new Date(data.created_at).toLocaleString('zh-CN')]].map(([k, v]) => <div key={k}><span className="text-text-muted">{k}：</span><span className={u.fw600}>{v}</span></div>)}
         </div>
         {data.description && <div className="text-text-muted" style={{
         marginTop: 10,
@@ -300,7 +303,7 @@ function ExpenseDrawer({
         borderTop: '1px solid var(--slate-200)',
         paddingTop: 8
       }}>
-            <span className="text-text-muted">说明：</span>{data.description}
+            <span className="text-text-muted">{t('fin2.expenses.desc_label','说明')}：</span>{data.description}
           </div>}
       </div>
 
@@ -317,10 +320,10 @@ function ExpenseDrawer({
       flexWrap: 'wrap'
     }}>
         {data.status === 'DRAFT' && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)} disabled={acting} style={primaryActionButton}>
-            <Send size={13} /> 提交审批
+            <Send size={13} /> {t('fin2.common.submit_approval','提交审批')}
           </button>}
         {['DRAFT', 'REJECTED'].includes(data.status) && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)} disabled={acting} style={actionPill('danger', acting)}>
-            取消申请
+            {t('fin2.expenses.cancel_request','取消申请')}
           </button>}
       </div>
 
@@ -330,12 +333,13 @@ function ExpenseDrawer({
         fontSize: 13,
         fontWeight: 700,
         marginBottom: 10
-      }}>审批流程</div>
+      }}>{t('fin2.expenses.approval_flow','审批流程')}</div>
           {data.wfTimeline.map((step, i) => {
-        const cfg = STEP_STATUS_CFG[step.status] ?? {
+        const cfgRaw = STEP_STATUS_CFG[step.status] ?? {
           color: 'var(--gray-500)',
           label: step.status
         };
+        const cfg = { color: cfgRaw.color, label: STEP_STATUS_CFG[step.status] ? t(`fin2.expenses.step_${step.status.toLowerCase()}`, cfgRaw.label) : cfgRaw.label };
         return <div key={i} style={{
           display: 'flex',
           gap: 12,
@@ -382,7 +386,7 @@ function ExpenseDrawer({
         fontSize: 13,
         fontWeight: 700,
         marginBottom: 8
-      }}>关联报销</div>
+      }}>{t('fin2.expenses.related_reimb','关联报销')}</div>
           {data.reimbursements.map(r => <div key={r.id} className="bg-bg-muted" style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -410,6 +414,7 @@ function ExpenseDrawer({
 export default function ExpensesPage() {
   // 对齐后端守卫:fin-expense.controller 写操作守卫父码 MENU_FIN2_EXPENSE:E,子码 _MASTER 后端不校验。
   const { canCreate: canCreateExpense } = usePermission('MENU_FIN2_EXPENSE');
+  const { t } = useLanguage();
   const [items, setItems] = useState<ExpenseRequest[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -441,7 +446,7 @@ export default function ExpensesPage() {
       }
       if (sum.status === 'fulfilled') setSummary(sum.value);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '加载失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.load_failed','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -450,16 +455,16 @@ export default function ExpensesPage() {
     void load();
   }, [load]);
   return <div>
-      <PageHeader title="费用申请" subtitle="费用申请 · 审批流程 · 自动生成报销" breadcrumb={['财务管理', '费用申请']} actions={<div style={{
+      <PageHeader title={t('fin2.expenses.page_title','费用申请')} subtitle={t('fin2.expenses.page_subtitle','费用申请 · 审批流程 · 自动生成报销')} breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.expenses.page_title','费用申请')]} actions={<div style={{
       display: 'flex',
       gap: 8
     }}>
             <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
-              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {t('fin2.common.refresh','刷新')}
             </button>
             {canCreateExpense && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={13} /> 新建申请
+                <Plus size={13} /> {t('fin2.expenses.create_btn','新建申请')}
               </button>
             )}
           </div>} />
@@ -472,12 +477,12 @@ export default function ExpensesPage() {
         marginBottom: 20,
       }}>
         {([
-          { label: '申请总数',  value: String(summary.totalExpenses),         tone: 'brand'   as const },
-          { label: '审批中',    value: String(summary.pendingApproval),       tone: 'warning' as const },
-          { label: '已审批',    value: String(summary.approved),              tone: 'success' as const },
-          { label: '已报销',    value: String(summary.reimbursed),            tone: 'brand'   as const },
-          { label: '待报销',    value: String(summary.pendingReimb),          tone: 'warning' as const },
-          { label: '今日已付款', value: String(summary.paidToday) + ' 笔',    tone: 'success' as const },
+          { label: t('fin2.expenses.kpi_total','申请总数'),  value: String(summary.totalExpenses),         tone: 'brand'   as const },
+          { label: t('fin2.expenses.kpi_pending','审批中'),    value: String(summary.pendingApproval),       tone: 'warning' as const },
+          { label: t('fin2.common.approved','已审批'),    value: String(summary.approved),              tone: 'success' as const },
+          { label: t('fin2.expenses.kpi_reimbursed','已报销'),    value: String(summary.reimbursed),            tone: 'brand'   as const },
+          { label: t('fin2.expenses.kpi_pending_reimb','待报销'),    value: String(summary.pendingReimb),          tone: 'warning' as const },
+          { label: t('fin2.expenses.kpi_paid_today','今日已付款'), value: String(summary.paidToday) + ' ' + t('fin2.common.count_unit','笔'),    tone: 'success' as const },
         ]).map(c => (
           <div key={c.label} style={kpiCardCompact(c.tone)}>
             <div style={kpiCardCompactLabel}>{c.label}</div>
@@ -492,20 +497,20 @@ export default function ExpensesPage() {
         setStatusFilter(e.target.value);
         setPage(1);
       }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
-          <option value="">全部状态</option>
-          <option value="DRAFT">草稿</option>
-          <option value="PENDING_APPROVAL">审批中</option>
-          <option value="APPROVED">已审批</option>
-          <option value="REJECTED">已拒绝</option>
-          <option value="CANCELLED">已取消</option>
-          <option value="REIMBURSED">已报销</option>
+          <option value="">{t('fin2.expenses.all_status','全部状态')}</option>
+          <option value="DRAFT">{t('fin2.common.draft','草稿')}</option>
+          <option value="PENDING_APPROVAL">{t('fin2.expenses.kpi_pending','审批中')}</option>
+          <option value="APPROVED">{t('fin2.common.approved','已审批')}</option>
+          <option value="REJECTED">{t('fin2.expenses.rejected','已拒绝')}</option>
+          <option value="CANCELLED">{t('fin2.common.cancelled','已取消')}</option>
+          <option value="REIMBURSED">{t('fin2.expenses.kpi_reimbursed','已报销')}</option>
         </select>
         <select value={typeFilter} onChange={e => {
         setTypeFilter(e.target.value);
         setPage(1);
       }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
-          <option value="">全部类型</option>
-          {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          <option value="">{t('fin2.expenses.all_types','全部类型')}</option>
+          {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{t(`fin2.expenses.type_${k.toLowerCase()}`, v)}</option>)}
         </select>
       </div>
 
@@ -518,7 +523,7 @@ export default function ExpensesPage() {
         {loading && <div className="text-text-muted" style={{
         padding: 32,
         textAlign: 'center'
-      }}>加载中...</div>}
+      }}>{t('fin2.expenses.loading_dots','加载中...')}</div>}
         {!loading && items.length === 0 && <div className="text-text-muted" style={{
         padding: 40,
         textAlign: 'center'
@@ -527,7 +532,7 @@ export default function ExpensesPage() {
           marginBottom: 8,
           opacity: 0.4
         }} />
-            <div>暂无费用申请</div>
+            <div>{t('fin2.expenses.empty','暂无费用申请')}</div>
           </div>}
         {!loading && items.map((item, i) => <div key={item.id} onClick={() => setSelectedId(item.id)} className={`border-b border-border/30 transition-colors hover:bg-bg-muted/50 cursor-pointer ${i % 2 !== 0 ? 'bg-bg-muted/20' : ''}`} style={{
         padding: '14px 20px',
@@ -561,7 +566,7 @@ export default function ExpensesPage() {
               padding: '1px 6px',
               borderRadius: 6
             }}>
-                  {EXPENSE_TYPES[item.expense_type] ?? item.expense_type}
+                  {EXPENSE_TYPES[item.expense_type] ? t(`fin2.expenses.type_${item.expense_type.toLowerCase()}`, EXPENSE_TYPES[item.expense_type]) : item.expense_type}
                 </span>
               </div>
               <div className="text-text-muted" style={{
@@ -604,14 +609,14 @@ export default function ExpensesPage() {
       alignItems: 'center'
     }}>
           {page > 1 && <button onClick={() => setPage(p => p - 1)} className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
-              上一页
+              {t('fin2.expenses.prev_page','上一页')}
             </button>}
           <span className="text-text-muted" style={{
         fontSize: 13,
         padding: '6px 14px'
-      }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+      }}>{t('fin2.expenses.page_label','第')} {page} {t('fin2.expenses.page_unit','页')} / {t('fin2.common.total','共')} {Math.ceil(total / pageSize)} {t('fin2.expenses.page_unit','页')}</span>
           {page * pageSize < total && <button onClick={() => setPage(p => p + 1)} className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
-              下一页
+              {t('fin2.expenses.next_page','下一页')}
             </button>}
         </div>}
 

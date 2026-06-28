@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { usePermission } from '@/hooks/usePermission';
 import { currencySymbol } from '@/lib/currency';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -110,13 +111,15 @@ function LocalStatusBadge({
 }: {
   status: string;
 }) {
+  const { t } = useLanguage();
   const c = STATUS_CONFIG[status] ?? {
     label: status,
     badgeClass: 'bg-bg-muted text-text-muted',
     icon: null
   };
+  const label = STATUS_CONFIG[status] ? t(`fin2.transfers.status_${status.toLowerCase()}`, c.label) : c.label;
   return <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.badgeClass}`}>
-      {c.icon}{c.label}
+      {c.icon}{label}
     </span>;
 }
 
@@ -129,6 +132,7 @@ function CreateTransferModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     fromAccountId: '',
     toAccountId: '',
@@ -144,19 +148,19 @@ function CreateTransferModal({
   }));
   async function submit() {
     if (!form.fromAccountId) {
-      setErr('请选择转出账户');
+      setErr(t('fin2.transfers.select_from','请选择转出账户'));
       return;
     }
     if (!form.toAccountId) {
-      setErr('请选择转入账户');
+      setErr(t('fin2.transfers.select_to','请选择转入账户'));
       return;
     }
     if (form.fromAccountId === form.toAccountId) {
-      setErr('转出和转入账户不能相同');
+      setErr(t('fin2.transfers.same_account','转出和转入账户不能相同'));
       return;
     }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr('请填写转账金额');
+      setErr(t('fin2.transfers.fill_amount','请填写转账金额'));
       return;
     }
     setSaving(true);
@@ -174,11 +178,11 @@ function CreateTransferModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '创建失败');
+        throw new Error(d.message ?? t('fin2.common.create_failed','创建失败'));
       }
       onCreated();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '创建失败');
+      setErr(e instanceof Error ? e.message : t('fin2.common.create_failed','创建失败'));
     } finally {
       setSaving(false);
     }
@@ -195,7 +199,7 @@ function CreateTransferModal({
           <div className="text-text" style={{
           fontWeight: 700,
           fontSize: 16
-        }}>新建资金转账</div>
+        }}>{t('fin2.transfers.create_title','新建资金转账')}</div>
           <button onClick={onClose} style={{
           background: 'none',
           border: 'none',
@@ -217,13 +221,13 @@ function CreateTransferModal({
             fontSize: 12,
             fontWeight: 600,
             marginBottom: 4
-          }}>转出账户 <span className="text-red-500">*</span></div>
+          }}>{t('fin2.transfers.from_account','转出账户')} <span className="text-red-500">*</span></div>
             {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；onPick 同步带出账户币种/余额 */}
             <CashAccountSelector value={form.fromAccountId} valueField="id" onChange={v => set('fromAccountId', v)} onPick={o => setFromAcc((o?.raw ?? null) as CashAccount | null)} />
           </div>
 
           {fromAcc && <div className="bg-info/10 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-              当前余额：{currencySymbol(fromAcc.currencyCode)}{fmt(fromAcc.currentBalance)}
+              {t('fin2.transfers.current_balance','当前余额')}：{currencySymbol(fromAcc.currencyCode)}{fmt(fromAcc.currentBalance)}
             </div>}
 
           <div>
@@ -231,7 +235,7 @@ function CreateTransferModal({
             fontSize: 12,
             fontWeight: 600,
             marginBottom: 4
-          }}>转入账户 <span className="text-red-500">*</span></div>
+          }}>{t('fin2.transfers.to_account','转入账户')} <span className="text-red-500">*</span></div>
             {/* G4-A：资金账户主数据；同币种过滤（避免跨币种调拨） */}
             <CashAccountSelector value={form.toAccountId} valueField="id" onChange={v => set('toAccountId', v)} currencyCode={fromAcc?.currencyCode} />
           </div>
@@ -241,8 +245,8 @@ function CreateTransferModal({
             fontSize: 12,
             fontWeight: 600,
             marginBottom: 4
-          }}>转账金额 <span className="text-red-500">*</span></div>
-            <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="请输入金额" className={selectClass} />
+          }}>{t('fin2.transfers.transfer_amount','转账金额')} <span className="text-red-500">*</span></div>
+            <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder={t('fin2.transfers.amount_ph','请输入金额')} className={selectClass} />
           </div>
 
           <div>
@@ -250,19 +254,19 @@ function CreateTransferModal({
             fontSize: 12,
             fontWeight: 600,
             marginBottom: 4
-          }}>备注</div>
-            <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className={`${selectClass} resize-none font-inherit`} />
+          }}>{t('fin2.common.remark','备注')}</div>
+            <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={t('fin2.common.optional','可选')} rows={2} className={`${selectClass} resize-none font-inherit`} />
           </div>
         </div>
 
         <div style={{ ...inlineAlert('warning'), margin: '14px 0', lineHeight: 1.6 }}>
-          💡 创建后状态为「草稿」，需提交审批 → 审批通过 → 执行，才会实际扣减账户余额。
+          💡 {t('fin2.transfers.create_hint','创建后状态为「草稿」，需提交审批 → 审批通过 → 执行，才会实际扣减账户余额。')}
         </div>
 
         <div style={drawerFooter}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? '创建中…' : '创建草稿'}
+            {saving ? t('fin2.transfers.creating','创建中…') : t('fin2.transfers.create_draft','创建草稿')}
           </button>
         </div>
       </div>
@@ -275,6 +279,7 @@ export default function FundTransfersPage() {
   // 权限门控（G47）：新建转账受 MENU_FIN2_CASH_TRANSFER:C 约束，
   // 刘杰等仅查看/审核角色(无该菜单)不应看到新建入口。
   const { canCreate } = usePermission('MENU_FIN2_CASH_TRANSFER');
+  const { t } = useLanguage();
   const [transfers, setTransfers] = useState<FundTransfer[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -315,7 +320,7 @@ export default function FundTransfersPage() {
       });
       if (!r.ok) {
         const d = await r.json();
-        alert(d.message ?? '操作失败');
+        alert(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
       await load();
@@ -324,8 +329,8 @@ export default function FundTransfersPage() {
     }
   }
   return <div>
-      <PageHeader title="资金转账" subtitle="账户间内部资金划转，5 状态审批工作流" breadcrumb={['财务管理', '资金转账']} actions={canCreate ? <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-            <Plus size={15} /> 新建转账
+      <PageHeader title={t('fin2.transfers.page_title','资金转账')} subtitle={t('fin2.transfers.page_subtitle','账户间内部资金划转，5 状态审批工作流')} breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.transfers.page_title','资金转账')]} actions={canCreate ? <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+            <Plus size={15} /> {t('fin2.transfers.create_btn','新建转账')}
           </button> : undefined} />
 
       {/* 状态筛选 工具栏 */}
@@ -338,15 +343,15 @@ export default function FundTransfersPage() {
             transform: 'translateY(-50%)',
             pointerEvents: 'none',
           }} />
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索单号/账户名称…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
+          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t('fin2.transfers.search_ph','搜索单号/账户名称…')} style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
         </div>
 
         {[{
           k: '',
-          v: '全部状态'
+          v: t('fin2.transfers.all_status','全部状态')
         }, ...Object.entries(STATUS_CONFIG).map(([k, c]) => ({
           k,
-          v: c.label
+          v: t(`fin2.transfers.status_${k.toLowerCase()}`, c.label)
         }))].map(({ k, v }) => (
           <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>
             {v}
@@ -357,27 +362,27 @@ export default function FundTransfersPage() {
           <RefreshCw size={14} />
         </button>
 
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>共 {total} 条</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('fin2.common.total','共')} {total} {t('fin2.transfers.records_unit','条')}</span>
       </div>
 
       {/* 转账列表 */}
-      {loading ? <div className="text-text-dim text-sm text-center py-12">加载中…</div> : transfers.length === 0 ? <div className="text-text-muted text-sm text-center py-12">
+      {loading ? <div className="text-text-dim text-sm text-center py-12">{t('fin2.transfers.loading','加载中…')}</div> : transfers.length === 0 ? <div className="text-text-muted text-sm text-center py-12">
           <ArrowLeftRight size={32} style={{
         margin: '0 auto 12px',
         display: 'block',
         opacity: 0.4
       }} />
-          暂无转账记录
+          {t('fin2.transfers.empty','暂无转账记录')}
         </div> : <div style={{
       display: 'flex',
       flexDirection: 'column',
       gap: 10
     }}>
-          {transfers.map(t => <div key={t.id} className="bg-bg-card" style={{
+          {transfers.map(tf => <div key={tf.id} className="bg-bg-card" style={{
         borderRadius: 14,
-        border: `1.5px solid ${t.status === 'EXECUTED' ? 'var(--status-success-bg-light)' : t.status === 'CANCELLED' ? 'var(--slate-200)' : 'var(--status-info-bg-page)'}`,
+        border: `1.5px solid ${tf.status === 'EXECUTED' ? 'var(--status-success-bg-light)' : tf.status === 'CANCELLED' ? 'var(--slate-200)' : 'var(--status-info-bg-page)'}`,
         padding: '16px 20px',
-        opacity: t.status === 'CANCELLED' ? 0.65 : 1
+        opacity: tf.status === 'CANCELLED' ? 0.65 : 1
       }}>
               <div style={{
           display: 'flex',
@@ -395,10 +400,10 @@ export default function FundTransfersPage() {
                     <span className="text-text" style={{
                 fontWeight: 700,
                 fontSize: 13
-              }}>{t.transferNo}</span>
-                    <LocalStatusBadge status={t.status} />
+              }}>{tf.transferNo}</span>
+                    <LocalStatusBadge status={tf.status} />
                     <span className={`text-text-dim ${u.fs11}`}>
-                      {new Date(t.createdAt).toLocaleDateString('zh-CN')} · {t.createdBy ?? '-'}
+                      {new Date(tf.createdAt).toLocaleDateString('zh-CN')} · {tf.createdBy ?? '-'}
                     </span>
                   </div>
 
@@ -414,8 +419,8 @@ export default function FundTransfersPage() {
                 padding: '6px 12px',
                 fontSize: 12
               }}>
-                      <div className={`text-amber-800 dark:text-amber-300 ${u.fw600}`}>{t.fromAccountName}</div>
-                      <div className={`text-warning ${u.fs11}`}>{t.fromAccountCode}</div>
+                      <div className={`text-amber-800 dark:text-amber-300 ${u.fw600}`}>{tf.fromAccountName}</div>
+                      <div className={`text-warning ${u.fs11}`}>{tf.fromAccountCode}</div>
                     </div>
                     <ArrowLeftRight size={16} className="text-text-dim" />
                     <div className="bg-success/10" style={{
@@ -423,8 +428,8 @@ export default function FundTransfersPage() {
                 padding: '6px 12px',
                 fontSize: 12
               }}>
-                      <div className={`text-emerald-800 dark:text-emerald-300 ${u.fw600}`}>{t.toAccountName}</div>
-                      <div className={`text-emerald-600 dark:text-emerald-400 ${u.fs11}`}>{t.toAccountCode}</div>
+                      <div className={`text-emerald-800 dark:text-emerald-300 ${u.fw600}`}>{tf.toAccountName}</div>
+                      <div className={`text-emerald-600 dark:text-emerald-400 ${u.fs11}`}>{tf.toAccountCode}</div>
                     </div>
 
                     <div style={{
@@ -436,36 +441,36 @@ export default function FundTransfersPage() {
                   fontSize: 18,
                   fontVariantNumeric: 'tabular-nums'
                 }}>
-                        {currencySymbol(t.currencyCode)}{fmt(t.amountOriginal)}
+                        {currencySymbol(tf.currencyCode)}{fmt(tf.amountOriginal)}
                       </div>
                     </div>
                   </div>
 
-                  {t.remark && <div className="text-text-dim" style={{
+                  {tf.remark && <div className="text-text-dim" style={{
               fontSize: 11,
               marginTop: 4
-            }}>备注：{t.remark}</div>}
+            }}>{t('fin2.common.remark','备注')}：{tf.remark}</div>}
                 </div>
               </div>
 
               {/* 操作按钮 */}
-              {!['EXECUTED', 'CANCELLED'].includes(t.status) && <div className="border-t border-border" style={{
+              {!['EXECUTED', 'CANCELLED'].includes(tf.status) && <div className="border-t border-border" style={{
           display: 'flex',
           gap: 8,
           marginTop: 12,
           paddingTop: 12
         }}>
-                  {t.status === 'DRAFT' && <button onClick={() => doAction(t.id, 'submit', `确认提交转账单 ${t.transferNo} 至审批？`)} disabled={actionLoading === t.id + 'submit'} style={actionPill('info', actionLoading === t.id + 'submit')}>
-                    <Send size={12} /> 提交审批
+                  {tf.status === 'DRAFT' && <button onClick={() => doAction(tf.id, 'submit', `${t('fin2.transfers.confirm_submit_pre','确认提交转账单')} ${tf.transferNo} ${t('fin2.transfers.confirm_submit_post','至审批？')}`)} disabled={actionLoading === tf.id + 'submit'} style={actionPill('info', actionLoading === tf.id + 'submit')}>
+                    <Send size={12} /> {t('fin2.common.submit_approval','提交审批')}
                   </button>}
-                  {t.status === 'PENDING_APPROVAL' && <button onClick={() => doAction(t.id, 'approve')} disabled={actionLoading === t.id + 'approve'} style={actionPill('success', actionLoading === t.id + 'approve')}>
-                    <CheckCircle size={12} /> 审批通过
+                  {tf.status === 'PENDING_APPROVAL' && <button onClick={() => doAction(tf.id, 'approve')} disabled={actionLoading === tf.id + 'approve'} style={actionPill('success', actionLoading === tf.id + 'approve')}>
+                    <CheckCircle size={12} /> {t('fin2.transfers.approve','审批通过')}
                   </button>}
-                  {t.status === 'APPROVED' && <button onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${currencySymbol(t.currencyCode)}${fmt(t.amountOriginal)}。`)} disabled={actionLoading === t.id + 'execute'} style={actionPill('success', actionLoading === t.id + 'execute')}>
-                    <Play size={12} /> 执行转账
+                  {tf.status === 'APPROVED' && <button onClick={() => doAction(tf.id, 'execute', `${t('fin2.transfers.confirm_exec_pre','确认执行转账')} ${tf.transferNo}${t('fin2.transfers.confirm_exec_mid','？将实际划转')} ${currencySymbol(tf.currencyCode)}${fmt(tf.amountOriginal)}${t('fin2.transfers.confirm_exec_post','。')}`)} disabled={actionLoading === tf.id + 'execute'} style={actionPill('success', actionLoading === tf.id + 'execute')}>
+                    <Play size={12} /> {t('fin2.transfers.execute','执行转账')}
                   </button>}
-                  <button onClick={() => doAction(t.id, 'cancel', `确认取消转账单 ${t.transferNo}？`)} disabled={actionLoading === t.id + 'cancel'} style={actionPill('danger', actionLoading === t.id + 'cancel')}>
-                    <X size={12} /> 取消
+                  <button onClick={() => doAction(tf.id, 'cancel', `${t('fin2.transfers.confirm_cancel_pre','确认取消转账单')} ${tf.transferNo}${t('fin2.transfers.confirm_cancel_post','？')}`)} disabled={actionLoading === tf.id + 'cancel'} style={actionPill('danger', actionLoading === tf.id + 'cancel')}>
+                    <X size={12} /> {t('fin2.common.cancel','取消')}
                   </button>
                 </div>}
             </div>)}

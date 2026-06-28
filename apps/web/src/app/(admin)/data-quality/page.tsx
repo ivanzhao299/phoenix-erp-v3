@@ -4,6 +4,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RefreshCw, AlertTriangle, CheckCircle, AlertCircle, ShieldCheck, Database, BookOpen, Link2, Boxes, GitPullRequestArrow, Code2 } from 'lucide-react';
 
 /**
@@ -86,12 +87,16 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function DataQualityPage() {
+  const { t } = useLanguage();
   const qualityPerm = usePermission('MENU_MD_QUALITY');
   const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState('');
+
+  const SCORE_LABEL_KEY: Record<string, string> = { '优秀': 'dq.excellent', '良好': 'dq.good', '及格': 'dq.pass', '需整改': 'dq.needFix' };
+  const tScoreLabel = (label: string) => t(SCORE_LABEL_KEY[label] ?? 'dq.unknown', label);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -103,34 +108,34 @@ export default function DataQualityPage() {
       setScores(s);
       setAlerts(Array.isArray(a) ? a : []);
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || t('dq.loadFailed', '加载失败'));
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { if (canView) void load(); }, [canView, load]);
 
   const cards = scores ? [
-    { key: 'masterData',   label: '主数据健康', icon: Database,           score: scores.masterData,   weight: scores.weights.masterData,   path: '/data-quality/master-data' },
-    { key: 'traceability', label: '追溯完整率', icon: Link2,              score: scores.traceability, weight: scores.weights.traceability, path: '/data-quality/traceability' },
-    { key: 'inventory',    label: '库存健康',   icon: Boxes,              score: scores.inventory,    weight: scores.weights.inventory,    path: '/data-quality/inventory' },
-    { key: 'dataScope',    label: '权限审计',   icon: ShieldCheck,        score: scores.dataScope,    weight: scores.weights.dataScope,    path: '/data-quality/datascope' },
-    { key: 'dict',         label: '字典覆盖',   icon: BookOpen,           score: scores.dict,         weight: scores.weights.dict,         path: '/data-quality/dict' },
-    { key: 'workflow',     label: '审批健康',   icon: GitPullRequestArrow, score: scores.workflow,    weight: scores.weights.workflow,     path: '/data-quality/workflow' },
-    { key: 'code',         label: '编码规范',   icon: Code2,              score: scores.code,         weight: scores.weights.code,         path: '/data-quality/code' },
+    { key: 'masterData',   label: t('dq.dim.masterData', '主数据健康'), icon: Database,           score: scores.masterData,   weight: scores.weights.masterData,   path: '/data-quality/master-data' },
+    { key: 'traceability', label: t('dq.dim.traceability', '追溯完整率'), icon: Link2,              score: scores.traceability, weight: scores.weights.traceability, path: '/data-quality/traceability' },
+    { key: 'inventory',    label: t('dq.dim.inventory', '库存健康'),   icon: Boxes,              score: scores.inventory,    weight: scores.weights.inventory,    path: '/data-quality/inventory' },
+    { key: 'dataScope',    label: t('dq.dim.dataScope', '权限审计'),   icon: ShieldCheck,        score: scores.dataScope,    weight: scores.weights.dataScope,    path: '/data-quality/datascope' },
+    { key: 'dict',         label: t('dq.dim.dict', '字典覆盖'),   icon: BookOpen,           score: scores.dict,         weight: scores.weights.dict,         path: '/data-quality/dict' },
+    { key: 'workflow',     label: t('dq.dim.workflow', '审批健康'),   icon: GitPullRequestArrow, score: scores.workflow,    weight: scores.weights.workflow,     path: '/data-quality/workflow' },
+    { key: 'code',         label: t('dq.dim.code', '编码规范'),   icon: Code2,              score: scores.code,         weight: scores.weights.code,         path: '/data-quality/code' },
   ] : [];
 
-  if (!canView) return <div className={u.emptyPad40}>无权限访问数据质量驾驶舱</div>;
+  if (!canView) return <div className={u.emptyPad40}>{t('dq.noPerm', '无权限访问数据质量驾驶舱')}</div>;
 
   return (
     <div>
       <PageHeader
-        title="数据质量驾驶舱"
-        subtitle="集团 7 维数据治理态势 · 决策可信度 · 异常风险 · 整改优先级"
-        breadcrumb={['治理', '数据质量']}
+        title={t('dq.title', '数据质量驾驶舱')}
+        subtitle={t('dq.subtitle', '集团 7 维数据治理态势 · 决策可信度 · 异常风险 · 整改优先级')}
+        breadcrumb={[t('dq.governance', '治理'), t('dq.breadcrumb', '数据质量')]}
         actions={
           <button onClick={() => void load()} disabled={loading}
             style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {t('dq.refresh', '刷新')}
           </button>
         }
       />
@@ -152,18 +157,18 @@ export default function DataQualityPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <CheckCircle size={20} style={{ color: scoreColor(scores.overall).fg }} />
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>总质量评分</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dq.overallScore', '总质量评分')}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
               <div style={{ fontSize: 56, fontWeight: 800, color: scoreColor(scores.overall).fg, lineHeight: 1 }}>
                 {scores.overall}
               </div>
               <div style={{ fontSize: 14, color: scoreColor(scores.overall).fg, fontWeight: 600 }}>
-                / 100 · {scoreColor(scores.overall).label}
+                / 100 · {tScoreLabel(scoreColor(scores.overall).label)}
               </div>
             </div>
             <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
-              7 维度加权（主数据 25 / 追溯 20 / 库存 15 / 权限 12 / 字典 10 / 审批 10 / 编码 8）
+              {t('dq.weightFormula', '7 维度加权（主数据 25 / 追溯 20 / 库存 15 / 权限 12 / 字典 10 / 审批 10 / 编码 8）')}
             </div>
           </div>
 
@@ -175,19 +180,19 @@ export default function DataQualityPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <AlertTriangle size={20} style={{ color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }} />
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>实时告警</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dq.realtimeAlert', '实时告警')}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
               <div style={{ fontSize: 56, fontWeight: 800, color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)', lineHeight: 1 }}>
                 {scores.alertCount}
               </div>
               <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                {scores.highAlertCount > 0 && <span style={{ color: 'var(--status-danger)', fontWeight: 700 }}>{scores.highAlertCount} 高危 · </span>}
-                总告警条数
+                {scores.highAlertCount > 0 && <span style={{ color: 'var(--status-danger)', fontWeight: 700 }}>{scores.highAlertCount} {t('dq.highRisk', '高危')} · </span>}
+                {t('dq.totalAlerts', '总告警条数')}
               </div>
             </div>
             <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
-              最近更新：{new Date(scores.asOf).toLocaleString('zh-CN')}
+              {t('dq.lastUpdated', '最近更新：')}{new Date(scores.asOf).toLocaleString('zh-CN')}
             </div>
           </div>
         </div>
@@ -207,11 +212,11 @@ export default function DataQualityPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <Icon size={15} style={{ color: sc.fg }} />
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>{c.label}</div>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-secondary)' }}>权重 {c.weight}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-secondary)' }}>{t('dq.weight', '权重')} {c.weight}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <div style={{ fontSize: 32, fontWeight: 800, color: sc.fg, lineHeight: 1 }}>{c.score}</div>
-                  <div style={{ fontSize: 12, color: sc.fg, fontWeight: 600 }}>{sc.label}</div>
+                  <div style={{ fontSize: 12, color: sc.fg, fontWeight: 600 }}>{tScoreLabel(sc.label)}</div>
                 </div>
                 <div style={{ marginTop: 10, height: 4, background: 'var(--bg-muted)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${c.score}%`, background: sc.fg }} />
@@ -226,16 +231,16 @@ export default function DataQualityPage() {
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <AlertTriangle size={16} />
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>实时告警列表</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('dq.alertList', '实时告警列表')}</h2>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
-            共 {alerts.length} 条
+            {t('dq.total', '共')} {alerts.length} {t('dq.items', '条')}
           </span>
         </div>
 
-        {loading && <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载中…</div>}
+        {loading && <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>{t('dq.loading', '加载中…')}</div>}
         {!loading && alerts.length === 0 && (
           <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center' }}>
-            🎉 暂无告警，数据质量良好
+            {t('dq.noAlerts', '🎉 暂无告警，数据质量良好')}
           </div>
         )}
         {!loading && alerts.length > 0 && (
@@ -253,15 +258,15 @@ export default function DataQualityPage() {
                     minWidth: 56, padding: '2px 8px', borderRadius: 6,
                     background: `${sev}1a`, color: sev, fontSize: 11, fontWeight: 700, textAlign: 'center',
                   }}>
-                    {SEVERITY_LABEL[a.severity] ?? a.severity}
+                    {t(`dq.severity.${a.severity}`, SEVERITY_LABEL[a.severity] ?? a.severity)}
                   </div>
                   <div className={u.flex1}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{SOURCE_LABEL[a.source] ?? a.source}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t(`dq.source.${a.source}`, SOURCE_LABEL[a.source] ?? a.source)}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>·</span>
-                      <span style={{ fontSize: 11, color: sev, fontWeight: 600 }}>{TYPE_LABEL[a.type] ?? a.type}</span>
+                      <span style={{ fontSize: 11, color: sev, fontWeight: 600 }}>{t(`dq.type.${a.type}`, TYPE_LABEL[a.type] ?? a.type)}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>
-                        影响 {a.count} 条
+                        {t('dq.affects', '影响')} {a.count} {t('dq.items', '条')}
                       </span>
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{a.message}</div>

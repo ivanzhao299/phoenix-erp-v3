@@ -17,6 +17,7 @@ import { EntityWorkspace, Panel, DataTableV3 } from "@/components/design-system"
 import { inlineBadge } from "@/components/design-system/cockpit-styles";
 import { usePermission } from "@/hooks/usePermission";
 import { PermissionDeniedState } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { Building2, ShoppingCart, Receipt, Link2, FileText } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -28,18 +29,19 @@ const yuan = (v: any) => (v == null || v === "" ? "—" : `¥${Number(v).toLocal
 const dateStr = (v: any) => (v ? new Date(v).toLocaleDateString("zh-CN") : "—");
 
 // 状态徽章
-const STATUS_META: Record<string, { label: string; tone: "default" | "success" | "warning" | "danger" }> = {
-  ACTIVE: { label: "在用", tone: "success" },
-  PENDING_APPROVAL: { label: "待审批", tone: "warning" },
-  DRAFT: { label: "草稿", tone: "default" },
-  FROZEN: { label: "冻结", tone: "danger" },
-  ARCHIVED: { label: "归档", tone: "default" },
-  REJECTED: { label: "已驳回", tone: "danger" },
+const STATUS_META: Record<string, { labelKey: string; label: string; tone: "default" | "success" | "warning" | "danger" }> = {
+  ACTIVE: { labelKey: "md.status_active", label: "在用", tone: "success" },
+  PENDING_APPROVAL: { labelKey: "md.status_pending_approval", label: "待审批", tone: "warning" },
+  DRAFT: { labelKey: "md.status_draft", label: "草稿", tone: "default" },
+  FROZEN: { labelKey: "md.status_frozen", label: "冻结", tone: "danger" },
+  ARCHIVED: { labelKey: "md.status_archived", label: "归档", tone: "default" },
+  REJECTED: { labelKey: "md.status_rejected", label: "已驳回", tone: "danger" },
 };
 
 interface RefItem { refTable: string; refDocType: string; refCount: number; }
 
 export default function SupplierDetailPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const supplierPerm = usePermission("MENU_MD_SUPPLIER");
@@ -161,32 +163,35 @@ export default function SupplierDetailPage() {
   }
 
   const statusKey = info?.status as string | undefined;
-  const statusMeta = statusKey ? (STATUS_META[statusKey] ?? { label: statusKey, tone: "default" as const }) : null;
+  const statusMetaRaw = statusKey ? STATUS_META[statusKey] : null;
+  const statusMeta = statusKey
+    ? { label: statusMetaRaw ? t(statusMetaRaw.labelKey, statusMetaRaw.label) : statusKey, tone: statusMetaRaw?.tone ?? ("default" as const) }
+    : null;
   const supplierName = info?.supplier_name || code;
 
   // ── Tab 1：基本信息 ───────────────────────────────────────────────
   const fields: Array<{ label: string; value: React.ReactNode }> = [
-    { label: "供应商编码", value: <code style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{code}</code> },
-    { label: "供应商名称", value: info?.supplier_name || "—" },
-    { label: "供应商类型", value: info?.supplier_type || "—" },
-    { label: "国家", value: info?.country_code || "—" },
-    { label: "默认币种", value: info?.default_currency || "—" },
-    { label: "联系人", value: info?.contact_name || "—" },
-    { label: "联系电话", value: info?.contact_phone || "—" },
-    { label: "邮箱", value: info?.contact_email || "—" },
-    { label: "开户行", value: info?.bank_name || "—" },
-    { label: "银行账号", value: info?.bank_account_no || "—" },
-    { label: "税号", value: info?.tax_no || "—" },
-    { label: "地址", value: info?.address || "—" },
-    { label: "账期天数", value: info?.credit_days != null ? `${info.credit_days} 天` : "—" },
-    { label: "付款条件", value: info?.payment_terms || "—" },
+    { label: t('md.supplier_code','供应商编码'), value: <code style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{code}</code> },
+    { label: t('md.supplier_name','供应商名称'), value: info?.supplier_name || "—" },
+    { label: t('md.supplier_type','供应商类型'), value: info?.supplier_type || "—" },
+    { label: t('md.country','国家'), value: info?.country_code || "—" },
+    { label: t('md.default_currency','默认币种'), value: info?.default_currency || "—" },
+    { label: t('md.contact_name','联系人'), value: info?.contact_name || "—" },
+    { label: t('md.contact_phone','联系电话'), value: info?.contact_phone || "—" },
+    { label: t('md.email','邮箱'), value: info?.contact_email || "—" },
+    { label: t('md.bank_name','开户行'), value: info?.bank_name || "—" },
+    { label: t('md.bank_account_no','银行账号'), value: info?.bank_account_no || "—" },
+    { label: t('md.tax_no','税号'), value: info?.tax_no || "—" },
+    { label: t('md.address','地址'), value: info?.address || "—" },
+    { label: t('md.payment_days','账期天数'), value: info?.credit_days != null ? `${info.credit_days} ${t('md.unit_days','天')}` : "—" },
+    { label: t('md.payment_terms','付款条件'), value: info?.payment_terms || "—" },
   ];
 
   const infoTab = (
-    <Panel title="供应商基本信息" icon={<Building2 size={14} />}>
+    <Panel title={t('md.supplier_basic_info','供应商基本信息')} icon={<Building2 size={14} />}>
       {!info && (
         <div style={{ fontSize: 12, color: "var(--status-warning)", marginBottom: 12 }}>
-          ⚠️ 未取到供应商主数据记录（可能已归档或无权限），以下仅展示编码。
+          ⚠️ {t('md.supplier_no_record','未取到供应商主数据记录（可能已归档或无权限），以下仅展示编码。')}
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px", padding: 16, background: "var(--bg-muted)", borderRadius: "var(--radius-card)" }}>
@@ -203,11 +208,11 @@ export default function SupplierDetailPage() {
   // ── Tab 2：采购单 ─────────────────────────────────────────────────
   const ordersTab = (
     <Panel
-      title="采购订单"
+      title={t('md.purchase_order','采购订单')}
       icon={<ShoppingCart size={14} />}
       extra={
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          共 <b style={{ color: "var(--color-primary)" }}>{orders.length}</b> 单 · 合计{" "}
+          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{orders.length}</b> {t('md.unit_order','单')} · {t('md.subtotal','合计')}{" "}
           <b style={{ color: "var(--text-primary)" }}>{yuan(orderTotal)}</b>
         </span>
       }
@@ -215,12 +220,12 @@ export default function SupplierDetailPage() {
       <DataTableV3
         rows={orders}
         rowKey={(r, i) => r.id ?? r.order_no ?? i}
-        emptyText="暂无采购单"
+        emptyText={t('md.empty_purchase_orders','暂无采购单')}
         columns={[
-          { key: "order_no", title: "单号", render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.order_no ?? "—"}</code> },
-          { key: "created_at", title: "日期", type: "date" },
-          { key: "total_amount", title: "金额", type: "money", align: "right" },
-          { key: "status", title: "状态", type: "status", align: "center" },
+          { key: "order_no", title: t('md.doc_no','单号'), render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.order_no ?? "—"}</code> },
+          { key: "created_at", title: t('md.date','日期'), type: "date" },
+          { key: "total_amount", title: t('md.amount','金额'), type: "money", align: "right" },
+          { key: "status", title: t('md.status','状态'), type: "status", align: "center" },
         ]}
       />
     </Panel>
@@ -229,11 +234,11 @@ export default function SupplierDetailPage() {
   // ── Tab 3：应付 ───────────────────────────────────────────────────
   const apTab = (
     <Panel
-      title="应付账款"
+      title={t('md.ap','应付账款')}
       icon={<Receipt size={14} />}
       extra={
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          共 <b style={{ color: "var(--color-primary)" }}>{apRows.length}</b> 笔 · 未付余额{" "}
+          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{apRows.length}</b> {t('md.unit_pen','笔')} · {t('md.unpaid_balance','未付余额')}{" "}
           <b style={{ color: apBalance > 0 ? "var(--status-warning)" : "var(--text-primary)" }}>{yuan(apBalance)}</b>
         </span>
       }
@@ -241,14 +246,14 @@ export default function SupplierDetailPage() {
       <DataTableV3
         rows={apRows}
         rowKey={(r, i) => r.id ?? r.ap_no ?? i}
-        emptyText="暂无应付"
+        emptyText={t('md.empty_ap','暂无应付')}
         columns={[
-          { key: "ap_no", title: "应付单号", render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.ap_no ?? "—"}</code> },
-          { key: "invoice_date", title: "开票日期", type: "date" },
-          { key: "due_date", title: "到期日", type: "date" },
-          { key: "amount_original", title: "应付金额", type: "money", align: "right" },
-          { key: "balance_amount_original", title: "未付余额", type: "money", align: "right" },
-          { key: "status", title: "状态", type: "status", align: "center" },
+          { key: "ap_no", title: t('md.ap_no','应付单号'), render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.ap_no ?? "—"}</code> },
+          { key: "invoice_date", title: t('md.invoice_date','开票日期'), type: "date" },
+          { key: "due_date", title: t('md.due_date','到期日'), type: "date" },
+          { key: "amount_original", title: t('md.ap_amount','应付金额'), type: "money", align: "right" },
+          { key: "balance_amount_original", title: t('md.unpaid_balance','未付余额'), type: "money", align: "right" },
+          { key: "status", title: t('md.status','状态'), type: "status", align: "center" },
         ]}
       />
     </Panel>
@@ -257,20 +262,20 @@ export default function SupplierDetailPage() {
   // ── Tab 4：引用 ───────────────────────────────────────────────────
   const refsTab = (
     <Panel
-      title="被引用情况"
+      title={t('md.references','被引用情况')}
       icon={<Link2 size={14} />}
       extra={
         <span style={inlineBadge(refs.total > 0 ? "warning" : "success")}>
-          {refs.total > 0 ? `被 ${refs.total} 处引用` : "无引用"}
+          {refs.total > 0 ? `${t('md.referenced_by','被')} ${refs.total} ${t('md.referenced_places','处引用')}` : t('md.no_reference','无引用')}
         </span>
       }
     >
       <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.6 }}>
-        被引用表示该供应商已被下游单据使用，存在引用时不可归档/删除。
+        {t('md.supplier_reference_hint','被引用表示该供应商已被下游单据使用，存在引用时不可归档/删除。')}
       </div>
       {refs.items.length === 0 ? (
         <div style={{ padding: "20px 12px", textAlign: "center", background: "var(--bg-muted)", borderRadius: "var(--radius-card)", fontSize: 13, color: "var(--text-secondary)" }}>
-          该供应商暂无任何单据引用
+          {t('md.supplier_no_reference','该供应商暂无任何单据引用')}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
@@ -308,18 +313,18 @@ export default function SupplierDetailPage() {
           <a
             href="/master-data/suppliers"
             style={{ fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", textDecoration: "none" }}
-            title="编辑请回到供应商列表的新增/编辑流程"
+            title={t('md.supplier_edit_back_hint','编辑请回到供应商列表的新增/编辑流程')}
           >
-            <FileText size={13} /> 查看全景（只读）· 编辑回列表
+            <FileText size={13} /> {t('md.view_overview_readonly','查看全景（只读）· 编辑回列表')}
           </a>
         }
         tabs={[
-          { key: "info", label: "基本信息", content: infoTab },
+          { key: "info", label: t('md.tab_basic_info','基本信息'), content: infoTab },
           ...(canViewPurchaseOrders ? [{
             key: "orders",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                采购单 {orders.length > 0 && <Count n={orders.length} />}
+                {t('md.tab_purchase_orders','采购单')} {orders.length > 0 && <Count n={orders.length} />}
               </span>
             ),
             content: ordersTab,
@@ -328,7 +333,7 @@ export default function SupplierDetailPage() {
             key: "ap",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                应付 {apRows.length > 0 && <Count n={apRows.length} />}
+                {t('md.tab_ap','应付')} {apRows.length > 0 && <Count n={apRows.length} />}
               </span>
             ),
             content: apTab,
@@ -337,7 +342,7 @@ export default function SupplierDetailPage() {
             key: "refs",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                引用 {refs.total > 0 && <Count n={refs.total} />}
+                {t('md.tab_references','引用')} {refs.total > 0 && <Count n={refs.total} />}
               </span>
             ),
             content: refsTab,

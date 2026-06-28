@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { LoadingSkeleton } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { CASH_ACCOUNT_FIELDS } from "../../page";
 
@@ -10,6 +11,7 @@ const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
 
 export default function CashAccountEditPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -40,14 +42,14 @@ export default function CashAccountEditPage() {
   if (loading) return <div style={{ padding: 32 }}><LoadingSkeleton variant="card" rows={6} /></div>;
   if (notFound || !row) return (
     <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-      未找到编码 {code} 的资金账户
+      {t('md.notfound_prefix','未找到编码')} {code} {t('md.notfound_suffix_cash_account','的资金账户')}
     </div>
   );
 
   return (
     <MasterDataFormPage
       type="cash-account"
-      title="资金账户"
+      title={t('md.entity_cash_account','资金账户')}
       codeKey="account_code"
       nameKey="account_name"
       fields={CASH_ACCOUNT_FIELDS}

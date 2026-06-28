@@ -5,6 +5,7 @@ import { Bell, BellOff, Archive, CheckCheck, RefreshCw, Search } from "lucide-re
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
@@ -93,6 +94,7 @@ async function archiveNotification(id: string) {
 }
 export default function NotificationsPage() {
   const toast = useToast();
+  const { t } = useLanguage();
   const router = useRouter();
   const [resp, setResp] = useState<NotifListResp>({
     items: [],
@@ -131,13 +133,13 @@ export default function NotificationsPage() {
   };
   const handleMarkAllRead = async () => {
     await markAllRead();
-    toast.success("已全部标为已读");
+    toast.success(t('notif.allMarkedRead', '已全部标为已读'));
     load();
   };
   const handleArchive = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await archiveNotification(id);
-    toast.success("已归档");
+    toast.success(t('notif.archived', '已归档'));
     load();
   };
   const handleClick = (n: Notification) => {
@@ -166,7 +168,7 @@ export default function NotificationsPage() {
   };
   const unreadCount = resp.items.filter(n => n.status === "UNREAD").length;
   return <div>
-      <PageHeader title="通知中心" subtitle={`站内消息通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`} breadcrumb={["审批中心", "通知"]} />
+      <PageHeader title={t('notif.title', '通知中心')} subtitle={`${t('notif.subtitle', '站内消息通知')}${unreadCount > 0 ? `（${unreadCount} ${t('notif.unreadCount', '条未读）')}` : ""}`} breadcrumb={[t('notif.approvalCenter', '审批中心'), t('notif.breadcrumb', '通知')]} />
 
       <section className={s.card}>
         {/* 工具栏 */}
@@ -181,10 +183,10 @@ export default function NotificationsPage() {
           <select value={status} onChange={e => setStatus(e.target.value)} className={s.select} style={{
           minWidth: 120
         }}>
-            <option value="">全部状态</option>
-            <option value="UNREAD">未读</option>
-            <option value="READ">已读</option>
-            <option value="ARCHIVED">已归档</option>
+            <option value="">{t('notif.allStatus', '全部状态')}</option>
+            <option value="UNREAD">{t('notif.unread', '未读')}</option>
+            <option value="READ">{t('notif.read', '已读')}</option>
+            <option value="ARCHIVED">{t('notif.archivedStatus', '已归档')}</option>
           </select>
 
           <div style={{
@@ -197,19 +199,19 @@ export default function NotificationsPage() {
             <Search size={14} style={{
             color: "var(--gray-400)"
           }} />
-            <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && applyFilter()} placeholder="搜索通知标题…" className={`${s.input} ${u.flex1}`} />
+            <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && applyFilter()} placeholder={t('notif.searchPlaceholder', '搜索通知标题…')} className={`${s.input} ${u.flex1}`} />
           </div>
 
-          <button className={`${s.btnPrimary} ${u.fs12}`} onClick={applyFilter}>搜索</button>
-          <button onClick={resetFilter} style={{ ...secondaryActionButton, fontSize: 12 }}>重置</button>
+          <button className={`${s.btnPrimary} ${u.fs12}`} onClick={applyFilter}>{t('notif.search', '搜索')}</button>
+          <button onClick={resetFilter} style={{ ...secondaryActionButton, fontSize: 12 }}>{t('notif.reset', '重置')}</button>
 
           <button onClick={handleMarkAllRead} style={{ ...secondaryActionButton, fontSize: 12, marginLeft: "auto" }}>
-            <CheckCheck size={13} />全部已读
+            <CheckCheck size={13} />{t('notif.markAllRead', '全部已读')}
           </button>
           <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => load()} disabled={loading}>
             <RefreshCw size={13} style={{
             marginRight: 5
-          }} />刷新
+          }} />{t('notif.refresh', '刷新')}
           </button>
         </div>
 
@@ -218,7 +220,7 @@ export default function NotificationsPage() {
         textAlign: "center",
         color: "var(--gray-400)",
         padding: 48
-      }}>加载中…</div> : resp.items.length === 0 ? <div className={s.cardBody} style={{
+      }}>{t('notif.loading', '加载中…')}</div> : resp.items.length === 0 ? <div className={s.cardBody} style={{
         textAlign: "center",
         color: "var(--gray-400)",
         padding: 48
@@ -227,7 +229,7 @@ export default function NotificationsPage() {
           margin: "0 auto 12px",
           opacity: 0.4
         }} />
-            <p>暂无通知</p>
+            <p>{t('notif.empty', '暂无通知')}</p>
           </div> : <div style={{
         display: "flex",
         flexDirection: "column"
@@ -297,7 +299,7 @@ export default function NotificationsPage() {
                 background: "var(--slate-100)",
                 color: "var(--slate-500)"
               }}>
-                      {TYPE_LABEL[n.notificationType] ?? n.notificationType}
+                      {t(`notif.type.${n.notificationType}`, TYPE_LABEL[n.notificationType] ?? n.notificationType)}
                     </span>
                     {n.bizType && <span style={{
                 fontSize: 10,
@@ -317,7 +319,7 @@ export default function NotificationsPage() {
             gap: 6,
             flexShrink: 0
           }}>
-                  {n.status !== "ARCHIVED" && <button title="归档" onClick={e => handleArchive(n.id, e)} style={{
+                  {n.status !== "ARCHIVED" && <button title={t('notif.archive', '归档')} onClick={e => handleArchive(n.id, e)} style={{
               width: 28,
               height: 28,
               borderRadius: 6,
@@ -348,13 +350,13 @@ export default function NotificationsPage() {
           load({
             page: p
           });
-        }} disabled={page <= 1}>上一页</button>
+        }} disabled={page <= 1}>{t('notif.prevPage', '上一页')}</button>
             <span style={{
           fontSize: 12,
           lineHeight: "30px",
           color: "var(--gray-500)"
         }}>
-              第 {page} / {Math.ceil(resp.total / PAGE_SIZE)} 页，共 {resp.total} 条
+              {t('notif.page', '第')} {page} / {Math.ceil(resp.total / PAGE_SIZE)} {t('notif.pageOf', '页，共')} {resp.total} {t('notif.itemUnit', '条')}
             </span>
             <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => {
           const p = page + 1;
@@ -362,7 +364,7 @@ export default function NotificationsPage() {
           load({
             page: p
           });
-        }} disabled={page >= Math.ceil(resp.total / PAGE_SIZE)}>下一页</button>
+        }} disabled={page >= Math.ceil(resp.total / PAGE_SIZE)}>{t('notif.nextPage', '下一页')}</button>
           </div>}
       </section>
     </div>;

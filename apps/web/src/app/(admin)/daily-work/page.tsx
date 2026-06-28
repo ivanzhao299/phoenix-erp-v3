@@ -13,6 +13,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import {
   ClipboardList, Egg, Wheat, AlertTriangle, Wallet, FileSearch, Send,
@@ -86,12 +87,13 @@ const ALL_CARDS: QuickCard[] = [
 
 export default function DailyWorkPage() {
   const { user, hasPermission } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   // M3:今日统计端点 /api/daily-work/today-stats 不存在(从无后端),原 fetch 恒 404 被吞,
   //   卡片计数本就一直为空。移除死调用,stats 恒空,卡片优雅无计数(待将来真端点再接)。
   const [stats] = useState<Record<string, number>>({});
 
-  const userName = (user as any)?.realNameZh || (user as any)?.name || '用户';
+  const userName = (user as any)?.realNameZh || (user as any)?.name || t('dwork.user', '用户');
   const today = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
   // G12 核心：按持权动态生成卡片，附上 today_count
@@ -107,9 +109,9 @@ export default function DailyWorkPage() {
   return (
     <div>
       <PageHeader
-        title="每日工作台"
-        subtitle={`${today} · 一站式录入 · ${visibleCards.length} 项可用功能`}
-        breadcrumb={['每日工作台']}
+        title={t('dwork.title', '每日工作台')}
+        subtitle={`${today} · ${t('dwork.oneStopEntry', '一站式录入')} · ${visibleCards.length} ${t('dwork.featuresAvailable', '项可用功能')}`}
+        breadcrumb={[t('dwork.title', '每日工作台')]}
       />
 
       {/* 今日待办 banner */}
@@ -123,10 +125,10 @@ export default function DailyWorkPage() {
           <Clock size={16} color="var(--status-warning)" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-              你有 {todoCount} 项待办需要处理
+              {t('dwork.youHave', '你有')} {todoCount} {t('dwork.todosToHandle', '项待办需要处理')}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-              点下方"我的待办"卡片快速处理
+              {t('dwork.clickTodoCard', '点下方"我的待办"卡片快速处理')}
             </div>
           </div>
         </div>
@@ -139,12 +141,12 @@ export default function DailyWorkPage() {
           color: 'var(--text-secondary)', fontSize: 14,
         }}>
           <FileSearch size={48} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>暂无可用功能</div>
-          <div>你的角色暂无任何录入权限，请联系管理员调整。</div>
+          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>{t('dwork.noFeatures', '暂无可用功能')}</div>
+          <div>{t('dwork.noPermDesc', '你的角色暂无任何录入权限，请联系管理员调整。')}</div>
         </div>
       ) : (
         <>
-          <div style={{ ...sectionTitle, marginTop: 0 }}>常用录入入口 · 按你的角色权限自动显示</div>
+          <div style={{ ...sectionTitle, marginTop: 0 }}>{t('dwork.commonEntries', '常用录入入口 · 按你的角色权限自动显示')}</div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -192,17 +194,17 @@ export default function DailyWorkPage() {
                       fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
                       marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8,
                     }}>
-                      {c.title}
+                      {t(`dwork.card.${c.key}.title`, c.title)}
                       {c.todayCount !== undefined && c.todayCount > 0 && (
                         <span style={{
                           ...inlineBadge('success'), fontSize: 10, padding: '2px 8px',
                         }}>
-                          今日 {c.todayCount}
+                          {t('dwork.today', '今日')} {c.todayCount}
                         </span>
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      {c.desc}
+                      {t(`dwork.card.${c.key}.desc`, c.desc)}
                     </div>
                   </div>
                 </button>

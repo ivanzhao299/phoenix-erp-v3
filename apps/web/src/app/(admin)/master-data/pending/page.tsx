@@ -8,6 +8,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton, DataTableV3 } from "@/components/design-system";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * 主数据待审批（G3-B）
@@ -119,6 +120,7 @@ const TYPES = [{
   menu: "MENU_SETTINGS_DATA"
 }];
 export default function MasterDataPendingPage() {
+  const { t: tr } = useLanguage();
   const customerPerm = usePermission("MENU_MD_CUSTOMER");
   const supplierPerm = usePermission("MENU_MD_SUPPLIER");
   const projectPerm = usePermission("MENU_MD_PROJECT");
@@ -190,7 +192,7 @@ export default function MasterDataPendingPage() {
       });
       setData(map);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr('md.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -198,13 +200,13 @@ export default function MasterDataPendingPage() {
   useEffect(() => {
     if (canView) load();
   }, [canView, load]);
-  if (!canView) return <div className={u.emptyPad40}>无权限访问</div>;
+  if (!canView) return <div className={u.emptyPad40}>{tr('md.noPerm', '无权限访问')}</div>;
   const total = Object.values(data).reduce((s, arr) => s + arr.length, 0);
   return <div className="animate-fade-in" style={{
     padding: "24px 32px",
     maxWidth: 1100
   }}>
-      <PageHeader title="主数据待审批" subtitle="待审批主数据汇总 · 审批在「审批中心」待办完成（通过后自动生效）" breadcrumb={["主数据中心", "主数据待审批"]} />
+      <PageHeader title={tr('md.mdPending', '主数据待审批')} subtitle={tr('md.pendingSub', '待审批主数据汇总 · 审批在「审批中心」待办完成（通过后自动生效）')} breadcrumb={[tr('md.center', '主数据中心'), tr('md.mdPending', '主数据待审批')]} />
 
       <div style={{
       display: "flex",
@@ -213,7 +215,7 @@ export default function MasterDataPendingPage() {
       marginBottom: 18
     }}>
         <button onClick={load} disabled={loading} style={secondaryActionButton}>
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> 刷新
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> {tr('md.refresh', '刷新')}
         </button>
         <Link href="/workflow/tasks/todo" style={{
         display: "flex",
@@ -228,7 +230,7 @@ export default function MasterDataPendingPage() {
         textDecoration: "none",
         marginLeft: "auto"
       }}>
-          <ExternalLink size={14} /> 前往审批中心
+          <ExternalLink size={14} /> {tr('md.goToApprovalCenter', '前往审批中心')}
         </Link>
       </div>
 
@@ -244,7 +246,7 @@ export default function MasterDataPendingPage() {
 
       {loading ? <div style={{
       padding: 16
-    }}><LoadingSkeleton variant="card" rows={3} /></div> : total === 0 ? <EmptyState title="暂无待审批主数据" description="所有主数据均已审批生效" /> : <div style={{
+    }}><LoadingSkeleton variant="card" rows={3} /></div> : total === 0 ? <EmptyState title={tr('md.noPendingMdTitle', '暂无待审批主数据')} description={tr('md.allMdApproved', '所有主数据均已审批生效')} /> : <div style={{
       display: "flex",
       flexDirection: "column",
       gap: 18
@@ -261,7 +263,7 @@ export default function MasterDataPendingPage() {
         }}>
                   <Clock size={15} style={{
             color: "var(--status-warning)"
-          }} /> {t.label}
+          }} /> {tr('md.typeLabel.' + t.type, t.label)}
                   <span style={{
             fontSize: 11,
             fontWeight: 400,
@@ -269,14 +271,14 @@ export default function MasterDataPendingPage() {
             background: "var(--status-warning-bg, var(--bg-muted))",
             padding: "1px 8px",
             borderRadius: 10
-          }}>{data[t.type].length} 待审批</span>
+          }}>{data[t.type].length} {tr('md.pending', '待审批')}</span>
                 </div>
                 <DataTableV3
                   rows={data[t.type]}
                   rowKey={(r) => r[t.codeKey]}
                   columns={[
-                    { key: t.codeKey, title: "编码", render: (r) => <span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{r[t.codeKey]}</span> },
-                    { key: t.nameKey, title: "名称", render: (r) => r[t.nameKey] },
+                    { key: t.codeKey, title: tr('md.code', '编码'), render: (r) => <span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{r[t.codeKey]}</span> },
+                    { key: t.nameKey, title: tr('md.name', '名称'), render: (r) => r[t.nameKey] },
                   ]}
                 />
               </div>)}

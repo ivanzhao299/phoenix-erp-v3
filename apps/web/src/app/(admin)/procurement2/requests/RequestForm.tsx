@@ -11,6 +11,7 @@ import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { Plus, Trash2, Save, ArrowLeft } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from '@/contexts/LanguageContext';
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { CompanySelector, ProjectSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
@@ -107,6 +108,7 @@ const tdStyle: React.CSSProperties = {
 export default function RequestForm({ requestId }: { requestId?: string }) {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useLanguage();
   const editing = !!requestId;
 
   const [loading, setLoading] = useState(editing);
@@ -142,7 +144,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
     setFormCompanyName(last.companyName ?? "");
     setFormProjectCode(last.projectCode ?? "");
     setFormProjectName(last.projectName ?? "");
-    setFormReason(DEFAULT_REASON);     // G95-C：默认原因，可直接编辑
+    setFormReason(t('prc2.default_reason', DEFAULT_REASON));     // G95-C：默认原因，可直接编辑
     setFormItems(blankRows());         // G95-C：默认 5 空行（明细是主体）
   }, [requestId]);
 
@@ -169,7 +171,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
       setFormRemark(row.remark ?? "");
       setFormItems(row.items?.length ? row.items.map(i => ({ ...i })) : [emptyItem()]);
     } catch {
-      toast.error("加载采购申请失败");
+      toast.error(t('prc2.load_request_failed', "加载采购申请失败"));
     } finally {
       setLoading(false);
     }
@@ -279,35 +281,35 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
         applied += 1;
       }
       if (suggestion.field === "totalAmount" && !formItems.some(it => it.estimatedAmount)) {
-        setFormRemark(prev => prev.trim() ? prev : `合同金额：${value}`);
+        setFormRemark(prev => prev.trim() ? prev : `${t('prc2.contract_amount_prefix', "合同金额：")}${value}`);
         applied += 1;
       }
     }
-    toast.success(applied ? `已回填 ${applied} 项识别结果，请核对后保存` : "当前识别结果未匹配到可回填字段");
+    toast.success(applied ? `${t('prc2.autofilled_prefix', "已回填")} ${applied} ${t('prc2.autofilled_suffix', "项识别结果，请核对后保存")}` : t('prc2.autofill_no_match', "当前识别结果未匹配到可回填字段"));
   }
 
   // 保存
   async function handleSave() {
     if (!formSubject.trim()) {
-      toast.error("请填写申请主题");
+      toast.error(t('prc2.please_fill_subject', "请填写申请主题"));
       return;
     }
     if (!formCompanyCode.trim()) {
-      toast.error("请填写公司代码");
+      toast.error(t('prc2.please_fill_company_code', "请填写公司代码"));
       return;
     }
     if (!formCompanyName.trim()) {
-      toast.error("请填写公司名称");
+      toast.error(t('prc2.please_fill_company_name', "请填写公司名称"));
       return;
     }
     // G95-C：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
     const filledItems = formItems.filter(it => it.itemName.trim());
     if (filledItems.length === 0) {
-      toast.error("请至少填写一行物料明细");
+      toast.error(t('prc2.please_fill_one_item', "请至少填写一行物料明细"));
       return;
     }
     if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("已填物料的数量必须大于 0");
+      toast.error(t('prc2.qty_must_gt_zero', "已填物料的数量必须大于 0"));
       return;
     }
     setSaving(true);
@@ -347,104 +349,104 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "保存失败");
+        throw new Error(e.message ?? t('prc2.save_failed', "保存失败"));
       }
       // G95-C：记住本次公司/项目，下次新建默认带出
       writeLastScope({ companyCode: formCompanyCode.trim(), companyName: formCompanyName.trim(), projectCode: formProjectCode.trim(), projectName: formProjectName.trim() });
-      toast.success(editing ? "保存成功" : "采购申请已创建");
+      toast.success(editing ? t('prc2.save_success', "保存成功") : t('prc2.request_created', "采购申请已创建"));
       router.push("/procurement2/requests");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
+      toast.error(e instanceof Error ? e.message : t('prc2.save_failed', "保存失败"));
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <div className={u.emptyCenter}>加载中…</div>;
+  if (loading) return <div className={u.emptyCenter}>{t('prc2.loading', "加载中…")}</div>;
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: 96 }}>{/* G164：与 OrderForm/PaymentForm 统一宽度 */}
       {/* 基础信息 */}
-      <div className={s.formSection}>基础信息</div>
+      <div className={s.formSection}>{t('prc2.basic_info', "基础信息")}</div>
       <div className={s.fieldRow}>
         <div className={s.field} style={{ gridColumn: "1 / -1" }}>
-          <label className={s.lbl}>申请主题 *</label>
-          <input className={s.inp} value={formSubject} onChange={e => setFormSubject(e.target.value)} placeholder="请输入采购主题" />
+          <label className={s.lbl}>{t('prc2.request_subject', "申请主题")} *</label>
+          <input className={s.inp} value={formSubject} onChange={e => setFormSubject(e.target.value)} placeholder={t('prc2.subject_placeholder', "请输入采购主题")} />
         </div>
       </div>
       {/* G95：公司/项目并排——选择器选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>公司 *</label>
+          <label className={s.lbl}>{t('prc2.company', "公司")} *</label>
           {/* G4-B：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
           {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
           <CompanySelector value={formCompanyCode} onChange={v => { setFormCompanyCode(v); setFormProjectCode(""); setFormProjectName(""); }} onPick={o => setFormCompanyName(o?.label ?? "")} disabled={editing} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>项目</label>
+          <label className={s.lbl}>{t('prc2.project', "项目")}</label>
           {/* G4-B：项目主数据，仅 ACTIVE；G95-B 按所属公司过滤（先选公司） */}
           <ProjectSelector value={formProjectCode} onChange={setFormProjectCode} onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={formCompanyCode || undefined} />
         </div>
       </div>
 
       {/* 采购属性 */}
-      <div className={s.formSection} style={{ marginTop: 20 }}>采购属性</div>
+      <div className={s.formSection} style={{ marginTop: 20 }}>{t('prc2.purchase_attrs', "采购属性")}</div>
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>采购类型</label>
+          <label className={s.lbl}>{t('prc2.purchase_type', "采购类型")}</label>
           {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
           <DictSelect dictType="PRC_PURCHASE_TYPE" value={formType} onChange={setFormType} allowEmpty={false} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>紧急程度</label>
+          <label className={s.lbl}>{t('prc2.urgency_level', "紧急程度")}</label>
           {/* G4-B：紧急程度枚举来自 sys_dict(PRC_URGENCY) */}
           <DictSelect dictType="PRC_URGENCY" value={formUrgency} onChange={setFormUrgency} allowEmpty={false} />
         </div>
       </div>
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>货币</label>
+          <label className={s.lbl}>{t('prc2.currency', "货币")}</label>
           {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
           <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>期望到货日</label>
+          <label className={s.lbl}>{t('prc2.expected_arrival_date', "期望到货日")}</label>
           <input type="date" className={s.inp} value={formExpDate} onChange={e => setFormExpDate(e.target.value)} />
         </div>
       </div>
       {/* G95-C：原因/备注并排压缩占位（申请单主体是采购明细，不喧宾夺主）；原因带默认文本可直接编辑 */}
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>申请原因</label>
-          <textarea className={s.textarea} rows={1} value={formReason} onChange={e => setFormReason(e.target.value)} placeholder="如：常规采购补货（可直接编辑）" />
+          <label className={s.lbl}>{t('prc2.request_reason', "申请原因")}</label>
+          <textarea className={s.textarea} rows={1} value={formReason} onChange={e => setFormReason(e.target.value)} placeholder={t('prc2.reason_placeholder', "如：常规采购补货（可直接编辑）")} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>备注</label>
-          <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
+          <label className={s.lbl}>{t('prc2.remark', "备注")}</label>
+          <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder={t('prc2.remark_placeholder', "选填：补充说明")} />
         </div>
       </div>
 
-      <div className={s.formSection} style={{ marginTop: 16 }}>合同 / 附件识别（可选）</div>
+      <div className={s.formSection} style={{ marginTop: 16 }}>{t('prc2.contract_attach_recognition', "合同 / 附件识别（可选）")}</div>
       <div className={s.fieldRow} style={{ alignItems: "start" }}>
         <div className={s.field}>
-          <label className={s.lbl}>合同附件</label>
+          <label className={s.lbl}>{t('prc2.contract_attachment', "合同附件")}</label>
           <AttachmentUploader
             value={formAttachmentUrls}
             onChange={setFormAttachmentUrls}
-            label="上传合同/报价/图片（可多个，PDF/图片 ≤15MB）"
+            label={t('prc2.upload_contract_label', "上传合同/报价/图片（可多个，PDF/图片 ≤15MB）")}
           />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>识别回填</label>
+          <label className={s.lbl}>{t('prc2.recognize_autofill', "识别回填")}</label>
           <DocumentAutofillPanel
             fileRefs={formAttachmentUrls}
             purpose="PROCUREMENT_CONTRACT"
             fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote", "lineItems"]}
             onApply={applyContractAutofill}
-            title="识别合同并回填"
-            helperText="识别结果先人工勾选确认，再回填到申请主题、币种、到货日和采购明细。"
-            reviewTitle="识别结果（请人工审核）"
-            applyButtonLabel="确认选中结果并回填"
+            title={t('prc2.recognize_contract_autofill', "识别合同并回填")}
+            helperText={t('prc2.recognize_helper', "识别结果先人工勾选确认，再回填到申请主题、币种、到货日和采购明细。")}
+            reviewTitle={t('prc2.recognize_review_title', "识别结果（请人工审核）")}
+            applyButtonLabel={t('prc2.recognize_apply_label', "确认选中结果并回填")}
           />
         </div>
       </div>
@@ -452,23 +454,23 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
       {/* 明细行 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 20 }}>
         <span className={s.formSection} style={{ margin: 0 }}>
-          采购明细（{formItems.length} 行）
+          {t('prc2.purchase_detail', "采购明细")}（{formItems.length} {t('prc2.rows_unit', "行")}）
         </span>
         <button type="button" className={s.btnSecondary} style={{ padding: "3px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }} onClick={addItemRow}>
-          <Plus size={12} /> 添加行
+          <Plus size={12} /> {t('prc2.add_row', "添加行")}
         </button>
       </div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
         <table className={s.table} style={{ fontSize: 12 }}>
           <thead>
             <tr style={{ background: "var(--bg-subtle,var(--bg-muted))" }}>
-              <th style={thStyle}>物料名称 *</th>
-              <th style={thStyle}>规格</th>
-              <th style={thStyle}>数量 *</th>
-              <th style={thStyle}>单位</th>
-              <th style={thStyle}>估算单价</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>小计</th>
-              <th style={thStyle}>仓库</th>
+              <th style={thStyle}>{t('prc2.item_name', "物料名称")} *</th>
+              <th style={thStyle}>{t('prc2.spec', "规格")}</th>
+              <th style={thStyle}>{t('prc2.qty', "数量")} *</th>
+              <th style={thStyle}>{t('prc2.unit', "单位")}</th>
+              <th style={thStyle}>{t('prc2.estimated_unit_price', "估算单价")}</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>{t('prc2.subtotal', "小计")}</th>
+              <th style={thStyle}>{t('prc2.warehouse', "仓库")}</th>
               <th style={{ ...thStyle, width: 28 }}></th>
             </tr>
           </thead>
@@ -483,7 +485,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
                 }} style={{ minWidth: 200, fontSize: 12, padding: "3px 6px" }} />
               </td>
               <td style={tdStyle}>
-                <input style={{ ...cellInpStyle, width: 80, background: "var(--bg-muted)" }} value={it.spec ?? ""} readOnly placeholder="由物料自动带出" />
+                <input style={{ ...cellInpStyle, width: 80, background: "var(--bg-muted)" }} value={it.spec ?? ""} readOnly placeholder={t('prc2.spec_auto_placeholder', "由物料自动带出")} />
               </td>
               <td style={tdStyle}>
                 <input style={{ ...cellInpStyle, width: 70 }} type="number" min="0" value={it.qty} onChange={e => setItemField(idx, "qty", e.target.value)} />
@@ -502,7 +504,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
                 <WarehouseSelector value={it.warehouseCode ?? ""} onChange={code => setItemField(idx, "warehouseCode", code)} companyCode={formCompanyCode} style={{ minWidth: 150, fontSize: 12, padding: "3px 6px" }} />
               </td>
               <td style={tdStyle}>
-                <button type="button" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--color-danger,var(--status-danger))", padding: "0 2px" }} onClick={() => removeItemRow(idx)} title="删除行">
+                <button type="button" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--color-danger,var(--status-danger))", padding: "0 2px" }} onClick={() => removeItemRow(idx)} title={t('prc2.delete_row', "删除行")}>
                   <Trash2 size={12} />
                 </button>
               </td>
@@ -511,7 +513,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
           <tfoot>
             <tr style={{ borderTop: "2px solid var(--border)" }}>
               <td colSpan={5} style={{ textAlign: "right", padding: "6px 8px", fontSize: 12, fontWeight: 600 }}>
-                合计（{formCurrency}）
+                {t('prc2.total_label', "合计")}（{formCurrency}）
               </td>
               <td style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                 {formItems.reduce((sum, it) => sum + (parseFloat(String(it.estimatedAmount)) || 0), 0).toLocaleString("zh-CN")}
@@ -529,10 +531,10 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
         display: "flex", gap: 10, justifyContent: "flex-end",
       }}>
         <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => router.push("/procurement2/requests")}>
-          <ArrowLeft size={14} /> 返回
+          <ArrowLeft size={14} /> {t('prc2.back', "返回")}
         </button>
         <button type="button" className={`${s.btnPrimary} ${u.flexRow}`} onClick={handleSave} disabled={saving}>
-          <Save size={14} /> {saving ? "保存中…" : editing ? "保存" : "保存草稿"}
+          <Save size={14} /> {saving ? t('prc2.saving', "保存中…") : editing ? t('prc2.save', "保存") : t('prc2.save_draft', "保存草稿")}
         </button>
       </div>
     </div>

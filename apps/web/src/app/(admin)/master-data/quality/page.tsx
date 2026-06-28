@@ -7,6 +7,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton, DataTableV3 } from "@/components/design-system";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * 数据质量中心（G1 主数据中心）
@@ -24,6 +25,7 @@ interface QualityResult {
   checks: QualityCheck[];
 }
 export default function MasterDataQualityPage() {
+  const { t } = useLanguage();
   const {
     canView
   } = usePermission("MENU_MD_QUALITY");
@@ -36,7 +38,7 @@ export default function MasterDataQualityPage() {
     try {
       setData(await request<QualityResult>("/master-data/quality"));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t('md.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -44,13 +46,13 @@ export default function MasterDataQualityPage() {
   useEffect(() => {
     if (canView) load();
   }, [canView, load]);
-  if (!canView) return <div className={u.emptyPad40}>无权限访问数据质量中心</div>;
+  if (!canView) return <div className={u.emptyPad40}>{t('md.noPermQuality', '无权限访问数据质量中心')}</div>;
   const scoreColor = (s: number) => s >= 90 ? "var(--status-success)" : s >= 70 ? "var(--status-warning)" : "var(--status-danger)";
   return <div className="animate-fade-in" style={{
     padding: "24px 32px",
     maxWidth: 980
   }}>
-      <PageHeader title="数据质量中心" subtitle="主数据完整性与一致性检查 · 重复/缺漏/未绑定问题清单" breadcrumb={["主数据中心", "数据质量中心"]} />
+      <PageHeader title={t('md.qualityTitle', '数据质量中心')} subtitle={t('md.qualitySub', '主数据完整性与一致性检查 · 重复/缺漏/未绑定问题清单')} breadcrumb={[t('md.center', '主数据中心'), t('md.qualityTitle', '数据质量中心')]} />
 
       <div style={{
       display: "flex",
@@ -58,7 +60,7 @@ export default function MasterDataQualityPage() {
       marginBottom: 18
     }}>
         <button onClick={load} disabled={loading} style={secondaryActionButton}>
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> 刷新
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> {t('md.refresh', '刷新')}
         </button>
       </div>
 
@@ -74,7 +76,7 @@ export default function MasterDataQualityPage() {
 
       {loading ? <div style={{
       padding: 16
-    }}><LoadingSkeleton variant="card" rows={3} /></div> : !data ? <EmptyState title="暂无数据质量信息" /> : <>
+    }}><LoadingSkeleton variant="card" rows={3} /></div> : !data ? <EmptyState title={t('md.noQualityInfo', '暂无数据质量信息')} /> : <>
           {/* 质量评分 */}
           <div style={{
         display: "flex",
@@ -95,7 +97,7 @@ export default function MasterDataQualityPage() {
             color: scoreColor(data.score)
           }} />
               <div>
-                <div className={u.muted12}>数据质量评分</div>
+                <div className={u.muted12}>{t('md.qualityScore', '数据质量评分')}</div>
                 <div style={{
               fontSize: 32,
               fontWeight: 800,
@@ -120,7 +122,7 @@ export default function MasterDataQualityPage() {
             color: data.totalIssues > 0 ? "var(--status-warning)" : "var(--status-success)"
           }} />
               <div>
-                <div className={u.muted12}>待处理问题总数</div>
+                <div className={u.muted12}>{t('md.totalPendingIssues', '待处理问题总数')}</div>
                 <div style={{
               fontSize: 32,
               fontWeight: 800,
@@ -135,13 +137,13 @@ export default function MasterDataQualityPage() {
             rows={data.checks}
             rowKey={(c, i) => c.key ?? i}
             columns={[
-              { key: "label", title: "检查项", render: (c) => c.label },
-              { key: "count", title: "问题数量", align: "right", render: (c) => <span style={{ fontWeight: 600, color: c.count < 0 ? "var(--text-disabled)" : c.count > 0 ? "var(--status-danger)" : "var(--status-success)" }}>{c.count < 0 ? "—" : c.count}</span> },
-              { key: "status", title: "状态", align: "center", render: (c) => c.count < 0
-                ? <span style={{ fontSize: 12, color: "var(--text-disabled)" }}>不可用</span>
+              { key: "label", title: t('md.checkItem', '检查项'), render: (c) => c.label },
+              { key: "count", title: t('md.issueCount', '问题数量'), align: "right", render: (c) => <span style={{ fontWeight: 600, color: c.count < 0 ? "var(--text-disabled)" : c.count > 0 ? "var(--status-danger)" : "var(--status-success)" }}>{c.count < 0 ? "—" : c.count}</span> },
+              { key: "status", title: t('md.status', '状态'), align: "center", render: (c) => c.count < 0
+                ? <span style={{ fontSize: 12, color: "var(--text-disabled)" }}>{t('md.unavailable', '不可用')}</span>
                 : c.count > 0
-                  ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-danger)" }}><AlertTriangle size={13} /> 需处理</span>
-                  : <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-success)" }}><CheckCircle2 size={13} /> 正常</span> },
+                  ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-danger)" }}><AlertTriangle size={13} /> {t('md.needHandle', '需处理')}</span>
+                  : <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-success)" }}><CheckCircle2 size={13} /> {t('md.normal', '正常')}</span> },
             ]}
           />
         </>}

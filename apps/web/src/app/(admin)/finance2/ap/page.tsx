@@ -8,6 +8,7 @@ import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -186,13 +187,14 @@ function AgingBadge({
 }: {
   bucket: string;
 }) {
+  const { t } = useLanguage();
   const cfg = AGING_MAP[bucket] ?? {
     label: bucket,
     colorClass: 'text-text-muted'
   };
   if (bucket === 'NOT_DUE') return null;
   return <span className={`text-[10px] font-bold ml-1 ${cfg.colorClass}`}>
-      [{cfg.label}]
+      [{AGING_MAP[bucket] ? t(`fin2.ap.aging_${bucket.toLowerCase()}`, cfg.label) : cfg.label}]
     </span>;
 }
 function SourceBadge({
@@ -200,12 +202,13 @@ function SourceBadge({
 }: {
   type: string;
 }) {
+  const { t } = useLanguage();
   const cfg = SOURCE_MAP[type] ?? {
     label: type,
     colorClass: 'text-text-muted'
   };
   return <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-current/[0.08] ${cfg.colorClass}`}>
-      {cfg.label}
+      {SOURCE_MAP[type] ? t(`fin2.ap.source_${type.toLowerCase()}`, cfg.label) : cfg.label}
     </span>;
 }
 
@@ -275,6 +278,7 @@ function CreateModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState<CreateForm>({
     companyCode: '',
     companyName: '',
@@ -295,15 +299,15 @@ function CreateModal({
   }));
   const handleSubmit = async () => {
     if (!form.companyCode.trim()) {
-      setErr('请选择公司');
+      setErr(t('fin2.ap.err_select_company', '请选择公司'));
       return;
     }
     if (!form.supplierName.trim()) {
-      setErr('请选择供应商');
+      setErr(t('fin2.ap.err_select_supplier', '请选择供应商'));
       return;
     }
     if (!form.amountOriginal || isNaN(Number(form.amountOriginal)) || Number(form.amountOriginal) <= 0) {
-      setErr('请填写有效的发票金额');
+      setErr(t('fin2.ap.err_valid_amount', '请填写有效的发票金额'));
       return;
     }
     setSaving(true);
@@ -327,7 +331,7 @@ function CreateModal({
       onCreated();
       onClose();
     } catch (e: any) {
-      setErr(e.message ?? '创建失败');
+      setErr(e.message ?? t('fin2.common.create_failed', '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -343,7 +347,7 @@ function CreateModal({
           <div className="text-text" style={{
           fontWeight: 700,
           fontSize: 16
-        }}>新建应付发票</div>
+        }}>{t('fin2.ap.create_title', '新建应付发票')}</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
             <X size={18} className="text-text-dim" />
           </button>
@@ -361,14 +365,14 @@ function CreateModal({
         }}>
             <div>
               <label style={formLabel}>
-                公司 <span className="text-red-500">*</span>
+                {t('fin2.common.company', '公司')} <span className="text-red-500">*</span>
               </label>
               {/* G4-A：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
               <label style={formLabel}>
-                货币 <span className="text-red-500">*</span>
+                {t('fin2.ap.currency', '货币')} <span className="text-red-500">*</span>
               </label>
               {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
               <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
@@ -377,7 +381,7 @@ function CreateModal({
 
           <div>
             <label style={formLabel}>
-              供应商 <span className="text-red-500">*</span>
+              {t('fin2.common.supplier', '供应商')} <span className="text-red-500">*</span>
             </label>
             {/* G4-A：从供应商主数据(仅ACTIVE)选择，自动带出名称 */}
             <SupplierSelector value={form.supplierCode} onChange={v => set('supplierCode', v)} onPick={o => set('supplierName', o?.raw?.name ?? o?.label ?? '')} />
@@ -390,15 +394,15 @@ function CreateModal({
         }}>
             <div>
               <label style={formLabel}>
-                发票金额 <span className="text-red-500">*</span>
+                {t('fin2.ap.invoice_amount', '发票金额')} <span className="text-red-500">*</span>
               </label>
               <input style={inputField} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
             </div>
             <div>
               <label style={formLabel}>
-                发票号
+                {t('fin2.ap.invoice_no', '发票号')}
               </label>
-              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
+              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder={t('fin2.common.optional', '可选')} />
             </div>
           </div>
 
@@ -409,13 +413,13 @@ function CreateModal({
         }}>
             <div>
               <label style={formLabel}>
-                发票日期
+                {t('fin2.ap.invoice_date', '发票日期')}
               </label>
               <input style={inputField} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
               <label style={formLabel}>
-                到期日
+                {t('fin2.ap.due_date', '到期日')}
               </label>
               <input style={inputField} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
             </div>
@@ -423,18 +427,18 @@ function CreateModal({
 
           <div>
             <label style={formLabel}>
-              备注
+              {t('fin2.common.remark', '备注')}
             </label>
             <textarea style={{ ...inputField, resize: 'none',
-            height: 60 }} value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" />
+            height: 60 }} value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={t('fin2.common.optional', '可选')} />
           </div>
 
           {err && <div style={inlineAlert('danger')}><AlertCircle size={13} /> {err}</div>}
 
           <div style={drawerFooter}>
-            <button onClick={onClose} style={secondaryActionButton}>取消</button>
+            <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel', '取消')}</button>
             <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              {saving ? '创建中…' : '确认创建'}
+              {saving ? t('fin2.common.creating', '创建中…') : t('fin2.ap.confirm_create', '确认创建')}
             </button>
           </div>
         </div>
@@ -453,6 +457,7 @@ function DetailDrawer({
   onClose: () => void;
   onCancelled: () => void;
 }) {
+  const { t } = useLanguage();
   const [detail, setDetail] = useState<ApDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -476,7 +481,7 @@ function DetailDrawer({
       onCancelled();
       onClose();
     } catch (e: any) {
-      setCancelErr(e.message ?? '取消失败');
+      setCancelErr(e.message ?? t('fin2.ap.cancel_failed', '取消失败'));
     } finally {
       setCancelling(false);
     }
@@ -486,11 +491,11 @@ function DetailDrawer({
   return <div style={drawerMask} onClick={onClose}>
       <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={drawerHeader}>
-          <div style={drawerHeaderTitle}>应付发票详情</div>
+          <div style={drawerHeaderTitle}>{t('fin2.ap.detail_title', '应付发票详情')}</div>
           <button onClick={onClose} style={drawerCloseButton}><X size={18} /></button>
         </div>
 
-        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>}
+        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>{t('fin2.common.loading', '加载中…')}</div>}
 
         {!loading && detail && <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* 基本信息块 */}
@@ -505,7 +510,7 @@ function DetailDrawer({
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                {[['供应商', detail.supplier_name], ['公司', detail.company_code + (detail.company_name ? ` ${detail.company_name}` : '')], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['来源单号', detail.source_no ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => (
+                {[[t('fin2.common.supplier', '供应商'), detail.supplier_name], [t('fin2.common.company', '公司'), detail.company_code + (detail.company_name ? ` ${detail.company_name}` : '')], [t('fin2.ap.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ap.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ap.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), detail.project_code ?? '—'], [t('fin2.ap.source_no', '来源单号'), detail.source_no ?? '—'], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
                   <div key={k}>
                     <span className="text-text-muted">{k}：</span>
                     <span className={`text-text ${u.fw500}`}>{v}</span>
@@ -517,9 +522,9 @@ function DetailDrawer({
             {/* 3 金额卡 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {([
-                { label: '发票金额', value: fmtMoney(detail.amount_original,         detail.currency_code), tone: 'default' as const },
-                { label: '已付金额', value: fmtMoney(detail.paid_amount_original,    detail.currency_code), tone: 'success' as const },
-                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
+                { label: t('fin2.ap.invoice_amount', '发票金额'), value: fmtMoney(detail.amount_original,         detail.currency_code), tone: 'default' as const },
+                { label: t('fin2.ap.paid_amount', '已付金额'), value: fmtMoney(detail.paid_amount_original,    detail.currency_code), tone: 'success' as const },
+                { label: t('fin2.ap.balance_due', '待付余额'), value: fmtMoney(detail.balance_amount_original, detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
               ]).map(item => (
                 <div key={item.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                   <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{item.label}</div>
@@ -531,17 +536,17 @@ function DetailDrawer({
             {/* 账龄告警 */}
             {detail.aging_bucket !== 'NOT_DUE' && (
               <div style={inlineAlert('danger')}>
-                <AlertTriangle size={13} /> 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
+                <AlertTriangle size={13} /> {t('fin2.common.aging', '账龄')}：{AGING_MAP[detail.aging_bucket] ? t(`fin2.ap.aging_${detail.aging_bucket.toLowerCase()}`, AGING_MAP[detail.aging_bucket].label) : detail.aging_bucket}
               </div>
             )}
 
             {/* 付款核销记录 */}
             <div>
               <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-                付款核销记录（{detail.allocations.length} 条）
+                {t('fin2.ap.payment_records', '付款核销记录')}（{detail.allocations.length} {t('fin2.common.rows_unit', '条')}）
               </div>
               {detail.allocations.length === 0 ? (
-                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无付款记录</div>
+                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>{t('fin2.ap.no_payment_records', '暂无付款记录')}</div>
               ) : detail.allocations.map(a => (
                 <div key={a.id} style={recordRow('success')}>
                   <div>
@@ -562,17 +567,17 @@ function DetailDrawer({
               <div style={actionGroupBox}>
                 {!showCancel ? (
                   <button onClick={() => setShowCancel(true)} style={actionPill('danger')}>
-                    <Ban size={11} /> 取消应付发票
+                    <Ban size={11} /> {t('fin2.ap.cancel_invoice', '取消应付发票')}
                   </button>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>确认取消应付发票</div>
-                    <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="取消原因（可选）" style={{ ...inputField, height: 56, resize: 'none', fontFamily: 'inherit' }} />
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>{t('fin2.ap.confirm_cancel_invoice', '确认取消应付发票')}</div>
+                    <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder={t('fin2.ap.cancel_reason_ph', '取消原因（可选）')} style={{ ...inputField, height: 56, resize: 'none', fontFamily: 'inherit' }} />
                     {cancelErr && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{cancelErr}</div>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>放弃</button>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>{t('fin2.common.discard', '放弃')}</button>
                       <button onClick={handleCancel} disabled={cancelling} style={actionPill('danger', cancelling)}>
-                        {cancelling ? '处理中…' : '确认取消'}
+                        {cancelling ? t('fin2.common.processing', '处理中…') : t('fin2.ap.confirm_cancel', '确认取消')}
                       </button>
                     </div>
                   </div>
@@ -582,7 +587,7 @@ function DetailDrawer({
 
             {detail.status === 'CANCELLED' && (
               <div style={inlineAlert('warning')}>
-                <Ban size={13} /> 此应付发票已取消
+                <Ban size={13} /> {t('fin2.ap.invoice_cancelled', '此应付发票已取消')}
               </div>
             )}
           </div>}
@@ -596,6 +601,7 @@ export default function Finance2ApPage() {
   // 对齐后端守卫:fin-ap.controller 所有写操作守卫父码 MENU_FIN2_AP:E,子码 _MASTER 后端从不校验。
   //   FE 用子码门控会"按钮可见却 403 / 隐藏却放行",故 gate 对齐到父码 MENU_FIN2_AP。
   const { canCreate: canCreateAp } = usePermission('MENU_FIN2_AP');
+  const { t } = useLanguage();
   const [records, setRecords] = useState<ApInvoice[]>([]);
   const [summary, setSummary] = useState<ApSummary | null>(null);
   const [total, setTotal] = useState(0);
@@ -644,7 +650,7 @@ export default function Finance2ApPage() {
       setTotal(res.total);
       setPage(res.page);
     } catch (e: any) {
-      setError(e.message ?? '加载失败');
+      setError(e.message ?? t('fin2.common.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -674,7 +680,7 @@ export default function Finance2ApPage() {
     setPage(1);
   };
   const handleImport = async () => {
-    if (!confirm('将从 prc2_ap_ledger 幂等导入历史应付数据，已存在的记录会跳过。确认执行？')) return;
+    if (!confirm(t('fin2.ap.import_confirm', '将从 prc2_ap_ledger 幂等导入历史应付数据，已存在的记录会跳过。确认执行？'))) return;
     setImporting(true);
     setImportResult(null);
     try {
@@ -684,26 +690,26 @@ export default function Finance2ApPage() {
       setImportResult(result);
       await Promise.all([loadList(1), loadSummary()]);
     } catch (e: any) {
-      setError(e.message ?? '导入失败');
+      setError(e.message ?? t('fin2.ap.import_failed', '导入失败'));
     } finally {
       setImporting(false);
     }
   };
   return <div>
-      <PageHeader title="应付账款管理" subtitle="供应商应付账款 · 付款核销 · 账龄分析" breadcrumb={['财务管理', '应付账款']} actions={<div style={{
+      <PageHeader title={t('fin2.ap.page_title', '应付账款管理')} subtitle={t('fin2.ap.page_subtitle', '供应商应付账款 · 付款核销 · 账龄分析')} breadcrumb={[t('fin2.common.finance_mgmt', '财务管理'), t('fin2.ap.breadcrumb', '应付账款')]} actions={<div style={{
       display: 'flex',
       gap: 8
     }}>
             <button onClick={handleImport} disabled={importing} style={secondaryActionButton}>
               <Download size={13} />
-              {importing ? '导入中…' : '从采购单导入'}
+              {importing ? t('fin2.ap.importing', '导入中…') : t('fin2.ap.import_from_po', '从采购单导入')}
             </button>
             <button onClick={() => { loadList(page); loadSummary(); }} disabled={loading} style={secondaryActionButton}>
-              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {t('fin2.common.refresh', '刷新')}
             </button>
             {canCreateAp && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={13} /> 新建应付发票
+                <Plus size={13} /> {t('fin2.ap.create_title', '新建应付发票')}
               </button>
             )}
           </div>} />
@@ -712,8 +718,8 @@ export default function Finance2ApPage() {
       {importResult && (
         <div style={{ ...inlineAlert(importResult.failed > 0 ? 'warning' : 'success'), justifyContent: 'space-between', marginBottom: 16 }}>
           <span>
-            导入完成：共 {importResult.total} 条，成功 {importResult.imported}，
-            跳过 {importResult.skipped}，失败 {importResult.failed}
+            {t('fin2.ap.import_done', '导入完成')}：{t('fin2.common.total', '共')} {importResult.total} {t('fin2.common.rows_unit', '条')}，{t('fin2.ap.import_success', '成功')} {importResult.imported}，
+            {t('fin2.ap.import_skipped', '跳过')} {importResult.skipped}，{t('fin2.ap.import_failed_n', '失败')} {importResult.failed}
           </span>
           <button onClick={() => setImportResult(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
             <X size={14} />
@@ -728,12 +734,12 @@ export default function Finance2ApPage() {
       gap: 12,
       marginBottom: 22
     }}>
-        <KpiCard label="应付账单总数" value={String(summary?.total_invoices ?? '—')} icon={TrendingDown} color="var(--color-accent)" loading={sumLoading} />
-        <KpiCard label="待付（未付）" value={String(summary?.open_invoices ?? '—')} icon={Clock} color="var(--status-warning)" loading={sumLoading} />
-        <KpiCard label="部分付款" value={String(summary?.partial_invoices ?? '—')} icon={TrendingDown} color="var(--status-info)" loading={sumLoading} />
-        <KpiCard label="已付清" value={String(summary?.paid_invoices ?? '—')} icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
-        <KpiCard label="逾期笔数" value={String(summary?.overdue_invoices ?? '—')} icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
-        <KpiCard label="待付余额（综合）" value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0]?.currency_code) : sumLoading ? '…' : '¥0.00'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} 个币种` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_total', '应付账单总数')} value={String(summary?.total_invoices ?? '—')} icon={TrendingDown} color="var(--color-accent)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_open', '待付（未付）')} value={String(summary?.open_invoices ?? '—')} icon={Clock} color="var(--status-warning)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_partial', '部分付款')} value={String(summary?.partial_invoices ?? '—')} icon={TrendingDown} color="var(--status-info)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_paid', '已付清')} value={String(summary?.paid_invoices ?? '—')} icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_overdue', '逾期笔数')} value={String(summary?.overdue_invoices ?? '—')} icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ap.kpi_balance', '待付余额（综合）')} value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0]?.currency_code) : sumLoading ? '…' : '¥0.00'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} ${t('fin2.common.currencies_unit', '个币种')}` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
       </div>
 
       {/* 筛选 + 搜索 工具栏 */}
@@ -742,19 +748,19 @@ export default function Finance2ApPage() {
 
         {[{
         key: 'OPEN',
-        label: '未付'
+        label: t('fin2.ap.filter_open', '未付')
       }, {
         key: 'PARTIALLY_PAID',
-        label: '部分付款'
+        label: t('fin2.ap.kpi_partial', '部分付款')
       }, {
         key: 'PAID',
-        label: '已付清'
+        label: t('fin2.ap.kpi_paid', '已付清')
       }, {
         key: 'DISPUTED',
-        label: '争议中'
+        label: t('fin2.ap.filter_disputed', '争议中')
       }, {
         key: 'CANCELLED',
-        label: '已取消'
+        label: t('fin2.common.cancelled', '已取消')
       }].map(sItem => (
         <button key={sItem.key} onClick={() => handleStatusFilter(sItem.key)} style={toolbarFilterPill(status === sItem.key)}>
           {sItem.label}
@@ -767,19 +773,19 @@ export default function Finance2ApPage() {
         setSourceType(e.target.value);
         setPage(1);
       }} style={{ ...inputField, width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-          <option value="">全部来源</option>
-          <option value="MANUAL">手工</option>
-          <option value="PO">采购订单</option>
-          <option value="EXPENSE">费用</option>
-          <option value="OPENING">期初</option>
+          <option value="">{t('fin2.ap.source_all', '全部来源')}</option>
+          <option value="MANUAL">{t('fin2.ap.source_manual', '手工')}</option>
+          <option value="PO">{t('fin2.ap.source_po', '采购订单')}</option>
+          <option value="EXPENSE">{t('fin2.ap.source_expense', '费用')}</option>
+          <option value="OPENING">{t('fin2.common.opening', '期初')}</option>
         </select>
 
         <div style={{ flex: 1 }} />
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="应付编号 / 供应商 / 发票号…" style={toolbarSearchInput} />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder={t('fin2.ap.search_ph', '应付编号 / 供应商 / 发票号…')} style={toolbarSearchInput} />
           <button onClick={handleSearch} style={primaryActionButton}>
-            <Search size={13} /> 搜索
+            <Search size={13} /> {t('fin2.common.search', '搜索')}
           </button>
         </div>
       </div>
@@ -794,19 +800,19 @@ export default function Finance2ApPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                {['应付编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+                {[['ap_no', '应付编号'], ['source', '来源'], ['supplier', '供应商'], ['company', '公司'], ['invoice_date', '发票日期'], ['due_date', '到期日'], ['invoice_amount', '发票金额'], ['balance_due', '待付余额'], ['status', '状态']].map(([k, h]) => <th key={k} className={u.nowrap}>{t(`fin2.ap.col_${k}`, h)}</th>)}
               </tr>
             </thead>
             <tbody>
               {loading && records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
                 textAlign: 'center',
                 padding: 40
-              }}>加载中…</td></tr> : records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
+              }}>{t('fin2.common.loading', '加载中…')}</td></tr> : records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
                 textAlign: 'center',
                 padding: 40
               }}>
-                  暂无应付记录。
-                  {!status && !keyword && <span> 可点击 <strong>从采购单导入</strong> 迁移历史数据，或 <strong>新建应付发票</strong>。</span>}
+                  {t('fin2.ap.empty', '暂无应付记录。')}
+                  {!status && !keyword && <span> {t('fin2.ap.empty_hint_1', '可点击')} <strong>{t('fin2.ap.import_from_po', '从采购单导入')}</strong> {t('fin2.ap.empty_hint_2', '迁移历史数据，或')} <strong>{t('fin2.ap.create_title', '新建应付发票')}</strong>。</span>}
                 </td></tr> : records.map((r, i) => <tr key={r.id} onClick={() => setSelectedId(r.id)} className={`border-b border-border/30 cursor-pointer hover:bg-indigo-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                   <td className={`font-mono text-indigo-600 dark:text-indigo-400 ${u.nowrap}`}>
                     {r.ap_no}
@@ -848,7 +854,7 @@ export default function Finance2ApPage() {
 
         {/* 分页 */}
         <div style={tablePagination}>
-          <span>共 {total} 条（第 {page} / {totalPages} 页）</span>
+          <span>{t('fin2.common.total', '共')} {total} {t('fin2.common.rows_unit', '条')}（{t('fin2.common.page_no', '第')} {page} / {totalPages} {t('fin2.common.page_unit', '页')}）</span>
           <div className={u.flexRow}>
             <button onClick={() => {
             const p = page - 1;

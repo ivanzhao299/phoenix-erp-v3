@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Users, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Upload, ChevronRight, TrendingDown, DollarSign, ArrowDownLeft } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -153,12 +154,13 @@ function LocalStatusBadge({
     color: string;
   }>;
 }) {
+  const { t } = useLanguage();
   const c = map[status] ?? { label: status, color: 'var(--text-secondary)' };
   return <span style={{
     display: 'inline-block', padding: '1px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
     background: `color-mix(in srgb, ${c.color} 14%, transparent)`, color: c.color,
   }}>
-      {c.label}
+      {map[status] ? t(`fin2.shfunds.status.${status}`, c.label) : c.label}
     </span>;
 }
 function TypeBadge({
@@ -166,6 +168,7 @@ function TypeBadge({
 }: {
   type: string;
 }) {
+  const { t } = useLanguage();
   const color = CONTRIBUTION_TYPE_COLORS[type] ?? 'var(--gray-500)';
   return <span style={{
     display: 'inline-block',
@@ -176,7 +179,7 @@ function TypeBadge({
     background: color + '18',
     color
   }}>
-      {CONTRIBUTION_TYPE_LABELS[type] ?? type}
+      {CONTRIBUTION_TYPE_LABELS[type] ? t(`fin2.shfunds.contrib_type.${type}`, CONTRIBUTION_TYPE_LABELS[type]) : type}
     </span>;
 }
 
@@ -191,6 +194,7 @@ function CreateContributionModal({
   onCreated: () => void;
   editing?: Contribution | null;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     shareholderName: editing?.shareholderName ?? '',
     shareholderCode: editing?.shareholderCode ?? '',
@@ -212,19 +216,19 @@ function CreateContributionModal({
   }));
   async function submit() {
     if (!form.shareholderName.trim()) {
-      setErr('请选择股东');
+      setErr(t('fin2.shfunds.select_shareholder','请选择股东'));
       return;
     }
     if (!form.companyCode.trim()) {
-      setErr('请选择公司');
+      setErr(t('fin2.shfunds.select_company','请选择公司'));
       return;
     }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr('请填写金额');
+      setErr(t('fin2.shfunds.fill_amount','请填写金额'));
       return;
     }
     if (!form.contributionDate) {
-      setErr('请选择股东出资时间');
+      setErr(t('fin2.shfunds.select_contribution_date','请选择股东出资时间'));
       return;
     }
     setSaving(true);
@@ -249,11 +253,11 @@ function CreateContributionModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? (editing ? '保存失败' : '创建失败'));
+        throw new Error(d.message ?? (editing ? t('fin2.shfunds.save_failed','保存失败') : t('fin2.common.create_failed','创建失败')));
       }
       onCreated();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '创建失败');
+      setErr(e instanceof Error ? e.message : t('fin2.common.create_failed','创建失败'));
     } finally {
       setSaving(false);
     }
@@ -265,54 +269,54 @@ function CreateContributionModal({
     fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--text-on-dark)',
     background: saving ? 'var(--text-disabled)' : 'var(--color-primary)', opacity: saving ? 0.7 : 1,
   };
-  return <ModalV2 open title={editing ? '编辑股东资金记录' : '新建股东资金记录'} width={520} onClose={onClose} footer={<>
-        <button onClick={onClose} style={cancelBtn}>取消</button>
-        <button onClick={submit} disabled={saving} style={submitBtn}>{saving ? '保存中…' : (editing ? '保存' : '创建记录')}</button>
+  return <ModalV2 open title={editing ? t('fin2.shfunds.edit_record','编辑股东资金记录') : t('fin2.shfunds.new_record','新建股东资金记录')} width={520} onClose={onClose} footer={<>
+        <button onClick={onClose} style={cancelBtn}>{t('fin2.common.cancel','取消')}</button>
+        <button onClick={submit} disabled={saving} style={submitBtn}>{saving ? t('fin2.shfunds.saving','保存中…') : (editing ? t('fin2.shfunds.save','保存') : t('fin2.shfunds.create_record','创建记录'))}</button>
       </>}>
         {err && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
             {err}
           </div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <div style={formLabel}>公司 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <div style={formLabel}>{t('fin2.common.company','公司')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <CompanySelector value={form.companyCode}
               onChange={v => { set('companyCode', v); set('shareholderCode', ''); set('shareholderName', ''); }}
               onPick={o => set('companyName', o?.label ?? '')} />
           </div>
           <div>
-            <div style={formLabel}>股东 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <div style={formLabel}>{t('fin2.shfunds.shareholder','股东')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <ShareholderSelector companyCode={form.companyCode} disabled={!form.companyCode}
               value={form.shareholderCode} onChange={v => set('shareholderCode', v)}
               onPick={o => set('shareholderName', o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
           </div>
           <div>
-            <div style={formLabel}>货币 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <div style={formLabel}>{t('fin2.shfunds.currency','货币')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
           </div>
           <div>
-            <div style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <div style={formLabel}>{t('fin2.common.amount','金额')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
           </div>
           <div>
-            <div style={formLabel}>股东出资时间 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+            <div style={formLabel}>{t('fin2.shfunds.contribution_date','股东出资时间')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
             <input type="date" value={form.contributionDate} onChange={e => set('contributionDate', e.target.value)} className={inpClass} />
           </div>
           <div>
-            <div style={formLabel}>预计归还日期</div>
+            <div style={formLabel}>{t('fin2.shfunds.expected_return_date','预计归还日期')}</div>
             <input type="date" value={form.expectedReturnDate} onChange={e => set('expectedReturnDate', e.target.value)} className={inpClass} />
           </div>
         </div>
         <div className={u.mt12}>
-          <div style={formLabel}>资金类型 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+          <div style={formLabel}>{t('fin2.shfunds.fund_type','资金类型')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
           <DictSelect dictType="FIN_CONTRIBUTION_TYPE" value={form.contributionType} onChange={v => set('contributionType', v)} allowEmpty={false} />
         </div>
         <div className={u.mt12}>
-          <div style={formLabel}>出资凭证</div>
-          <ManagedAttachmentUploader value={form.voucherUrl} onChange={v => set('voucherUrl', String(v))} storage="json-string" label="上传出资凭证（PDF/图片 ≤15MB，可多个）" />
+          <div style={formLabel}>{t('fin2.shfunds.voucher','出资凭证')}</div>
+          <ManagedAttachmentUploader value={form.voucherUrl} onChange={v => set('voucherUrl', String(v))} storage="json-string" label={t('fin2.shfunds.upload_voucher','上传出资凭证（PDF/图片 ≤15MB，可多个）')} />
         </div>
         <div className={u.mt12}>
-          <div style={formLabel}>备注</div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
+          <div style={formLabel}>{t('fin2.common.remark','备注')}</div>
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={t('fin2.common.optional','可选')} rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
         </div>
       </ModalV2>;
 }
@@ -335,6 +339,7 @@ function CreateSettlementModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     settlementType: 'RETURN',
     amountOriginal: '',
@@ -351,15 +356,15 @@ function CreateSettlementModal({
   const needsRemark = form.settlementType === 'WRITE_OFF';
   async function submit() {
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr('请填写金额');
+      setErr(t('fin2.shfunds.fill_amount','请填写金额'));
       return;
     }
     if (needsCash && !form.cashAccountId) {
-      setErr('RETURN 类型必须指定现金账户');
+      setErr(t('fin2.shfunds.return_needs_cash','RETURN 类型必须指定现金账户'));
       return;
     }
     if (needsRemark && !form.remark.trim()) {
-      setErr('WRITE_OFF 必须填写备注');
+      setErr(t('fin2.shfunds.writeoff_needs_remark','WRITE_OFF 必须填写备注'));
       return;
     }
     setSaving(true);
@@ -379,11 +384,11 @@ function CreateSettlementModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '创建失败');
+        throw new Error(d.message ?? t('fin2.common.create_failed','创建失败'));
       }
       onCreated();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '创建失败');
+      setErr(e instanceof Error ? e.message : t('fin2.common.create_failed','创建失败'));
     } finally {
       setSaving(false);
     }
@@ -394,14 +399,14 @@ function CreateSettlementModal({
     fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--text-on-dark)',
     background: saving ? 'var(--text-disabled)' : 'var(--color-primary)', opacity: saving ? 0.7 : 1, flex: 1,
   };
-  return <ModalV2 open title="创建还款/结算" width={460} onClose={onClose} footer={<>
-        <button onClick={onClose} style={{ ...secondaryActionButton, flex: 1, padding: '9px 18px' }}>取消</button>
-        <button onClick={submit} disabled={saving} style={stBtn}>{saving ? '创建中…' : '创建'}</button>
+  return <ModalV2 open title={t('fin2.shfunds.create_settlement','创建还款/结算')} width={460} onClose={onClose} footer={<>
+        <button onClick={onClose} style={{ ...secondaryActionButton, flex: 1, padding: '9px 18px' }}>{t('fin2.common.cancel','取消')}</button>
+        <button onClick={submit} disabled={saving} style={stBtn}>{saving ? t('fin2.common.creating','创建中…') : t('fin2.shfunds.create','创建')}</button>
       </>}>
         <div style={{ borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{contribution.shareholderName} · {contribution.contributionNo}</div>
           <div style={{ marginTop: 2, color: 'var(--text-secondary)' }}>
-            未结余额：{currencySymbol(contribution.currencyCode)}{fmt(contribution.balanceAmountOriginal)}
+            {t('fin2.shfunds.unsettled_balance','未结余额')}：{currencySymbol(contribution.currencyCode)}{fmt(contribution.balanceAmountOriginal)}
           </div>
         </div>
         {err && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
@@ -409,7 +414,7 @@ function CreateSettlementModal({
           </div>}
 
         <div className={u.mb12}>
-          <div style={formLabel}>结算类型</div>
+          <div style={formLabel}>{t('fin2.shfunds.settlement_type','结算类型')}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(SETTLEMENT_TYPE_LABELS).map(([k, v]) => {
               const active = form.settlementType === k;
@@ -418,26 +423,26 @@ function CreateSettlementModal({
                 border: `1px solid ${active ? 'var(--color-primary)' : 'var(--border)'}`,
                 background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'var(--bg-card)',
                 color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
-              }}>{v}</button>;
+              }}>{t(`fin2.shfunds.settle_type.${k}`, v)}</button>;
             })}
           </div>
         </div>
 
         <div className={u.mb12}>
-          <div style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></div>
+          <div style={formLabel}>{t('fin2.common.amount','金额')} <span style={{ color: 'var(--status-danger)' }}>*</span></div>
           <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
         </div>
 
         {needsCash && <div className={u.mb12}>
-            <div style={formLabel}>现金账户 <span style={{ color: 'var(--status-danger)' }}>*</span>（现金归还必填）</div>
+            <div style={formLabel}>{t('fin2.shfunds.cash_account','现金账户')} <span style={{ color: 'var(--status-danger)' }}>*</span>（{t('fin2.shfunds.cash_return_required','现金归还必填')}）</div>
             <CashAccountSelector value={form.cashAccountId} valueField="id" onChange={v => set('cashAccountId', v)} currencyCode={contribution.currencyCode} />
           </div>}
 
         <div className={u.mb16}>
           <div style={formLabel}>
-            备注{needsRemark ? <span style={{ color: 'var(--status-danger)' }}> *（核销必填）</span> : ''}
+            {t('fin2.common.remark','备注')}{needsRemark ? <span style={{ color: 'var(--status-danger)' }}> *（{t('fin2.shfunds.writeoff_required','核销必填')}）</span> : ''}
           </div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={needsRemark ? '请填写核销原因' : '可选'} rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={needsRemark ? t('fin2.shfunds.writeoff_reason','请填写核销原因') : t('fin2.common.optional','可选')} rows={2} className={inpClass} style={{ fontFamily: 'inherit', resize: 'none' }} />
         </div>
       </ModalV2>;
 }
@@ -455,6 +460,7 @@ function ContributionDrawer({
   onRefresh: () => void;
   onEdit?: (c: Contribution) => void;
 }) {
+  const { t } = useLanguage();
   const [detail, setDetail] = useState<{
     settlements?: Settlement[];
   } | null>(null);
@@ -509,7 +515,7 @@ function ContributionDrawer({
       });
       if (!r.ok) {
         const d = await r.json();
-        setActionErr(d.message ?? '操作失败');
+        setActionErr(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
       onRefresh();
@@ -541,7 +547,7 @@ function ContributionDrawer({
       });
       if (!r.ok) {
         const d = await r.json();
-        setActionErr(d.message ?? '操作失败');
+        setActionErr(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
       await loadDetail();
@@ -584,26 +590,26 @@ function ContributionDrawer({
         borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--text-on-dark)',
       }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
-            {[{ label: '出资总额', value: fmt(contribution.amountOriginal) },
-              { label: '已结算', value: fmt(contribution.settledAmountOriginal) },
-              { label: '未结余额', value: fmt(contribution.balanceAmountOriginal) },
+            {[{ label: t('fin2.shfunds.contribution_total','出资总额'), value: fmt(contribution.amountOriginal) },
+              { label: t('fin2.shfunds.settled','已结算'), value: fmt(contribution.settledAmountOriginal) },
+              { label: t('fin2.shfunds.unsettled_balance','未结余额'), value: fmt(contribution.balanceAmountOriginal) },
             ].map(c => <div key={c.label}>
                 <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 2 }}>{c.label}</div>
                 <div style={{ fontWeight: 800, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
               </div>)}
           </div>
           {contribution.expectedReturnDate && <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, opacity: 0.8 }}>
-              预计归还：{contribution.expectedReturnDate}
+              {t('fin2.shfunds.expected_return','预计归还')}：{contribution.expectedReturnDate}
             </div>}
         </div>
 
         {/* 基本信息 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          {[{ label: '资金类型', value: <TypeBadge type={contribution.contributionType} /> },
-            { label: '状态', value: <LocalStatusBadge status={contribution.status} map={STATUS_CONFIG} /> },
-            { label: '公司', value: contribution.companyName ?? contribution.companyCode },
-            { label: '股东出资时间', value: contribution.contributionDate ?? '—' },
-            { label: '来源', value: contribution.sourceType },
+          {[{ label: t('fin2.shfunds.fund_type','资金类型'), value: <TypeBadge type={contribution.contributionType} /> },
+            { label: t('fin2.common.status','状态'), value: <LocalStatusBadge status={contribution.status} map={STATUS_CONFIG} /> },
+            { label: t('fin2.common.company','公司'), value: contribution.companyName ?? contribution.companyCode },
+            { label: t('fin2.shfunds.contribution_date','股东出资时间'), value: contribution.contributionDate ?? '—' },
+            { label: t('fin2.common.source','来源'), value: contribution.sourceType },
           ].map(r => <div key={r.label} style={{ borderRadius: 8, padding: '8px 12px', background: 'var(--bg-muted)' }}>
               <div style={{ fontSize: 10, marginBottom: 2, color: 'var(--text-secondary)' }}>{r.label}</div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.value}</div>
@@ -613,7 +619,7 @@ function ContributionDrawer({
         {/* 自审提示：已提交待确认时，告诉创建者在等他人确认（制单/审核分离） */}
         {isOwnRecord && contribution.status === 'PENDING_CONFIRM' && (
           <div style={{ fontSize: 12, color: 'var(--status-warning)', background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-            已提交，等待他人复核确认 —— 你不能确认自己创建的记录（制单 / 审核分离）
+            {t('fin2.shfunds.self_review_hint','已提交，等待他人复核确认 —— 你不能确认自己创建的记录（制单 / 审核分离）')}
           </div>
         )}
         {/* 操作按钮 */}
@@ -621,36 +627,36 @@ function ContributionDrawer({
           {/* 提交审批：创建者/有编辑权把草稿"交出去"，点击先选审批人 */}
           {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => void openPickApprover()} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
-              <AlertCircle size={12} /> 提交审批
+              <AlertCircle size={12} /> {t('fin2.common.submit_approval','提交审批')}
             </button>}
           {/* 直接确认入账：仅他人可操作（自审拦截） */}
           {canConfirm && <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
-              <CheckCircle size={12} /> 直接确认
+              <CheckCircle size={12} /> {t('fin2.shfunds.confirm_direct','直接确认')}
             </button>}
           {/* 编辑草稿：仅草稿可改 */}
           {dCanEdit && contribution.status === 'DRAFT' && onEdit && <button onClick={() => { onClose(); onEdit(contribution); }} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
-              <AlertCircle size={12} /> 编辑
+              <AlertCircle size={12} /> {t('fin2.shfunds.edit','编辑')}
             </button>}
           {canSettle && <button onClick={() => { void ensureCashAccounts(); setShowSettle(true); }}
             style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
-              <ArrowDownLeft size={12} /> 创建结算
+              <ArrowDownLeft size={12} /> {t('fin2.shfunds.create_settle','创建结算')}
             </button>}
           {canCancel && <button onClick={() => setConfirmDialog({
-              title: contribution.status === 'DRAFT' ? '删除草稿' : '取消股东资金记录',
-              message: contribution.status === 'DRAFT' ? '确认删除该草稿？删除后不可恢复。' : '确认取消该股东资金记录？取消后不可恢复。', danger: true,
+              title: contribution.status === 'DRAFT' ? t('fin2.shfunds.delete_draft','删除草稿') : t('fin2.shfunds.cancel_record','取消股东资金记录'),
+              message: contribution.status === 'DRAFT' ? t('fin2.shfunds.confirm_delete_draft','确认删除该草稿？删除后不可恢复。') : t('fin2.shfunds.confirm_cancel_record','确认取消该股东资金记录？取消后不可恢复。'), danger: true,
               onConfirm: () => { setConfirmDialog(null); void doAction('cancel', {}); },
             })} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--status-danger) 10%, transparent)', 'var(--status-danger)', 'color-mix(in srgb, var(--status-danger) 30%, transparent)')}>
-              <X size={12} /> {contribution.status === 'DRAFT' ? '删除' : '取消'}
+              <X size={12} /> {contribution.status === 'DRAFT' ? t('fin2.shfunds.delete','删除') : t('fin2.common.cancel','取消')}
             </button>}
         </div>
 
         {/* 结算记录 */}
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--text-secondary)' }}>结算记录</div>
-        {loading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载中…</div>
-          : !detail?.settlements?.length ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13, background: 'var(--bg-muted)', borderRadius: 10 }}>暂无结算记录</div>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--text-secondary)' }}>{t('fin2.shfunds.settlement_records','结算记录')}</div>
+        {loading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>{t('fin2.common.loading','加载中')}…</div>
+          : !detail?.settlements?.length ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13, background: 'var(--bg-muted)', borderRadius: 10 }}>{t('fin2.shfunds.no_settlement','暂无结算记录')}</div>
           : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(detail.settlements as Settlement[]).map(s => {
           const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, badgeClass: '' };
@@ -659,37 +665,37 @@ function ContributionDrawer({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <div>
                       <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{s.settlementNo}</span>
-                      <span style={{ fontSize: 11, marginLeft: 8, color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
+                      <span style={{ fontSize: 11, marginLeft: 8, color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ? t(`fin2.shfunds.settle_type.${s.settlementType}`, SETTLEMENT_TYPE_LABELS[s.settlementType]) : s.settlementType}</span>
                     </div>
-                    <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${badgeColor} 14%, transparent)`, color: badgeColor }}>{sc.label}</span>
+                    <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${badgeColor} 14%, transparent)`, color: badgeColor }}>{SETTLEMENT_STATUS_CONFIG[s.status] ? t(`fin2.shfunds.status.${s.status}`, sc.label) : sc.label}</span>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: 'var(--color-primary)' }}>
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}</span>
                   </div>
-                  {s.cashAccountCode && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>现金账户：{s.cashAccountCode}</div>}
+                  {s.cashAccountCode && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.shfunds.cash_account','现金账户')}：{s.cashAccountCode}</div>}
 
                   {!['SETTLED', 'CANCELLED'].includes(s.status) && <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                       {s.status === 'DRAFT' && <button onClick={() => doSettleAction(s.id, 'submit')} disabled={!!actionLoading}
                         style={settleBtnStyle('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
-                          提交审批
+                          {t('fin2.common.submit_approval','提交审批')}
                         </button>}
                       {s.status === 'PENDING_APPROVAL' && <button onClick={() => doSettleAction(s.id, 'approve-direct')} disabled={!!actionLoading}
                         style={settleBtnStyle('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
-                          直接批准
+                          {t('fin2.shfunds.approve_direct','直接批准')}
                         </button>}
                       {s.status === 'APPROVED' && <button onClick={() => setConfirmDialog({
-                          title: '执行结算', message: `确认执行结算 ${s.settlementNo}？将实际操作资金。`,
+                          title: t('fin2.shfunds.execute_settle','执行结算'), message: `${t('fin2.shfunds.confirm_execute_settle_prefix','确认执行结算')} ${s.settlementNo}${t('fin2.shfunds.confirm_execute_settle_suffix','？将实际操作资金。')}`,
                           onConfirm: () => { setConfirmDialog(null); void doSettleAction(s.id, 'execute'); },
                         })} disabled={!!actionLoading}
                         style={settleBtnStyle('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
-                          执行结算
+                          {t('fin2.shfunds.execute_settle','执行结算')}
                         </button>}
                       <button onClick={() => setConfirmDialog({
-                          title: '取消结算', message: '确认取消此结算？', danger: true,
+                          title: t('fin2.shfunds.cancel_settle','取消结算'), message: t('fin2.shfunds.confirm_cancel_settle','确认取消此结算？'), danger: true,
                           onConfirm: () => { setConfirmDialog(null); void doSettleAction(s.id, 'cancel'); },
                         })} disabled={!!actionLoading}
                         style={settleBtnStyle('color-mix(in srgb, var(--status-danger) 10%, transparent)', 'var(--status-danger)', 'color-mix(in srgb, var(--status-danger) 30%, transparent)')}>
-                        取消
+                        {t('fin2.common.cancel','取消')}
                       </button>
                     </div>}
                 </div>;
@@ -697,7 +703,7 @@ function ContributionDrawer({
           </div>}
 
         {contribution.remark && <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 10, fontSize: 12, background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', color: 'var(--text-primary)' }}>
-            备注：{contribution.remark}
+            {t('fin2.common.remark','备注')}：{contribution.remark}
           </div>}
       </DrawerV2>
 
@@ -710,18 +716,18 @@ function ContributionDrawer({
         loading={!!actionLoading} onConfirm={() => confirmDialog?.onConfirm()} onCancel={() => setConfirmDialog(null)} />
 
       {/* P1：提交审批 → 选择审批人 */}
-      {pickMode && <ModalV2 open title="提交审批 · 选择审批人" width={460} onClose={() => setPickMode(false)} footer={<div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <button onClick={() => setPickMode(false)} style={{ ...secondaryActionButton, flex: 1 }}>取消</button>
-            <button onClick={() => { setPickMode(false); void doAction('submit-confirm', {}); }} style={{ ...secondaryActionButton, flex: 1.4 }}>不指定，提交待确认</button>
+      {pickMode && <ModalV2 open title={t('fin2.shfunds.submit_pick_approver','提交审批 · 选择审批人')} width={460} onClose={() => setPickMode(false)} footer={<div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button onClick={() => setPickMode(false)} style={{ ...secondaryActionButton, flex: 1 }}>{t('fin2.common.cancel','取消')}</button>
+            <button onClick={() => { setPickMode(false); void doAction('submit-confirm', {}); }} style={{ ...secondaryActionButton, flex: 1.4 }}>{t('fin2.shfunds.submit_unspecified','不指定，提交待确认')}</button>
             <button onClick={() => { if (!pickedId) return; setPickMode(false); void doAction('submit-confirm', { approverUserId: pickedId }); }} disabled={!pickedId}
-              style={{ flex: 1.6, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-on-dark)', background: pickedId ? 'var(--color-primary)' : 'var(--text-disabled)', cursor: pickedId ? 'pointer' : 'not-allowed' }}>提交给所选</button>
+              style={{ flex: 1.6, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-on-dark)', background: pickedId ? 'var(--color-primary)' : 'var(--text-disabled)', cursor: pickedId ? 'pointer' : 'not-allowed' }}>{t('fin2.shfunds.submit_to_selected','提交给所选')}</button>
           </div>}>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
-            选一位有确认权、且数据域覆盖本公司的审批人；提交后对方会收到待办通知。也可"不指定"，由任一有权同事确认。
+            {t('fin2.shfunds.pick_approver_hint','选一位有确认权、且数据域覆盖本公司的审批人；提交后对方会收到待办通知。也可"不指定"，由任一有权同事确认。')}
           </div>
-          {pickLoading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载候选人…</div>
+          {pickLoading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>{t('fin2.shfunds.loading_candidates','加载候选人…')}</div>
             : approvers.length === 0 ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--status-warning)', fontSize: 12.5, lineHeight: 1.6 }}>
-                无可选审批人（无人同时具备确认权与本公司数据域）。可点"不指定"提交，由有权同事确认。
+                {t('fin2.shfunds.no_approver','无可选审批人（无人同时具备确认权与本公司数据域）。可点"不指定"提交，由有权同事确认。')}
               </div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
                 {approvers.map(a => (
@@ -754,13 +760,14 @@ function SummaryTab({
   onOpen: (c: Contribution) => void;
   onViewAll?: () => void;
 }) {
-  if (!summary) return <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: 32 }}>加载中…</div>;
+  const { t } = useLanguage();
+  if (!summary) return <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: 32 }}>{t('fin2.common.loading','加载中')}…</div>;
   const statCards: { label: string; value: string; color: string }[] = [
-    { label: '出资总额', value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: 'var(--color-primary)' },
-    { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
-    { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
-    { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: 'var(--color-accent)' },
-    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
+    { label: t('fin2.shfunds.contribution_total','出资总额'), value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: 'var(--color-primary)' },
+    { label: t('fin2.shfunds.settled','已结算'), value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
+    { label: t('fin2.shfunds.unsettled_balance','未结余额'), value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
+    { label: t('fin2.shfunds.confirmed_count','已确认笔数'), value: `${summary.confirmedContributions} ${t('fin2.common.count_unit','笔')}`, color: 'var(--color-accent)' },
+    { label: t('fin2.shfunds.pending_count','待处理（含草稿）'), value: `${summary.pendingConfirmations} ${t('fin2.common.count_unit','笔')}`, color: 'var(--status-warning)' },
   ];
   return <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
@@ -776,9 +783,9 @@ function SummaryTab({
       {pending.length > 0 && <div style={{ ...tableContainer, padding: '16px 18px', marginBottom: 24, borderColor: 'var(--status-warning)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--status-warning)' }}>
-            待处理明细 · {pending.length} 笔（{canConfirm ? '点击记录即可确认入账' : '点击查看详情'}）
+            {t('fin2.shfunds.pending_detail','待处理明细')} · {pending.length} {t('fin2.common.count_unit','笔')}（{canConfirm ? t('fin2.shfunds.click_to_confirm','点击记录即可确认入账') : t('fin2.shfunds.click_to_view','点击查看详情')}）
           </div>
-          {onViewAll && <button onClick={onViewAll} style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 12 }}>在台账中查看 →</button>}
+          {onViewAll && <button onClick={onViewAll} style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 12 }}>{t('fin2.shfunds.view_in_ledger','在台账中查看 →')}</button>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {pending.map(c => (
@@ -798,28 +805,28 @@ function SummaryTab({
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ ...tableContainer, padding: '16px 18px' }}>
-          <div style={sectionTitle}>按股东分布</div>
-          {summary.byShareholder.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>暂无数据</div> : summary.byShareholder.map(r => <div key={r.shareholder_name} style={{
+          <div style={sectionTitle}>{t('fin2.shfunds.by_shareholder_dist','按股东分布')}</div>
+          {summary.byShareholder.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>{t('fin2.shfunds.no_data','暂无数据')}</div> : summary.byShareholder.map(r => <div key={r.shareholder_name} style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0',
           borderBottom: '1px solid color-mix(in srgb, var(--border) 50%, transparent)',
         }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.shareholder_name}</div>
-                <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</div>
+                <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} {t('fin2.common.count_unit','笔')}</div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance)}</div>
             </div>)}
         </div>
 
         <div style={{ ...tableContainer, padding: '16px 18px' }}>
-          <div style={sectionTitle}>按资金类型</div>
-          {summary.byContributionType.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>暂无数据</div> : summary.byContributionType.map(r => <div key={r.contribution_type} style={{
+          <div style={sectionTitle}>{t('fin2.shfunds.by_fund_type','按资金类型')}</div>
+          {summary.byContributionType.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 12, textAlign: 'center', padding: 16 }}>{t('fin2.shfunds.no_data','暂无数据')}</div> : summary.byContributionType.map(r => <div key={r.contribution_type} style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0',
           borderBottom: '1px solid color-mix(in srgb, var(--border) 50%, transparent)',
         }}>
               <div className={u.flexRow8}>
                 <TypeBadge type={r.contribution_type} />
-                <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</span>
+                <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} {t('fin2.common.count_unit','笔')}</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.total)}</div>
             </div>)}
@@ -829,7 +836,7 @@ function SummaryTab({
       {summary.upcomingReturns.length > 0 && <div style={{
       ...tableContainer, borderColor: 'var(--status-warning)', padding: '16px 18px',
     }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--status-warning)' }}>即将到期归还（30 天内）</div>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--status-warning)' }}>{t('fin2.shfunds.upcoming_returns','即将到期归还（30 天内）')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {summary.upcomingReturns.map(r => <div key={r.id} style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8,
@@ -837,7 +844,7 @@ function SummaryTab({
         }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{r.contribution_no}</div>
-                  <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
+                  <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.shareholder_name} · {t('fin2.shfunds.due','到期')}：{r.expected_return_date}</div>
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--status-warning)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance_amount_original)}</div>
               </div>)}
@@ -849,6 +856,7 @@ function SummaryTab({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShareholderFundsPage() {
+  const { t } = useLanguage();
   // 权限门控（G47）：新建/导入股东资金记录受 MENU_FIN2_SHAREHOLDER:E 约束，
   // 刘杰等仅查看角色(V,X)不应看到写入口。
   const { canCreate, canEdit } = usePermission('MENU_FIN2_SHAREHOLDER');
@@ -942,7 +950,7 @@ export default function ShareholderFundsPage() {
     if (tab === 'settlements') void loadSettlements();
   }, [tab, loadList, loadSettlements]);
   async function importFromPrc2() {
-    if (!confirm('确认从采购系统导入股东资金记录？已存在的记录将自动跳过，不会重复导入。')) return;
+    if (!confirm(t('fin2.shfunds.confirm_import','确认从采购系统导入股东资金记录？已存在的记录将自动跳过，不会重复导入。'))) return;
     setImportLoading(true);
     try {
       const r = await fetch(`${API}/import-from-prc2`, {
@@ -954,37 +962,37 @@ export default function ShareholderFundsPage() {
         skipped?: number;
         failed?: number;
       };
-      alert(`导入完成：成功 ${d.imported ?? 0}，跳过 ${d.skipped ?? 0}，失败 ${d.failed ?? 0}`);
+      alert(`${t('fin2.shfunds.import_done','导入完成')}：${t('fin2.shfunds.import_success','成功')} ${d.imported ?? 0}，${t('fin2.shfunds.import_skipped','跳过')} ${d.skipped ?? 0}，${t('fin2.shfunds.import_failed','失败')} ${d.failed ?? 0}`);
       void Promise.all([loadList(), loadSummary()]);
     } catch {
-      alert('导入失败');
+      alert(t('fin2.shfunds.import_fail','导入失败'));
     } finally {
       setImportLoading(false);
     }
   }
   const tabs = [{
     key: 'contributions' as const,
-    label: '股东资金台账'
+    label: t('fin2.shfunds.tab_contributions','股东资金台账')
   }, {
     key: 'settlements' as const,
-    label: '结算记录'
+    label: t('fin2.shfunds.tab_settlements','结算记录')
   }, {
     key: 'summary' as const,
-    label: '汇总分析'
+    label: t('fin2.shfunds.tab_summary','汇总分析')
   }];
   return <div>
-      <PageHeader title="股东资金管理" subtitle="股东出资台账 · 结算审批 · 资金账户联动" breadcrumb={['财务管理', '股东资金']} actions={<div style={{
+      <PageHeader title={t('fin2.shfunds.page_title','股东资金管理')} subtitle={t('fin2.shfunds.page_subtitle','股东出资台账 · 结算审批 · 资金账户联动')} breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.common.shareholder_funds','股东资金')]} actions={<div style={{
       display: 'flex',
       gap: 8
     }}>
             {canWrite && (
               <button onClick={() => void importFromPrc2()} disabled={importLoading} style={secondaryActionButton}>
-                <Upload size={14} /> {importLoading ? '导入中…' : '从采购系统导入'}
+                <Upload size={14} /> {importLoading ? t('fin2.shfunds.importing','导入中…') : t('fin2.shfunds.import_from_prc','从采购系统导入')}
               </button>
             )}
             {canWrite && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={15} /> 新建记录
+                <Plus size={15} /> {t('fin2.shfunds.new_record_btn','新建记录')}
               </button>
             )}
           </div>} />
@@ -1013,15 +1021,15 @@ export default function ShareholderFundsPage() {
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
               }} />
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索股东名称/单号…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
+              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t('fin2.shfunds.search_placeholder','搜索股东名称/单号…')} style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
             </div>
 
             {[{
               k: '',
-              v: '全部类型'
+              v: t('fin2.shfunds.all_types','全部类型')
             }, ...Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => ({
               k,
-              v
+              v: t(`fin2.shfunds.contrib_type.${k}`, v)
             }))].map(({ k, v }) => (
               <button key={k} onClick={() => setTypeFilter(k)} style={toolbarFilterPill(typeFilter === k)}>{v}</button>
             ))}
@@ -1030,19 +1038,19 @@ export default function ShareholderFundsPage() {
 
             {[{
               k: '',
-              v: '全部'
+              v: t('fin2.shfunds.all','全部')
             }, {
               k: 'PENDING',
-              v: '待处理'
+              v: t('fin2.shfunds.filter_pending','待处理')
             }, {
               k: 'CONFIRMED',
-              v: '已确认'
+              v: t('fin2.shfunds.status.CONFIRMED','已确认')
             }, {
               k: 'PARTIALLY_SETTLED',
-              v: '部分结算'
+              v: t('fin2.shfunds.status.PARTIALLY_SETTLED','部分结算')
             }, {
               k: 'SETTLED',
-              v: '已结清'
+              v: t('fin2.shfunds.status.SETTLED','已结清')
             }].map(({ k, v }) => (
               <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>{v}</button>
             ))}
@@ -1052,9 +1060,9 @@ export default function ShareholderFundsPage() {
             </button>
           </div>
 
-          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>加载中…</div> : contributions.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>
+          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.common.loading','加载中')}…</div> : contributions.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>
               <Users size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
-              暂无股东资金记录
+              {t('fin2.shfunds.empty_records','暂无股东资金记录')}
             </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contributions.map(c => {
                 const tone: Parameters<typeof businessListCard>[0] =
@@ -1074,21 +1082,21 @@ export default function ShareholderFundsPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <div>
-                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>出资总额</div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>{t('fin2.shfunds.contribution_total','出资总额')}</div>
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</div>
                     </div>
                     <div>
-                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>股东出资时间</div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>{t('fin2.shfunds.contribution_date','股东出资时间')}</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{c.contributionDate ?? '—'}</div>
                     </div>
                     <div>
-                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>未结余额</div>
+                      <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>{t('fin2.shfunds.unsettled_balance','未结余额')}</div>
                       <div style={{ fontWeight: 700, fontSize: 15, color: Number(c.balanceAmountOriginal) > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
                         {currencySymbol(c.currencyCode)}{fmt(c.balanceAmountOriginal)}
                       </div>
                     </div>
                     {c.expectedReturnDate && <div>
-                        <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>预计归还</div>
+                        <div className={u.fs10} style={{ color: 'var(--text-secondary)' }}>{t('fin2.shfunds.expected_return','预计归还')}</div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-warning)' }}>{c.expectedReturnDate}</div>
                       </div>}
                     <ChevronRight size={16} style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }} />
@@ -1100,12 +1108,12 @@ export default function ShareholderFundsPage() {
 
       {tab === 'settlements' && <>
           <div style={{ marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span className={u.fs13} style={{ color: 'var(--text-secondary)' }}>共 {settlements.length} 条结算记录</span>
+            <span className={u.fs13} style={{ color: 'var(--text-secondary)' }}>{t('fin2.common.total','共')} {settlements.length} {t('fin2.shfunds.settlement_records_unit','条结算记录')}</span>
             <button onClick={() => void loadSettlements()} style={secondaryActionButton}>
               <RefreshCw size={13} />
             </button>
           </div>
-          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>加载中…</div> : settlements.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>暂无结算记录</div> : <div style={{
+          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.common.loading','加载中')}…</div> : settlements.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.shfunds.no_settlement','暂无结算记录')}</div> : <div style={{
         display: 'flex', flexDirection: 'column', gap: 8,
       }}>
               {settlements.map(s => {
@@ -1115,12 +1123,12 @@ export default function ShareholderFundsPage() {
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                           <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{s.settlementNo}</span>
-                          <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
-                          <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${sc.color} 14%, transparent)`, color: sc.color }}>{sc.label}</span>
+                          <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ? t(`fin2.shfunds.settle_type.${s.settlementType}`, SETTLEMENT_TYPE_LABELS[s.settlementType]) : s.settlementType}</span>
+                          <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${sc.color} 14%, transparent)`, color: sc.color }}>{SETTLEMENT_STATUS_CONFIG[s.status] ? t(`fin2.shfunds.status.${s.status}`, sc.label) : sc.label}</span>
                         </div>
                         <div className={u.fs12} style={{ color: 'var(--text-secondary)' }}>
-                          {s.shareholderName} · 出资单：{s.contributionNo}
-                          {s.cashAccountCode ? ` · 现金账户：${s.cashAccountCode}` : ''}
+                          {s.shareholderName} · {t('fin2.shfunds.contribution_doc','出资单')}：{s.contributionNo}
+                          {s.cashAccountCode ? ` · ${t('fin2.shfunds.cash_account','现金账户')}：${s.cashAccountCode}` : ''}
                         </div>
                       </div>
                       <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-primary)' }}>

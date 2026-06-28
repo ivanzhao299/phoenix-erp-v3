@@ -14,6 +14,7 @@ import request from "@/lib/api-client";
 import { MasterDataSearch } from "@/components/master-data/MasterDataSearch";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type PermissionChecker = (menuCode?: string | null, permCode?: string) => boolean;
 interface CenterStat {
@@ -204,6 +205,7 @@ function healthColor(s: number) {
   return 'var(--status-danger)';
 }
 export default function MasterDataHubPage() {
+  const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,7 +225,7 @@ export default function MasterDataHubPage() {
     try {
       setCenters(await request<CenterStat[]>('/master-data/operations/centers'));
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || t('md.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -234,32 +236,32 @@ export default function MasterDataHubPage() {
   const navTiles = [{
     key: 'operations',
     href: '/master-data/operations',
-    label: '运营工作台',
-    desc: '待审批 / 补资料 / 风险处理',
+    label: t('md.opsWorkbench', '运营工作台'),
+    desc: t('md.opsWorkbenchDesc', '待审批 / 补资料 / 风险处理'),
     icon: Briefcase,
     accent: 'var(--status-info)',
     visible: canViewCenter,
   }, {
     key: 'governance',
     href: '/master-data/governance',
-    label: '治理驾驶舱',
-    desc: '6 维度评分 / 字典覆盖率 / 趋势',
+    label: t('md.governanceCockpit', '治理驾驶舱'),
+    desc: t('md.governanceCockpitDesc', '6 维度评分 / 字典覆盖率 / 趋势'),
     icon: Activity,
     accent: 'var(--color-purple-600)',
     visible: canViewGovernance,
   }, {
     key: 'pending',
     href: '/master-data/pending',
-    label: '主数据待审批',
-    desc: 'Workflow 审批入口',
+    label: t('md.mdPending', '主数据待审批'),
+    desc: t('md.mdPendingDesc', 'Workflow 审批入口'),
     icon: CheckSquare,
     accent: 'var(--status-warning)',
     visible: canViewPending,
   }, {
     key: 'data-quality',
     href: '/data-quality',
-    label: 'G5 数据质量中心',
-    desc: '7 维度全局健康评分',
+    label: t('md.g5DataQuality', 'G5 数据质量中心'),
+    desc: t('md.g5DataQualityDesc', '7 维度全局健康评分'),
     icon: ShieldCheck,
     accent: 'var(--status-success)',
     visible: canViewDataQuality,
@@ -291,19 +293,19 @@ export default function MasterDataHubPage() {
             margin: 0,
             fontSize: 20,
             fontWeight: 700
-          }}>主数据运营平台</h1>
+          }}>{t('md.hubTitle', '主数据运营平台')}</h1>
             <div style={{
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginTop: 2
           }}>
-              Phoenix ERP 唯一可信主数据入口 · 6 大中心 · 19 个对象
+              {t('md.hubSubtitle', 'Phoenix ERP 唯一可信主数据入口 · 6 大中心 · 19 个对象')}
             </div>
           </div>
           <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} style={{
             animation: loading ? 'spin 1s linear infinite' : 'none'
-          }} /> 刷新
+          }} /> {t('md.refresh', '刷新')}
           </button>
         </div>
         {canViewCenter && <MasterDataSearch />}
@@ -378,12 +380,12 @@ export default function MasterDataHubPage() {
                   <div style={{
                 fontSize: 15,
                 fontWeight: 700
-              }}>{meta.title}</div>
+              }}>{t('md.centerTitle.' + c.key, meta.title)}</div>
                   <div style={{
                 fontSize: 11,
                 color: 'var(--text-secondary)',
                 marginTop: 1
-              }}>{meta.subtitle}</div>
+              }}>{t('md.centerSubtitle.' + c.key, meta.subtitle)}</div>
                 </div>
                 <div className={u.tar}>
                   <div style={{
@@ -395,7 +397,7 @@ export default function MasterDataHubPage() {
                   <div style={{
                 fontSize: 10,
                 color: 'var(--text-secondary)'
-              }}>健康度</div>
+              }}>{t('md.healthScore', '健康度')}</div>
                 </div>
               </div>
 
@@ -405,9 +407,9 @@ export default function MasterDataHubPage() {
             gap: 8,
             marginBottom: 14
           }}>
-                <Stat label="对象总数" value={c.objectCount} accent={meta.accent} />
-                <Stat label="待审批" value={c.pendingCount} accent={c.pendingCount > 0 ? 'var(--status-warning)' : 'var(--text-secondary)'} />
-                <Stat label="风险" value={c.riskCount} accent={c.riskCount > 0 ? 'var(--status-danger)' : 'var(--text-secondary)'} />
+                <Stat label={t('md.objectTotal', '对象总数')} value={c.objectCount} accent={meta.accent} />
+                <Stat label={t('md.pending', '待审批')} value={c.pendingCount} accent={c.pendingCount > 0 ? 'var(--status-warning)' : 'var(--text-secondary)'} />
+                <Stat label={t('md.risk', '风险')} value={c.riskCount} accent={c.riskCount > 0 ? 'var(--status-danger)' : 'var(--text-secondary)'} />
               </div>
 
               <div style={{
@@ -439,7 +441,7 @@ export default function MasterDataHubPage() {
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
-                }}>{m.label}</span>
+                }}>{t('md.member.' + m.type, m.label)}</span>
                       {memberStat && <span style={{
                   fontSize: 11,
                   fontWeight: 600,
@@ -460,7 +462,7 @@ export default function MasterDataHubPage() {
       color: 'var(--text-secondary)',
       fontSize: 14
     }}>
-          加载中…
+          {t('md.loading', '加载中…')}
         </div>}
     </div>;
 }

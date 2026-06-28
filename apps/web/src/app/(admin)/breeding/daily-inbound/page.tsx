@@ -7,6 +7,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useProductGrades } from "@/hooks/useProductGrades";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * 日产蛋入库（库存来源模式治理 P1A · 临时生产入库）
@@ -25,6 +26,7 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 export default function DailyInboundPage() {
+  const { t } = useLanguage();
   const {
     canView,
     canCreate
@@ -63,7 +65,7 @@ export default function DailyInboundPage() {
         logs: number;
       }>(`/v3/farm/daily-logs/eggs-breakdown?${qs.toString()}`);
       if (!r.logs || r.total === 0) {
-        setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} 暂无日报或未按 9 档录入`);
+        setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} ${t('breeding.noDailyOr9Grade', '暂无日报或未按 9 档录入')}`);
         return;
       }
       // 用 eggsByGrade 覆盖现有 qtyMap（仅 productGrades 中已知 grade）
@@ -74,7 +76,7 @@ export default function DailyInboundPage() {
       }
       setQtyMap(next);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '拉取日报数据失败');
+      setError(e instanceof Error ? e.message : t('breeding.fetchDailyFailed', '拉取日报数据失败'));
     } finally {
       setPrefilling(false);
     }
@@ -106,7 +108,7 @@ export default function DailyInboundPage() {
       .filter(g => Number(qtyMap[g.grade_code]) > 0)
       .map(g => ({ grade: g.grade_code, qty: Number(qtyMap[g.grade_code]) }));
     if (items.length === 0) {
-      setError("请至少录入一档数量");
+      setError(t('breeding.enterAtLeastOne', '请至少录入一档数量'));
       return;
     }
     setSaving(true);
@@ -132,22 +134,22 @@ export default function DailyInboundPage() {
       setResult(r);
       setQtyMap({});
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "入库失败");
+      setError(e instanceof Error ? e.message : t('breeding.inboundFailed', '入库失败'));
     } finally {
       setSaving(false);
     }
   };
-  if (!canView) return <div className={u.emptyPad40}>无权限访问日产蛋入库</div>;
+  if (!canView) return <div className={u.emptyPad40}>{t('breeding.noPermInbound', '无权限访问日产蛋入库')}</div>;
   return <div className="animate-fade-in" style={{
     padding: "24px 32px"
   }}>
-      <PageHeader title="日产蛋入库" subtitle="临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）" breadcrumb={["生产管理", "日产蛋入库"]} />
+      <PageHeader title={t('breeding.inboundTitle', '日产蛋入库')} subtitle={t('breeding.inboundSubtitle', '临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）')} breadcrumb={[t('breeding.prodMgmt', '生产管理'), t('breeding.inboundTitle', '日产蛋入库')]} />
 
       {/* 模式状态条 */}
       {loadingMode ? <div style={{
       padding: 14,
       color: "var(--text-secondary)"
-    }}>加载库存来源模式...</div> : isPackagingMode ? <div style={{
+    }}>{t('breeding.loadingSourceMode', '加载库存来源模式...')}</div> : isPackagingMode ? <div style={{
       display: "flex",
       alignItems: "center",
       gap: 12,
@@ -164,8 +166,8 @@ export default function DailyInboundPage() {
         fontSize: 13,
         lineHeight: 1.5
       }}>
-            <strong>已启用包装入库模式（PACKAGING_INBOUND）</strong><br />
-            不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。
+            <strong>{t('breeding.packagingModeOn', '已启用包装入库模式（PACKAGING_INBOUND）')}</strong><br />
+            {t('breeding.packagingModeDesc', '不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。')}
           </div>
           <Link href="/packaging" style={{
         padding: "7px 14px",
@@ -176,7 +178,7 @@ export default function DailyInboundPage() {
         fontSize: 13,
         fontWeight: 600,
         whiteSpace: "nowrap"
-      }}>前往包装作业</Link>
+      }}>{t('breeding.goPackaging', '前往包装作业')}</Link>
         </div> : <div style={{
       display: "flex",
       alignItems: "center",
@@ -189,7 +191,7 @@ export default function DailyInboundPage() {
       color: "var(--status-success)",
       fontSize: 13
     }}>
-          <Egg size={16} /> 当前为 <strong>临时生产入库模式</strong>，录入即直接形成可销售库存。
+          <Egg size={16} /> {t('breeding.currentMode', '当前为')} <strong>{t('breeding.tempProdMode', '临时生产入库模式')}</strong>{t('breeding.tempProdModeDesc', '，录入即直接形成可销售库存。')}
         </div>}
 
       {!isPackagingMode && <>
@@ -207,7 +209,7 @@ export default function DailyInboundPage() {
             fontSize: 12,
             color: "var(--text-secondary)",
             marginBottom: 6
-          }}>生产日期</label>
+          }}>{t('breeding.prodDate', '生产日期')}</label>
               <input type="date" value={eggDate} onChange={e => setEggDate(e.target.value)} className="bg-bg-muted border border-border text-text" style={{
             padding: "7px 10px",
             borderRadius: 7,
@@ -221,8 +223,8 @@ export default function DailyInboundPage() {
             fontSize: 12,
             color: "var(--text-secondary)",
             marginBottom: 6
-          }}>鸡舍（可选·追溯）</label>
-              <input value={houseCode} onChange={e => setHouseCode(e.target.value)} placeholder="如 A001" className="bg-bg-muted border border-border text-text" style={{
+          }}>{t('breeding.houseOptional', '鸡舍（可选·追溯）')}</label>
+              <input value={houseCode} onChange={e => setHouseCode(e.target.value)} placeholder={t('breeding.houseExample', '如 A001')} className="bg-bg-muted border border-border text-text" style={{
             padding: "7px 10px",
             borderRadius: 7,
             fontSize: 13,
@@ -239,7 +241,7 @@ export default function DailyInboundPage() {
           fontSize: 13,
           cursor: "pointer"
         }}>
-              <RefreshCw size={13} /> 刷新模式
+              <RefreshCw size={13} /> {t('breeding.refreshMode', '刷新模式')}
             </button>
             <button onClick={prefillFromDaily} disabled={prefilling} className="bg-bg-muted border border-border text-text-muted" style={{
           display: "flex",
@@ -250,8 +252,8 @@ export default function DailyInboundPage() {
           fontSize: 13,
           cursor: prefilling ? "not-allowed" : "pointer",
           opacity: prefilling ? 0.6 : 1,
-        }} title="从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格">
-              <FileDown size={13} /> {prefilling ? '拉取中...' : '从日报预填'}
+        }} title={t('breeding.prefillTitle', '从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格')}>
+              <FileDown size={13} /> {prefilling ? t('breeding.fetching', '拉取中...') : t('breeding.prefillFromDaily', '从日报预填')}
             </button>
           </div>
 
@@ -265,17 +267,17 @@ export default function DailyInboundPage() {
         background: "var(--bg-muted)",
         border: "1px solid var(--border)"
       }}>
-            <div><span className={u.muted12}>已录等级</span><div style={{
+            <div><span className={u.muted12}>{t('breeding.gradesEntered', '已录等级')}</span><div style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--text-primary)"
           }}>{filledRows} / {productGrades.length}</div></div>
-            <div><span className={u.muted12}>合计入库（枚）</span><div style={{
+            <div><span className={u.muted12}>{t('breeding.totalInboundEa', '合计入库（枚）')}</span><div style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--color-primary)"
           }}>{totalQty.toLocaleString()}</div></div>
-            <div><span className={u.muted12}>合计（提·÷180）</span><div style={{
+            <div><span className={u.muted12}>{t('breeding.totalCrates', '合计（提·÷180）')}</span><div style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--text-primary)"
@@ -298,20 +300,20 @@ export default function DailyInboundPage() {
                 padding: "10px 14px",
                 color: "var(--text-secondary)",
                 fontWeight: 600
-              }}>蛋品等级</th>
+              }}>{t('breeding.eggGrade', '蛋品等级')}</th>
                   <th style={{
                 textAlign: "left",
                 padding: "10px 14px",
                 color: "var(--text-secondary)",
                 fontWeight: 600,
                 width: 110
-              }}>编码</th>
+              }}>{t('breeding.code', '编码')}</th>
                   <th style={{
                 textAlign: "left",
                 padding: "10px 14px",
                 color: "var(--text-secondary)",
                 fontWeight: 600
-              }}>数量（枚）</th>
+              }}>{t('breeding.qtyEa', '数量（枚）')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -320,7 +322,7 @@ export default function DailyInboundPage() {
                     padding: "16px 14px",
                     color: "var(--text-secondary)",
                     fontSize: 13
-                  }}>加载等级主数据中…</td></tr>
+                  }}>{t('breeding.loadingGrades', '加载等级主数据中…')}</td></tr>
                 ) : productGrades.map(g => (
                   <tr key={g.grade_code} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{
@@ -384,13 +386,13 @@ export default function DailyInboundPage() {
         fontWeight: 600,
         cursor: canCreate && !saving ? "pointer" : "not-allowed"
       }}>
-            <Save size={16} /> {saving ? "入库中..." : "确认入库（形成销售库存）"}
+            <Save size={16} /> {saving ? t('breeding.inbounding', '入库中...') : t('breeding.confirmInbound', '确认入库（形成销售库存）')}
           </button>
           {!canCreate && <div style={{
         marginTop: 8,
         fontSize: 12,
         color: "var(--text-secondary)"
-      }}>当前账号无录入权限（需 MENU_PROD_INBOUND 的 C 权限）</div>}
+      }}>{t('breeding.noCreatePerm', '当前账号无录入权限（需 MENU_PROD_INBOUND 的 C 权限）')}</div>}
 
           {/* 入库结果 */}
           {result && <div style={{
@@ -405,18 +407,18 @@ export default function DailyInboundPage() {
           fontWeight: 700,
           color: "var(--status-success)",
           marginBottom: 10
-        }}>✓ 入库成功 · 合计 {result.totalInbound.toLocaleString()} 枚，生成 {result.batches.length} 个可售批次</div>
+        }}>{t('breeding.inboundSuccess', '✓ 入库成功 · 合计')} {result.totalInbound.toLocaleString()} {t('breeding.eaGenerated', '枚，生成')} {result.batches.length} {t('breeding.saleableBatches', '个可售批次')}</div>
               <table className={s.table} style={{ fontSize: 12 }}>
                 <thead><tr className={u.muted}><th style={{
                 textAlign: "left",
                 padding: "4px 8px"
-              }}>批次号</th><th style={{
+              }}>{t('breeding.batchNo', '批次号')}</th><th style={{
                 textAlign: "left",
                 padding: "4px 8px"
-              }}>等级</th><th style={{
+              }}>{t('breeding.grade', '等级')}</th><th style={{
                 textAlign: "left",
                 padding: "4px 8px"
-              }}>数量</th></tr></thead>
+              }}>{t('breeding.qty', '数量')}</th></tr></thead>
                 <tbody>
                   {result.batches.map(b => <tr key={b.batchNo} style={{
               borderTop: "1px solid var(--border)"

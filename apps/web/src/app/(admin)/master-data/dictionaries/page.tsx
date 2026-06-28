@@ -25,6 +25,7 @@ import { Panel, SearchInput } from "@/components/design-system";
 import { dictTypeLabel as typeLabel } from "@/lib/dict-type-labels";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface DictRow {
   id?: number;
@@ -93,6 +94,7 @@ const tok = () => typeof window !== "undefined"
   : "";
 
 export default function MdDictionariesPage() {
+  const { t } = useLanguage();
   const { canView } = usePermission("MENU_SETTINGS_DATA");
   const [items, setItems] = useState<DictRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export default function MdDictionariesPage() {
       const data = await res.json();
       setItems(Array.isArray(data) ? data : data.rows ?? data.data ?? []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t('md.loadFailed', '加载失败'));
     } finally { setLoading(false); }
   }, []);
 
@@ -166,29 +168,29 @@ export default function MdDictionariesPage() {
   }, [filtered]);
 
   if (!canView) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>无权限查看字典中心</div>;
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>{t('md.noPermDict', '无权限查看字典中心')}</div>;
   }
 
   return (
     <div style={{ padding: '24px 32px' }}>
       <PageHeader
-        title="数据字典中心"
-        subtitle="集团业务枚举的统一来源 · 按业务域组织 · 服务全模块表单与流程"
-        breadcrumb={["主数据中心", "数据字典中心"]}
+        title={t('md.dictCenter', '数据字典中心')}
+        subtitle={t('md.dictCenterSub', '集团业务枚举的统一来源 · 按业务域组织 · 服务全模块表单与流程')}
+        breadcrumb={[t('md.center', '主数据中心'), t('md.dictCenter', '数据字典中心')]}
         actions={
           <button onClick={load} disabled={loading} style={secondaryActionButton}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> 刷新
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> {t('md.refresh', '刷新')}
           </button>
         }
       />
 
       {/* ── Phase 1: 5 张运营 KPI ───────────────────────────────── */}
       <div style={kpiGridStyle}>
-        <KpiCard label="字典总数"   value={stats.total}      icon={<BookOpen size={14} />} suffix="条" />
-        <KpiCard label="业务分类"   value={stats.typeCount}  icon={<Layers size={14} />}   suffix="类" />
-        <KpiCard label="启用中"     value={stats.active}     icon={<CheckCircle2 size={14} />} suffix="条" tone="success" />
-        <KpiCard label="停用"       value={stats.inactive}   icon={<Snowflake size={14} />} suffix="条" tone="warning" />
-        <KpiCard label="待审批"     value={stats.pending}    icon={<Clock size={14} />} suffix="条" tone={stats.pending > 0 ? 'warning' : 'default'} />
+        <KpiCard label={t('md.dictTotal', '字典总数')}   value={stats.total}      icon={<BookOpen size={14} />} suffix={t('md.unitItem', '条')} />
+        <KpiCard label={t('md.bizCategory', '业务分类')}   value={stats.typeCount}  icon={<Layers size={14} />}   suffix={t('md.unitCategory', '类')} />
+        <KpiCard label={t('md.activeIng', '启用中')}     value={stats.active}     icon={<CheckCircle2 size={14} />} suffix={t('md.unitItem', '条')} tone="success" />
+        <KpiCard label={t('md.inactive', '停用')}       value={stats.inactive}   icon={<Snowflake size={14} />} suffix={t('md.unitItem', '条')} tone="warning" />
+        <KpiCard label={t('md.pending', '待审批')}     value={stats.pending}    icon={<Clock size={14} />} suffix={t('md.unitItem', '条')} tone={stats.pending > 0 ? 'warning' : 'default'} />
       </div>
 
       {/* ── Phase 2: 业务分类导航 ────────────────────────────────── */}
@@ -197,8 +199,8 @@ export default function MdDictionariesPage() {
           active={activeCategory === ''}
           accent="var(--text-primary)"
           icon={Database}
-          label="全部字典"
-          desc={`覆盖 ${stats.typeCount} 类业务枚举`}
+          label={t('md.allDict', '全部字典')}
+          desc={t('md.allDictDesc', '覆盖 {n} 类业务枚举').replace('{n}', String(stats.typeCount))}
           itemCount={stats.total}
           typeCount={stats.typeCount}
           onClick={() => setActiveCategory('')}
@@ -210,8 +212,8 @@ export default function MdDictionariesPage() {
               active={activeCategory === c.key}
               accent={c.accent}
               icon={c.icon}
-              label={c.label}
-              desc={c.desc}
+              label={t('md.dictCat.' + c.key, c.label)}
+              desc={t('md.dictCatDesc.' + c.key, c.desc)}
               itemCount={stat.items}
               typeCount={stat.types.size}
               onClick={() => setActiveCategory(c.key)}
@@ -224,15 +226,15 @@ export default function MdDictionariesPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{ flex: '0 0 320px' }}>
           <SearchInput value={search} onChange={setSearch}
-            placeholder="搜索字典码 / 中文标签 / 业务名" />
+            placeholder={t('md.searchDictPlaceholder', '搜索字典码 / 中文标签 / 业务名')} />
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          共 <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> 条 ·
-          <strong style={{ color: 'var(--text-primary)', marginLeft: 4 }}>{grouped.length}</strong> 类
+          {t('md.total', '共')} <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> {t('md.unitItem', '条')} ·
+          <strong style={{ color: 'var(--text-primary)', marginLeft: 4 }}>{grouped.length}</strong> {t('md.unitCategory', '类')}
         </div>
         <div style={{ flex: 1 }} />
         <Link href="/settings/dict" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
-          ✎ 编辑字典 →
+          ✎ {t('md.editDict', '编辑字典')} →
         </Link>
       </div>
 
@@ -244,10 +246,10 @@ export default function MdDictionariesPage() {
 
       {/* ── Phase 3: 字典明细分组 ───────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)' }}>{t('md.loadingDots', '加载中...')}</div>
       ) : grouped.length === 0 ? (
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)', border: '1px dashed var(--border)', borderRadius: 8 }}>
-          当前条件下无字典
+          {t('md.noDictUnderFilter', '当前条件下无字典')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -263,16 +265,16 @@ export default function MdDictionariesPage() {
                     <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{type}</code>
                   </span>
                 }
-                extra={<span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length} 项</span>}
+                extra={<span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length} {t('md.unitEntry', '项')}</span>}
                 bodyPadding={false}
               >
                 <table className={s.table}>
                   <thead>
                     <tr style={{ color: 'var(--text-secondary)' }}>
-                      <th style={cellHeadStyle}>编码</th>
-                      <th style={cellHeadStyle}>名称</th>
-                      <th style={{ ...cellHeadStyle, textAlign: 'center', width: 60 }}>排序</th>
-                      <th style={{ ...cellHeadStyle, textAlign: 'center', width: 80 }}>状态</th>
+                      <th style={cellHeadStyle}>{t('md.code', '编码')}</th>
+                      <th style={cellHeadStyle}>{t('md.name', '名称')}</th>
+                      <th style={{ ...cellHeadStyle, textAlign: 'center', width: 60 }}>{t('md.sort', '排序')}</th>
+                      <th style={{ ...cellHeadStyle, textAlign: 'center', width: 80 }}>{t('md.status', '状态')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -284,7 +286,7 @@ export default function MdDictionariesPage() {
                           <td style={{ ...cellStyle, color: 'var(--text-primary)', fontWeight: 500 }}>{r.dict_label_zh ?? '—'}</td>
                           <td style={{ ...cellStyle, textAlign: 'center', color: 'var(--text-secondary)' }}>{r.sort_no ?? 0}</td>
                           <td style={{ ...cellStyle, textAlign: 'center' }}>
-                            <span style={{ padding: '2px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
+                            <span style={{ padding: '2px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{t('md.dictStatus.' + (r.status ?? 'ACTIVE'), st.label)}</span>
                           </td>
                         </tr>
                       );

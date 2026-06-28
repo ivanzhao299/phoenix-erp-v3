@@ -18,6 +18,7 @@ import {
   FileText, ChevronDown, ChevronUp, Loader2,
 } from "lucide-react";
 import FeedbackWidget from "@/components/uat/FeedbackWidget";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -176,6 +177,7 @@ function KpiCard({
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 
 function ScoreGauge({ score, status }: { score: number; status: string }) {
+  const { t } = useLanguage();
   const cls =
     status === "GREEN"  ? "text-emerald-700 bg-emerald-50"  :
     status === "YELLOW" ? "text-yellow-700  bg-yellow-50"   :
@@ -186,7 +188,7 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
       <div className="text-6xl font-black leading-none">{score}</div>
       <div className="text-sm font-medium opacity-70">/ 100</div>
       <div className="mt-1 px-3 py-1 rounded-full bg-bg-card/60 text-sm font-semibold">
-        {STATUS_LABEL[status] ?? status}
+        {t(`pilot.status.${status}`, STATUS_LABEL[status] ?? status)}
       </div>
     </div>
   );
@@ -215,8 +217,9 @@ function DimensionBar({
 // ── Trend Chart ──────────────────────────────────────────────────────────────
 
 function TrendChart({ trend }: { trend: TrendPoint[] }) {
+  const { t } = useLanguage();
   if (!trend.length) {
-    return <div className="text-center text-text-dim text-sm py-6">暂无趋势数据</div>;
+    return <div className="text-center text-text-dim text-sm py-6">{t('pilot.noTrend', '暂无趋势数据')}</div>;
   }
   const maxScore = 100;
   const minScore = 0;
@@ -252,21 +255,22 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
 // ── Daily Reports Table ───────────────────────────────────────────────────────
 
 function DailyReportTable({ reports }: { reports: DailyReport[] }) {
+  const { t } = useLanguage();
   if (!reports.length) {
-    return <div className="text-center text-text-dim text-sm py-6">暂无日报数据</div>;
+    return <div className="text-center text-text-dim text-sm py-6">{t('pilot.noReports', '暂无日报数据')}</div>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border/30 text-xs text-text-dim">
-            <th className="text-left py-2 pr-3 font-medium">日期</th>
-            <th className="text-right py-2 pr-3 font-medium">订单</th>
-            <th className="text-right py-2 pr-3 font-medium">销售额</th>
-            <th className="text-right py-2 pr-3 font-medium">配送</th>
-            <th className="text-right py-2 pr-3 font-medium">退货</th>
-            <th className="text-right py-2 pr-3 font-medium">问题数</th>
-            <th className="text-right py-2 font-medium">综合分</th>
+            <th className="text-left py-2 pr-3 font-medium">{t('pilot.date', '日期')}</th>
+            <th className="text-right py-2 pr-3 font-medium">{t('pilot.orders', '订单')}</th>
+            <th className="text-right py-2 pr-3 font-medium">{t('pilot.salesAmount', '销售额')}</th>
+            <th className="text-right py-2 pr-3 font-medium">{t('pilot.delivery', '配送')}</th>
+            <th className="text-right py-2 pr-3 font-medium">{t('pilot.returns', '退货')}</th>
+            <th className="text-right py-2 pr-3 font-medium">{t('pilot.issueCount', '问题数')}</th>
+            <th className="text-right py-2 font-medium">{t('pilot.compositeScore', '综合分')}</th>
           </tr>
         </thead>
         <tbody>
@@ -301,6 +305,7 @@ function DailyReportTable({ reports }: { reports: DailyReport[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PilotRunPage() {
+  const { t } = useLanguage();
   const [pilotRunId]               = useState(DEFAULT_PILOT_RUN_ID);
   const [dashboard, setDashboard]  = useState<PilotDashboard | null>(null);
   const [reports,   setReports]    = useState<DailyReport[]>([]);
@@ -350,7 +355,7 @@ export default function PilotRunPage() {
       await fetchReports();
       await fetchDashboard();
     } catch (e: any) {
-      alert(`日报生成失败: ${e.message}`);
+      alert(`${t('pilot.reportGenFailed', '日报生成失败')}: ${e.message}`);
     } finally {
       setReporting(false);
     }
@@ -362,7 +367,7 @@ export default function PilotRunPage() {
     return (
       <div className="flex items-center justify-center min-h-96 gap-3 text-text-dim">
         <Loader2 size={20} className="animate-spin" />
-        <span>加载试运行数据…</span>
+        <span>{t('pilot.loading', '加载试运行数据…')}</span>
       </div>
     );
   }
@@ -376,7 +381,7 @@ export default function PilotRunPage() {
           onClick={fetchDashboard}
           className="px-4 py-2 bg-text text-bg-page rounded-lg text-sm hover:opacity-80"
         >
-          重试
+          {t('pilot.retry', '重试')}
         </button>
       </div>
     );
@@ -397,15 +402,15 @@ export default function PilotRunPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Rocket size={20} className="text-violet-500" />
-            <h1 className="text-xl font-bold text-text">试运行执行中心</h1>
+            <h1 className="text-xl font-bold text-text">{t('pilot.title', '试运行执行中心')}</h1>
             <span
               className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLOR[dashboard.scoreStatus]}`}
             >
-              {STATUS_LABEL[dashboard.scoreStatus]}
+              {t(`pilot.status.${dashboard.scoreStatus}`, STATUS_LABEL[dashboard.scoreStatus])}
             </span>
           </div>
           <div className="text-sm text-text-dim">
-            {dashboard.runNo} · {dashboard.siteName} · 已运行 {dashboard.daysRunning} 天（剩余 {dashboard.daysRemaining} 天）
+            {dashboard.runNo} · {dashboard.siteName} · {t('pilot.daysRunning', '已运行')} {dashboard.daysRunning} {t('pilot.daysRemainingLabel', '天（剩余')} {dashboard.daysRemaining} {t('pilot.daysUnit', '天）')}
             &nbsp;|&nbsp; {dashboard.runStartDate} ~ {dashboard.runEndDate}
           </div>
         </div>
@@ -415,7 +420,7 @@ export default function PilotRunPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-muted text-text-muted text-sm hover:bg-bg-muted disabled:opacity-50"
         >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          刷新
+          {t('pilot.refresh', '刷新')}
         </button>
       </div>
 
@@ -423,56 +428,56 @@ export default function PilotRunPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard
           icon={ShoppingCart}
-          label="今日订单"
+          label={t('pilot.kpiTodayOrders', '今日订单')}
           value={dashboard.todayOrderCount}
           color={dashboard.todayOrderCount > 0 ? "text-violet-700" : "text-text-dim"}
         />
         <KpiCard
           icon={TrendingUp}
-          label="今日销售额"
+          label={t('pilot.kpiTodaySales', '今日销售额')}
           value={fmtAmt(dashboard.todaySalesAmount)}
           color={dashboard.todaySalesAmount > 0 ? "text-emerald-700" : "text-text-dim"}
         />
         <KpiCard
           icon={Truck}
-          label="今日配送"
+          label={t('pilot.kpiTodayDelivery', '今日配送')}
           value={dashboard.todayDeliveryCount}
-          sub={`已签收 ${dashboard.todayReceiptCount}`}
+          sub={`${t('pilot.received', '已签收')} ${dashboard.todayReceiptCount}`}
         />
         <KpiCard
           icon={RotateCcw}
-          label="今日退货"
+          label={t('pilot.kpiTodayReturns', '今日退货')}
           value={dashboard.todayReturnCount}
           color={dashboard.todayReturnCount > 0 ? "text-amber-600" : "text-text-dim"}
         />
         <KpiCard
           icon={Wallet}
-          label="今日收款笔数"
+          label={t('pilot.kpiTodayCollection', '今日收款笔数')}
           value={dashboard.todayCollectionCount}
         />
         <KpiCard
           icon={AlertTriangle}
-          label="未解决问题"
+          label={t('pilot.kpiOpenIssues', '未解决问题')}
           value={dashboard.openIssues}
-          sub={dashboard.criticalIssues > 0 ? `含 ${dashboard.criticalIssues} 个 CRITICAL` : undefined}
+          sub={dashboard.criticalIssues > 0 ? `${t('pilot.including', '含')} ${dashboard.criticalIssues} ${t('pilot.criticalCount', '个 CRITICAL')}` : undefined}
           color={dashboard.criticalIssues > 0 ? "text-red-700" : dashboard.openIssues > 0 ? "text-amber-600" : "text-emerald-700"}
         />
         <KpiCard
           icon={CheckCircle2}
-          label="今日已解决"
+          label={t('pilot.kpiResolvedToday', '今日已解决')}
           value={dashboard.resolvedToday}
           color={dashboard.resolvedToday > 0 ? "text-emerald-700" : "text-text-dim"}
         />
         <KpiCard
           icon={PackageCheck}
-          label="今日异常"
+          label={t('pilot.kpiTodayAbnormal', '今日异常')}
           value={dashboard.todayAbnormalCount}
           color={dashboard.todayAbnormalCount > 0 ? "text-red-600" : "text-emerald-700"}
         />
         <KpiCard
           icon={Rocket}
-          label="上线准备度"
-          value={dashboard.goLiveReady ? "✅ 可上线" : `❌ ${dashboard.goLiveBlockers.length} 项阻塞`}
+          label={t('pilot.kpiGoLiveReady', '上线准备度')}
+          value={dashboard.goLiveReady ? t('pilot.canGoLive', '✅ 可上线') : `❌ ${dashboard.goLiveBlockers.length} ${t('pilot.blockersUnit', '项阻塞')}`}
           color={dashboard.goLiveReady ? "text-emerald-700" : "text-red-600"}
         />
       </div>
@@ -482,37 +487,37 @@ export default function PilotRunPage() {
 
         {/* Gauge */}
         <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5">
-          <div className="text-sm font-semibold text-text-muted mb-3">今日综合评分</div>
+          <div className="text-sm font-semibold text-text-muted mb-3">{t('pilot.todayComposite', '今日综合评分')}</div>
           <ScoreGauge score={dashboard.score} status={dashboard.scoreStatus} />
           {dashboard.criticalIssues > 0 && (
             <div className="mt-3 text-xs text-red-600 bg-red-50 rounded-lg p-2 text-center">
-              ⚠ CRITICAL 问题存在，评分上限 70 分
+              {t('pilot.criticalCap', '⚠ CRITICAL 问题存在，评分上限 70 分')}
             </div>
           )}
         </div>
 
         {/* Dimensions */}
         <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5 col-span-2">
-          <div className="text-sm font-semibold text-text-muted mb-4">6 维评分明细</div>
+          <div className="text-sm font-semibold text-text-muted mb-4">{t('pilot.sixDimDetail', '6 维评分明细')}</div>
           <div className="space-y-3">
             {(Object.keys(DIMENSION_LABELS) as (keyof ScoreDimensions)[]).map((key) => (
               <DimensionBar
                 key={key}
-                label={DIMENSION_LABELS[key]}
+                label={t(`pilot.dim.${key}`, DIMENSION_LABELS[key])}
                 score={dims[key]}
                 weight={DIMENSION_WEIGHTS[key]}
               />
             ))}
           </div>
           <div className="mt-4 text-xs text-text-dim">
-            权重：销售25% + 库存20% + 配送20% + 财务15% + 审批10% + 稳定性10%
+            {t('pilot.weightFormula', '权重：销售25% + 库存20% + 配送20% + 财务15% + 审批10% + 稳定性10%')}
           </div>
         </div>
       </div>
 
       {/* ── 7-day Trend ── */}
       <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5">
-        <div className="text-sm font-semibold text-text-muted mb-3">近 7 天评分趋势</div>
+        <div className="text-sm font-semibold text-text-muted mb-3">{t('pilot.trend7d', '近 7 天评分趋势')}</div>
         <TrendChart trend={dashboard.scoreTrend} />
       </div>
 
@@ -525,7 +530,7 @@ export default function PilotRunPage() {
               : <XCircle      size={18} className="text-amber-600"   />
             }
             <span className={`font-semibold text-sm ${dashboard.goLiveReady ? "text-emerald-700" : "text-amber-700"}`}>
-              {dashboard.goLiveReady ? "上线准备度：通过" : `上线准备度：存在 ${dashboard.goLiveBlockers.length} 项阻塞`}
+              {dashboard.goLiveReady ? t('pilot.goLivePass', '上线准备度：通过') : `${t('pilot.goLiveBlockedPrefix', '上线准备度：存在')} ${dashboard.goLiveBlockers.length} ${t('pilot.blockersUnit', '项阻塞')}`}
             </span>
           </div>
           {!dashboard.goLiveReady && (
@@ -534,7 +539,7 @@ export default function PilotRunPage() {
               className="text-amber-600 text-xs flex items-center gap-1 hover:underline"
             >
               {showBlockers ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {showBlockers ? "收起" : "查看详情"}
+              {showBlockers ? t('pilot.collapse', '收起') : t('pilot.viewDetails', '查看详情')}
             </button>
           )}
         </div>
@@ -558,7 +563,7 @@ export default function PilotRunPage() {
             className="flex items-center gap-1.5 text-sm font-semibold text-text hover:text-text"
           >
             <FileText size={16} />
-            日报历史
+            {t('pilot.reportHistory', '日报历史')}
             {showReports ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           <button
@@ -567,17 +572,17 @@ export default function PilotRunPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-medium hover:bg-violet-700 disabled:opacity-50"
           >
             {reporting ? <Loader2 size={13} className="animate-spin" /> : <Clock size={13} />}
-            生成今日日报
+            {t('pilot.genTodayReport', '生成今日日报')}
           </button>
         </div>
         {showReports && <DailyReportTable reports={reports} />}
         {!showReports && reports.length > 0 && (
           <div className="text-xs text-text-dim">
-            共 {reports.length} 条日报，点击"日报历史"展开查看
+            {t('pilot.total', '共')} {reports.length} {t('pilot.reportsExpand', '条日报，点击"日报历史"展开查看')}
           </div>
         )}
         {!showReports && reports.length === 0 && (
-          <div className="text-xs text-text-dim">暂无日报，点击"生成今日日报"创建第一条</div>
+          <div className="text-xs text-text-dim">{t('pilot.noReportsHint', '暂无日报，点击"生成今日日报"创建第一条')}</div>
         )}
       </div>
 

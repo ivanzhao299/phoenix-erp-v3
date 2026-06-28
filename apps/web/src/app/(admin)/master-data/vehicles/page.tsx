@@ -5,39 +5,41 @@ import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRunti
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { vehicleConfig } from "@/components/master-data/detail-configs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * UIX-9A — 车辆中心（接入 MasterDataDetailDrawer）
  */
 export default function VehicleRuntimePage() {
+  const { t } = useLanguage();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title="车辆中心" subtitle="销售/配送车辆 · 利用率 · 关联订单 · 点击车牌查看车辆全景" breadcrumb={["主数据中心", "车辆中心"]} />
+      <PageHeader title={t('md.vehicleCenter', '车辆中心')} subtitle={t('md.vehicleCenterSub', '销售/配送车辆 · 利用率 · 关联订单 · 点击车牌查看车辆全景')} breadcrumb={[t('md.center', '主数据中心'), t('md.vehicleCenter', '车辆中心')]} />
       <MasterDataCenterStrip type="vehicle" />
       <MasterDataRuntimePanel
         type="vehicle"
-        title="车辆"
+        title={t('md.vehicle', '车辆')}
         codeKey="vehicle_no"
         nameKey="vehicle_no"
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
-          { key: "vehicle_no", label: "车辆编号", required: true, readOnlyOnEdit: true },
-          { key: "plate_no", label: "车牌号" },
-          { key: "vehicle_type", label: "车辆类型", type: "select", options: [
-            { value: "TRUCK", label: "卡车" }, { value: "VAN", label: "面包车" },
-            { value: "PICKUP", label: "皮卡" }, { value: "REFRIGERATED", label: "冷藏车" },
+          { key: "vehicle_no", label: t('md.vehicleNo', '车辆编号'), required: true, readOnlyOnEdit: true },
+          { key: "plate_no", label: t('md.plateNo', '车牌号') },
+          { key: "vehicle_type", label: t('md.vehicleType', '车辆类型'), type: "select", options: [
+            { value: "TRUCK", label: t('md.vehTruck', '卡车') }, { value: "VAN", label: t('md.vehVan', '面包车') },
+            { value: "PICKUP", label: t('md.vehPickup', '皮卡') }, { value: "REFRIGERATED", label: t('md.vehRefrigerated', '冷藏车') },
           ] },
-          { key: "capacity", label: "载重（kg）", type: "number" },
-          { key: "company_code", label: "所属公司编码" },
-          { key: "effective_date", label: "生效日期", type: "date" },
-          { key: "expire_date", label: "失效日期", type: "date" },
+          { key: "capacity", label: t('md.capacityKg', '载重（kg）'), type: "number" },
+          { key: "company_code", label: t('md.belongCompanyCode', '所属公司编码') },
+          { key: "effective_date", label: t('md.effectiveDate', '生效日期'), type: "date" },
+          { key: "expire_date", label: t('md.expireDate', '失效日期'), type: "date" },
         ]}
         columns={[
-          { key: "plate_no", label: "车牌" },
-          { key: "vehicle_type", label: "类型" },
-          { key: "capacity", label: "载重" },
-          { key: "company_code", label: "公司" },
+          { key: "plate_no", label: t('md.plate', '车牌') },
+          { key: "vehicle_type", label: t('md.type', '类型') },
+          { key: "capacity", label: t('md.capacity', '载重') },
+          { key: "company_code", label: t('md.company', '公司') },
         ]}
       />
       <MasterDataDetailDrawer

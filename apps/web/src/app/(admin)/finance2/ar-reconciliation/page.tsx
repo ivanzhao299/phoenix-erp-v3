@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { RefreshCw, Scale, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * g199-C AR 三方对账视图
@@ -57,6 +58,7 @@ const todayMonthStart = (() => {
 })();
 
 export default function ArReconciliationPage() {
+  const { t } = useLanguage();
   const { canView } = usePermission('MENU_FIN2_AR_LEDGER');
 
   const [companies, setCompanies] = useState<Array<{ code: string; name: string }>>([]);
@@ -84,14 +86,14 @@ export default function ArReconciliationPage() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!periodDate) { setError('请选期间'); return; }
+    if (!periodDate) { setError(t('fin2.arrecon.select_period','请选期间')); return; }
     setLoading(true); setError('');
     try {
       const qs = new URLSearchParams({ periodDate });
       if (companyCode) qs.set('companyCode', companyCode);
       const d = await request<ReconResp>(`/v2/finance/ar-reconciliation?${qs}`);
       if (!d.success) {
-        setError(d.error || '查询失败'); setRows([]); setTotals(null); setCounts(null);
+        setError(d.error || t('fin2.arrecon.query_failed','查询失败')); setRows([]); setTotals(null); setCounts(null);
       } else {
         setRows(d.rows || []); setTotals(d.totals || null); setCounts(d.counts || null);
       }
@@ -100,15 +102,15 @@ export default function ArReconciliationPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyCode, periodDate]);
+  }, [companyCode, periodDate, t]);
 
   useEffect(() => { if (canView) load(); }, [load, canView]);
 
   if (!canView) {
     return (
       <div style={{ padding: 32 }}>
-        <PageHeader title="应收三方对账" />
-        <div style={{ color: '#ef4444' }}>无权限(需 MENU_FIN2_AR_LEDGER:V)</div>
+        <PageHeader title={t('fin2.arrecon.title','应收三方对账')} />
+        <div style={{ color: '#ef4444' }}>{t('fin2.arrecon.no_perm','无权限(需 MENU_FIN2_AR_LEDGER:V)')}</div>
       </div>
     );
   }
@@ -118,26 +120,26 @@ export default function ArReconciliationPage() {
   return (
     <div className="animate-fade-in" style={{ padding: '24px 32px', maxWidth: 1800 }}>
       <PageHeader
-        title="应收三方对账"
-        subtitle="业务发票 ↔ ERP 应收总账 ↔ 好业财应收 · 按客户+期间对齐 · 差异飘红"
-        breadcrumb={['财务管理', '应收三方对账']}
+        title={t('fin2.arrecon.title','应收三方对账')}
+        subtitle={t('fin2.arrecon.subtitle','业务发票 ↔ ERP 应收总账 ↔ 好业财应收 · 按客户+期间对齐 · 差异飘红')}
+        breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.arrecon.title','应收三方对账')]}
       />
 
       {/* 筛选区 */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'end', margin: '8px 0 16px', flexWrap: 'wrap' }}>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>公司</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t('fin2.common.company','公司')}</label>
           <select
             value={companyCode}
             onChange={e => setCompanyCode(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 220, fontSize: 13 }}
           >
-            <option value="">集团 / 全部允许公司</option>
+            <option value="">{t('fin2.common.group_all_companies','集团 / 全部允许公司')}</option>
             {companies.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>期间(月初)</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t('fin2.arrecon.period_month_start','期间(月初)')}</label>
           {periods.length > 0 ? (
             <select
               value={periodDate}
@@ -160,21 +162,21 @@ export default function ArReconciliationPage() {
           border: 'none', borderRadius: 6, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? '加载中…' : '对账'}
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? t('fin2.common.loading_ellipsis','加载中…') : t('fin2.arrecon.reconcile','对账')}
         </button>
 
         {/* 状态过滤 chips */}
         {counts && (
           <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
             <button onClick={() => setStatusFilter('ALL')}
-              style={chipStyle(statusFilter === 'ALL', '#6b7280')}>全部 {rows.length}</button>
+              style={chipStyle(statusFilter === 'ALL', '#6b7280')}>{t('fin2.arrecon.all','全部')} {rows.length}</button>
             <button onClick={() => setStatusFilter('WARN')}
               style={chipStyle(statusFilter === 'WARN', '#d97706')}>
-              <AlertCircle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />预警 {counts.warn}
+              <AlertCircle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t('fin2.arrecon.warn','预警')} {counts.warn}
             </button>
             <button onClick={() => setStatusFilter('MISMATCH')}
               style={chipStyle(statusFilter === 'MISMATCH', '#dc2626')}>
-              <AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />差异 {counts.mismatch}
+              <AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t('fin2.arrecon.mismatch','差异')} {counts.mismatch}
             </button>
           </div>
         )}
@@ -190,10 +192,10 @@ export default function ArReconciliationPage() {
       {totals && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 16 }}>
           {[
-            { label: '业务发票合计(RMB)', v: totals.invoiceBalance, color: '#0ea5e9', sub: 'fin_ar_invoices.balance_amount_base' },
-            { label: 'ERP 总账合计(RMB)',   v: totals.ledgerClosing,   color: '#059669', sub: 'fin_ar_ledger.closing_amount(_base)' },
-            { label: '好业财合计(RMB)',     v: totals.chanjetEndbalance, color: '#6366f1', sub: 'chanjet_ar_snapshot.endbalance' },
-            { label: '总账 vs 好业财差额',    v: totals.ledgerClosing - totals.chanjetEndbalance, color: '#dc2626', sub: '正数=总账高 / 负数=好业财高' },
+            { label: t('fin2.arrecon.kpi_invoice_total','业务发票合计(RMB)'), v: totals.invoiceBalance, color: '#0ea5e9', sub: 'fin_ar_invoices.balance_amount_base' },
+            { label: t('fin2.arrecon.kpi_ledger_total','ERP 总账合计(RMB)'),   v: totals.ledgerClosing,   color: '#059669', sub: 'fin_ar_ledger.closing_amount(_base)' },
+            { label: t('fin2.arrecon.kpi_chanjet_total','好业财合计(RMB)'),     v: totals.chanjetEndbalance, color: '#6366f1', sub: 'chanjet_ar_snapshot.endbalance' },
+            { label: t('fin2.arrecon.kpi_ledger_vs_chanjet','总账 vs 好业财差额'),    v: totals.ledgerClosing - totals.chanjetEndbalance, color: '#dc2626', sub: t('fin2.arrecon.kpi_diff_hint','正数=总账高 / 负数=好业财高') },
           ].map((k, i) => (
             <div key={i} style={{ padding: '14px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
               <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{k.label}</div>
@@ -209,22 +211,22 @@ export default function ArReconciliationPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead style={{ backgroundColor: '#f9fafb' }}>
             <tr>
-              <th style={th(80)}>状态</th>
-              <th style={th(140, 'left')}>公司</th>
-              <th style={th(220, 'left')}>客户</th>
-              <th style={th(140, 'right')}>① 业务发票<br/><span style={subTh}>(笔)</span></th>
-              <th style={th(140, 'right')}>② ERP 总账<br/><span style={subTh}>(closing)</span></th>
-              <th style={th(140, 'right')}>③ 好业财<br/><span style={subTh}>(endbalance)</span></th>
+              <th style={th(80)}>{t('fin2.common.status','状态')}</th>
+              <th style={th(140, 'left')}>{t('fin2.common.company','公司')}</th>
+              <th style={th(220, 'left')}>{t('fin2.common.customer','客户')}</th>
+              <th style={th(140, 'right')}>{t('fin2.arrecon.col_invoice','① 业务发票')}<br/><span style={subTh}>({t('fin2.common.count_unit','笔')})</span></th>
+              <th style={th(140, 'right')}>{t('fin2.arrecon.col_ledger','② ERP 总账')}<br/><span style={subTh}>(closing)</span></th>
+              <th style={th(140, 'right')}>{t('fin2.arrecon.col_chanjet','③ 好业财')}<br/><span style={subTh}>(endbalance)</span></th>
               <th style={th(110, 'right')}>① − ②</th>
               <th style={th(110, 'right')}>② − ③</th>
-              <th style={th(260, 'left')}>差异原因猜测</th>
+              <th style={th(260, 'left')}>{t('fin2.arrecon.col_diff_reason','差异原因猜测')}</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
-                  {loading ? '加载中…' : '无数据(可能本期还没拉好业财同步,或没业务发票)'}
+                  {loading ? t('fin2.common.loading_ellipsis','加载中…') : t('fin2.arrecon.empty','无数据(可能本期还没拉好业财同步,或没业务发票)')}
                 </td>
               </tr>
             ) : visibleRows.map(r => {
@@ -246,7 +248,7 @@ export default function ArReconciliationPage() {
                   </td>
                   <td style={tdRight()}>
                     <div style={NUM_ALIGN}>{fmt(r.invoiceBalance)}</div>
-                    {r.invoiceCount > 0 && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.invoiceCount} 笔</div>}
+                    {r.invoiceCount > 0 && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.invoiceCount} {t('fin2.common.count_unit','笔')}</div>}
                   </td>
                   <td style={tdRight()}>
                     <div style={NUM_ALIGN}>{fmt(r.ledgerClosing)}</div>
@@ -294,7 +296,7 @@ export default function ArReconciliationPage() {
           {totals && rows.length > 0 && (
             <tfoot>
               <tr style={{ background: '#f3f4f6', fontWeight: 700 }}>
-                <td style={td()} colSpan={3}>合计({rows.length} 行)</td>
+                <td style={td()} colSpan={3}>{t('fin2.arrecon.total_rows','合计')}({rows.length} {t('fin2.arrecon.row_unit','行')})</td>
                 <td style={tdRight()}>{fmt(totals.invoiceBalance)}</td>
                 <td style={tdRight()}>{fmt(totals.ledgerClosing)}</td>
                 <td style={tdRight()}>{fmt(totals.chanjetEndbalance)}</td>
@@ -308,11 +310,11 @@ export default function ArReconciliationPage() {
       </div>
 
       <div style={{ marginTop: 16, padding: 12, background: '#fffbeb', borderRadius: 6, fontSize: 13, color: '#92400e' }}>
-        <strong>对账口径</strong>:
-        ① 业务发票 = <code>fin_ar_invoices</code> 截至期末未取消/未冲销的发票余额(本币累加,客户级)。
-        ② ERP 总账 = <code>fin_ar_ledger.closing_amount(_base)</code>(同公司同客户同期间)。
-        ③ 好业财 = <code>chanjet_ar_snapshot.endbalance</code>(同客户多科目 SUM,本币 RMB)。
-        差异 &gt; 0.01 为预警(WARN),总账 vs 好业财差额 &gt; 100 为重大差异(MISMATCH)。
+        <strong>{t('fin2.arrecon.caliber','对账口径')}</strong>:
+        {t('fin2.arrecon.caliber_invoice_pre','① 业务发票 = ')}<code>fin_ar_invoices</code>{t('fin2.arrecon.caliber_invoice_post',' 截至期末未取消/未冲销的发票余额(本币累加,客户级)。')}
+        {t('fin2.arrecon.caliber_ledger_pre','② ERP 总账 = ')}<code>fin_ar_ledger.closing_amount(_base)</code>{t('fin2.arrecon.caliber_ledger_post','(同公司同客户同期间)。')}
+        {t('fin2.arrecon.caliber_chanjet_pre','③ 好业财 = ')}<code>chanjet_ar_snapshot.endbalance</code>{t('fin2.arrecon.caliber_chanjet_post','(同客户多科目 SUM,本币 RMB)。')}
+        {t('fin2.arrecon.caliber_threshold_a','差异 ')}&gt;{t('fin2.arrecon.caliber_threshold_b',' 0.01 为预警(WARN),总账 vs 好业财差额 ')}&gt;{t('fin2.arrecon.caliber_threshold_c',' 100 为重大差异(MISMATCH)。')}
       </div>
     </div>
   );

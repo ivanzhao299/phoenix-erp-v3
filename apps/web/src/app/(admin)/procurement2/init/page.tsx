@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from '@/contexts/LanguageContext';
 import s from "@/components/ui/admin-ui.module.css";
 import { ModalV2, ConfirmDialogV2, StatusBadge } from "@/components/design-system"; // G160：弹窗/确认框/徽章全局化
 
@@ -65,6 +66,7 @@ export default function InitPage() {
     canDelete
   } = useAuth();
   const toast = useToast();
+  const { t } = useLanguage();
   const canUploadInit = canCreate("MENU_PRC2_INIT");
   const canImportInit = canEdit("MENU_PRC2_INIT");
   const canCancelInit = canDelete("MENU_PRC2_INIT");
@@ -154,7 +156,7 @@ export default function InitPage() {
   // ── 上传并校验 ──────────────────────────────────────────────────────────────
   const handleValidate = async () => {
     if (!uploadFile) {
-      toast.error("请选择 Excel 文件");
+      toast.error(t('prc2.toast_select_excel', '请选择 Excel 文件'));
       return;
     }
     setUploading(true);
@@ -170,7 +172,7 @@ export default function InitPage() {
       });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      toast.success(`校验完成：有效 ${d.validRows} 行，无效 ${d.invalidRows} 行`);
+      toast.success(`${t('prc2.toast_validate_done', '校验完成')}：${t('prc2.valid_label', '有效')} ${d.validRows} ${t('prc2.rows_unit', '行')}，${t('prc2.invalid_label', '无效')} ${d.invalidRows} ${t('prc2.rows_unit', '行')}`);
       setShowUpload(false);
       setUploadFile(null);
       setUploadRemark("");
@@ -216,7 +218,7 @@ export default function InitPage() {
       });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      toast.success(`导入完成：成功 ${d.successRows} 行，失败 ${d.failedRows} 行`);
+      toast.success(`${t('prc2.toast_import_done', '导入完成')}：${t('prc2.success_label', '成功')} ${d.successRows} ${t('prc2.rows_unit', '行')}，${t('prc2.fail_label', '失败')} ${d.failedRows} ${t('prc2.rows_unit', '行')}`);
       void openDetail(detailBatch.id);
       void load();
     } catch (e) {
@@ -234,7 +236,7 @@ export default function InitPage() {
         credentials: "include"
       });
       if (!r.ok) throw new Error(await r.text());
-      toast.success("批次已取消");
+      toast.success(t('prc2.toast_batch_cancelled', '批次已取消'));
       void load();
       if (detailBatch?.id === id) setDetailBatch(null);
     } catch (e) {
@@ -261,7 +263,7 @@ export default function InitPage() {
     maxWidth: 1200
   }}>
       {/* G157：裸 <h2> 页头 → 全局 PageHeader（上传按钮移到 actions） */}
-      <PageHeader title="历史数据初始化" subtitle="采购历史数据批量导入" breadcrumb={["采购管理", "历史初始化"]}
+      <PageHeader title={t('prc2.init_title', '历史数据初始化')} subtitle={t('prc2.init_subtitle', '采购历史数据批量导入')} breadcrumb={[t('prc2.bc_procurement', '采购管理'), t('prc2.bc_history_init', '历史初始化')]}
         actions={canUploadInit && <button onClick={() => setShowUpload(true)} style={{
         padding: "7px 16px",
         background: "var(--color-primary)",
@@ -272,7 +274,7 @@ export default function InitPage() {
         fontSize: 13,
         fontWeight: 600
       }}>
-            + 上传初始化文件
+            + {t('prc2.upload_init_file', '上传初始化文件')}
           </button>} />
 
       {/* 模板下载区 */}
@@ -287,7 +289,7 @@ export default function InitPage() {
         fontSize: 13,
         fontWeight: 600,
         marginBottom: 10
-      }}>下载 Excel 模板</div>
+      }}>{t('prc2.download_excel_template', '下载 Excel 模板')}</div>
         <div style={{
         display: "flex",
         gap: 10,
@@ -301,7 +303,7 @@ export default function InitPage() {
           cursor: "pointer",
           fontSize: 13
         }}>
-              ↓ {label}模板
+              ↓ {label}{t('prc2.template_suffix', '模板')}
             </button>)}
         </div>
       </div>
@@ -324,7 +326,7 @@ export default function InitPage() {
         background: "var(--bg-base)",
         color: "var(--text-primary)"
       }}>
-          <option value="">全部类型</option>
+          <option value="">{t('prc2.filter_all_type', '全部类型')}</option>
           {(Object.entries(BATCH_TYPE_LABELS) as [BatchType, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select value={filterStatus} onChange={e => {
@@ -338,17 +340,17 @@ export default function InitPage() {
         background: "var(--bg-base)",
         color: "var(--text-primary)"
       }}>
-          <option value="">全部状态</option>
-          <option value="DRAFT">草稿</option>
-          <option value="VALIDATED">已校验</option>
-          <option value="IMPORTED">已导入</option>
-          <option value="FAILED">部分失败</option>
-          <option value="CANCELLED">已取消</option>
+          <option value="">{t('prc2.filter_all_status', '全部状态')}</option>
+          <option value="DRAFT">{t('prc2.status_draft', '草稿')}</option>
+          <option value="VALIDATED">{t('prc2.status_validated', '已校验')}</option>
+          <option value="IMPORTED">{t('prc2.status_imported', '已导入')}</option>
+          <option value="FAILED">{t('prc2.status_partial_failed', '部分失败')}</option>
+          <option value="CANCELLED">{t('prc2.status_cancelled', '已取消')}</option>
         </select>
         <input value={keyword} onChange={e => {
         setKeyword(e.target.value);
         setPage(1);
-      }} placeholder="搜索批次号、文件名…" style={{
+      }} placeholder={t('prc2.search_batch_placeholder', '搜索批次号、文件名…')} style={{
         padding: "5px 10px",
         border: "1px solid var(--border)",
         borderRadius: 5,
@@ -366,7 +368,7 @@ export default function InitPage() {
         background: "var(--bg-base)",
         color: "var(--text-primary)"
       }}>
-          刷新
+          {t('prc2.refresh', '刷新')}
         </button>
       </div>
 
@@ -379,27 +381,27 @@ export default function InitPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>批次号</th>
-              <th>类型</th>
-              <th>文件名</th>
-              <th>状态</th>
-              <th className={u.tar}>总行数</th>
-              <th className={u.tar}>成功</th>
-              <th className={u.tar}>失败</th>
-              <th>创建人</th>
-              <th>创建时间</th>
-              <th>操作</th>
+              <th>{t('prc2.batch_no', '批次号')}</th>
+              <th>{t('prc2.type', '类型')}</th>
+              <th>{t('prc2.file_name', '文件名')}</th>
+              <th>{t('prc2.status', '状态')}</th>
+              <th className={u.tar}>{t('prc2.total_rows', '总行数')}</th>
+              <th className={u.tar}>{t('prc2.success_label', '成功')}</th>
+              <th className={u.tar}>{t('prc2.fail_label', '失败')}</th>
+              <th>{t('prc2.created_by', '创建人')}</th>
+              <th>{t('prc2.created_at', '创建时间')}</th>
+              <th>{t('prc2.action', '操作')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && <tr><td colSpan={10} style={{
               textAlign: "center",
               color: "var(--text-secondary)"
-            }}>加载中…</td></tr>}
+            }}>{t('prc2.loading', '加载中…')}</td></tr>}
             {!loading && batches.length === 0 && <tr><td colSpan={10} style={{
               textAlign: "center",
               color: "var(--text-secondary)"
-            }}>暂无数据</td></tr>}
+            }}>{t('prc2.empty_no_data', '暂无数据')}</td></tr>}
             {batches.map(b => <tr key={b.id} className={u.pointer} onClick={() => openDetail(b.id)}>
                 <td>{b.batchNo}</td>
                 <td>{BATCH_TYPE_LABELS[b.batchType] ?? b.batchType}</td>
@@ -439,7 +441,7 @@ export default function InitPage() {
                   cursor: "pointer",
                   background: "transparent"
                 }}>
-                        导入
+                        {t('prc2.import', '导入')}
                       </button>}
                     {canCancelInit && ['DRAFT', 'VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => setCancelConfirmId(b.id)} style={{
                   padding: "3px 8px",
@@ -450,7 +452,7 @@ export default function InitPage() {
                   cursor: "pointer",
                   background: "transparent"
                 }}>
-                        取消
+                        {t('prc2.cancel', '取消')}
                       </button>}
                   </div>
                 </td>
@@ -473,23 +475,23 @@ export default function InitPage() {
         borderRadius: 4,
         cursor: page > 1 ? "pointer" : "default"
       }}>
-            上一页
+            {t('prc2.prev_page', '上一页')}
           </button>
           <span style={{
         lineHeight: "28px"
-      }}>第 {page} 页 / 共 {Math.ceil(total / 20)} 页</span>
+      }}>{t('prc2.page_label', '第')} {page} {t('prc2.page_unit', '页')} / {t('prc2.total_label', '共')} {Math.ceil(total / 20)} {t('prc2.page_unit', '页')}</span>
           <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)} style={{
         padding: "4px 10px",
         border: "1px solid var(--border)",
         borderRadius: 4,
         cursor: page < Math.ceil(total / 20) ? "pointer" : "default"
       }}>
-            下一页
+            {t('prc2.next_page', '下一页')}
           </button>
         </div>}
 
       {/* ── 上传面板（G160：全局 ModalV2） ────────────────────────────────────── */}
-      <ModalV2 open={showUpload} title="上传初始化文件" width={460} onClose={() => {
+      <ModalV2 open={showUpload} title={t('prc2.upload_init_file', '上传初始化文件')} width={460} onClose={() => {
         setShowUpload(false);
         setUploadFile(null);
         setUploadRemark("");
@@ -507,7 +509,7 @@ export default function InitPage() {
         background: "var(--bg-base)",
         color: "var(--text-primary)"
       }}>
-              取消
+              {t('prc2.cancel', '取消')}
             </button>
             <button onClick={handleValidate} disabled={uploading} style={{
         padding: "7px 16px",
@@ -519,7 +521,7 @@ export default function InitPage() {
         fontSize: 13,
         fontWeight: 600
       }}>
-              {uploading ? "校验中…" : "上传并校验"}
+              {uploading ? t('prc2.validating', '校验中…') : t('prc2.upload_and_validate', '上传并校验')}
             </button>
           </>}>
             <div className={u.mb14}>
@@ -527,7 +529,7 @@ export default function InitPage() {
             fontSize: 13,
             display: "block",
             marginBottom: 4
-          }}>初始化类型 *</label>
+          }}>{t('prc2.init_type', '初始化类型')} *</label>
               <select value={uploadType} onChange={e => setUploadType(e.target.value as BatchType)} style={{
             width: "100%",
             padding: "6px 10px",
@@ -546,14 +548,14 @@ export default function InitPage() {
             fontSize: 13,
             display: "block",
             marginBottom: 4
-          }}>Excel 文件 *</label>
+          }}>{t('prc2.excel_file', 'Excel 文件')} *</label>
               <input type="file" ref={fileRef} accept=".xlsx,.xls,.csv" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} className={u.fs13} />
               <div style={{
             fontSize: 11,
             color: "var(--text-secondary)",
             marginTop: 4
           }}>
-                请先下载对应模板，按格式填写后上传。仅支持 .xlsx / .xls / .csv
+                {t('prc2.upload_hint', '请先下载对应模板，按格式填写后上传。仅支持 .xlsx / .xls / .csv')}
               </div>
             </div>
 
@@ -562,8 +564,8 @@ export default function InitPage() {
             fontSize: 13,
             display: "block",
             marginBottom: 4
-          }}>备注</label>
-              <input value={uploadRemark} onChange={e => setUploadRemark(e.target.value)} placeholder="可选备注说明" style={{
+          }}>{t('prc2.remark', '备注')}</label>
+              <input value={uploadRemark} onChange={e => setUploadRemark(e.target.value)} placeholder={t('prc2.remark_placeholder', '可选备注说明')} style={{
             width: "100%",
             padding: "6px 10px",
             border: "1px solid var(--border)",
@@ -582,12 +584,12 @@ export default function InitPage() {
           fontSize: 12,
           color: "var(--text-secondary)"
         }}>
-              上传后仅做格式校验，不写入业务数据。校验通过后可在详情中执行导入。
+              {t('prc2.upload_note', '上传后仅做格式校验，不写入业务数据。校验通过后可在详情中执行导入。')}
             </div>
       </ModalV2>
 
       {/* ── 批次详情（G160：全局 ModalV2） ──────────────────────────────────── */}
-      <ModalV2 open={!!(detailBatch || loadingDetail)} title="批次详情" width={760} onClose={() => setDetailBatch(null)}>
+      <ModalV2 open={!!(detailBatch || loadingDetail)} title={t('prc2.batch_detail', '批次详情')} width={760} onClose={() => setDetailBatch(null)}>
           <div style={{
         display: "flex",
         flexDirection: "column",
@@ -596,7 +598,7 @@ export default function InitPage() {
             {loadingDetail && <div style={{
           color: "var(--text-secondary)",
           fontSize: 13
-        }}>加载中…</div>}
+        }}>{t('prc2.loading', '加载中…')}</div>}
             {detailBatch && !loadingDetail && <>
               {/* 头信息 */}
               <div style={{
@@ -627,15 +629,15 @@ export default function InitPage() {
             gap: 10
           }}>
                 {[{
-              label: "总行数",
+              label: t('prc2.total_rows', '总行数'),
               value: detailBatch.totalRows,
               color: "var(--text-primary)"
             }, {
-              label: "成功/跳过",
+              label: t('prc2.success_skipped', '成功/跳过'),
               value: detailBatch.successRows,
               color: "var(--color-success)"
             }, {
-              label: "失败/无效",
+              label: t('prc2.fail_invalid', '失败/无效'),
               value: detailBatch.failedRows,
               color: "var(--color-danger)"
             }].map(c => <div key={c.label} style={{
@@ -672,7 +674,7 @@ export default function InitPage() {
               fontSize: 13,
               fontWeight: 600
             }}>
-                      {importing ? "导入中…" : "执行导入"}
+                      {importing ? t('prc2.importing', '导入中…') : t('prc2.exec_import', '执行导入')}
                     </button>}
                   {detailBatch.failedRows > 0 && <button onClick={() => loadErrors(detailBatch.id)} style={{
               padding: "7px 14px",
@@ -683,7 +685,7 @@ export default function InitPage() {
               cursor: "pointer",
               fontSize: 13
             }}>
-                      查看错误行 ({detailBatch.failedRows})
+                      {t('prc2.view_error_rows', '查看错误行')} ({detailBatch.failedRows})
                     </button>}
                   {canCancelInit && ['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setCancelConfirmId(detailBatch.id)} style={{
               padding: "7px 14px",
@@ -694,7 +696,7 @@ export default function InitPage() {
               cursor: "pointer",
               fontSize: 13
             }}>
-                      取消批次
+                      {t('prc2.cancel_batch', '取消批次')}
                     </button>}
                 </div>}
 
@@ -704,7 +706,7 @@ export default function InitPage() {
               fontWeight: 600,
               fontSize: 13,
               marginBottom: 8
-            }}>错误行列表</div>
+            }}>{t('prc2.error_row_list', '错误行列表')}</div>
                   <div style={{
               border: "1px solid var(--border)",
               borderRadius: 6,
@@ -713,7 +715,7 @@ export default function InitPage() {
                     <table className={s.table}>
                       <thead>
                         <tr>
-                          {["行号", "状态", "错误信息", "关联单号"].map(h => <th key={h}>{h}</th>)}
+                          {[t('prc2.row_no', '行号'), t('prc2.status', '状态'), t('prc2.error_message', '错误信息'), t('prc2.related_no', '关联单号')].map(h => <th key={h}>{h}</th>)}
                         </tr>
                       </thead>
                       <tbody>
@@ -744,7 +746,7 @@ export default function InitPage() {
               fontSize: 13,
               marginBottom: 8
             }}>
-                  全部行（共 {detailBatch.rows?.length ?? 0} 行）
+                  {t('prc2.all_rows', '全部行')}（{t('prc2.total_label', '共')} {detailBatch.rows?.length ?? 0} {t('prc2.rows_unit', '行')}）
                 </div>
                 <div style={{
               border: "1px solid var(--border)",
@@ -756,7 +758,7 @@ export default function InitPage() {
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        {["行号", "状态", "关联单号", "错误信息"].map(h => <th key={h} style={{
+                        {[t('prc2.row_no', '行号'), t('prc2.status', '状态'), t('prc2.related_no', '关联单号'), t('prc2.error_message', '错误信息')].map(h => <th key={h} style={{
                       position: "sticky",
                       top: 0,
                       zIndex: 1
@@ -794,21 +796,21 @@ export default function InitPage() {
             fontSize: 13,
             color: "var(--text-secondary)"
           }}>
-                  备注：{detailBatch.remark}
+                  {t('prc2.remark', '备注')}：{detailBatch.remark}
                 </div>}
             </>}
           </div>
       </ModalV2>
 
       {/* ── G160：确认框（取代原生 confirm） ──────────────────────────────────── */}
-      <ConfirmDialogV2 open={importConfirmOpen} title="确认执行导入" danger loading={importing}
-        message="确认执行导入？此操作不可撤销，所有有效行将写入业务数据库。"
-        confirmLabel="执行导入" onCancel={() => setImportConfirmOpen(false)} onConfirm={async () => {
+      <ConfirmDialogV2 open={importConfirmOpen} title={t('prc2.confirm_import_title', '确认执行导入')} danger loading={importing}
+        message={t('prc2.confirm_import_msg', '确认执行导入？此操作不可撤销，所有有效行将写入业务数据库。')}
+        confirmLabel={t('prc2.exec_import', '执行导入')} onCancel={() => setImportConfirmOpen(false)} onConfirm={async () => {
           setImportConfirmOpen(false);
           await handleImport();
         }} />
-      <ConfirmDialogV2 open={!!cancelConfirmId} title="确认取消批次" danger
-        message="确认取消该批次？" confirmLabel="取消批次" cancelLabel="返回"
+      <ConfirmDialogV2 open={!!cancelConfirmId} title={t('prc2.confirm_cancel_title', '确认取消批次')} danger
+        message={t('prc2.confirm_cancel_msg', '确认取消该批次？')} confirmLabel={t('prc2.cancel_batch', '取消批次')} cancelLabel={t('prc2.back', '返回')}
         onCancel={() => setCancelConfirmId(null)} onConfirm={async () => {
           const id = cancelConfirmId;
           setCancelConfirmId(null);

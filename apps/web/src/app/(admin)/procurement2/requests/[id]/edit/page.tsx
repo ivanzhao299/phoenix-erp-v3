@@ -4,12 +4,14 @@
 import { use } from "react";
 import PageHeader from "@/components/PageHeader";
 import RequestForm from "../../RequestForm";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function EditRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { t } = useLanguage();
   return (
     <div className="animate-fade-in">
-      <PageHeader title="编辑采购申请" subtitle="修改草稿采购申请内容" breadcrumb={["采购管理", "采购申请", "编辑"]} />
+      <PageHeader title={t('prc2.request_edit_title', '编辑采购申请')} subtitle={t('prc2.request_edit_subtitle', '修改草稿采购申请内容')} breadcrumb={[t('prc2.bc_procurement', '采购管理'), t('prc2.bc_requests', '采购申请'), t('prc2.bc_edit', '编辑')]} />
       <RequestForm requestId={id} />
     </div>
   );

@@ -9,8 +9,11 @@ import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作�
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from '@/contexts/LanguageContext';
 import s from "@/components/ui/admin-ui.module.css";
 import { SupplierSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器（转单弹窗用）
+
+type TFn = (key: string, fallback: string) => string;
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -73,78 +76,86 @@ interface ApprovalCandidate {
 }
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
-const STATUS_MAP: Record<string, {
+function buildStatusMap(t: TFn): Record<string, {
   label: string;
   cls: string;
-}> = {
-  DRAFT: {
-    label: "草稿",
-    cls: "badgeNeutral"
-  },
-  SUBMITTED: {
-    label: "待审批",
-    cls: "badgeInfo"
-  },
-  APPROVED: {
-    label: "已批准",
-    cls: "badgeSuccess"
-  },
-  REJECTED: {
-    label: "已拒绝",
-    cls: "badgeDanger"
-  },
-  CANCELLED: {
-    label: "已取消",
-    cls: "badgeNeutral"
-  },
-  CONVERTED: {
-    label: "已转采购订单",
-    cls: "badgeSuccess"
-  }
-};
-const URGENCY_MAP: Record<string, {
+}> {
+  return {
+    DRAFT: {
+      label: t('prc2.status_draft', "草稿"),
+      cls: "badgeNeutral"
+    },
+    SUBMITTED: {
+      label: t('prc2.status_pending_approval', "待审批"),
+      cls: "badgeInfo"
+    },
+    APPROVED: {
+      label: t('prc2.status_approved', "已批准"),
+      cls: "badgeSuccess"
+    },
+    REJECTED: {
+      label: t('prc2.status_rejected', "已拒绝"),
+      cls: "badgeDanger"
+    },
+    CANCELLED: {
+      label: t('prc2.status_cancelled', "已取消"),
+      cls: "badgeNeutral"
+    },
+    CONVERTED: {
+      label: t('prc2.status_converted', "已转采购订单"),
+      cls: "badgeSuccess"
+    }
+  };
+}
+function buildUrgencyMap(t: TFn): Record<string, {
   label: string;
   cls: string;
-}> = {
-  NORMAL: {
-    label: "普通",
-    cls: "badgeNeutral"
-  },
-  URGENT: {
-    label: "紧急",
-    cls: "badgeWarning"
-  },
-  CRITICAL: {
-    label: "特急",
-    cls: "badgeDanger"
-  }
-};
-const PURCHASE_TYPE_OPTS = [{
-  value: "MATERIAL",
-  label: "原料/物料"
-}, {
-  value: "EQUIPMENT",
-  label: "设备/机械"
-}, {
-  value: "SERVICE",
-  label: "服务/外包"
-}, {
-  value: "FIXED_ASSET",
-  label: "固定资产"
-}, {
-  value: "OTHER",
-  label: "其他"
-}];
-const URGENCY_OPTS = [{
-  value: "NORMAL",
-  label: "普通"
-}, {
-  value: "URGENT",
-  label: "紧急"
-}, {
-  value: "CRITICAL",
-  label: "特急"
-}];
+}> {
+  return {
+    NORMAL: {
+      label: t('prc2.urgency_normal', "普通"),
+      cls: "badgeNeutral"
+    },
+    URGENT: {
+      label: t('prc2.urgency_urgent', "紧急"),
+      cls: "badgeWarning"
+    },
+    CRITICAL: {
+      label: t('prc2.urgency_critical', "特急"),
+      cls: "badgeDanger"
+    }
+  };
+}
+function buildPurchaseTypeOpts(t: TFn) {
+  return [{
+    value: "MATERIAL",
+    label: t('prc2.ptype_material', "原料/物料")
+  }, {
+    value: "EQUIPMENT",
+    label: t('prc2.ptype_equipment', "设备/机械")
+  }, {
+    value: "SERVICE",
+    label: t('prc2.ptype_service', "服务/外包")
+  }, {
+    value: "FIXED_ASSET",
+    label: t('prc2.ptype_fixed_asset', "固定资产")
+  }, {
+    value: "OTHER",
+    label: t('prc2.ptype_other', "其他")
+  }];
+}
+function buildUrgencyOpts(t: TFn) {
+  return [{
+    value: "NORMAL",
+    label: t('prc2.urgency_normal', "普通")
+  }, {
+    value: "URGENT",
+    label: t('prc2.urgency_urgent', "紧急")
+  }, {
+    value: "CRITICAL",
+    label: t('prc2.urgency_critical', "特急")
+  }];
+}
 const API_BASE = "/api/v2/procurement/requests";
 function fmtAmt(v?: number | string, currency = "LAK") {
   if (v === undefined || v === null || v === "") return "—";
@@ -177,6 +188,11 @@ const inlineSelect: React.CSSProperties = {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseRequestsPage() {
   const toast = useToast();
+  const { t } = useLanguage();
+  const STATUS_MAP = buildStatusMap(t);
+  const URGENCY_MAP = buildUrgencyMap(t);
+  const PURCHASE_TYPE_OPTS = buildPurchaseTypeOpts(t);
+  const URGENCY_OPTS = buildUrgencyOpts(t);
   const [data, setData] = useState<PageResult>({
     items: [],
     total: 0,
@@ -242,7 +258,7 @@ export default function PurchaseRequestsPage() {
       if (!res.ok) throw new Error(await res.text());
       setData(await res.json());
     } catch {
-      toast.error("加载失败");
+      toast.error(t('prc2.load_failed', "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -312,13 +328,13 @@ export default function PurchaseRequestsPage() {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "提交失败");
+        throw new Error(e.message ?? t('prc2.submit_failed', "提交失败"));
       }
-      toast.success("已提交审批");
+      toast.success(t('prc2.submitted_approval', "已提交审批"));
       setSubmitOpen(false);
       load(page);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "提交失败");
+      toast.error(e instanceof Error ? e.message : t('prc2.submit_failed', "提交失败"));
     } finally {
       setActionSubmitting(false);
     }
@@ -342,13 +358,13 @@ export default function PurchaseRequestsPage() {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "操作失败");
+        throw new Error(e.message ?? t('prc2.action_failed', "操作失败"));
       }
       toast.success(msg);
       setCancelOpen(false);
       load(page);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t('prc2.action_failed', "操作失败"));
     } finally {
       setActionSubmitting(false);
     }
@@ -370,11 +386,11 @@ export default function PurchaseRequestsPage() {
   async function handleConvert() {
     if (!convertTarget) return;
     if (!convertSupplierCode.trim()) {
-      toast.error("请填写供应商代码");
+      toast.error(t('prc2.please_fill_supplier_code', "请填写供应商代码"));
       return;
     }
     if (!convertSupplierName.trim()) {
-      toast.error("请填写供应商名称");
+      toast.error(t('prc2.please_fill_supplier_name', "请填写供应商名称"));
       return;
     }
     setConvertSubmitting(true);
@@ -394,14 +410,14 @@ export default function PurchaseRequestsPage() {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "转单失败");
+        throw new Error(e.message ?? t('prc2.convert_failed', "转单失败"));
       }
       const po = await res.json();
-      toast.success(`已转采购订单：${po.poNo ?? po.id}`);
+      toast.success(`${t('prc2.converted_to_po_prefix', "已转采购订单：")}${po.poNo ?? po.id}`);
       setConvertOpen(false);
       load(page);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "转单失败");
+      toast.error(e instanceof Error ? e.message : t('prc2.convert_failed', "转单失败"));
     } finally {
       setConvertSubmitting(false);
     }
@@ -410,17 +426,17 @@ export default function PurchaseRequestsPage() {
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
   return <div className="animate-fade-in">
-      <PageHeader title="采购申请" subtitle={`管理所有采购申请 · 共 ${data.total} 条`} breadcrumb={["采购管理", "采购申请"]} actions={<div style={{
+      <PageHeader title={t('prc2.bc_requests', "采购申请")} subtitle={`${t('prc2.subtitle_manage_all', "管理所有采购申请 · 共")} ${data.total} ${t('prc2.unit_rows', "条")}`} breadcrumb={[t('prc2.bc_procurement', "采购管理"), t('prc2.bc_requests', "采购申请")]} actions={<div style={{
       display: "flex",
       gap: 8
     }}>
             <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => load(page)} disabled={loading}>
               <RefreshCw size={14} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('prc2.refresh', "刷新")}
             </button>
             <Link href="/procurement2/requests/new" className={`${s.btnPrimary} ${u.flexRow}`} style={{ textDecoration: "none" }}>
-              <Plus size={14} /> 新建申请
+              <Plus size={14} /> {t('prc2.new_request', "新建申请")}
             </Link>
           </div>} />
 
@@ -432,24 +448,24 @@ export default function PurchaseRequestsPage() {
       flexWrap: "wrap",
       alignItems: "center"
     }}>
-        <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder="关键字（申请号/主题/申请人）" style={inlineInput} />
+        <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder={t('prc2.kw_placeholder', "关键字（申请号/主题/申请人）")} style={inlineInput} />
         <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={inlineSelect}>
-          <option value="">全部状态</option>
+          <option value="">{t('prc2.filter_all_status', "全部状态")}</option>
           {Object.entries(STATUS_MAP).map(([v, o]) => <option key={v} value={v}>{o.label}</option>)}
         </select>
         <select value={fUrgency} onChange={e => setFUrgency(e.target.value)} style={inlineSelect}>
-          <option value="">全部紧急度</option>
+          <option value="">{t('prc2.filter_all_urgency', "全部紧急度")}</option>
           {URGENCY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select value={fType} onChange={e => setFType(e.target.value)} style={inlineSelect}>
-          <option value="">全部类型</option>
+          <option value="">{t('prc2.filter_all_type', "全部类型")}</option>
           {PURCHASE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <span style={{
         fontSize: 12,
         color: "var(--text-secondary)",
         whiteSpace: "nowrap"
-      }}>期望到货：</span>
+      }}>{t('prc2.expected_arrival_colon', "期望到货：")}</span>
         <input type="date" style={{
         ...inlineSelect,
         flex: "0 0 130px"
@@ -471,24 +487,24 @@ export default function PurchaseRequestsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>申请单号</th>
-              <th>主题</th>
-              <th>公司</th>
-              <th>项目</th>
-              <th>类型</th>
-              <th>紧急度</th>
-              <th>申请人</th>
-              <th>预估金额</th>
-              <th className={u.tac}>行数</th>
-              <th>期望到货</th>
-              <th>状态</th>
+              <th>{t('prc2.req_no', "申请单号")}</th>
+              <th>{t('prc2.subject', "主题")}</th>
+              <th>{t('prc2.company', "公司")}</th>
+              <th>{t('prc2.project', "项目")}</th>
+              <th>{t('prc2.type', "类型")}</th>
+              <th>{t('prc2.urgency', "紧急度")}</th>
+              <th>{t('prc2.requester', "申请人")}</th>
+              <th>{t('prc2.estimated_amount', "预估金额")}</th>
+              <th className={u.tac}>{t('prc2.row_count', "行数")}</th>
+              <th>{t('prc2.expected_arrival', "期望到货")}</th>
+              <th>{t('prc2.status', "状态")}</th>
               <th style={{
               width: 160
-            }}>操作</th>
+            }}>{t('prc2.action', "操作")}</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={12} className={u.emptyCenter}>加载中…</td></tr> : data.items.length === 0 ? <tr><td colSpan={12} className={u.emptyCenter}>暂无数据</td></tr> : data.items.map(row => {
+            {loading ? <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.loading', "加载中…")}</td></tr> : data.items.length === 0 ? <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.empty_no_data', "暂无数据")}</td></tr> : data.items.map(row => {
             const st = STATUS_MAP[row.status] ?? {
               label: row.status,
               cls: "badgeNeutral"
@@ -539,14 +555,14 @@ export default function PurchaseRequestsPage() {
                   gap: 4,
                   flexWrap: "wrap"
                 }}>
-                      <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                      <button style={actBtn} onClick={() => openDetail(row)}>{t('prc2.view', "查看")}</button>
                       {row.status === "DRAFT" && <>
-                          <Link href={`/procurement2/requests/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>编辑</Link>
-                          <button style={actBtnTone("success")} onClick={() => openSubmit(row)}>提交审批</button>
+                          <Link href={`/procurement2/requests/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>{t('prc2.edit', "编辑")}</Link>
+                          <button style={actBtnTone("success")} onClick={() => openSubmit(row)}>{t('prc2.submit_approval', "提交审批")}</button>
                         </>}
-                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>取消</button>}
-                      {row.status === "APPROVED" && <button style={actBtnTone("primary")} onClick={() => openConvert(row)}>转采购订单</button>}
+                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title={t('prc2.go_approve_title', "审批请前往『工作流·待办』")}>{t('prc2.go_approve', "前往审批")}</Link>}
+                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>{t('prc2.cancel', "取消")}</button>}
+                      {row.status === "APPROVED" && <button style={actBtnTone("primary")} onClick={() => openConvert(row)}>{t('prc2.convert_to_po', "转采购订单")}</button>}
                     </div>
                   </td>
                 </tr>;
@@ -563,7 +579,7 @@ export default function PurchaseRequestsPage() {
       marginTop: 12,
       justifyContent: "flex-end"
     }}>
-          <span className={u.muted12}>共 {data.total} 条</span>
+          <span className={u.muted12}>{t('prc2.total_prefix', "共")} {data.total} {t('prc2.unit_rows', "条")}</span>
           <button className={s.btnIcon} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
             <ChevronLeft size={14} />
           </button>
@@ -578,35 +594,35 @@ export default function PurchaseRequestsPage() {
         </div>}
 
       {/* ── 详情抽屉 ─────���───────────────────────────────────────────────────── */}
-      <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={detailData ? `申请详情：${detailData.reqNo}` : "详情"} width={660}>
-        {detailLoading ? <div className={u.emptyCenter}>加载中…</div> : detailData ? <div style={{
+      <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={detailData ? `${t('prc2.request_detail_prefix', "申请详情：")}${detailData.reqNo}` : t('prc2.detail', "详情")} width={660}>
+        {detailLoading ? <div className={u.emptyCenter}>{t('prc2.loading', "加载中…")}</div> : detailData ? <div style={{
         padding: "0 4px"
       }}>
-            <div className={s.formSection}>基础信息</div>
+            <div className={s.formSection}>{t('prc2.basic_info', "基础信息")}</div>
             {[{
-          label: "申请单号",
+          label: t('prc2.req_no', "申请单号"),
           value: detailData.reqNo,
           mono: true
         }, {
-          label: "主题",
+          label: t('prc2.subject', "主题"),
           value: detailData.subject
         }, {
-          label: "公司",
+          label: t('prc2.company', "公司"),
           value: `${detailData.companyCode}  ${detailData.companyName ?? ""}`
         }, {
-          label: "项目",
+          label: t('prc2.project', "项目"),
           value: detailData.projectCode ? `${detailData.projectCode} ${detailData.projectName ?? ""}` : "—"
         }, {
-          label: "预估金额",
+          label: t('prc2.estimated_amount', "预估金额"),
           value: fmtAmt(detailData.estimatedAmount, detailData.currencyCode ?? "LAK")
         }, {
-          label: "申请人",
+          label: t('prc2.requester', "申请人"),
           value: detailData.requesterName ?? "—"
         }, {
-          label: "期望到货",
+          label: t('prc2.expected_arrival', "期望到货"),
           value: fmtDate(detailData.expectedDate)
         }, {
-          label: "原因",
+          label: t('prc2.reason', "原因"),
           value: detailData.reason ?? "—"
         }].map(r => <div key={r.label} style={{
           display: "flex",
@@ -646,7 +662,7 @@ export default function PurchaseRequestsPage() {
                 <div className={s.formSection} style={{
             marginTop: 20
           }}>
-                  采购明细（{detailData.items.length} 行）
+                  {t('prc2.purchase_detail', "采购明细")}（{detailData.items.length} {t('prc2.rows_unit', "行")}）
                 </div>
                 <div style={{
             overflowX: "auto",
@@ -656,13 +672,13 @@ export default function PurchaseRequestsPage() {
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        <th>物料名称</th>
-                        <th>规格</th>
-                        <th className={u.tar}>数量</th>
-                        <th>单位</th>
-                        <th className={u.tar}>单价</th>
-                        <th className={u.tar}>小计</th>
-                        <th>仓库</th>
+                        <th>{t('prc2.item_name', "物料名称")}</th>
+                        <th>{t('prc2.spec', "规格")}</th>
+                        <th className={u.tar}>{t('prc2.qty', "数量")}</th>
+                        <th>{t('prc2.unit', "单位")}</th>
+                        <th className={u.tar}>{t('prc2.unit_price', "单价")}</th>
+                        <th className={u.tar}>{t('prc2.subtotal', "小计")}</th>
+                        <th>{t('prc2.warehouse', "仓库")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -695,7 +711,7 @@ export default function PurchaseRequestsPage() {
             {detailData.approvals && detailData.approvals.length > 0 && <>
                 <div className={s.formSection} style={{
             marginTop: 20
-          }}>审批日志</div>
+          }}>{t('prc2.approval_log', "审批日志")}</div>
                 <div style={{
             display: "flex",
             flexDirection: "column",
@@ -708,11 +724,11 @@ export default function PurchaseRequestsPage() {
               border: "1px solid var(--border)"
             }}>
                       <div className={u.flexRow8}>
-                        <span className={`${s.badge} ${s[actionBadgeCls(log.action)]}`}>{actionLabel(log.action)}</span>
+                        <span className={`${s.badge} ${s[actionBadgeCls(log.action)]}`}>{actionLabel(t, log.action)}</span>
                         <span style={{
                   fontWeight: 600,
                   fontSize: 13
-                }}>{log.approverName ?? "系统"}</span>
+                }}>{log.approverName ?? t('prc2.system', "系统")}</span>
                         <span style={{
                   fontSize: 11,
                   color: "var(--text-secondary)",
@@ -739,15 +755,15 @@ export default function PurchaseRequestsPage() {
       {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
 
       {/* ── 提交审批：选择下一审批人 ───────────────────────────────────────── */}
-      <SimpleModal open={submitOpen} onClose={() => setSubmitOpen(false)} title="提交审批 · 选择下一审批人">
+      <SimpleModal open={submitOpen} onClose={() => setSubmitOpen(false)} title={t('prc2.submit_approval_pick_next', "提交审批 · 选择下一审批人")}>
         <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 12 }}>
-          <div>申请：<strong style={{ color: "var(--text-primary)" }}>{submitTarget?.reqNo ?? submitTarget?.subject}</strong></div>
-          <div>候选人已按采购权限、公司/项目数据域过滤。选择后会指定给该审批人；也可按审批规则提交。</div>
+          <div>{t('prc2.request_colon', "申请：")}<strong style={{ color: "var(--text-primary)" }}>{submitTarget?.reqNo ?? submitTarget?.subject}</strong></div>
+          <div>{t('prc2.candidate_filter_note', "候选人已按采购权限、公司/项目数据域过滤。选择后会指定给该审批人；也可按审批规则提交。")}</div>
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>下一审批人</label>
-          {submitCandidateLoading ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>正在加载可审批人员…</div>
-            : submitCandidates.length === 0 ? <div style={{ padding: 18, textAlign: "center", color: "var(--status-warning)", fontSize: 13, lineHeight: 1.7 }}>未找到可指定审批人，可按审批规则提交；若规则也未配置，后端会阻止提交。</div>
+          <label className={s.lbl}>{t('prc2.next_approver', "下一审批人")}</label>
+          {submitCandidateLoading ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>{t('prc2.loading_approvers', "正在加载可审批人员…")}</div>
+            : submitCandidates.length === 0 ? <div style={{ padding: 18, textAlign: "center", color: "var(--status-warning)", fontSize: 13, lineHeight: 1.7 }}>{t('prc2.no_approver_found', "未找到可指定审批人，可按审批规则提交；若规则也未配置，后端会阻止提交。")}</div>
             : <div style={{ display: "grid", gap: 8, maxHeight: 280, overflowY: "auto" }}>
                 {submitCandidates.map(candidate => (
                   <button key={candidate.userId} type="button" onClick={() => setSubmitApproverId(candidate.userId)}
@@ -772,44 +788,44 @@ export default function PurchaseRequestsPage() {
               </div>}
         </div>
         <div className={s.field} style={{ marginTop: 12 }}>
-          <label className={s.lbl}>提交说明</label>
-          <textarea className={s.textarea} rows={3} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder="可填写采购背景、紧急原因或注意事项" />
+          <label className={s.lbl}>{t('prc2.submit_note', "提交说明")}</label>
+          <textarea className={s.textarea} rows={3} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder={t('prc2.submit_note_placeholder', "可填写采购背景、紧急原因或注意事项")} />
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setSubmitOpen(false)}>取消</button>
+          <button type="button" className={s.btnSecondary} onClick={() => setSubmitOpen(false)}>{t('prc2.cancel', "取消")}</button>
           <button type="button" className={s.btnSecondary} disabled={actionSubmitting} onClick={() => handleSubmit(undefined)}>
-            按审批规则提交
+            {t('prc2.submit_by_rule', "按审批规则提交")}
           </button>
           <button type="button" className={s.btnPrimary} disabled={actionSubmitting || !submitApproverId} onClick={() => handleSubmit(submitApproverId)}>
-            {actionSubmitting ? "提交中…" : "提交给所选审批人"}
+            {actionSubmitting ? t('prc2.submitting', "提交中…") : t('prc2.submit_to_selected', "提交给所选审批人")}
           </button>
         </div>
       </SimpleModal>
 
       {/* ── 取消对话框 ─────────────────────────────────────────────────────────── */}
-      <SimpleModal open={cancelOpen} onClose={() => setCancelOpen(false)} title="取消采购申请">
+      <SimpleModal open={cancelOpen} onClose={() => setCancelOpen(false)} title={t('prc2.cancel_request_title', "取消采购申请")}>
         <p style={{
         fontSize: 13,
         margin: "8px 0"
       }}>
-          确认取消 <strong>{actionTarget?.reqNo}</strong>？此操作不可逆。
+          {t('prc2.confirm_cancel_prefix', "确认取消")} <strong>{actionTarget?.reqNo}</strong>{t('prc2.confirm_cancel_suffix', "？此操作不可逆。")}
         </p>
-        <textarea className={s.textarea} rows={2} placeholder="取消原因（可选）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
+        <textarea className={s.textarea} rows={2} placeholder={t('prc2.cancel_reason_placeholder', "取消原因（可选）")} value={actionComment} onChange={e => setActionComment(e.target.value)} />
         <div style={{
         display: "flex",
         gap: 8,
         justifyContent: "flex-end",
         marginTop: 12
       }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setCancelOpen(false)}>取消</button>
-          <button type="button" className={s.btnDanger} disabled={actionSubmitting} onClick={() => execAction("cancel", actionComment, "已取消")}>
-            {actionSubmitting ? "处理中…" : "确认取消"}
+          <button type="button" className={s.btnSecondary} onClick={() => setCancelOpen(false)}>{t('prc2.cancel', "取消")}</button>
+          <button type="button" className={s.btnDanger} disabled={actionSubmitting} onClick={() => execAction("cancel", actionComment, t('prc2.cancelled_done', "已取消"))}>
+            {actionSubmitting ? t('prc2.processing', "处理中…") : t('prc2.confirm_cancel', "确认取消")}
           </button>
         </div>
       </SimpleModal>
 
       {/* ── 转采购订单对话框 ──────────────────────────────────────────────────── */}
-      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title="从采购申请转采购订单">
+      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title={t('prc2.convert_pr_to_po_title', "从采购申请转采购订单")}>
         <p style={{
         fontSize: 13,
         margin: "8px 0 12px",
@@ -827,7 +843,7 @@ export default function PurchaseRequestsPage() {
       }}>
           {/* G95：供应商占整行——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
           <div className={s.field}>
-            <label className={s.lbl}>供应商 *</label>
+            <label className={s.lbl}>{t('prc2.supplier', "供应商")} *</label>
             {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
             <SupplierSelector value={convertSupplierCode} onChange={setConvertSupplierCode} onPick={o => setConvertSupplierName(o?.raw?.name ?? o?.label ?? "")} />
           </div>
@@ -835,21 +851,21 @@ export default function PurchaseRequestsPage() {
           gap: 8
         }}>
             <div className={s.field}>
-              <label className={s.lbl}>期望到货日</label>
+              <label className={s.lbl}>{t('prc2.expected_arrival_date', "期望到货日")}</label>
               <input type="date" className={s.inp} value={convertExpDate} onChange={e => setConvertExpDate(e.target.value)} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>付款截止日</label>
+              <label className={s.lbl}>{t('prc2.pay_deadline', "付款截止日")}</label>
               <input type="date" className={s.inp} value={convertPayDeadline} onChange={e => setConvertPayDeadline(e.target.value)} />
             </div>
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>合同号（可选）</label>
+            <label className={s.lbl}>{t('prc2.contract_no_optional', "合同号（可选）")}</label>
             <input className={s.inp} value={convertContractNo} onChange={e => setConvertContractNo(e.target.value)} placeholder="HT-2026-XXXXX" />
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>备注</label>
-            <textarea className={s.textarea} rows={2} value={convertRemark} onChange={e => setConvertRemark(e.target.value)} placeholder="可选备注" />
+            <label className={s.lbl}>{t('prc2.remark', "备注")}</label>
+            <textarea className={s.textarea} rows={2} value={convertRemark} onChange={e => setConvertRemark(e.target.value)} placeholder={t('prc2.optional_remark', "可选备注")} />
           </div>
         </div>
         <div style={{
@@ -858,9 +874,9 @@ export default function PurchaseRequestsPage() {
         justifyContent: "flex-end",
         marginTop: 14
       }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setConvertOpen(false)}>取消</button>
+          <button type="button" className={s.btnSecondary} onClick={() => setConvertOpen(false)}>{t('prc2.cancel', "取消")}</button>
           <button type="button" className={s.btnPrimary} disabled={convertSubmitting} onClick={handleConvert}>
-            {convertSubmitting ? "处理中…" : "确认转单"}
+            {convertSubmitting ? t('prc2.processing', "处理中…") : t('prc2.confirm_convert', "确认转单")}
           </button>
         </div>
       </SimpleModal>
@@ -870,13 +886,13 @@ export default function PurchaseRequestsPage() {
 // ── 辅助组件 ──────────────────────────────────────────────────────────────────
 // G155：本地手写 SimpleModal 下沉到全局 ModalV2（统一遮罩/头部/关闭/ESC/动画）。
 const SimpleModal = ModalV2;
-function actionLabel(a: string) {
+function actionLabel(t: TFn, a: string) {
   return ({
-    SUBMIT: "提交",
-    APPROVE: "批准",
-    REJECT: "拒绝",
-    CANCEL: "取消",
-    COMMENT: "备注"
+    SUBMIT: t('prc2.act_submit', "提交"),
+    APPROVE: t('prc2.act_approve', "批准"),
+    REJECT: t('prc2.act_reject', "拒绝"),
+    CANCEL: t('prc2.act_cancel', "取消"),
+    COMMENT: t('prc2.act_comment', "备注")
   } as Record<string, string>)[a] ?? a;
 }
 function actionBadgeCls(a: string) {
