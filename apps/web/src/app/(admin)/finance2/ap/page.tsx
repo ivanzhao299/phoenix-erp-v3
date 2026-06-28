@@ -593,10 +593,9 @@ function DetailDrawer({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function Finance2ApPage() {
-  // G23-A：按子 menu 分流
-  //   新建 AP → MENU_FIN2_AP_MASTER:C
-  //   付款记账 → MENU_FIN2_AP_TXN:C（暂未细化付款按钮，保留 master 兼容）
-  const { canCreate: canCreateAp } = usePermission('MENU_FIN2_AP_MASTER');
+  // 对齐后端守卫:fin-ap.controller 所有写操作守卫父码 MENU_FIN2_AP:E,子码 _MASTER 后端从不校验。
+  //   FE 用子码门控会"按钮可见却 403 / 隐藏却放行",故 gate 对齐到父码 MENU_FIN2_AP。
+  const { canCreate: canCreateAp } = usePermission('MENU_FIN2_AP');
   const [records, setRecords] = useState<ApInvoice[]>([]);
   const [summary, setSummary] = useState<ApSummary | null>(null);
   const [total, setTotal] = useState(0);

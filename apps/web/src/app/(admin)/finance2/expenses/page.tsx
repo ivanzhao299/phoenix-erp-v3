@@ -408,9 +408,8 @@ function ExpenseDrawer({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
-  // G23-A：按子 menu 分流
-  //   新建费用申请 → MENU_FIN2_EXPENSE_MASTER:C
-  const { canCreate: canCreateExpense } = usePermission('MENU_FIN2_EXPENSE_MASTER');
+  // 对齐后端守卫:fin-expense.controller 写操作守卫父码 MENU_FIN2_EXPENSE:E,子码 _MASTER 后端不校验。
+  const { canCreate: canCreateExpense } = usePermission('MENU_FIN2_EXPENSE');
   const [items, setItems] = useState<ExpenseRequest[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);

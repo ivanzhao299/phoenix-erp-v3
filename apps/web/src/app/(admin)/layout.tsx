@@ -102,12 +102,10 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/settings/audit-log":           "menu.stg-audit",
   "/settings/system-init":         "menu.stg-init",
   "/settings/brand":               "menu.stg-brand",
-  "/settings/profile":             "menu.stg-profile",
   "/settings/notifications":       "menu.stg-notify",
   "/master-data/products":         "menu.mdc-products",
   "/master-data/stores":           "menu.mdc-stores",
   "/master-data/organizations":    "menu.mdc-orgs",
-  "/master-data/user-orgs":        "menu.mdc-user-orgs",
   "/system/backup":                "menu.sysops-backup",
   "/system/error-logs":            "menu.sysops-errors",
 };

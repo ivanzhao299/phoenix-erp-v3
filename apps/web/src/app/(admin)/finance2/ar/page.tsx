@@ -813,11 +813,11 @@ type TabKey = 'invoices' | 'receipts' | 'aging';
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function Finance2ArPage() {
-  // G23-A：按子 menu 分流（A1 治理）
-  //   新建 AR    → MENU_FIN2_AR_MASTER:C
-  //   录入收款  → MENU_FIN2_AR_TXN:C
-  const { canCreate: canCreateAr }    = usePermission('MENU_FIN2_AR_MASTER');
-  const { canCreate: canCreateArTxn } = usePermission('MENU_FIN2_AR_TXN');
+  // 对齐后端守卫:fin-ar.controller 所有写操作守卫父码 MENU_FIN2_AR(发票/收款均父码),
+  //   子码 _MASTER/_TXN 后端从不校验→FE 子码门控会与实际可达性不一致,故 gate 对齐到父码。
+  //   注:确认收款(confirm)后端要 MENU_FIN2_AR:A,此处按钮仅控"录入"(:C),审批态由后端兜底。
+  const { canCreate: canCreateAr }    = usePermission('MENU_FIN2_AR');
+  const { canCreate: canCreateArTxn } = usePermission('MENU_FIN2_AR');
   const [tab, setTab] = useState<TabKey>('invoices');
 
   // AR 列表

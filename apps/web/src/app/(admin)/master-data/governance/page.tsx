@@ -238,7 +238,6 @@ export default function GovernanceDashboardPage() {
             { href: '/master-data/organizations', label: '组织架构', icon: Network },
             { href: '/master-data/companies', label: '公司档案', icon: Building },
             { href: '/master-data/dictionaries', label: '数据字典', icon: BookOpen },
-            { href: '/master-data/user-orgs', label: '用户组织权限', icon: ShieldCheck },
             { href: '/master-data/pending', label: '主数据待审批', icon: GitPullRequestArrow },
             { href: '/data-quality', label: 'G5 数据质量中心', icon: CheckCircle },
           ].map(l => {
