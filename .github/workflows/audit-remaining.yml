@@ -1,0 +1,61 @@
+name: Audit remaining issues (read-only)
+
+# 一次性只读审计:核对持粗父/旧别名授权的角色 + 其原子子授权情况(治理卫生前置安全检查)。
+# SSH 进生产只跑 SELECT,零写入。取数完即删。
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Audit remaining backlog in prod (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - name: Read-only SELECT via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            echo "===AUDIT_START==="
+            docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            \echo '==== 1) 持 MENU_MASTER_DATA(粗父)的角色 + 其 MENU_MD_* 原子子授权数 ===='
+            SELECT r.role_code, r.role_name_zh,
+                   (SELECT count(*) FROM sys_role_menu_permission p2
+                      JOIN sys_menu m2 ON m2.menu_id=p2.menu_id
+                     WHERE p2.role_id=r.role_id AND m2.menu_code LIKE 'MENU_MD_%') AS atomic_md_children
+            FROM sys_role_menu_permission p
+            JOIN sys_role r ON r.role_id=p.role_id
+            JOIN sys_menu m ON m.menu_id=p.menu_id
+            WHERE m.menu_code='MENU_MASTER_DATA' AND r.role_code <> 'ROLE_ADMIN'
+            ORDER BY r.role_code;
+            \echo ''
+            \echo '==== 2) 持 MENU_SYS_ORG 的角色 + 其 org 原子(MENU_MD_ORG/COMPANY/BUSINESS_UNIT)数 ===='
+            SELECT r.role_code, r.role_name_zh,
+                   (SELECT count(*) FROM sys_role_menu_permission p2
+                      JOIN sys_menu m2 ON m2.menu_id=p2.menu_id
+                     WHERE p2.role_id=r.role_id AND m2.menu_code IN ('MENU_MD_ORG','MENU_MD_COMPANY','MENU_MD_BUSINESS_UNIT')) AS atomic_org_children
+            FROM sys_role_menu_permission p
+            JOIN sys_role r ON r.role_id=p.role_id
+            JOIN sys_menu m ON m.menu_id=p.menu_id
+            WHERE m.menu_code='MENU_SYS_ORG' AND r.role_code <> 'ROLE_ADMIN'
+            ORDER BY r.role_code;
+            \echo ''
+            \echo '==== 3) 持旧别名 MENU_ORG_VIEW / MENU_ORG_MANAGE 的角色(全 dead 码) ===='
+            SELECT m.menu_code, r.role_code, r.role_name_zh, p.perm_codes
+            FROM sys_role_menu_permission p
+            JOIN sys_role r ON r.role_id=p.role_id
+            JOIN sys_menu m ON m.menu_id=p.menu_id
+            WHERE m.menu_code IN ('MENU_ORG_VIEW','MENU_ORG_MANAGE')
+            ORDER BY m.menu_code, r.role_code;
+            SQL
+            echo "===AUDIT_END==="
