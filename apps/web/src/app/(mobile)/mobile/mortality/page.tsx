@@ -122,6 +122,8 @@ export default function MortalityPage() {
   const [elimEdits, setElimEdits] = useState<Record<string, number>>({});
   const [reasonEdits, setReasonEdits] = useState<Record<string, string>>({});
   const [newHouse, setNewHouse] = useState('');
+  // 全部鸡舍（按 DataScope 过滤的真实栋舍，供"添加栋舍"下拉，杜绝手填错码）
+  const [allHouses, setAllHouses] = useState<{ house_code: string; house_name?: string | null }[]>([]);
   const isToday = date === today;
   const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
   const loadData = useCallback(async (d: string) => {
@@ -153,6 +155,11 @@ export default function MortalityPage() {
   useEffect(() => {
     loadData(date);
   }, [date, loadData]);
+  useEffect(() => {
+    mobileApi.getFeedHousesDetail()
+      .then((rows: any) => setAllHouses(Array.isArray(rows) ? rows : (rows?.data ?? [])))
+      .catch(() => {});
+  }, []);
   if (permLoading || !allowed) return null;
   const houseList = [...new Set([...Object.keys(mortEdits), ...Object.keys(elimEdits)])].sort();
   const totalMort = houseList.reduce((s, h) => s + (mortEdits[h] ?? 0), 0);
@@ -541,7 +548,7 @@ export default function MortalityPage() {
           background: t.sectionBg,
           border: `1px dashed ${t.btnBorder}`
         }}>
-              <input type="text" value={newHouse} onChange={e => setNewHouse(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddHouse()} placeholder="添加栋舍（如：7号舍）" style={{
+              <select value={newHouse} onChange={e => setNewHouse(e.target.value)} style={{
             flex: 1,
             height: 36,
             padding: '0 10px',
@@ -551,7 +558,12 @@ export default function MortalityPage() {
             color: t.text,
             fontSize: 13,
             outline: 'none'
-          }} />
+          }}>
+                <option value="">+ 选择要添加的栋舍</option>
+                {allHouses.filter(h => h.house_code && !houseList.includes(h.house_code)).map(h => (
+                  <option key={h.house_code} value={h.house_code}>{h.house_name || h.house_code}</option>
+                ))}
+              </select>
               <button onClick={handleAddHouse} style={{
             padding: '0 14px',
             borderRadius: 8,
