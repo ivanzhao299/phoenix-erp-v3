@@ -120,6 +120,16 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'henreport'
 }, {
+  icon: <Monitor size={28} />,
+  titleZh: '设备监控',
+  titleEn: 'Device Monitor',
+  titleLo: 'ຕິດຕາມອຸປະກອນ',
+  desc: '舍内环境·告警·传感器在线',
+  color: 'var(--status-info)',
+  href: '/mobile/device',
+  soon: false,
+  pageKey: 'device'
+}, {
   // G109 场长建本场鸡舍（卡片仅对有 write 权的角色显示）
   icon: <Warehouse size={28} />,
   titleZh: '鸡舍管理',

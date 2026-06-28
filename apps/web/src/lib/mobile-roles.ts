@@ -253,6 +253,13 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER, R.WMS_MGR, R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.PRC_BUYER, R.PROJECT_MGR, R.FIN_ACCT],
     read:  [R.CEO, R.REGION_MGR, R.FIN_CFO, R.AUDITOR],
   },
+
+  /** 设备监控（只读）：场长/兽医/饲养员/养殖技术员/车间主任(场区经理别名)/管理层 查看本场 IoT 环境与告警。
+   *  真正可见性以 JWT 的 MENU_DEVICE_MONITOR 快照为准（见 PAGE_MENU_PERMS.device），此处仅为无快照兜底。 */
+  device: {
+    write: [],
+    read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.BREEDER, R.PKG_MGR],
+  },
 };
 
 /**
@@ -356,6 +363,10 @@ export const PAGE_MENU_PERMS: Record<string, MobileMenuPermission> = {
   expenses: {
     write: ['MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'],
     read: ['MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'],
+  },
+  device: {
+    write: [],
+    read: ['MENU_DEVICE_MONITOR'],
   },
 };
 
