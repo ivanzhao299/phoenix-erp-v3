@@ -192,6 +192,9 @@ interface KpiData {
       detail?: string;
     }[];
   };
+  /** D2：false=后端已按用户 store/farm 数据域收口（场区/门店视图，非集团口径） */
+  isGroupView?: boolean;
+  scopeCode?: string | null;
 }
 const EMPTY_STATS: NonNullable<KpiData['stats']> = {
   eggs: {
@@ -270,7 +273,7 @@ export default function DashboardKPIs({
           fontSize: 20,
           fontWeight: 800,
           color: 'var(--text-primary)'
-        }}>集团总部经营驾驶舱</h2>
+        }}>{kpi.isGroupView === false ? '本场区/本店经营看板' : '集团总部经营驾驶舱'}</h2>
           <p style={{
           fontSize: 13,
           color: 'var(--text-secondary)',

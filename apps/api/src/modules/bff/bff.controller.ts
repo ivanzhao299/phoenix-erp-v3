@@ -29,27 +29,49 @@ export class DashboardBffController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin';
     const farmKpiCode = isGlobalKpi ? null : userStoreCode;
+    // D2（2026-06-28）：非全局用户（如场区经理）只看本场区/本店数据，绝不显示集团口径。
+    //   商业类 KPI（库存/POS/直销/预警）统一按 store_code 收口；收口只会"收窄"，永不泄漏集团。
+    //   设备/停药等农场域全局查询对受限用户直接跳过（避免跨场泄漏；设备有独立监控页）。
+    const scopeStore: string | null = isGlobalKpi ? null : (userStoreCode || null);
 
     const today = new Date().toISOString().slice(0, 10);
     const safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => { try { return await p; } catch { return fb; } };
 
     const [stockRow] = await safe(
-      this.em.query(`SELECT COALESCE(SUM(qty_available),0)::float8 AS total FROM inv_batches WHERE status='AVAILABLE'`),
+      this.em.query(
+        scopeStore
+          ? `SELECT COALESCE(SUM(qty_available),0)::float8 AS total FROM inv_batches WHERE status='AVAILABLE' AND store_code = $1`
+          : `SELECT COALESCE(SUM(qty_available),0)::float8 AS total FROM inv_batches WHERE status='AVAILABLE'`,
+        scopeStore ? [scopeStore] : [],
+      ),
       [{ total: 0 }],
     );
     const warnRows = await safe(
-      this.em.query(`SELECT batch_no, store_code, status FROM inv_batches WHERE status IN ('EXPIRY_WARN','EXPIRED')`),
+      this.em.query(
+        scopeStore
+          ? `SELECT batch_no, store_code, status FROM inv_batches WHERE status IN ('EXPIRY_WARN','EXPIRED') AND store_code = $1`
+          : `SELECT batch_no, store_code, status FROM inv_batches WHERE status IN ('EXPIRY_WARN','EXPIRED')`,
+        scopeStore ? [scopeStore] : [],
+      ),
       [],
     );
     const recvRows = await safe(
-      this.em.query(`SELECT order_no, store_code FROM store_receiving WHERE status='PENDING'`),
+      this.em.query(
+        scopeStore
+          ? `SELECT order_no, store_code FROM store_receiving WHERE status='PENDING' AND store_code = $1`
+          : `SELECT order_no, store_code FROM store_receiving WHERE status='PENDING'`,
+        scopeStore ? [scopeStore] : [],
+      ),
       [],
     );
     const [todaySales] = await safe(
       this.em.query(
-        `SELECT COALESCE(SUM(net_amount),0)::float8 AS total, COUNT(*)::int AS txns
-           FROM pos_sales WHERE substr(created_at::text,1,10) = $1`,
-        [today],
+        scopeStore
+          ? `SELECT COALESCE(SUM(net_amount),0)::float8 AS total, COUNT(*)::int AS txns
+               FROM pos_sales WHERE substr(created_at::text,1,10) = $1 AND store_code = $2`
+          : `SELECT COALESCE(SUM(net_amount),0)::float8 AS total, COUNT(*)::int AS txns
+               FROM pos_sales WHERE substr(created_at::text,1,10) = $1`,
+        scopeStore ? [today, scopeStore] : [today],
       ),
       [{ total: 0, txns: 0 }],
     );
@@ -57,10 +79,14 @@ export class DashboardBffController {
     // 今日农场直销额（手工录入，来源：ord_orders FARM_SALE）
     const [todayFarmSales] = await safe(
       this.em.query(
-        `SELECT COALESCE(SUM(total_amount),0)::float8 AS total
-           FROM ord_orders
-          WHERE order_type = 'FARM_SALE' AND order_date::text = $1 AND status != 'CANCELLED'`,
-        [today],
+        scopeStore
+          ? `SELECT COALESCE(SUM(total_amount),0)::float8 AS total
+               FROM ord_orders
+              WHERE order_type = 'FARM_SALE' AND order_date::text = $1 AND status != 'CANCELLED' AND store_code = $2`
+          : `SELECT COALESCE(SUM(total_amount),0)::float8 AS total
+               FROM ord_orders
+              WHERE order_type = 'FARM_SALE' AND order_date::text = $1 AND status != 'CANCELLED'`,
+        scopeStore ? [today, scopeStore] : [today],
       ),
       [{ total: 0 }],
     );
@@ -90,8 +116,8 @@ export class DashboardBffController {
     const layingTotal = Number(flockRow?.total) || 0;
     const todayLayRate = layingTotal > 0 ? Number(((todayEggs / layingTotal) * 100).toFixed(1)) : null;
 
-    // 停药期预警
-    const withdrawRows = await safe(
+    // 停药期预警（农场域全局表；受限用户跳过，避免跨场泄漏）
+    const withdrawRows = scopeStore ? [] : await safe(
       this.em.query(
         `SELECT id, batch_no, medicine, farm_house, end_date
            FROM brd_medications
@@ -100,16 +126,16 @@ export class DashboardBffController {
       [],
     );
 
-    // 设备环境快报
-    const [deviceAlertRow] = await safe(
+    // 设备环境快报（全局；受限用户跳过——设备有独立监控页 /breeding/device，避免跨场泄漏）
+    const [deviceAlertRow] = scopeStore ? [{ cnt: 0 }] : await safe(
       this.em.query(`SELECT COUNT(*)::int AS cnt FROM farm_device_alert_event WHERE status IN ('OPEN','CONFIRMED')`),
       [{ cnt: 0 }],
     );
-    const [offlineRow] = await safe(
+    const [offlineRow] = scopeStore ? [{ cnt: 0 }] : await safe(
       this.em.query(`SELECT COUNT(DISTINCT erp_house_code)::int AS cnt FROM farm_device_realtime_snapshot WHERE collect_time < (now() - INTERVAL '10 minutes')`),
       [{ cnt: 0 }],
     );
-    const [hottestRow] = await safe(
+    const [hottestRow] = scopeStore ? [null] : await safe(
       this.em.query(`SELECT erp_house_code, value FROM farm_device_realtime_snapshot WHERE property_code='2001' ORDER BY value DESC NULLS LAST LIMIT 1`),
       [null],
     );
@@ -147,13 +173,18 @@ export class DashboardBffController {
     // 7 天销售趋势（POS 收银，按 DOW）
     const chartRows: any[] = await safe(
       this.em.query(
-        `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
-                COALESCE(SUM(net_amount),0)::float8 AS sales,
-                COUNT(*)::int AS txns
-           FROM pos_sales
-          WHERE substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
-          GROUP BY dow
-          ORDER BY dow`,
+        scopeStore
+          ? `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
+                    COALESCE(SUM(net_amount),0)::float8 AS sales, COUNT(*)::int AS txns
+               FROM pos_sales
+              WHERE substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD') AND store_code = $1
+              GROUP BY dow ORDER BY dow`
+          : `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
+                    COALESCE(SUM(net_amount),0)::float8 AS sales, COUNT(*)::int AS txns
+               FROM pos_sales
+              WHERE substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
+              GROUP BY dow ORDER BY dow`,
+        scopeStore ? [scopeStore] : [],
       ),
       [],
     );
@@ -161,14 +192,18 @@ export class DashboardBffController {
     // 7 天农场直销趋势（按 DOW）
     const farmChartRows: any[] = await safe(
       this.em.query(
-        `SELECT EXTRACT(DOW FROM order_date)::int AS dow,
-                COALESCE(SUM(total_amount),0)::float8 AS sales
-           FROM ord_orders
-          WHERE order_type = 'FARM_SALE'
-            AND order_date >= (CURRENT_DATE - INTERVAL '7 days')
-            AND status != 'CANCELLED'
-          GROUP BY dow
-          ORDER BY dow`,
+        scopeStore
+          ? `SELECT EXTRACT(DOW FROM order_date)::int AS dow, COALESCE(SUM(total_amount),0)::float8 AS sales
+               FROM ord_orders
+              WHERE order_type = 'FARM_SALE' AND order_date >= (CURRENT_DATE - INTERVAL '7 days')
+                AND status != 'CANCELLED' AND store_code = $1
+              GROUP BY dow ORDER BY dow`
+          : `SELECT EXTRACT(DOW FROM order_date)::int AS dow, COALESCE(SUM(total_amount),0)::float8 AS sales
+               FROM ord_orders
+              WHERE order_type = 'FARM_SALE' AND order_date >= (CURRENT_DATE - INTERVAL '7 days')
+                AND status != 'CANCELLED'
+              GROUP BY dow ORDER BY dow`,
+        scopeStore ? [scopeStore] : [],
       ),
       [],
     );
@@ -208,6 +243,9 @@ export class DashboardBffController {
         chartData: mergedChart,
         alertList,
         deviceStats,
+        // D2：标识本次返回是否集团口径（false=已按用户 store/farm 收口），供前端切换标题
+        isGroupView: isGlobalKpi,
+        scopeCode: scopeStore,
         meta: { today, layingTotal, todayEggs, todayLayRate },
       },
     };
