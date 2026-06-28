@@ -29,6 +29,20 @@ jobs:
             echo "===AUDIT_START==="
             # 不设 ON_ERROR_STOP:某表不存在时该条报错但不中断后续探针
             docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            \echo '==== R1) 近 7 天 500/400 真实错误明细(端点 + 类型 + 消息) ===='
+            SELECT http_status, request_method, request_path, error_type,
+                   left(error_message, 90) AS err, count(*) AS n, max(created_at) AS last_at
+            FROM sys_error_logs
+            WHERE http_status IN (500,400) AND created_at >= NOW() - INTERVAL '7 days'
+            GROUP BY http_status, request_method, request_path, error_type, left(error_message,90)
+            ORDER BY n DESC LIMIT 50;
+            \echo ''
+            \echo '==== R2) 近 7 天 500 受影响用户 ===='
+            SELECT request_path, count(*) AS n, count(DISTINCT username) AS users, max(created_at) AS last_at
+            FROM sys_error_logs
+            WHERE http_status = 500 AND created_at >= NOW() - INTERVAL '7 days'
+            GROUP BY request_path ORDER BY n DESC LIMIT 30;
+            \echo ''
             \echo '==== A) 迁移落地状态:最近 30 条已 apply 的 TS 迁移 ===='
             SELECT "timestamp", name FROM migrations ORDER BY "timestamp" DESC LIMIT 30;
             \echo ''
