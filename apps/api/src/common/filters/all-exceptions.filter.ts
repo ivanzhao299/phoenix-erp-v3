@@ -43,7 +43,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const body   = exception.getResponse();
-      // 4xx 不写错误日志，避免噪音
+      // 403(权限拒绝)写错误日志,便于 RBAC 审计("谁在哪个端点被拒")——错误日志页可按 403 过滤排查;
+      //   其余 4xx 不写,避免噪音。
+      if (status === 403) {
+        const msg = typeof body === 'string'
+          ? body
+          : ((body as any)?.message ?? (body as any)?.msg ?? 'Forbidden');
+        this.writeErrorLog({
+          errorType:    'FORBIDDEN',
+          httpStatus:   403,
+          errorMessage: String(msg),
+          req,
+        });
+      }
       return res.status(status).json(
         typeof body === 'string'
           ? { code: status, msg: body }
