@@ -716,6 +716,66 @@ export class WmsService {
     });
   }
 
+  /**
+   * PDA 盘点录入 — 现场操作员逐批扫码盘点，按批次差额即时入账（与入库/出库终端一致：
+   * 写 wms_stocktake(APPROVED, count_type='PDA') + 调整 inv_batches + 写 inv_ledger 守恒流水）。
+   * body: { lines: [{ batch_no, counted_qty }] }
+   * 仅在仓库可写范围内执行（assertWritableWarehouse）；批次不存在/非数则跳过并回报。
+   */
+  async pdaStocktakeCount(body: any, user: any) {
+    const lines: Array<{ batch_no?: string; counted_qty?: number }> = Array.isArray(body?.lines) ? body.lines : [];
+    if (!lines.length) throw new BadRequestException('lines 必填');
+    const op = String(user?.username || user?.userId || 'SYS');
+    const today = new Date().toISOString().slice(0, 10);
+    const stamp = Date.now().toString(36).toUpperCase();
+
+    return await this.em.transaction(async (manager) => {
+      const results: any[] = [];
+      let idx = 0;
+      for (const ln of lines) {
+        const batchNo = String(ln.batch_no || '').trim();
+        const counted = Number(ln.counted_qty);
+        if (!batchNo || !Number.isFinite(counted) || counted < 0) {
+          results.push({ batch_no: batchNo, error: '批次号或盘点数无效' });
+          continue;
+        }
+        const rows = await manager.query(
+          `SELECT qty, warehouse_code, store_code FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
+          [batchNo],
+        );
+        if (!rows.length) { results.push({ batch_no: batchNo, error: '批次不存在' }); continue; }
+        const b = rows[0];
+        this.assertWritableWarehouse(b.warehouse_code, `盘点批次 ${batchNo}`);
+        const sysQty = Math.trunc(Number(b.qty) || 0);
+        const diff = counted - sysQty;
+        const storeCode = b.store_code || 'ALL';
+        const stNo = `ST-${today.replace(/-/g, '')}-${stamp}-${idx++}`;
+
+        await manager.query(
+          `INSERT INTO wms_stocktake
+             (stocktake_no, warehouse_code, item, sys_qty, act_qty, diff_qty, status, auditor, date, count_type, store_code)
+           VALUES ($1,$2,$3,$4::int,$5::int,$6::int,'APPROVED',$7,$8,'PDA',$9)`,
+          [stNo, b.warehouse_code, batchNo, sysQty, counted, diff, op, today, storeCode],
+        );
+
+        if (diff !== 0) {
+          await manager.query(
+            `UPDATE inv_batches SET qty = qty + $1::int, updated_at = now() WHERE batch_no = $2`,
+            [diff, batchNo],
+          );
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+             VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
+            [batchNo, diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN', diff, op, storeCode, stNo,
+             `PDA盘点 sys=${sysQty} act=${counted} diff=${diff}`],
+          );
+        }
+        results.push({ batch_no: batchNo, sys_qty: sysQty, act_qty: counted, diff_qty: diff, stocktake_no: stNo });
+      }
+      return { code: 200, applied: results.filter(r => !r.error).length, results };
+    });
+  }
+
   // ────────────────────────────────────────────────────────────────────────────
   // A5: 损耗审批 (loss approve) — 类似盘点，但永远是减
   // ────────────────────────────────────────────────────────────────────────────

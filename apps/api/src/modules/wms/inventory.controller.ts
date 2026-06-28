@@ -72,6 +72,13 @@ export class InventoryController {
     return await this.wmsService.approveStocktake(body, req.user);
   }
 
+  // PDA 盘点录入（现场逐批扫码盘点，差额即时入账）— 供 /terminal/wms/stocktake 使用
+  @Post('stocktake/pda-count')
+  @RequireMenu('MENU_WMS_INOUT', 'E')
+  async pdaStocktakeCount(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.pdaStocktakeCount(body, req.user);
+  }
+
   // A5: 损耗审批（扣减入账）
   @Post('loss/approve')
   @RequireMenu('MENU_INV_BATCH', 'E')
