@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission"; // M2:crud qa_* 守卫 MENU_QA_OP,按钮同码门控
 import s from "@/components/ui/admin-ui.module.css";
 
 const STATUS_CLS: Record<string,string> = {"PASS":s.badgeSuccess, "FAIL":s.badgeDanger, "PENDING":s.badgeWarning};
@@ -15,6 +16,7 @@ const TABLE="qa_inspections";
 
 export default function Page(){
   const { t } = useLanguage();
+  const { canCreate, canEdit, canDelete } = usePermission('MENU_QA_OP');
 
   const COLUMNS=[
     { key: "inspect_no", title: t("ui.质检单号","质检单号"), width: 150 },
@@ -43,7 +45,7 @@ export default function Page(){
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
         breadcrumb={[t("ui.品质追溯","品质追溯"), t("ui.场端质检","场端质检")]} title={t("ui.场端质检","场端质检")} subtitle={t("ui.场端质检副标题","管理场端质检记录")} />
-    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
+    <DataTable table={TABLE} columns={COLUMNS} onNew={canCreate?oN:undefined} onEdit={canEdit?oE:undefined} onDelete={canDelete?del:undefined} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t("ui.编辑场端质检","编辑场端质检"):t("ui.新增场端质检","新增场端质检")} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
     </RightDrawer>

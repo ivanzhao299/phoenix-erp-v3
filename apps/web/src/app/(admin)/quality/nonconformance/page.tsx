@@ -8,6 +8,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import { UserSelector, BatchSelector } from "@/components/shared-selectors/MasterDataSelectors";
+import { usePermission } from "@/hooks/usePermission"; // M1:新增 NCR 对齐后端 MENU_QA_MGR:C
 import s from "@/components/ui/admin-ui.module.css";
 import u from "@/styles/uix-utils.module.css";
 import {
@@ -62,6 +63,7 @@ const DEF: Form = {
 };
 export default function NonconformancePage() {
   const toast = useToast();
+  const { canCreate } = usePermission('MENU_QA_MGR'); // M1:后端 POST /non-conformances 守卫 MENU_QA_MGR:C
   const {
     t
   } = useLanguage();
@@ -156,9 +158,9 @@ export default function NonconformancePage() {
             <button type="button" onClick={load} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
               <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> {t("common.refresh", "刷新")}
             </button>
-            <button type="button" onClick={() => { setEditing(null); setForm(DEF); setDrawerOpen(true); }} style={{ ...primaryActionButton, background: "var(--status-danger)" }}>
+            {canCreate && <button type="button" onClick={() => { setEditing(null); setForm(DEF); setDrawerOpen(true); }} style={{ ...primaryActionButton, background: "var(--status-danger)" }}>
               <Plus size={14} /> {t("ui.新增NCR", "新增 NCR")}
-            </button>
+            </button>}
           </div>
         }
       />

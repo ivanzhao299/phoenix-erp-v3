@@ -155,6 +155,9 @@ export class GenericCrudController {
     if (table === 'sal_vehicles')            return 'MENU_MD_VEHICLE';
     if (table.startsWith('sal_'))            return null;
     if (table.startsWith('pkg_'))            return 'MENU_PKG_OP';
+    // M2 修:质检记录表(qa_inspections/qa_product_inspections)原无映射→落 null→非管理员恒 403,
+    //   质检员无法管质检记录(页面形同管理员专属)。映射到 MENU_QA_OP,让质检操作角色可用,前端同码门控。
+    if (table.startsWith('qa_'))             return 'MENU_QA_OP';
     // 门店 / POS 业务表（pos_sales/pos_sessions/store_receiving/store_losses/store_replenish_req…）
     //   → 门店工作台菜单；店长持 MENU_STORE_MGR/MENU_POS_STORE，行级 store_code 隔离保证仅本店数据。
     //   修复：原无此映射 → 门店工作台拉 pos_sales/store_receiving 报 403（店长自己工作台报权限错）。

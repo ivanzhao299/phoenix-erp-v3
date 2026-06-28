@@ -35,7 +35,6 @@ interface QuickCard {
   todayCount?: number;
 }
 
-const tok = () => (typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || '');
 
 // G12：所有可能的快捷卡片（与 sidebar menu_code 对齐，按 perm 过滤）
 const ALL_CARDS: QuickCard[] = [
@@ -88,22 +87,12 @@ const ALL_CARDS: QuickCard[] = [
 export default function DailyWorkPage() {
   const { user, hasPermission } = useAuth();
   const router = useRouter();
-  const [stats, setStats] = useState<Record<string, number>>({});
+  // M3:今日统计端点 /api/daily-work/today-stats 不存在(从无后端),原 fetch 恒 404 被吞,
+  //   卡片计数本就一直为空。移除死调用,stats 恒空,卡片优雅无计数(待将来真端点再接)。
+  const [stats] = useState<Record<string, number>>({});
 
   const userName = (user as any)?.realNameZh || (user as any)?.name || '用户';
   const today = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
-
-  // 加载今日统计（容错 — 端点不存在则 0）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/daily-work/today-stats', {
-          headers: { Authorization: `Bearer ${tok()}` },
-        });
-        if (res.ok) setStats(await res.json());
-      } catch { /* noop */ }
-    })();
-  }, []);
 
   // G12 核心：按持权动态生成卡片，附上 today_count
   const visibleCards = useMemo(

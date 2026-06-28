@@ -10,6 +10,7 @@ import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
 import { EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B 统一空状态/加载态
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
+import { usePermission } from '@/hooks/usePermission'; // H1 修:退货页按钮按 MENU_SALES2_RETURN 权限门控
 import { CompanySelector, CustomerSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
@@ -711,6 +712,8 @@ function InspectionDrawer({
 // ── 退货单列表标签 ────────────────────────────────────────────────────────────
 
 function ReturnOrdersTab() {
+  // H1:对齐后端 sales-returns.controller 守卫——创建/提交 :C,审批/驳回/完成 :A,质检/入库 :E
+  const { canCreate, canEdit, canApprove } = usePermission('MENU_SALES2_RETURN');
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -799,7 +802,7 @@ function ReturnOrdersTab() {
           {Object.entries(RETURN_TYPE_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <div className={u.flex1} />
-        <button onClick={() => setShowCreate(true)} style={{
+        {canCreate && <button onClick={() => setShowCreate(true)} style={{
         background: 'var(--color-accent)',
         color: 'var(--text-on-dark)',
         border: 'none',
@@ -809,7 +812,7 @@ function ReturnOrdersTab() {
         fontWeight: 600
       }}>
           + 新建退货单
-        </button>
+        </button>}
       </div>
 
       {error && <div style={{
@@ -871,7 +874,7 @@ function ReturnOrdersTab() {
                 gap: 6,
                 flexWrap: 'wrap'
               }}>
-                    {o.status === 'DRAFT' && <button onClick={() => doAction(o.id, 'submit')} disabled={!!actionLoading} style={{
+                    {o.status === 'DRAFT' && canCreate && <button onClick={() => doAction(o.id, 'submit')} disabled={!!actionLoading} style={{
                   background: 'var(--color-accent)',
                   color: 'var(--text-on-dark)',
                   border: 'none',
@@ -882,7 +885,7 @@ function ReturnOrdersTab() {
                 }}>
                         提交
                       </button>}
-                    {o.status === 'PENDING_APPROVAL' && <>
+                    {o.status === 'PENDING_APPROVAL' && canApprove && <>
                         <button onClick={() => doAction(o.id, 'approve')} disabled={!!actionLoading} style={{
                     background: 'var(--status-success)',
                     color: 'var(--text-on-dark)',
@@ -908,7 +911,7 @@ function ReturnOrdersTab() {
                           拒绝
                         </button>
                       </>}
-                    {o.status === 'INSPECTING' && <button onClick={() => setInspectOrder(o)} disabled={!!actionLoading} style={{
+                    {o.status === 'INSPECTING' && canEdit && <button onClick={() => setInspectOrder(o)} disabled={!!actionLoading} style={{
                   background: 'var(--status-special)',
                   color: 'var(--text-on-dark)',
                   border: 'none',
@@ -919,7 +922,7 @@ function ReturnOrdersTab() {
                 }}>
                         质检录入
                       </button>}
-                    {o.status === 'RESTOCKING' && <button onClick={() => doAction(o.id, 'complete-restock')} disabled={!!actionLoading} style={{
+                    {o.status === 'RESTOCKING' && canEdit && <button onClick={() => doAction(o.id, 'complete-restock')} disabled={!!actionLoading} style={{
                   background: 'var(--color-accent)',
                   color: 'var(--text-on-dark)',
                   border: 'none',
@@ -1135,6 +1138,7 @@ function ReturnOrdersTab() {
 // ── 质检标签 ──────────────────────────────────────────────────────────────────
 
 function InspectionTab() {
+  const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:质检 = complete-inspection :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [inspectOrder, setInspectOrder] = useState<ReturnOrder | null>(null);
@@ -1215,7 +1219,7 @@ function InspectionTab() {
                       <span>申请退货：{item.returned_qty} 件</span>
                     </div>)}
                 </div>
-                <button onClick={() => setInspectOrder(o)} style={{
+                {canEdit && <button onClick={() => setInspectOrder(o)} style={{
           background: 'var(--status-special)',
           color: 'var(--text-on-dark)',
           border: 'none',
@@ -1225,7 +1229,7 @@ function InspectionTab() {
           fontWeight: 600
         }}>
                   开始质检录入
-                </button>
+                </button>}
               </div>)}
           </div>}
       {inspectOrder && <InspectionDrawer order={inspectOrder} onClose={() => setInspectOrder(null)} onDone={() => {
@@ -1238,6 +1242,7 @@ function InspectionTab() {
 // ── 回库标签 ──────────────────────────────────────────────────────────────────
 
 function RestockTab() {
+  const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:完成回库 = complete-restock :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
@@ -1340,7 +1345,7 @@ function RestockTab() {
         }}>
                   📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成应收红字发票
                 </div>
-                <button onClick={() => doRestock(o.id)} disabled={actionLoading === o.id} style={{
+                {canEdit && <button onClick={() => doRestock(o.id)} disabled={actionLoading === o.id} style={{
           background: 'var(--color-accent)',
           color: 'var(--text-on-dark)',
           border: 'none',
@@ -1350,7 +1355,7 @@ function RestockTab() {
           fontWeight: 600
         }}>
                   {actionLoading === o.id ? '处理中...' : '确认回库 & 生成 Credit Note'}
-                </button>
+                </button>}
               </div>)}
           </div>}
     </div>;
