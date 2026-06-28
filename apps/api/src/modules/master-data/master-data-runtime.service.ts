@@ -200,7 +200,8 @@ const TYPES: Record<string, MdTypeConfig> = {
   dict: {
     table: 'sys_dict', codeCol: 'dict_code', nameCol: 'dict_label_zh',
     objectType: 'DICT',  // dict_code 业务约定不走自动编码
-    writableCols: ['dict_code','dict_type','name','dict_label_zh','dict_label_lo','dict_label_en','dict_value','sort_no','config_json','effective_date','expire_date'],
+    noValidityPeriod: true,  // sys_dict 无 effective_date/expire_date 列：listActive 跳过生效期过滤,否则 /dict/active 报 42703 → 400
+    writableCols: ['dict_code','dict_type','name','dict_label_zh','dict_label_lo','dict_label_en','dict_value','sort_no','config_json'],
   },
 };
 
