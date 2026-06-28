@@ -1,7 +1,7 @@
 name: Audit remaining issues (read-only)
 
-# 一次性只读审计:核对 W1–W10 治理 backlog 的真实落地状态 + 近期 403 真实缺口。
-# SSH 进生产只跑 SELECT,零写入。用完即删。
+# 一次性只读审计:核对生产 sys_notifications / sys_dict 实际列(定位 42703 漂移)。
+# SSH 进生产只跑 SELECT,零写入。取数完即删。
 on:
   workflow_dispatch:
 
@@ -27,101 +27,13 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
             echo "===AUDIT_START==="
-            # 不设 ON_ERROR_STOP:某表不存在时该条报错但不中断后续探针
             docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
-            \echo '==== R1) 近 7 天 500/400 真实错误明细(端点 + 类型 + 消息) ===='
-            SELECT http_status, request_method, request_path, error_type,
-                   left(error_message, 90) AS err, count(*) AS n, max(created_at) AS last_at
-            FROM sys_error_logs
-            WHERE http_status IN (500,400) AND created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY http_status, request_method, request_path, error_type, left(error_message,90)
-            ORDER BY n DESC LIMIT 50;
+            \echo '==== sys_notifications 实际列 ===='
+            SELECT column_name, data_type FROM information_schema.columns
+            WHERE table_name='sys_notifications' ORDER BY ordinal_position;
             \echo ''
-            \echo '==== R2) 近 7 天 500 受影响用户 ===='
-            SELECT request_path, count(*) AS n, count(DISTINCT username) AS users, max(created_at) AS last_at
-            FROM sys_error_logs
-            WHERE http_status = 500 AND created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY request_path ORDER BY n DESC LIMIT 30;
-            \echo ''
-            \echo '==== A) 迁移落地状态:最近 30 条已 apply 的 TS 迁移 ===='
-            SELECT "timestamp", name FROM migrations ORDER BY "timestamp" DESC LIMIT 30;
-            \echo ''
-            \echo '==== A2) 关键迁移是否已 apply(本会话 + W1 矩阵) ===='
-            SELECT name FROM migrations
-            WHERE name ILIKE '%GrantDeviceMonitorFactoryMgr%'
-               OR name ILIKE '%RepairRolePermissionMatrixAtomicity%'
-               OR name ILIKE '%SeedMasterDataCenterMenu%'
-               OR name ILIKE '%GrantAllMasterDataAtomicMenus%'
-               OR name ILIKE '%SeedSettings%AtomicMenus%'
-               OR name ILIKE '%SeedWorkflowAtomicMenus%'
-               OR name ILIKE '%SeedOrgDataScopeAtomicMenus%'
-            ORDER BY name;
-            \echo ''
-            \echo '==== B) 设备监控授权(本会话):哪些角色持 MENU_DEVICE_MONITOR ===='
-            SELECT r.role_code, r.role_name_zh, p.perm_codes
-            FROM sys_role_menu_permission p
-            JOIN sys_role r ON r.role_id = p.role_id
-            JOIN sys_menu m ON m.menu_id = p.menu_id
-            WHERE m.menu_code = 'MENU_DEVICE_MONITOR'
-            ORDER BY r.role_code;
-            \echo ''
-            \echo '==== C) W1 残留:非 admin 角色仍直接持「粗父菜单」授权的条数 ===='
-            SELECT m.menu_code, count(*) AS non_admin_grants
-            FROM sys_role_menu_permission p
-            JOIN sys_role r ON r.role_id = p.role_id
-            JOIN sys_menu m ON m.menu_id = p.menu_id
-            WHERE r.role_code <> 'ROLE_ADMIN'
-              AND m.menu_code IN ('MENU_MASTER_DATA','MENU_SYS_ORG','MENU_WORKFLOW',
-                                  'MENU_SETTINGS_IT','MENU_SYS_CONFIG','MENU_SYS_MONITOR')
-            GROUP BY m.menu_code ORDER BY m.menu_code;
-            \echo ''
-            \echo '==== D) W1 原子菜单是否已建齐(应各 1 行) ===='
-            SELECT menu_code FROM sys_menu
-            WHERE menu_code IN ('MENU_WORKFLOW_TODO','MENU_FIN2_DASHBOARD','MENU_PRC2_DASHBOARD',
-                                'MENU_MD_CENTER','MENU_MD_PROJECT','MENU_DEVICE_MONITOR','MENU_ONLINE_USERS')
-            ORDER BY menu_code;
-            \echo ''
-            \echo '==== E) W2 残留:org 旧别名菜单是否仍有授权 ===='
-            SELECT m.menu_code, count(*) AS grants
-            FROM sys_role_menu_permission p
-            JOIN sys_menu m ON m.menu_id = p.menu_id
-            WHERE m.menu_code IN ('MENU_ORG_VIEW','MENU_ORG_MANAGE','MENU_SYS_ORG')
-            GROUP BY m.menu_code ORDER BY m.menu_code;
-            \echo ''
-            \echo '==== F) 真实缺口:近 7 天 全用户 403(按 用户/端点 聚合) ===='
-            SELECT username, request_method, request_path, count(*) AS n, max(created_at) AS last_at
-            FROM sys_error_logs
-            WHERE http_status = 403 AND created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY username, request_method, request_path
-            ORDER BY n DESC LIMIT 60;
-            \echo ''
-            \echo '==== F2) 近 7 天 403 端点 TOP(不分人,看哪些路由最常被拒) ===='
-            SELECT request_method, request_path, count(*) AS n, count(DISTINCT username) AS users
-            FROM sys_error_logs
-            WHERE http_status = 403 AND created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY request_method, request_path
-            ORDER BY n DESC LIMIT 40;
-            \echo ''
-            \echo '==== G) 宋雷 当前授权是否已含设备监控(本会话授权是否生效) ===='
-            SELECT r.role_code, m.menu_code, p.perm_codes
-            FROM sys_user u
-            JOIN sys_user_role ur ON ur.user_id = u.user_id
-            JOIN sys_role r ON r.role_id = ur.role_id
-            JOIN sys_role_menu_permission p ON p.role_id = r.role_id
-            JOIN sys_menu m ON m.menu_id = p.menu_id
-            WHERE u.real_name LIKE '%宋雷%' AND m.menu_code = 'MENU_DEVICE_MONITOR';
-            \echo ''
-            \echo '==== H) W8 线索:支付/门店相关表 + 未决归属上传 ===='
-            SELECT tablename FROM pg_tables
-            WHERE schemaname='public' AND (tablename LIKE '%payment%' OR tablename LIKE 'store_%')
-            ORDER BY tablename;
-            \echo '-- file_metadata 未决归属(owner 空)计数(列名不确定则该条报错可忽略) --'
-            SELECT count(*) AS unresolved_owner FROM file_metadata WHERE owner_user_id IS NULL;
-            \echo ''
-            \echo '==== I) 错误日志总体:近 7 天 按状态码分布(确认 403 记录确已生效) ===='
-            SELECT http_status, count(*) AS n
-            FROM sys_error_logs
-            WHERE created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY http_status ORDER BY n DESC;
+            \echo '==== sys_dict 实际列 ===='
+            SELECT column_name, data_type FROM information_schema.columns
+            WHERE table_name='sys_dict' ORDER BY ordinal_position;
             SQL
             echo "===AUDIT_END==="
