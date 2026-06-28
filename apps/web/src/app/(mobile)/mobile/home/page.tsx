@@ -460,7 +460,7 @@ export default function MobileHomePage() {
       gap: 12,
       alignContent: 'start'
     }}>
-        {visibleCards.map((card, idx) => <button key={idx} onClick={() => handleCardClick(card)} disabled={card.soon} className="mobile-card-in" style={{
+        {visibleCards.map((card, idx) => <button key={card.pageKey || card.href || idx} onClick={() => handleCardClick(card)} disabled={card.soon} className="mobile-card-in" style={{
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',

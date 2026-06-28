@@ -264,16 +264,14 @@ export default function EggPage() {
         )}
       </div>
 
-      {/* Tab 切换 */}
+      {/* Tab 切换（R1：鸡蛋库存已由库存来源模式统一管理，入库/出库入口冻结，本页仅供查询） */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(1,1fr)',
         background: t.appBarBg,
         borderBottom: `1px solid ${t.barBorder}`,
       }}>
         {([
-          { key: 'stock',    label: '库存', icon: <Package size={14} /> },
-          { key: 'inbound',  label: '入库', icon: <TrendingUp size={14} /> },
-          { key: 'outbound', label: '出库', icon: <TrendingDown size={14} /> },
+          { key: 'stock',    label: '库存查询', icon: <Package size={14} /> },
         ] as const).map(tab_ => (
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{

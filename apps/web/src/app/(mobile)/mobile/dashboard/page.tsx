@@ -280,9 +280,13 @@ export default function MobileDashboardPage() {
   const showDelivery = hasPermission('MENU_MOBILE_DELIVERY', 'V') || hasPermission('MENU_SALES2_DELIVERY', 'V');
 
   // ── SWR 数据加载（null key = 跳过 fetch，不消耗网络）───────────────────────
+  // 移动端优化：关闭聚焦自动重拉（避免每次切回 App 都刷 8 个端点，省流量/电量；
+  //   用户可用顶部刷新按钮主动刷）；断网恢复后重拉；保留上一份数据避免切日期闪骨架。
   const swrOpts = {
-    revalidateOnFocus: true,
-    dedupingInterval: 5_000
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    keepPreviousData: true,
+    dedupingInterval: 30_000,
   };
   const {
     data: kpiData,
