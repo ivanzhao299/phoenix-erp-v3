@@ -118,8 +118,10 @@ export default function InventoryAnalyticsPage() {
     setLoading(true);
     setError("");
     try {
+      // 修复 404：原 /api/wms/batches 路由不存在；真实库存批次端点为 /api/inventory/batches
+      //   （MENU_WMS_VIEW:V 守卫，{code,data} 形）。
       const raw = await apiFetch<BatchResponse | Batch[]>(
-        "/api/wms/batches?limit=100"
+        "/api/inventory/batches"
       );
       let list: Batch[] = [];
       if (Array.isArray(raw)) {

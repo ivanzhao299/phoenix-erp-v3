@@ -291,6 +291,12 @@ function BatchesTab() {
     }
   };
   const handleCreate = async () => {
+    // 数量必须为正整数（防止 -2 等负数/0 提交；后端亦校验，前端先拦更友好）
+    const qtyNum = Number(form.qty);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0 || !Number.isInteger(qtyNum)) {
+      setCreateErr('数量（枚）必须为大于 0 的整数');
+      return;
+    }
     setCreating(true);
     setCreateErr('');
     try {
@@ -416,7 +422,7 @@ function BatchesTab() {
           fontSize: 13
         }}>
                 {label}
-                <input type={type} value={(form as any)[key]} disabled={!!form.skuCode && ['productCode', 'packagingSpec'].includes(key)} onChange={e => setForm(p => ({
+                <input type={type} min={type === 'number' ? 1 : undefined} value={(form as any)[key]} disabled={!!form.skuCode && ['productCode', 'packagingSpec'].includes(key)} onChange={e => setForm(p => ({
             ...p,
             [key]: e.target.value
           }))} style={{
