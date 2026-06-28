@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Package, Truck, Users, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function FeedAnalyticsPage() {
+  const { t } = useLanguage();
   const [records, setRecords] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +116,7 @@ export default function FeedAnalyticsPage() {
       }
       setRecords(list);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -144,8 +146,8 @@ export default function FeedAnalyticsPage() {
   return (
     <div>
       <PageHeader
-        title="饲料采购分析"
-        subtitle="采购到货统计 · 饲料品类分布 · 供应商分析"
+        title={t("analytics.feed_title", "饲料采购分析")}
+        subtitle={t("analytics.feed_subtitle", "采购到货统计 · 饲料品类分布 · 供应商分析")}
         actions={
           <button
             onClick={() => void load()}
@@ -153,7 +155,7 @@ export default function FeedAnalyticsPage() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            刷新
+            {t("analytics.refresh", "刷新")}
           </button>
         }
       />
@@ -170,7 +172,7 @@ export default function FeedAnalyticsPage() {
       {loading && !error && (
         <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
-          加载中…
+          {t("analytics.loading", "加载中…")}
         </div>
       )}
 
@@ -180,23 +182,23 @@ export default function FeedAnalyticsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <StatCard
               icon={Package}
-              title="本月到货批次"
+              title={t("analytics.feed_month_batches", "本月到货批次")}
               value={monthBatches}
-              sub="批"
+              sub={t("analytics.unit_batch", "批")}
               color="var(--color-accent)"
             />
             <StatCard
               icon={Truck}
-              title="本月到货总重量"
+              title={t("analytics.feed_month_weight", "本月到货总重量")}
               value={`${fmtNum(monthWeight)} kg`}
-              sub="净重合计"
+              sub={t("analytics.feed_net_weight_total", "净重合计")}
               color="var(--status-success)"
             />
             <StatCard
               icon={Users}
-              title="供应商数量"
+              title={t("analytics.feed_supplier_count", "供应商数量")}
               value={supplierCount}
-              sub="家（全部记录）"
+              sub={t("analytics.feed_supplier_count_sub", "家（全部记录）")}
               color="var(--status-warning)"
             />
           </div>
@@ -205,21 +207,21 @@ export default function FeedAnalyticsPage() {
           <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <span className="font-semibold text-sm text-text-muted">
-                最近到货记录
+                {t("analytics.feed_recent_receipts", "最近到货记录")}
               </span>
             </div>
             {recent.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">{t("analytics.no_data", "暂无数据")}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-text-muted border-b border-border">
-                      <th className="text-left px-5 py-3 font-medium">日期</th>
-                      <th className="text-left px-5 py-3 font-medium">供应商</th>
-                      <th className="text-left px-5 py-3 font-medium">饲料品类</th>
-                      <th className="text-right px-5 py-3 font-medium">重量（kg）</th>
-                      <th className="text-right px-5 py-3 font-medium">金额</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_date", "日期")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_supplier", "供应商")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_feed_category", "饲料品类")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_weight_kg", "重量（kg）")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_amount", "金额")}</th>
                     </tr>
                   </thead>
                   <tbody>

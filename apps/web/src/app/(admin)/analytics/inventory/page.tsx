@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function InventoryAnalyticsPage() {
+  const { t } = useLanguage();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -131,7 +133,7 @@ export default function InventoryAnalyticsPage() {
       }
       setBatches(list);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -171,8 +173,8 @@ export default function InventoryAnalyticsPage() {
   return (
     <div>
       <PageHeader
-        title="库存周转分析"
-        subtitle="批次库存概览 · 等级分布 · 临期预警"
+        title={t("analytics.inventory_title", "库存周转分析")}
+        subtitle={t("analytics.inventory_subtitle", "批次库存概览 · 等级分布 · 临期预警")}
         actions={
           <button
             onClick={() => void load()}
@@ -180,7 +182,7 @@ export default function InventoryAnalyticsPage() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            刷新
+            {t("analytics.refresh", "刷新")}
           </button>
         }
       />
@@ -197,7 +199,7 @@ export default function InventoryAnalyticsPage() {
       {loading && !error && (
         <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
-          加载中…
+          {t("analytics.loading", "加载中…")}
         </div>
       )}
 
@@ -207,23 +209,23 @@ export default function InventoryAnalyticsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <StatCard
               icon={Layers}
-              title="活跃批次数"
+              title={t("analytics.inventory_active_batches", "活跃批次数")}
               value={activeBatches.length}
-              sub="批"
+              sub={t("analytics.unit_batch", "批")}
               color="var(--color-accent)"
             />
             <StatCard
               icon={BarChart2}
-              title="总库存量"
+              title={t("analytics.inventory_total_qty", "总库存量")}
               value={`${fmtNum(totalQty)} kg`}
-              sub="所有批次合计"
+              sub={t("analytics.inventory_all_batches_total", "所有批次合计")}
               color="var(--status-success)"
             />
             <StatCard
               icon={AlertTriangle}
-              title="临期批次"
+              title={t("analytics.inventory_expiring_batches", "临期批次")}
               value={expiringBatches.length}
-              sub="剩余天数 < 7 天"
+              sub={t("analytics.inventory_remaining_days_lt7", "剩余天数 < 7 天")}
               color="var(--status-danger)"
             />
           </div>
@@ -231,7 +233,7 @@ export default function InventoryAnalyticsPage() {
           {/* 等级分布 */}
           <div className="rounded-2xl border bg-bg-card border-border shadow-sm mb-6 p-5">
             <div className="font-semibold text-sm text-text-muted mb-4">
-              等级分布
+              {t("analytics.inventory_grade_dist", "等级分布")}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {(["AA", "A", "B", "C"] as const).map((g) => (
@@ -247,9 +249,9 @@ export default function InventoryAnalyticsPage() {
                     {gradeMap[g]}
                   </div>
                   <div className="text-xs font-semibold" style={{ color: GRADE_COLORS[g] }}>
-                    {g} 级
+                    {g} {t("analytics.grade_suffix", "级")}
                   </div>
-                  <div className="text-xs text-text-dim mt-0.5">批次</div>
+                  <div className="text-xs text-text-dim mt-0.5">{t("analytics.unit_batches", "批次")}</div>
                 </div>
               ))}
             </div>
@@ -259,22 +261,22 @@ export default function InventoryAnalyticsPage() {
           <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <span className="font-semibold text-sm text-text-muted">
-                最近批次记录
+                {t("analytics.inventory_recent_batches", "最近批次记录")}
               </span>
             </div>
             {recent.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">{t("analytics.no_data", "暂无数据")}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-text-muted border-b border-border">
-                      <th className="text-left px-5 py-3 font-medium">批次号</th>
-                      <th className="text-left px-5 py-3 font-medium">等级</th>
-                      <th className="text-right px-5 py-3 font-medium">库存量（kg）</th>
-                      <th className="text-left px-5 py-3 font-medium">入库日期</th>
-                      <th className="text-left px-5 py-3 font-medium">来源鸡舍</th>
-                      <th className="text-left px-5 py-3 font-medium">状态</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_batch_no", "批次号")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_grade", "等级")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_stock_qty_kg", "库存量（kg）")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_inbound_date", "入库日期")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_source_house", "来源鸡舍")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_status", "状态")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -311,7 +313,7 @@ export default function InventoryAnalyticsPage() {
                           <td className="px-5 py-3">
                             {days !== null && days < 7 ? (
                               <span className="text-xs font-semibold text-red-500 bg-danger/10 px-2 py-0.5 rounded-full">
-                                临期 ({days}天)
+                                {t("analytics.inventory_expiring_label", "临期")} ({days}{t("analytics.unit_day", "天")})
                               </span>
                             ) : (
                               <span className="text-xs text-text-muted">{b.status ?? "—"}</span>

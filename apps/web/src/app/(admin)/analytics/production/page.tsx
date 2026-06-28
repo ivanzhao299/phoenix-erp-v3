@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Egg, TrendingDown, Calendar, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,7 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function ProductionAnalyticsPage() {
+  const { t } = useLanguage();
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -125,7 +127,7 @@ export default function ProductionAnalyticsPage() {
       }
       setReports(list);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -150,8 +152,8 @@ export default function ProductionAnalyticsPage() {
   return (
     <div>
       <PageHeader
-        title="生产报表"
-        subtitle="日产蛋量趋势 · 死淘率分析 · 饲料转化率"
+        title={t("analytics.production_title", "生产报表")}
+        subtitle={t("analytics.production_subtitle", "日产蛋量趋势 · 死淘率分析 · 饲料转化率")}
         actions={
           <button
             onClick={() => void load()}
@@ -159,7 +161,7 @@ export default function ProductionAnalyticsPage() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            刷新
+            {t("analytics.refresh", "刷新")}
           </button>
         }
       />
@@ -176,7 +178,7 @@ export default function ProductionAnalyticsPage() {
       {loading && !error && (
         <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
-          加载中…
+          {t("analytics.loading", "加载中…")}
         </div>
       )}
 
@@ -186,23 +188,23 @@ export default function ProductionAnalyticsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <StatCard
               icon={Egg}
-              title="近30天总产蛋量"
+              title={t("analytics.production_total_eggs_30d", "近30天总产蛋量")}
               value={fmtNum(totalEggs)}
-              sub="枚"
+              sub={t("analytics.unit_egg", "枚")}
               color="var(--color-accent)"
             />
             <StatCard
               icon={Calendar}
-              title="日均产蛋量"
+              title={t("analytics.production_avg_daily_eggs", "日均产蛋量")}
               value={fmtNum(avgDailyEggs, 0)}
-              sub="枚/天"
+              sub={t("analytics.unit_egg_per_day", "枚/天")}
               color="var(--status-success)"
             />
             <StatCard
               icon={TrendingDown}
-              title="平均死淘数"
+              title={t("analytics.production_avg_mortality", "平均死淘数")}
               value={fmtNum(avgMortality, 1)}
-              sub="只/天（死亡+淘汰）"
+              sub={t("analytics.production_avg_mortality_sub", "只/天（死亡+淘汰）")}
               color="var(--status-warning)"
             />
           </div>
@@ -211,21 +213,21 @@ export default function ProductionAnalyticsPage() {
           <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <span className="font-semibold text-sm text-text-muted">
-                最近日报记录
+                {t("analytics.production_recent_reports", "最近日报记录")}
               </span>
             </div>
             {recent.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">{t("analytics.no_data", "暂无数据")}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-text-muted border-b border-border">
-                      <th className="text-left px-5 py-3 font-medium">日期</th>
-                      <th className="text-left px-5 py-3 font-medium">鸡舍</th>
-                      <th className="text-left px-5 py-3 font-medium">鸡群</th>
-                      <th className="text-right px-5 py-3 font-medium">产蛋数（枚）</th>
-                      <th className="text-right px-5 py-3 font-medium">死淘数（只）</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_date", "日期")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_house", "鸡舍")}</th>
+                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_flock", "鸡群")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_eggs_produced", "产蛋数（枚）")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_mortality_count", "死淘数（只）")}</th>
                     </tr>
                   </thead>
                   <tbody>
