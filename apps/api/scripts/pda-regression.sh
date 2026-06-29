@@ -29,7 +29,7 @@ green "  ✓ token=${TOKEN:0:30}..."
 SER1="REGR-PDA-$(date +%s | tail -c 6)"
 SER2="REGR-PDA-DEV-$(date +%s | tail -c 5)"
 $PSQL $DB -q -c "DELETE FROM pda_terminals WHERE serial IN ('$SER1','$SER2') OR name LIKE 'REGR-PDA-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pda_system_config WHERE key LIKE 'regr_%';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM pda_system_config WHERE config_key LIKE 'regr_%';" >/dev/null
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -116,12 +116,12 @@ R6=$(curl -s -o /tmp/pda_t6.json -w '%{http_code}' -X PUT "$API/api/pda/system-c
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"server_url":"https://regr.local","scan_debounce_ms":"150","auto_approve":"true","not_allowed_key":"ignored"}')
 assert_ok "T6.1 updateSystemConfig 200" "$R6"
-T6_URL=$($PSQL $DB -tA -c "SELECT value FROM pda_system_config WHERE key='server_url';")
+T6_URL=$($PSQL $DB -tA -c "SELECT config_value FROM pda_system_config WHERE config_key='server_url';")
 assert_eq "T6.2 server_url=https://regr.local" "https://regr.local" "$T6_URL"
-T6_DEBOUNCE=$($PSQL $DB -tA -c "SELECT value FROM pda_system_config WHERE key='scan_debounce_ms';")
+T6_DEBOUNCE=$($PSQL $DB -tA -c "SELECT config_value FROM pda_system_config WHERE config_key='scan_debounce_ms';")
 assert_eq "T6.3 scan_debounce_ms=150" "150" "$T6_DEBOUNCE"
 # allow list 之外的 key 不应入库
-T6_NOT=$($PSQL $DB -tA -c "SELECT value FROM pda_system_config WHERE key='not_allowed_key';")
+T6_NOT=$($PSQL $DB -tA -c "SELECT config_value FROM pda_system_config WHERE config_key='not_allowed_key';")
 assert_eq "T6.4 not_allowed_key 未入库" "" "$T6_NOT"
 
 R6B=$(curl -s -o /tmp/pda_t6b.json -w '%{http_code}' "$API/api/pda/system-config")
@@ -161,7 +161,7 @@ assert_eq "T9.2 终端已删 (count=0)" "0" "$T9_GONE"
 cyan ""
 cyan "▶ Cleanup"
 $PSQL $DB -q -c "DELETE FROM pda_terminals WHERE serial IN ('$SER1','$SER2');" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pda_system_config WHERE key IN ('server_url','scan_debounce_ms','auto_approve');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM pda_system_config WHERE config_key IN ('server_url','scan_debounce_ms','auto_approve');" >/dev/null
 green "  ✓ 清理完毕"
 
 echo ""

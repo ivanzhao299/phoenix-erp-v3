@@ -165,7 +165,7 @@ export class StoreService {
               SET total_sales = $1, total_transactions = $2,
                   cash_sales = $3, qr_sales = $4, discount_total = $5,
                   cash_actual = $6, cash_diff = $7, note = $8,
-                  status = 'SUBMITTED', submitted_at = now()::text, updated_at = now()::text,
+                  status = 'SUBMITTED', submitted_at = now()::text,
                   operator = $9
             WHERE close_no = $10`,
           [
