@@ -41,7 +41,7 @@ $PSQL $DB -q -c "DELETE FROM qa_non_conformance WHERE nc_no LIKE 'NC-QA-REGR-%' 
 
 $PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code) VALUES ('$BATCH_Q','REGR-PROD-Q',500,500,'AVAILABLE','WMS-VTE-MAIN','ALL');" >/dev/null
 $PSQL $DB -q -c "INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note) VALUES ('$BATCH_Q','INBOUND',500,'test','ALL','REGR-QA-IB-1','QA seed inbound');" >/dev/null
-$PSQL $DB -q -c "INSERT INTO pos_sales (sale_no, store_code, cashier, total_amount, net_amount, pay_method, status, created_at, updated_at) VALUES ('$SALE_Q','$STORE_Q','test',100,100,'CASH','COMPLETED',now()::text,now()::text);" >/dev/null
+$PSQL $DB -q -c "INSERT INTO pos_sales (sale_no, store_code, cashier, total_amount, net_amount, pay_method, status, created_at, updated_at) VALUES ('$SALE_Q','$STORE_Q','test',100,100,'CASH','COMPLETED',now(),now());" >/dev/null
 $PSQL $DB -q -c "INSERT INTO pos_sale_items (sale_no, product_code, batch_no, qty, unit_price, subtotal, store_code, created_at) VALUES ('$SALE_Q','REGR-PROD-Q','$BATCH_Q',10,10,100,'$STORE_Q',now());" >/dev/null
 green "  ✓ seed batch=$BATCH_Q sale=$SALE_Q"
 
