@@ -395,20 +395,20 @@ export default function DictPage() {
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.字典代码","字典代码")} <span style={{ fontWeight:400, fontSize:11, color:"var(--text-secondary)" }}>（{t("ui.创建后不可修改","创建后不可修改")}）</span></label>
             <input value={form.dict_code} disabled={!!edit} onChange={e=>f("dict_code",e.target.value)}
-              placeholder="如 MACH_FAULT" className={s.inp}
+              placeholder={t("ui.如 MACH_FAULT","如 MACH_FAULT")} className={s.inp}
               style={{ fontFamily:"monospace", opacity:edit?0.6:1, borderColor:!edit&&cloned?"var(--color-primary)":undefined }}/>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.所属字典类型","所属字典类型")} <span style={{color:"var(--status-danger)"}}>*</span></label>
             <input value={form.dict_type} disabled={!!edit} onChange={e=>f("dict_type",e.target.value)}
-              placeholder="如 PKG_ANOMALY_REASON" className={s.inp}
+              placeholder={t("ui.如 PKG_ANOMALY_REASON","如 PKG_ANOMALY_REASON")} className={s.inp}
               style={{ fontFamily:"monospace", opacity:edit?0.6:1 }}/>
             {!edit && <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>{t("ui.输入已有类型名可归入该分组输入新类型名自动创建新分组","输入已有类型名可归入该分组，输入新类型名自动创建新分组")}</div>}
           </div>
           <div className={s.formSection}>{t("ui.名称","名称")}</div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.中文名称","中文名称")} <span style={{color:"var(--status-danger)"}}>*</span></label>
-            <input value={form.label_zh} onChange={e=>f("label_zh",e.target.value)} placeholder="如 机器原因" className={s.inp}/>
+            <input value={form.label_zh} onChange={e=>f("label_zh",e.target.value)} placeholder={t("ui.如 机器原因","如 机器原因")} className={s.inp}/>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>🔢 {t("ui.排序值","排序值")}</label>

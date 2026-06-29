@@ -729,12 +729,12 @@ export default function UserManagementPage() {
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.登录用户名", "登录用户名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input value={form.username} onChange={e => f("username", e.target.value)}
-              placeholder="字母+数字，如 store_mgr2" className={s.inp}
+              placeholder={t("ui.字母+数字，如 store_mgr2", "字母+数字，如 store_mgr2")} className={s.inp}
               style={{ fontFamily: "monospace" }}/>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.姓名", "姓名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
-            <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} placeholder="如 张三" className={s.inp}/>
+            <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} placeholder={t("ui.如 张三", "如 张三")} className={s.inp}/>
           </div>
 
           {/* Account type */}

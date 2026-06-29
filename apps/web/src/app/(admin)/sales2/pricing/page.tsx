@@ -9,6 +9,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
+import { useLanguage } from "@/contexts/LanguageContext";
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -133,9 +134,10 @@ function useMasterData(): MasterData {
 // 页面主体
 // ══════════════════════════════════════════════════════════════════════════════
 export default function SalesV2PricingPage() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("books");
   return <div className="animate-fade-in">
-      <PageHeader title="价格管理" subtitle="价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据" breadcrumb={["销售系统", "价格管理"]} />
+      <PageHeader title={t('ui.价格管理','价格管理')} subtitle={t('ui.价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据','价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.价格管理','价格管理')]} />
 
       {/* Tab Bar */}
       <div style={{
@@ -147,19 +149,19 @@ export default function SalesV2PricingPage() {
     }}>
         {([{
         id: "books",
-        label: "价格册",
+        label: t('ui.价格册','价格册'),
         icon: <BookOpen size={14} />
       }, {
         id: "items",
-        label: "价格明细",
+        label: t('ui.价格明细','价格明细'),
         icon: <List size={14} />
       }, {
         id: "current",
-        label: "当前生效价格",
+        label: t('ui.当前生效价格','当前生效价格'),
         icon: <Zap size={14} />
       }, {
         id: "anomaly",
-        label: "价格异常",
+        label: t('ui.价格异常','价格异常'),
         icon: <AlertTriangle size={14} />
       }] as {
         id: Tab;
@@ -198,6 +200,7 @@ export default function SalesV2PricingPage() {
 // 价格册 Tab（无变化）
 // ══════════════════════════════════════════════════════════════════════════════
 function PriceBooksTab() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -263,7 +266,7 @@ function PriceBooksTab() {
     setConfirmOpen(true);
   };
   const doAction = async (id: string, action: string, label: string) => {
-    ask(`确认${label}此价格册？`, async () => {
+    ask(`${t('ui.确认','确认')}${label}${t('ui.此价格册？','此价格册？')}`, async () => {
       try {
         await apiFetch(`${API}/books/${id}/${action}`, {
           method: "POST",
@@ -277,44 +280,44 @@ function PriceBooksTab() {
   };
   const FIELDS: FormField[] = [{
     key: "priceBookName",
-    label: "价格册名称",
+    label: t('ui.价格册名称','价格册名称'),
     type: "text",
     required: true
   }, {
     key: "companyCode",
-    label: "公司",
+    label: t('ui.公司','公司'),
     type: "company",
     required: true,
     onPickKeys: { companyName: "org_name" }
   }, {
     key: "companyName",
-    label: "公司名称（自动带出）",
+    label: t('ui.公司名称（自动带出）','公司名称（自动带出）'),
     type: "readonly"
   }, {
     key: "channelCode",
-    label: "渠道（渠道价）",
+    label: t('ui.渠道（渠道价）','渠道（渠道价）'),
     type: "channel",
-    placeholder: "留空=不限渠道"
+    placeholder: t('ui.留空=不限渠道','留空=不限渠道')
   }, {
     key: "customerCode",
-    label: "客户（专属价）",
+    label: t('ui.客户（专属价）','客户（专属价）'),
     type: "customer",
-    placeholder: "留空=非专属"
+    placeholder: t('ui.留空=非专属','留空=非专属')
   }, {
     key: "priority",
-    label: "优先级（数字越小越优先）",
+    label: t('ui.优先级（数字越小越优先）','优先级（数字越小越优先）'),
     type: "number"
   }, {
     key: "effectiveFrom",
-    label: "生效日期",
+    label: t('ui.生效日期','生效日期'),
     type: "date"
   }, {
     key: "effectiveTo",
-    label: "失效日期",
+    label: t('ui.失效日期','失效日期'),
     type: "date"
   }, {
     key: "remark",
-    label: "备注",
+    label: t('ui.备注','备注'),
     type: "text"
   }];
   const totalPages = Math.ceil(total / limit);
@@ -363,7 +366,7 @@ function PriceBooksTab() {
           fontSize: 13,
           width: "100%",
           background: "var(--bg-card)"
-        }} placeholder="搜索价格册名称 / 编号…" value={keyword} onChange={e => {
+        }} placeholder={t('ui.搜索价格册名称 / 编号…','搜索价格册名称 / 编号…')} value={keyword} onChange={e => {
           setKeyword(e.target.value);
           setPage(1);
         }} />
@@ -379,7 +382,7 @@ function PriceBooksTab() {
         padding: "0 10px",
         background: "var(--bg-card)"
       }}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {Object.entries(BOOK_STATUSES).map(([v, {
           label
         }]) => <option key={v} value={v}>{label}</option>)}
@@ -392,7 +395,7 @@ function PriceBooksTab() {
       }}>
           <RefreshCw size={13} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新','刷新')}
         </button>
         <button type="button" className={s.btnPrimary} onClick={() => {
         setEditing(null);
@@ -403,7 +406,7 @@ function PriceBooksTab() {
         alignItems: "center",
         gap: 6
       }}>
-          <Plus size={13} /> 新建价格册
+          <Plus size={13} /> {t('ui.新建价格册','新建价格册')}
         </button>
       </div>
 
@@ -416,12 +419,12 @@ function PriceBooksTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["编号", "名称", "渠道", "客户", "优先级", "生效日", "失效日", "状态", "操作"].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t('ui.编号','编号'), t('ui.名称','名称'), t('ui.渠道','渠道'), t('ui.客户','客户'), t('ui.优先级','优先级'), t('ui.生效日','生效日'), t('ui.失效日','失效日'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className={u.emptyCenter}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={9} className={s.emptyState}>暂无价格册</td></tr>}
+            {loading && <tr><td colSpan={9} className={u.emptyCenter}>{t('ui.加载中…','加载中…')}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={9} className={s.emptyState}>{t('ui.暂无价格册','暂无价格册')}</td></tr>}
             {rows.map((row, i) => {
             const st = BOOK_STATUSES[row.status] ?? {
               label: row.status,
@@ -453,21 +456,21 @@ function PriceBooksTab() {
                     }} style={{
                       padding: "2px 8px",
                       fontSize: 11
-                    }}>编辑</button>
-                          <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "submit", "提交审批")} style={{
+                    }}>{t('ui.编辑','编辑')}</button>
+                          <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "submit", t('ui.提交审批','提交审批'))} style={{
                       padding: "2px 8px",
                       fontSize: 11
-                    }}>提交审批</button>
+                    }}>{t('ui.提交审批','提交审批')}</button>
                         </>}
-                      {row.status === "APPROVED" && <button type="button" className={s.btnPrimary} onClick={() => doAction(row.id, "activate", "激活")} style={{
+                      {row.status === "APPROVED" && <button type="button" className={s.btnPrimary} onClick={() => doAction(row.id, "activate", t('ui.激活','激活'))} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>激活</button>}
-                      {(row.status === "ACTIVE" || row.status === "APPROVED") && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "expire", "失效")} style={{
+                  }}>{t('ui.激活','激活')}</button>}
+                      {(row.status === "ACTIVE" || row.status === "APPROVED") && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "expire", t('ui.失效','失效'))} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>失效</button>}
-                      {!["CANCELLED", "ACTIVE"].includes(row.status) && <button type="button" onClick={() => doAction(row.id, "cancel", "取消")} style={{
+                  }}>{t('ui.失效','失效')}</button>}
+                      {!["CANCELLED", "ACTIVE"].includes(row.status) && <button type="button" onClick={() => doAction(row.id, "cancel", t('ui.取消','取消'))} style={{
                     padding: "2px 8px",
                     fontSize: 11,
                     background: "none",
@@ -475,7 +478,7 @@ function PriceBooksTab() {
                     color: "var(--status-danger)",
                     borderRadius: "var(--radius)",
                     cursor: "pointer"
-                  }}>取消</button>}
+                  }}>{t('ui.取消','取消')}</button>}
                     </div>
                   </td>
                 </tr>;
@@ -492,13 +495,13 @@ function PriceBooksTab() {
       alignItems: "center",
       fontSize: 13
     }}>
-          <span className={u.muted}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          <span className={u.muted}>{t('ui.共','共')} {total} {t('ui.条','条')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页','上一页')}</button>
+          <span>{t('ui.第','第')} {page} / {totalPages} {t('ui.页','页')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页','下一页')}</button>
         </div>}
 
-      <RightDrawer open={drawerOpen} title={editing ? "编辑价格册" : "新建价格册"} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑价格册','编辑价格册') : t('ui.新建价格册','新建价格册')} onClose={() => setDrawerOpen(false)}>
         <CrudForm fields={FIELDS} initialValues={editing ? {
         priceBookName: editing.price_book_name,
         companyCode: editing.company_code,
@@ -512,7 +515,7 @@ function PriceBooksTab() {
       } : {}} onSubmit={handleSave} onCancel={() => setDrawerOpen(false)} loading={saving} />
       </RightDrawer>
 
-      <ConfirmDialog open={confirmOpen} title="确认操作" message={confirmMsg} onConfirm={async () => {
+      <ConfirmDialog open={confirmOpen} title={t('ui.确认操作','确认操作')} message={confirmMsg} onConfirm={async () => {
       await confirmFn();
       setConfirmOpen(false);
     }} onCancel={() => setConfirmOpen(false)} />
@@ -551,6 +554,7 @@ const EMPTY_FORM: ItemFormState = {
   currencyCode: "LAK"
 };
 function PriceItemsTab() {
+  const { t } = useLanguage();
   const master = useMasterData();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -578,13 +582,13 @@ function PriceItemsTab() {
     label: `${sp.spec_name} (${sp.spec_code})`
   })) : [{
     value: "LOOSE",
-    label: "散装 (LOOSE)"
+    label: t('ui.散装 (LOOSE)','散装 (LOOSE)')
   }, {
     value: "TRAY30",
-    label: "30枚/托 (TRAY30)"
+    label: t('ui.30枚/托 (TRAY30)','30枚/托 (TRAY30)')
   }, {
     value: "BOX360",
-    label: "360枚/箱 (BOX360)"
+    label: t('ui.360枚/箱 (BOX360)','360枚/箱 (BOX360)')
   }], [master.specs]);
   const load = useCallback(async () => {
     setLoading(true);
@@ -651,11 +655,11 @@ function PriceItemsTab() {
   };
   const handleSave = async () => {
     if (!form.productCode && !form.skuCode) {
-      setErrorMsg("请填写产品编码，或通过 SKU 选择器自动填充");
+      setErrorMsg(t('ui.请填写产品编码，或通过 SKU 选择器自动填充','请填写产品编码，或通过 SKU 选择器自动填充'));
       return;
     }
     if (!form.unitPrice) {
-      setErrorMsg("单价不能为空");
+      setErrorMsg(t('ui.单价不能为空','单价不能为空'));
       return;
     }
     setSaving(true);
@@ -756,7 +760,7 @@ function PriceItemsTab() {
         <input style={{
         ...inp,
         width: 140
-      }} placeholder="价格册 ID" value={bookId} onChange={e => {
+      }} placeholder={t('ui.价格册 ID','价格册 ID')} value={bookId} onChange={e => {
         setBookId(e.target.value);
         setPage(1);
       }} />
@@ -767,7 +771,7 @@ function PriceItemsTab() {
         ...inp,
         width: 160
       }}>
-          <option value="">全部品级</option>
+          <option value="">{t('ui.全部品级','全部品级')}</option>
           {allGradeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{
@@ -778,7 +782,7 @@ function PriceItemsTab() {
       }}>
           <RefreshCw size={13} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新','刷新')}
         </button>
         <button type="button" className={s.btnPrimary} onClick={openCreate} style={{
         height: 34,
@@ -787,7 +791,7 @@ function PriceItemsTab() {
         gap: 6,
         marginLeft: "auto"
       }}>
-          <Plus size={13} /> 新建明细
+          <Plus size={13} /> {t('ui.新建明细','新建明细')}
         </button>
       </div>
 
@@ -801,15 +805,15 @@ function PriceItemsTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["价格册", "SKU / 产品", "品级", "规格", "单价", "底价", "最高价", "数量范围", "货币", "操作"].map(h => <th key={h} style={{
-              textAlign: ["单价", "底价", "最高价"].includes(h) ? "right" : "left",
+              {[t('ui.价格册','价格册'), t('ui.SKU / 产品','SKU / 产品'), t('ui.品级','品级'), t('ui.规格','规格'), t('ui.单价','单价'), t('ui.底价','底价'), t('ui.最高价','最高价'), t('ui.数量范围','数量范围'), t('ui.货币','货币'), t('ui.操作','操作')].map(h => <th key={h} style={{
+              textAlign: [t('ui.单价','单价'), t('ui.底价','底价'), t('ui.最高价','最高价')].includes(h) ? "right" : "left",
               whiteSpace: "nowrap"
             }}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} className={u.emptyCenter}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>暂无价格明细（请输入价格册 ID 筛选）</td></tr>}
+            {loading && <tr><td colSpan={10} className={u.emptyCenter}>{t('ui.加载中…','加载中…')}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>{t('ui.暂无价格明细（请输入价格册 ID 筛选）','暂无价格明细（请输入价格册 ID 筛选）')}</td></tr>}
             {rows.map((row, i) => <tr key={row.id} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}>
                 <td style={{
               fontFamily: "monospace",
@@ -841,7 +845,7 @@ function PriceItemsTab() {
                   {row.ceiling_price != null ? Number(row.ceiling_price).toLocaleString() : "—"}
                 </td>
                 <td className={u.fs11}>
-                  {row.min_qty || row.max_qty ? `${row.min_qty ?? 0} ~ ${row.max_qty ?? "∞"}` : "不限"}
+                  {row.min_qty || row.max_qty ? `${row.min_qty ?? 0} ~ ${row.max_qty ?? "∞"}` : t('ui.不限','不限')}
                 </td>
                 <td>{row.currency_code}</td>
                 <td>
@@ -852,7 +856,7 @@ function PriceItemsTab() {
                     <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)} style={{
                   padding: "2px 8px",
                   fontSize: 11
-                }}>编辑</button>
+                }}>{t('ui.编辑','编辑')}</button>
                     <button type="button" onClick={() => doDisable(row.id)} style={{
                   padding: "2px 8px",
                   fontSize: 11,
@@ -861,7 +865,7 @@ function PriceItemsTab() {
                   color: "var(--status-danger)",
                   borderRadius: "var(--radius)",
                   cursor: "pointer"
-                }}>停用</button>
+                }}>{t('ui.停用','停用')}</button>
                   </div>
                 </td>
               </tr>)}
@@ -877,14 +881,14 @@ function PriceItemsTab() {
       alignItems: "center",
       fontSize: 13
     }}>
-          <span className={u.muted}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          <span className={u.muted}>{t('ui.共','共')} {total} {t('ui.条','条')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页','上一页')}</button>
+          <span>{t('ui.第','第')} {page} / {totalPages} {t('ui.页','页')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页','下一页')}</button>
         </div>}
 
       {/* 新建 / 编辑 Drawer — 自定义表单支持 SKU 选择器 */}
-      <RightDrawer open={drawerOpen} title={editing ? "编辑价格明细" : "新建价格明细"} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑价格明细','编辑价格明细') : t('ui.新建价格明细','新建价格明细')} onClose={() => setDrawerOpen(false)}>
         <div style={{
         display: "flex",
         flexDirection: "column",
@@ -896,12 +900,12 @@ function PriceItemsTab() {
           {!editing && <div className={u.mb8}>
               <label style={lbl}>
                 <span className={u.flexRow}>
-                  <Layers size={12} color="var(--color-purple-400)" /> SKU 快捷选择
+                  <Layers size={12} color="var(--color-purple-400)" /> {t('ui.SKU 快捷选择','SKU 快捷选择')}
                   <span style={{
                 fontSize: 11,
                 color: "var(--text-secondary)",
                 fontWeight: 400
-              }}>（可选·选择后自动填充产品/品级/规格）</span>
+              }}>{t('ui.（可选·选择后自动填充产品/品级/规格）','（可选·选择后自动填充产品/品级/规格）')}</span>
                 </span>
               </label>
               {master.skus.length === 0 && !master.loading ? <div style={{
@@ -915,19 +919,19 @@ function PriceItemsTab() {
             borderRadius: "var(--radius)",
             padding: "8px 10px"
           }}>
-                  <Info size={13} /> 请先在<a href="/master-data/product-skus" target="_blank" style={{
+                  <Info size={13} /> {t('ui.请先在','请先在')}<a href="/master-data/product-skus" target="_blank" style={{
               color: "var(--status-warning)",
               textDecoration: "underline"
-            }}>主数据中心 → SKU 档案</a>维护商品组合
+            }}>{t('ui.主数据中心 → SKU 档案','主数据中心 → SKU 档案')}</a>{t('ui.维护商品组合','维护商品组合')}
                 </div> : <select style={inp} value={form.skuCode} onChange={e => handleSkuChange(e.target.value)}>
-                  <option value="">— 不使用 SKU 选择器，手动填写 —</option>
+                  <option value="">{t('ui.— 不使用 SKU 选择器，手动填写 —','— 不使用 SKU 选择器，手动填写 —')}</option>
                   {master.skus.filter(x => x.status === "ACTIVE").map(x => <option key={x.sku_code} value={x.sku_code}>
                       {x.sku_code}{x.sku_name ? ` · ${x.sku_name}` : ""}
                     </option>)}
                 </select>}
             </div>}
 
-          <label style={lbl}>价格册 ID <span style={{
+          <label style={lbl}>{t('ui.价格册 ID','价格册 ID')} <span style={{
             color: "var(--status-danger)"
           }}>*</span></label>
           <input type="number" style={{
@@ -939,17 +943,17 @@ function PriceItemsTab() {
         }} value={form.priceBookId} disabled={!!editing} onChange={e => setForm(f => ({
           ...f,
           priceBookId: e.target.value
-        }))} placeholder="输入价格册 ID" />
+        }))} placeholder={t('ui.输入价格册 ID','输入价格册 ID')} />
 
           <label style={lbl}>
-            产品编码 {!form.skuCode && <span style={{
+            {t('ui.产品编码','产品编码')} {!form.skuCode && <span style={{
             color: "var(--status-danger)"
           }}>*</span>}
             {form.skuCode && <span style={{
             fontSize: 11,
             color: "var(--color-purple-400)",
             marginLeft: 6
-          }}>（由 SKU 自动填充）</span>}
+          }}>{t('ui.（由 SKU 自动填充）','（由 SKU 自动填充）')}</span>}
           </label>
           <input style={{
           ...inp,
@@ -960,9 +964,9 @@ function PriceItemsTab() {
         }} value={form.productCode} disabled={!!form.skuCode} onChange={e => setForm(f => ({
           ...f,
           productCode: e.target.value
-        }))} placeholder="如 EGG / PRD-EGG-RAW" />
+        }))} placeholder={t('ui.如 EGG / PRD-EGG-RAW','如 EGG / PRD-EGG-RAW')} />
 
-          <label style={lbl}>品级（grade_code）</label>
+          <label style={lbl}>{t('ui.品级（grade_code）','品级（grade_code）')}</label>
           <select style={{
           ...inp,
           ...(form.skuCode ? {
@@ -973,11 +977,11 @@ function PriceItemsTab() {
           ...f,
           gradeCode: e.target.value
         }))}>
-            <option value="">— 不限品级 —</option>
+            <option value="">{t('ui.— 不限品级 —','— 不限品级 —')}</option>
             {gradeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <label style={lbl}>包装规格（spec_code）</label>
+          <label style={lbl}>{t('ui.包装规格（spec_code）','包装规格（spec_code）')}</label>
           <select style={{
           ...inp,
           ...(form.skuCode ? {
@@ -988,11 +992,11 @@ function PriceItemsTab() {
           ...f,
           packagingSpec: e.target.value
         }))}>
-            <option value="">— 不限规格 —</option>
+            <option value="">{t('ui.— 不限规格 —','— 不限规格 —')}</option>
             {specOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <label style={lbl}>单价 <span style={{
+          <label style={lbl}>{t('ui.单价','单价')} <span style={{
             color: "var(--status-danger)"
           }}>*</span></label>
           <input type="number" style={inp} min={0} value={form.unitPrice} onChange={e => setForm(f => ({
@@ -1000,17 +1004,17 @@ function PriceItemsTab() {
           unitPrice: e.target.value
         }))} placeholder="0" />
 
-          <label style={lbl}>底价（低于此须审批）</label>
+          <label style={lbl}>{t('ui.底价（低于此须审批）','底价（低于此须审批）')}</label>
           <input type="number" style={inp} min={0} value={form.floorPrice} onChange={e => setForm(f => ({
           ...f,
           floorPrice: e.target.value
-        }))} placeholder="选填" />
+        }))} placeholder={t('ui.选填','选填')} />
 
-          <label style={lbl}>最高价</label>
+          <label style={lbl}>{t('ui.最高价','最高价')}</label>
           <input type="number" style={inp} min={0} value={form.ceilingPrice} onChange={e => setForm(f => ({
           ...f,
           ceilingPrice: e.target.value
-        }))} placeholder="选填" />
+        }))} placeholder={t('ui.选填','选填')} />
 
           <div style={{
           display: "grid",
@@ -1018,22 +1022,22 @@ function PriceItemsTab() {
           gap: 8
         }}>
             <div>
-              <label style={lbl}>最小数量（阶梯）</label>
+              <label style={lbl}>{t('ui.最小数量（阶梯）','最小数量（阶梯）')}</label>
               <input type="number" style={inp} min={0} value={form.minQty} onChange={e => setForm(f => ({
               ...f,
               minQty: e.target.value
-            }))} placeholder="不限" />
+            }))} placeholder={t('ui.不限','不限')} />
             </div>
             <div>
-              <label style={lbl}>最大数量（阶梯）</label>
+              <label style={lbl}>{t('ui.最大数量（阶梯）','最大数量（阶梯）')}</label>
               <input type="number" style={inp} min={0} value={form.maxQty} onChange={e => setForm(f => ({
               ...f,
               maxQty: e.target.value
-            }))} placeholder="不限" />
+            }))} placeholder={t('ui.不限','不限')} />
             </div>
           </div>
 
-          <label style={lbl}>货币</label>
+          <label style={lbl}>{t('ui.货币','货币')}</label>
           <input style={inp} value={form.currencyCode} onChange={e => setForm(f => ({
           ...f,
           currencyCode: e.target.value
@@ -1059,12 +1063,12 @@ function PriceItemsTab() {
             fontSize: 14,
             fontWeight: 600
           }}>
-              {saving ? "保存中…" : "保存"}
+              {saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
             </button>
             <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)} style={{
             height: 38,
             padding: "0 16px"
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
           </div>
         </div>
       </RightDrawer>
@@ -1075,6 +1079,7 @@ function PriceItemsTab() {
 // 当前生效价格 Tab — Phase H3 升级：使用主数据显示品级名称，展示 SKU
 // ══════════════════════════════════════════════════════════════════════════════
 function CurrentPricesTab() {
+  const { t } = useLanguage();
   const master = useMasterData();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1120,7 +1125,7 @@ function CurrentPricesTab() {
         padding: "0 10px",
         background: "var(--bg-card)",
         width: 200
-      }} placeholder="公司编码（可选）" value={companyCode} onChange={e => setCompanyCode(e.target.value)} />
+      }} placeholder={t('ui.公司编码（可选）','公司编码（可选）')} value={companyCode} onChange={e => setCompanyCode(e.target.value)} />
         <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)} style={{
         height: 34,
         border: "1px solid var(--border)",
@@ -1129,7 +1134,7 @@ function CurrentPricesTab() {
         padding: "0 10px",
         background: "var(--bg-card)"
       }}>
-          <option value="">全部品级</option>
+          <option value="">{t('ui.全部品级','全部品级')}</option>
           {filterGradeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{
@@ -1140,11 +1145,11 @@ function CurrentPricesTab() {
       }}>
           <RefreshCw size={13} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新','刷新')}
         </button>
       </div>
 
-      {loading ? <div className={u.emptyPad40}>加载中…</div> : filtered.length === 0 ? <div className={s.emptyState}>暂无生效价格（请先创建并激活价格册）</div> : <div style={{
+      {loading ? <div className={u.emptyPad40}>{t('ui.加载中…','加载中…')}</div> : filtered.length === 0 ? <div className={s.emptyState}>{t('ui.暂无生效价格（请先创建并激活价格册）','暂无生效价格（请先创建并激活价格册）')}</div> : <div style={{
       display: "grid",
       gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
       gap: 12
@@ -1175,7 +1180,7 @@ function CurrentPricesTab() {
             color: "var(--text-secondary)",
             marginBottom: 4
           }}>
-                  {displayGrade !== "—" ? displayGrade : "所有品级"}
+                  {displayGrade !== "—" ? displayGrade : t('ui.所有品级','所有品级')}
                   {r.specCode ?? r.packagingSpec ? ` · ${r.specCode ?? r.packagingSpec}` : ""}
                 </div>
                 <div style={{
@@ -1196,7 +1201,7 @@ function CurrentPricesTab() {
             color: "var(--status-warning)",
             marginTop: 4
           }}>
-                    底价 {Number(r.floorPrice).toLocaleString()}
+                    {t('ui.底价','底价')} {Number(r.floorPrice).toLocaleString()}
                   </div>}
                 <div style={{
             fontSize: 10,
@@ -1213,6 +1218,7 @@ function CurrentPricesTab() {
 // 价格异常 Tab（预留）
 // ══════════════════════════════════════════════════════════════════════════════
 function AnomalyTab() {
+  const { t } = useLanguage();
   return <div style={{
     padding: "40px 0",
     textAlign: "center",
@@ -1225,14 +1231,14 @@ function AnomalyTab() {
       <div style={{
       fontWeight: 600,
       marginBottom: 8
-    }}>价格异常监控</div>
+    }}>{t('ui.价格异常监控','价格异常监控')}</div>
       <div style={{
       fontSize: 13,
       color: "var(--text-secondary)",
       lineHeight: 1.8
     }}>
-        Phase 3（销售订单）完成后启用<br />
-        将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户
+        {t('ui.Phase 3（销售订单）完成后启用','Phase 3（销售订单）完成后启用')}<br />
+        {t('ui.将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户','将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户')}
       </div>
     </div>;
 }

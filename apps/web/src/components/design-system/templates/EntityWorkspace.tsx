@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * EntityWorkspace — 复杂实体「工作台」全宽详情页模板。
@@ -32,6 +33,7 @@ export interface EntityWorkspaceProps {
 export function EntityWorkspace({
   title, subtitle, status, onBack, actions, tabs, defaultTab, maxWidth,
 }: EntityWorkspaceProps) {
+  const { t } = useLanguage();
   const [active, setActive] = useState(defaultTab ?? tabs[0]?.key);
   const cur = tabs.find(t => t.key === active) ?? tabs[0];
   return (
@@ -41,7 +43,7 @@ export function EntityWorkspace({
         {onBack && (
           <button
             onClick={onBack}
-            title="返回"
+            title={t('ui.返回', '返回')}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)',

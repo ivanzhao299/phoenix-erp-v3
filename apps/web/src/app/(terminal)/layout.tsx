@@ -174,7 +174,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
               )}
             </div>
           ) : (
-            <div style={{ fontSize: 10, color: 'var(--slate-600)', marginLeft: 12, letterSpacing: 0.3 }}>未开班</div>
+            <div style={{ fontSize: 10, color: 'var(--slate-600)', marginLeft: 12, letterSpacing: 0.3 }}>{t('ui.未开班', '未开班')}</div>
           )}
 
           <div className={u.flex1} />

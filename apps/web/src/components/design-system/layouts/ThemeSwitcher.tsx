@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { Palette, Check } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Theme = '' | 'dark' | 'brand-green' | 'brand-red' | 'brand-blue' | 'brand-gold';
 
@@ -30,6 +31,7 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeSwitcher() {
+  const { t } = useLanguage();
   const [current, setCurrent] = useState<Theme>('');
   const [open, setOpen] = useState(false);
 
@@ -55,7 +57,7 @@ export function ThemeSwitcher() {
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
         type="button"
-        aria-label="切换主题"
+        aria-label={t('ui.切换主题', '切换主题')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}

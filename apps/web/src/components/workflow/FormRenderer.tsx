@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi } from "@/lib/workflow-api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Field = {
   key: string;
@@ -26,6 +27,7 @@ export function FormRenderer({
   onChange?: (next: Record<string, unknown>) => void;
   readonly?: boolean;
 }) {
+  const { t } = useLanguage();
   const fields = useMemo(() => schema?.fields || [], [schema]);
   const [sourceOptions, setSourceOptions] = useState<Record<string, Array<{ label: string; value: string | number }>>>({});
 
@@ -68,11 +70,11 @@ export function FormRenderer({
                   checked={Boolean(value[field.key])}
                   onChange={e => set(field.key, e.target.checked)}
                 />
-                是
+                {t('ui.是','是')}
               </span>
             ) : field.type === "select" || field.type === "radio" || field.type === "reference" ? (
               <select {...common}>
-                <option value="">请选择</option>
+                <option value="">{t('ui.请选择','请选择')}</option>
                 {options.map(opt => <option key={String(opt.value)} value={opt.value}>{opt.label}</option>)}
               </select>
             ) : field.type === "readonly" ? (

@@ -20,6 +20,7 @@ import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
 import { DictSelect } from './DictSelect';
 import { Search } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface MaterialRow {
   material_code: string;
@@ -85,9 +86,11 @@ const formFieldStyle: React.CSSProperties = {
 };
 
 export function MaterialPicker({
-  value, onChange, onPickRaw, disabled, placeholder = '搜索或新建物料', style,
+  value, onChange, onPickRaw, disabled, placeholder, style,
 }: MaterialPickerProps) {
+  const { t } = useLanguage();
   const toast = useToast();
+  const resolvedPlaceholder = placeholder ?? t('ui.搜索或新建物料', '搜索或新建物料');
   const [list, setList] = useState<MaterialRow[]>([]);
   const [query, setQuery] = useState('');          // 当前输入框文字
   const [open, setOpen] = useState(false);
@@ -177,7 +180,7 @@ export function MaterialPicker({
 
   async function submitCreate() {
     const name = nName.trim();
-    if (!name) { toast.error('物料名称不能为空'); return; }
+    if (!name) { toast.error(t('ui.物料名称不能为空','物料名称不能为空')); return; }
     setSaving(true);
     try {
       const res = await request<{ code?: string; name?: string; data?: any }>(
@@ -205,9 +208,9 @@ export function MaterialPicker({
       invalidateCache(`lookup:${MATERIAL_LOOKUP}`);
       setList(prev => [row, ...prev.filter(m => m.material_code !== row.material_code)]);
       pick(row);
-      toast.success(row.existing ? `物料「${row.material_name}」已存在，已为你选中` : `物料「${row.material_name}」已新建`);
+      toast.success(row.existing ? `${t('ui.物料','物料')}「${row.material_name}」${t('ui.已存在，已为你选中','已存在，已为你选中')}` : `${t('ui.物料','物料')}「${row.material_name}」${t('ui.已新建','已新建')}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '新建物料失败');
+      toast.error(e instanceof Error ? e.message : t('ui.新建物料失败','新建物料失败'));
     } finally {
       setSaving(false);
     }
@@ -249,7 +252,7 @@ export function MaterialPicker({
         style={{ ...inputStyle, ...style, paddingLeft: 26 }}
         value={query}
         disabled={disabled}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         onChange={e => {
           setQuery(e.target.value);
           onChange(e.target.value);  // 允许临时填写名称（无 code 的临时料）
@@ -262,7 +265,7 @@ export function MaterialPicker({
         <div ref={panelRef} style={{ ...panelStyle, top: rect.top, left: rect.left, width: rect.width }}>
           {filtered.length === 0 && !showCreate && (
             <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              暂无可选物料，请输入物料名称后新建
+              {t('ui.暂无可选物料，请输入物料名称后新建','暂无可选物料，请输入物料名称后新建')}
             </div>
           )}
           {filtered.map((m, i) => (
@@ -295,7 +298,7 @@ export function MaterialPicker({
                 background: highlight === filtered.length ? 'var(--bg-muted)' : 'transparent',
               }}
             >
-              + 未找到匹配项，直接新建物料「{query.trim()}」
+              + {t('ui.未找到匹配项，直接新建物料','未找到匹配项，直接新建物料')}「{query.trim()}」
             </div>
           )}
 
@@ -307,36 +310,36 @@ export function MaterialPicker({
                 borderTop: '1px solid var(--border)', marginTop: 4,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>新建物料</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('ui.新建物料','新建物料')}</div>
               <div>
-                <label style={lbl}>物料名称</label>
-                <input style={formFieldStyle} value={nName} onChange={e => setNName(e.target.value)} placeholder="物料名称" />
+                <label style={lbl}>{t('ui.物料名称','物料名称')}</label>
+                <input style={formFieldStyle} value={nName} onChange={e => setNName(e.target.value)} placeholder={t('ui.物料名称','物料名称')} />
               </div>
               <div>
-                <label style={lbl}>物料类型</label>
+                <label style={lbl}>{t('ui.物料类型','物料类型')}</label>
                 <DictSelect dictType="PRC_MATERIAL_TYPE" value={nType} onChange={setNType}
-                  placeholder="请选择物料类型" style={{ fontSize: 12.5, padding: '6px 10px' }} />
+                  placeholder={t('ui.请选择物料类型','请选择物料类型')} style={{ fontSize: 12.5, padding: '6px 10px' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={lbl}>规格</label>
-                  <input style={formFieldStyle} value={nSpec} onChange={e => setNSpec(e.target.value)} placeholder="如 50kg/包" />
+                  <label style={lbl}>{t('ui.规格','规格')}</label>
+                  <input style={formFieldStyle} value={nSpec} onChange={e => setNSpec(e.target.value)} placeholder={t('ui.如 50kg/包','如 50kg/包')} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={lbl}>单位</label>
-                  <input style={formFieldStyle} value={nUnit} onChange={e => setNUnit(e.target.value)} placeholder="如 kg / 件" />
+                  <label style={lbl}>{t('ui.单位','单位')}</label>
+                  <input style={formFieldStyle} value={nUnit} onChange={e => setNUnit(e.target.value)} placeholder={t('ui.如 kg / 件','如 kg / 件')} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2 }}>
                 <button type="button" disabled={saving}
                   onClick={() => setCreating(false)}
                   style={{ ...btn, background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>
-                  取消
+                  {t('ui.取消','取消')}
                 </button>
                 <button type="button" disabled={saving}
                   onClick={submitCreate}
                   style={{ ...btn, background: 'var(--brand-primary, #2563eb)', color: '#fff', opacity: saving ? 0.6 : 1 }}>
-                  {saving ? '保存中…' : '保存'}
+                  {saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
                 </button>
               </div>
             </div>

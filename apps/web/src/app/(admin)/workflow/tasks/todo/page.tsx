@@ -11,7 +11,9 @@ import {
   primaryActionButton, secondaryActionButton, actionPill,
   detailInfoBox,
 } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 export default function WorkflowTodoPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [comment, setComment] = useState("");
@@ -33,7 +35,7 @@ export default function WorkflowTodoPage() {
       setSelectedId(current => current && nextRows.some(row => row.id === current) ? current : nextRows[0]?.id || null);
     } catch (err) {
       console.error('[workflow/todo] load failed:', err);
-      setError(err instanceof Error ? `加载待办失败：${err.message}` : '加载待办失败');
+      setError(err instanceof Error ? `${t('ui.加载待办失败：','加载待办失败：')}${err.message}` : t('ui.加载待办失败','加载待办失败'));
       setRows([]);
     }
   }, []);
@@ -62,7 +64,7 @@ export default function WorkflowTodoPage() {
         if (!alive) return;
         setTransferCandidates([]);
         setTransferTarget("");
-        setError(err instanceof Error ? friendlyError(err.message) : "加载转交候选人失败");
+        setError(err instanceof Error ? friendlyError(err.message) : t('ui.加载转交候选人失败','加载转交候选人失败'));
       })
       .finally(() => {
         if (alive) setCandidateLoading(false);
@@ -74,7 +76,7 @@ export default function WorkflowTodoPage() {
   async function act(type: "approve" | "reject") {
     if (!selected) return;
     if (type === "reject" && !comment.trim()) {
-      setError("请填写不同意原因。");
+      setError(t('ui.请填写不同意原因。','请填写不同意原因。'));
       return;
     }
     setLoading(true);
@@ -83,17 +85,17 @@ export default function WorkflowTodoPage() {
       if (type === "approve") await workflowApi.approve(selected.id, comment.trim());else await workflowApi.reject(selected.id, comment.trim());
       setComment("");
       setDecision("approve");
-      setNotice(type === "approve" ? "已同意审批。" : "已提交不同意。");
+      setNotice(type === "approve" ? t('ui.已同意审批。','已同意审批。') : t('ui.已提交不同意。','已提交不同意。'));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "处理失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.处理失败','处理失败'));
     } finally {
       setLoading(false);
     }
   }
   async function saveComment() {
     if (!selected || !comment.trim()) {
-      setError("请先填写审批意见。");
+      setError(t('ui.请先填写审批意见。','请先填写审批意见。'));
       return;
     }
     setLoading(true);
@@ -102,9 +104,9 @@ export default function WorkflowTodoPage() {
     try {
       await workflowApi.comment(selected.id, comment.trim());
       setComment("");
-      setNotice("已补充审批意见。");
+      setNotice(t('ui.已补充审批意见。','已补充审批意见。'));
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "保存意见失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.保存意见失败','保存意见失败'));
     } finally {
       setLoading(false);
     }
@@ -112,7 +114,7 @@ export default function WorkflowTodoPage() {
   async function transfer() {
     if (!selected) return;
     if (!transferTarget) {
-      setError("请选择转交审批人。");
+      setError(t('ui.请选择转交审批人。','请选择转交审批人。'));
       return;
     }
     setLoading(true);
@@ -123,26 +125,26 @@ export default function WorkflowTodoPage() {
       setComment("");
       setDecision("approve");
       setTransferTarget("");
-      setNotice(res.toName ? `任务已转交给 ${res.toName}。` : "任务已转交。");
+      setNotice(res.toName ? `${t('ui.任务已转交给 ','任务已转交给 ')}${res.toName}。` : t('ui.任务已转交。','任务已转交。'));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "转交失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.转交失败','转交失败'));
     } finally {
       setLoading(false);
     }
   }
   return <div>
-      <PageHeader title="我的待办" subtitle="处理分配给我的审批任务，查看表单内容后给出审批意见" breadcrumb={["工作流", "我的待办"]} />
+      <PageHeader title={t('ui.我的待办','我的待办')} subtitle={t('ui.处理分配给我的审批任务，查看表单内容后给出审批意见','处理分配给我的审批任务，查看表单内容后给出审批意见')} breadcrumb={[t('ui.工作流','工作流'), t('ui.我的待办','我的待办')]} />
 
       <div style={layoutStyle}>
         <section className={s.card}>
           <div className={s.cardBody}>
             <div style={sectionHeaderStyle}>
               <div>
-                <h3 className={s.cardTitle}>待处理</h3>
-                <p className={`${s.modalDesc} ${u.mt4}`}>共 {rows.length} 条待办</p>
+                <h3 className={s.cardTitle}>{t('ui.待处理','待处理')}</h3>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.共 ','共 ')}{rows.length} {t('ui.条待办','条待办')}</p>
               </div>
-              <Link href="/workflow/start" style={secondaryActionButton}>发起申请</Link>
+              <Link href="/workflow/start" style={secondaryActionButton}>{t('ui.发起申请','发起申请')}</Link>
             </div>
 
             {rows.length ? <div style={taskListStyle}>
@@ -155,10 +157,10 @@ export default function WorkflowTodoPage() {
               setTransferTarget("");
             }}>
                     <strong>{row.title}</strong>
-                    <span>{row.node_name} · {row.starter_name || "发起人"}</span>
+                    <span>{row.node_name} · {row.starter_name || t('ui.发起人','发起人')}</span>
                     <small>{row.definition_name || row.instance_no || row.task_no}</small>
                   </button>)}
-              </div> : <div className={s.emptyState}><div className={s.emptyStateText}>当前没有待审批任务。</div></div>}
+              </div> : <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.当前没有待审批任务。','当前没有待审批任务。')}</div></div>}
           </div>
         </section>
 
@@ -167,68 +169,68 @@ export default function WorkflowTodoPage() {
               <div style={detailHeaderStyle}>
                 <div>
                   <h3 className={s.cardTitle}>{selected.title}</h3>
-                  <p className={`${s.modalDesc} ${u.mt4}`}>{selected.definition_name || "工作流"} · {selected.node_name}</p>
+                  <p className={`${s.modalDesc} ${u.mt4}`}>{selected.definition_name || t('ui.工作流','工作流')} · {selected.node_name}</p>
                 </div>
                 <span style={actionPill('info')}>{statusText(selected.status)}</span>
               </div>
 
               <div className={`${s.infoGrid3} ${u.mb16}`}>
-                <Meta label="流程编号" value={selected.instance_no || "-"} />
-                <Meta label="发起人" value={selected.starter_name || "-"} />
-                <Meta label="当前节点" value={selected.node_name || "-"} />
-                <Meta label="到期时间" value={formatDate(selected.due_at) || "未设置"} />
+                <Meta label={t('ui.流程编号','流程编号')} value={selected.instance_no || "-"} />
+                <Meta label={t('ui.发起人','发起人')} value={selected.starter_name || "-"} />
+                <Meta label={t('ui.当前节点','当前节点')} value={selected.node_name || "-"} />
+                <Meta label={t('ui.到期时间','到期时间')} value={formatDate(selected.due_at) || t('ui.未设置','未设置')} />
               </div>
 
               <ApprovalAssist task={selected} onUseTemplate={setComment} />
 
-              <h4 className={s.formSection}>申请内容</h4>
+              <h4 className={s.formSection}>{t('ui.申请内容','申请内容')}</h4>
               <WorkflowDataView data={selected.form_data_json || {}} schema={selected.form_schema_json} />
 
-              <h4 className={s.formSection}>审批处理</h4>
+              <h4 className={s.formSection}>{t('ui.审批处理','审批处理')}</h4>
               <p className={s.modalDesc} style={{
             margin: "0 0 8px"
-          }}>选择处理方式并填写意见。转交候选人由后端按角色权限和数据域过滤。</p>
+          }}>{t('ui.选择处理方式并填写意见。转交候选人由后端按角色权限和数据域过滤。','选择处理方式并填写意见。转交候选人由后端按角色权限和数据域过滤。')}</p>
               <div style={decisionTabsStyle}>
                 <button type="button" onClick={() => {
               setDecision("approve");
               setError("");
-            }} style={decisionButtonStyle(decision === "approve", "success")}>同意</button>
+            }} style={decisionButtonStyle(decision === "approve", "success")}>{t('ui.同意','同意')}</button>
                 <button type="button" onClick={() => {
               setDecision("reject");
               setError("");
-            }} style={decisionButtonStyle(decision === "reject", "danger")}>不同意</button>
+            }} style={decisionButtonStyle(decision === "reject", "danger")}>{t('ui.不同意','不同意')}</button>
                 <button type="button" onClick={() => {
               setDecision("transfer");
               setError("");
-            }} style={decisionButtonStyle(decision === "transfer", "info")}>转交审批</button>
+            }} style={decisionButtonStyle(decision === "transfer", "info")}>{t('ui.转交审批','转交审批')}</button>
               </div>
               {decision === "transfer" ? <div style={transferPanelStyle}>
-                  <label className={s.formLabel}>转交审批人 *</label>
+                  <label className={s.formLabel}>{t('ui.转交审批人 *','转交审批人 *')}</label>
                   <select className={s.select} value={transferTarget} onChange={e => setTransferTarget(e.target.value)} disabled={candidateLoading || transferCandidates.length === 0}>
-                    {candidateLoading ? <option value="">候选人加载中...</option> : null}
-                    {!candidateLoading && transferCandidates.length === 0 ? <option value="">暂无可转交审批人</option> : null}
+                    {candidateLoading ? <option value="">{t('ui.候选人加载中...','候选人加载中...')}</option> : null}
+                    {!candidateLoading && transferCandidates.length === 0 ? <option value="">{t('ui.暂无可转交审批人','暂无可转交审批人')}</option> : null}
                     {!candidateLoading && transferCandidates.map(candidate => <option key={candidate.userId} value={candidate.userId}>
                         {candidate.displayName}{candidate.roleNameZh ? ` · ${candidate.roleNameZh}` : ""}
                       </option>)}
                   </select>
-                  <p className={s.modalDesc} style={{ margin: 0 }}>候选人已由后端按角色权限、公司/项目数据域和自审分离规则过滤。</p>
+                  <p className={s.modalDesc} style={{ margin: 0 }}>{t('ui.候选人已由后端按角色权限、公司/项目数据域和自审分离规则过滤。','候选人已由后端按角色权限、公司/项目数据域和自审分离规则过滤。')}</p>
                 </div> : null}
-              <textarea className={s.textarea} placeholder={decision === "approve" ? "填写审批意见，可留空直接同意" : decision === "reject" ? "请填写不同意原因" : "填写转交说明，便于接收人理解背景（可选）"} value={comment} onChange={e => setComment(e.target.value)} />
+              <textarea className={s.textarea} placeholder={decision === "approve" ? t('ui.填写审批意见，可留空直接同意','填写审批意见，可留空直接同意') : decision === "reject" ? t('ui.请填写不同意原因','请填写不同意原因') : t('ui.填写转交说明，便于接收人理解背景（可选）','填写转交说明，便于接收人理解背景（可选）')} value={comment} onChange={e => setComment(e.target.value)} />
               {notice ? <div className={s.successBanner}>{notice}</div> : null}
               {error ? <div className={s.errorBanner}>{error}</div> : null}
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看详情</Link>
-                <button type="button" style={secondaryActionButton} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>{t('ui.查看详情','查看详情')}</Link>
+                <button type="button" style={secondaryActionButton} disabled={loading || !comment.trim()} onClick={saveComment}>{t('ui.补充意见','补充意见')}</button>
                 <button type="button" style={decision === "reject" ? actionPill('danger') : decision === "transfer" ? actionPill('info') : primaryActionButton} disabled={loading || (decision === "transfer" && (candidateLoading || transferCandidates.length === 0))} onClick={() => {
               if (decision === "approve") void act("approve");
               else if (decision === "reject") void act("reject");
               else void transfer();
             }}>
-                  {loading ? "处理中..." : decision === "approve" ? "提交同意" : decision === "reject" ? "提交不同意" : "确认转交审批"}
+                  {loading ? t('ui.处理中...','处理中...') : decision === "approve" ? t('ui.提交同意','提交同意') : decision === "reject" ? t('ui.提交不同意','提交不同意') : t('ui.确认转交审批','确认转交审批')}
                 </button>
               </div>
-            </div> : <div className={s.emptyState}><div className={s.emptyStateText}>选择一条待办后处理。</div></div>}
+            </div> : <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.选择一条待办后处理。','选择一条待办后处理。')}</div></div>}
         </section>
       </div>
     </div>;
@@ -252,25 +254,26 @@ function ApprovalAssist({
   task: WorkflowTask;
   onUseTemplate: (value: string) => void;
 }) {
+  const { t } = useLanguage();
   const insight = buildApprovalInsight(task);
   return <div style={assistPanelStyle}>
       <div style={assistCardStyle}>
-        <span style={actionPill('default')}>审批关注</span>
+        <span style={actionPill('default')}>{t('ui.审批关注','审批关注')}</span>
         <strong>{insight.title}</strong>
         <div style={assistListStyle}>
           {insight.focus.map(item => <span key={item}>{item}</span>)}
         </div>
       </div>
       <div style={assistCardStyle}>
-        <span style={actionPill('default')}>系统提示</span>
+        <span style={actionPill('default')}>{t('ui.系统提示','系统提示')}</span>
         <strong>{insight.riskLevel}</strong>
         <div style={assistListStyle}>
           {insight.risks.map(item => <span key={item}>{item}</span>)}
         </div>
       </div>
       <div style={assistCardStyle}>
-        <span style={actionPill('default')}>意见模板</span>
-        <strong>可一键带入审批意见</strong>
+        <span style={actionPill('default')}>{t('ui.意见模板','意见模板')}</span>
+        <strong>{t('ui.可一键带入审批意见','可一键带入审批意见')}</strong>
         <div style={templateGridStyle}>
           {insight.templates.map(item => <button key={item} type="button" onClick={() => onUseTemplate(item)} style={actionPill('default')}>
               {item}

@@ -7,6 +7,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTaskSummary } from "@/lib/workflow-api";
 import { WorkflowMetricsStrip } from "@/components/workflow/WorkflowMetricsStrip";
 import { actionPill, primaryActionButton, detailInfoBox } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const smartScenarios = [
   ["采购申请", "PURCHASE_APPROVAL", "采购", "自动带出物料、数量、预算和采购原因草稿"],
@@ -33,6 +34,7 @@ const adminLinks = [
 ];
 
 export default function WorkflowHomePage() {
+  const { t } = useLanguage();
   const [summary, setSummary] = useState<WorkflowTaskSummary | null>(null);
 
   useEffect(() => {
@@ -41,15 +43,15 @@ export default function WorkflowHomePage() {
 
   return (
     <div>
-      <PageHeader title="审批工作台" subtitle="我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程" breadcrumb={["审批工作台"]} />
+      <PageHeader title={t('ui.审批工作台','审批工作台')} subtitle={t('ui.我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程','我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程')} breadcrumb={[t('ui.审批工作台','审批工作台')]} />
 
       {/* UIX-PROD-1 审批工作台化：第一眼是"我要做什么" */}
       <section style={{ ...detailInfoBox, background: "var(--bg-card)", marginBottom: 12 }}>
         <div style={metricGridStyle}>
-          <Metric label="我的待办" value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
-          <Metric label="抄送未读" value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
-          <Metric label="超时待办" value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
-          <Metric label="我发起进行中" value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
+          <Metric label={t('ui.我的待办','我的待办')} value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
+          <Metric label={t('ui.抄送未读','抄送未读')} value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
+          <Metric label={t('ui.超时待办','超时待办')} value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
+          <Metric label={t('ui.我发起进行中','我发起进行中')} value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
         </div>
       </section>
 
@@ -60,13 +62,13 @@ export default function WorkflowHomePage() {
       <section style={aiWorkbenchStyle}>
         <div style={aiHeaderStyle}>
           <div>
-            <span style={actionPill("success")}>智能发起</span>
-            <h3 style={aiTitleStyle}>常用业务一键提单</h3>
+            <span style={actionPill("success")}>{t('ui.智能发起','智能发起')}</span>
+            <h3 style={aiTitleStyle}>{t('ui.常用业务一键提单','常用业务一键提单')}</h3>
             <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13 }}>
-              选择业务场景，系统自动选择对应流程并预填表单字段，缩短发起耗时。
+              {t('ui.选择业务场景，系统自动选择对应流程并预填表单字段，缩短发起耗时。','选择业务场景，系统自动选择对应流程并预填表单字段，缩短发起耗时。')}
             </p>
           </div>
-          <Link href="/workflow/start?smart=1" style={{ ...primaryActionButton, textDecoration: "none" }}>更多场景</Link>
+          <Link href="/workflow/start?smart=1" style={{ ...primaryActionButton, textDecoration: "none" }}>{t('ui.更多场景','更多场景')}</Link>
         </div>
         <div style={scenarioGridStyle}>
           {smartScenarios.map(([label, code, category, desc]) => (
@@ -74,14 +76,14 @@ export default function WorkflowHomePage() {
               <span style={actionPill("default")}>{category}</span>
               <strong>{label}</strong>
               <span>{desc}</span>
-              <b>选择并生成草稿</b>
+              <b>{t('ui.选择并生成草稿','选择并生成草稿')}</b>
             </Link>
           ))}
         </div>
       </section>
 
       <section style={{ ...detailInfoBox, background: "var(--bg-card)", marginBottom: 12 }}>
-        <h3 style={{ ...titleStyle, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>日常使用</h3>
+        <h3 style={{ ...titleStyle, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{t('ui.日常使用','日常使用')}</h3>
         <div style={gridStyle}>
           {userLinks.map(([label, href, desc]) => (
             <Link key={href} href={href} style={cardStyle}>
@@ -93,7 +95,7 @@ export default function WorkflowHomePage() {
       </section>
 
       <section style={{ ...detailInfoBox, background: "var(--bg-card)" }}>
-        <h3 style={{ ...titleStyle, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>管理员配置</h3>
+        <h3 style={{ ...titleStyle, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{t('ui.管理员配置','管理员配置')}</h3>
         <div style={gridStyle}>
           {adminLinks.map(([label, href, desc]) => (
             <Link key={href} href={href} style={cardStyle}>

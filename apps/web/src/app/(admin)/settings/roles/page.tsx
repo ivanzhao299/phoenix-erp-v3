@@ -311,12 +311,12 @@ export default function RoleManagementPage() {
   const [wcResult, setWcResult] = useState<{ roles: Array<{ role_code: string; role_name_zh: string; via: string }>; users: Array<{ username: string; real_name_zh: string | null }> } | null>(null);
   const [wcLoading, setWcLoading] = useState(false);
   const runWhoCan = async () => {
-    if (!wcMenu) { toast.error("请选择菜单"); return; }
+    if (!wcMenu) { toast.error(t("ui.请选择菜单", "请选择菜单")); return; }
     setWcLoading(true); setWcResult(null);
     try {
       const r = await apiGet(`/api/permissions/who-can?menu=${encodeURIComponent(wcMenu)}&perm=${wcPerm}`);
       setWcResult({ roles: r.data?.roles || [], users: r.data?.users || [] });
-    } catch (e: any) { toast.error("反查失败: " + (e.message || String(e))); } finally { setWcLoading(false); }
+    } catch (e: any) { toast.error(t("ui.反查失败: ", "反查失败: ") + (e.message || String(e))); } finally { setWcLoading(false); }
   };
 
   // 已停用角色显示开关（默认隐藏 DEPRECATED）
@@ -408,7 +408,7 @@ export default function RoleManagementPage() {
       setUserCountByRole(st.data?.user_count_by_role ?? {});
     } catch (e: any) {
       // 用 setTimeout 避免在渲染阶段触发 state 更新
-      setTimeout(() => toast.error("加载失败: " + (e.message || String(e))), 0);
+      setTimeout(() => toast.error(t("ui.加载失败: ", "加载失败: ") + (e.message || String(e))), 0);
     } finally {
       setLoading(false);
     }
@@ -701,10 +701,10 @@ export default function RoleManagementPage() {
 
       {/* 顶部统计胶囊 */}
       <div className={s.statsRow}>
-        <StatPill label={t("ui.角色总数", "角色总数")} value={stats.role_count} color="var(--color-primary)" icon={<Shield size={14} />} tip="系统中已定义的角色数量" />
-        <StatPill label={t("ui.菜单定义", "菜单定义")} value={stats.menu_count} color="var(--status-success)" icon={<Grid size={14} />} tip="系统注册的菜单/功能点总数" />
-        <StatPill label={t("ui.敏感菜单", "敏感菜单")} value={stats.sensitive_count} color="var(--status-danger)" icon={<Lock size={14} />} tip="标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误" />
-        <StatPill label={t("ui.岗位分离规则", "岗位分离规则")} value={stats.conflict_count} color="var(--status-warning)" icon={<AlertTriangle size={14} />} tip="SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错" />
+        <StatPill label={t("ui.角色总数", "角色总数")} value={stats.role_count} color="var(--color-primary)" icon={<Shield size={14} />} tip={t("ui.系统中已定义的角色数量", "系统中已定义的角色数量")} />
+        <StatPill label={t("ui.菜单定义", "菜单定义")} value={stats.menu_count} color="var(--status-success)" icon={<Grid size={14} />} tip={t("ui.系统注册的菜单/功能点总数", "系统注册的菜单/功能点总数")} />
+        <StatPill label={t("ui.敏感菜单", "敏感菜单")} value={stats.sensitive_count} color="var(--status-danger)" icon={<Lock size={14} />} tip={t("ui.标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误", "标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误")} />
+        <StatPill label={t("ui.岗位分离规则", "岗位分离规则")} value={stats.conflict_count} color="var(--status-warning)" icon={<AlertTriangle size={14} />} tip={t("ui.SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错", "SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错")} />
       </div>
 
       {/* 角色卡片 — 按 role_type 分组展示 */}
@@ -746,7 +746,7 @@ export default function RoleManagementPage() {
               color: meta.color,
               fontWeight: 600
             }}>
-                  {groupRoles.length} 个角色
+                  {groupRoles.length} {t("ui.个角色", "个角色")}
                 </span>
                 {totalUsers > 0 && <span style={{
               fontSize: 11,
@@ -755,7 +755,7 @@ export default function RoleManagementPage() {
               alignItems: "center",
               gap: 3
             }}>
-                    <Users size={10} /> {totalUsers} 人
+                    <Users size={10} /> {totalUsers} {t("ui.人", "人")}
                   </span>}
                 <span style={{
               marginLeft: "auto",
@@ -1005,7 +1005,7 @@ export default function RoleManagementPage() {
               display: "flex",
               alignItems: "center",
               gap: 3
-            }} title="恢复为该业务域的默认说明文本">
+            }} title={t("ui.恢复为该业务域的默认说明文本", "恢复为该业务域的默认说明文本")}>
                   ↩ {t("ui.恢复默认", "恢复默认")}
                 </button>}
             </div>
@@ -1186,7 +1186,7 @@ export default function RoleManagementPage() {
               opacity: 0.6,
               alignSelf: "center"
             }}>
-                🔒 = 敏感菜单，建议谨慎授写权限
+                {t("ui.🔒 = 敏感菜单，建议谨慎授写权限", "🔒 = 敏感菜单，建议谨慎授写权限")}
               </span>
             </div>
 
@@ -1455,7 +1455,7 @@ export default function RoleManagementPage() {
               <div>
                 <div className={s.lbl} style={{ marginBottom: 6 }}><Shield size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t("ui.有权角色", "有权角色")} ({wcResult.roles.length})</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {wcResult.roles.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.roles.map(r => <span key={r.role_code} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--status-special-bg-medium)", color: "var(--color-primary)" }}>{r.role_name_zh}<span style={{ opacity: 0.55, marginLeft: 4, fontSize: 9 }}>{r.via === "set" ? "权限集" : r.via === "direct" ? "直绑" : r.via}</span></span>)}
+                  {wcResult.roles.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.roles.map(r => <span key={r.role_code} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--status-special-bg-medium)", color: "var(--color-primary)" }}>{r.role_name_zh}<span style={{ opacity: 0.55, marginLeft: 4, fontSize: 9 }}>{r.via === "set" ? t("ui.权限集", "权限集") : r.via === "direct" ? t("ui.直绑", "直绑") : r.via}</span></span>)}
                 </div>
               </div>
               <div>

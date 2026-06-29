@@ -8,6 +8,7 @@ import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPi
 import { workflowApi } from "@/lib/workflow-api";
 import { WORKFLOW_DATA_CATALOG, dataSourceConfig } from "@/lib/workflow-data-catalog";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 type DataSourceRow = Record<string, unknown>;
 type PreviewRow = {
   value?: string | number;
@@ -51,6 +52,7 @@ type HealthState = {
   sample?: PreviewRow[];
 };
 export default function WorkflowDataSourcesPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<DataSourceRow[]>([]);
   const [selectedCode, setSelectedCode] = useState(WORKFLOW_DATA_CATALOG[0].code);
   const [previewCode, setPreviewCode] = useState("");
@@ -112,7 +114,7 @@ export default function WorkflowDataSourcesPage() {
           ...prev,
           [code]: {
             status: "error",
-            message: err instanceof Error ? friendlyError(err.message) : "预览失败"
+            message: err instanceof Error ? friendlyError(err.message) : t('ui.预览失败','预览失败')
           }
         }));
       }
@@ -126,7 +128,7 @@ export default function WorkflowDataSourcesPage() {
       setRows(next);
       void checkRows(next);
     }).catch(err => {
-      if (alive) setError(err instanceof Error ? friendlyError(err.message) : "数据源加载失败");
+      if (alive) setError(err instanceof Error ? friendlyError(err.message) : t('ui.数据源加载失败','数据源加载失败'));
     });
     return () => {
       alive = false;
@@ -146,10 +148,10 @@ export default function WorkflowDataSourcesPage() {
     try {
       await workflowApi.syncDefaultDataSources();
       const next = await load();
-      setMsg("标准数据源已补齐，表单设计器可以直接引用用户、角色、组织和业务资料。");
+      setMsg(t('ui.标准数据源已补齐，表单设计器可以直接引用用户、角色、组织和业务资料。','标准数据源已补齐，表单设计器可以直接引用用户、角色、组织和业务资料。'));
       await checkRows(next);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "同步标准数据源失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.同步标准数据源失败','同步标准数据源失败'));
     } finally {
       setBusy(false);
     }
@@ -162,10 +164,10 @@ export default function WorkflowDataSourcesPage() {
       const res = await workflowApi.refreshDataSourceMetadata();
       const next = res.data || [];
       setRows(next);
-      setMsg("字段元数据已自动刷新，新增字段和缺失字段会在下方列表体现。");
+      setMsg(t('ui.字段元数据已自动刷新，新增字段和缺失字段会在下方列表体现。','字段元数据已自动刷新，新增字段和缺失字段会在下方列表体现。'));
       await checkRows(next);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "刷新字段元数据失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.刷新字段元数据失败','刷新字段元数据失败'));
     } finally {
       setBusy(false);
     }
@@ -182,10 +184,10 @@ export default function WorkflowDataSourcesPage() {
         config_json: dataSourceConfig(selectedCatalog)
       });
       const next = await load();
-      setMsg(`已创建数据源：${selectedCatalog.name}`);
+      setMsg(`${t('ui.已创建数据源：','已创建数据源：')}${selectedCatalog.name}`);
       await checkRows(next);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "创建数据源失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.创建数据源失败','创建数据源失败'));
     } finally {
       setBusy(false);
     }
@@ -213,10 +215,10 @@ export default function WorkflowDataSourcesPage() {
         ...prev,
         [code]: {
           status: "error",
-          message: err instanceof Error ? friendlyError(err.message) : "预览失败"
+          message: err instanceof Error ? friendlyError(err.message) : t('ui.预览失败','预览失败')
         }
       }));
-      setError(err instanceof Error ? friendlyError(err.message) : "数据源预览失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.数据源预览失败','数据源预览失败'));
     }
   }
   async function loadFieldSuggestions(code: string) {
@@ -234,7 +236,7 @@ export default function WorkflowDataSourcesPage() {
       }
     } catch (err) {
       setFieldSuggestions([]);
-      setError(err instanceof Error ? friendlyError(err.message) : "生成字段建议失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.生成字段建议失败','生成字段建议失败'));
     }
   }
   async function createFormFromSelectedSource() {
@@ -256,15 +258,15 @@ export default function WorkflowDataSourcesPage() {
         designer?: string;
         forms?: string;
       } | undefined;
-      setMsg(`已生成表单：${String(form?.name || selectedCatalog.name)}，可进入表单定义继续设计/发布。`);
+      setMsg(`${t('ui.已生成表单：','已生成表单：')}${String(form?.name || selectedCatalog.name)}${t('ui.，可进入表单定义继续设计/发布。','，可进入表单定义继续设计/发布。')}`);
       setGeneratedLinks({
-        title: "表单已生成",
+        title: t('ui.表单已生成','表单已生成'),
         formDesigner: links?.designer || (form?.id ? `/workflow/form-designer/${form.id}` : undefined),
         list: links?.forms || "/workflow/forms"
       });
       await loadFieldSuggestions(selectedCatalog.code);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "生成表单失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.生成表单失败','生成表单失败'));
     } finally {
       setBusy(false);
     }
@@ -292,9 +294,9 @@ export default function WorkflowDataSourcesPage() {
         formDesigner?: string;
         definitions?: string;
       } | undefined;
-      setMsg(`已生成流程：${String(definition?.name || selectedCatalog.name)}，用户可在流程发起页选择使用。`);
+      setMsg(`${t('ui.已生成流程：','已生成流程：')}${String(definition?.name || selectedCatalog.name)}${t('ui.，用户可在流程发起页选择使用。','，用户可在流程发起页选择使用。')}`);
       setGeneratedLinks({
-        title: "流程包已生成",
+        title: t('ui.流程包已生成','流程包已生成'),
         start: links?.start || (definition ? `/workflow/start?code=${selectedCatalog.code}_AUTO_WORKFLOW` : undefined),
         designer: links?.designer || (definition?.id ? `/workflow/designer/${definition.id}` : undefined),
         formDesigner: links?.formDesigner,
@@ -302,34 +304,34 @@ export default function WorkflowDataSourcesPage() {
       });
       await loadFieldSuggestions(selectedCatalog.code);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "生成流程失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.生成流程失败','生成流程失败'));
     } finally {
       setBusy(false);
     }
   }
   return <div>
-      <PageHeader title="工作流数据源" subtitle="把用户、角色、组织和业务资料包装成表单可用的动态引用控件" breadcrumb={["工作流", "数据源"]} />
+      <PageHeader title={t('ui.工作流数据源','工作流数据源')} subtitle={t('ui.把用户、角色、组织和业务资料包装成表单可用的动态引用控件','把用户、角色、组织和业务资料包装成表单可用的动态引用控件')} breadcrumb={[t('ui.工作流','工作流'), t('ui.数据源','数据源')]} />
 
       <div className={s.statsRow}>
         <div className={s.statCard}>
-          <div className={s.statLabel}>标准目录</div>
+          <div className={s.statLabel}>{t('ui.标准目录','标准目录')}</div>
           <div className={s.statValue}>{WORKFLOW_DATA_CATALOG.length}</div>
-          <div className={s.statSub}>{missingCount ? `待补齐 ${missingCount} 个` : "已补齐"}</div>
+          <div className={s.statSub}>{missingCount ? `${t('ui.待补齐','待补齐')} ${missingCount} ${t('ui.个','个')}` : t('ui.已补齐','已补齐')}</div>
         </div>
         <div className={s.statCard}>
-          <div className={s.statLabel}>已启用数据源</div>
+          <div className={s.statLabel}>{t('ui.已启用数据源','已启用数据源')}</div>
           <div className={s.statValue}>{rows.filter(row => String(row.status || "ACTIVE") === "ACTIVE").length}</div>
-          <div className={s.statSub}>表单设计器可直接引用</div>
+          <div className={s.statSub}>{t('ui.表单设计器可直接引用','表单设计器可直接引用')}</div>
         </div>
         <div className={s.statCard}>
-          <div className={s.statLabel}>巡检通过</div>
+          <div className={s.statLabel}>{t('ui.巡检通过','巡检通过')}</div>
           <div className={s.statValue}>{healthSummary.ok}</div>
-          <div className={s.statSub}>{healthSummary.empty ? `${healthSummary.empty} 个暂无数据` : "真实数据可读取"}</div>
+          <div className={s.statSub}>{healthSummary.empty ? `${healthSummary.empty} ${t('ui.个暂无数据','个暂无数据')}` : t('ui.真实数据可读取','真实数据可读取')}</div>
         </div>
         <div className={s.statCard}>
-          <div className={s.statLabel}>已发现字段</div>
+          <div className={s.statLabel}>{t('ui.已发现字段','已发现字段')}</div>
           <div className={s.statValue}>{metadataSummary.columns}</div>
-          <div className={s.statSub}>{metadataSummary.available} 个数据源元数据正常</div>
+          <div className={s.statSub}>{metadataSummary.available} {t('ui.个数据源元数据正常','个数据源元数据正常')}</div>
         </div>
       </div>
 
@@ -338,19 +340,19 @@ export default function WorkflowDataSourcesPage() {
           <div className={s.toolbar} style={toolbarStyle}>
             <div className={s.toolbarLeft}>
               <div>
-                <h3 className={s.cardTitle} style={titleStyle}>标准业务对象</h3>
-                <p className={`${s.modalDesc} ${u.mt4}`}>选择一个对象可以单独创建；也可以一键补齐标准数据源。</p>
+                <h3 className={s.cardTitle} style={titleStyle}>{t('ui.标准业务对象','标准业务对象')}</h3>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.选择一个对象可以单独创建；也可以一键补齐标准数据源。','选择一个对象可以单独创建；也可以一键补齐标准数据源。')}</p>
               </div>
             </div>
             <div className={s.toolbarRight}>
               <button type="button" style={secondaryActionButton} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
-                重新巡检
+                {t('ui.重新巡检','重新巡检')}
               </button>
               <button type="button" style={secondaryActionButton} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
-                刷新字段元数据
+                {t('ui.刷新字段元数据','刷新字段元数据')}
               </button>
               <button type="button" style={primaryActionButton} disabled={busy} onClick={syncDefaults}>
-                补齐标准数据源
+                {t('ui.补齐标准数据源','补齐标准数据源')}
               </button>
             </div>
           </div>
@@ -365,7 +367,7 @@ export default function WorkflowDataSourcesPage() {
               }} onClick={() => setSelectedCode(item.code)}>
                     <span style={catalogButtonTopStyle}>
                       <strong>{item.objectName}</strong>
-                      <span className={`${s.badge} ${exists ? s.badgeSuccess : s.badgeNeutral}`}>{exists ? "已启用" : "待创建"}</span>
+                      <span className={`${s.badge} ${exists ? s.badgeSuccess : s.badgeNeutral}`}>{exists ? t('ui.已启用','已启用') : t('ui.待创建','待创建')}</span>
                     </span>
                     <span>{item.description}</span>
                     <small>{item.code}</small>
@@ -373,16 +375,16 @@ export default function WorkflowDataSourcesPage() {
             })}
             </div>
             <div className={s.infoGrid} style={catalogDetailStyle}>
-              <Info label="数据源名称" value={selectedCatalog.name} />
-              <Info label="控件编码" value={selectedCatalog.code} />
-              <Info label="来源类型" value={sourceTypeText(selectedCatalog.source_type)} />
-              <Info label="提交值字段" value={selectedCatalog.valueField} />
-              <Info label="显示字段" value={selectedCatalog.labelField} />
-              <Info label="数据库表/字典" value={selectedCatalog.table || selectedCatalog.dict_type || "-"} />
-              <Info label="启用过滤" value={selectedCatalog.statusFields?.length ? selectedCatalog.statusFields.join(" / ") : "无"} />
-              <Info label="当前状态" value={existingByCode.has(selectedCatalog.code) ? "已配置，可在表单设计器使用" : "尚未创建"} />
-              <Info label="自动发现字段" value={selectedMetadata?.columns?.length ? `${selectedMetadata.columns.length} 个` : "-"} />
-              <Info label="最近同步" value={formatTime(selectedExisting?.last_synced_at)} />
+              <Info label={t('ui.数据源名称','数据源名称')} value={selectedCatalog.name} />
+              <Info label={t('ui.控件编码','控件编码')} value={selectedCatalog.code} />
+              <Info label={t('ui.来源类型','来源类型')} value={sourceTypeText(selectedCatalog.source_type)} />
+              <Info label={t('ui.提交值字段','提交值字段')} value={selectedCatalog.valueField} />
+              <Info label={t('ui.显示字段','显示字段')} value={selectedCatalog.labelField} />
+              <Info label={t('ui.数据库表/字典','数据库表/字典')} value={selectedCatalog.table || selectedCatalog.dict_type || "-"} />
+              <Info label={t('ui.启用过滤','启用过滤')} value={selectedCatalog.statusFields?.length ? selectedCatalog.statusFields.join(" / ") : t('ui.无','无')} />
+              <Info label={t('ui.当前状态','当前状态')} value={existingByCode.has(selectedCatalog.code) ? t('ui.已配置，可在表单设计器使用','已配置，可在表单设计器使用') : t('ui.尚未创建','尚未创建')} />
+              <Info label={t('ui.自动发现字段','自动发现字段')} value={selectedMetadata?.columns?.length ? `${selectedMetadata.columns.length} ${t('ui.个','个')}` : "-"} />
+              <Info label={t('ui.最近同步','最近同步')} value={formatTime(selectedExisting?.last_synced_at)} />
             </div>
           </div>
 
@@ -391,25 +393,25 @@ export default function WorkflowDataSourcesPage() {
           </div>
           {selectedMetadata?.columns?.length ? <div style={fieldMapStyle}>
               {selectedMetadata.columns.slice(0, 12).map(column => <span key={String(column.key)} className={s.tag}>
-                  {String(column.key)} · {String(column.type || "字段")}
+                  {String(column.key)} · {String(column.type || t('ui.字段','字段'))}
                 </span>)}
-              {selectedMetadata.columns.length > 12 ? <span className={s.tag}>+{selectedMetadata.columns.length - 12} 个字段</span> : null}
+              {selectedMetadata.columns.length > 12 ? <span className={s.tag}>+{selectedMetadata.columns.length - 12} {t('ui.个字段','个字段')}</span> : null}
             </div> : null}
           <div style={actionsStyle}>
             <button type="button" style={secondaryActionButton} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
-              {existingCodes.has(selectedCatalog.code) ? "该对象已创建" : `创建 ${selectedCatalog.name}`}
+              {existingCodes.has(selectedCatalog.code) ? t('ui.该对象已创建','该对象已创建') : `${t('ui.创建','创建')} ${selectedCatalog.name}`}
             </button>
             {existingCodes.has(selectedCatalog.code) ? <button type="button" style={secondaryActionButton} disabled={busy} onClick={() => show(selectedCatalog.code)}>
-                预览 {selectedCatalog.name}
+                {t('ui.预览','预览')} {selectedCatalog.name}
               </button> : null}
             {existingCodes.has(selectedCatalog.code) ? <button type="button" style={secondaryActionButton} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
-                生成字段建议
+                {t('ui.生成字段建议','生成字段建议')}
               </button> : null}
             {existingCodes.has(selectedCatalog.code) ? <button type="button" style={primaryActionButton} disabled={busy} onClick={createFormFromSelectedSource}>
-                生成表单
+                {t('ui.生成表单','生成表单')}
               </button> : null}
             {existingCodes.has(selectedCatalog.code) ? <button type="button" style={primaryActionButton} disabled={busy} onClick={createWorkflowFromSelectedSource}>
-                生成流程
+                {t('ui.生成流程','生成流程')}
               </button> : null}
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -420,9 +422,9 @@ export default function WorkflowDataSourcesPage() {
 
       <section className={s.card}>
         <div className={s.cardBody}>
-          <h3 className={s.cardTitle} style={titleStyle}>已配置数据源</h3>
+          <h3 className={s.cardTitle} style={titleStyle}>{t('ui.已配置数据源','已配置数据源')}</h3>
           <table className={s.table}>
-            <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>状态</th><th>字段</th><th>数据</th><th>最近同步</th><th>样例</th><th>操作</th></tr></thead>
+            <thead><tr><th>{t('ui.编码','编码')}</th><th>{t('ui.名称','名称')}</th><th>{t('ui.类型','类型')}</th><th>{t('ui.状态','状态')}</th><th>{t('ui.字段','字段')}</th><th>{t('ui.数据','数据')}</th><th>{t('ui.最近同步','最近同步')}</th><th>{t('ui.样例','样例')}</th><th>{t('ui.操作','操作')}</th></tr></thead>
             <tbody>{rows.map(row => {
               const code = String(row.code);
               const state = health[code] || {
@@ -438,37 +440,37 @@ export default function WorkflowDataSourcesPage() {
                   <td><HealthBadge state={state} /></td>
                   <td>{formatTime(row.last_synced_at)}</td>
                   <td>{sampleText(state)}</td>
-                  <td><button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => show(code)}>预览真实数据</button></td>
+                  <td><button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => show(code)}>{t('ui.预览真实数据','预览真实数据')}</button></td>
                 </tr>;
             })}</tbody>
           </table>
-          {rows.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>暂无数据源，请先补齐标准数据源。</div></div> : null}
+          {rows.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无数据源，请先补齐标准数据源。','暂无数据源，请先补齐标准数据源。')}</div></div> : null}
           {previewCode ? <div style={previewBoxStyle}>
-              <strong className={s.cardTitle}>{previewCode} 预览</strong>
+              <strong className={s.cardTitle}>{previewCode} {t('ui.预览','预览')}</strong>
               {preview.length ? <table className={s.table} style={{
             marginTop: 10
           }}>
-                  <thead><tr><th>提交值</th><th>显示名称</th></tr></thead>
+                  <thead><tr><th>{t('ui.提交值','提交值')}</th><th>{t('ui.显示名称','显示名称')}</th></tr></thead>
                   <tbody>{preview.slice(0, 10).map((row, index) => <tr key={`${String(row.value)}-${index}`}><td>{String(row.value)}</td><td>{String(row.label)}</td></tr>)}</tbody>
-                </table> : <div className={s.emptyState}><div className={s.emptyStateText}>暂无预览数据。</div></div>}
+                </table> : <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无预览数据。','暂无预览数据。')}</div></div>}
             </div> : null}
           {suggestionCode ? <div style={previewBoxStyle}>
-              <strong className={s.cardTitle}>{suggestionCode} 字段建议</strong>
+              <strong className={s.cardTitle}>{suggestionCode} {t('ui.字段建议','字段建议')}</strong>
               <p className={s.modalDesc} style={{
             margin: "6px 0 10px"
           }}>
-                系统根据数据源字段自动推断表单控件类型；后续可接入表单设计器一键导入。
+                {t('ui.系统根据数据源字段自动推断表单控件类型；后续可接入表单设计器一键导入。','系统根据数据源字段自动推断表单控件类型；后续可接入表单设计器一键导入。')}
               </p>
               {fieldSuggestions.length ? <table className={s.table}>
-                  <thead><tr><th>字段</th><th>显示名</th><th>控件类型</th><th>规则</th><th>建议原因</th></tr></thead>
+                  <thead><tr><th>{t('ui.字段','字段')}</th><th>{t('ui.显示名','显示名')}</th><th>{t('ui.控件类型','控件类型')}</th><th>{t('ui.规则','规则')}</th><th>{t('ui.建议原因','建议原因')}</th></tr></thead>
                   <tbody>{fieldSuggestions.map(field => <tr key={`${String(field.key)}-${String(field.type)}`}>
                       <td>{String(field.key || "-")}</td>
                       <td>{String(field.label || "-")}</td>
                       <td>{fieldTypeText(String(field.type || ""))}</td>
-                      <td>{field.required ? "必填" : "可选"}{field.dataSource ? ` · ${field.dataSource}` : ""}</td>
+                      <td>{field.required ? t('ui.必填','必填') : t('ui.可选','可选')}{field.dataSource ? ` · ${field.dataSource}` : ""}</td>
                       <td>{String(field.reason || "-")}</td>
                     </tr>)}</tbody>
-                </table> : <div className={s.emptyState}><div className={s.emptyStateText}>暂无可生成的字段建议。</div></div>}
+                </table> : <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无可生成的字段建议。','暂无可生成的字段建议。')}</div></div>}
             </div> : null}
         </div>
       </section>
@@ -479,13 +481,14 @@ function GeneratedLinks({
 }: {
   links: GeneratedLinkSet;
 }) {
+  const { t } = useLanguage();
   return <div style={generatedLinksStyle}>
       <strong>{links.title}</strong>
       <div style={generatedLinkActionsStyle}>
-        {links.start ? <Link style={primaryActionButton} href={links.start}>立即发起</Link> : null}
-        {links.designer ? <Link style={secondaryActionButton} href={links.designer}>流程设计器</Link> : null}
-        {links.formDesigner ? <Link style={secondaryActionButton} href={links.formDesigner}>表单设计器</Link> : null}
-        {links.list ? <Link style={secondaryActionButton} href={links.list}>查看列表</Link> : null}
+        {links.start ? <Link style={primaryActionButton} href={links.start}>{t('ui.立即发起','立即发起')}</Link> : null}
+        {links.designer ? <Link style={secondaryActionButton} href={links.designer}>{t('ui.流程设计器','流程设计器')}</Link> : null}
+        {links.formDesigner ? <Link style={secondaryActionButton} href={links.formDesigner}>{t('ui.表单设计器','表单设计器')}</Link> : null}
+        {links.list ? <Link style={secondaryActionButton} href={links.list}>{t('ui.查看列表','查看列表')}</Link> : null}
       </div>
     </div>;
 }
@@ -506,20 +509,22 @@ function HealthBadge({
 }: {
   state: HealthState;
 }) {
-  if (state.status === "checking") return <span className={`${s.badge} ${s.badgeInfo}`}>巡检中</span>;
-  if (state.status === "ok") return <span className={`${s.badge} ${s.badgeSuccess}`}>{state.count || 0} 条</span>;
-  if (state.status === "empty") return <span className={`${s.badge} ${s.badgeWarning}`}>暂无数据</span>;
-  if (state.status === "error") return <span className={`${s.badge} ${s.badgeDanger}`}>异常</span>;
-  return <span className={`${s.badge} ${s.badgeNeutral}`}>未巡检</span>;
+  const { t } = useLanguage();
+  if (state.status === "checking") return <span className={`${s.badge} ${s.badgeInfo}`}>{t('ui.巡检中','巡检中')}</span>;
+  if (state.status === "ok") return <span className={`${s.badge} ${s.badgeSuccess}`}>{state.count || 0} {t('ui.条','条')}</span>;
+  if (state.status === "empty") return <span className={`${s.badge} ${s.badgeWarning}`}>{t('ui.暂无数据','暂无数据')}</span>;
+  if (state.status === "error") return <span className={`${s.badge} ${s.badgeDanger}`}>{t('ui.异常','异常')}</span>;
+  return <span className={`${s.badge} ${s.badgeNeutral}`}>{t('ui.未巡检','未巡检')}</span>;
 }
 function MetadataBadge({
   metadata
 }: {
   metadata: DataSourceMetadata | null;
 }) {
-  if (!metadata) return <span className={`${s.badge} ${s.badgeNeutral}`}>待同步</span>;
-  if (metadata.available === false) return <span className={`${s.badge} ${s.badgeDanger}`}>字段异常</span>;
-  return <span className={`${s.badge} ${s.badgeInfo}`}>{metadata.columns?.length || 0} 字段</span>;
+  const { t } = useLanguage();
+  if (!metadata) return <span className={`${s.badge} ${s.badgeNeutral}`}>{t('ui.待同步','待同步')}</span>;
+  if (metadata.available === false) return <span className={`${s.badge} ${s.badgeDanger}`}>{t('ui.字段异常','字段异常')}</span>;
+  return <span className={`${s.badge} ${s.badgeInfo}`}>{metadata.columns?.length || 0} {t('ui.字段','字段')}</span>;
 }
 function metadataOf(row?: DataSourceRow): DataSourceMetadata | null {
   const raw = row?.metadata_json;

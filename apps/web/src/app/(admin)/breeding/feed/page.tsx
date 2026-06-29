@@ -195,7 +195,7 @@ export default function FeedLedgerPage() {
         fontWeight: 700,
         color: 'var(--status-danger)',
         marginBottom: 6
-      }}>⚠ 库存预警</div>
+      }}>⚠ {t('ui.库存预警', '库存预警')}</div>
           <div style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -209,7 +209,7 @@ export default function FeedLedgerPage() {
           background: r.alert === 'CRITICAL' ? 'var(--status-danger-bg-light)' : 'var(--status-warning-bg-light)',
           color: ALERT_COLOR[r.alert!]
         }}>
-                {r.material_name} · {r.days_left}天
+                {r.material_name} · {r.days_left}{t('ui.天', '天')}
               </span>)}
           </div>
         </div>}
@@ -236,23 +236,23 @@ export default function FeedLedgerPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th className={u.nowrap}>物料名称</th>
-              <th className={u.tac}>单位</th>
-              <th className={u.tar}>昨日库存</th>
-              <th className={u.tar}>今日入库</th>
-              <th className={u.tar}>日用量</th>
+              <th className={u.nowrap}>{t('ui.物料名称', '物料名称')}</th>
+              <th className={u.tac}>{t('ui.单位', '单位')}</th>
+              <th className={u.tar}>{t('ui.昨日库存', '昨日库存')}</th>
+              <th className={u.tar}>{t('ui.今日入库', '今日入库')}</th>
+              <th className={u.tar}>{t('ui.日用量', '日用量')}</th>
               {houses.map(h => <th key={h} style={{
               textAlign: 'right',
               whiteSpace: 'nowrap'
             }}>{h}</th>)}
-              <th className={u.tar}>出库合计</th>
-              <th className={u.tar}>当前库存</th>
-              <th className={u.tac}>可用天</th>
-              <th>备注</th>
+              <th className={u.tar}>{t('ui.出库合计', '出库合计')}</th>
+              <th className={u.tar}>{t('ui.当前库存', '当前库存')}</th>
+              <th className={u.tac}>{t('ui.可用天', '可用天')}</th>
+              <th>{t('ui.备注', '备注')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={10 + houses.length} className={u.emptyCenter}>加载中…</td></tr> : rows.length === 0 ? <tr><td colSpan={10 + houses.length} className={u.emptyCenter}>暂无数据</td></tr> : rows.map((row, idx) => {
+            {loading ? <tr><td colSpan={10 + houses.length} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : rows.length === 0 ? <tr><td colSpan={10 + houses.length} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : rows.map((row, idx) => {
             const alertColor = row.alert ? ALERT_COLOR[row.alert] : undefined;
             const daysColor = row.days_left == null ? 'var(--text-secondary)' : row.days_left <= 3 ? 'var(--status-danger)' : row.days_left <= 7 ? 'var(--status-warning)' : row.days_left <= 14 ? 'var(--status-warning)' : 'var(--status-success)';
             return <tr key={row.material_name} style={{
@@ -269,7 +269,7 @@ export default function FeedLedgerPage() {
                   background: `${alertColor}20`,
                   color: alertColor
                 }}>
-                        {row.alert === 'CRITICAL' ? '⚠ 紧缺' : '关注'}
+                        {row.alert === 'CRITICAL' ? t('ui.⚠ 紧缺', '⚠ 紧缺') : t('ui.关注', '关注')}
                       </span>}
                   </td>
                   <td style={{
@@ -345,12 +345,12 @@ export default function FeedLedgerPage() {
                 fontWeight: 700,
                 color: daysColor
               }}>
-                    {row.days_left != null ? `${row.days_left}天` : '—'}
+                    {row.days_left != null ? `${row.days_left}${t('ui.天', '天')}` : '—'}
                   </td>
                   <td>
                     {canEdit ? <input type="text" value={row.note} onChange={e => updateRow(idx, {
                   note: e.target.value
-                })} placeholder="备注…" style={{
+                })} placeholder={t('ui.备注…', '备注…')} style={{
                   width: 140,
                   padding: '4px 6px',
                   borderRadius: 6,

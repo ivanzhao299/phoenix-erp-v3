@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Inbox } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * EmptyState — 统一空状态（桌面端）。暗色经 CSS 变量自动适配。
@@ -14,7 +15,9 @@ export interface EmptyStateProps {
   compact?: boolean;
 }
 
-export function EmptyState({ title = '暂无数据', description, icon: Icon = Inbox, action, compact }: EmptyStateProps) {
+export function EmptyState({ title, description, icon: Icon = Inbox, action, compact }: EmptyStateProps) {
+  const { t } = useLanguage();
+  const titleResolved = title ?? t('ui.暂无数据', '暂无数据');
   return (
     <div
       style={{
@@ -32,7 +35,7 @@ export function EmptyState({ title = '暂无数据', description, icon: Icon = I
       >
         <Icon size={compact ? 20 : 28} />
       </div>
-      <div style={{ fontSize: compact ? 14 : 15, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
+      <div style={{ fontSize: compact ? 14 : 15, fontWeight: 600, color: 'var(--text-primary)' }}>{titleResolved}</div>
       {description && <div style={{ fontSize: 13, maxWidth: 360 }}>{description}</div>}
       {action && <div style={{ marginTop: 6 }}>{action}</div>}
     </div>

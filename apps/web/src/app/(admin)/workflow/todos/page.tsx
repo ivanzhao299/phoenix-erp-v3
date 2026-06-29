@@ -8,6 +8,7 @@ import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -262,6 +263,7 @@ async function rejectInstance(instanceId: string, comment: string) {
 
 // ── 组件 ─────────────────────────────────────────────────────────────────────
 export default function ApprovalTodosPage() {
+  const { t } = useLanguage();
   const toast = useToast();
   const [resp, setResp] = useState<TaskListResponse>({
     items: [],
@@ -372,9 +374,9 @@ export default function ApprovalTodosPage() {
     try {
       const r = await approveInstance(selected.instanceId, comment);
       if (r.statusCode && r.statusCode >= 400) {
-        toast.error(r.message || "操作失败");
+        toast.error(r.message || t('ui.操作失败','操作失败'));
       } else {
-        toast.success(r.finished ? "审批完成，单据已通过" : "已通过，等待下一级审批");
+        toast.success(r.finished ? t('ui.审批完成，单据已通过','审批完成，单据已通过') : t('ui.已通过，等待下一级审批','已通过，等待下一级审批'));
         setDrawerOpen(false);
         // G150：乐观移除——点完即从列表消失，不等整页刷新；随后 load() 对账
         //   （若本人恰是下一级审批人，会在 load() 后以新步骤正确重新出现）
@@ -382,7 +384,7 @@ export default function ApprovalTodosPage() {
         load();
       }
     } catch {
-      toast.error("网络错误");
+      toast.error(t('ui.网络错误','网络错误'));
     } finally {
       setSubmitting(false);
     }
@@ -390,22 +392,22 @@ export default function ApprovalTodosPage() {
   const handleReject = async () => {
     if (!selected) return;
     if (!comment.trim()) {
-      toast.warning("拒绝时必须填写意见");
+      toast.warning(t('ui.拒绝时必须填写意见','拒绝时必须填写意见'));
       return;
     }
     setSubmitting(true);
     try {
       const r = await rejectInstance(selected.instanceId, comment);
       if (r.statusCode && r.statusCode >= 400) {
-        toast.error(r.message || "操作失败");
+        toast.error(r.message || t('ui.操作失败','操作失败'));
       } else {
-        toast.error("已拒绝，单据流程终止");
+        toast.error(t('ui.已拒绝，单据流程终止','已拒绝，单据流程终止'));
         setDrawerOpen(false);
         setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {
-      toast.error("网络错误");
+      toast.error(t('ui.网络错误','网络错误'));
     } finally {
       setSubmitting(false);
     }
@@ -416,15 +418,15 @@ export default function ApprovalTodosPage() {
     try {
       const r = await reassignInstance(selected.instanceId, pickedTo);
       if (r.statusCode && r.statusCode >= 400) {
-        toast.error(r.message || "转交失败");
+        toast.error(r.message || t('ui.转交失败','转交失败'));
       } else {
-        toast.success(`已转交给 ${r.toName ?? "审批人"}`);
+        toast.success(`${t('ui.已转交给','已转交给')} ${r.toName ?? t('ui.审批人','审批人')}`);
         setDrawerOpen(false);
         setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {
-      toast.error("网络错误");
+      toast.error(t('ui.网络错误','网络错误'));
     } finally {
       setSubmitting(false);
     }
@@ -436,7 +438,7 @@ export default function ApprovalTodosPage() {
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
   return <div>
-      <PageHeader title="审批待办" subtitle={`我的待审批任务（共 ${resp.total} 条）`} breadcrumb={["审批中心", "待办"]} />
+      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${resp.total} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
 
       <section className={s.card}>
         {/* ── 筛选栏 ── */}
@@ -451,19 +453,19 @@ export default function ApprovalTodosPage() {
           <select value={taskSource} onChange={e => setTaskSource(e.target.value)} className={s.select} style={{
           minWidth: 120
         }}>
-            <option value="">全部来源</option>
-            <option value="APPROVAL_ENGINE">审批引擎</option>
-            <option value="WORKFLOW_ENGINE">通用流程</option>
+            <option value="">{t('ui.全部来源','全部来源')}</option>
+            <option value="APPROVAL_ENGINE">{t('ui.审批引擎','审批引擎')}</option>
+            <option value="WORKFLOW_ENGINE">{t('ui.通用流程','通用流程')}</option>
           </select>
 
           <select value={bizType} onChange={e => setBizType(e.target.value)} className={s.select} style={{
           minWidth: 120
         }}>
-            <option value="">全部类型</option>
-            <option value="PR">采购申请</option>
-            <option value="PO">采购订单</option>
-            <option value="PAYMENT">付款申请</option>
-            <option value="FUND">股东资金</option>
+            <option value="">{t('ui.全部类型','全部类型')}</option>
+            <option value="PR">{t('ui.采购申请','采购申请')}</option>
+            <option value="PO">{t('ui.采购订单','采购订单')}</option>
+            <option value="PAYMENT">{t('ui.付款申请','付款申请')}</option>
+            <option value="FUND">{t('ui.股东资金','股东资金')}</option>
           </select>
 
           <div style={{
@@ -476,20 +478,20 @@ export default function ApprovalTodosPage() {
             <Search size={14} style={{
             color: "var(--text-disabled)"
           }} />
-            <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && applyFilter()} placeholder="搜索单号、主题…" className={`${s.input} ${u.flex1}`} />
+            <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === "Enter" && applyFilter()} placeholder={t('ui.搜索单号、主题…','搜索单号、主题…')} className={`${s.input} ${u.flex1}`} />
           </div>
 
           <button className={`${s.btnPrimary} ${u.fs12}`} onClick={applyFilter}>
-            搜索
+            {t('ui.搜索','搜索')}
           </button>
           <button className={`${s.btnSecondary} ${u.fs12}`} onClick={resetFilter}>
-            重置
+            {t('ui.重置','重置')}
           </button>
           <button onClick={() => load()} disabled={loading} style={{ ...secondaryActionButton, fontSize: 12, marginLeft: "auto" }}>
             <RefreshCw size={13} style={{
             marginRight: 5
           }} />
-            刷新
+            {t('ui.刷新','刷新')}
           </button>
         </div>
 
@@ -497,7 +499,7 @@ export default function ApprovalTodosPage() {
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
-      }}>加载中…</div> : resp.items.length === 0 ? <div className={s.cardBody} style={{
+      }}>{t('ui.加载中…','加载中…')}</div> : resp.items.length === 0 ? <div className={s.cardBody} style={{
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
@@ -506,22 +508,22 @@ export default function ApprovalTodosPage() {
           margin: "0 auto 12px",
           opacity: 0.4
         }} />
-            <p>暂无待审批任务</p>
+            <p>{t('ui.暂无待审批任务','暂无待审批任务')}</p>
           </div> : <>
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th>来源</th>
-                  <th>业务类型</th>
-                  <th>单据编号</th>
-                  <th>主题</th>
-                  <th>金额</th>
-                  <th>公司</th>
-                  <th>项目</th>
-                  <th>需审批角色</th>
-                  <th>步骤</th>
-                  <th>提交时间</th>
-                  <th>操作</th>
+                  <th>{t('ui.来源','来源')}</th>
+                  <th>{t('ui.业务类型','业务类型')}</th>
+                  <th>{t('ui.单据编号','单据编号')}</th>
+                  <th>{t('ui.主题','主题')}</th>
+                  <th>{t('ui.金额','金额')}</th>
+                  <th>{t('ui.公司','公司')}</th>
+                  <th>{t('ui.项目','项目')}</th>
+                  <th>{t('ui.需审批角色','需审批角色')}</th>
+                  <th>{t('ui.步骤','步骤')}</th>
+                  <th>{t('ui.提交时间','提交时间')}</th>
+                  <th>{t('ui.操作','操作')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -615,7 +617,7 @@ export default function ApprovalTodosPage() {
                     <td className={u.fs12}>{fmtDate(todo.createdAt)}</td>
                     <td>
                       <button className={`${s.btnPrimary} ${u.fs12}`} onClick={() => openDetail(todo)}>
-                        {todo.taskSource === "APPROVAL_ENGINE" ? "审批" : "查看"}
+                        {todo.taskSource === "APPROVAL_ENGINE" ? t('ui.审批','审批') : t('ui.查看','查看')}
                       </button>
                     </td>
                   </tr>)}
@@ -636,14 +638,14 @@ export default function ApprovalTodosPage() {
               page: p
             });
           }} disabled={page <= 1}>
-                  上一页
+                  {t('ui.上一页','上一页')}
                 </button>
                 <span style={{
             fontSize: 12,
             lineHeight: "30px",
             color: "var(--text-secondary)"
           }}>
-                  第 {page} / {Math.ceil(resp.total / PAGE_SIZE)} 页
+                  {t('ui.第','第')} {page} / {Math.ceil(resp.total / PAGE_SIZE)} {t('ui.页','页')}
                 </span>
                 <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => {
             const p = page + 1;
@@ -652,35 +654,35 @@ export default function ApprovalTodosPage() {
               page: p
             });
           }} disabled={page >= Math.ceil(resp.total / PAGE_SIZE)}>
-                  下一页
+                  {t('ui.下一页','下一页')}
                 </button>
               </div>}
           </>}
       </section>
 
       {/* ── 审批详情侧栏 ── */}
-      <RightDrawer open={drawerOpen} title={`${isApprovalEngine ? "审批操作" : "任务详情"} — ${BIZ_TYPE_LABEL[selected?.bizType ?? ""] ?? ""} ${selected?.bizNo ?? ""}`} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={`${isApprovalEngine ? t('ui.审批操作','审批操作') : t('ui.任务详情','任务详情')} — ${BIZ_TYPE_LABEL[selected?.bizType ?? ""] ?? ""} ${selected?.bizNo ?? ""}`} onClose={() => setDrawerOpen(false)}>
         {/* ApprovalEngine 任务：显示完整审批表单 */}
         {isApprovalEngine && detail && <div style={{
         padding: "0 20px"
       }}>
             <div className={`${s.detailSection} ${u.mb16}`}>
               <div className={s.detailGrid}>
-                <span className={s.detailLabel}>实例编号</span>
+                <span className={s.detailLabel}>{t('ui.实例编号','实例编号')}</span>
                 <span style={{
               fontFamily: "monospace",
               fontSize: 13
             }}>{detail.instanceNo}</span>
-                <span className={s.detailLabel}>业务类型</span>
+                <span className={s.detailLabel}>{t('ui.业务类型','业务类型')}</span>
                 <span>{BIZ_TYPE_LABEL[detail.bizType] ?? detail.bizType}</span>
-                <span className={s.detailLabel}>单据编号</span>
+                <span className={s.detailLabel}>{t('ui.单据编号','单据编号')}</span>
                 <span className={u.fw600}>{detail.bizNo}</span>
                 {detail.subject && <>
-                  <span className={s.detailLabel}>主题</span>
+                  <span className={s.detailLabel}>{t('ui.主题','主题')}</span>
                   <span className={u.fs13}>{detail.subject}</span>
                 </>}
                 {detail.amount != null && <>
-                  <span className={s.detailLabel}>金额</span>
+                  <span className={s.detailLabel}>{t('ui.金额','金额')}</span>
                   <span style={{
                 fontWeight: 600,
                 color: "var(--text-primary)"
@@ -693,15 +695,15 @@ export default function ApprovalTodosPage() {
                   </span>
                 </>}
                 {detail.companyName && <>
-                  <span className={s.detailLabel}>公司</span>
+                  <span className={s.detailLabel}>{t('ui.公司','公司')}</span>
                   <span className={u.fs13}>{detail.companyName}</span>
                 </>}
                 {detail.projectName && <>
-                  <span className={s.detailLabel}>项目</span>
+                  <span className={s.detailLabel}>{t('ui.项目','项目')}</span>
                   <span className={u.fs13}>{detail.projectName}</span>
                 </>}
-                <span className={s.detailLabel}>审批进度</span>
-                <span>步骤 {detail.currentStepNo}/{detail.totalSteps}</span>
+                <span className={s.detailLabel}>{t('ui.审批进度','审批进度')}</span>
+                <span>{t('ui.步骤','步骤')} {detail.currentStepNo}/{detail.totalSteps}</span>
               </div>
             </div>
 
@@ -710,7 +712,7 @@ export default function ApprovalTodosPage() {
           fontWeight: 600,
           margin: "16px 0 12px",
           color: "var(--text-primary)"
-        }}>审批历史</h4>
+        }}>{t('ui.审批历史','审批历史')}</h4>
             <div style={{
           display: "flex",
           flexDirection: "column",
@@ -734,7 +736,7 @@ export default function ApprovalTodosPage() {
                 justifyContent: "space-between",
                 marginBottom: 4
               }}>
-                      <span className={u.fw600}>步骤 {step.stepNo}</span>
+                      <span className={u.fw600}>{t('ui.步骤','步骤')} {step.stepNo}</span>
                       <StatusBadge status={step.status} />
                     </div>
                     <div className={u.muted12}>
@@ -778,7 +780,7 @@ export default function ApprovalTodosPage() {
             margin: "0 0 12px",
             color: "var(--text-primary)"
           }}>
-                  表单数据
+                  {t('ui.表单数据','表单数据')}
                   <span style={{
               marginLeft: 8,
               fontSize: 11,
@@ -806,8 +808,8 @@ export default function ApprovalTodosPage() {
             marginTop: 6,
             textAlign: "right"
           }}>
-                  提交编号：{detail.formSubmission.submissionNo}
-                  {detail.formSubmission.submittedByName && ` · 提交人：${detail.formSubmission.submittedByName}`}
+                  {t('ui.提交编号：','提交编号：')}{detail.formSubmission.submissionNo}
+                  {detail.formSubmission.submittedByName && ` · ${t('ui.提交人：','提交人：')}${detail.formSubmission.submittedByName}`}
                 </div>
               </div>}
 
@@ -816,25 +818,25 @@ export default function ApprovalTodosPage() {
           fontWeight: 600,
           margin: "0 0 12px",
           color: "var(--text-primary)"
-        }}>审批意见</h4>
+        }}>{t('ui.审批意见','审批意见')}</h4>
             <p className={s.modalDesc} style={{ margin: "0 0 10px" }}>
-              默认同意。候选转交人由后端按角色权限、公司/项目数据域和自审分离规则过滤。
+              {t('ui.默认同意。候选转交人由后端按角色权限、公司/项目数据域和自审分离规则过滤。','默认同意。候选转交人由后端按角色权限、公司/项目数据域和自审分离规则过滤。')}
             </p>
             <div style={decisionTabsStyle}>
               <button type="button" onClick={() => setDecision("approve")} style={decisionButtonStyle(decision === "approve", "success")}>
-                <CheckCircle size={14} /> 同意
+                <CheckCircle size={14} /> {t('ui.同意','同意')}
               </button>
               <button type="button" onClick={() => setDecision("reject")} style={decisionButtonStyle(decision === "reject", "danger")}>
-                <XCircle size={14} /> 不同意
+                <XCircle size={14} /> {t('ui.不同意','不同意')}
               </button>
               <button type="button" onClick={() => setDecision("transfer")} style={decisionButtonStyle(decision === "transfer", "info")}>
-                <Forward size={14} /> 转交审批
+                <Forward size={14} /> {t('ui.转交审批','转交审批')}
               </button>
             </div>
             {decision === "transfer" && <div style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-muted)" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>转交给（有确认权且数据域覆盖本单据的人）</div>
-              {reassignLoading ? <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 8 }}>加载候选人…</div>
-                : candidates.length === 0 ? <div style={{ fontSize: 12, color: "var(--status-warning)", padding: 8 }}>无可转交对象（无人同时具备确认权与本单据数据域）</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>{t('ui.转交给（有确认权且数据域覆盖本单据的人）','转交给（有确认权且数据域覆盖本单据的人）')}</div>
+              {reassignLoading ? <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 8 }}>{t('ui.加载候选人…','加载候选人…')}</div>
+                : candidates.length === 0 ? <div style={{ fontSize: 12, color: "var(--status-warning)", padding: 8 }}>{t('ui.无可转交对象（无人同时具备确认权与本单据数据域）','无可转交对象（无人同时具备确认权与本单据数据域）')}</div>
                 : <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
                     {candidates.map(c => (
                       <label key={c.userId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, cursor: "pointer", background: pickedTo === c.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "transparent" }}>
@@ -845,7 +847,7 @@ export default function ApprovalTodosPage() {
                     ))}
                   </div>}
             </div>}
-            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder={decision === "approve" ? "填写审批意见（可不填）" : decision === "reject" ? "请填写不同意原因…" : "填写转交说明，便于接收人理解背景（可不填）"} className={s.textarea} rows={3} style={{
+            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder={decision === "approve" ? t('ui.填写审批意见（可不填）','填写审批意见（可不填）') : decision === "reject" ? t('ui.请填写不同意原因…','请填写不同意原因…') : t('ui.填写转交说明，便于接收人理解背景（可不填）','填写转交说明，便于接收人理解背景（可不填）')} className={s.textarea} rows={3} style={{
           width: "100%",
           marginBottom: 16
         }} />
@@ -856,7 +858,7 @@ export default function ApprovalTodosPage() {
           flexWrap: "wrap"
         }}>
               <button onClick={submitDecision} disabled={submitting || (decision === "transfer" && (reassignLoading || !pickedTo))} style={decision === "reject" ? { ...actionPill('danger'), justifyContent: "center", minWidth: 160 } : decision === "transfer" ? { ...actionPill('info'), justifyContent: "center", minWidth: 180 } : { ...primaryActionButton, justifyContent: "center", minWidth: 160 }}>
-                {submitting ? "处理中…" : decision === "approve" ? "提交同意" : decision === "reject" ? "提交不同意" : "确认转交审批"}
+                {submitting ? t('ui.处理中…','处理中…') : decision === "approve" ? t('ui.提交同意','提交同意') : decision === "reject" ? t('ui.提交不同意','提交不同意') : t('ui.确认转交审批','确认转交审批')}
               </button>
             </div>
           </div>}
@@ -867,18 +869,18 @@ export default function ApprovalTodosPage() {
       }}>
             <div className={s.detailSection}>
               <div className={s.detailGrid}>
-                <span className={s.detailLabel}>任务来源</span>
+                <span className={s.detailLabel}>{t('ui.任务来源','任务来源')}</span>
                 <span><TaskSourceBadge source={selected.taskSource} /></span>
-                <span className={s.detailLabel}>实例编号</span>
+                <span className={s.detailLabel}>{t('ui.实例编号','实例编号')}</span>
                 <span style={{
               fontFamily: "monospace",
               fontSize: 13
             }}>{selected.instanceNo ?? "-"}</span>
-                <span className={s.detailLabel}>业务类型</span>
+                <span className={s.detailLabel}>{t('ui.业务类型','业务类型')}</span>
                 <span>{BIZ_TYPE_LABEL[selected.bizType] ?? selected.bizType ?? "-"}</span>
-                <span className={s.detailLabel}>主题</span>
+                <span className={s.detailLabel}>{t('ui.主题','主题')}</span>
                 <span className={u.fs13}>{selected.subject ?? "-"}</span>
-                <span className={s.detailLabel}>需审批角色</span>
+                <span className={s.detailLabel}>{t('ui.需审批角色','需审批角色')}</span>
                 <code style={{
               fontSize: 11,
               background: "var(--bg-muted)",
@@ -887,7 +889,7 @@ export default function ApprovalTodosPage() {
             }}>
                   {selected.requiredRole || "-"}
                 </code>
-                <span className={s.detailLabel}>创建时间</span>
+                <span className={s.detailLabel}>{t('ui.创建时间','创建时间')}</span>
                 <span className={u.fs13}>{fmtDate(selected.createdAt)}</span>
               </div>
             </div>
@@ -896,7 +898,7 @@ export default function ApprovalTodosPage() {
           fontSize: 13,
           color: "var(--text-secondary)"
         }}>
-              通用工作流任务请在对应业务模块中处理。
+              {t('ui.通用工作流任务请在对应业务模块中处理。','通用工作流任务请在对应业务模块中处理。')}
             </p>
           </div>}
       </RightDrawer>

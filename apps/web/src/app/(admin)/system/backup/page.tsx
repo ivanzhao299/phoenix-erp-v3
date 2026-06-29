@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import PageHeader from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Database, RefreshCw, PlayCircle, Save, Loader2, Info } from "lucide-react";
 
 interface BackupRow {
@@ -38,6 +39,7 @@ function fmtSize(n: number | null) {
 }
 
 export default function BackupPage() {
+  const { t } = useLanguage();
   const [rows, setRows]       = useState<BackupRow[]>([]);
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,7 @@ export default function BackupPage() {
       const res = await fetch(`/api/system/backup/request`, { method: "POST", headers: hdr(), body: JSON.stringify({ backupType: "FULL" }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d?.message ?? `HTTP ${res.status}`);
-      setMsg({ t: "ok", m: `已提交备份请求 ${d.backup_no}，由运维 runner 执行` });
+      setMsg({ t: "ok", m: `${t('ui.已提交备份请求', '已提交备份请求')} ${d.backup_no}${t('ui.，由运维 runner 执行', '，由运维 runner 执行')}` });
       fetchAll();
     } catch (e: any) { setMsg({ t: "err", m: e.message }); } finally { setRequesting(false); }
   };
@@ -79,22 +81,22 @@ export default function BackupPage() {
         body: JSON.stringify({ enabled: cfg.enabled, cronExpr: cfg.cron_expr, retentionDays: cfg.retention_days }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d?.message ?? `HTTP ${res.status}`);
-      setCfg(d); setMsg({ t: "ok", m: "备份计划已保存" });
+      setCfg(d); setMsg({ t: "ok", m: t('ui.备份计划已保存', '备份计划已保存') });
     } catch (e: any) { setMsg({ t: "err", m: e.message }); } finally { setSavingCfg(false); }
   };
 
   return (
     <div>
       <PageHeader
-        title="备份策略"
+        title={t('ui.备份策略', '备份策略')}
         subtitle={`共 ${total} 条记录 · 数据库备份 / 定时计划 / 保留策略`}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={fetchAll} disabled={loading} style={{ padding: "6px 14px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <RefreshCw size={14} /> 刷新
+              <RefreshCw size={14} /> {t('ui.刷新', '刷新')}
             </button>
             <button onClick={requestBackup} disabled={requesting} style={{ padding: "6px 14px", borderRadius: "var(--radius-md)", border: "none", background: "var(--color-accent)", color: "var(--bg-card)", fontSize: 13, fontWeight: 600, cursor: requesting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              {requesting ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} 手动备份
+              {requesting ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} {t('ui.手动备份', '手动备份')}
             </button>
           </div>
         }
@@ -109,29 +111,29 @@ export default function BackupPage() {
       {/* 安全边界说明 */}
       <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-secondary)", fontSize: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
         <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>真备份(pg_dump)由服务器运维脚本 + 定时任务执行;本页"手动备份"提交请求入队，由运维 runner 拾取执行并回写状态。应用不直接操作数据库文件。</span>
+        <span>{t('ui.真备份(pg_dump)由服务器运维脚本 + 定时任务执行;本页"手动备份"提交请求入队，由运维 runner 拾取执行并回写状态。应用不直接操作数据库文件。', '真备份(pg_dump)由服务器运维脚本 + 定时任务执行;本页"手动备份"提交请求入队，由运维 runner 拾取执行并回写状态。应用不直接操作数据库文件。')}</span>
       </div>
 
       {/* 计划配置 */}
       {cfg && (
         <div style={{ marginBottom: 16, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>定时备份计划</div>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{t('ui.定时备份计划', '定时备份计划')}</div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-              <input type="checkbox" checked={cfg.enabled} onChange={e => setCfg({ ...cfg, enabled: e.target.checked })} /> 启用定时备份
+              <input type="checkbox" checked={cfg.enabled} onChange={e => setCfg({ ...cfg, enabled: e.target.checked })} /> {t('ui.启用定时备份', '启用定时备份')}
             </label>
             <div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 3 }}>cron 表达式</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 3 }}>{t('ui.cron 表达式', 'cron 表达式')}</div>
               <input value={cfg.cron_expr} onChange={e => setCfg({ ...cfg, cron_expr: e.target.value })}
                 style={{ padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13, width: 160, fontFamily: "monospace" }} />
             </div>
             <div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 3 }}>保留天数</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 3 }}>{t('ui.保留天数', '保留天数')}</div>
               <input type="number" min={1} max={3650} value={cfg.retention_days} onChange={e => setCfg({ ...cfg, retention_days: Math.max(1, Number(e.target.value) || 1) })}
                 style={{ padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13, width: 100 }} />
             </div>
             <button onClick={saveCfg} disabled={savingCfg} style={{ padding: "6px 16px", borderRadius: "var(--radius-md)", border: "none", background: "var(--status-success)", color: "var(--bg-card)", fontSize: 13, fontWeight: 600, cursor: savingCfg ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <Save size={14} /> {savingCfg ? "保存中..." : "保存计划"}
+              <Save size={14} /> {savingCfg ? t('ui.保存中...', '保存中...') : t('ui.保存计划', '保存计划')}
             </button>
           </div>
         </div>
@@ -141,15 +143,15 @@ export default function BackupPage() {
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>
           <thead>
-            <tr>{["备份编号", "类型", "触发", "状态", "大小", "文件", "操作人", "时间"].map(h => <th key={h} className={u.nowrap}>{h}</th>)}</tr>
+            <tr>{[t('ui.备份编号', '备份编号'), t('ui.类型', '类型'), t('ui.触发', '触发'), t('ui.状态', '状态'), t('ui.大小', '大小'), t('ui.文件', '文件'), t('ui.操作人', '操作人'), t('ui.时间', '时间')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Loader2 size={22} className="animate-spin" /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>
-                <Database size={26} /><p style={{ margin: "8px 0 0", fontWeight: 600 }}>暂无备份记录</p>
-                <p style={{ margin: "4px 0 0", fontSize: 12 }}>点右上"手动备份"提交一次请求</p>
+                <Database size={26} /><p style={{ margin: "8px 0 0", fontWeight: 600 }}>{t('ui.暂无备份记录', '暂无备份记录')}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t('ui.点右上"手动备份"提交一次请求', '点右上"手动备份"提交一次请求')}</p>
               </td></tr>
             ) : rows.map(r => {
               const st = STATUS_STYLE[r.status] ?? { bg: "var(--bg-muted)", color: "var(--text-secondary)", label: r.status };
@@ -157,7 +159,7 @@ export default function BackupPage() {
                 <tr key={r.id}>
                   <td style={{ fontFamily: "monospace", fontSize: 12 }}>{r.backup_no}</td>
                   <td style={{ fontSize: 12 }}>{r.backup_type}</td>
-                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.trigger_type === "MANUAL" ? "手动" : "定时"}</td>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.trigger_type === "MANUAL" ? t('ui.手动', '手动') : t('ui.定时', '定时')}</td>
                   <td><span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: st.bg, color: st.color }}>{st.label}</span></td>
                   <td style={{ fontSize: 12 }}>{fmtSize(r.size_bytes)}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.file_path ?? "—"}</td>

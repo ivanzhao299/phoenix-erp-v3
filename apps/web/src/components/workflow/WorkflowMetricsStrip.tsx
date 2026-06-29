@@ -18,6 +18,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock, AlertTriangle, ArrowUpCircle, Activity } from 'lucide-react';
 import request from '@/lib/api-client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Overview {
   total?: number;
@@ -33,6 +34,7 @@ interface EscalatedTask { id: number; instance_no?: string; node_name?: string; 
 interface BottleneckNode { node_name: string; avg_minutes: number; count: number; }
 
 export function WorkflowMetricsStrip() {
+  const { t } = useLanguage();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [overdue, setOverdue] = useState<OverdueTask[]>([]);
   const [escalated, setEscalated] = useState<EscalatedTask[]>([]);
@@ -48,7 +50,7 @@ export function WorkflowMetricsStrip() {
         const anyR = r as any;
         return (anyR && anyR.data !== undefined) ? anyR.data : (anyR as T);
       } catch (e) {
-        if (!error) setError(e instanceof Error ? e.message : '加载部分指标失败');
+        if (!error) setError(e instanceof Error ? e.message : t('ui.加载部分指标失败','加载部分指标失败'));
         return def;
       }
     };
@@ -68,7 +70,7 @@ export function WorkflowMetricsStrip() {
   return (
     <section style={{ marginBottom: 16 }}>
       <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        审批运营 · 运行态势
+        {t('ui.审批运营 · 运行态势','审批运营 · 运行态势')}
       </h3>
 
       {error && (
@@ -80,29 +82,29 @@ export function WorkflowMetricsStrip() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
         <Kpi
           icon={<CheckCircle2 size={18} />}
-          label="通过率"
+          label={t('ui.通过率','通过率')}
           value={overview?.approvalRate !== undefined ? `${Math.round((overview.approvalRate ?? 0) * 100)}%` : '—'}
-          sub={`总 ${overview?.total ?? '—'} / 已通过 ${overview?.approved ?? '—'}`}
+          sub={`${t('ui.总','总')} ${overview?.total ?? '—'} / ${t('ui.已通过','已通过')} ${overview?.approved ?? '—'}`}
           tone="success"
         />
         <Kpi
           icon={<Clock size={18} />}
-          label="平均时长"
-          value={overview?.avgDurationMinutes !== undefined ? `${overview.avgDurationMinutes} 分钟` : '—'}
-          sub={overview?.running !== undefined ? `进行中 ${overview.running}` : ''}
+          label={t('ui.平均时长','平均时长')}
+          value={overview?.avgDurationMinutes !== undefined ? `${overview.avgDurationMinutes} ${t('ui.分钟','分钟')}` : '—'}
+          sub={overview?.running !== undefined ? `${t('ui.进行中','进行中')} ${overview.running}` : ''}
         />
         <Kpi
           icon={<AlertTriangle size={18} />}
-          label="超时任务"
+          label={t('ui.超时任务','超时任务')}
           value={overdue.length}
-          sub={overdue[0]?.node_name ? `最久：${overdue[0].node_name}` : '暂无超时'}
+          sub={overdue[0]?.node_name ? `${t('ui.最久：','最久：')}${overdue[0].node_name}` : t('ui.暂无超时','暂无超时')}
           tone={overdue.length > 0 ? 'warning' : 'default'}
         />
         <Kpi
           icon={<ArrowUpCircle size={18} />}
-          label="升级审批"
+          label={t('ui.升级审批','升级审批')}
           value={escalated.length}
-          sub={escalated.length > 0 ? '需运营介入' : '暂无升级'}
+          sub={escalated.length > 0 ? t('ui.需运营介入','需运营介入') : t('ui.暂无升级','暂无升级')}
           tone={escalated.length > 0 ? 'danger' : 'default'}
         />
       </div>
@@ -115,19 +117,19 @@ export function WorkflowMetricsStrip() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
             <Activity size={14} />
-            <span style={{ fontSize: 12 }}>瓶颈节点 TOP {bottlenecks.length}：</span>
+            <span style={{ fontSize: 12 }}>{t('ui.瓶颈节点 TOP','瓶颈节点 TOP')} {bottlenecks.length}：</span>
           </div>
           {bottlenecks.map((b, i) => (
             <div key={i} style={{ fontSize: 12, color: 'var(--text-primary)' }}>
               <strong>{b.node_name}</strong>
-              <span style={{ color: 'var(--text-secondary)' }}> · {b.avg_minutes} min · {b.count} 条</span>
+              <span style={{ color: 'var(--text-secondary)' }}> · {b.avg_minutes} min · {b.count} {t('ui.条','条')}</span>
             </div>
           ))}
         </div>
       )}
 
       {loading && (
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>加载中…</div>
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>{t('ui.加载中…','加载中…')}</div>
       )}
     </section>
   );

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { ShieldAlert, CheckCircle, RefreshCw, AlertTriangle, Info } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
 interface Alert {
@@ -25,6 +26,7 @@ const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 export default function SystemAlertsPage() {
+  const { t } = useLanguage();
   const [alerts,    setAlerts]    = useState<Alert[]>([]);
   const [total,     setTotal]     = useState(0);
   const [loading,   setLoading]   = useState(false);
@@ -51,7 +53,7 @@ export default function SystemAlertsPage() {
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
   const handleResolve = async (id: number) => {
-    if (!confirm("确认将此告警标记为已处理？此操作不可撤销。")) return;
+    if (!confirm(t('ui.确认将此告警标记为已处理？此操作不可撤销。','确认将此告警标记为已处理？此操作不可撤销。'))) return;
     setResolving(id);
     try {
       const res = await fetch(`/api/system/alerts/${id}/resolve`, {
@@ -60,14 +62,14 @@ export default function SystemAlertsPage() {
         body: JSON.stringify({ remark: "手动处理" }),
       });
       if (res.ok) fetchAlerts();
-      else alert("处理失败，请检查权限");
+      else alert(t('ui.处理失败，请检查权限','处理失败，请检查权限'));
     } finally { setResolving(null); }
   };
 
   return (
     <div>
       <PageHeader
-        title="异常告警"
+        title={t('ui.异常告警','异常告警')}
         subtitle={`共 ${total} 条 · 仅可标记处理，不可删除（append-only 安全约束）`}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
@@ -76,9 +78,9 @@ export default function SystemAlertsPage() {
               onChange={e => setFilterResolved(e.target.value as "" | "true" | "false")}
               style={{ padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13 }}
             >
-              <option value="">全部</option>
-              <option value="false">未处理</option>
-              <option value="true">已处理</option>
+              <option value="">{t('ui.全部','全部')}</option>
+              <option value="false">{t('ui.未处理','未处理')}</option>
+              <option value="true">{t('ui.已处理','已处理')}</option>
             </select>
             <button
               onClick={fetchAlerts}
@@ -89,7 +91,7 @@ export default function SystemAlertsPage() {
                 border: "none", cursor: loading ? "not-allowed" : "pointer", fontSize: 13,
               }}
             >
-              <RefreshCw size={13} />刷新
+              <RefreshCw size={13} />{t('ui.刷新','刷新')}
             </button>
           </div>
         }
@@ -99,7 +101,7 @@ export default function SystemAlertsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["告警类型", "级别", "标题", "相关路径", "状态", "创建时间", "操作"].map(h => (
+              {[t('ui.告警类型','告警类型'), t('ui.级别','级别'), t('ui.标题','标题'), t('ui.相关路径','相关路径'), t('ui.状态','状态'), t('ui.创建时间','创建时间'), t('ui.操作','操作')].map(h => (
                 <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
@@ -108,7 +110,7 @@ export default function SystemAlertsPage() {
             {alerts.length === 0 ? (
               <tr><td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--status-success)" }}>
                 <CheckCircle size={28} />
-                <p style={{ margin: "8px 0 0", fontWeight: 600 }}>无告警记录</p>
+                <p style={{ margin: "8px 0 0", fontWeight: 600 }}>{t('ui.无告警记录','无告警记录')}</p>
               </td></tr>
             ) : alerts.map((a, i) => {
               const sty = SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.INFO;
@@ -126,8 +128,8 @@ export default function SystemAlertsPage() {
                   </td>
                   <td>
                     {a.resolved
-                      ? <span style={{ color: "var(--status-success)", fontWeight: 600, fontSize: 12 }}>✅ 已处理</span>
-                      : <span style={{ color: "var(--status-warning)", fontWeight: 600, fontSize: 12 }}>⏳ 待处理</span>}
+                      ? <span style={{ color: "var(--status-success)", fontWeight: 600, fontSize: 12 }}>✅ {t('ui.已处理','已处理')}</span>
+                      : <span style={{ color: "var(--status-warning)", fontWeight: 600, fontSize: 12 }}>⏳ {t('ui.待处理','待处理')}</span>}
                   </td>
                   <td style={{ color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
                     {new Date(a.created_at).toLocaleString("zh-CN")}
@@ -143,7 +145,7 @@ export default function SystemAlertsPage() {
                           cursor: resolving === a.id ? "not-allowed" : "pointer", fontWeight: 600,
                         }}
                       >
-                        {resolving === a.id ? "处理中..." : "标记处理"}
+                        {resolving === a.id ? t('ui.处理中...','处理中...') : t('ui.标记处理','标记处理')}
                       </button>
                     )}
                   </td>

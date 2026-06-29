@@ -7,8 +7,10 @@ import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import request from "@/lib/api-client";
 import { usePermission } from "@/hooks/usePermission";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function OnlineUsersIndicator() {
+  const { t } = useLanguage();
   const router = useRouter();
   const onlineUsersPerm = usePermission("MENU_SETTINGS_ONLINE_USER");
   const [count, setCount] = useState<number | null>(null);
@@ -34,14 +36,14 @@ export function OnlineUsersIndicator() {
 
   if (count === null) return null;
   return (
-    <button type="button" onClick={() => router.push("/settings/online-users")} title="在线用户"
+    <button type="button" onClick={() => router.push("/settings/online-users")} title={t('ui.在线用户','在线用户')}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 12px",
         borderRadius: 9, border: "1px solid var(--border)", background: "var(--bg-card)",
         color: "var(--text-secondary)", cursor: "pointer", fontSize: 12.5, whiteSpace: "nowrap",
       }}>
       <span style={{ width: 7, height: 7, borderRadius: 7, background: "var(--status-success)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--status-success) 30%, transparent)" }} />
-      <Users size={14} /> 在线 {count}
+      <Users size={14} /> {t('ui.在线','在线')} {count}
     </button>
   );
 }

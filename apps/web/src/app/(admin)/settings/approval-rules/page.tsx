@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePermission } from "@/hooks/usePermission";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -250,6 +251,7 @@ function slaSummary(st: RuleStep): string {
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 export default function ApprovalRulesPage() {
+  const { t } = useLanguage();
   const toast = useToast();
   const workflowPerm = usePermission('MENU_WORKFLOW_RULES');
   const canManageRules = workflowPerm.check('C') || workflowPerm.check('E') || workflowPerm.check('D');
@@ -366,11 +368,11 @@ export default function ApprovalRulesPage() {
   };
   const handleSave = async () => {
     if (!form.ruleCode.trim()) {
-      toast.warning("规则代码不能为空");
+      toast.warning(t('ui.规则代码不能为空','规则代码不能为空'));
       return;
     }
     if (form.steps.length === 0) {
-      toast.warning("至少需要一个审批步骤");
+      toast.warning(t('ui.至少需要一个审批步骤','至少需要一个审批步骤'));
       return;
     }
     setSaving(true);
@@ -407,14 +409,14 @@ export default function ApprovalRulesPage() {
       };
       const r = editing ? await updateRule(editing.id, body) : await createRule(body);
       if (r?.statusCode >= 400 || r?.code >= 400) {
-        toast.error(r.message || r.msg || "操作失败");
+        toast.error(r.message || r.msg || t('ui.操作失败','操作失败'));
       } else {
-        toast.success(editing ? "规则已更新" : "规则已创建");
+        toast.success(editing ? t('ui.规则已更新','规则已更新') : t('ui.规则已创建','规则已创建'));
         setDrawerOpen(false);
         load();
       }
     } catch {
-      toast.error("网络错误");
+      toast.error(t('ui.网络错误','网络错误'));
     } finally {
       setSaving(false);
     }
@@ -422,9 +424,9 @@ export default function ApprovalRulesPage() {
   const handleToggle = async (rule: ApprovalRule) => {
     const r = await toggleStatus(rule.id, !rule.enabled);
     if (r?.statusCode >= 400 || r?.code >= 400) {
-      toast.error(r.message || r.msg || "操作失败");
+      toast.error(r.message || r.msg || t('ui.操作失败','操作失败'));
     } else {
-      toast.success(rule.enabled ? "已禁用" : "已启用");
+      toast.success(rule.enabled ? t('ui.已禁用','已禁用') : t('ui.已启用','已启用'));
       load();
     }
   };
@@ -435,9 +437,9 @@ export default function ApprovalRulesPage() {
     if (!rule) return;
     const ok = await deleteRule(rule.id);
     if (ok) {
-      toast.success("已删除");
+      toast.success(t('ui.已删除','已删除'));
       load();
-    } else toast.error("删除失败（可能存在进行中的审批实例）");
+    } else toast.error(t('ui.删除失败（可能存在进行中的审批实例）','删除失败（可能存在进行中的审批实例）'));
   };
 
   // Step editing helpers
@@ -472,11 +474,11 @@ export default function ApprovalRulesPage() {
     });
   };
   if (!canManageRules) {
-    return <div className={u.emptyPad40}>无权限访问审批规则配置。请联系系统管理员授予工作流管理权限。</div>;
+    return <div className={u.emptyPad40}>{t('ui.无权限访问审批规则配置。请联系系统管理员授予工作流管理权限。','无权限访问审批规则配置。请联系系统管理员授予工作流管理权限。')}</div>;
   }
 
   return <div>
-      <PageHeader title="审批规则管理" subtitle={`共 ${total} 条规则 — 配置各业务模块的审批步骤和条件`} breadcrumb={["系统设置", "审批规则"]} />
+      <PageHeader title={t('ui.审批规则管理','审批规则管理')} subtitle={`${t('ui.共','共')} ${total} ${t('ui.条规则 — 配置各业务模块的审批步骤和条件','条规则 — 配置各业务模块的审批步骤和条件')}`} breadcrumb={[t('ui.系统设置','系统设置'), t('ui.审批规则','审批规则')]} />
 
       {/* 工具栏 */}
       <section className={s.card}>
@@ -496,26 +498,26 @@ export default function ApprovalRulesPage() {
             <select className={`${s.select} ${u.fs13}`} value={filterBizType} onChange={e => {
             setBizType(e.target.value);
           }}>
-              <option value="">全部类型</option>
+              <option value="">{t('ui.全部类型','全部类型')}</option>
               {BIZ_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <select className={`${s.select} ${u.fs13}`} value={filterEnabled} onChange={e => {
             setEnabled(e.target.value);
           }}>
-              <option value="">全部状态</option>
-              <option value="true">已启用</option>
-              <option value="false">已禁用</option>
+              <option value="">{t('ui.全部状态','全部状态')}</option>
+              <option value="true">{t('ui.已启用','已启用')}</option>
+              <option value="false">{t('ui.已禁用','已禁用')}</option>
             </select>
             <button style={secondaryActionButton} onClick={load} disabled={loading}>
               <RefreshCw size={14} style={{
               marginRight: 6
-            }} />刷新
+            }} />{t('ui.刷新','刷新')}
             </button>
           </div>
           <button style={primaryActionButton} onClick={openCreate}>
             <Plus size={14} style={{
             marginRight: 6
-          }} />新建规则
+          }} />{t('ui.新建规则','新建规则')}
           </button>
         </div>
       </section>
@@ -526,7 +528,7 @@ export default function ApprovalRulesPage() {
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
-      }}>加载中…</div>
+      }}>{t('ui.加载中…','加载中…')}</div>
         </section> : rules.length === 0 ? <section className={s.card}>
           <div className={s.cardBody} style={{
         textAlign: "center",
@@ -537,7 +539,7 @@ export default function ApprovalRulesPage() {
           margin: "0 auto 12px",
           opacity: 0.4
         }} />
-            <p>暂无审批规则</p>
+            <p>{t('ui.暂无审批规则','暂无审批规则')}</p>
           </div>
         </section> : <div style={{
       display: "flex",
@@ -584,7 +586,7 @@ export default function ApprovalRulesPage() {
                 fontSize: 12,
                 color: "var(--text-disabled)"
               }}>
-                      优先级 {rule.priority} · {MODE_LABEL[rule.approvalMode]} · {rule.steps.length} 步
+                      {t('ui.优先级','优先级')} {rule.priority} · {MODE_LABEL[rule.approvalMode]} · {rule.steps.length} {t('ui.步','步')}
                     </span>
                   </div>
                   <div className={u.flexRow8}>
@@ -608,7 +610,7 @@ export default function ApprovalRulesPage() {
                 fontSize: 12,
                 color: "var(--text-secondary)",
                 marginBottom: 8
-              }}>审批步骤</p>
+              }}>{t('ui.审批步骤','审批步骤')}</p>
                         <div style={{
                 display: "flex",
                 flexDirection: "column",
@@ -656,7 +658,7 @@ export default function ApprovalRulesPage() {
                     padding: "1px 5px",
                     borderRadius: 3
                   }}>
-                                  ADMIN可代理
+                                  {t('ui.ADMIN可代理','ADMIN可代理')}
                                 </span>}
                               {/* SLA 摘要 */}
                               <span style={{
@@ -677,7 +679,7 @@ export default function ApprovalRulesPage() {
               fontSize: 12,
               color: "var(--text-secondary)",
               marginBottom: 12
-            }}>备注：{rule.remark}</p>}
+            }}>{t('ui.备注：','备注：')}{rule.remark}</p>}
 
                     {/* 操作按钮 */}
                     <div style={{
@@ -687,19 +689,19 @@ export default function ApprovalRulesPage() {
                       <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => openEdit(rule)}>
                         <Pencil size={12} style={{
                   marginRight: 4
-                }} />编辑
+                }} />{t('ui.编辑','编辑')}
                       </button>
                       <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => handleToggle(rule)}>
                         {rule.enabled ? <><ToggleRight size={12} style={{
                     marginRight: 4
-                  }} />禁用</> : <><ToggleLeft size={12} style={{
+                  }} />{t('ui.禁用','禁用')}</> : <><ToggleLeft size={12} style={{
                     marginRight: 4
-                  }} />启用</>}
+                  }} />{t('ui.启用','启用')}</>}
                       </button>
                       <button className={`${s.btnDanger} ${u.fs12}`} onClick={() => handleDelete(rule)}>
                         <Trash2 size={12} style={{
                   marginRight: 4
-                }} />删除
+                }} />{t('ui.删除','删除')}
                       </button>
                     </div>
                   </div>}
@@ -708,7 +710,7 @@ export default function ApprovalRulesPage() {
         </div>}
 
       {/* ── 创建/编辑侧栏 ── */}
-      <RightDrawer open={drawerOpen} title={editing ? `编辑规则 — ${editing.ruleCode}` : "新建审批规则"} onClose={() => setDrawerOpen(false)} width={520}>
+      <RightDrawer open={drawerOpen} title={editing ? `${t('ui.编辑规则 —','编辑规则 —')} ${editing.ruleCode}` : t('ui.新建审批规则','新建审批规则')} onClose={() => setDrawerOpen(false)} width={520}>
         <div style={{
         padding: "0 20px 20px"
       }}>
@@ -718,7 +720,7 @@ export default function ApprovalRulesPage() {
           fontWeight: 600,
           margin: "12px 0 8px",
           color: "var(--text-primary)"
-        }}>基本信息</h4>
+        }}>{t('ui.基本信息','基本信息')}</h4>
           <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -726,14 +728,14 @@ export default function ApprovalRulesPage() {
           marginBottom: 10
         }}>
             <div>
-              <label className={s.label}>规则代码 *</label>
+              <label className={s.label}>{t('ui.规则代码 *','规则代码 *')}</label>
               <input className={s.input} value={form.ruleCode} disabled={!!editing} onChange={e => setForm(f => ({
               ...f,
               ruleCode: e.target.value
-            }))} placeholder="如 PO-HIGH-AMOUNT" />
+            }))} placeholder={t('ui.如 PO-HIGH-AMOUNT','如 PO-HIGH-AMOUNT')} />
             </div>
             <div>
-              <label className={s.label}>业务类型 *</label>
+              <label className={s.label}>{t('ui.业务类型 *','业务类型 *')}</label>
               <select className={s.select} value={form.bizType} onChange={e => setForm(f => ({
               ...f,
               bizType: e.target.value
@@ -742,21 +744,21 @@ export default function ApprovalRulesPage() {
               </select>
             </div>
             <div>
-              <label className={s.label}>最小金额</label>
+              <label className={s.label}>{t('ui.最小金额','最小金额')}</label>
               <input className={s.input} type="number" value={form.minAmount} onChange={e => setForm(f => ({
               ...f,
               minAmount: e.target.value
             }))} />
             </div>
             <div>
-              <label className={s.label}>最大金额（留空=无上限）</label>
+              <label className={s.label}>{t('ui.最大金额（留空=无上限）','最大金额（留空=无上限）')}</label>
               <input className={s.input} type="number" value={form.maxAmount} onChange={e => setForm(f => ({
               ...f,
               maxAmount: e.target.value
-            }))} placeholder="无上限" />
+            }))} placeholder={t('ui.无上限','无上限')} />
             </div>
             <div>
-              <label className={s.label}>审批模式</label>
+              <label className={s.label}>{t('ui.审批模式','审批模式')}</label>
               <select className={s.select} value={form.approvalMode} onChange={e => setForm(f => ({
               ...f,
               approvalMode: e.target.value
@@ -765,21 +767,21 @@ export default function ApprovalRulesPage() {
               </select>
             </div>
             <div>
-              <label className={s.label}>优先级（数值小先匹配）</label>
+              <label className={s.label}>{t('ui.优先级（数值小先匹配）','优先级（数值小先匹配）')}</label>
               <input className={s.input} type="number" value={form.priority} onChange={e => setForm(f => ({
               ...f,
               priority: e.target.value
             }))} />
             </div>
             <div>
-              <label className={s.label}>公司代码（留空=全局）</label>
+              <label className={s.label}>{t('ui.公司代码（留空=全局）','公司代码（留空=全局）')}</label>
               <input className={s.input} value={form.companyCode} onChange={e => setForm(f => ({
               ...f,
               companyCode: e.target.value
             }))} placeholder="PHX_AGRI_LA" />
             </div>
             <div>
-              <label className={s.label}>项目代码（留空=全局）</label>
+              <label className={s.label}>{t('ui.项目代码（留空=全局）','项目代码（留空=全局）')}</label>
               <input className={s.input} value={form.projectCode} onChange={e => setForm(f => ({
               ...f,
               projectCode: e.target.value
@@ -787,7 +789,7 @@ export default function ApprovalRulesPage() {
             </div>
           </div>
           <div className={u.mb12}>
-            <label className={s.label}>备注</label>
+            <label className={s.label}>{t('ui.备注','备注')}</label>
             <input className={s.input} value={form.remark} onChange={e => setForm(f => ({
             ...f,
             remark: e.target.value
@@ -805,11 +807,11 @@ export default function ApprovalRulesPage() {
             fontSize: 14,
             fontWeight: 600,
             color: "var(--text-primary)"
-          }}>审批步骤</h4>
+          }}>{t('ui.审批步骤','审批步骤')}</h4>
             <button className={`${s.btnSecondary} ${u.fs12}`} onClick={addStep}>
               <Plus size={12} style={{
               marginRight: 4
-            }} />添加步骤
+            }} />{t('ui.添加步骤','添加步骤')}
             </button>
           </div>
 
@@ -834,7 +836,7 @@ export default function ApprovalRulesPage() {
                 fontWeight: 600,
                 fontSize: 13,
                 color: "var(--color-accent)"
-              }}>步骤 {st.stepNo}</span>
+              }}>{t('ui.步骤','步骤')} {st.stepNo}</span>
                   {form.steps.length > 1 && <button onClick={() => removeStep(idx)} style={{
                 background: "none",
                 border: "none",
@@ -853,7 +855,7 @@ export default function ApprovalRulesPage() {
                   <div style={{
                 gridColumn: "1 / -1"
               }}>
-                    <label className={s.label}>审批人类型</label>
+                    <label className={s.label}>{t('ui.审批人类型','审批人类型')}</label>
                     <select className={s.select} value={st.approverType} onChange={e => updateStep(idx, {
                   approverType: e.target.value,
                   approverUserId: ""
@@ -862,7 +864,7 @@ export default function ApprovalRulesPage() {
                     </select>
                   </div>
                   {needsRoleField(st.approverType) && <div>
-                      <label className={s.label}>审批角色</label>
+                      <label className={s.label}>{t('ui.审批角色','审批角色')}</label>
                       <select className={s.select} value={st.approverRole} onChange={e => updateStep(idx, {
                   approverRole: e.target.value
                 })}>
@@ -870,10 +872,10 @@ export default function ApprovalRulesPage() {
                       </select>
                     </div>}
                   {needsUserField(st.approverType) && <div>
-                      <label className={s.label}>指定用户 ID</label>
+                      <label className={s.label}>{t('ui.指定用户 ID','指定用户 ID')}</label>
                       <input className={s.input} type="text" value={st.approverUserId ?? ""} onChange={e => updateStep(idx, {
                   approverUserId: e.target.value
-                })} placeholder="用户数字ID" />
+                })} placeholder={t('ui.用户数字ID','用户数字ID')} />
                     </div>}
                   {!needsRoleField(st.approverType) && !needsUserField(st.approverType) && <div style={{
                 gridColumn: "1 / -1"
@@ -885,11 +887,11 @@ export default function ApprovalRulesPage() {
                   padding: "6px 10px",
                   borderRadius: 6
                 }}>
-                        系统将在审批启动时自动解析审批人（无需手动指定）
+                        {t('ui.系统将在审批启动时自动解析审批人（无需手动指定）','系统将在审批启动时自动解析审批人（无需手动指定）')}
                       </p>
                     </div>}
                   <div>
-                    <label className={s.label}>所需人数</label>
+                    <label className={s.label}>{t('ui.所需人数','所需人数')}</label>
                     <input className={s.input} type="number" min={1} value={st.requiredApprovalCount} onChange={e => updateStep(idx, {
                   requiredApprovalCount: Number(e.target.value)
                 })} />
@@ -909,7 +911,7 @@ export default function ApprovalRulesPage() {
                 color: "var(--text-primary)",
                 cursor: "pointer"
               }}>
-                    允许 ADMIN 代理审批（跳过角色校验）
+                    {t('ui.允许 ADMIN 代理审批（跳过角色校验）','允许 ADMIN 代理审批（跳过角色校验）')}
                   </label>
                 </div>
 
@@ -926,26 +928,26 @@ export default function ApprovalRulesPage() {
                 fontWeight: 700,
                 color: "var(--color-accent)",
                 marginBottom: 8
-              }}>⏱ SLA 配置</p>
+              }}>⏱ {t('ui.SLA 配置','SLA 配置')}</p>
                   <div style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr 1fr",
                 gap: 8
               }}>
                     <div>
-                      <label className={s.label}>SLA 时限（小时）</label>
+                      <label className={s.label}>{t('ui.SLA 时限（小时）','SLA 时限（小时）')}</label>
                       <input className={s.input} type="number" min={1} value={st.slaHours} onChange={e => updateStep(idx, {
                     slaHours: Number(e.target.value) || 48
                   })} />
                     </div>
                     <div>
-                      <label className={s.label}>催办间隔（小时）</label>
+                      <label className={s.label}>{t('ui.催办间隔（小时）','催办间隔（小时）')}</label>
                       <input className={s.input} type="number" min={1} value={st.reminderIntervalHours} onChange={e => updateStep(idx, {
                     reminderIntervalHours: Number(e.target.value) || 12
                   })} />
                     </div>
                     <div>
-                      <label className={s.label}>最多催办次数</label>
+                      <label className={s.label}>{t('ui.最多催办次数','最多催办次数')}</label>
                       <input className={s.input} type="number" min={0} value={st.maxReminders} onChange={e => updateStep(idx, {
                     maxReminders: Number(e.target.value)
                   })} />
@@ -965,7 +967,7 @@ export default function ApprovalRulesPage() {
                   color: "var(--text-primary)",
                   cursor: "pointer"
                 }}>
-                      启用自动升级（Escalation）
+                      {t('ui.启用自动升级（Escalation）','启用自动升级（Escalation）')}
                     </label>
                   </div>
                   {st.escalationEnabled && <div style={{
@@ -975,17 +977,17 @@ export default function ApprovalRulesPage() {
                 marginTop: 8
               }}>
                       <div>
-                        <label className={s.label}>超时多久后升级（小时）*</label>
+                        <label className={s.label}>{t('ui.超时多久后升级（小时）*','超时多久后升级（小时）*')}</label>
                         <input className={s.input} type="number" min={1} value={st.escalationAfterHours ?? ""} onChange={e => updateStep(idx, {
                     escalationAfterHours: Number(e.target.value) || null
-                  })} placeholder="如：72" />
+                  })} placeholder={t('ui.如：72','如：72')} />
                       </div>
                       <div>
-                        <label className={s.label}>升级目标角色 *</label>
+                        <label className={s.label}>{t('ui.升级目标角色 *','升级目标角色 *')}</label>
                         <select className={s.select} value={st.escalationRole} onChange={e => updateStep(idx, {
                     escalationRole: e.target.value
                   })}>
-                          <option value="">-- 选择角色 --</option>
+                          <option value="">{t('ui.-- 选择角色 --','-- 选择角色 --')}</option>
                           {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </div>
@@ -995,7 +997,7 @@ export default function ApprovalRulesPage() {
                 fontSize: 11,
                 color: "var(--color-accent)"
               }}>
-                    摘要：{slaSummary(st)}
+                    {t('ui.摘要：','摘要：')}{slaSummary(st)}
                   </div>
                 </div>
               </div>)}
@@ -1006,15 +1008,15 @@ export default function ApprovalRulesPage() {
           gap: 10
         }}>
             <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setDrawerOpen(false)}>
-              取消
+              {t('ui.取消','取消')}
             </button>
             <button onClick={handleSave} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>
-              {saving ? "保存中…" : editing ? "保存修改" : "创建规则"}
+              {saving ? t('ui.保存中…','保存中…') : editing ? t('ui.保存修改','保存修改') : t('ui.创建规则','创建规则')}
             </button>
           </div>
         </div>
       </RightDrawer>
 
-      <ConfirmDialogV2 open={delRule != null} title="删除审批规则" danger confirmLabel="确认删除" message={`确认删除规则「${delRule?.ruleCode ?? ''}」？此操作不可撤销。`} onConfirm={doDelete} onCancel={() => setDelRule(null)} />
+      <ConfirmDialogV2 open={delRule != null} title={t('ui.删除审批规则','删除审批规则')} danger confirmLabel={t('ui.确认删除','确认删除')} message={`${t('ui.确认删除规则「','确认删除规则「')}${delRule?.ruleCode ?? ''}${t('ui.」？此操作不可撤销。','」？此操作不可撤销。')}`} onConfirm={doDelete} onCancel={() => setDelRule(null)} />
     </div>;
 }

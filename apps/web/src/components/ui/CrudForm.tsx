@@ -186,7 +186,7 @@ export const CrudForm = memo(function CrudForm({
                 value={values[field.key]}
                 onChange={v => set(field.key, v)}
                 storage="json-string"
-                label="上传附件（PDF/图片 ≤15MB，可多个）"
+                label={t('ui.上传附件（PDF/图片 ≤15MB，可多个）', '上传附件（PDF/图片 ≤15MB，可多个）')}
               />
             ) : field.type === "attachment" ? (
               // G4-D：统一附件上传，禁 URL 文本框

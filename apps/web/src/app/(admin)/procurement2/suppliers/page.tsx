@@ -215,7 +215,7 @@ export default function SuppliersPage() {
       if (!res.ok) throw new Error(await res.text());
       setData(await res.json());
     } catch {
-      toast.error("加载失败");
+      toast.error(t('ui.加载失败','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -266,27 +266,27 @@ export default function SuppliersPage() {
   }
   const save = async () => {
     if (!form.supplierCode.trim()) {
-      toast.error("供应商编码为必填项");
+      toast.error(t('ui.供应商编码为必填项','供应商编码为必填项'));
       return;
     }
     if (!form.supplierName.trim()) {
-      toast.error("供应商名称为必填项");
+      toast.error(t('ui.供应商名称为必填项','供应商名称为必填项'));
       return;
     }
     if (!form.countryCode.trim()) {
-      toast.error("国家为必填项");
+      toast.error(t('ui.国家为必填项','国家为必填项'));
       return;
     }
     if (!form.defaultCurrency.trim()) {
-      toast.error("默认货币为必填项");
+      toast.error(t('ui.默认货币为必填项','默认货币为必填项'));
       return;
     }
     if (form.sharedScope === "COMPANY" && (!form.ownerCompanyCode.trim() || !form.ownerCompanyName.trim())) {
-      toast.error("公司专用供应商必须填写归属公司代码和名称");
+      toast.error(t('ui.公司专用供应商必须填写归属公司代码和名称','公司专用供应商必须填写归属公司代码和名称'));
       return;
     }
     if (form.sharedScope === "PROJECT" && (!form.ownerProjectCode.trim() || !form.ownerProjectName.trim())) {
-      toast.error("项目专用供应商必须填写归属项目代码和名称");
+      toast.error(t('ui.项目专用供应商必须填写归属项目代码和名称','项目专用供应商必须填写归属项目代码和名称'));
       return;
     }
     setSaving(true);
@@ -322,10 +322,10 @@ export default function SuppliersPage() {
         });
         if (!res.ok) {
           const d = await res.json();
-          toast.error(d.message ?? "更新失败");
+          toast.error(d.message ?? t('ui.更新失败','更新失败'));
           return;
         }
-        toast.success("供应商已更新");
+        toast.success(t('ui.供应商已更新','供应商已更新'));
       } else {
         const res = await fetch(API_BASE, {
           method: "POST",
@@ -334,10 +334,10 @@ export default function SuppliersPage() {
         });
         if (!res.ok) {
           const d = await res.json();
-          toast.error(d.message ?? "创建失败");
+          toast.error(d.message ?? t('ui.创建失败','创建失败'));
           return;
         }
-        toast.success("供应商已创建");
+        toast.success(t('ui.供应商已创建','供应商已创建'));
       }
       setDrawerOpen(false);
       load(page);
@@ -355,11 +355,11 @@ export default function SuppliersPage() {
       })
     });
     if (res.ok) {
-      toast.success(`状态已更新`);
+      toast.success(t('ui.状态已更新','状态已更新'));
       load(page);
     } else {
       const d = await res.json();
-      toast.error(d.message ?? "操作失败");
+      toast.error(d.message ?? t('ui.操作失败','操作失败'));
     }
   };
   const setF = (k: keyof FormState, v: string) => setForm(p => ({
@@ -370,14 +370,14 @@ export default function SuppliersPage() {
   const needOwnerCompany = form.sharedScope === "COMPANY" || form.sharedScope === "PROJECT";
   const needOwnerProject = form.sharedScope === "PROJECT";
   return <div className="animate-fade-in">
-      <PageHeader title="供应商管理" subtitle={`多公司共享 · 公司/项目专用三级范围 · 共 ${data.total} 家`} breadcrumb={["采购管理", "供应商管理"]} actions={<div style={{
+      <PageHeader title={t('ui.供应商管理','供应商管理')} subtitle={`${t('ui.多公司共享 · 公司/项目专用三级范围 · 共','多公司共享 · 公司/项目专用三级范围 · 共')} ${data.total} ${t('ui.家','家')}`} breadcrumb={[t('ui.采购管理','采购管理'), t('ui.供应商管理','供应商管理')]} actions={<div style={{
       display: "flex",
       gap: 8
     }}>
             <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => load(page)} disabled={loading}>
               <RefreshCw size={14} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新','刷新')}
             </button>
             {/* G4-B：采购页不就地建供应商，但 G131 提供直达入口——跳主数据中心并自动打开新增表单，
                 建档完成后 returnTo 自动回跳本页（采购员无需手动绕路） */}
@@ -387,7 +387,7 @@ export default function SuppliersPage() {
         gap: 6,
         textDecoration: "none"
       }}>
-              <Plus size={14} /> 新增供应商
+              <Plus size={14} /> {t('ui.新增供应商','新增供应商')}
             </a>
           </div>} />
 
@@ -401,17 +401,17 @@ export default function SuppliersPage() {
       fontSize: 12.5,
       color: "var(--color-info,var(--color-accent))"
     }}>
-        <strong>采购视图（只读）：</strong>供应商主数据已下沉至 <a href="/master-data/suppliers" style={{
+        <strong>{t('ui.采购视图（只读）：','采购视图（只读）：')}</strong>{t('ui.供应商主数据已下沉至','供应商主数据已下沉至')} <a href="/master-data/suppliers" style={{
         color: "inherit",
         fontWeight: 600,
         textDecoration: "underline"
-      }}>主数据中心</a>，
-        请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。
+      }}>{t('ui.主数据中心','主数据中心')}</a>，
+        {t('ui.请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。','请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。')}
       </div>
 
       {/* KPI 统计条（G160：全局 StatStripV2） */}
       <StatStripV2 items={[{
-        label: "供应商总数",
+        label: t('ui.供应商总数','供应商总数'),
         value: String(data.total),
         accent: true
       }, ...SCOPE_OPTS.map(o => ({
@@ -426,7 +426,7 @@ export default function SuppliersPage() {
       marginBottom: 14,
       flexWrap: "wrap"
     }}>
-        <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder="搜索供应商名称 / 编码…" style={{
+        <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder={t('ui.搜索供应商名称 / 编码…','搜索供应商名称 / 编码…')} style={{
         flex: "1 1 200px",
         padding: "8px 12px",
         background: "var(--bg-card)",
@@ -445,7 +445,7 @@ export default function SuppliersPage() {
         fontSize: 13,
         outline: "none"
       }}>
-          <option value="">全部范围</option>
+          <option value="">{t('ui.全部范围','全部范围')}</option>
           {SCOPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select value={fCountry} onChange={e => setFCountry(e.target.value)} style={{
@@ -457,7 +457,7 @@ export default function SuppliersPage() {
         fontSize: 13,
         outline: "none"
       }}>
-          <option value="">全部国家</option>
+          <option value="">{t('ui.全部国家','全部国家')}</option>
           {COUNTRY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={{
@@ -469,7 +469,7 @@ export default function SuppliersPage() {
         fontSize: 13,
         outline: "none"
       }}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
@@ -484,7 +484,7 @@ export default function SuppliersPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["供应商编码", "供应商名称", "共享范围", "归属", "国家", "默认货币", "状态", "操作"].map(h => <th key={h}>{h}</th>)}
+              {[t('ui.供应商编码','供应商编码'), t('ui.供应商名称','供应商名称'), t('ui.共享范围','共享范围'), t('ui.归属','归属'), t('ui.国家','国家'), t('ui.默认货币','默认货币'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -492,12 +492,12 @@ export default function SuppliersPage() {
               padding: 28,
               textAlign: "center",
               color: "var(--text-secondary)"
-            }}>加载中…</td></tr>}
+            }}>{t('ui.加载中…','加载中…')}</td></tr>}
             {!loading && data.items.length === 0 && <tr><td colSpan={8} style={{
               padding: 28,
               textAlign: "center",
               color: "var(--text-secondary)"
-            }}>暂无供应商记录</td></tr>}
+            }}>{t('ui.暂无供应商记录','暂无供应商记录')}</td></tr>}
             {!loading && data.items.map((row, i) => {
             const si = scopeInfo(row.sharedScope);
             return <tr key={row.id}>
@@ -536,7 +536,7 @@ export default function SuppliersPage() {
                 fontSize: 11,
                 color: "var(--text-secondary)"
               }}>
-                    {row.sharedScope === "GROUP" ? "全集团" : row.sharedScope === "COMPANY" ? row.ownerCompanyCode ?? "—" : row.ownerProjectCode ?? "—"}
+                    {row.sharedScope === "GROUP" ? t('ui.全集团','全集团') : row.sharedScope === "COMPANY" ? row.ownerCompanyCode ?? "—" : row.ownerProjectCode ?? "—"}
                   </td>
                   <td className={u.fs12}>{row.countryCode}</td>
                   <td style={{
@@ -555,12 +555,12 @@ export default function SuppliersPage() {
                     <button type="button" className={s.btnSecondary} style={{
                   padding: "3px 8px",
                   fontSize: 11
-                }} onClick={() => openEdit(row)}>编辑</button>
+                }} onClick={() => openEdit(row)}>{t('ui.编辑','编辑')}</button>
                     <button type="button" className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary} style={{
                   padding: "3px 8px",
                   fontSize: 11
                 }} onClick={() => toggleStatus(row)}>
-                      {row.status === "ACTIVE" ? "停用" : "启用"}
+                      {row.status === "ACTIVE" ? t('ui.停用','停用') : t('ui.启用','启用')}
                     </button>
                   </td>
                 </tr>;
@@ -580,19 +580,19 @@ export default function SuppliersPage() {
           <button type="button" className={s.btnSecondary} style={{
         padding: "4px 12px",
         fontSize: 12
-      }} disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>上一页</button>
+      }} disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>{t('ui.上一页','上一页')}</button>
           <span style={{
         fontSize: 13,
         color: "var(--text-secondary)"
-      }}>第 {page} / {pageCount} 页 · 共 {data.total} 条</span>
+      }}>{t('ui.第','第')} {page} / {pageCount} {t('ui.页 · 共','页 · 共')} {data.total} {t('ui.条','条')}</span>
           <button type="button" className={s.btnSecondary} style={{
         padding: "4px 12px",
         fontSize: 12
-      }} disabled={page >= pageCount} onClick={() => setPage(p => Math.min(pageCount, p + 1))}>下一页</button>
+      }} disabled={page >= pageCount} onClick={() => setPage(p => Math.min(pageCount, p + 1))}>{t('ui.下一页','下一页')}</button>
         </div>}
 
       {/* 新建/编辑 Drawer */}
-      <RightDrawer open={drawerOpen} title={editing ? "编辑供应商" : "新增供应商"} onClose={() => {
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑供应商','编辑供应商') : t('ui.新增供应商','新增供应商')} onClose={() => {
       setDrawerOpen(false);
       setEditing(null);
     }}>
@@ -608,7 +608,7 @@ export default function SuppliersPage() {
           color: "var(--text-secondary)",
           borderBottom: "1px solid var(--border)",
           paddingBottom: 6
-        }}>基本信息</div>
+        }}>{t('ui.基本信息','基本信息')}</div>
           <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -620,7 +620,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>供应商编码 <span className={s.textDanger}>*</span></label>
+            }}>{t('ui.供应商编码','供应商编码')} <span className={s.textDanger}>*</span></label>
               <input value={form.supplierCode} onChange={e => setF("supplierCode", e.target.value)} disabled={!!editing} style={{
               width: "100%",
               padding: "7px 10px",
@@ -639,7 +639,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>共享范围 <span className={s.textDanger}>*</span></label>
+            }}>{t('ui.共享范围','共享范围')} <span className={s.textDanger}>*</span></label>
               <select value={form.sharedScope} onChange={e => setF("sharedScope", e.target.value)} disabled={!!editing} style={{
               width: "100%",
               padding: "7px 10px",
@@ -660,7 +660,7 @@ export default function SuppliersPage() {
             color: "var(--text-secondary)",
             display: "block",
             marginBottom: 4
-          }}>供应商名称（中文/本地语） <span className={s.textDanger}>*</span></label>
+          }}>{t('ui.供应商名称（中文/本地语）','供应商名称（中文/本地语）')} <span className={s.textDanger}>*</span></label>
             <input value={form.supplierName} onChange={e => setF("supplierName", e.target.value)} style={{
             width: "100%",
             padding: "7px 10px",
@@ -679,7 +679,7 @@ export default function SuppliersPage() {
             color: "var(--text-secondary)",
             display: "block",
             marginBottom: 4
-          }}>供应商名称（英文，跨境必填）</label>
+          }}>{t('ui.供应商名称（英文，跨境必填）','供应商名称（英文，跨境必填）')}</label>
             <input value={form.supplierNameEn} onChange={e => setF("supplierNameEn", e.target.value)} style={{
             width: "100%",
             padding: "7px 10px",
@@ -703,7 +703,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>国家 <span className={s.textDanger}>*</span></label>
+            }}>{t('ui.国家','国家')} <span className={s.textDanger}>*</span></label>
               {/* 字典化：国家枚举来自 sys_dict(SYS_COUNTRY)，替代硬编码 COUNTRY_OPTS */}
               <DictSelect dictType="SYS_COUNTRY" value={form.countryCode} onChange={v => setF("countryCode", v)} allowEmpty />
             </div>
@@ -713,7 +713,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>供应商类型</label>
+            }}>{t('ui.供应商类型','供应商类型')}</label>
               <select value={form.supplierType} onChange={e => setF("supplierType", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -733,7 +733,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>默认货币 <span className={s.textDanger}>*</span></label>
+            }}>{t('ui.默认货币','默认货币')} <span className={s.textDanger}>*</span></label>
               {/* 字典化：货币枚举来自 sys_dict(SYS_CURRENCY)，替代硬编码 CURRENCY_OPTS */}
               <DictSelect dictType="SYS_CURRENCY" value={form.defaultCurrency} onChange={v => setF("defaultCurrency", v)} allowEmpty />
             </div>
@@ -748,10 +748,10 @@ export default function SuppliersPage() {
             borderBottom: "1px solid var(--border)",
             paddingBottom: 6,
             marginTop: 4
-          }}>归属公司 <span className={s.textDanger}>*</span></div>
+          }}>{t('ui.归属公司','归属公司')} <span className={s.textDanger}>*</span></div>
               {/* G95：公司选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
               <div>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>公司</label>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{t('ui.公司','公司')}</label>
                 {/* G4-B：归属公司走公司主数据(DataScope 自动过滤)，名称自动带出 */}
                 <CompanySelector value={form.ownerCompanyCode} onChange={v => setF("ownerCompanyCode", v)} onPick={o => setF("ownerCompanyName", o?.label ?? "")} />
               </div>
@@ -764,10 +764,10 @@ export default function SuppliersPage() {
             borderBottom: "1px solid var(--border)",
             paddingBottom: 6,
             marginTop: 4
-          }}>归属项目 <span className={s.textDanger}>*</span></div>
+          }}>{t('ui.归属项目','归属项目')} <span className={s.textDanger}>*</span></div>
               {/* G95：项目选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
               <div>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>项目</label>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{t('ui.项目','项目')}</label>
                 {/* G4-B：归属项目走项目主数据(仅 ACTIVE)，名称自动带出 */}
                 <ProjectSelector value={form.ownerProjectCode} onChange={v => setF("ownerProjectCode", v)} onPick={o => setF("ownerProjectName", o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
               </div>
@@ -781,7 +781,7 @@ export default function SuppliersPage() {
           borderBottom: "1px solid var(--border)",
           paddingBottom: 6,
           marginTop: 4
-        }}>联系信息</div>
+        }}>{t('ui.联系信息','联系信息')}</div>
           <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -793,7 +793,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>联系人</label>
+            }}>{t('ui.联系人','联系人')}</label>
               <input value={form.contactName} onChange={e => setF("contactName", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -812,7 +812,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>联系电话</label>
+            }}>{t('ui.联系电话','联系电话')}</label>
               <input value={form.contactPhone} onChange={e => setF("contactPhone", e.target.value)} type="tel" style={{
               width: "100%",
               padding: "7px 10px",
@@ -835,7 +835,7 @@ export default function SuppliersPage() {
           borderBottom: "1px solid var(--border)",
           paddingBottom: 6,
           marginTop: 4
-        }}>财务信息</div>
+        }}>{t('ui.财务信息','财务信息')}</div>
           <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -847,7 +847,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>账期（天）</label>
+            }}>{t('ui.账期（天）','账期（天）')}</label>
               <input type="number" value={form.creditDays} onChange={e => setF("creditDays", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -866,7 +866,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>税务号（TIN）</label>
+            }}>{t('ui.税务号（TIN）','税务号（TIN）')}</label>
               <input value={form.taxNo} onChange={e => setF("taxNo", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -891,7 +891,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>开户银行</label>
+            }}>{t('ui.开户银行','开户银行')}</label>
               <input value={form.bankName} onChange={e => setF("bankName", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -910,7 +910,7 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>银行账号</label>
+            }}>{t('ui.银行账号','银行账号')}</label>
               <input value={form.bankAccountNo} onChange={e => setF("bankAccountNo", e.target.value)} style={{
               width: "100%",
               padding: "7px 10px",
@@ -933,11 +933,11 @@ export default function SuppliersPage() {
             <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
             setDrawerOpen(false);
             setEditing(null);
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
             <button type="button" className={s.btnPrimary} style={{
             flex: 2
           }} disabled={saving} onClick={save}>
-              {saving ? "保存中…" : editing ? "保存更改" : "创建供应商"}
+              {saving ? t('ui.保存中…','保存中…') : editing ? t('ui.保存更改','保存更改') : t('ui.创建供应商','创建供应商')}
             </button>
           </div>
         </div>

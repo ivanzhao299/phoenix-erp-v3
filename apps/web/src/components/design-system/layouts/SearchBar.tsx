@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Search, X } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface SearchBarProps {
   value: string;
@@ -34,6 +35,7 @@ export function SearchBar({
   value, onChange, onSubmit, placeholder = '搜索…',
   debounce = 300, size = 'md', disabled, width = 280,
 }: SearchBarProps) {
+  const { t } = useLanguage();
   const [local, setLocal] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cfg = SIZES[size];
@@ -80,7 +82,7 @@ export function SearchBar({
       {local ? (
         <button
           type="button"
-          aria-label="清除"
+          aria-label={t('ui.清除','清除')}
           onClick={() => { setLocal(''); onChange(''); onSubmit?.(''); }}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

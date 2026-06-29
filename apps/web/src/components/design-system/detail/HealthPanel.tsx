@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { Activity } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface HealthDimension {
   label: string;
@@ -37,6 +38,7 @@ export function HealthPanel({
   overall, dimensions, asOf, alertCount, highAlertCount,
   thresholds = { warn: 80, bad: 60 },
 }: HealthPanelProps) {
+  const { t } = useLanguage();
   return (
     <section style={{
       padding: 16, background: 'var(--bg-card)',
@@ -44,10 +46,10 @@ export function HealthPanel({
     }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Activity size={16} color="var(--color-primary)" />
-        <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>数据质量评分</strong>
+        <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{t('ui.数据质量评分','数据质量评分')}</strong>
         {asOf ? (
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
-            截至 {new Date(asOf).toLocaleString('zh-CN')}
+            {t('ui.截至','截至')} {new Date(asOf).toLocaleString('zh-CN')}
           </span>
         ) : null}
       </header>
@@ -64,7 +66,7 @@ export function HealthPanel({
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           }}>
             <strong style={{ fontSize: 24, color: scoreColor(overall, thresholds) }}>{overall}</strong>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>综合</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('ui.综合','综合')}</span>
           </div>
         </div>
 
@@ -72,7 +74,7 @@ export function HealthPanel({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {typeof alertCount === 'number' && (
               <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                告警 <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>{alertCount}</strong> 条
+                {t('ui.告警','告警')} <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>{alertCount}</strong> {t('ui.条','条')}
               </div>
             )}
             {typeof highAlertCount === 'number' && highAlertCount > 0 && (

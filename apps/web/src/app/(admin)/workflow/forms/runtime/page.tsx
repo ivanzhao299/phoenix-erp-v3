@@ -10,6 +10,7 @@ import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/contexts/ToastContext';
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { usePermission } from '@/hooks/usePermission';
+import { useLanguage } from "@/contexts/LanguageContext";
 import ui from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -89,6 +90,9 @@ function statusColor(s: string) {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function WorkflowFormRuntimePage() {
+  const {
+    t
+  } = useLanguage();
   const router = useRouter();
   const toast = useToast(); // G28：项目 useToast 替换 sonner
   const workflowPerm = usePermission('MENU_WORKFLOW_FORM');
@@ -148,7 +152,7 @@ export default function WorkflowFormRuntimePage() {
       setTotal(res.total ?? 0);
       setRefreshedAt(new Date());
     } catch (e: any) {
-      setError(e.message ?? '加载失败');
+      setError(e.message ?? t('ui.加载失败', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -187,7 +191,7 @@ export default function WorkflowFormRuntimePage() {
 
   const handleCreate = async () => {
     if (!createForm.code || !createForm.name) {
-      setCreateError('表单代码和名称为必填');
+      setCreateError(t('ui.表单代码和名称为必填', '表单代码和名称为必填'));
       return;
     }
     setCreating(true);
@@ -208,7 +212,7 @@ export default function WorkflowFormRuntimePage() {
       });
       await loadForms();
     } catch (e: any) {
-      setCreateError(e.message ?? '创建失败');
+      setCreateError(e.message ?? t('ui.创建失败', '创建失败'));
     } finally {
       setCreating(false);
     }
@@ -224,7 +228,7 @@ export default function WorkflowFormRuntimePage() {
       schemaJson = JSON.parse(schemaText);
       uiSchemaJson = uiSchemaText.trim() ? JSON.parse(uiSchemaText) : {};
     } catch {
-      setVerError('JSON 格式错误，请检查输入');
+      setVerError(t('ui.JSON 格式错误，请检查输入', 'JSON 格式错误，请检查输入'));
       return;
     }
     setSavingVer(true);
@@ -239,7 +243,7 @@ export default function WorkflowFormRuntimePage() {
       setShowVersion(false);
       await loadDetail(selected);
     } catch (e: any) {
-      setVerError(e.message ?? '创建版本失败');
+      setVerError(e.message ?? t('ui.创建版本失败', '创建版本失败'));
     } finally {
       setSavingVer(false);
     }
@@ -289,23 +293,23 @@ export default function WorkflowFormRuntimePage() {
   // ── 渲染 ────────────────────────────────────────────────────────────────────
 
   if (!canManageForms) {
-    return <div className={u.emptyPad40}>无权限访问表单管理。请联系系统管理员授予工作流管理权限。</div>;
+    return <div className={u.emptyPad40}>{t('ui.无权限访问表单管理。请联系系统管理员授予工作流管理权限。', '无权限访问表单管理。请联系系统管理员授予工作流管理权限。')}</div>;
   }
 
   return <div>
       {/* G28：替换自定义标题行为全局 PageHeader 组件 */}
       <PageHeader
-        title="Workflow 表单运行时"
+        title={t('ui.Workflow 表单运行时', 'Workflow 表单运行时')}
         subtitle={`管理表单定义、版本和预览 · ${total} 个表单${refreshedAt ? ` · 更新于 ${refreshedAt.toLocaleTimeString('zh-CN')}` : ''}`}
-        breadcrumb={['工作流', '表单运行时']}
+        breadcrumb={[t('ui.工作流', '工作流'), t('ui.表单运行时', '表单运行时')]}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={loadForms} disabled={loading} className={ui.btnSecondary}>
               <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-              刷新
+              {t('ui.刷新', '刷新')}
             </button>
             <button onClick={() => { setShowCreate(true); setCreateError(''); }} className={ui.btnPrimary}>
-              <Plus size={14} /> 新建表单
+              <Plus size={14} /> {t('ui.新建表单', '新建表单')}
             </button>
           </div>
         }
@@ -345,19 +349,19 @@ export default function WorkflowFormRuntimePage() {
           fontSize: 14,
           color: 'var(--text-primary)'
         }}>
-            表单定义列表
+            {t('ui.表单定义列表', '表单定义列表')}
           </div>
           {loading && forms.length === 0 ? <div style={{
           padding: 24,
           color: 'var(--text-disabled)',
           fontSize: 14,
           textAlign: 'center'
-        }}>加载中…</div> : forms.length === 0 ? <div style={{
+        }}>{t('ui.加载中…', '加载中…')}</div> : forms.length === 0 ? <div style={{
           padding: 24,
           color: 'var(--text-disabled)',
           fontSize: 14,
           textAlign: 'center'
-        }}>暂无表单</div> : <div>
+        }}>{t('ui.暂无表单', '暂无表单')}</div> : <div>
               {forms.map(f => <button key={f.id} onClick={() => loadDetail(f)} style={{
             display: 'flex',
             alignItems: 'center',
@@ -412,7 +416,7 @@ export default function WorkflowFormRuntimePage() {
             opacity: 0.3,
             marginBottom: 12
           }} />
-              <div className={u.fs15}>请从左侧选择一个表单</div>
+              <div className={u.fs15}>{t('ui.请从左侧选择一个表单', '请从左侧选择一个表单')}</div>
             </div> : <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -460,7 +464,7 @@ export default function WorkflowFormRuntimePage() {
                   fontWeight: 700,
                   cursor: 'pointer'
                 }}>
-                      <Send size={12} /> 去提交
+                      <Send size={12} /> {t('ui.去提交', '去提交')}
                     </button>
                   </div>
                 </div>
@@ -471,9 +475,9 @@ export default function WorkflowFormRuntimePage() {
               fontSize: 13,
               color: 'var(--text-secondary)'
             }}>
-                  {selected.biz_type && <span>业务类型：<b>{selected.biz_type}</b></span>}
-                  {selected.module_code && <span>模块：<b>{selected.module_code}</b></span>}
-                  {selected.category && <span>分类：<b>{selected.category}</b></span>}
+                  {selected.biz_type && <span>{t('ui.业务类型：', '业务类型：')}<b>{selected.biz_type}</b></span>}
+                  {selected.module_code && <span>{t('ui.模块：', '模块：')}<b>{selected.module_code}</b></span>}
+                  {selected.category && <span>{t('ui.分类：', '分类：')}<b>{selected.category}</b></span>}
                   {selected.remark && <span style={{
                 gridColumn: '1/-1',
                 color: 'var(--text-disabled)',
@@ -500,7 +504,7 @@ export default function WorkflowFormRuntimePage() {
                 fontWeight: 700,
                 fontSize: 15,
                 color: 'var(--text-primary)'
-              }}>版本管理</span>
+              }}>{t('ui.版本管理', '版本管理')}</span>
                   <button onClick={openVersionModal} style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -514,7 +518,7 @@ export default function WorkflowFormRuntimePage() {
                 fontWeight: 700,
                 cursor: 'pointer'
               }}>
-                    <Plus size={12} /> 新建版本
+                    <Plus size={12} /> {t('ui.新建版本', '新建版本')}
                   </button>
                 </div>
 
@@ -522,14 +526,14 @@ export default function WorkflowFormRuntimePage() {
               padding: 24,
               textAlign: 'center',
               color: 'var(--text-disabled)'
-            }}>加载中…</div> : versions.length === 0 ? <div style={{
+            }}>{t('ui.加载中…', '加载中…')}</div> : versions.length === 0 ? <div style={{
               padding: 24,
               textAlign: 'center',
               color: 'var(--text-disabled)'
-            }}>暂无版本，请新建</div> : <table className={ui.table}>
+            }}>{t('ui.暂无版本，请新建', '暂无版本，请新建')}</div> : <table className={ui.table}>
                     <thead>
                       <tr>
-                        {['版本号', '状态', '发布时间', '创建时间', '操作'].map(h => <th key={h}>{h}</th>)}
+                        {[t('ui.版本号', '版本号'), t('ui.状态', '状态'), t('ui.发布时间', '发布时间'), t('ui.创建时间', '创建时间'), t('ui.操作', '操作')].map(h => <th key={h}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -547,7 +551,7 @@ export default function WorkflowFormRuntimePage() {
                       color: 'var(--status-special)',
                       padding: '1px 6px',
                       borderRadius: 20
-                    }}>当前</span>}
+                    }}>{t('ui.当前', '当前')}</span>}
                           </td>
                           <td>
                             <Badge label={v.status} color={statusColor(v.status)} />
@@ -585,7 +589,7 @@ export default function WorkflowFormRuntimePage() {
                         fontSize: 12,
                         cursor: 'pointer'
                       }}>
-                                <Eye size={11} /> 预览
+                                <Eye size={11} /> {t('ui.预览', '预览')}
                               </button>
                               {v.status === 'DRAFT' && <button onClick={() => handlePublish(v.id)} disabled={publishing} style={{
                         display: 'flex',
@@ -600,7 +604,7 @@ export default function WorkflowFormRuntimePage() {
                         cursor: 'pointer',
                         fontWeight: 700
                       }}>
-                                  <CheckCircle size={11} /> 发布
+                                  <CheckCircle size={11} /> {t('ui.发布', '发布')}
                                 </button>}
                             </div>
                           </td>
@@ -629,7 +633,7 @@ export default function WorkflowFormRuntimePage() {
                 fontSize: 15,
                 color: 'var(--text-primary)'
               }}>
-                      表单预览 — v{previewVer.version_no}
+                      {t('ui.表单预览 — v', '表单预览 — v')}{previewVer.version_no}
                     </span>
                     <button onClick={() => router.push(`/workflow/forms/submit/${selected.code}`)} style={{
                 marginLeft: 'auto',
@@ -645,7 +649,7 @@ export default function WorkflowFormRuntimePage() {
                 fontWeight: 700,
                 cursor: 'pointer'
               }}>
-                      <ArrowRight size={11} /> 进入提交页
+                      <ArrowRight size={11} /> {t('ui.进入提交页', '进入提交页')}
                     </button>
                   </div>
                   <div style={{
@@ -664,7 +668,7 @@ export default function WorkflowFormRuntimePage() {
                 fontSize: 12,
                 color: 'var(--text-secondary)'
               }}>
-                      📌 当前为预览模式，数据不会保存。请前往「提交页」进行真实提交。
+                      {t('ui.📌 当前为预览模式，数据不会保存。请前往「提交页」进行真实提交。', '📌 当前为预览模式，数据不会保存。请前往「提交页」进行真实提交。')}
                     </div>
                   </div>
                 </div>}
@@ -674,17 +678,17 @@ export default function WorkflowFormRuntimePage() {
       </div>
 
       {/* ── 新建表单 Modal ── */}
-      <ModalV2 open={showCreate} title="新建表单定义" width={480} onClose={() => setShowCreate(false)}
+      <ModalV2 open={showCreate} title={t('ui.新建表单定义', '新建表单定义')} width={480} onClose={() => setShowCreate(false)}
         footer={<>
           <button onClick={() => setShowCreate(false)} style={{
             flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)',
             background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer'
-          }}>取消</button>
+          }}>{t('ui.取消', '取消')}</button>
           <button onClick={handleCreate} disabled={creating} style={{
             flex: 1, padding: '10px', borderRadius: 10, border: 'none',
             background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer'
           }}>
-            {creating ? '创建中…' : '创建'}
+            {creating ? t('ui.创建中…', '创建中…') : t('ui.创建', '创建')}
           </button>
         </>}
       >
@@ -698,28 +702,28 @@ export default function WorkflowFormRuntimePage() {
         }}>{createError}</div>}
             {[{
           key: 'code',
-          label: '表单代码 *',
-          placeholder: '大写字母/数字/下划线，如 MY_FORM'
+          label: t('ui.表单代码 *', '表单代码 *'),
+          placeholder: t('ui.大写字母/数字/下划线，如 MY_FORM', '大写字母/数字/下划线，如 MY_FORM')
         }, {
           key: 'name',
-          label: '表单名称 *',
-          placeholder: '中文名称'
+          label: t('ui.表单名称 *', '表单名称 *'),
+          placeholder: t('ui.中文名称', '中文名称')
         }, {
           key: 'bizType',
-          label: '业务类型',
-          placeholder: '如 PAYMENT_REQUEST'
+          label: t('ui.业务类型', '业务类型'),
+          placeholder: t('ui.如 PAYMENT_REQUEST', '如 PAYMENT_REQUEST')
         }, {
           key: 'moduleCode',
-          label: '模块权限',
-          placeholder: '如 MENU_WORKFLOW_FORM'
+          label: t('ui.模块权限', '模块权限'),
+          placeholder: t('ui.如 MENU_WORKFLOW_FORM', '如 MENU_WORKFLOW_FORM')
         }, {
           key: 'category',
-          label: '分类',
-          placeholder: '如 通用'
+          label: t('ui.分类', '分类'),
+          placeholder: t('ui.如 通用', '如 通用')
         }, {
           key: 'remark',
-          label: '备注',
-          placeholder: '可选'
+          label: t('ui.备注', '备注'),
+          placeholder: t('ui.可选', '可选')
         }].map(({
           key,
           label,
@@ -740,17 +744,17 @@ export default function WorkflowFormRuntimePage() {
       </ModalV2>
 
       {/* ── 新建版本 Modal ── */}
-      <ModalV2 open={showVersion && !!selected} title="新建表单版本" width={900} onClose={() => setShowVersion(false)}
+      <ModalV2 open={showVersion && !!selected} title={t('ui.新建表单版本', '新建表单版本')} width={900} onClose={() => setShowVersion(false)}
         footer={<>
           <button onClick={() => setShowVersion(false)} style={{
             flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)',
             background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer'
-          }}>取消</button>
+          }}>{t('ui.取消', '取消')}</button>
           <button onClick={handleCreateVersion} disabled={savingVer} style={{
             flex: 1, padding: '10px', borderRadius: 10, border: 'none',
             background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer'
           }}>
-            {savingVer ? '保存中…' : '保存为草稿'}
+            {savingVer ? t('ui.保存中…', '保存中…') : t('ui.保存为草稿', '保存为草稿')}
           </button>
         </>}
       >
@@ -758,7 +762,7 @@ export default function WorkflowFormRuntimePage() {
           margin: '0 0 20px',
           fontSize: 13,
           color: 'var(--text-secondary)'
-        }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>}
+        }}>{selected.name}{t('ui. · 新版本将以 DRAFT 状态创建，发布后生效', ' · 新版本将以 DRAFT 状态创建，发布后生效')}</p>}
             {verError && <div style={{
           background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
           color: 'var(--status-danger)',
@@ -776,7 +780,7 @@ export default function WorkflowFormRuntimePage() {
               color: 'var(--text-primary)',
               display: 'block',
               marginBottom: 6
-            }}>schema_json（字段定义）</label>
+            }}>{t('ui.schema_json（字段定义）', 'schema_json（字段定义）')}</label>
                 <textarea value={schemaText} onChange={e => setSchemaText(e.target.value)} rows={20} style={{
               width: '100%',
               fontFamily: 'monospace',
@@ -795,7 +799,7 @@ export default function WorkflowFormRuntimePage() {
               color: 'var(--text-primary)',
               display: 'block',
               marginBottom: 6
-            }}>ui_schema_json（控件配置）</label>
+            }}>{t('ui.ui_schema_json（控件配置）', 'ui_schema_json（控件配置）')}</label>
                 <textarea value={uiSchemaText} onChange={e => setUiSchemaText(e.target.value)} rows={20} style={{
               width: '100%',
               fontFamily: 'monospace',
@@ -825,7 +829,7 @@ export default function WorkflowFormRuntimePage() {
                 fontWeight: 700,
                 color: 'var(--text-secondary)',
                 marginBottom: 12
-              }}>实时预览</div>
+              }}>{t('ui.实时预览', '实时预览')}</div>
                     <WorkflowFormRenderer schema={s} uiSchema={u} value={{}} onChange={() => {}} />
                   </div>;
           } catch {
@@ -833,7 +837,7 @@ export default function WorkflowFormRuntimePage() {
               marginTop: 14,
               fontSize: 12,
               color: 'var(--status-warning)'
-            }}>JSON 解析失败，请检查格式</div>;
+            }}>{t('ui.JSON 解析失败，请检查格式', 'JSON 解析失败，请检查格式')}</div>;
           }
         })()}
       </ModalV2>

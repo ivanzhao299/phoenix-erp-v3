@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { FileText } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * AttachmentViewer — 统一附件查看（只读）。详情页用。
@@ -12,7 +13,9 @@ export interface AttachmentViewerProps {
   emptyText?: string;
 }
 
-export function AttachmentViewer({ urls, count, emptyText = '无附件' }: AttachmentViewerProps) {
+export function AttachmentViewer({ urls, count, emptyText }: AttachmentViewerProps) {
+  const { t } = useLanguage();
+  const emptyTextResolved = emptyText ?? t('ui.无附件', '无附件');
   if (urls && urls.length > 0) {
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -21,13 +24,13 @@ export function AttachmentViewer({ urls, count, emptyText = '无附件' }: Attac
           const isProtectedRef = /^FILE-[A-Z0-9_-]+/i.test(ref);
           const isRawUrl = /^https?:\/\//i.test(ref) || /^\/?uploads\//i.test(ref);
           const displayRef = isRawUrl
-            ? '已按安全策略脱敏'
+            ? t('ui.已按安全策略脱敏', '已按安全策略脱敏')
             : ref || 'empty';
           const label = isProtectedRef
-            ? '受控附件引用'
+            ? t('ui.受控附件引用', '受控附件引用')
             : isRawUrl
-              ? '历史裸链接已禁用'
-              : '附件引用';
+              ? t('ui.历史裸链接已禁用', '历史裸链接已禁用')
+              : t('ui.附件引用', '附件引用');
           return (
             <div key={i}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: isRawUrl ? 'var(--status-danger)' : 'var(--text-secondary)', fontSize: 12 }}>
@@ -40,5 +43,5 @@ export function AttachmentViewer({ urls, count, emptyText = '无附件' }: Attac
       </div>
     );
   }
-  return <div style={{ fontSize: 13, color: 'var(--text-disabled)' }}>{count ? `附件数已记录（${count}），URL 未持久化` : emptyText}</div>;
+  return <div style={{ fontSize: 13, color: 'var(--text-disabled)' }}>{count ? `${t('ui.附件数已记录（', '附件数已记录（')}${count}${t('ui.），URL 未持久化', '），URL 未持久化')}` : emptyTextResolved}</div>;
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 // P1-4 性能快修：xlsx 改为动态导入，不进入首屏 bundle，只在用户点击上传/下载时按需加载
 import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
 import PageHeader from '@/components/PageHeader';
+import { useLanguage } from "@/contexts/LanguageContext";
 import u from "@/styles/uix-utils.module.css";
 const th: React.CSSProperties = {
   textAlign: 'left',
@@ -35,6 +36,9 @@ interface ParsedRow {
   errors: string[];
 }
 export default function CapitalImportPage() {
+  const {
+    t
+  } = useLanguage();
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [holders, setHolders] = useState<ShrShareholder[]>([]);
   const [rows, setRows] = useState<ParsedRow[]>([]);
@@ -80,9 +84,9 @@ export default function CapitalImportPage() {
           const shareholderCode = sByName.get(shareholderName);
           const sourceType = source ? SOURCE_REVERSE[source] ?? source : 'BANK_TRANSFER';
           const errors: string[] = [];
-          if (!projectName) errors.push('项目为空');else if (!projectCode) errors.push(`项目不存在: ${projectName}`);
-          if (!shareholderName) errors.push('股东为空');else if (!shareholderCode) errors.push(`股东不存在: ${shareholderName}`);
-          if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) errors.push('金额无效');
+          if (!projectName) errors.push(t('ui.项目为空', '项目为空'));else if (!projectCode) errors.push(`项目不存在: ${projectName}`);
+          if (!shareholderName) errors.push(t('ui.股东为空', '股东为空'));else if (!shareholderCode) errors.push(`股东不存在: ${shareholderName}`);
+          if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) errors.push(t('ui.金额无效', '金额无效'));
           return {
             projectName,
             shareholderName,
@@ -97,9 +101,9 @@ export default function CapitalImportPage() {
           };
         });
         setRows(parsed);
-        if (parsed.length === 0) setErr('未解析到数据行（请检查表头：项目/股东/金额/日期/来源/备注）');
+        if (parsed.length === 0) setErr(t('ui.未解析到数据行（请检查表头：项目/股东/金额/日期/来源/备注）', '未解析到数据行（请检查表头：项目/股东/金额/日期/来源/备注）'));
       } catch (ex: any) {
-        setErr('解析失败：' + (ex?.message || ex));
+        setErr(t('ui.解析失败：', '解析失败：') + (ex?.message || ex));
       }
     };
     reader.readAsArrayBuffer(file);
@@ -142,14 +146,14 @@ export default function CapitalImportPage() {
       <Link href="/shareholders/capital" style={{
       color: 'var(--color-primary)',
       fontSize: 13
-    }}>← 返回资本流列表</Link>
-      <div style={{ marginTop: 10 }}><PageHeader title="导入资本流（Excel / CSV）" /></div>
+    }}>{t('ui.← 返回资本流列表', '← 返回资本流列表')}</Link>
+      <div style={{ marginTop: 10 }}><PageHeader title={t('ui.导入资本流（Excel / CSV）', '导入资本流（Excel / CSV）')} /></div>
       <p style={{
       color: 'var(--text-secondary)',
       fontSize: 12.5,
       marginBottom: 16
     }}>
-        历史资本流批量导入。表头：项目 / 股东 / 金额 / 日期 / 来源 / 备注。先预览校验（Dry Run），确认无误后导入；每条以<b>草稿</b>状态创建，不覆盖已有资本流，仍需走正常审批→确认流程。
+        {t('ui.历史资本流批量导入。表头：项目 / 股东 / 金额 / 日期 / 来源 / 备注。先预览校验（Dry Run），确认无误后导入；每条以', '历史资本流批量导入。表头：项目 / 股东 / 金额 / 日期 / 来源 / 备注。先预览校验（Dry Run），确认无误后导入；每条以')}<b>{t('ui.草稿', '草稿')}</b>{t('ui.状态创建，不覆盖已有资本流，仍需走正常审批→确认流程。', '状态创建，不覆盖已有资本流，仍需走正常审批→确认流程。')}
       </p>
 
       <div style={{
@@ -166,7 +170,7 @@ export default function CapitalImportPage() {
         color: 'var(--color-primary)',
         fontWeight: 600,
         cursor: 'pointer'
-      }}>下载模板</button>
+      }}>{t('ui.下载模板', '下载模板')}</button>
         <label style={{
         padding: '8px 16px',
         borderRadius: 8,
@@ -176,7 +180,7 @@ export default function CapitalImportPage() {
         fontWeight: 600,
         cursor: 'pointer'
       }}>
-          选择文件（预览）
+          {t('ui.选择文件（预览）', '选择文件（预览）')}
           <input type="file" accept=".xlsx,.xls,.csv" style={{
           display: 'none'
         }} onChange={e => {
@@ -188,7 +192,7 @@ export default function CapitalImportPage() {
         alignSelf: 'center',
         fontSize: 13,
         color: 'var(--text-secondary)'
-      }}>已选：{fileName}</span>}
+      }}>{t('ui.已选：', '已选：')}{fileName}</span>}
       </div>
 
       {err && <div style={{
@@ -203,13 +207,13 @@ export default function CapitalImportPage() {
         marginBottom: 12,
         fontSize: 14
       }}>
-            <span>共 <b>{rows.length}</b> 行</span>
+            <span>{t('ui.共 ', '共 ')}<b>{rows.length}</b>{t('ui. 行', ' 行')}</span>
             <span style={{
           color: 'var(--status-success)'
-        }}>有效 <b>{validRows.length}</b></span>
+        }}>{t('ui.有效 ', '有效 ')}<b>{validRows.length}</b></span>
             <span style={{
           color: 'var(--status-danger)'
-        }}>错误 <b>{invalidRows.length}</b></span>
+        }}>{t('ui.错误 ', '错误 ')}<b>{invalidRows.length}</b></span>
           </div>
           <table style={{
         width: '100%',
@@ -220,8 +224,8 @@ export default function CapitalImportPage() {
         marginBottom: 16
       }}>
             <thead><tr>
-              <th style={th}>#</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>
-              <th style={th}>日期</th><th style={th}>来源</th><th style={th}>备注</th><th style={th}>校验</th>
+              <th style={th}>#</th><th style={th}>{t('ui.项目', '项目')}</th><th style={th}>{t('ui.股东', '股东')}</th><th style={th}>{t('ui.金额', '金额')}</th>
+              <th style={th}>{t('ui.日期', '日期')}</th><th style={th}>{t('ui.来源', '来源')}</th><th style={th}>{t('ui.备注', '备注')}</th><th style={th}>{t('ui.校验', '校验')}</th>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => <tr key={i} style={{
@@ -232,13 +236,13 @@ export default function CapitalImportPage() {
                   <td style={td}>{r.shareholderName}</td>
                   <td style={td}>{r.amount}</td>
                   <td style={td}>{r.date || '—'}</td>
-                  <td style={td}>{r.source || '银行转账'}</td>
+                  <td style={td}>{r.source || t('ui.银行转账', '银行转账')}</td>
                   <td style={td}>{r.remark || '—'}</td>
                   <td style={td}>{r.errors.length ? <span style={{
                 color: 'var(--status-danger)'
               }}>{r.errors.join('；')}</span> : <span style={{
                 color: 'var(--status-success)'
-              }}>✓ 有效</span>}</td>
+              }}>{t('ui.✓ 有效', '✓ 有效')}</span>}</td>
                 </tr>)}
             </tbody>
           </table>
@@ -252,13 +256,13 @@ export default function CapitalImportPage() {
         fontWeight: 600,
         cursor: validRows.length === 0 ? 'not-allowed' : 'pointer'
       }}>
-            {importing ? '导入中…' : `确认导入 ${validRows.length} 条有效记录（创建草稿）`}
+            {importing ? t('ui.导入中…', '导入中…') : `确认导入 ${validRows.length} 条有效记录（创建草稿）`}
           </button>
           {invalidRows.length > 0 && <span style={{
         marginLeft: 12,
         fontSize: 12.5,
         color: 'var(--status-danger)'
-      }}>{invalidRows.length} 条错误行将被跳过</span>}
+      }}>{invalidRows.length}{t('ui. 条错误行将被跳过', ' 条错误行将被跳过')}</span>}
         </>}
 
       {result && <div style={{
@@ -268,15 +272,15 @@ export default function CapitalImportPage() {
       border: '1px solid var(--status-success)',
       borderRadius: 8
     }}>
-          导入完成：成功 <b style={{
+          {t('ui.导入完成：成功 ', '导入完成：成功 ')}<b style={{
         color: 'var(--status-success)'
-      }}>{result.ok}</b> 条，失败 <b style={{
+      }}>{result.ok}</b>{t('ui. 条，失败 ', ' 条，失败 ')}<b style={{
         color: 'var(--status-danger)'
-      }}>{result.fail}</b> 条。
+      }}>{result.fail}</b>{t('ui. 条。', ' 条。')}
           <Link href="/shareholders/capital" style={{
         marginLeft: 12,
         color: 'var(--color-primary)'
-      }}>返回查看 →</Link>
+      }}>{t('ui.返回查看 →', '返回查看 →')}</Link>
         </div>}
     </div>;
 }

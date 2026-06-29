@@ -10,6 +10,7 @@ import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ function SkuBadge({
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function SalesV2OrdersPage() {
+  const { t } = useLanguage();
   const {
     can
   } = usePermission();
@@ -357,12 +359,12 @@ export default function SalesV2OrdersPage() {
 
   const handleCreate = async () => {
     if (!newForm.companyCode) {
-      setActionError('请填写公司代码');
+      setActionError(t('ui.请填写公司代码','请填写公司代码'));
       return;
     }
     const validItems = newItems.filter(i => i.productCode && Number(i.qty) > 0);
     if (!validItems.length) {
-      setActionError('请至少添加一行有效明细');
+      setActionError(t('ui.请至少添加一行有效明细','请至少添加一行有效明细'));
       return;
     }
     setActionLoading(true);
@@ -438,7 +440,7 @@ export default function SalesV2OrdersPage() {
     bg: 'var(--status-neutral-bg-light)'
   };
   return <div className="animate-fade-in">
-      <PageHeader title="销售订单" subtitle="统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动" breadcrumb={['销售系统', '销售订单']} />
+      <PageHeader title={t('ui.销售订单','销售订单')} subtitle={t('ui.统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动','统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.销售订单','销售订单')]} />
 
       {/* 操作栏 */}
       <div style={{
@@ -460,7 +462,7 @@ export default function SalesV2OrdersPage() {
           transform: 'translateY(-50%)',
           opacity: 0.4
         }} />
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索订单号 / 客户名称…" style={{
+          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t('ui.搜索订单号 / 客户名称…','搜索订单号 / 客户名称…')} style={{
           width: '100%',
           paddingLeft: 32,
           padding: '8px 12px 8px 32px',
@@ -482,14 +484,14 @@ export default function SalesV2OrdersPage() {
         color: 'var(--text-primary)',
         fontSize: 13
       }}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <button className={`${s.btnSecondary} ${u.flexRow}`} onClick={loadOrders}>
-          <RefreshCw size={14} /> 刷新
+          <RefreshCw size={14} /> {t('ui.刷新','刷新')}
         </button>
         {canCreate && <button className={`${s.btnPrimary} ${u.flexRow}`} onClick={() => setShowCreate(true)}>
-            <Plus size={14} /> 新建订单
+            <Plus size={14} /> {t('ui.新建订单','新建订单')}
           </button>}
       </div>
 
@@ -521,11 +523,11 @@ export default function SalesV2OrdersPage() {
           </div> : orders.length === 0 ? <div style={{
         padding: '32px 0'
       }}>
-            <EmptyState title="暂无订单数据" description="当前筛选条件下没有销售订单" compact />
+            <EmptyState title={t('ui.暂无订单数据','暂无订单数据')} description={t('ui.当前筛选条件下没有销售订单','当前筛选条件下没有销售订单')} compact />
           </div> : <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
-              {['订单号', '客户', '金额', '状态', '价格', '信用', '应收', '操作'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t('ui.订单号','订单号'), t('ui.客户','客户'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.价格','价格'), t('ui.信用','信用'), t('ui.应收','应收'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -553,24 +555,24 @@ export default function SalesV2OrdersPage() {
                   fontSize: 11,
                   color: 'var(--status-danger)',
                   fontWeight: 700
-                }}>⚠ 低价</span>}
+                }}>{t('ui.⚠ 低价','⚠ 低价')}</span>}
                   </td>
                   <td>
                     {o.over_credit && <span style={{
                   fontSize: 11,
                   color: 'var(--status-warning)',
                   fontWeight: 700
-                }}>⚠ 超信用</span>}
+                }}>{t('ui.⚠ 超信用','⚠ 超信用')}</span>}
                   </td>
                   <td>
                     {o.ar_invoice_id ? <span style={{
                   fontSize: 11,
                   color: 'var(--status-success)',
                   fontWeight: 700
-                }}>✓ 已生成</span> : o.status === 'RECEIVED' ? <span style={{
+                }}>{t('ui.✓ 已生成','✓ 已生成')}</span> : o.status === 'RECEIVED' ? <span style={{
                   fontSize: 11,
                   color: 'var(--status-warning)'
-                }}>待生成</span> : <span style={{
+                }}>{t('ui.待生成','待生成')}</span> : <span style={{
                   fontSize: 11,
                   color: 'var(--text-secondary)'
                 }}>—</span>}
@@ -583,7 +585,7 @@ export default function SalesV2OrdersPage() {
                       {o.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'submit')}>提交</button>}
+                  }} onClick={() => doAction(o.id, 'submit')}>{t('ui.提交','提交')}</button>}
                       {nextTarget && canTransit && <button className={s.btnSecondary} style={{
                     padding: '3px 8px',
                     fontSize: 11
@@ -595,11 +597,11 @@ export default function SalesV2OrdersPage() {
                       {o.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'receive')}>确认签收</button>}
+                  }} onClick={() => doAction(o.id, 'receive')}>{t('ui.确认签收','确认签收')}</button>}
                       {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(o.status) && canCreate && <button className={s.btnDanger} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'cancel')}>取消</button>}
+                  }} onClick={() => doAction(o.id, 'cancel')}>{t('ui.取消','取消')}</button>}
                     </div>
                   </td>
                 </tr>;
@@ -617,23 +619,23 @@ export default function SalesV2OrdersPage() {
     }}>
           <button className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{
         padding: '4px 12px'
-      }}>上一页</button>
+      }}>{t('ui.上一页','上一页')}</button>
           <span style={{
         padding: '4px 12px',
         fontSize: 13,
         color: 'var(--text-secondary)'
-      }}>第 {page} 页 / 共 {Math.ceil(total / 20)} 页</span>
+      }}>{t('ui.第','第')} {page} {t('ui.页 / 共','页 / 共')} {Math.ceil(total / 20)} {t('ui.页','页')}</span>
           <button className={s.btnSecondary} disabled={page * 20 >= total} onClick={() => setPage(p => p + 1)} style={{
         padding: '4px 12px'
-      }}>下一页</button>
+      }}>{t('ui.下一页','下一页')}</button>
         </div>}
 
       {/* ── 新建订单弹窗 ── */}
-      <ModalV2 open={showCreate} title="新建销售订单" onClose={() => setShowCreate(false)} width={580}
+      <ModalV2 open={showCreate} title={t('ui.新建销售订单','新建销售订单')} onClose={() => setShowCreate(false)} width={580}
         footer={<>
-          <button className={s.btnSecondary} onClick={() => setShowCreate(false)}>取消</button>
+          <button className={s.btnSecondary} onClick={() => setShowCreate(false)}>{t('ui.取消','取消')}</button>
           <button className={s.btnPrimary} onClick={handleCreate} disabled={actionLoading} style={{ minWidth: 100 }}>
-            {actionLoading ? '创建中…' : '创建草稿'}
+            {actionLoading ? t('ui.创建中…','创建中…') : t('ui.创建草稿','创建草稿')}
           </button>
         </>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -658,7 +660,7 @@ export default function SalesV2OrdersPage() {
               color: 'var(--text-secondary)',
               display: 'block',
               marginBottom: 4
-            }}>公司 *</label>
+            }}>{t('ui.公司 *','公司 *')}</label>
                 {/* G4-C：公司主数据，DataScope 自动过滤 */}
                 <CompanySelector value={newForm.companyCode} onChange={v => setNewForm(p => ({
               ...p,
@@ -671,7 +673,7 @@ export default function SalesV2OrdersPage() {
               color: 'var(--text-secondary)',
               display: 'block',
               marginBottom: 4
-            }}>渠道</label>
+            }}>{t('ui.渠道','渠道')}</label>
                 {/* G4-C：渠道主数据(sal_channels，仅 ACTIVE) */}
                 <ChannelSelector value={newForm.channelCode} onChange={v => setNewForm(p => ({
               ...p,
@@ -684,7 +686,7 @@ export default function SalesV2OrdersPage() {
               color: 'var(--text-secondary)',
               display: 'block',
               marginBottom: 4
-            }}>预计交货日期</label>
+            }}>{t('ui.预计交货日期','预计交货日期')}</label>
                 <input type="date" value={(newForm as any).expectedDeliveryDate ?? ''} onChange={e => setNewForm(p => ({
               ...p,
               expectedDeliveryDate: e.target.value
@@ -705,7 +707,7 @@ export default function SalesV2OrdersPage() {
               color: 'var(--text-secondary)',
               display: 'block',
               marginBottom: 4
-            }}>客户</label>
+            }}>{t('ui.客户','客户')}</label>
                 {/* G4-C：客户主数据(仅 ACTIVE)，DataScope 自动过滤 */}
                 <CustomerSelector value={newForm.customerCode} onChange={v => setNewForm(p => ({
               ...p,
@@ -728,23 +730,23 @@ export default function SalesV2OrdersPage() {
             color: string;
           }> = {
             NORMAL: {
-              label: '信用正常',
+              label: t('ui.信用正常','信用正常'),
               color: 'var(--status-success)'
             },
             WARNING: {
-              label: '⚠ 逾期预警',
+              label: t('ui.⚠ 逾期预警','⚠ 逾期预警'),
               color: 'var(--status-warning)'
             },
             OVER_LIMIT: {
-              label: '🚫 超信用额度',
+              label: t('ui.🚫 超信用额度','🚫 超信用额度'),
               color: 'var(--status-danger)'
             },
             OVERDUE: {
-              label: '🚫 账期逾期',
+              label: t('ui.🚫 账期逾期','🚫 账期逾期'),
               color: 'var(--status-danger)'
             },
             FROZEN: {
-              label: '🔒 账户冻结，禁止下单',
+              label: t('ui.🔒 账户冻结，禁止下单','🔒 账户冻结，禁止下单'),
               color: 'var(--gray-500)'
             }
           };
@@ -762,7 +764,7 @@ export default function SalesV2OrdersPage() {
             flexDirection: 'column',
             gap: 6
           }}>
-                  {creditInfo.loading ? <span className={u.muted}>加载信用信息…</span> : <>
+                  {creditInfo.loading ? <span className={u.muted}>{t('ui.加载信用信息…','加载信用信息…')}</span> : <>
                       {scf && <div style={{
                 fontWeight: 700,
                 color: scf.color,
@@ -773,36 +775,36 @@ export default function SalesV2OrdersPage() {
                 gap: 14,
                 flexWrap: 'wrap'
               }}>
-                        <span>信用额度：<strong>{Number(creditInfo.creditLimit).toLocaleString()}</strong></span>
-                        <span>实时欠款：<strong style={{
+                        <span>{t('ui.信用额度：','信用额度：')}<strong>{Number(creditInfo.creditLimit).toLocaleString()}</strong></span>
+                        <span>{t('ui.实时欠款：','实时欠款：')}<strong style={{
                     color: creditInfo.totalReceivable > 0 ? 'var(--status-warning)' : undefined
                   }}>{creditInfo.totalReceivable != null ? Number(creditInfo.totalReceivable).toLocaleString() : Number(creditInfo.creditUsed).toLocaleString()}</strong></span>
                         <span style={{
                   fontWeight: 700,
                   color: creditInfo.creditAvailable < 0 ? 'var(--status-danger)' : 'var(--status-success)'
                 }}>
-                          可用：{Number(creditInfo.creditAvailable).toLocaleString()}
+                          {t('ui.可用：','可用：')}{Number(creditInfo.creditAvailable).toLocaleString()}
                         </span>
                       </div>
                       {creditInfo.overdueReceivable > 0 && <div style={{
                 color: 'var(--status-danger)',
                 fontWeight: 600
               }}>
-                          逾期未收：{Number(creditInfo.overdueReceivable).toLocaleString()}（已逾期 {creditInfo.overdueDays} 天）
+                          {t('ui.逾期未收：','逾期未收：')}{Number(creditInfo.overdueReceivable).toLocaleString()}{t('ui.（已逾期','（已逾期')} {creditInfo.overdueDays} {t('ui.天）','天）')}
                         </div>}
                       {(isOver || isOverdue) && <div style={{
                 color: 'var(--status-danger)',
                 fontWeight: 700,
                 fontSize: 12
               }}>
-                          ⚠ 提交后将触发信用审批流程
+                          {t('ui.⚠ 提交后将触发信用审批流程','⚠ 提交后将触发信用审批流程')}
                         </div>}
                       {isFrozen && <div style={{
                 color: 'var(--gray-500)',
                 fontWeight: 700,
                 fontSize: 12
               }}>
-                          该客户已冻结，无法提交订单，请联系财务
+                          {t('ui.该客户已冻结，无法提交订单，请联系财务','该客户已冻结，无法提交订单，请联系财务')}
                         </div>}
                     </>}
                 </div>;
@@ -815,7 +817,7 @@ export default function SalesV2OrdersPage() {
             color: 'var(--text-secondary)',
             display: 'block',
             marginBottom: 4
-          }}>备注</label>
+          }}>{t('ui.备注','备注')}</label>
               <textarea value={newForm.remark} onChange={e => setNewForm(p => ({
             ...p,
             remark: e.target.value
@@ -843,7 +845,7 @@ export default function SalesV2OrdersPage() {
                 <div style={{
               fontSize: 13,
               fontWeight: 700
-            }}>订单明细</div>
+            }}>{t('ui.订单明细','订单明细')}</div>
                 <button className={s.btnSecondary} style={{
               padding: '3px 10px',
               fontSize: 12
@@ -853,7 +855,7 @@ export default function SalesV2OrdersPage() {
               qty: '',
               actualUnitPrice: ''
             }])}>
-                  + 添加行
+                  {t('ui.+ 添加行','+ 添加行')}
                 </button>
               </div>
               {newItems.map((item, idx) => {
@@ -872,7 +874,7 @@ export default function SalesV2OrdersPage() {
                   color: 'var(--color-purple-500)',
                   display: 'block',
                   marginBottom: 2
-                }}>商品（SKU 主数据）*</label>
+                }}>{t('ui.商品（SKU 主数据）*','商品（SKU 主数据）*')}</label>
                       <SkuSelector value={item.skuCode ?? ''} onChange={code => setNewItems(p => p.map((it, i) => i === idx ? {
                   ...it,
                   skuCode: code,
@@ -895,7 +897,7 @@ export default function SalesV2OrdersPage() {
                       {item.skuCode && <span style={{
                   fontSize: 10,
                   color: 'var(--color-purple-500)'
-                }}>✓ 已自动填充产品代码 / 等级 / 规格</span>}
+                }}>{t('ui.✓ 已自动填充产品代码 / 等级 / 规格','✓ 已自动填充产品代码 / 等级 / 规格')}</span>}
                     </div>
                     <div style={{
                 display: 'grid',
@@ -909,8 +911,8 @@ export default function SalesV2OrdersPage() {
                     color: 'var(--text-secondary)',
                     display: 'block',
                     marginBottom: 2
-                  }}>商品代码</label>
-                        <input value={item.productCode} readOnly placeholder="由 SKU 自动带出" style={{
+                  }}>{t('ui.商品代码','商品代码')}</label>
+                        <input value={item.productCode} readOnly placeholder={t('ui.由 SKU 自动带出','由 SKU 自动带出')} style={{
                     width: '100%',
                     padding: '6px 8px',
                     borderRadius: 6,
@@ -927,8 +929,8 @@ export default function SalesV2OrdersPage() {
                     color: 'var(--text-secondary)',
                     display: 'block',
                     marginBottom: 2
-                  }}>等级</label>
-                        <input value={item.gradeCode} readOnly placeholder="自动带出" style={{
+                  }}>{t('ui.等级','等级')}</label>
+                        <input value={item.gradeCode} readOnly placeholder={t('ui.自动带出','自动带出')} style={{
                     width: '100%',
                     padding: '6px 8px',
                     borderRadius: 6,
@@ -945,7 +947,7 @@ export default function SalesV2OrdersPage() {
                     color: 'var(--text-secondary)',
                     display: 'block',
                     marginBottom: 2
-                  }}>数量</label>
+                  }}>{t('ui.数量','数量')}</label>
                         <input type="number" value={item.qty} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
                     qty: e.target.value
@@ -966,7 +968,7 @@ export default function SalesV2OrdersPage() {
                     display: 'block',
                     marginBottom: 2
                   }}>
-                          实际单价 {item._resolved?.floorPrice != null ? `(底价: ${item._resolved.floorPrice})` : ''}
+                          {t('ui.实际单价','实际单价')} {item._resolved?.floorPrice != null ? `(${t('ui.底价:','底价:')} ${item._resolved.floorPrice})` : ''}
                         </label>
                         <input type="number" value={item.actualUnitPrice} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
@@ -985,7 +987,7 @@ export default function SalesV2OrdersPage() {
                     fontSize: 11,
                     color: 'var(--status-danger)',
                     marginTop: 2
-                  }}>⚠ 低于底价，需审批</div>}
+                  }}>{t('ui.⚠ 低于底价，需审批','⚠ 低于底价，需审批')}</div>}
                       </div>
                       <button onClick={() => setNewItems(p => p.filter((_, i) => i !== idx))} style={{
                   background: 'none',
@@ -1002,8 +1004,8 @@ export default function SalesV2OrdersPage() {
                 color: 'var(--text-secondary)',
                 marginTop: 4
               }}>
-                        参考价: {item._resolved.unitPrice}
-                        {item._resolved.floorPrice != null ? ` · 底价: ${item._resolved.floorPrice}` : ''}
+                        {t('ui.参考价:','参考价:')} {item._resolved.unitPrice}
+                        {item._resolved.floorPrice != null ? ` · ${t('ui.底价:','底价:')} ${item._resolved.floorPrice}` : ''}
                       </div>}
                   </div>;
           })}
@@ -1048,7 +1050,7 @@ export default function SalesV2OrdersPage() {
             fontWeight: 700,
             background: 'var(--status-danger-bg-light)',
             color: 'var(--status-danger)'
-          }}>⚠ 低于底价</span>}
+          }}>{t('ui.⚠ 低于底价','⚠ 低于底价')}</span>}
               {detailOrder.over_credit && <span style={{
             padding: '3px 10px',
             borderRadius: 20,
@@ -1056,7 +1058,7 @@ export default function SalesV2OrdersPage() {
             fontWeight: 700,
             background: 'var(--status-danger-bg-light)',
             color: 'var(--status-danger)'
-          }}>🚫 超信用额度</span>}
+          }}>{t('ui.🚫 超信用额度','🚫 超信用额度')}</span>}
               {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{
             padding: '3px 10px',
             borderRadius: 20,
@@ -1064,7 +1066,7 @@ export default function SalesV2OrdersPage() {
             fontWeight: 700,
             background: 'var(--status-warning-bg-light)',
             color: 'var(--status-warning)'
-          }}>⚠ 信用预警</span>}
+          }}>{t('ui.⚠ 信用预警','⚠ 信用预警')}</span>}
             </div>
 
             {/* 基本信息 */}
@@ -1074,7 +1076,7 @@ export default function SalesV2OrdersPage() {
           gap: 8,
           fontSize: 13
         }}>
-              {[['客户', detailOrder.customer_name ?? detailOrder.customer_code ?? '—'], ['渠道', detailOrder.channel_code ?? '—'], ['总金额', `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], ['应收状态', detailOrder.ar_invoice_id ? `✓ 已生成应收账款` : '未生成']].map(([k, v]) => <div key={k as string}>
+              {[[t('ui.客户','客户'), detailOrder.customer_name ?? detailOrder.customer_code ?? '—'], [t('ui.渠道','渠道'), detailOrder.channel_code ?? '—'], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
                   <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
@@ -1097,20 +1099,20 @@ export default function SalesV2OrdersPage() {
             color: 'var(--status-warning)',
             marginBottom: 6,
             fontSize: 12
-          }}>提交时信用快照</div>
+          }}>{t('ui.提交时信用快照','提交时信用快照')}</div>
                 <div style={{
             display: 'flex',
             gap: 14,
             flexWrap: 'wrap'
           }}>
-                  <span>状态：<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>
-                  <span>实时欠款：<strong>{Number(detailOrder.credit_snapshot.totalReceivable ?? 0).toLocaleString()}</strong></span>
-                  <span>逾期：<strong style={{
+                  <span>{t('ui.状态：','状态：')}<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>
+                  <span>{t('ui.实时欠款：','实时欠款：')}<strong>{Number(detailOrder.credit_snapshot.totalReceivable ?? 0).toLocaleString()}</strong></span>
+                  <span>{t('ui.逾期：','逾期：')}<strong style={{
                 color: Number(detailOrder.credit_snapshot.overdueReceivable) > 0 ? 'var(--status-danger)' : undefined
               }}>
                     {Number(detailOrder.credit_snapshot.overdueReceivable ?? 0).toLocaleString()}
                   </strong></span>
-                  <span>可用额度：<strong>{Number(detailOrder.credit_snapshot.creditAvailable ?? 0).toLocaleString()}</strong></span>
+                  <span>{t('ui.可用额度：','可用额度：')}<strong>{Number(detailOrder.credit_snapshot.creditAvailable ?? 0).toLocaleString()}</strong></span>
                 </div>
                 {detailOrder.credit_snapshot.reason && <div style={{
             marginTop: 4,
@@ -1130,16 +1132,16 @@ export default function SalesV2OrdersPage() {
             fontWeight: 700,
             color: 'var(--status-success)',
             marginBottom: 6
-          }}>应收账款记录</div>
+          }}>{t('ui.应收账款记录','应收账款记录')}</div>
                 <div style={{
             display: 'flex',
             gap: 16,
             flexWrap: 'wrap'
           }}>
-                  <span>应收单号：{detailOrder.arInvoice.ar_no}</span>
-                  <span>金额：{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
-                  <span>到期：{detailOrder.arInvoice.due_date?.slice(0, 10)}</span>
-                  <span>状态：{detailOrder.arInvoice.status}</span>
+                  <span>{t('ui.应收单号：','应收单号：')}{detailOrder.arInvoice.ar_no}</span>
+                  <span>{t('ui.金额：','金额：')}{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
+                  <span>{t('ui.到期：','到期：')}{detailOrder.arInvoice.due_date?.slice(0, 10)}</span>
+                  <span>{t('ui.状态：','状态：')}{detailOrder.arInvoice.status}</span>
                 </div>
               </div>}
 
@@ -1149,12 +1151,12 @@ export default function SalesV2OrdersPage() {
             fontSize: 13,
             fontWeight: 700,
             marginBottom: 8
-          }}>订单明细</div>
+          }}>{t('ui.订单明细','订单明细')}</div>
                 <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
                   <thead>
                     <tr>
-                      {['商品', '规格', '数量', '参考价', '实际价', '底价', '金额'].map(h => <th key={h} style={{
-                  textAlign: h === '商品' || h === '规格' ? 'left' : 'right'
+                      {[t('ui.商品','商品'), t('ui.规格','规格'), t('ui.数量','数量'), t('ui.参考价','参考价'), t('ui.实际价','实际价'), t('ui.底价','底价'), t('ui.金额','金额')].map(h => <th key={h} style={{
+                  textAlign: h === t('ui.商品','商品') || h === t('ui.规格','规格') ? 'left' : 'right'
                 }}>{h}</th>)}
                     </tr>
                   </thead>
@@ -1201,16 +1203,16 @@ export default function SalesV2OrdersPage() {
           paddingTop: 8,
           borderTop: '1px solid var(--border)'
         }}>
-              {detailOrder.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'submit')}>提交审批</button>}
+              {detailOrder.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'submit')}>{t('ui.提交审批','提交审批')}</button>}
               {TRANSITION_TARGETS[detailOrder.status] && canTransit && <button className={s.btnSecondary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'transition', {
             targetStatus: TRANSITION_TARGETS[detailOrder.status]
           })}>
                   {TRANSITION_LABELS[detailOrder.status]}
                 </button>}
               {detailOrder.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'receive')}>
-                  确认签收
+                  {t('ui.确认签收','确认签收')}
                 </button>}
-              {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'cancel')}>取消订单</button>}
+              {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'cancel')}>{t('ui.取消订单','取消订单')}</button>}
             </div>
         </div>}
       </ModalV2>

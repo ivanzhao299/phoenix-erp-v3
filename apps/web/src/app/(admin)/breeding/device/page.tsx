@@ -399,14 +399,14 @@ export default function DeviceOverviewPage() {
       setLastSync(new Date().toLocaleTimeString('zh-CN'));
       await loadData();
       if (json.ok && (json.records ?? 0) > 0) {
-        toast.success(`采集完成：${json.success} 栋成功，写入 ${json.records} 条实时数据`);
+        toast.success(`${t('ui.采集完成：', '采集完成：')}${json.success} ${t('ui.栋成功，写入', '栋成功，写入')} ${json.records} ${t('ui.条实时数据', '条实时数据')}`);
       } else if (json.ok) {
-        toast.warning('采集完成，但未写入新数据，请检查第三方 API 连接状态');
+        toast.warning(t('ui.采集完成，但未写入新数据，请检查第三方 API 连接状态', '采集完成，但未写入新数据，请检查第三方 API 连接状态'));
       } else {
-        toast.error(`采集失败：${json.error || '未知错误'}`);
+        toast.error(`${t('ui.采集失败：', '采集失败：')}${json.error || t('ui.未知错误', '未知错误')}`);
       }
     } catch (e: any) {
-      toast.error('采集请求失败: ' + e.message);
+      toast.error(t('ui.采集请求失败: ', '采集请求失败: ') + e.message);
     } finally {
       setSyncing(false);
     }
@@ -515,7 +515,7 @@ export default function DeviceOverviewPage() {
         marginLeft: 8,
         fontSize: 11,
         color: 'var(--text-secondary)'
-      }}>🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行</span>
+      }}>{t('ui.🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行', '🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行')}</span>
       </div>
 
       {/* 鸡舍卡片网格 */}

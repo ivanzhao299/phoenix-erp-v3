@@ -10,6 +10,7 @@ import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { workflowApi } from "@/lib/workflow-api";
 import { WORKFLOW_DATA_CATALOG, dataSourceLabel } from "@/lib/workflow-data-catalog";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 type FieldType = "text" | "textarea" | "number" | "amount" | "date" | "datetime" | "select" | "radio" | "checkbox" | "reference" | "readonly";
 type Field = {
   key: string;
@@ -56,6 +57,7 @@ const fieldTypeLabels: Record<FieldType, string> = {
   readonly: "只读展示"
 };
 export default function WorkflowFormDesignerPage() {
+  const { t } = useLanguage();
   const params = useParams<{
     id: string;
   }>();
@@ -132,7 +134,7 @@ export default function WorkflowFormDesignerPage() {
     await workflowApi.publishForm(id, {
       schema_json: schema
     });
-    setMsg("发布成功");
+    setMsg(t('ui.发布成功','发布成功'));
   }
   function openJson() {
     setJsonDraft(JSON.stringify(schema, null, 2));
@@ -147,42 +149,42 @@ export default function WorkflowFormDesignerPage() {
     setJsonOpen(false);
   }
   return <div>
-      <PageHeader title="表单设计器" subtitle={String(data?.name || "")} breadcrumb={["工作流", "表单设计器"]} />
-      <div className={s.infoBanner}>表单画布所见即所得：左侧添加控件，中间点击字段，右侧调整属性；数据库字段可直接从数据源生成。</div>
+      <PageHeader title={t('ui.表单设计器','表单设计器')} subtitle={String(data?.name || "")} breadcrumb={[t('ui.工作流','工作流'), t('ui.表单设计器','表单设计器')]} />
+      <div className={s.infoBanner}>{t('ui.表单画布所见即所得：左侧添加控件，中间点击字段，右侧调整属性；数据库字段可直接从数据源生成。','表单画布所见即所得：左侧添加控件，中间点击字段，右侧调整属性；数据库字段可直接从数据源生成。')}</div>
       <div style={layoutStyle}>
         <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
             <div>
-              <strong className={s.cardTitle}>控件库</strong>
-              <p className={`${s.modalDesc} ${u.mt4}`}>选择控件后会添加到表单画布。</p>
+              <strong className={s.cardTitle}>{t('ui.控件库','控件库')}</strong>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.选择控件后会添加到表单画布。','选择控件后会添加到表单画布。')}</p>
             </div>
           </div>
           <div style={controlGridStyle}>
             {quickFieldTypes.map(type => <button type="button" key={type} className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addField(type)}>{fieldTypeLabels[type]}</button>)}
           </div>
 
-          <div className={s.formSection}>数据库字段</div>
+          <div className={s.formSection}>{t('ui.数据库字段','数据库字段')}</div>
           <div style={sourceListStyle}>
             {dataSources.map(source => <button key={String(source.code)} type="button" style={sourceButtonStyle} onClick={() => addReferenceField(String(source.code))}>
                 <strong>{String(source.name)}</strong>
                 <span>{String(source.code)}</span>
               </button>)}
-            {dataSources.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>暂无数据源。</div></div> : null}
+            {dataSources.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无数据源。','暂无数据源。')}</div></div> : null}
           </div>
         </section>
 
         <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
             <div>
-              <strong className={s.cardTitle}>表单画布</strong>
-              <p className={`${s.modalDesc} ${u.mt4}`}>业务人员发起流程时会按这个顺序填写。</p>
+              <strong className={s.cardTitle}>{t('ui.表单画布','表单画布')}</strong>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.业务人员发起流程时会按这个顺序填写。','业务人员发起流程时会按这个顺序填写。')}</p>
             </div>
             <div style={{
             display: "flex",
             gap: 8
           }}>
-              <button type="button" style={secondaryActionButton} onClick={openJson}>高级 JSON</button>
-              <button type="button" style={primaryActionButton} onClick={publish}>发布表单</button>
+              <button type="button" style={secondaryActionButton} onClick={openJson}>{t('ui.高级 JSON','高级 JSON')}</button>
+              <button type="button" style={primaryActionButton} onClick={publish}>{t('ui.发布表单','发布表单')}</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -194,18 +196,18 @@ export default function WorkflowFormDesignerPage() {
           }} onClick={() => setSelected(index)}>
                 <span className={`${s.badge} ${field.type === "reference" ? s.badgePurple : s.badgeNeutral}`}>{fieldTypeLabels[field.type]}</span>
                 <strong>{field.label || field.key}{field.required ? " *" : ""}</strong>
-                <span>{field.type === "reference" ? dataSourceLabel(field.dataSource) : field.placeholder || "点击右侧调整字段属性"}</span>
+                <span>{field.type === "reference" ? dataSourceLabel(field.dataSource) : field.placeholder || t('ui.点击右侧调整字段属性','点击右侧调整字段属性')}</span>
               </button>)}
             {fields.length === 0 ? <div className={s.emptyState}>
-                <div className={s.emptyStateText}>还没有字段，从左侧控件库添加。</div>
+                <div className={s.emptyStateText}>{t('ui.还没有字段，从左侧控件库添加。','还没有字段，从左侧控件库添加。')}</div>
               </div> : null}
           </div>
 
           <div style={runtimePreviewStyle}>
-            <strong className={s.cardTitle}>填写预览</strong>
+            <strong className={s.cardTitle}>{t('ui.填写预览','填写预览')}</strong>
             <p className={s.modalDesc} style={{
             margin: "4px 0 12px"
-          }}>这里可以直接试填，确认控件是否符合业务人员使用习惯。</p>
+          }}>{t('ui.这里可以直接试填，确认控件是否符合业务人员使用习惯。','这里可以直接试填，确认控件是否符合业务人员使用习惯。')}</p>
             <FormRenderer schema={schema} value={preview} onChange={setPreview} />
           </div>
         </section>
@@ -214,38 +216,38 @@ export default function WorkflowFormDesignerPage() {
           <strong className={s.cardTitle} style={{
           display: "block",
           marginBottom: 12
-        }}>字段属性</strong>
+        }}>{t('ui.字段属性','字段属性')}</strong>
           {current ? <div style={{
           display: "flex",
           flexDirection: "column",
           gap: 10
         }}>
               <div style={selectedFieldStyle}>
-                <span className={s.badge}>正在编辑</span>
+                <span className={s.badge}>{t('ui.正在编辑','正在编辑')}</span>
                 <strong>{current.label || current.key}</strong>
                 <span>{fieldTypeLabels[current.type]}</span>
               </div>
               <label className={s.field} style={{
             marginBottom: 0
           }}>
-                <span className={s.lbl}>页面显示名称</span>
+                <span className={s.lbl}>{t('ui.页面显示名称','页面显示名称')}</span>
                 <input className={s.inp} value={current.label} onChange={e => patchField(selected, {
               label: e.target.value
-            })} placeholder="例如：申请金额" />
+            })} placeholder={t('ui.例如：申请金额','例如：申请金额')} />
               </label>
               <label className={s.field} style={{
             marginBottom: 0
           }}>
-                <span className={s.lbl}>系统字段名</span>
+                <span className={s.lbl}>{t('ui.系统字段名','系统字段名')}</span>
                 <input className={s.inp} value={current.key} onChange={e => patchField(selected, {
               key: e.target.value
-            })} placeholder="例如：amount" />
-                <span style={hintStyle}>用于系统保存数据，建议使用英文、数字和下划线。</span>
+            })} placeholder={t('ui.例如：amount','例如：amount')} />
+                <span style={hintStyle}>{t('ui.用于系统保存数据，建议使用英文、数字和下划线。','用于系统保存数据，建议使用英文、数字和下划线。')}</span>
               </label>
               <label className={s.field} style={{
             marginBottom: 0
           }}>
-                <span className={s.lbl}>控件类型</span>
+                <span className={s.lbl}>{t('ui.控件类型','控件类型')}</span>
                 <select className={s.inp} value={current.type} onChange={e => patchField(selected, {
               type: e.target.value as FieldType
             })}>
@@ -255,24 +257,24 @@ export default function WorkflowFormDesignerPage() {
               <label className={s.field} style={{
             marginBottom: 0
           }}>
-                <span className={s.lbl}>填写提示</span>
+                <span className={s.lbl}>{t('ui.填写提示','填写提示')}</span>
                 <input className={s.inp} value={current.placeholder || ""} onChange={e => patchField(selected, {
               placeholder: e.target.value
-            })} placeholder="例如：请选择费用所属门店" />
+            })} placeholder={t('ui.例如：请选择费用所属门店','例如：请选择费用所属门店')} />
               </label>
               {current.type === "reference" ? <label className={s.field} style={{
             marginBottom: 0
           }}>
-                  <span className={s.lbl}>数据库引用</span>
+                  <span className={s.lbl}>{t('ui.数据库引用','数据库引用')}</span>
                   <select className={s.inp} value={current.dataSource || ""} onChange={e => patchField(selected, {
               dataSource: e.target.value
             })}>
-                    <option value="">请选择数据源</option>
+                    <option value="">{t('ui.请选择数据源','请选择数据源')}</option>
                     {dataSources.map(source => <option key={String(source.code)} value={String(source.code)}>
                         {String(source.name)} · {String(source.code)}
                       </option>)}
                   </select>
-                  <span style={hintStyle}>没有目标数据源时，先到数据源页面从业务对象创建。</span>
+                  <span style={hintStyle}>{t('ui.没有目标数据源时，先到数据源页面从业务对象创建。','没有目标数据源时，先到数据源页面从业务对象创建。')}</span>
                 </label> : current.type === "select" || current.type === "radio" ? <textarea className={s.textarea} style={{
             minHeight: 90
           }} value={(current.options || []).map(opt => `${opt.label}:${opt.value}`).join("\n")} onChange={e => patchField(selected, {
@@ -283,28 +285,28 @@ export default function WorkflowFormDesignerPage() {
                 value
               };
             })
-          })} placeholder="选项，每行 label:value" /> : null}
+          })} placeholder={t('ui.选项，每行 label:value','选项，每行 label:value')} /> : null}
               <label style={checkStyle}><input type="checkbox" checked={Boolean(current.required)} onChange={e => patchField(selected, {
               required: e.target.checked
-            })} /> 必填</label>
+            })} /> {t('ui.必填','必填')}</label>
               <label style={checkStyle}><input type="checkbox" checked={current.span === 2} onChange={e => patchField(selected, {
               span: e.target.checked ? 2 : 1
-            })} /> 跨两列</label>
+            })} /> {t('ui.跨两列','跨两列')}</label>
               <div style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr 1fr",
             gap: 8
           }}>
-                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, -1)}>上移</button>
-                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, 1)}>下移</button>
-                <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeField(selected)}>删除</button>
+                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, -1)}>{t('ui.上移','上移')}</button>
+                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, 1)}>{t('ui.下移','下移')}</button>
+                <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeField(selected)}>{t('ui.删除','删除')}</button>
               </div>
-            </div> : <div className={u.muted}>暂无字段</div>}
+            </div> : <div className={u.muted}>{t('ui.暂无字段','暂无字段')}</div>}
         </section>
       </div>
 
-      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
-        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>应用 JSON</button>}>
+      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title={t('ui.高级 JSON 编辑','高级 JSON 编辑')} width={900}
+        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>{t('ui.应用 JSON','应用 JSON')}</button>}>
         <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
       </ModalV2>
     </div>;

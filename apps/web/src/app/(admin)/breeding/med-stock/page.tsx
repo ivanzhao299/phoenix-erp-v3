@@ -161,24 +161,24 @@ export default function MedStockPage() {
   };
   const filteredStock = stock.filter(m => !search || m.medication_name.includes(search) || m.medication_code.includes(search));
   const CHANGE_LABELS: Record<string, string> = {
-    MED_INBOUND: '入库',
-    MED_OUTBOUND: '出库'
+    MED_INBOUND: t('ui.入库', '入库'),
+    MED_OUTBOUND: t('ui.出库', '出库')
   };
   const TABS: {
     key: Tab;
     label: string;
   }[] = [{
     key: 'stock',
-    label: '库存总览'
+    label: t('ui.库存总览', '库存总览')
   }, {
     key: 'inbound',
-    label: '今日入库'
+    label: t('ui.今日入库', '今日入库')
   }, {
     key: 'outbound',
-    label: '今日出库'
+    label: t('ui.今日出库', '今日出库')
   }, {
     key: 'ledger',
-    label: '流水台账'
+    label: t('ui.流水台账', '流水台账')
   }];
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.药品库存', '药品库存管理（农场）')} subtitle={t('ui.管理农场兽药库存入库出库流水', '管理农场兽药库存、入库出库及历史流水（API: /api/farm/medicine）')} breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.药品库存', '药品库存')]} />
@@ -198,12 +198,12 @@ export default function MedStockPage() {
         <div className={u.flex1} />
         {(tab === 'inbound' || tab === 'outbound') && canEdit && (
           <button onClick={handleSave} disabled={saving || !hasChanges} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
-            {saving ? '提交中…' : saved ? '已保存' : '提交'}
+            {saving ? t('ui.提交中', '提交中…') : saved ? t('ui.已保存', '已保存') : t('ui.提交', '提交')}
           </button>
         )}
         {tab === 'stock' && (
           <button onClick={loadStock} style={{ ...secondaryActionButton, alignSelf: 'flex-start', marginBottom: 2 }}>
-            <RefreshCw size={13} />刷新
+            <RefreshCw size={13} />{t('common.refresh', '刷新')}
           </button>
         )}
       </div>
@@ -223,7 +223,7 @@ export default function MedStockPage() {
       background: 'var(--status-success-bg-medium)',
       color: 'var(--status-success)',
       fontSize: 13
-    }}>✓ 已保存</div>}
+    }}>✓ {t('ui.已保存', '已保存')}</div>}
 
       {/* ── 库存 Tab ── */}
       {tab === 'stock' && <>
@@ -239,7 +239,7 @@ export default function MedStockPage() {
         width: 300
       }}>
             <Search size={14} color="var(--text-secondary)" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索药品名称…" style={{
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('ui.搜索药品名称…', '搜索药品名称…')} style={{
           flex: 1,
           border: 'none',
           background: 'none',
@@ -259,11 +259,11 @@ export default function MedStockPage() {
                 <tr>
                   {['药品名称', '规格', '库存量', '单位', '状态'].map(h => <th key={h} style={{
                 textAlign: h === '库存量' ? 'right' : 'left'
-              }}>{h}</th>)}
+              }}>{t(`ui.${h}`, h)}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {loading ? <tr><td colSpan={5} className={u.emptyCenter}>加载中…</td></tr> : filteredStock.length === 0 ? <tr><td colSpan={5} className={u.emptyCenter}>暂无数据</td></tr> : filteredStock.map(m => <tr key={m.medication_code}>
+                {loading ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : filteredStock.length === 0 ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : filteredStock.map(m => <tr key={m.medication_code}>
                       <td>{m.medication_name}</td>
                       <td className={u.muted}>{m.dosage}</td>
                       <td style={{
@@ -281,7 +281,7 @@ export default function MedStockPage() {
                   color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)',
                   border: `1px solid ${m.qty > 0 ? 'var(--status-special-border)' : 'var(--border)'}`
                 }}>
-                          {m.qty > 0 ? '有库存' : '无库存'}
+                          {m.qty > 0 ? t('ui.有库存', '有库存') : t('ui.无库存', '无库存')}
                         </span>
                       </td>
                     </tr>)}
@@ -300,12 +300,12 @@ export default function MedStockPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>药品名称</th>
-                <th>规格</th>
-                <th className={u.tar}>库存</th>
-                <th className={u.tac}>数量</th>
-                {tab === 'outbound' && <th>栋舍</th>}
-                <th>备注</th>
+                <th>{t('ui.药品名称', '药品名称')}</th>
+                <th>{t('ui.规格', '规格')}</th>
+                <th className={u.tar}>{t('ui.库存', '库存')}</th>
+                <th className={u.tac}>{t('ui.数量', '数量')}</th>
+                {tab === 'outbound' && <th>{t('ui.栋舍', '栋舍')}</th>}
+                <th>{t('ui.备注', '备注')}</th>
               </tr>
             </thead>
             <tbody>
@@ -351,7 +351,7 @@ export default function MedStockPage() {
                     <td>
                       {canEdit ? <input type="text" value={e.note} onChange={ev => setEntry(m.medication_code, {
                   note: ev.target.value
-                })} placeholder={tab === 'inbound' ? '供应商/批号…' : '用途…'} style={{
+                })} placeholder={tab === 'inbound' ? t('ui.供应商/批号…', '供应商/批号…') : t('ui.用途…', '用途…')} style={{
                   width: 180,
                   padding: '4px 6px',
                   borderRadius: 6,
@@ -379,7 +379,7 @@ export default function MedStockPage() {
             <label style={{
           fontSize: 13,
           color: 'var(--text-secondary)'
-        }}>开始日期</label>
+        }}>{t('ui.开始日期', '开始日期')}</label>
             <input type="date" value={ledgerDate} onChange={e => setLedgerDate(e.target.value)} style={{
           border: '1px solid var(--border)',
           borderRadius: 6,
@@ -391,7 +391,7 @@ export default function MedStockPage() {
             <label style={{
           fontSize: 13,
           color: 'var(--text-secondary)'
-        }}>结束日期</label>
+        }}>{t('ui.结束日期', '结束日期')}</label>
             <input type="date" value={ledgerEnd} onChange={e => setLedgerEnd(e.target.value)} style={{
           border: '1px solid var(--border)',
           borderRadius: 6,
@@ -401,7 +401,7 @@ export default function MedStockPage() {
           background: 'var(--bg-card)'
         }} />
             <button onClick={loadLedger} style={secondaryActionButton}>
-              <RefreshCw size={13} />查询
+              <RefreshCw size={13} />{t('ui.查询', '查询')}
             </button>
           </div>
           <div style={{
@@ -415,11 +415,11 @@ export default function MedStockPage() {
                 <tr>
                   {['日期', '药品名称', '类型', '数量变动', '栋舍', '备注', '操作人'].map(h => <th key={h} style={{
                 textAlign: h === '数量变动' ? 'right' : 'left'
-              }}>{h}</th>)}
+              }}>{t(`ui.${h}`, h)}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {loading ? <tr><td colSpan={7} className={u.emptyCenter}>加载中…</td></tr> : ledger.length === 0 ? <tr><td colSpan={7} className={u.emptyCenter}>暂无数据</td></tr> : ledger.map(e => <tr key={e.id}>
+                {loading ? <tr><td colSpan={7} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : ledger.length === 0 ? <tr><td colSpan={7} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : ledger.map(e => <tr key={e.id}>
                       <td className={u.muted}>{e.log_date}</td>
                       <td>{e.medication_name}</td>
                       <td>

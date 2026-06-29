@@ -150,7 +150,7 @@ export function multilingualNameFields(type: string, nameKey: string): MdField[]
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
-  const { tField } = useLanguage();  // task #25：列表名称列按当前语言显示
+  const { tField, t } = useLanguage();  // task #25：列表名称列按当前语言显示
   // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
   const formFields = useMemo(() => {
     const have = new Set(fields.map(f => f.key));
@@ -233,7 +233,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
   const save = async () => {
     for (const f of fields) {
-      if (f.required && !form[f.key]) { setError(`请填写：${f.label}`); return; }
+      if (f.required && !form[f.key]) { setError(`${t('ui.请填写：','请填写：')}${f.label}`); return; }
     }
     setSaving(true); setError(""); setNotice("");
     try {
@@ -247,7 +247,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) },
         );
         if (resp?.pendingChange) {
-          setNotice(resp.message || "关键字段变更已提交审批，通过后生效。");
+          setNotice(resp.message || t('ui.关键字段变更已提交审批，通过后生效。','关键字段变更已提交审批，通过后生效。'));
         }
       }
       setEditing(null); await load();
@@ -255,7 +255,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
       if (isNew && returnTo) {
         router.push(`${returnTo}${returnTo.includes("?") ? "&" : "?"}created=1`);
       }
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('ui.保存失败','保存失败')); }
     finally { setSaving(false); }
   };
 
@@ -265,16 +265,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
       });
       await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "操作失败"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('ui.操作失败','操作失败')); }
   };
 
   // 按状态决定可用动作（PENDING_APPROVAL 由「审批中心」走 Workflow，面板不直接审批，避免绕过治理）
   const actionsFor = (status: string) => {
     const a: { action: string; label: string; icon: any }[] = [];
-    if (status === "DRAFT" || status === "REJECTED") a.push({ action: "submit", label: "提交审批", icon: Send });
-    if (status === "ACTIVE") a.push({ action: "freeze", label: "冻结", icon: Snowflake });
-    if (status === "FROZEN" || status === "ARCHIVED") a.push({ action: "restore", label: "恢复", icon: RotateCcw });
-    if (status !== "ARCHIVED") a.push({ action: "archive", label: "归档", icon: Archive });
+    if (status === "DRAFT" || status === "REJECTED") a.push({ action: "submit", label: t('ui.提交审批','提交审批'), icon: Send });
+    if (status === "ACTIVE") a.push({ action: "freeze", label: t('ui.冻结','冻结'), icon: Snowflake });
+    if (status === "FROZEN" || status === "ARCHIVED") a.push({ action: "restore", label: t('ui.恢复','恢复'), icon: RotateCcw });
+    if (status !== "ARCHIVED") a.push({ action: "archive", label: t('ui.归档','归档'), icon: Archive });
     return a;
   };
 
@@ -286,18 +286,18 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             value={filterStatus}
             onChange={setFilterStatus}
             options={Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v.label }))}
-            emptyLabel="全部状态"
+            emptyLabel={t('ui.全部状态','全部状态')}
             allowEmpty
             filter
           />
         </div>
         <button onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted"
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> 刷新
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> {t('ui.刷新','刷新')}
         </button>
         {canCreate && (
           <button onClick={openNew} style={{ ...primaryActionButton, marginLeft: "auto" }}>
-            <Plus size={14} /> 新增{title}
+            <Plus size={14} /> {t('ui.新增','新增')}{title}
           </button>
         )}
       </div>
@@ -313,16 +313,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
       <div style={{ borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-card)" }}>
         {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
-          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`暂无${title}数据`} compact /></div>
+          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`${t('ui.暂无','暂无')}${title}${t('ui.数据','数据')}`} compact /></div>
           : (
             <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "auto" }}>
               <thead><tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
-                <th style={thStyle}>编码</th>
+                <th style={thStyle}>{t('ui.编码','编码')}</th>
                 {columns.map(c => <th key={c.key} style={thStyle}>{c.label}</th>)}
-                <th style={{ ...thStyle, textAlign: "center", width: 80 }}>状态</th>
-                <th style={{ ...thStyle, textAlign: "center", width: 60 }}>引用</th>
-                <th style={{ ...thStyle, textAlign: "right", width: 130 }}>操作</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 80 }}>{t('ui.状态','状态')}</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 60 }}>{t('ui.引用','引用')}</th>
+                <th style={{ ...thStyle, textAlign: "right", width: 130 }}>{t('ui.操作','操作')}</th>
               </tr></thead>
               <tbody>
                 {rows.map(r => {
@@ -363,13 +363,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           refCounts[r[codeKey]].loading ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>…</span> :
                           refCounts[r[codeKey]].total < 0 ? <span style={{ fontSize: 11, color: "var(--status-danger)" }}>err</span> :
                           refCounts[r[codeKey]].total === 0 ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>0</span> :
-                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, var(--status-warning))", fontWeight: 600 }} title={`被 ${refCounts[r[codeKey]].total} 处业务引用`}>
+                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, var(--status-warning))", fontWeight: 600 }} title={`${t('ui.被','被')} ${refCounts[r[codeKey]].total} ${t('ui.处业务引用','处业务引用')}`}>
                             <Link2 size={9} style={{ display: "inline", marginRight: 2 }} />{refCounts[r[codeKey]].total}
                           </span>
                         ) : (
                           <button onClick={() => fetchRefCount(r[codeKey])}
                             style={{ fontSize: 11, padding: "1px 8px", borderRadius: 4, background: "var(--bg-muted)", color: "var(--text-secondary)", border: "1px solid var(--border)", cursor: "pointer" }}>
-                            查询
+                            {t('ui.查询','查询')}
                           </button>
                         )}
                       </td>
@@ -397,7 +397,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         <div style={drawerMask} onClick={() => setEditing(null)}>
           <div style={drawerPanelFlex(480)} onClick={e => e.stopPropagation()}>
             <div style={drawerHeaderFlex}>
-              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
+              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `${t('ui.编辑','编辑')}${title}` : `${t('ui.新增','新增')}${title}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
             <div style={drawerBody}>
@@ -405,18 +405,18 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             {editing[codeKey] ? (
               <div style={drawerHeroBox}>
                 <div>
-                  <div style={drawerHeroLabel}>{title}编码</div>
+                  <div style={drawerHeroLabel}>{title}{t('ui.编码','编码')}</div>
                   <div style={drawerHeroCodeValue}>{editing[codeKey]}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={drawerHeroLabel}>名称</div>
+                  <div style={drawerHeroLabel}>{t('ui.名称','名称')}</div>
                   <div style={drawerHeroNameValue}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
                 </div>
               </div>
             ) : (
               <div style={{ ...inlineAlert("info"), marginBottom: 18 }}>
                 <Info size={14} />
-                <span>编码将在保存时自动生成,无需手填</span>
+                <span>{t('ui.编码将在保存时自动生成,无需手填','编码将在保存时自动生成,无需手填')}</span>
               </div>
             )}
             {formFields.map(f => (
@@ -429,9 +429,9 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             ))}
             </div>
             <div style={drawerFooterFlex}>
-              <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
+              <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('ui.取消','取消')}</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
-                {saving ? "保存中…" : "保存"}
+                {saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
               </button>
             </div>
           </div>
@@ -475,6 +475,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
   transitions: { action: string; label: string; icon: any }[];
   onTransition: (action: string) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const archived = row.status === "ARCHIVED";
 
@@ -483,7 +484,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
   return (
     <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
       {!archived && (
-        <button onClick={onEdit} title="编辑" style={iconBtn}>
+        <button onClick={onEdit} title={t('ui.编辑','编辑')} style={iconBtn}>
           <Pencil size={13} />
         </button>
       )}
@@ -492,7 +493,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            title="更多操作"
+            title={t('ui.更多操作','更多操作')}
             style={iconBtn}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
           >

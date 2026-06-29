@@ -4,6 +4,7 @@ import u from "@/styles/uix-utils.module.css";
 import { RefreshCw, Store, Truck, UserCheck, ShoppingBag, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 // g200b/d 模板 token(2026-06-19)
 import {
@@ -76,6 +77,7 @@ type ChannelType = (typeof CHANNEL_DEFS)[number]["type"];
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function SalesChannelsPage() {
+  const { t } = useLanguage();
   const { canView } = usePermission("MENU_SALES2_CHANNEL");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [distributors, setDistributors] = useState<Customer[]>([]);
@@ -118,7 +120,7 @@ export default function SalesChannelsPage() {
       }
       setDistributors(list);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "客户数据加载失败");
+      setError(e instanceof Error ? e.message : t('ui.客户数据加载失败','客户数据加载失败'));
     } finally {
       setLoading(false);
     }
@@ -131,7 +133,7 @@ export default function SalesChannelsPage() {
   if (!canView) {
     return (
       <div className="flex items-center justify-center py-20 text-text-dim">
-        无权限查看渠道管理
+        {t('ui.无权限查看渠道管理','无权限查看渠道管理')}
       </div>
     );
   }
@@ -153,12 +155,12 @@ export default function SalesChannelsPage() {
   return (
     <div>
       <PageHeader
-        title="渠道管理"
-        subtitle="销售渠道档案 · 直营 / 经销商 / 代理商 / 电商"
+        title={t('ui.渠道管理','渠道管理')}
+        subtitle={t('ui.销售渠道档案 · 直营 / 经销商 / 代理商 / 电商','销售渠道档案 · 直营 / 经销商 / 代理商 / 电商')}
         actions={
           <button onClick={() => void load()} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            刷新
+            {t('ui.刷新','刷新')}
           </button>
         }
       />
@@ -174,7 +176,7 @@ export default function SalesChannelsPage() {
       {loading && (
         <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
-          加载中…
+          {t('ui.加载中…','加载中…')}
         </div>
       )}
 
@@ -208,7 +210,7 @@ export default function SalesChannelsPage() {
 
           {channelsError && (
             <div style={{ ...inlineAlert('warning'), marginBottom: 16 }}>
-              <AlertCircle size={16} /> 渠道专属接口暂不可用，已显示静态渠道分类，客户数据来自客户列表
+              <AlertCircle size={16} /> {t('ui.渠道专属接口暂不可用，已显示静态渠道分类，客户数据来自客户列表','渠道专属接口暂不可用，已显示静态渠道分类，客户数据来自客户列表')}
             </div>
           )}
 
@@ -216,19 +218,19 @@ export default function SalesChannelsPage() {
           <div className={s.card}>
             <div className={s.cardHeader}>
               <span className={s.cardTitle}>
-                {channelsError ? "客户列表" : "渠道客户列表"}
+                {channelsError ? t('ui.客户列表','客户列表') : t('ui.渠道客户列表','渠道客户列表')}
               </span>
             </div>
             {recentCustomers.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">{t('ui.暂无数据','暂无数据')}</div>
             ) : (
               <div className={u.scrollX}>
                 <table className={s.table}>
                   <thead>
                     <tr>
-                      <th>客户名称</th>
-                      <th>渠道类型</th>
-                      <th className={u.tar}>状态</th>
+                      <th>{t('ui.客户名称','客户名称')}</th>
+                      <th>{t('ui.渠道类型','渠道类型')}</th>
+                      <th className={u.tar}>{t('ui.状态','状态')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -238,7 +240,7 @@ export default function SalesChannelsPage() {
                       return (
                         <tr key={c.id}>
                           <td className={u.fw600}>
-                            {c.customer_name ?? c.name ?? `客户${c.id}`}
+                            {c.customer_name ?? c.name ?? `${t('ui.客户','客户')}${c.id}`}
                           </td>
                           <td>
                             {def ? (
@@ -255,7 +257,7 @@ export default function SalesChannelsPage() {
                               : c.status === "FROZEN" ? s.badgeDanger
                               : s.badgeNeutral
                             }`}>
-                              {c.status === "ACTIVE" ? "启用" : c.status === "FROZEN" ? "冻结" : c.status ?? "—"}
+                              {c.status === "ACTIVE" ? t('ui.启用','启用') : c.status === "FROZEN" ? t('ui.冻结','冻结') : c.status ?? "—"}
                             </span>
                           </td>
                         </tr>

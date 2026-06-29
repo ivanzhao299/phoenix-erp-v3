@@ -1,5 +1,6 @@
 'use client';
 import { useDictOptions } from '@/hooks/useDictOptions';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * DictSelect — 统一数据字典下拉组件（G2 数据字典治理）
@@ -25,9 +26,11 @@ export interface DictSelectProps {
 
 export function DictSelect({
   dictType, value, onChange,
-  placeholder = '请选择', disabled = false, allowEmpty = true,
+  placeholder, disabled = false, allowEmpty = true,
   className, style,
 }: DictSelectProps) {
+  const { t } = useLanguage();
+  const resolvedPlaceholder = placeholder ?? t('ui.请选择', '请选择');
   const { optionPairs, loading } = useDictOptions(dictType);
   const mergedClassName = ['phx-select', className].filter(Boolean).join(' ');
 
@@ -39,7 +42,7 @@ export function DictSelect({
       disabled={disabled || loading}
       onChange={(e) => onChange(e.target.value)}
     >
-      {allowEmpty && <option value="">{loading ? '加载中…' : placeholder}</option>}
+      {allowEmpty && <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>}
       {optionPairs.map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}

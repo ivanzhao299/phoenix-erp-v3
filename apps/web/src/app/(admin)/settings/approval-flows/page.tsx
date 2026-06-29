@@ -20,6 +20,7 @@ import { usePermission } from '@/hooks/usePermission';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 interface DefinitionRow {
   id: number;
   code: string;
@@ -62,6 +63,7 @@ const STATUS_LABEL: Record<string, {
   }
 };
 export default function ApprovalFlowsPage() {
+  const { t } = useLanguage();
   const workflowPerm = usePermission('MENU_WORKFLOW_CONFIG');
   const canManageFlows = workflowPerm.check('E') || workflowPerm.check('C') || workflowPerm.check('D');
   const [rows, setRows] = useState<DefinitionRow[]>([]);
@@ -81,7 +83,7 @@ export default function ApprovalFlowsPage() {
       setRows(res.data || []);
     } catch (err) {
       console.error('[approval-flows] load failed:', err);
-      setError(err instanceof Error ? `加载失败：${err.message}` : '加载流程列表失败');
+      setError(err instanceof Error ? `${t('ui.加载失败：','加载失败：')}${err.message}` : t('ui.加载流程列表失败','加载流程列表失败'));
       setRows([]);
     } finally {
       setLoading(false);
@@ -92,7 +94,7 @@ export default function ApprovalFlowsPage() {
   }, [load]);
   async function toggleStatus(row: DefinitionRow) {
     const target = row.status === 'PUBLISHED' ? 'disable' : 'publish';
-    const action = target === 'publish' ? '启用' : '停用';
+    const action = target === 'publish' ? t('ui.启用','启用') : t('ui.停用','停用');
     setError('');
     setNotice('');
     try {
@@ -103,21 +105,21 @@ export default function ApprovalFlowsPage() {
         },
         body: JSON.stringify({})
       });
-      setNotice(`${action} ${row.code} 成功`);
+      setNotice(`${action} ${row.code} ${t('ui.成功','成功')}`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? `${action}失败：${err.message}` : `${action}失败`);
+      setError(err instanceof Error ? `${action}${t('ui.失败：','失败：')}${err.message}` : `${action}${t('ui.失败','失败')}`);
     }
   }
   const filtered = filter ? rows.filter(r => r.status === filter) : rows;
   if (!canManageFlows) {
-    return <div className={u.emptyPad40}>无权限访问流程配置。请联系系统管理员授予工作流管理权限。</div>;
+    return <div className={u.emptyPad40}>{t('ui.无权限访问流程配置。请联系系统管理员授予工作流管理权限。','无权限访问流程配置。请联系系统管理员授予工作流管理权限。')}</div>;
   }
 
   return <div>
-      <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['审批中心', '流程配置']} actions={<>
-            <Link href="/workflow/builder" style={primaryActionButton}>新建流程</Link>
-            <Link href="/settings/approval-rules" style={{ ...secondaryActionButton, marginLeft: 8, textDecoration: "none" }}>审批规则</Link>
+      <PageHeader title={t('ui.流程配置中心','流程配置中心')} subtitle={t('ui.审批流程定义 · 启用/停用 · 版本管理','审批流程定义 · 启用/停用 · 版本管理')} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.流程配置','流程配置')]} actions={<>
+            <Link href="/workflow/builder" style={primaryActionButton}>{t('ui.新建流程','新建流程')}</Link>
+            <Link href="/settings/approval-rules" style={{ ...secondaryActionButton, marginLeft: 8, textDecoration: "none" }}>{t('ui.审批规则','审批规则')}</Link>
           </>} />
 
       {error && <section className={s.card} style={{
@@ -127,12 +129,12 @@ export default function ApprovalFlowsPage() {
           <div className={s.cardBody} style={{
         color: 'var(--status-danger)'
       }}>
-            <strong>⚠ 加载失败</strong>
+            <strong>⚠ {t('ui.加载失败','加载失败')}</strong>
             <div style={{
           marginTop: 4,
           fontSize: 13
         }}>{error}</div>
-            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>重试</button>
+            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>{t('ui.重试','重试')}</button>
           </div>
         </section>}
 
@@ -156,9 +158,9 @@ export default function ApprovalFlowsPage() {
         flexWrap: 'wrap'
       }}>
           <div>
-            <h3 className={s.cardTitle}>流程列表</h3>
+            <h3 className={s.cardTitle}>{t('ui.流程列表','流程列表')}</h3>
             <p className={`${s.modalDesc} ${u.mt4}`}>
-              当前共 {rows.length} 个流程定义{filter ? `（已筛选：${STATUS_LABEL[filter]?.text || filter}）` : ''}
+              {t('ui.当前共','当前共')} {rows.length} {t('ui.个流程定义','个流程定义')}{filter ? `（${t('ui.已筛选：','已筛选：')}${STATUS_LABEL[filter]?.text || filter}）` : ''}
             </p>
           </div>
           <div style={{
@@ -174,21 +176,21 @@ export default function ApprovalFlowsPage() {
 
       <section className={s.card}>
         {loading ? <div className={s.emptyState}>
-            <div className={s.emptyStateText}>加载中…</div>
+            <div className={s.emptyStateText}>{t('ui.加载中…','加载中…')}</div>
           </div> : filtered.length === 0 ? <div className={s.emptyState}>
             <div className={s.emptyStateText}>
-              {filter ? '当前筛选条件下没有流程' : '尚未配置任何流程，点击"新建流程"开始'}
+              {filter ? t('ui.当前筛选条件下没有流程','当前筛选条件下没有流程') : t('ui.尚未配置任何流程，点击"新建流程"开始','尚未配置任何流程，点击"新建流程"开始')}
             </div>
           </div> : <table className={s.table}>
             <thead>
               <tr>
-                <th>编码</th>
-                <th>名称</th>
-                <th>分类</th>
-                <th>状态</th>
-                <th>当前版本</th>
-                <th>更新时间</th>
-                <th>操作</th>
+                <th>{t('ui.编码','编码')}</th>
+                <th>{t('ui.名称','名称')}</th>
+                <th>{t('ui.分类','分类')}</th>
+                <th>{t('ui.状态','状态')}</th>
+                <th>{t('ui.当前版本','当前版本')}</th>
+                <th>{t('ui.更新时间','更新时间')}</th>
+                <th>{t('ui.操作','操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -228,10 +230,10 @@ export default function ApprovalFlowsPage() {
                   display: 'flex',
                   gap: 8
                 }}>
-                        <Link href={`/workflow/designer/${row.id}`} style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 12, textDecoration: "none" }}>设计</Link>
+                        <Link href={`/workflow/designer/${row.id}`} style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 12, textDecoration: "none" }}>{t('ui.设计','设计')}</Link>
                         {row.status === 'PUBLISHED'
-                          ? <button type="button" onClick={() => toggleStatus(row)} style={{ ...actionPill("danger"), padding: '4px 10px', fontSize: 12 }}>停用</button>
-                          : <button type="button" onClick={() => toggleStatus(row)} style={{ ...primaryActionButton, padding: '4px 10px', fontSize: 12 }}>启用</button>}
+                          ? <button type="button" onClick={() => toggleStatus(row)} style={{ ...actionPill("danger"), padding: '4px 10px', fontSize: 12 }}>{t('ui.停用','停用')}</button>
+                          : <button type="button" onClick={() => toggleStatus(row)} style={{ ...primaryActionButton, padding: '4px 10px', fontSize: 12 }}>{t('ui.启用','启用')}</button>}
                       </div>
                     </td>
                   </tr>;

@@ -154,6 +154,7 @@ function ChartTip({
   payload?: RechartsPayload[];
   series: SeriesMeta[];
 }) {
+  const { t } = useLanguage();
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
   return <div style={{
@@ -212,7 +213,7 @@ function ChartTip({
             fontWeight: 600,
             color: amplitude > 5 ? 'var(--status-warning)' : 'var(--text-secondary)'
           }}>
-                波幅 {amplitude.toFixed(1)}{sm.unit}
+                {t('ui.波幅', '波幅')} {amplitude.toFixed(1)}{sm.unit}
               </span>
             </div>
           </div>;
@@ -623,7 +624,7 @@ export default function HouseDetailPage() {
         const color = SC[kpi?.status || 'no_data'];
         const pts = sm?.points.map(p => p.value) || [];
         const delta = pts.length > 1 ? pts[pts.length - 1] - pts[0] : null;
-        const trendLabel = delta == null ? null : delta > 0.05 ? `↑ ${delta.toFixed(1)}` : delta < -0.05 ? `↓ ${Math.abs(delta).toFixed(1)}` : '→ 平稳';
+        const trendLabel = delta == null ? null : delta > 0.05 ? `↑ ${delta.toFixed(1)}` : delta < -0.05 ? `↓ ${Math.abs(delta).toFixed(1)}` : `→ ${t('ui.平稳', '平稳')}`;
         const trendColor = delta == null ? 'var(--text-disabled)' : delta > 0.05 ? 'var(--status-danger)' : delta < -0.05 ? 'var(--status-success)' : 'var(--text-disabled)';
         return <div key={code} style={{
           background: 'var(--bg-card)',
@@ -722,7 +723,7 @@ export default function HouseDetailPage() {
           color: 'var(--text-secondary)',
           marginLeft: 8
         }}>
-              · Y轴归一化，鼠标悬停查看实际值
+              · {t('ui.Y轴归一化鼠标悬停查看实际值', 'Y轴归一化，鼠标悬停查看实际值')}
             </span>}
         </div>
         <div style={{
@@ -740,7 +741,7 @@ export default function HouseDetailPage() {
           color: trendRange === r ? 'var(--bg-card)' : 'var(--text-secondary)',
           transition: 'all .15s'
         }}>
-              {r === '24h' ? '近24h' : r === '7d' ? '近7天' : '近30天'}
+              {r === '24h' ? t('ui.近24h', '近24h') : r === '7d' ? t('ui.近7天', '近7天') : t('ui.近30天', '近30天')}
             </button>)}
         </div>
       </div>

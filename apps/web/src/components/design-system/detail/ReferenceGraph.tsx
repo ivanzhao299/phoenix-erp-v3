@@ -9,6 +9,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Link2 } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface ReferenceItem {
   refTable: string;
@@ -31,6 +32,7 @@ export interface ReferenceGraphProps {
 export function ReferenceGraph({
   objectType, objectCode, references, isReferenced, canArchive, centerLabel,
 }: ReferenceGraphProps) {
+  const { t } = useLanguage();
   return (
     <section style={{
       padding: 16, background: 'var(--bg-card)',
@@ -38,12 +40,12 @@ export function ReferenceGraph({
     }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Link2 size={16} color="var(--color-primary)" />
-        <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>引用关系</strong>
+        <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{t('ui.引用关系','引用关系')}</strong>
         <span style={{
           marginLeft: 'auto', fontSize: 12,
           color: canArchive ? 'var(--status-success)' : 'var(--status-warning)',
         }}>
-          {canArchive ? '✓ 可归档' : '⚠ 归档阻断'}
+          {canArchive ? t('ui.✓ 可归档','✓ 可归档') : t('ui.⚠ 归档阻断','⚠ 归档阻断')}
         </span>
       </header>
 
@@ -52,7 +54,7 @@ export function ReferenceGraph({
           padding: '32px 16px', textAlign: 'center',
           color: 'var(--text-secondary)', fontSize: 13,
         }}>
-          当前没有任何业务单据引用 <code style={{ color: 'var(--color-primary)' }}>{objectCode}</code>，可以安全归档。
+          {t('ui.当前没有任何业务单据引用','当前没有任何业务单据引用')} <code style={{ color: 'var(--color-primary)' }}>{objectCode}</code>{t('ui.，可以安全归档。','，可以安全归档。')}
         </div>
       ) : (
         <>
@@ -99,7 +101,7 @@ export function ReferenceGraph({
                   <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{ref.refTable}</code>
                   {ref.example?.length ? (
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      例：{ref.example.slice(0, 2).join(', ')}{ref.example.length > 2 ? '…' : ''}
+                      {t('ui.例：','例：')}{ref.example.slice(0, 2).join(', ')}{ref.example.length > 2 ? '…' : ''}
                     </div>
                   ) : null}
                 </div>

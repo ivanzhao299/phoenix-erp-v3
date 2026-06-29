@@ -9,9 +9,11 @@ import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPi
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 const FLOW_TEMPLATES = WORKFLOW_TEMPLATES;
 const CATEGORY_OPTIONS = ["财务", "采购", "合同", "人事", "仓储", "品控", "门店", "养殖", "物流", "通用"];
 export default function WorkflowDefinitionsPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowDefinition[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [source, setSource] = useState<WorkflowDefinition | null>(null);
@@ -75,7 +77,7 @@ export default function WorkflowDefinitionsPage() {
       description: form.description.trim()
     };
     if (!payload.code || !payload.name) {
-      setError("请填写流程名称；系统编码会自动生成，必要时可在高级设置中调整。");
+      setError(t('ui.请填写流程名称；系统编码会自动生成，必要时可在高级设置中调整。','请填写流程名称；系统编码会自动生成，必要时可在高级设置中调整。'));
       return;
     }
     setError("");
@@ -97,7 +99,7 @@ export default function WorkflowDefinitionsPage() {
         const formVersionId = Number((formVersion.data as {
           id?: number;
         }).id);
-        if (!formVersionId) throw new Error("表单版本发布失败，请稍后重试。");
+        if (!formVersionId) throw new Error(t('ui.表单版本发布失败，请稍后重试。','表单版本发布失败，请稍后重试。'));
         const created = await workflowApi.createDefinition(payload);
         await workflowApi.publishDefinition(created.data.id, {
           graph_json: buildTemplateGraph(payload.name, template),
@@ -106,10 +108,10 @@ export default function WorkflowDefinitionsPage() {
       }
       setDrawerOpen(false);
       setSource(null);
-      setNotice(source ? "已复制流程，可进入设计器继续调整。" : "已创建并发布流程及配套表单，用户现在可以直接发起。");
+      setNotice(source ? t('ui.已复制流程，可进入设计器继续调整。','已复制流程，可进入设计器继续调整。') : t('ui.已创建并发布流程及配套表单，用户现在可以直接发起。','已创建并发布流程及配套表单，用户现在可以直接发起。'));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "创建流程失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.创建流程失败','创建流程失败'));
     } finally {
       setLoading(false);
     }
@@ -121,16 +123,16 @@ export default function WorkflowDefinitionsPage() {
     try {
       const res = await workflowApi.generateIndustryTemplates();
       const data = res.data || {};
-      setNotice(`已自动补齐行业模板：新增 ${data.createdDefinitions || 0} 个流程，新增 ${data.createdForms || 0} 个表单；已有模板会保留不覆盖。`);
+      setNotice(`${t('ui.已自动补齐行业模板：新增','已自动补齐行业模板：新增')} ${data.createdDefinitions || 0} ${t('ui.个流程，新增','个流程，新增')} ${data.createdForms || 0} ${t('ui.个表单；已有模板会保留不覆盖。','个表单；已有模板会保留不覆盖。')}`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "生成行业模板失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.生成行业模板失败','生成行业模板失败'));
     } finally {
       setGenerating(false);
     }
   }
   return <div>
-      <PageHeader title="流程定义" subtitle="日常查看和维护已定义流程，少量新增可从模板或现有流程复制" breadcrumb={["工作流", "流程定义"]} />
+      <PageHeader title={t('ui.流程定义','流程定义')} subtitle={t('ui.日常查看和维护已定义流程，少量新增可从模板或现有流程复制','日常查看和维护已定义流程，少量新增可从模板或现有流程复制')} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程定义','流程定义')]} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={{
@@ -140,14 +142,14 @@ export default function WorkflowDefinitionsPage() {
         gap: 16
       }}>
           <div>
-            <h3 className={s.cardTitle}>流程列表</h3>
-            <p className={`${s.modalDesc} ${u.mt4}`}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
+            <h3 className={s.cardTitle}>{t('ui.流程列表','流程列表')}</h3>
+            <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.大多数流程应先由管理员统一定义，业务人员只需要发起和审批。','大多数流程应先由管理员统一定义，业务人员只需要发起和审批。')}</p>
           </div>
           <div style={toolbarActionsStyle}>
             <button type="button" style={secondaryActionButton} disabled={generating} onClick={generateIndustryTemplates}>
-              {generating ? "生成中..." : "AI生成行业模板"}
+              {generating ? t('ui.生成中...','生成中...') : t('ui.AI生成行业模板','AI生成行业模板')}
             </button>
-            <button type="button" style={primaryActionButton} onClick={() => openFromTemplate()}>新增流程</button>
+            <button type="button" style={primaryActionButton} onClick={() => openFromTemplate()}>{t('ui.新增流程','新增流程')}</button>
           </div>
         </div>
       </section>
@@ -156,7 +158,7 @@ export default function WorkflowDefinitionsPage() {
 
       <section className={s.card}>
         <table className={s.table}>
-          <thead><tr><th>流程名称</th><th>分类</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
+          <thead><tr><th>{t('ui.流程名称','流程名称')}</th><th>{t('ui.分类','分类')}</th><th>{t('ui.状态','状态')}</th><th>{t('ui.版本','版本')}</th><th>{t('ui.操作','操作')}</th></tr></thead>
           <tbody>{rows.map(row => <tr key={row.id}>
               <td>
                 <strong>{row.name}</strong>
@@ -167,24 +169,24 @@ export default function WorkflowDefinitionsPage() {
               <td>{row.current_version_id || "-"}</td>
               <td>
                 <div style={actionStyle}>
-                  <Link href={`/workflow/designer/${row.id}`}>设计/发布</Link>
-                  <button type="button" style={linkButtonStyle} onClick={() => openFromExisting(row)}>复制创建</button>
+                  <Link href={`/workflow/designer/${row.id}`}>{t('ui.设计/发布','设计/发布')}</Link>
+                  <button type="button" style={linkButtonStyle} onClick={() => openFromExisting(row)}>{t('ui.复制创建','复制创建')}</button>
                 </div>
               </td>
             </tr>)}</tbody>
         </table>
       </section>
 
-      <RightDrawer open={drawerOpen} title={source ? "复制现有流程" : "新增流程"} width={640} onClose={() => setDrawerOpen(false)} footer={<div style={footerStyle}>
-            <button type="button" style={secondaryActionButton} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button type="button" style={primaryActionButton} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
+      <RightDrawer open={drawerOpen} title={source ? t('ui.复制现有流程','复制现有流程') : t('ui.新增流程','新增流程')} width={640} onClose={() => setDrawerOpen(false)} footer={<div style={footerStyle}>
+            <button type="button" style={secondaryActionButton} onClick={() => setDrawerOpen(false)}>{t('ui.取消','取消')}</button>
+            <button type="button" style={primaryActionButton} disabled={loading} onClick={create}>{loading ? t('ui.创建中...','创建中...') : t('ui.创建流程','创建流程')}</button>
           </div>}>
         <div style={drawerStackStyle}>
           <section>
-            <h4 style={sectionTitleStyle}>{source ? "复制来源" : "选择常用流程模板"}</h4>
+            <h4 style={sectionTitleStyle}>{source ? t('ui.复制来源','复制来源') : t('ui.选择常用流程模板','选择常用流程模板')}</h4>
             {source ? <div style={selectedSourceStyle}>
                 <strong>{source.name}</strong>
-                <span>{source.category || "通用"} · {source.code}</span>
+                <span>{source.category || t('ui.通用','通用')} · {source.code}</span>
               </div> : <div style={templateGridStyle}>
                 {FLOW_TEMPLATES.map(item => <button key={item.key} type="button" style={item.key === template.key ? selectedTemplateStyle : templateStyle} onClick={() => chooseTemplate(item.key)}>
                     <strong>{item.name}</strong>
@@ -194,16 +196,16 @@ export default function WorkflowDefinitionsPage() {
           </section>
 
           <section>
-            <h4 style={sectionTitleStyle}>基础信息</h4>
+            <h4 style={sectionTitleStyle}>{t('ui.基础信息','基础信息')}</h4>
             <label style={labelStyle}>
-              流程名称
+              {t('ui.流程名称','流程名称')}
               <input className={s.inp} value={form.name} onChange={e => setForm({
               ...form,
               name: e.target.value
             })} />
             </label>
             <label style={labelStyle}>
-              业务分类
+              {t('ui.业务分类','业务分类')}
               <select className={s.inp} value={form.category} onChange={e => setForm({
               ...form,
               category: e.target.value
@@ -212,7 +214,7 @@ export default function WorkflowDefinitionsPage() {
               </select>
             </label>
             <label style={labelStyle}>
-              适用说明
+              {t('ui.适用说明','适用说明')}
               <textarea className={s.textarea} value={form.description} onChange={e => setForm({
               ...form,
               description: e.target.value
@@ -221,15 +223,15 @@ export default function WorkflowDefinitionsPage() {
           </section>
 
           <details style={advancedStyle}>
-            <summary>高级设置</summary>
+            <summary>{t('ui.高级设置','高级设置')}</summary>
             <label style={labelStyle}>
-              系统编码
+              {t('ui.系统编码','系统编码')}
               <input className={s.inp} value={form.code} onChange={e => setForm({
               ...form,
               code: normalizeCode(e.target.value)
             })} />
             </label>
-            <p style={hintStyle}>系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。</p>
+            <p style={hintStyle}>{t('ui.系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。','系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。')}</p>
           </details>
 
           {error ? <div style={errorStyle}>{error}</div> : null}

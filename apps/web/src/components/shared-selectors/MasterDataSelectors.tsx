@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from '@/lib/api-client';
 import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 主数据下拉缓存+去重
 import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
@@ -50,9 +51,11 @@ const selStyle: React.CSSProperties = {
 
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
-  value, onChange, onPick, placeholder = '请选择', disabled, className, style,
+  value, onChange, onPick, placeholder, disabled, className, style,
   loader, reloadDeps,
 }: BaseProps & { loader: () => Promise<Opt[]>; reloadDeps?: any[] }) {
+  const { t } = useLanguage();
+  const resolvedPlaceholder = placeholder ?? t('ui.请选择', '请选择');
   const [opts, setOpts] = useState<Opt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,7 +75,7 @@ function ScopedSelect({
   return (
     <select className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
-      <option value="">{loading ? '加载中…' : placeholder}</option>
+      <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>
       {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
@@ -80,13 +83,15 @@ function ScopedSelect({
 
 // ── 客户（仅 ACTIVE，G5-B 切 /api/lookup）─────────────────────────────────────
 export function CustomerSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择客户'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择客户','请选择客户')}
     loader={async () => (await lookupArr('/lookup/customers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
 // ── 供应商（仅 ACTIVE，G5-B 切 /api/lookup）───────────────────────────────────
 export function SupplierSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择供应商'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择供应商','请选择供应商')}
     loader={async () => (await lookupArr('/lookup/suppliers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
@@ -98,8 +103,9 @@ export interface ProjectSelectorProps extends BaseProps {
   companyCode?: string;  // 选公司后过滤；不传则返回全部 ACTIVE 项目
 }
 export function ProjectSelector(p: ProjectSelectorProps) {
+  const { t } = useLanguage();
   const { companyCode, ...base } = p;
-  return <ScopedSelect {...base} placeholder={base.placeholder ?? '请选择项目'}
+  return <ScopedSelect {...base} placeholder={base.placeholder ?? t('ui.请选择项目','请选择项目')}
     reloadDeps={[companyCode]}   // G86：随公司切换重载过滤
     loader={async () => {
       const url = companyCode
@@ -121,7 +127,8 @@ export function ProjectSelector(p: ProjectSelectorProps) {
 
 // ── 公司（org_units COMPANY 类型，DataScope 由后端鉴权）────────────────────────
 export function CompanySelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择公司'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择公司','请选择公司')}
     loader={async () => {
       // 2026-06-06：改用 /api/lookup/companies（无 MENU_SYS_ORG 限制），
       // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。
@@ -139,8 +146,9 @@ export function CompanySelector(p: BaseProps) {
  * currencyCode：可选过滤，仅显示该币种账户
  */
 export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id'; currencyCode?: string; companyCode?: string }) {
+  const { t } = useLanguage();
   const { valueField = 'code', currencyCode, companyCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择资金账户'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择资金账户','请选择资金账户')}
     reloadDeps={[currencyCode, companyCode]}
     loader={async () => {
       // G5-B 切 /api/lookup/cash-accounts；支持 currency / company query 直接过滤
@@ -170,8 +178,9 @@ export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id';
 // G39：传 companyCode 时仅列该公司名下持股股东（先选公司→股东按公司收窄），
 //      随 companyCode 变化自动重载。不传则列全部 ACTIVE（付款单等兼容）。
 export function ShareholderSelector(p: BaseProps & { companyCode?: string }) {
+  const { t } = useLanguage();
   const { companyCode, ...base } = p;
-  return <ScopedSelect {...base} placeholder={base.placeholder ?? '请选择股东'}
+  return <ScopedSelect {...base} placeholder={base.placeholder ?? t('ui.请选择股东','请选择股东')}
     reloadDeps={[companyCode]}
     loader={async () => {
       const url = companyCode
@@ -196,8 +205,9 @@ export function UserSelector(p: BaseProps & {
   valueField?: 'username' | 'id';
   scopeStore?: boolean;  // 默认 true：同站点过滤
 }) {
+  const { t } = useLanguage();
   const { valueField = 'username', scopeStore = true, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择用户','请选择用户')}
     loader={async () => {
       // 当前登录用户的 store_code（从 JWT/sessionStorage 取）
       let myStore = '';
@@ -236,8 +246,9 @@ export function UserSelector(p: BaseProps & {
 // ── 仓库（wms_warehouses，G5-B 切 /api/lookup，G15 支持 type 过滤）─────────────
 // type 枚举：EGG_FARM / EGG_SALES / MEDICINE / FEED / RAW_MATERIAL / PURCHASE_RECV / FINISHED
 export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string }) {
+  const { t } = useLanguage();
   const { companyCode, siteCode, type, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择仓库'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (companyCode) qs.set('companyCode', companyCode);
@@ -256,8 +267,9 @@ export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCod
 
 // ── 库区（wms_zones）─────────────────────────────────────────────────────────
 export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
+  const { t } = useLanguage();
   const { warehouseCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择库区'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择库区','请选择库区')}
     loader={async () => {
       const r = await request<any>('/crud/wms_zones?status=ACTIVE&pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -274,8 +286,9 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
 
 // ── 货位（wms_locations）─────────────────────────────────────────────────────
 export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string }) {
+  const { t } = useLanguage();
   const { warehouseCode, zoneCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择货位'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
     loader={async () => {
       const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -293,7 +306,8 @@ export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCo
 
 // ── 渠道（sal_channels）──────────────────────────────────────────────────────
 export function ChannelSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择渠道'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择渠道','请选择渠道')}
     loader={async () => {
       const r = await request<any>('/v2/sales/channels');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -309,8 +323,9 @@ export function ChannelSelector(p: BaseProps) {
 
 // ── 门店（mst_stores，G5-B 切 /api/lookup）────────────────────────────────────
 export function StoreSelector(p: BaseProps & { companyCode?: string }) {
+  const { t } = useLanguage();
   const { companyCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择门店'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
     loader={async () => {
       const url = companyCode ? `/lookup/stores?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/stores';
       const list = await lookupArr<any>(url);
@@ -325,8 +340,9 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
 
 // ── 司机（sal_drivers）───────────────────────────────────────────────────────
 export function DriverSelector(p: BaseProps & { companyCode?: string }) {
+  const { t } = useLanguage();
   const { companyCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择司机'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择司机','请选择司机')}
     loader={async () => {
       const r = await request<any>('/v2/sales/delivery/drivers');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -343,8 +359,9 @@ export function DriverSelector(p: BaseProps & { companyCode?: string }) {
 
 // ── 车辆（sal_vehicles）─────────────────────────────────────────────────────
 export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
+  const { t } = useLanguage();
   const { companyCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择车辆'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择车辆','请选择车辆')}
     loader={async () => {
       const r = await request<any>('/v2/sales/delivery/vehicles');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -361,7 +378,8 @@ export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
 
 // ── 场站（brd_farms，G5-B 切 /api/lookup）────────────────────────────────────
 export function FarmSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择场站'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择场站','请选择场站')}
     loader={async () => {
       const list = await lookupArr<any>('/lookup/farms');
       return (Array.isArray(list) ? list : [])
@@ -375,7 +393,8 @@ export function FarmSelector(p: BaseProps) {
 
 // ── 库存批次（inv_batches，唯一台账；仅列 qty_available>0 的批次）──────────────
 export function BatchSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择批次'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择批次','请选择批次')}
     loader={async () => {
       const list = await lookupArr<any>('/lookup/batches');
       return (Array.isArray(list) ? list : [])
@@ -391,8 +410,9 @@ export function BatchSelector(p: BaseProps) {
 //   houseType 走 sys_dict.BRD_HOUSE_TYPE 异步拉取 + 模块级 5min 缓存
 //   彻底删除 HOUSE_TYPE_ZH 硬编码 map；字典 seed 改动无需改前端
 export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: string }) {
+  const { t } = useLanguage();
   const { farmCode, siteCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择鸡舍','请选择鸡舍')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (farmCode) qs.set('farmCode', farmCode);
@@ -415,8 +435,9 @@ export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: str
 
 // ── 鸡群（brd_flocks，G5-B 切 /api/lookup）────────────────────────────────────
 export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: string; siteCode?: string }) {
+  const { t } = useLanguage();
   const { farmCode, houseCode, siteCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡群'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择鸡群','请选择鸡群')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (siteCode) qs.set('siteCode', siteCode);
@@ -435,7 +456,8 @@ export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: st
 
 // ── 等级（product_grades，仅 ACTIVE）────────────────────────────────────────
 export function GradeSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择等级'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择等级','请选择等级')}
     loader={async () => {
       const r = await request<any>('/product-master/grades?status=ACTIVE');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -451,7 +473,8 @@ export function GradeSelector(p: BaseProps) {
 
 // ── 规格（packaging_specs，仅 ACTIVE）───────────────────────────────────────
 export function SpecSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择规格'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择规格','请选择规格')}
     loader={async () => {
       const r = await request<any>('/product-master/specs?status=ACTIVE');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
@@ -471,7 +494,8 @@ export function SpecSelector(p: BaseProps) {
 //    内部委托 DictSelect(PKG_SHIFT)；G4-E 统一命名。
 export function ShiftSelector(p: BaseProps) {
   // 班次实际是字典而非主数据，但用户任务命名要求 ShiftSelector，故在此封装
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择班次'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择班次','请选择班次')}
     loader={async () => {
       const r = await request<any>('/crud/sys_dict?dict_type=PKG_SHIFT&status=ACTIVE');
       const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
@@ -489,8 +513,9 @@ export function ShiftSelector(p: BaseProps) {
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
 export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string }) {
+  const { t } = useLanguage();
   const { productCode, gradeCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择物料'}
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     loader={async () => {
       const params = new URLSearchParams({ status: 'ACTIVE' });
       if (productCode) params.set('product_code', productCode);
@@ -514,7 +539,8 @@ export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: s
  * 兼容 runtime active 返回 {code,name} 简化形态与全行形态。
  */
 export function MaterialSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择物料'}
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     loader={async () => (await lookupArr('/master-data/runtime/material/active')).map((r: any) => {
       const code = r.material_code ?? r.code ?? '';
       const name = r.material_name ?? r.name ?? code;

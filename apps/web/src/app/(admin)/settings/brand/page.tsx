@@ -271,7 +271,7 @@ export default function BrandSettingsPage() {
         }}>
             {t('ui.登录页副标题', '登录页副标题')}
           </label>
-          <input value={(form as Record<string, string>).tagline ?? ''} onChange={e => f("tagline", e.target.value)} placeholder="企业级直营运营系统 · Phoenix V3" style={inp} />
+          <input value={(form as Record<string, string>).tagline ?? ''} onChange={e => f("tagline", e.target.value)} placeholder={t('ui.企业级直营运营系统 · Phoenix V3', '企业级直营运营系统 · Phoenix V3')} style={inp} />
           <div style={{
           fontSize: 11,
           color: "var(--text-secondary)",

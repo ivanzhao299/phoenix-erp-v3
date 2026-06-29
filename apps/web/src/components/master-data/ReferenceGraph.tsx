@@ -1,5 +1,6 @@
 "use client";
 import { Link2, ExternalLink } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * G5.5-E — ReferenceGraph
@@ -21,8 +22,9 @@ export interface ReferenceGraphProps {
 }
 
 export function ReferenceGraph({ centerLabel, centerType, references }: ReferenceGraphProps) {
+  const { t } = useLanguage();
   if (references.length === 0) {
-    return <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>暂无引用</div>;
+    return <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{t('ui.暂无引用','暂无引用')}</div>;
   }
 
   return (
@@ -38,7 +40,7 @@ export function ReferenceGraph({ centerLabel, centerType, references }: Referenc
         <div style={{ fontSize: 11, opacity: 0.8 }}>{centerType}</div>
         <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', marginTop: 4 }}>{centerLabel}</div>
         <div style={{ fontSize: 11, marginTop: 6, opacity: 0.85 }}>
-          被 <strong>{references.reduce((s, r) => s + r.refCount, 0)}</strong> 处引用
+          {t('ui.被','被')} <strong>{references.reduce((s, r) => s + r.refCount, 0)}</strong> {t('ui.处引用','处引用')}
         </div>
       </div>
 
@@ -93,8 +95,8 @@ export function ReferenceGraph({ centerLabel, centerType, references }: Referenc
                   {r.refTable}
                   {r.example.length > 0 && (
                     <span style={{ marginLeft: 8, color: 'var(--text-disabled)' }}>
-                      · 例：{r.example.slice(0, 3).join(' / ')}
-                      {r.example.length > 3 && ` 等 ${r.example.length} 条`}
+                      · {t('ui.例：','例：')}{r.example.slice(0, 3).join(' / ')}
+                      {r.example.length > 3 && ` ${t('ui.等','等')} ${r.example.length} ${t('ui.条','条')}`}
                     </span>
                   )}
                 </div>

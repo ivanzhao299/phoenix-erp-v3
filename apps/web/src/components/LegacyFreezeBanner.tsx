@@ -1,6 +1,7 @@
 "use client";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LegacyFreezeBannerProps {
   /** 要迁移到的新模块路径（默认 /sales2） */
@@ -35,6 +36,7 @@ export function LegacyFreezeBanner({
   migrationPhase,
   message,
 }: LegacyFreezeBannerProps) {
+  const { t } = useLanguage();
   return (
     <div
       style={{
@@ -57,12 +59,12 @@ export function LegacyFreezeBanner({
           <span>{message}</span>
         ) : (
           <>
-            <strong>⚠️ 当前模块已冻结</strong>
+            <strong>⚠️ {t('ui.当前模块已冻结','当前模块已冻结')}</strong>
             {" — "}
-            数据写入路径已停止扩展，请使用{" "}
+            {t('ui.数据写入路径已停止扩展，请使用','数据写入路径已停止扩展，请使用')}{" "}
             <strong>{newModuleName}</strong>。
             {migrationPhase && (
-              <span style={{ opacity: 0.8 }}> 预计迁移阶段：{migrationPhase}。</span>
+              <span style={{ opacity: 0.8 }}> {t('ui.预计迁移阶段：','预计迁移阶段：')}{migrationPhase}。</span>
             )}
           </>
         )}
@@ -85,7 +87,7 @@ export function LegacyFreezeBanner({
           flexShrink: 0,
         }}
       >
-        前往 {newModuleName}
+        {t('ui.前往','前往')} {newModuleName}
         <ArrowRight size={12} />
       </Link>
     </div>

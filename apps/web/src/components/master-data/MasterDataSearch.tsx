@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Search, X, ExternalLink } from "lucide-react";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * G5.5-E — 全局主数据搜索
@@ -31,6 +32,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU / 仓库 / 账户…', autoFocus = false }:
   { placeholder?: string; autoFocus?: boolean }) {
+  const { t } = useLanguage();
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,7 +97,7 @@ export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU
             <X size={14} />
           </button>
         )}
-        {loading && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>搜索中…</span>}
+        {loading && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('ui.搜索中…','搜索中…')}</span>}
       </div>
 
       {/* 结果下拉 */}
@@ -108,7 +110,7 @@ export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU
         }}>
           {results.length === 0 && !loading && (
             <div style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center' }}>
-              {keyword.trim() ? '未找到匹配的主数据' : '请输入关键词'}
+              {keyword.trim() ? t('ui.未找到匹配的主数据','未找到匹配的主数据') : t('ui.请输入关键词','请输入关键词')}
             </div>
           )}
           {Object.entries(grouped).map(([type, items]) => (

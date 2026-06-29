@@ -23,6 +23,7 @@ import {
   inlineBadge, sectionTitle, tableContainer,
 } from '@/components/design-system/cockpit-styles';
 import { Palette, Check, Lock, User as UserIcon, Shield, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Theme = '' | 'dark' | 'brand-green' | 'brand-red' | 'brand-blue' | 'brand-gold';
 const THEMES: Array<{ key: Theme; label: string; swatch: string; desc: string }> = [
@@ -37,6 +38,7 @@ const THEMES: Array<{ key: Theme; label: string; swatch: string; desc: string }>
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { themeMode, toggleTheme } = useTheme();
   const toast = useToast();
@@ -49,16 +51,16 @@ export default function ProfilePage() {
   // 主题统一走 ThemeContext(唯一写 data-theme 的地方);点击即应用并持久化
   const chooseTheme = (key: Theme) => {
     toggleTheme(key);
-    toast.success('主题已切换');
+    toast.success(t('ui.主题已切换','主题已切换'));
   };
 
   const changePassword = async () => {
-    if (pwNew.length < 8) { toast.error('新密码至少 8 位'); return; }
-    if (pwNew !== pwConfirm) { toast.error('两次输入的新密码不一致'); return; }
+    if (pwNew.length < 8) { toast.error(t('ui.新密码至少 8 位','新密码至少 8 位')); return; }
+    if (pwNew !== pwConfirm) { toast.error(t('ui.两次输入的新密码不一致','两次输入的新密码不一致')); return; }
     setPwSaving(true);
     try {
       const userId = (user as any)?.id || (user as any)?.userId;
-      if (!userId) { toast.error('未找到当前用户 ID'); setPwSaving(false); return; }
+      if (!userId) { toast.error(t('ui.未找到当前用户 ID','未找到当前用户 ID')); setPwSaving(false); return; }
       const res = await fetch(`/api/system/users/${userId}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
@@ -66,12 +68,12 @@ export default function ProfilePage() {
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success('密码已更新，下次登录请使用新密码');
+        toast.success(t('ui.密码已更新，下次登录请使用新密码','密码已更新，下次登录请使用新密码'));
         setPwOld(''); setPwNew(''); setPwConfirm('');
       } else {
-        toast.error(json.msg || '密码修改失败');
+        toast.error(json.msg || t('ui.密码修改失败','密码修改失败'));
       }
-    } catch { toast.error('网络错误'); }
+    } catch { toast.error(t('ui.网络错误','网络错误')); }
     finally { setPwSaving(false); }
   };
 
@@ -106,58 +108,58 @@ export default function ProfilePage() {
   return (
     <div>
       <PageHeader
-        title="个人中心"
-        subtitle="个人信息 · 主题偏好 · 修改密码 · 我的角色"
-        breadcrumb={['个人中心']}
+        title={t('ui.个人中心','个人中心')}
+        subtitle={t('ui.个人信息 · 主题偏好 · 修改密码 · 我的角色','个人信息 · 主题偏好 · 修改密码 · 我的角色')}
+        breadcrumb={[t('ui.个人中心','个人中心')]}
       />
 
       {/* 1. 基本信息 */}
       <div style={{ ...tableContainer, padding: '20px 24px', marginBottom: 16 }}>
         <div style={{ ...sectionTitle, marginTop: 0 }}>
           <UserIcon size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-          基本信息
+          {t('ui.基本信息','基本信息')}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          <ReadOnlyField label="姓名" value={(user as any)?.realNameZh || (user as any)?.name || '—'} />
-          <ReadOnlyField label="账号" value={(user as any)?.username || '—'} />
-          <ReadOnlyField label="系统角色" value={(user as any)?.roleNameZh || '—'} />
-          <ReadOnlyField label="所属组织" value={orgDisplay} />
+          <ReadOnlyField label={t('ui.姓名','姓名')} value={(user as any)?.realNameZh || (user as any)?.name || '—'} />
+          <ReadOnlyField label={t('ui.账号','账号')} value={(user as any)?.username || '—'} />
+          <ReadOnlyField label={t('ui.系统角色','系统角色')} value={(user as any)?.roleNameZh || '—'} />
+          <ReadOnlyField label={t('ui.所属组织','所属组织')} value={orgDisplay} />
           {isProduction && (
-            <ReadOnlyField label="绑定生产站点" value={siteDisplay} />
+            <ReadOnlyField label={t('ui.绑定生产站点','绑定生产站点')} value={siteDisplay} />
           )}
           {isStore && (
-            <ReadOnlyField label="绑定门店" value={storeCode || '—'} />
+            <ReadOnlyField label={t('ui.绑定门店','绑定门店')} value={storeCode || '—'} />
           )}
           {!isProduction && !isStore && (
-            <ReadOnlyField label="所属站点" value={storeCode || '—'} />
+            <ReadOnlyField label={t('ui.所属站点','所属站点')} value={storeCode || '—'} />
           )}
-          <ReadOnlyField label="语言偏好" value={(user as any)?.locale || 'zh-CN'} />
+          <ReadOnlyField label={t('ui.语言偏好','语言偏好')} value={(user as any)?.locale || 'zh-CN'} />
         </div>
 
         {/* 数据范围：生产人员单独 section 展示场站 + 鸡舍范围 */}
         {isProduction && (
           <div style={{ marginTop: 18, padding: '14px 16px', background: 'var(--bg-muted)', borderRadius: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 8 }}>
-              数据范围（仅可访问以下范围内的生产数据）
+              {t('ui.数据范围（仅可访问以下范围内的生产数据）','数据范围（仅可访问以下范围内的生产数据）')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, fontSize: 12 }}>
               <div>
-                <span style={{ color: 'var(--text-secondary)' }}>公司：</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{t('ui.公司：','公司：')}</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{primaryOrg?.org_name || '—'}</span>
               </div>
               <div>
-                <span style={{ color: 'var(--text-secondary)' }}>养殖场：</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{t('ui.养殖场：','养殖场：')}</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{farmDisplay}</span>
               </div>
               <div>
-                <span style={{ color: 'var(--text-secondary)' }}>鸡舍：</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{t('ui.鸡舍：','鸡舍：')}</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  {boundFarmCodes.length > 0 ? '1-6 号鸡舍（按场站主数据）' : '—'}
+                  {boundFarmCodes.length > 0 ? t('ui.1-6 号鸡舍（按场站主数据）','1-6 号鸡舍（按场站主数据）') : '—'}
                 </span>
               </div>
             </div>
             <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-              说明：你仅能查看 / 录入 / 提交本养殖场内的生产数据；不可跨场查看东鹏、万象等其它养殖场。
+              {t('ui.说明：你仅能查看 / 录入 / 提交本养殖场内的生产数据；不可跨场查看东鹏、万象等其它养殖场。','说明：你仅能查看 / 录入 / 提交本养殖场内的生产数据；不可跨场查看东鹏、万象等其它养殖场。')}
             </div>
           </div>
         )}
@@ -168,18 +170,18 @@ export default function ProfilePage() {
         <div style={{ ...sectionTitle, marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>
             <Palette size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-            主题偏好
+            {t('ui.主题偏好','主题偏好')}
           </span>
           <button
             onClick={() => toggleTheme(themeMode === 'dark' ? 'light' : 'dark')}
             style={{ ...secondaryActionButton, padding: '6px 12px', fontSize: 12 }}
           >
             {themeMode === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-            {themeMode === 'dark' ? '切到浅色' : '切到深色'}
+            {themeMode === 'dark' ? t('ui.切到浅色','切到浅色') : t('ui.切到深色','切到深色')}
           </button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
-          挑选最适合你的视觉风格，主题会立即应用并记住你的选择。
+          {t('ui.挑选最适合你的视觉风格，主题会立即应用并记住你的选择。','挑选最适合你的视觉风格，主题会立即应用并记住你的选择。')}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {THEMES.map(t => {
@@ -215,26 +217,26 @@ export default function ProfilePage() {
       <div style={{ ...tableContainer, padding: '20px 24px', marginBottom: 16 }}>
         <div style={{ ...sectionTitle, marginTop: 0 }}>
           <Lock size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-          修改密码
+          {t('ui.修改密码','修改密码')}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <div>
-            <label style={formLabel}>当前密码</label>
+            <label style={formLabel}>{t('ui.当前密码','当前密码')}</label>
             <input type="password" value={pwOld} onChange={e => setPwOld(e.target.value)} style={inputField} autoComplete="current-password" />
           </div>
           <div>
-            <label style={formLabel}>新密码（至少 8 位）</label>
+            <label style={formLabel}>{t('ui.新密码（至少 8 位）','新密码（至少 8 位）')}</label>
             <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} style={inputField} autoComplete="new-password" />
           </div>
           <div>
-            <label style={formLabel}>确认新密码</label>
+            <label style={formLabel}>{t('ui.确认新密码','确认新密码')}</label>
             <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} style={inputField} autoComplete="new-password" />
           </div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
           <button onClick={changePassword} disabled={pwSaving || !pwNew} style={{ ...primaryActionButton, opacity: pwSaving || !pwNew ? 0.6 : 1 }}>
             <Lock size={13} />
-            {pwSaving ? '保存中…' : '更新密码'}
+            {pwSaving ? t('ui.保存中…','保存中…') : t('ui.更新密码','更新密码')}
           </button>
         </div>
       </div>
@@ -243,30 +245,29 @@ export default function ProfilePage() {
       <div style={{ ...tableContainer, padding: '20px 24px' }}>
         <div style={{ ...sectionTitle, marginTop: 0 }}>
           <Shield size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-          我的角色（{allRoles.length}）
+          {t('ui.我的角色（','我的角色（')}{allRoles.length}{t('ui.）','）')}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {visibleRoles.length === 0 && allRoles.length === 0 && (
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>暂无角色绑定</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('ui.暂无角色绑定','暂无角色绑定')}</span>
           )}
           {visibleRoles.map((r: any) => (
             <span key={r.role_code} style={inlineBadge(r.is_primary ? 'success' : 'default')}>
               <Eye size={11} style={{ marginRight: 4 }} />
               {r.role_name_zh}
-              {r.is_primary && <span style={{ marginLeft: 4, fontWeight: 800 }}>·主</span>}
+              {r.is_primary && <span style={{ marginLeft: 4, fontWeight: 800 }}>{t('ui.·主','·主')}</span>}
             </span>
           ))}
           {hiddenRoleCodes.map((rc: string) => (
             <span key={rc} style={{ ...inlineBadge('default'), opacity: 0.55, textDecoration: 'line-through' }}>
               <EyeOff size={11} style={{ marginRight: 4 }} />
               {rc}
-              <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-secondary)' }}>（前台已隐藏）</span>
+              <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-secondary)' }}>{t('ui.（前台已隐藏）','（前台已隐藏）')}</span>
             </span>
           ))}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.7 }}>
-          说明：被隐藏的角色仍然在权限计算中生效，仅不在前台显示角色名，避免身份误会。
-          需要调整可见性请联系管理员（系统设置 → 用户管理）。
+          {t('ui.说明：被隐藏的角色仍然在权限计算中生效，仅不在前台显示角色名，避免身份误会。 需要调整可见性请联系管理员（系统设置 → 用户管理）。','说明：被隐藏的角色仍然在权限计算中生效，仅不在前台显示角色名，避免身份误会。 需要调整可见性请联系管理员（系统设置 → 用户管理）。')}
         </div>
       </div>
     </div>

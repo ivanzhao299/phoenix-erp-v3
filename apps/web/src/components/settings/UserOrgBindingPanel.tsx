@@ -20,6 +20,7 @@ import {
   Building2, RefreshCw, Star, StarOff, Trash2, Plus, UserCheck,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { SelectField, DataTableV3 } from "@/components/design-system";
 import { inlineBadge, badgeButton } from "@/components/design-system/cockpit-styles";
@@ -123,6 +124,7 @@ export default function UserOrgBindingPanel({
   canEdit = true,
   canDelete = true,
 }: UserOrgBindingPanelProps) {
+  const { t } = useLanguage();
   const toast = useToast();
 
   const [userOrgs,        setUserOrgs]        = useState<UserOrg[]>([]);
@@ -164,11 +166,11 @@ export default function UserOrgBindingPanel({
         })),
       );
     } catch {
-      toast.error("加载用户组织失败");
+      toast.error(t('ui.加载用户组织失败','加载用户组织失败'));
     } finally {
       setUserOrgsLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   // ── 加载组织树 ─────────────────────────────────────────────────────────────
   const loadOrgTree = useCallback(async () => {
@@ -209,12 +211,12 @@ export default function UserOrgBindingPanel({
         setUserOrgs(prev =>
           prev.map(x => x.id === uo.id ? { ...x, dataScopeLevel: level } : x),
         );
-        toast.success("数据范围已更新");
+        toast.success(t('ui.数据范围已更新','数据范围已更新'));
       } else {
-        throw new Error(json.message ?? "更新失败");
+        throw new Error(json.message ?? t('ui.更新失败','更新失败'));
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "更新失败");
+      toast.error(e instanceof Error ? e.message : t('ui.更新失败','更新失败'));
     } finally {
       setMutatingId(null);
     }
@@ -237,12 +239,12 @@ export default function UserOrgBindingPanel({
             isPrimary: x.id === uo.id ? !uo.isPrimary : (uo.isPrimary ? x.isPrimary : false),
           })),
         );
-        toast.success(!uo.isPrimary ? "已设为主组织" : "已取消主组织");
+        toast.success(!uo.isPrimary ? t('ui.已设为主组织','已设为主组织') : t('ui.已取消主组织','已取消主组织'));
       } else {
-        throw new Error(json.message ?? "操作失败");
+        throw new Error(json.message ?? t('ui.操作失败','操作失败'));
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
     } finally {
       setMutatingId(null);
     }
@@ -258,12 +260,12 @@ export default function UserOrgBindingPanel({
       });
       if (res.ok || (await res.json().catch(() => ({}))).code === 200) {
         setUserOrgs(prev => prev.filter(x => x.id !== uo.id));
-        toast.success(`已移除【${uo.orgName}】绑定`);
+        toast.success(`${t('ui.已移除','已移除')}【${uo.orgName}】${t('ui.绑定','绑定')}`);
       } else {
         throw new Error(`HTTP ${res.status}`);
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "移除失败");
+      toast.error(e instanceof Error ? e.message : t('ui.移除失败','移除失败'));
     } finally {
       setMutatingId(null);
     }
@@ -272,11 +274,11 @@ export default function UserOrgBindingPanel({
   // ── 新增绑定提交 ──────────────────────────────────────────────────────────
   const handleAddSubmit = async () => {
     if (!userId || !addOrgId) {
-      toast.error("请选择要绑定的组织");
+      toast.error(t('ui.请选择要绑定的组织','请选择要绑定的组织'));
       return;
     }
     if (userOrgs.some(x => x.orgId === addOrgId)) {
-      toast.error("该用户已绑定此组织");
+      toast.error(t('ui.该用户已绑定此组织','该用户已绑定此组织'));
       return;
     }
     setAdding(true);
@@ -292,17 +294,17 @@ export default function UserOrgBindingPanel({
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success("组织绑定成功");
+        toast.success(t('ui.组织绑定成功','组织绑定成功'));
         setShowAddForm(false);
         setAddOrgId("");
         setAddScope("COMPANY");
         setAddPrimary(false);
         await loadUserOrgs(userId);
       } else {
-        throw new Error(json.message ?? "绑定失败");
+        throw new Error(json.message ?? t('ui.绑定失败','绑定失败'));
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "绑定失败");
+      toast.error(e instanceof Error ? e.message : t('ui.绑定失败','绑定失败'));
     } finally {
       setAdding(false);
     }
@@ -314,14 +316,14 @@ export default function UserOrgBindingPanel({
       {/* 工具条：刷新 + 新增 */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className="text-xs text-text-dim">
-          共绑定{" "}
+          {t('ui.共绑定','共绑定')}{" "}
           <span className="font-semibold text-text-muted">{userOrgs.length}</span>{" "}
-          个组织
+          {t('ui.个组织','个组织')}
           {userOrgs.some(x => x.isPrimary) && (
             <>
               {" · "}
               <Star size={10} className="inline text-warning fill-current" />{" "}
-              主组织：
+              {t('ui.主组织：','主组织：')}
               <span className="font-semibold text-text-muted">
                 {userOrgs.find(x => x.isPrimary)?.orgName ?? "—"}
               </span>
@@ -340,7 +342,7 @@ export default function UserOrgBindingPanel({
             )}
           >
             <RefreshCw size={12} className={userOrgsLoading ? "animate-spin" : ""} />
-            刷新
+            {t('ui.刷新','刷新')}
           </button>
           {canCreate && (
             <button
@@ -355,7 +357,7 @@ export default function UserOrgBindingPanel({
               )}
             >
               <Plus size={12} />
-              {showAddForm ? "取消" : "添加组织"}
+              {showAddForm ? t('ui.取消','取消') : t('ui.添加组织','添加组织')}
             </button>
           )}
         </div>
@@ -366,7 +368,7 @@ export default function UserOrgBindingPanel({
         <div className="mb-3 p-3 rounded-lg border border-border bg-bg-muted/30 flex flex-col gap-3">
           <div>
             <label className="block text-[11px] font-semibold text-text-muted mb-1.5">
-              绑定组织 <span className="text-danger">*</span>
+              {t('ui.绑定组织','绑定组织')} <span className="text-danger">*</span>
             </label>
             <SelectField
               value={addOrgId === "" ? "" : String(addOrgId)}
@@ -374,14 +376,14 @@ export default function UserOrgBindingPanel({
               options={orgFlat
                 .filter(o => !userOrgs.some(x => x.orgId === o.id))
                 .map(o => ({ value: String(o.id), label: o.label }))}
-              emptyLabel={orgFlat.length > 0 ? "请选择组织…" : "加载组织中…"}
+              emptyLabel={orgFlat.length > 0 ? t('ui.请选择组织…','请选择组织…') : t('ui.加载组织中…','加载组织中…')}
               allowEmpty
               filter
             />
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-text-muted mb-1.5">
-              数据范围等级
+              {t('ui.数据范围等级','数据范围等级')}
             </label>
             <SelectField
               value={addScope}
@@ -402,7 +404,7 @@ export default function UserOrgBindingPanel({
                 onChange={e => setAddPrimary(e.target.checked)}
                 className="w-4 h-4 accent-brand cursor-pointer"
               />
-              <span className="text-xs text-text-muted">设为主组织</span>
+              <span className="text-xs text-text-muted">{t('ui.设为主组织','设为主组织')}</span>
             </label>
             <button
               type="button"
@@ -415,7 +417,7 @@ export default function UserOrgBindingPanel({
               )}
             >
               <UserCheck size={13} />
-              {adding ? "绑定中…" : "确认绑定"}
+              {adding ? t('ui.绑定中…','绑定中…') : t('ui.确认绑定','确认绑定')}
             </button>
           </div>
         </div>
@@ -425,19 +427,19 @@ export default function UserOrgBindingPanel({
       {userOrgsLoading ? (
         <div className="flex items-center justify-center py-10 text-text-dim text-sm gap-2">
           <RefreshCw size={14} className="animate-spin" />
-          加载中…
+          {t('ui.加载中…','加载中…')}
         </div>
       ) : userOrgs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 gap-3 text-text-dim">
           <Building2 size={28} className="opacity-20" />
-          <div className="text-sm font-medium text-text-muted">该用户暂未绑定任何组织</div>
+          <div className="text-sm font-medium text-text-muted">{t('ui.该用户暂未绑定任何组织','该用户暂未绑定任何组织')}</div>
           {canCreate && (
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
               className="text-xs text-brand hover:underline"
             >
-              点击「添加组织」开始绑定 →
+              {t('ui.点击「添加组织」开始绑定 →','点击「添加组织」开始绑定 →')}
             </button>
           )}
         </div>
@@ -448,7 +450,7 @@ export default function UserOrgBindingPanel({
           columns={[
             {
               key: "orgName",
-              title: "组织名称",
+              title: t('ui.组织名称','组织名称'),
               render: (uo: UserOrg) => (
                 <div className="flex items-center gap-2">
                   <Building2 size={13} className="text-text-dim flex-shrink-0" />
@@ -461,7 +463,7 @@ export default function UserOrgBindingPanel({
             },
             {
               key: "orgType",
-              title: "类型",
+              title: t('ui.类型','类型'),
               render: (uo: UserOrg) => (
                 <span style={inlineBadge("default")}>
                   {ORG_TYPE_LABEL[uo.orgType] ?? uo.orgType}
@@ -470,7 +472,7 @@ export default function UserOrgBindingPanel({
             },
             {
               key: "dataScopeLevel",
-              title: "数据范围",
+              title: t('ui.数据范围','数据范围'),
               render: (uo: UserOrg) => {
                 const scopeItem =
                   SCOPE_LEVELS.find(sl => sl.value === uo.dataScopeLevel) ?? SCOPE_LEVELS[2];
@@ -491,7 +493,7 @@ export default function UserOrgBindingPanel({
             },
             {
               key: "isPrimary",
-              title: "主组织",
+              title: t('ui.主组织','主组织'),
               render: (uo: UserOrg) => {
                 const isMutating = mutatingId === uo.id;
                 return canEdit ? (
@@ -499,7 +501,7 @@ export default function UserOrgBindingPanel({
                     type="button"
                     onClick={() => handleTogglePrimary(uo)}
                     disabled={isMutating}
-                    title={uo.isPrimary ? "取消主组织" : "设为主组织"}
+                    title={uo.isPrimary ? t('ui.取消主组织','取消主组织') : t('ui.设为主组织','设为主组织')}
                     style={{
                       ...badgeButton(uo.isPrimary ? "warning" : "default"),
                       ...(isMutating ? { opacity: 0.5, cursor: "not-allowed" } : {}),
@@ -508,25 +510,25 @@ export default function UserOrgBindingPanel({
                     {uo.isPrimary ? (
                       <>
                         <Star size={11} style={{ fill: "currentColor" }} />
-                        主组织
+                        {t('ui.主组织','主组织')}
                       </>
                     ) : (
                       <>
                         <StarOff size={11} />
-                        设为主
+                        {t('ui.设为主','设为主')}
                       </>
                     )}
                   </button>
                 ) : (
                   <span style={inlineBadge(uo.isPrimary ? "warning" : "default")}>
-                    {uo.isPrimary ? "主组织" : "—"}
+                    {uo.isPrimary ? t('ui.主组织','主组织') : "—"}
                   </span>
                 );
               },
             },
             {
               key: "op",
-              title: "操作",
+              title: t('ui.操作','操作'),
               render: (uo: UserOrg) => {
                 const isMutating = mutatingId === uo.id;
                 return canDelete ? (
@@ -544,7 +546,7 @@ export default function UserOrgBindingPanel({
                     ) : (
                       <Trash2 size={11} />
                     )}
-                    移除
+                    {t('ui.移除','移除')}
                   </button>
                 ) : (
                   <span style={inlineBadge("default")}>—</span>

@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { Activity, CheckCircle2, Clock, Snowflake } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from '@/lib/api-client';
 import { KpiCardV2 } from '@/components/design-system/KpiCardV2';
 import { CockpitGrid } from '@/components/design-system/CockpitGrid';
@@ -24,6 +25,7 @@ interface MemberStat {
 interface CenterStat { members: MemberStat[]; }
 
 export function MasterDataCenterStrip({ type }: { type: string }) {
+  const { t } = useLanguage();
   const [stat, setStat] = useState<MemberStat | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,35 +64,35 @@ export function MasterDataCenterStrip({ type }: { type: string }) {
         <KpiCardV2
           tone="default"
           icon={<Activity size={14} />}
-          label="在管总数"
+          label={t('ui.在管总数','在管总数')}
           value={stat.total}
-          suffix="条"
+          suffix={t('ui.条','条')}
           hint={`含归档 ${stat.archived} 条`}
         />
         <KpiCardV2
           tone="success"
           icon={<CheckCircle2 size={14} />}
-          label="运行中"
+          label={t('ui.运行中','运行中')}
           value={stat.active}
-          suffix="条"
+          suffix={t('ui.条','条')}
           progress={{ value: health }}
-          hint={<>健康度 <strong style={{ color: 'var(--status-success)' }}>{health}%</strong></>}
+          hint={<>{t('ui.健康度','健康度')} <strong style={{ color: 'var(--status-success)' }}>{health}%</strong></>}
         />
         <KpiCardV2
           tone={stat.pending > 0 ? 'warning' : 'default'}
           icon={<Clock size={14} />}
-          label="待审批"
+          label={t('ui.待审批','待审批')}
           value={stat.pending}
-          suffix="单"
-          hint={stat.pending > 0 ? '需要处理' : '暂无积压'}
+          suffix={t('ui.单','单')}
+          hint={stat.pending > 0 ? t('ui.需要处理','需要处理') : t('ui.暂无积压','暂无积压')}
         />
         <KpiCardV2
           tone={stat.frozen > 0 ? 'danger' : 'default'}
           icon={<Snowflake size={14} />}
-          label="冻结 · 风险"
+          label={t('ui.冻结 · 风险','冻结 · 风险')}
           value={stat.frozen}
-          suffix="条"
-          hint={stat.frozen > 0 ? '关注异常' : '无风险'}
+          suffix={t('ui.条','条')}
+          hint={stat.frozen > 0 ? t('ui.关注异常','关注异常') : t('ui.无风险','无风险')}
         />
       </CockpitGrid>
     </div>

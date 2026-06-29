@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * WorkflowTimeline — 审批流时间轴（步骤 + 审批人 + 时间 + 结果）。
@@ -20,6 +21,7 @@ const RESULT_COLOR: Record<string, string> = {
 };
 
 export function WorkflowTimeline({ steps, title = '审批流程' }: { steps: WorkflowStep[]; title?: string }) {
+  const { t } = useLanguage();
   return (
     <div>
       {title && <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14, fontSize: 14 }}>{title}</div>}
@@ -39,7 +41,7 @@ export function WorkflowTimeline({ steps, title = '审批流程' }: { steps: Wor
             </div>
           );
         })}
-        {steps.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-disabled)' }}>暂无审批记录</div>}
+        {steps.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-disabled)' }}>{t('ui.暂无审批记录','暂无审批记录')}</div>}
       </div>
     </div>
   );

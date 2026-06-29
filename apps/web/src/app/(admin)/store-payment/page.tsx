@@ -16,6 +16,7 @@ import {
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { usePermission } from "@/hooks/usePermission";
+import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "./store-payment.module.css";
 
 const COMPANY_CODE = "COMP-LAO-AGRI";
@@ -276,6 +277,7 @@ function PermissionNote({ label, ok }: { label: string; ok: boolean }) {
 }
 
 export default function StorePaymentPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const accountPerm = usePermission(MENU_ACCOUNT);
   const recordPerm = usePermission(MENU_RECORD);
@@ -405,7 +407,7 @@ export default function StorePaymentPage() {
     try {
       await Promise.all([loadAccounts(), loadRecords()]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载统一收款数据失败");
+      setError(e instanceof Error ? e.message : t('ui.加载统一收款数据失败','加载统一收款数据失败'));
     } finally {
       setLoading(false);
     }
@@ -458,28 +460,28 @@ export default function StorePaymentPage() {
     setError("");
     setMessage("");
     if (!recordPerm.canEdit) {
-      setError("当前账号没有 MENU_STORE_PAYMENT:E，不能新增收款记录");
+      setError(t('ui.当前账号没有 MENU_STORE_PAYMENT:E，不能新增收款记录','当前账号没有 MENU_STORE_PAYMENT:E，不能新增收款记录'));
       return;
     }
     const account = accountById.get(form.paymentAccountId);
     if (!account || account.status !== "ACTIVE" || !account.isActive) {
-      setError("当前没有启用的公司收款账户，不能新增收款记录");
+      setError(t('ui.当前没有启用的公司收款账户，不能新增收款记录','当前没有启用的公司收款账户，不能新增收款记录'));
       return;
     }
     if (!form.amount || Number(form.amount) <= 0) {
-      setError("请输入大于 0 的收款金额");
+      setError(t('ui.请输入大于 0 的收款金额','请输入大于 0 的收款金额'));
       return;
     }
     if (!form.paidAt) {
-      setError("请选择付款时间");
+      setError(t('ui.请选择付款时间','请选择付款时间'));
       return;
     }
     if (!form.proofAttachmentId.trim()) {
-      setError("请输入受控附件引用 proof_attachment_id");
+      setError(t('ui.请输入受控附件引用 proof_attachment_id','请输入受控附件引用 proof_attachment_id'));
       return;
     }
     if (blockedRawRef(form.proofAttachmentId)) {
-      setError("附件凭证只允许受控 ID，禁止填写裸 URL 或 /uploads 路径");
+      setError(t('ui.附件凭证只允许受控 ID，禁止填写裸 URL 或 /uploads 路径','附件凭证只允许受控 ID，禁止填写裸 URL 或 /uploads 路径'));
       return;
     }
 
@@ -502,10 +504,10 @@ export default function StorePaymentPage() {
         }),
       });
       setForm(initialForm());
-      setMessage("收款记录已生成，当前状态为待确认");
+      setMessage(t('ui.收款记录已生成，当前状态为待确认','收款记录已生成，当前状态为待确认'));
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "新增收款记录失败");
+      setError(e instanceof Error ? e.message : t('ui.新增收款记录失败','新增收款记录失败'));
     } finally {
       setSaving(false);
     }
@@ -516,19 +518,19 @@ export default function StorePaymentPage() {
     setMessage("");
     const isConfirmAction = action === "confirm" || action === "reject";
     if (isConfirmAction && !confirmPerm.canEdit) {
-      setError("当前账号没有 MENU_STORE_PAYMENT_CONFIRM:E，不能确认或驳回");
+      setError(t('ui.当前账号没有 MENU_STORE_PAYMENT_CONFIRM:E，不能确认或驳回','当前账号没有 MENU_STORE_PAYMENT_CONFIRM:E，不能确认或驳回'));
       return;
     }
     if (action === "void" && !voidPerm.canEdit) {
-      setError("当前账号没有 MENU_STORE_PAYMENT_VOID:E，不能作废");
+      setError(t('ui.当前账号没有 MENU_STORE_PAYMENT_VOID:E，不能作废','当前账号没有 MENU_STORE_PAYMENT_VOID:E，不能作废'));
       return;
     }
     const reason =
       action === "confirm"
-        ? window.prompt("确认备注，可留空") || ""
-        : window.prompt(action === "reject" ? "请输入驳回原因" : "请输入作废原因") || "";
+        ? window.prompt(t('ui.确认备注，可留空','确认备注，可留空')) || ""
+        : window.prompt(action === "reject" ? t('ui.请输入驳回原因','请输入驳回原因') : t('ui.请输入作废原因','请输入作废原因')) || "";
     if (action !== "confirm" && !reason.trim()) {
-      setError("驳回或作废必须填写原因");
+      setError(t('ui.驳回或作废必须填写原因','驳回或作废必须填写原因'));
       return;
     }
     setSaving(true);
@@ -537,10 +539,10 @@ export default function StorePaymentPage() {
         method: "POST",
         body: JSON.stringify(action === "confirm" ? { comment: reason.trim() || undefined } : { reason: reason.trim() }),
       });
-      setMessage(action === "confirm" ? "收款记录已确认" : action === "reject" ? "收款记录已驳回" : "收款记录已作废");
+      setMessage(action === "confirm" ? t('ui.收款记录已确认','收款记录已确认') : action === "reject" ? t('ui.收款记录已驳回','收款记录已驳回') : t('ui.收款记录已作废','收款记录已作废'));
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "状态操作失败");
+      setError(e instanceof Error ? e.message : t('ui.状态操作失败','状态操作失败'));
     } finally {
       setSaving(false);
     }
@@ -580,7 +582,7 @@ export default function StorePaymentPage() {
         URL.revokeObjectURL(objectUrl);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "受控附件访问失败");
+      setError(e instanceof Error ? e.message : t('ui.受控附件访问失败','受控附件访问失败'));
     } finally {
       setAttachmentBusy("");
     }
@@ -634,7 +636,7 @@ export default function StorePaymentPage() {
           <StatusTag status={status.toUpperCase()} />
         </div>
         <div className={styles.attachmentText}>
-          {params.loading ? "正在查询受控附件状态..." : accessReasonText(status, params.access?.reason)}
+          {params.loading ? t('ui.正在查询受控附件状态...','正在查询受控附件状态...') : accessReasonText(status, params.access?.reason)}
         </div>
         <div className={styles.attachmentText}>
           rawUrl: {hasUnsafeRawUrl ? "BLOCKED" : "null"} · endpoint: protected
@@ -645,18 +647,18 @@ export default function StorePaymentPage() {
             className={s.btnSecondary}
             disabled={!previewEnabled || attachmentBusy !== "" || params.loading}
             onClick={() => openProtectedAttachment(attachmentId, "preview", params.access)}
-            title={previewEnabled ? "通过受控端点预览" : "附件预览待配置 / 暂不可用"}
+            title={previewEnabled ? t('ui.通过受控端点预览','通过受控端点预览') : t('ui.附件预览待配置 / 暂不可用','附件预览待配置 / 暂不可用')}
           >
-            <ShieldCheck size={14} /> {attachmentBusy === "preview" ? "预览中" : "受控预览"}
+            <ShieldCheck size={14} /> {attachmentBusy === "preview" ? t('ui.预览中','预览中') : t('ui.受控预览','受控预览')}
           </button>
           <button
             type="button"
             className={s.btnSecondary}
             disabled={!downloadEnabled || attachmentBusy !== "" || params.loading}
             onClick={() => openProtectedAttachment(attachmentId, "download", params.access)}
-            title={downloadEnabled ? "通过受控端点下载" : "附件下载待配置 / 暂不可用"}
+            title={downloadEnabled ? t('ui.通过受控端点下载','通过受控端点下载') : t('ui.附件下载待配置 / 暂不可用','附件下载待配置 / 暂不可用')}
           >
-            <Lock size={14} /> {attachmentBusy === "download" ? "下载中" : "受控下载"}
+            <Lock size={14} /> {attachmentBusy === "download" ? t('ui.下载中','下载中') : t('ui.受控下载','受控下载')}
           </button>
         </div>
       </div>
@@ -671,16 +673,16 @@ export default function StorePaymentPage() {
     return (
       <div className={styles.actions}>
         <button type="button" className={s.btnSecondary} onClick={() => openDetail(record)}>
-          <FileText size={14} /> 详情
+          <FileText size={14} /> {t('ui.详情','详情')}
         </button>
         <button type="button" className={s.btnSuccess} disabled={!canConfirm || saving} onClick={() => transition(record, "confirm")}>
-          <CheckCircle2 size={14} /> 确认
+          <CheckCircle2 size={14} /> {t('ui.确认','确认')}
         </button>
         <button type="button" className={s.btnWarning} disabled={!canReject || saving} onClick={() => transition(record, "reject")}>
-          <XCircle size={14} /> 驳回
+          <XCircle size={14} /> {t('ui.驳回','驳回')}
         </button>
         <button type="button" className={s.btnDanger} disabled={!canVoid || saving} onClick={() => transition(record, "void")}>
-          <AlertTriangle size={14} /> 作废
+          <AlertTriangle size={14} /> {t('ui.作废','作废')}
         </button>
       </div>
     );
@@ -690,12 +692,12 @@ export default function StorePaymentPage() {
     return (
       <div className={styles.shell}>
         <PageHeader
-          title="统一收款管理"
-          subtitle="正在校验登录状态"
-          breadcrumb={["销售管理", "直营店", "统一收款"]}
+          title={t('ui.统一收款管理','统一收款管理')}
+          subtitle={t('ui.正在校验登录状态','正在校验登录状态')}
+          breadcrumb={[t('ui.销售管理','销售管理'), t('ui.直营店','直营店'), t('ui.统一收款','统一收款')]}
         />
         <div className={styles.safeNotice}>
-          <Lock size={14} /> 正在跳转到登录页，未登录状态不会渲染统一收款业务数据。
+          <Lock size={14} /> {t('ui.正在跳转到登录页，未登录状态不会渲染统一收款业务数据。','正在跳转到登录页，未登录状态不会渲染统一收款业务数据。')}
         </div>
       </div>
     );
@@ -704,17 +706,17 @@ export default function StorePaymentPage() {
   return (
     <div className={styles.shell}>
       <PageHeader
-        title="统一收款管理"
-        subtitle="公司收款码试点 · 受控附件 UAT"
-        breadcrumb={["销售管理", "直营店", "统一收款"]}
+        title={t('ui.统一收款管理','统一收款管理')}
+        subtitle={t('ui.公司收款码试点 · 受控附件 UAT','公司收款码试点 · 受控附件 UAT')}
+        breadcrumb={[t('ui.销售管理','销售管理'), t('ui.直营店','直营店'), t('ui.统一收款','统一收款')]}
         actions={
           <>
             <button type="button" className={s.btnSecondary} onClick={refresh} disabled={loading}>
-              <RefreshCw size={14} /> 刷新
+              <RefreshCw size={14} /> {t('ui.刷新','刷新')}
             </button>
             {exportPerm.canExport && (
-              <button type="button" className={s.btnSecondary} disabled title="导出预留，当前 Gate 不实现真实导出">
-                导出暂未开放
+              <button type="button" className={s.btnSecondary} disabled title={t('ui.导出预留，当前 Gate 不实现真实导出','导出预留，当前 Gate 不实现真实导出')}>
+                {t('ui.导出暂未开放','导出暂未开放')}
               </button>
             )}
           </>
@@ -723,11 +725,11 @@ export default function StorePaymentPage() {
 
       <div className={styles.toolbar}>
         <div className={styles.actions}>
-          <PermissionNote label="账户 V/E" ok={accountPerm.canView && accountPerm.canEdit} />
-          <PermissionNote label="记录 V/E" ok={recordPerm.canView && recordPerm.canEdit} />
-          <PermissionNote label="确认 V/E" ok={confirmPerm.canView && confirmPerm.canEdit} />
-          <PermissionNote label="作废 V/E" ok={voidPerm.canView && voidPerm.canEdit} />
-          <PermissionNote label="导出 X 预留" ok={exportPerm.canExport} />
+          <PermissionNote label={t('ui.账户 V/E','账户 V/E')} ok={accountPerm.canView && accountPerm.canEdit} />
+          <PermissionNote label={t('ui.记录 V/E','记录 V/E')} ok={recordPerm.canView && recordPerm.canEdit} />
+          <PermissionNote label={t('ui.确认 V/E','确认 V/E')} ok={confirmPerm.canView && confirmPerm.canEdit} />
+          <PermissionNote label={t('ui.作废 V/E','作废 V/E')} ok={voidPerm.canView && voidPerm.canEdit} />
+          <PermissionNote label={t('ui.导出 X 预留','导出 X 预留')} ok={exportPerm.canExport} />
         </div>
         <div className={styles.sectionHint}>{CANONICAL_STORE_CODE} / {STORE_NAME} · {COMPANY_CODE}</div>
       </div>
@@ -740,57 +742,57 @@ export default function StorePaymentPage() {
       )}
 
       <div className={styles.safeNotice}>
-        <ShieldCheck size={14} /> 附件预览/下载只允许走 Store Payment 受控端点。没有 file_metadata 或后端 ACL 未返回 allowed 时，按钮保持禁用；页面不展示 rawUrl，不拼接 /uploads，不打开裸链接。
+        <ShieldCheck size={14} /> {t('ui.附件预览/下载只允许走 Store Payment 受控端点。没有 file_metadata 或后端 ACL 未返回 allowed 时，按钮保持禁用；页面不展示 rawUrl，不拼接 /uploads，不打开裸链接。','附件预览/下载只允许走 Store Payment 受控端点。没有 file_metadata 或后端 ACL 未返回 allowed 时，按钮保持禁用；页面不展示 rawUrl，不拼接 /uploads，不打开裸链接。')}
       </div>
 
       <div className={styles.summaryGrid}>
         <div className={styles.summary}>
-          <div className={styles.summaryLabel}>收款账户</div>
+          <div className={styles.summaryLabel}>{t('ui.收款账户','收款账户')}</div>
           <div className={styles.summaryValue}>{accountTotal}</div>
-          <div className={styles.summaryMeta}>启用 {activeAccounts.length} · 停用/待配置 {totals.disabledAccounts}</div>
+          <div className={styles.summaryMeta}>{t('ui.启用','启用')} {activeAccounts.length} · {t('ui.停用/待配置','停用/待配置')} {totals.disabledAccounts}</div>
         </div>
         <div className={styles.summary}>
-          <div className={styles.summaryLabel}>收款记录</div>
+          <div className={styles.summaryLabel}>{t('ui.收款记录','收款记录')}</div>
           <div className={styles.summaryValue}>{recordTotal}</div>
-          <div className={styles.summaryMeta}>待确认 {totals.pending} · 已确认 {totals.confirmed}</div>
+          <div className={styles.summaryMeta}>{t('ui.待确认','待确认')} {totals.pending} · {t('ui.已确认','已确认')} {totals.confirmed}</div>
         </div>
         <div className={styles.summary}>
-          <div className={styles.summaryLabel}>记录金额</div>
+          <div className={styles.summaryLabel}>{t('ui.记录金额','记录金额')}</div>
           <div className={styles.summaryValue}>{money(totals.totalAmount, "LAK")}</div>
-          <div className={styles.summaryMeta}>按当前筛选结果汇总</div>
+          <div className={styles.summaryMeta}>{t('ui.按当前筛选结果汇总','按当前筛选结果汇总')}</div>
         </div>
         <div className={styles.summary}>
-          <div className={styles.summaryLabel}>附件安全</div>
+          <div className={styles.summaryLabel}>{t('ui.附件安全','附件安全')}</div>
           <div className={styles.summaryValue}>Protected</div>
-          <div className={styles.summaryMeta}>按钮由后端 ACL 状态控制</div>
+          <div className={styles.summaryMeta}>{t('ui.按钮由后端 ACL 状态控制','按钮由后端 ACL 状态控制')}</div>
         </div>
       </div>
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
-            <div className={styles.sectionTitle}><Banknote size={16} /> 公司收款账户</div>
-            <div className={styles.sectionHint}>本阶段展示已初始化的账户占位状态，不伪造真实银行或二维码信息。</div>
+            <div className={styles.sectionTitle}><Banknote size={16} /> {t('ui.公司收款账户','公司收款账户')}</div>
+            <div className={styles.sectionHint}>{t('ui.本阶段展示已初始化的账户占位状态，不伪造真实银行或二维码信息。','本阶段展示已初始化的账户占位状态，不伪造真实银行或二维码信息。')}</div>
           </div>
-          <button type="button" className={s.btnSecondary} disabled={!accountPerm.canEdit} title="账户维护需财务确认真实账户后启用">
-            维护预留
+          <button type="button" className={s.btnSecondary} disabled={!accountPerm.canEdit} title={t('ui.账户维护需财务确认真实账户后启用','账户维护需财务确认真实账户后启用')}>
+            {t('ui.维护预留','维护预留')}
           </button>
         </div>
         {!accountPerm.canView ? (
-          <div className={styles.empty}>当前账号没有 MENU_STORE_PAYMENT_ACCOUNT:V，无法查看收款账户。</div>
+          <div className={styles.empty}>{t('ui.当前账号没有 MENU_STORE_PAYMENT_ACCOUNT:V，无法查看收款账户。','当前账号没有 MENU_STORE_PAYMENT_ACCOUNT:V，无法查看收款账户。')}</div>
         ) : (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>账户编码</th>
-                  <th>账户名称</th>
-                  <th>门店</th>
-                  <th>币种</th>
-                  <th>支付方式</th>
-                  <th>QR 状态</th>
-                  <th>状态</th>
-                  <th>说明</th>
+                  <th>{t('ui.账户编码','账户编码')}</th>
+                  <th>{t('ui.账户名称','账户名称')}</th>
+                  <th>{t('ui.门店','门店')}</th>
+                  <th>{t('ui.币种','币种')}</th>
+                  <th>{t('ui.支付方式','支付方式')}</th>
+                  <th>{t('ui.QR 状态','QR 状态')}</th>
+                  <th>{t('ui.状态','状态')}</th>
+                  <th>{t('ui.说明','说明')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -818,10 +820,10 @@ export default function StorePaymentPage() {
                       })}
                     </td>
                     <td><StatusTag status={account.isActive ? account.status : "PENDING_CONFIG"} /></td>
-                    <td>{account.remark || "待财务补齐真实账户信息"}</td>
+                    <td>{account.remark || t('ui.待财务补齐真实账户信息','待财务补齐真实账户信息')}</td>
                   </tr>
                 ))}
-                {accounts.length === 0 && <tr><td colSpan={8} className={styles.empty}>暂无收款账户</td></tr>}
+                {accounts.length === 0 && <tr><td colSpan={8} className={styles.empty}>{t('ui.暂无收款账户','暂无收款账户')}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -831,113 +833,113 @@ export default function StorePaymentPage() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div>
-            <div className={styles.sectionTitle}><FileText size={16} /> 收款记录</div>
-            <div className={styles.sectionHint}>支持门店、收款人、日期、支付方式和状态查询。</div>
+            <div className={styles.sectionTitle}><FileText size={16} /> {t('ui.收款记录','收款记录')}</div>
+            <div className={styles.sectionHint}>{t('ui.支持门店、收款人、日期、支付方式和状态查询。','支持门店、收款人、日期、支付方式和状态查询。')}</div>
           </div>
         </div>
         <div className={styles.filterGrid}>
           <select className={s.inp} value={filters.status} onChange={(e) => setFilters((current) => ({ ...current, status: e.target.value }))}>
-            <option value="">全部状态</option>
-            <option value="PENDING">待确认</option>
-            <option value="CONFIRMED">已确认</option>
-            <option value="REJECTED">已驳回</option>
-            <option value="VOIDED">已作废</option>
+            <option value="">{t('ui.全部状态','全部状态')}</option>
+            <option value="PENDING">{t('ui.待确认','待确认')}</option>
+            <option value="CONFIRMED">{t('ui.已确认','已确认')}</option>
+            <option value="REJECTED">{t('ui.已驳回','已驳回')}</option>
+            <option value="VOIDED">{t('ui.已作废','已作废')}</option>
           </select>
           <input className={s.inp} type="date" value={filters.dateFrom} onChange={(e) => setFilters((current) => ({ ...current, dateFrom: e.target.value }))} />
           <input className={s.inp} type="date" value={filters.dateTo} onChange={(e) => setFilters((current) => ({ ...current, dateTo: e.target.value }))} />
-          <input className={s.inp} placeholder="收款人 username" value={filters.submittedBy} onChange={(e) => setFilters((current) => ({ ...current, submittedBy: e.target.value }))} />
+          <input className={s.inp} placeholder={t('ui.收款人 username','收款人 username')} value={filters.submittedBy} onChange={(e) => setFilters((current) => ({ ...current, submittedBy: e.target.value }))} />
           <select className={s.inp} value={filters.paymentAccountId} onChange={(e) => setFilters((current) => ({ ...current, paymentAccountId: e.target.value }))}>
-            <option value="">全部账户</option>
+            <option value="">{t('ui.全部账户','全部账户')}</option>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
           </select>
           <select className={s.inp} value={filters.paymentMethod} onChange={(e) => setFilters((current) => ({ ...current, paymentMethod: e.target.value }))}>
-            <option value="">全部支付方式</option>
+            <option value="">{t('ui.全部支付方式','全部支付方式')}</option>
             {Array.from(new Set(accounts.map((account) => account.paymentMethod).filter(Boolean))).map((method) => <option key={method} value={method}>{method}</option>)}
           </select>
           <button type="button" className={s.btnPrimary} onClick={refresh} disabled={loading}>
-            查询
+            {t('ui.查询','查询')}
           </button>
         </div>
 
         {recordPerm.canEdit && (
           <div className={styles.formGrid}>
             <div>
-              <label className={s.lbl}>门店</label>
+              <label className={s.lbl}>{t('ui.门店','门店')}</label>
               <input className={s.inp} value={`${CANONICAL_STORE_CODE} / ${STORE_NAME}`} disabled />
             </div>
             <div>
-              <label className={s.lbl}>公司</label>
+              <label className={s.lbl}>{t('ui.公司','公司')}</label>
               <input className={s.inp} value={COMPANY_CODE} disabled />
             </div>
             <div>
-              <label className={s.lbl}>收款账户</label>
+              <label className={s.lbl}>{t('ui.收款账户','收款账户')}</label>
               <select className={s.inp} value={form.paymentAccountId} onChange={(e) => setField("paymentAccountId", e.target.value)}>
-                <option value="">请选择启用账户</option>
+                <option value="">{t('ui.请选择启用账户','请选择启用账户')}</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id} disabled={account.status !== "ACTIVE" || !account.isActive}>
                     {account.accountName} · {account.currency} · {account.paymentMethod}
-                    {account.status !== "ACTIVE" || !account.isActive ? " (待配置)" : ""}
+                    {account.status !== "ACTIVE" || !account.isActive ? t('ui. (待配置)',' (待配置)') : ""}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={s.lbl}>金额</label>
+              <label className={s.lbl}>{t('ui.金额','金额')}</label>
               <input className={s.inp} type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => setField("amount", e.target.value)} />
             </div>
             <div>
-              <label className={s.lbl}>币种</label>
+              <label className={s.lbl}>{t('ui.币种','币种')}</label>
               <input className={s.inp} value={form.currency} disabled />
             </div>
             <div>
-              <label className={s.lbl}>支付方式</label>
+              <label className={s.lbl}>{t('ui.支付方式','支付方式')}</label>
               <input className={s.inp} value={form.paymentMethod} disabled />
             </div>
             <div>
-              <label className={s.lbl}>付款时间</label>
+              <label className={s.lbl}>{t('ui.付款时间','付款时间')}</label>
               <input className={s.inp} type="datetime-local" value={form.paidAt} onChange={(e) => setField("paidAt", e.target.value)} />
             </div>
             <div>
               <label className={s.lbl}>proof_attachment_id</label>
-              <input className={s.inp} placeholder="受控附件 ID，禁止 URL" value={form.proofAttachmentId} onChange={(e) => setField("proofAttachmentId", e.target.value)} />
+              <input className={s.inp} placeholder={t('ui.受控附件 ID，禁止 URL','受控附件 ID，禁止 URL')} value={form.proofAttachmentId} onChange={(e) => setField("proofAttachmentId", e.target.value)} />
             </div>
             <div>
-              <label className={s.lbl}>订单号</label>
+              <label className={s.lbl}>{t('ui.订单号','订单号')}</label>
               <input className={s.inp} value={form.orderNo} onChange={(e) => setField("orderNo", e.target.value)} />
             </div>
             <div>
-              <label className={s.lbl}>销售小票</label>
+              <label className={s.lbl}>{t('ui.销售小票','销售小票')}</label>
               <input className={s.inp} value={form.saleNo} onChange={(e) => setField("saleNo", e.target.value)} />
             </div>
             <div className={styles.wide}>
-              <label className={s.lbl}>备注</label>
+              <label className={s.lbl}>{t('ui.备注','备注')}</label>
               <input className={s.inp} value={form.remark} onChange={(e) => setField("remark", e.target.value)} />
             </div>
             <div className={styles.full}>
               <button type="button" className={s.btnPrimary} onClick={submitRecord} disabled={saving || activeAccounts.length === 0}>
-                新增待确认收款记录
+                {t('ui.新增待确认收款记录','新增待确认收款记录')}
               </button>
-              {activeAccounts.length === 0 && <span className={styles.sectionHint}> 当前无启用公司收款账户，表单保持安全禁用。</span>}
+              {activeAccounts.length === 0 && <span className={styles.sectionHint}> {t('ui.当前无启用公司收款账户，表单保持安全禁用。','当前无启用公司收款账户，表单保持安全禁用。')}</span>}
             </div>
           </div>
         )}
 
         {!recordPerm.canView ? (
-          <div className={styles.empty}>当前账号没有 MENU_STORE_PAYMENT:V，无法查看收款记录。</div>
+          <div className={styles.empty}>{t('ui.当前账号没有 MENU_STORE_PAYMENT:V，无法查看收款记录。','当前账号没有 MENU_STORE_PAYMENT:V，无法查看收款记录。')}</div>
         ) : (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>收款单号</th>
-                  <th>门店</th>
-                  <th>账户</th>
-                  <th>金额</th>
-                  <th>付款时间</th>
-                  <th>收款人</th>
-                  <th>附件</th>
-                  <th>状态</th>
-                  <th>操作</th>
+                  <th>{t('ui.收款单号','收款单号')}</th>
+                  <th>{t('ui.门店','门店')}</th>
+                  <th>{t('ui.账户','账户')}</th>
+                  <th>{t('ui.金额','金额')}</th>
+                  <th>{t('ui.付款时间','付款时间')}</th>
+                  <th>{t('ui.收款人','收款人')}</th>
+                  <th>{t('ui.附件','附件')}</th>
+                  <th>{t('ui.状态','状态')}</th>
+                  <th>{t('ui.操作','操作')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -954,14 +956,14 @@ export default function StorePaymentPage() {
                         <span className={`${styles.tag} ${record.proofAttachmentId ? styles.tagWarning : styles.tagInfo}`}>
                           <Lock size={12} /> {record.proofAttachmentId ? "status pending" : "metadata missing"}
                         </span>
-                        <span className={styles.attachmentText}>受控端点决定按钮状态</span>
+                        <span className={styles.attachmentText}>{t('ui.受控端点决定按钮状态','受控端点决定按钮状态')}</span>
                       </div>
                     </td>
                     <td><StatusTag status={record.status} /></td>
                     <td>{renderActions(record)}</td>
                   </tr>
                 ))}
-                {visibleRecords.length === 0 && <tr><td colSpan={9} className={styles.empty}>暂无收款记录</td></tr>}
+                {visibleRecords.length === 0 && <tr><td colSpan={9} className={styles.empty}>{t('ui.暂无收款记录','暂无收款记录')}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -970,24 +972,24 @@ export default function StorePaymentPage() {
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
-          <div className={styles.sectionTitle}><ShieldCheck size={16} /> UAT smoke 路径</div>
+          <div className={styles.sectionTitle}><ShieldCheck size={16} /> {t('ui.UAT smoke 路径','UAT smoke 路径')}</div>
         </div>
         <div className={styles.detailGrid}>
           <div className={styles.detailItem}>
-            <div className={styles.detailLabel}>权限路径</div>
-            <div className={styles.detailValue}>账户 V/E、记录 V/E、确认 V/E、作废 V/E、导出 X 预留逐项验证按钮可见性。</div>
+            <div className={styles.detailLabel}>{t('ui.权限路径','权限路径')}</div>
+            <div className={styles.detailValue}>{t('ui.账户 V/E、记录 V/E、确认 V/E、作废 V/E、导出 X 预留逐项验证按钮可见性。','账户 V/E、记录 V/E、确认 V/E、作废 V/E、导出 X 预留逐项验证按钮可见性。')}</div>
           </div>
           <div className={styles.detailItem}>
-            <div className={styles.detailLabel}>附件路径</div>
-            <div className={styles.detailValue}>proof/QR 只调用 `/store-payment/attachments/:fileId/status|preview|download`；无 metadata 时稳定显示待配置，不展示 rawUrl。</div>
+            <div className={styles.detailLabel}>{t('ui.附件路径','附件路径')}</div>
+            <div className={styles.detailValue}>{t('ui.proof/QR 只调用 `/store-payment/attachments/:fileId/status|preview|download`；无 metadata 时稳定显示待配置，不展示 rawUrl。','proof/QR 只调用 `/store-payment/attachments/:fileId/status|preview|download`；无 metadata 时稳定显示待配置，不展示 rawUrl。')}</div>
           </div>
           <div className={styles.detailItem}>
-            <div className={styles.detailLabel}>DataScope 路径</div>
-            <div className={styles.detailValue}>新增记录固定使用 {CANONICAL_STORE_CODE}；{LEGACY_STORE_CODE} 只作为 legacy alias 展示。</div>
+            <div className={styles.detailLabel}>{t('ui.DataScope 路径','DataScope 路径')}</div>
+            <div className={styles.detailValue}>{t('ui.新增记录固定使用','新增记录固定使用')} {CANONICAL_STORE_CODE}；{LEGACY_STORE_CODE} {t('ui.只作为 legacy alias 展示。','只作为 legacy alias 展示。')}</div>
           </div>
           <div className={styles.detailItem}>
-            <div className={styles.detailLabel}>业务路径</div>
-            <div className={styles.detailValue}>列表查询、新增待确认、确认、驳回、作废、详情抽屉和空状态。</div>
+            <div className={styles.detailLabel}>{t('ui.业务路径','业务路径')}</div>
+            <div className={styles.detailValue}>{t('ui.列表查询、新增待确认、确认、驳回、作废、详情抽屉和空状态。','列表查询、新增待确认、确认、驳回、作废、详情抽屉和空状态。')}</div>
           </div>
         </div>
       </section>
@@ -997,25 +999,25 @@ export default function StorePaymentPage() {
           <aside className={styles.drawer} onClick={(event) => event.stopPropagation()}>
             <div className={styles.toolbar}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, color: "var(--color-primary)" }}>收款记录详情</h2>
+                <h2 style={{ margin: 0, fontSize: 18, color: "var(--color-primary)" }}>{t('ui.收款记录详情','收款记录详情')}</h2>
                 <div className={styles.sectionHint}>{selected.paymentNo}</div>
               </div>
-              <button type="button" className={s.btnSecondary} onClick={() => setSelected(null)}>关闭</button>
+              <button type="button" className={s.btnSecondary} onClick={() => setSelected(null)}>{t('ui.关闭','关闭')}</button>
             </div>
             <div className={styles.detailGrid}>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>状态</div><div className={styles.detailValue}><StatusTag status={selected.status} /></div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>金额</div><div className={styles.detailValue}>{money(selected.amount, selected.currency)}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>门店</div><div className={styles.detailValue}>{normalizeStoreDisplay(selected.storeCode)}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>付款方式</div><div className={styles.detailValue}>{selected.paymentMethod}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>订单/小票</div><div className={styles.detailValue}>{selected.orderNo || "-"} / {selected.saleNo || "-"}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>付款时间</div><div className={styles.detailValue}>{dateText(selected.paidAt)}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>确认/驳回/作废原因</div><div className={styles.detailValue}>{selected.reason || "-"}</div></div>
-              <div className={styles.detailItem}><div className={styles.detailLabel}>备注</div><div className={styles.detailValue}>{selected.remark || "-"}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.状态','状态')}</div><div className={styles.detailValue}><StatusTag status={selected.status} /></div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.金额','金额')}</div><div className={styles.detailValue}>{money(selected.amount, selected.currency)}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.门店','门店')}</div><div className={styles.detailValue}>{normalizeStoreDisplay(selected.storeCode)}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.付款方式','付款方式')}</div><div className={styles.detailValue}>{selected.paymentMethod}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.订单/小票','订单/小票')}</div><div className={styles.detailValue}>{selected.orderNo || "-"} / {selected.saleNo || "-"}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.付款时间','付款时间')}</div><div className={styles.detailValue}>{dateText(selected.paidAt)}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.确认/驳回/作废原因','确认/驳回/作废原因')}</div><div className={styles.detailValue}>{selected.reason || "-"}</div></div>
+              <div className={styles.detailItem}><div className={styles.detailLabel}>{t('ui.备注','备注')}</div><div className={styles.detailValue}>{selected.remark || "-"}</div></div>
               <div className={`${styles.detailItem} ${styles.full}`}>
-                <div className={styles.detailLabel}>附件受控状态</div>
+                <div className={styles.detailLabel}>{t('ui.附件受控状态','附件受控状态')}</div>
                 <div className={styles.detailValue}>
                   {renderAttachmentControls({
-                    label: "付款截图 proof",
+                    label: t('ui.付款截图 proof','付款截图 proof'),
                     attachmentId: selected.proofAttachmentId,
                     access: proofAccess || {
                       attachmentBound: selected.proofAttachmentBound,

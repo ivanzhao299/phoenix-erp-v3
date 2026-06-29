@@ -19,6 +19,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { X, Link2 } from 'lucide-react';
 import request from '@/lib/api-client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { MasterDataConfig } from './detail-configs';
 import { drawerMask, drawerCloseButton } from '@/components/design-system/cockpit-styles';
 
@@ -42,6 +43,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
+  const { t } = useLanguage();
   const [info, setInfo] = useState<any>(null);
   const [extra, setExtra] = useState<Record<string, any>>({});
   const [refs, setRefs] = useState<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>({ totalReferences: 0, references: [], canArchive: true });
@@ -55,7 +57,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
     const errs: string[] = [];
     const safe = async <T,>(p: string, label: string): Promise<T | null> => {
       try { return await request<T>(p); }
-      catch (e) { errs.push(`${label}: ${e instanceof Error ? e.message : '失败'}`); return null; }
+      catch (e) { errs.push(`${label}: ${e instanceof Error ? e.message : t('ui.失败','失败')}`); return null; }
     };
 
     const extraCalls = (config.extraApis || []).map(api =>
@@ -63,11 +65,11 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
     );
 
     Promise.all([
-      safe<any>(`/master-data/runtime/${config.type}/${encodeURIComponent(code)}`, '基础'),
+      safe<any>(`/master-data/runtime/${config.type}/${encodeURIComponent(code)}`, t('ui.基础','基础')),
       safe<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>(
-        `/master-data/references/${config.referenceObjectType}/${encodeURIComponent(code)}`, '引用'),
+        `/master-data/references/${config.referenceObjectType}/${encodeURIComponent(code)}`, t('ui.引用','引用')),
       safe<{ items: AuditItem[] }>(
-        `/master-data/audit/${config.referenceObjectType}/${encodeURIComponent(code)}`, '审计'),
+        `/master-data/audit/${config.referenceObjectType}/${encodeURIComponent(code)}`, t('ui.审计','审计')),
       ...extraCalls,
     ]).then(results => {
       const [infoR, refsR, auditR, ...extras] = results;
@@ -107,21 +109,21 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
                 <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: status.color, borderRadius: 100 }}>{status.label}</span>
               )}
               {!refs.canArchive && (
-                <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)', borderRadius: 100 }}>归档阻断</span>
+                <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)', borderRadius: 100 }}>{t('ui.归档阻断','归档阻断')}</span>
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="关闭" style={drawerCloseButton}>
+          <button type="button" onClick={onClose} aria-label={t('ui.关闭','关闭')} style={drawerCloseButton}>
             <X size={20} />
           </button>
         </header>
 
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {loading && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</div>}
+          {loading && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>{t('ui.加载中…','加载中…')}</div>}
 
           {errors.length > 0 && (
             <section style={{ padding: 12, borderLeft: '3px solid var(--status-warning)', background: 'var(--status-warning-bg-faint)', fontSize: 12 }}>
-              <strong>部分数据加载失败</strong>
+              <strong>{t('ui.部分数据加载失败','部分数据加载失败')}</strong>
               <ul style={{ margin: '4px 0 0 16px' }}>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
             </section>
           )}
@@ -129,7 +131,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           {/* KPI */}
           {config.kpis && config.kpis.length > 0 && (
             <section>
-              <SectionTitle>业务统计</SectionTitle>
+              <SectionTitle>{t('ui.业务统计','业务统计')}</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(4, config.kpis.length)}, 1fr)`, gap: 12 }}>
                 {config.kpis.map((k, i) => {
                   const v = k.value(info, extra);
@@ -151,7 +153,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           {/* 基础信息 */}
           {info && config.basicFields && (
             <section>
-              <SectionTitle>基础信息</SectionTitle>
+              <SectionTitle>{t('ui.基础信息','基础信息')}</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', padding: 16, background: 'var(--bg-muted)', borderRadius: 'var(--radius-card)' }}>
                 {config.basicFields.map(f => (
                   <InfoRow key={f.key} label={f.label} value={f.format ? f.format(info[f.key], info) : (info[f.key] || '—')} />
@@ -171,7 +173,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           {/* 引用 */}
           {refs.totalReferences > 0 && (
             <section>
-              <SectionTitle>被引用 ({refs.totalReferences})</SectionTitle>
+              <SectionTitle>{t('ui.被引用','被引用')} ({refs.totalReferences})</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
                 {refs.references.map(r => (
                   <div key={r.refTable} style={{ padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -190,7 +192,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           {/* 审计 */}
           {audit.length > 0 && (
             <section>
-              <SectionTitle>最近活动</SectionTitle>
+              <SectionTitle>{t('ui.最近活动','最近活动')}</SectionTitle>
               <div style={{ borderLeft: '2px solid var(--border)', paddingLeft: 12, marginLeft: 4 }}>
                 {audit.map((a, i) => (
                   <div key={i} style={{ position: 'relative', paddingBottom: 12 }}>

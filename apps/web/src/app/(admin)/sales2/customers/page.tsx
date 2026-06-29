@@ -113,7 +113,7 @@ export default function SalesV2CustomersPage() {
   } = useLanguage();
   const [tab, setTab] = useState<Tab>("customers");
   return <div className="animate-fade-in">
-      <PageHeader title="客户档案" subtitle="统一客户主档 · 渠道管理 · 按公司隔离数据" breadcrumb={["销售系统", "客户档案"]} />
+      <PageHeader title={t('ui.客户档案', '客户档案')} subtitle={t('ui.统一客户主档 · 渠道管理 · 按公司隔离数据', '统一客户主档 · 渠道管理 · 按公司隔离数据')} breadcrumb={[t('ui.销售系统', '销售系统'), t('ui.客户档案', '客户档案')]} />
 
       {/* Tab Bar */}
       <div style={{
@@ -125,15 +125,15 @@ export default function SalesV2CustomersPage() {
     }}>
         {([{
         id: "customers",
-        label: "客户主档",
+        label: t('ui.客户主档', '客户主档'),
         icon: <Users size={14} />
       }, {
         id: "channels",
-        label: "渠道管理",
+        label: t('ui.渠道管理', '渠道管理'),
         icon: <Layers size={14} />
       }, {
         id: "credit",
-        label: "信用概览",
+        label: t('ui.信用概览', '信用概览'),
         icon: <CreditCard size={14} />
       }] as {
         id: Tab;
@@ -171,6 +171,9 @@ export default function SalesV2CustomersPage() {
 // 客户主档 Tab
 // ══════════════════════════════════════════════════════════════════════════════
 function CustomersTab() {
+  const {
+    t
+  } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -262,65 +265,65 @@ function CustomersTab() {
   });
   const FIELDS: FormField[] = [{
     key: "customerName",
-    label: "客户名称",
+    label: t('ui.客户名称', '客户名称'),
     type: "text",
     required: true
   }, {
     key: "customerType",
-    label: "客户类型",
+    label: t('ui.客户类型', '客户类型'),
     type: "select",
     required: true,
     options: CUSTOMER_TYPES
   }, {
     key: "companyCode",
-    label: "公司",
+    label: t('ui.公司', '公司'),
     type: "company",
     required: true,
     onPickKeys: { companyName: "org_name" }
   }, {
     key: "companyName",
-    label: "公司名称",
+    label: t('ui.公司名称', '公司名称'),
     type: "readonly"
   }, {
     key: "channelCode",
-    label: "渠道",
+    label: t('ui.渠道', '渠道'),
     type: "channel"
   }, {
     key: "regionCode",
-    label: "区域编码",
+    label: t('ui.区域编码', '区域编码'),
     type: "text"
   }, {
     key: "creditLimit",
-    label: "信用额度",
+    label: t('ui.信用额度', '信用额度'),
     type: "number"
   }, {
     key: "paymentTerms",
-    label: "账期（天）",
+    label: t('ui.账期（天）', '账期（天）'),
     type: "number"
   }, {
     key: "riskLevel",
-    label: "风险等级",
+    label: t('ui.风险等级', '风险等级'),
     type: "select",
     options: RISK_LEVELS
   }, {
     key: "salesRepName",
-    label: "销售员",
+    label: t('ui.销售员', '销售员'),
     type: "text"
   }, {
     key: "contactName",
-    label: "联系人",
+    label: t('ui.联系人', '联系人'),
     type: "text"
   }, {
     key: "contactPhone",
-    label: "联系电话",
+    label: t('ui.联系电话', '联系电话'),
     type: "text"
   }, {
     key: "deliveryAddress",
-    label: "配送地址",
+    label: t('ui.配送地址', '配送地址'),
     type: "text"
   }, {
     key: "remark",
-    label: "备注",
+    label: t('ui.备注', '备注'),
     type: "text"
   }];
   const totalPages = Math.ceil(total / limit);
@@ -352,7 +355,7 @@ function CustomersTab() {
           fontSize: 13,
           width: "100%",
           background: "var(--bg-card)"
-        }} placeholder="搜索客户名称 / 编号 / 联系人…" value={keyword} onChange={e => {
+        }} placeholder={t('ui.搜索客户名称 / 编号 / 联系人…', '搜索客户名称 / 编号 / 联系人…')} value={keyword} onChange={e => {
           setKeyword(e.target.value);
           setPage(1);
         }} />
@@ -380,8 +383,8 @@ function CustomersTab() {
         padding: "0 10px",
         background: "var(--bg-card)"
       }}>
-          <option value="">全部类型</option>
-          {CUSTOMER_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          <option value="">{t('ui.全部类型', '全部类型')}</option>
+          {CUSTOMER_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
         </select>
         <select value={statusFilter} onChange={e => {
         setStatusFilter(e.target.value);
@@ -394,10 +397,10 @@ function CustomersTab() {
         padding: "0 10px",
         background: "var(--bg-card)"
       }}>
-          <option value="">全部状态</option>
-          <option value="ACTIVE">正常</option>
-          <option value="FROZEN">冻结</option>
-          <option value="BLACKLIST">黑名单</option>
+          <option value="">{t('ui.全部状态', '全部状态')}</option>
+          <option value="ACTIVE">{t('ui.正常', '正常')}</option>
+          <option value="FROZEN">{t('ui.冻结', '冻结')}</option>
+          <option value="BLACKLIST">{t('ui.黑名单', '黑名单')}</option>
         </select>
         <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{
         display: "flex",
@@ -407,7 +410,7 @@ function CustomersTab() {
       }}>
           <RefreshCw size={13} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新', '刷新')}
         </button>
         {/* G4-C：禁止销售页直接建客户；导向 G3 主数据中心 */}
         <a href="/master-data/customers" className={s.btnPrimary} style={{
@@ -417,7 +420,7 @@ function CustomersTab() {
         height: 34,
         textDecoration: "none"
       }}>
-          <Plus size={13} /> 前往主数据中心新增
+          <Plus size={13} /> {t('ui.前往主数据中心新增', '前往主数据中心新增')}
         </a>
       </div>
 
@@ -431,12 +434,12 @@ function CustomersTab() {
       fontSize: 12.5,
       color: "var(--color-info,var(--color-accent))"
     }}>
-        <strong>销售视图：</strong>客户主数据已下沉至 <a href="/master-data/customers" style={{
+        <strong>{t('ui.销售视图：', '销售视图：')}</strong>{t('ui.客户主数据已下沉至 ', '客户主数据已下沉至 ')}<a href="/master-data/customers" style={{
         color: "inherit",
         fontWeight: 600,
         textDecoration: "underline"
-      }}>主数据中心</a>，
-        请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。
+      }}>{t('ui.主数据中心', '主数据中心')}</a>，
+        {t('ui.请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。', '请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。')}
       </div>
 
       {/* Table */}
@@ -449,12 +452,12 @@ function CustomersTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["客户编号", "客户名称", "类型", "渠道", "信用额度", "已用额度", "账期", "风险", "状态", "操作"].map(h => <th key={h}>{h}</th>)}
+              {[t('ui.客户编号', '客户编号'), t('ui.客户名称', '客户名称'), t('ui.类型', '类型'), t('ui.渠道', '渠道'), t('ui.信用额度', '信用额度'), t('ui.已用额度', '已用额度'), t('ui.账期', '账期'), t('ui.风险', '风险'), t('ui.状态', '状态'), t('ui.操作', '操作')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} className={u.emptyCenter}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>暂无客户数据</td></tr>}
+            {loading && <tr><td colSpan={10} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>{t('ui.暂无客户数据', '暂无客户数据')}</td></tr>}
             {rows.map((row, i) => {
             const st = STATUS_MAP[row.status] ?? {
               label: row.status,
@@ -512,15 +515,15 @@ function CustomersTab() {
                       <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>编辑</button>
+                  }}>{t('ui.编辑', '编辑')}</button>
                       {row.status === "ACTIVE" && <button type="button" className={s.btnSecondary} onClick={() => doFreeze(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>冻结</button>}
+                  }}>{t('ui.冻结', '冻结')}</button>}
                       {row.status === "FROZEN" && <button type="button" className={s.btnSecondary} onClick={() => doActivate(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>解冻</button>}
+                  }}>{t('ui.解冻', '解冻')}</button>}
                       {row.status !== "BLACKLIST" && <button type="button" onClick={() => doBlacklist(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11,
@@ -530,7 +533,7 @@ function CustomersTab() {
                     borderRadius: "var(--radius)",
                     cursor: "pointer"
                   }}>
-                          黑名单
+                          {t('ui.黑名单', '黑名单')}
                         </button>}
                     </div>
                   </td>
@@ -549,14 +552,14 @@ function CustomersTab() {
       alignItems: "center",
       fontSize: 13
     }}>
-          <span className={u.muted}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          <span className={u.muted}>{t('ui.共', '共')} {total} {t('ui.条', '条')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
+          <span>{t('ui.第', '第')} {page} / {totalPages} {t('ui.页', '页')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
         </div>}
 
       {/* Drawer */}
-      <RightDrawer open={drawerOpen} title={editing ? "编辑客户" : "新建客户"} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑客户', '编辑客户') : t('ui.新建客户', '新建客户')} onClose={() => setDrawerOpen(false)}>
         <CrudForm fields={FIELDS} initialValues={editing ? {
         customerName: editing.customer_name,
         customerType: editing.customer_type,
@@ -576,7 +579,7 @@ function CustomersTab() {
       </RightDrawer>
 
       {/* Confirm */}
-      <ConfirmDialog open={confirmOpen} title="确认操作" message={confirmMsg} onConfirm={async () => {
+      <ConfirmDialog open={confirmOpen} title={t('ui.确认操作', '确认操作')} message={confirmMsg} onConfirm={async () => {
       await confirmFn();
       setConfirmOpen(false);
     }} onCancel={() => setConfirmOpen(false)} />
@@ -587,6 +590,9 @@ function CustomersTab() {
 // 渠道管理 Tab
 // ══════════════════════════════════════════════════════════════════════════════
 function ChannelsTab() {
+  const {
+    t
+  } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -653,33 +659,33 @@ function ChannelsTab() {
   };
   const FIELDS: FormField[] = [{
     key: "channelCode",
-    label: "渠道编码",
+    label: t('ui.渠道编码', '渠道编码'),
     type: "text",
     required: true,
-    placeholder: "唯一编码，如 CH-DIRECT-001"
+    placeholder: t('ui.唯一编码，如 CH-DIRECT-001', '唯一编码，如 CH-DIRECT-001')
   }, {
     key: "channelName",
-    label: "渠道名称",
+    label: t('ui.渠道名称', '渠道名称'),
     type: "text",
     required: true
   }, {
     key: "channelType",
-    label: "渠道类型",
+    label: t('ui.渠道类型', '渠道类型'),
     type: "select",
     required: true,
     options: CHANNEL_TYPES
   }, {
     key: "companyCode",
-    label: "公司编码",
+    label: t('ui.公司编码', '公司编码'),
     type: "text",
     required: true
   }, {
     key: "companyName",
-    label: "公司名称",
+    label: t('ui.公司名称', '公司名称'),
     type: "text"
   }, {
     key: "remark",
-    label: "备注",
+    label: t('ui.备注', '备注'),
     type: "text"
   }];
   const totalPages = Math.ceil(total / limit);
@@ -710,7 +716,7 @@ function ChannelsTab() {
           fontSize: 13,
           width: "100%",
           background: "var(--bg-card)"
-        }} placeholder="搜索渠道名称 / 编码…" value={keyword} onChange={e => {
+        }} placeholder={t('ui.搜索渠道名称 / 编码…', '搜索渠道名称 / 编码…')} value={keyword} onChange={e => {
           setKeyword(e.target.value);
           setPage(1);
         }} />
@@ -723,7 +729,7 @@ function ChannelsTab() {
       }}>
           <RefreshCw size={13} style={{
           animation: loading ? "spin 1s linear infinite" : "none"
-        }} /> 刷新
+        }} /> {t('ui.刷新', '刷新')}
         </button>
         <button type="button" className={s.btnPrimary} onClick={openNew} style={{
         display: "flex",
@@ -731,7 +737,7 @@ function ChannelsTab() {
         gap: 6,
         height: 34
       }}>
-          <Plus size={13} /> 新建渠道
+          <Plus size={13} /> {t('ui.新建渠道', '新建渠道')}
         </button>
       </div>
 
@@ -744,12 +750,12 @@ function ChannelsTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["渠道编码", "渠道名称", "类型", "公司", "状态", "操作"].map(h => <th key={h}>{h}</th>)}
+              {[t('ui.渠道编码', '渠道编码'), t('ui.渠道名称', '渠道名称'), t('ui.类型', '类型'), t('ui.公司', '公司'), t('ui.状态', '状态'), t('ui.操作', '操作')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={6} className={u.emptyCenter}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={6} className={s.emptyState}>暂无渠道数据</td></tr>}
+            {loading && <tr><td colSpan={6} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={6} className={s.emptyState}>{t('ui.暂无渠道数据', '暂无渠道数据')}</td></tr>}
             {rows.map((row, i) => {
             const st = CHANNEL_STATUS_MAP[row.status] ?? {
               label: row.status,
@@ -788,12 +794,12 @@ function ChannelsTab() {
                       <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11
-                  }}>编辑</button>
+                  }}>{t('ui.编辑', '编辑')}</button>
                       <button type="button" className={s.btnSecondary} onClick={() => toggleStatus(row)} style={{
                     padding: "2px 8px",
                     fontSize: 11
                   }}>
-                        {row.status === "ACTIVE" ? "停用" : "启用"}
+                        {row.status === "ACTIVE" ? t('ui.停用', '停用') : t('ui.启用', '启用')}
                       </button>
                     </div>
                   </td>
@@ -811,13 +817,13 @@ function ChannelsTab() {
       alignItems: "center",
       fontSize: 13
     }}>
-          <span className={u.muted}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          <span className={u.muted}>{t('ui.共', '共')} {total} {t('ui.条', '条')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
+          <span>{t('ui.第', '第')} {page} / {totalPages} {t('ui.页', '页')}</span>
+          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
         </div>}
 
-      <RightDrawer open={drawerOpen} title={editing ? "编辑渠道" : "新建渠道"} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑渠道', '编辑渠道') : t('ui.新建渠道', '新建渠道')} onClose={() => setDrawerOpen(false)}>
         <CrudForm fields={FIELDS} initialValues={editing ? {
         channelCode: editing.channel_code,
         channelName: editing.channel_name,
@@ -866,6 +872,9 @@ const CREDIT_STATUS_CFG: Record<string, {
   }
 };
 function CreditTab() {
+  const {
+    t
+  } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -974,7 +983,7 @@ function CreditTab() {
         alignItems: "center"
       }}>
           {/* 快捷筛选标签 */}
-          {([["", "全部客户"], ["overdue", "⚠ 逾期客户"], ["high-risk", "● 高风险客户"]] as [typeof creditFilter, string][]).map(([f, lbl]) => <button key={f} type="button" onClick={() => {
+          {([["", t('ui.全部客户', '全部客户')], ["overdue", t('ui.⚠ 逾期客户', '⚠ 逾期客户')], ["high-risk", t('ui.● 高风险客户', '● 高风险客户')]] as [typeof creditFilter, string][]).map(([f, lbl]) => <button key={f} type="button" onClick={() => {
           setCreditFilter(f);
           setPage(1);
           setSelected(null);
@@ -1010,7 +1019,7 @@ function CreditTab() {
             fontSize: 12,
             width: "100%",
             background: "var(--bg-card)"
-          }} placeholder="搜索客户名称…" value={keyword} onChange={e => {
+          }} placeholder={t('ui.搜索客户名称…', '搜索客户名称…')} value={keyword} onChange={e => {
             setKeyword(e.target.value);
             setPage(1);
           }} />
@@ -1025,7 +1034,7 @@ function CreditTab() {
         }}>
             <RefreshCw size={12} style={{
             animation: loading ? "spin 1s linear infinite" : "none"
-          }} /> 刷新
+          }} /> {t('ui.刷新', '刷新')}
           </button>
         </div>
 
@@ -1039,15 +1048,15 @@ function CreditTab() {
           <table className={s.table}>
             <thead>
               <tr>
-                {["客户名称", "信用状态", "信用额度", "实时欠款", "可用额度", "逾期金额", "账期(天)", "操作"].map(h => <th key={h} style={{
-                textAlign: ["信用额度", "实时欠款", "可用额度", "逾期金额"].includes(h) ? "right" : ["账期(天)"].includes(h) ? "center" : "left",
+                {[t('ui.客户名称', '客户名称'), t('ui.信用状态', '信用状态'), t('ui.信用额度', '信用额度'), t('ui.实时欠款', '实时欠款'), t('ui.可用额度', '可用额度'), t('ui.逾期金额', '逾期金额'), t('ui.账期(天)', '账期(天)'), t('ui.操作', '操作')].map(h => <th key={h} style={{
+                textAlign: [t('ui.信用额度', '信用额度'), t('ui.实时欠款', '实时欠款'), t('ui.可用额度', '可用额度'), t('ui.逾期金额', '逾期金额')].includes(h) ? "right" : [t('ui.账期(天)', '账期(天)')].includes(h) ? "center" : "left",
                 whiteSpace: "nowrap"
               }}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={8} className={u.emptyCenter}>加载中…</td></tr>}
-              {!loading && rows.length === 0 && <tr><td colSpan={8} className={u.emptyCenter}>暂无数据</td></tr>}
+              {loading && <tr><td colSpan={8} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr>}
+              {!loading && rows.length === 0 && <tr><td colSpan={8} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr>}
               {rows.map((row, i) => {
               const cs = CREDIT_STATUS_CFG[row.credit_status ?? "NORMAL"] ?? CREDIT_STATUS_CFG.NORMAL;
               const lim = Number(row.credit_limit ?? 0);
@@ -1073,7 +1082,7 @@ function CreditTab() {
                     padding: "1px 5px",
                     borderRadius: 8,
                     fontWeight: 400
-                  }}>自动冻结</span>}
+                  }}>{t('ui.自动冻结', '自动冻结')}</span>}
                     </td>
                     <td>
                       <span style={{
@@ -1127,7 +1136,7 @@ function CreditTab() {
                       padding: "2px 7px",
                       fontSize: 10
                     }} disabled={refreshing === row.id} onClick={() => doRefresh(row)}>
-                          {refreshing === row.id ? "…" : "刷新"}
+                          {refreshing === row.id ? "…" : t('ui.刷新', '刷新')}
                         </button>
                         {row.status === "FROZEN" && row.auto_frozen && <button type="button" style={{
                       padding: "2px 7px",
@@ -1138,7 +1147,7 @@ function CreditTab() {
                       borderRadius: "var(--radius)",
                       cursor: "pointer"
                     }} disabled={unfreezing === row.id} onClick={() => doUnfreeze(row)}>
-                            {unfreezing === row.id ? "…" : "解冻"}
+                            {unfreezing === row.id ? "…" : t('ui.解冻', '解冻')}
                           </button>}
                       </div>
                     </td>
@@ -1157,10 +1166,10 @@ function CreditTab() {
         alignItems: "center",
         fontSize: 12
       }}>
-            <span className={u.muted}>共 {total} 条</span>
-            <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-            <span>第 {page} / {totalPages} 页</span>
-            <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+            <span className={u.muted}>{t('ui.共', '共')} {total} {t('ui.条', '条')}</span>
+            <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
+            <span>{t('ui.第', '第')} {page} / {totalPages} {t('ui.页', '页')}</span>
+            <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
           </div>}
       </div>
 
@@ -1180,7 +1189,7 @@ function CreditTab() {
             <div style={{
           fontWeight: 700,
           fontSize: 14
-        }}>信用分析</div>
+        }}>{t('ui.信用分析', '信用分析')}</div>
             <button type="button" onClick={() => setSelected(null)} style={{
           background: "none",
           border: "none",
@@ -1201,7 +1210,7 @@ function CreditTab() {
         padding: 32,
         color: "var(--text-secondary)",
         fontSize: 12
-      }}>分析中…</div>}
+      }}>{t('ui.分析中…', '分析中…')}</div>}
 
           {!anaLoading && analysis && (() => {
         const cs = CREDIT_STATUS_CFG[analysis.creditStatus ?? "NORMAL"] ?? CREDIT_STATUS_CFG.NORMAL;
@@ -1228,7 +1237,7 @@ function CreditTab() {
               background: "var(--status-danger-bg-light)",
               color: "var(--status-danger)"
             }}>
-                      风险：{analysis.riskLevel}
+                      {t('ui.风险：', '风险：')}{analysis.riskLevel}
                     </span>}
                 </div>
 
@@ -1239,35 +1248,35 @@ function CreditTab() {
             gap: 8
           }}>
                   {[{
-              label: "信用额度",
+              label: t('ui.信用额度', '信用额度'),
               val: Number(analysis.creditLimit).toLocaleString(),
               color: undefined
             }, {
-              label: "实时欠款",
+              label: t('ui.实时欠款', '实时欠款'),
               val: Number(analysis.totalReceivable).toLocaleString(),
               color: analysis.totalReceivable > 0 ? "var(--status-warning)" : undefined
             }, {
-              label: "可用额度",
+              label: t('ui.可用额度', '可用额度'),
               val: Number(analysis.creditAvailable).toLocaleString(),
               color: analysis.creditAvailable < 0 ? "var(--status-danger)" : "var(--status-success)"
             }, {
-              label: "逾期金额",
-              val: analysis.overdueReceivable > 0 ? Number(analysis.overdueReceivable).toLocaleString() : "无",
+              label: t('ui.逾期金额', '逾期金额'),
+              val: analysis.overdueReceivable > 0 ? Number(analysis.overdueReceivable).toLocaleString() : t('ui.无', '无'),
               color: analysis.overdueReceivable > 0 ? "var(--status-danger)" : "var(--status-success)"
             }, {
-              label: "账期",
+              label: t('ui.账期', '账期'),
               val: `${analysis.paymentTerms ?? 0} 天`,
               color: undefined
             }, {
-              label: "逾期天数",
+              label: t('ui.逾期天数', '逾期天数'),
               val: analysis.overdueDays > 0 ? `${analysis.overdueDays} 天` : "—",
               color: analysis.overdueDays > 0 ? "var(--status-danger)" : undefined
             }, {
-              label: "未收发票",
+              label: t('ui.未收发票', '未收发票'),
               val: `${analysis.openInvoiceCount ?? 0} 张`,
               color: undefined
             }, {
-              label: "最早逾期",
+              label: t('ui.最早逾期', '最早逾期'),
               val: analysis.earliestOverdueDate ? String(analysis.earliestOverdueDate).slice(0, 10) : "—",
               color: analysis.earliestOverdueDate ? "var(--status-warning)" : undefined
             }].map(({
@@ -1301,7 +1310,7 @@ function CreditTab() {
             borderTop: "1px solid var(--border)",
             paddingTop: 8
           }}>
-                    最近收款：{String(analysis.lastReceiptDate).slice(0, 10)}
+                    {t('ui.最近收款：', '最近收款：')}{String(analysis.lastReceiptDate).slice(0, 10)}
                   </div>}
 
                 {/* 快照时间 */}
@@ -1309,7 +1318,7 @@ function CreditTab() {
             fontSize: 10,
             color: "var(--text-secondary)"
           }}>
-                  快照时间：{new Date(analysis.snapshotAt).toLocaleString("zh-CN")}
+                  {t('ui.快照时间：', '快照时间：')}{new Date(analysis.snapshotAt).toLocaleString("zh-CN")}
                 </div>
               </>;
       })()}
@@ -1319,7 +1328,7 @@ function CreditTab() {
         padding: 24,
         color: "var(--text-secondary)",
         fontSize: 12
-      }}>暂无信用数据（客户可能无应收记录）</div>}
+      }}>{t('ui.暂无信用数据（客户可能无应收记录）', '暂无信用数据（客户可能无应收记录）')}</div>}
         </div>}
     </div>;
 }

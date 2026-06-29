@@ -35,8 +35,8 @@ export default function Page() {
   if (!canView) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
-        <h3>无权限访问</h3>
-        <p>「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。</p>
+        <h3>{t("ui.无权限访问", "无权限访问")}</h3>
+        <p>{t("ui.养殖场主数据权限说明", "「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。")}</p>
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default function Page() {
 
   // G4-E：场站主数据 — 公司主数据化 + 负责人 UserSelector
   const FIELDS: FormField[] = [
-    { key: "farm_code", label: t("ui.农场编码", "农场编码"), type: "text",   required: true, placeholder: "如：FARM-001" },
+    { key: "farm_code", label: t("ui.农场编码", "农场编码"), type: "text",   required: true, placeholder: t("ui.如FARM-001", "如：FARM-001") },
     { key: "farm_name", label: t("ui.农场名称", "农场名称"), type: "text",   required: true },
     { key: "company_code", label: t("ui.所属公司", "所属公司"), type: "company" },
     { key: "manager", label: t("ui.负责人", "负责人"), type: "user" },

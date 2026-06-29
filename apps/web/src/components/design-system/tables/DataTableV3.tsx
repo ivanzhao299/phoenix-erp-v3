@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Download } from 'luc
 import { EmptyState } from '../feedback/EmptyState';
 import { LoadingSkeleton } from '../feedback/LoadingSkeleton';
 import { StatusBadge } from '../status/StatusBadge';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * DataTableV3 — 统一表格（Design System V2）。
@@ -45,6 +46,7 @@ const money = (v: any) => v == null || v === '' ? '—' : Number(v).toLocaleStri
 const fmtDate = (v: any) => v == null || v === '' ? '—' : String(v).slice(0, 10);
 
 export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize = 20, emptyText = '暂无数据', exportName }: DataTableV3Props<T>) {
+  const { t } = useLanguage();
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(0);
@@ -102,7 +104,7 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
       {exportName && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
           <button onClick={exportCsv} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12.5 }}>
-            <Download size={13} />导出 CSV
+            <Download size={13} />{t('ui.导出 CSV','导出 CSV')}
           </button>
         </div>
       )}
@@ -144,7 +146,7 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
           </div>
           {totalPages > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, padding: '10px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              <span>共 {sorted.length} 条 · 第 {cur + 1}/{totalPages} 页</span>
+              <span>{t('ui.共','共')} {sorted.length} {t('ui.条','条')} · {t('ui.第','第')} {cur + 1}/{totalPages} {t('ui.页','页')}</span>
               <button onClick={() => setPage(Math.max(0, cur - 1))} disabled={cur === 0} style={pgBtn(cur === 0)}><ChevronLeft size={14} /></button>
               <button onClick={() => setPage(Math.min(totalPages - 1, cur + 1))} disabled={cur >= totalPages - 1} style={pgBtn(cur >= totalPages - 1)}><ChevronRight size={14} /></button>
             </div>

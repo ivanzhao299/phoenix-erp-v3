@@ -7,8 +7,10 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowAnalytics } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 const DAY_OPTIONS = [7, 30, 90];
 export default function WorkflowAnalyticsPage() {
+  const { t } = useLanguage();
   const [days, setDays] = useState(30);
   const [data, setData] = useState<WorkflowAnalytics | null>(null);
   const [error, setError] = useState("");
@@ -18,7 +20,7 @@ export default function WorkflowAnalyticsPage() {
       const res = await workflowApi.analytics(days);
       setData(res.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "流程驾驶舱加载失败");
+      setError(err instanceof Error ? err.message : t('ui.流程驾驶舱加载失败','流程驾驶舱加载失败'));
     }
   }, [days]);
   useEffect(() => {
@@ -35,17 +37,17 @@ export default function WorkflowAnalyticsPage() {
   const maxBottleneckWait = useMemo(() => Math.max(1, ...(data?.bottlenecks || []).map(row => Number(row.avg_waiting_hours || 0))), [data]);
   const maxTrend = useMemo(() => Math.max(1, ...(data?.trend || []).map(row => Number(row.started || 0))), [data]);
   return <div>
-      <PageHeader title="流程驾驶舱" subtitle="从流程量、通过率、平均耗时和瓶颈节点观察 OA 运转效率" breadcrumb={["工作流", "流程驾驶舱"]} actions={<Link href="/workflow/monitor" style={secondaryActionButton}>流程督办</Link>} />
+      <PageHeader title={t('ui.流程驾驶舱','流程驾驶舱')} subtitle={t('ui.从流程量、通过率、平均耗时和瓶颈节点观察 OA 运转效率','从流程量、通过率、平均耗时和瓶颈节点观察 OA 运转效率')} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程驾驶舱','流程驾驶舱')]} actions={<Link href="/workflow/monitor" style={secondaryActionButton}>{t('ui.流程督办','流程督办')}</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={toolbarStyle}>
           <div>
-            <h3 className={s.cardTitle}>统计周期</h3>
-            <p className={`${s.modalDesc} ${u.mt4}`}>默认观察最近 30 天，可快速切换短期和季度视角。</p>
+            <h3 className={s.cardTitle}>{t('ui.统计周期','统计周期')}</h3>
+            <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.默认观察最近 30 天，可快速切换短期和季度视角。','默认观察最近 30 天，可快速切换短期和季度视角。')}</p>
           </div>
           <div style={tabsStyle}>
             {DAY_OPTIONS.map(value => <button key={value} type="button" className={days === value ? s.tabPillActive : s.tabPill} onClick={() => setDays(value)}>
-                最近 {value} 天
+                {t('ui.最近','最近')} {value} {t('ui.天','天')}
               </button>)}
           </div>
         </div>
@@ -55,27 +57,27 @@ export default function WorkflowAnalyticsPage() {
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={metricGridStyle}>
-          <Metric label="流程总量" value={data?.summary.total ?? 0} />
-          <Metric label="审批中" value={data?.summary.running ?? 0} tone="primary" />
-          <Metric label="通过率" value={percentText(data?.summary.approvalRate)} tone="success" />
-          <Metric label="平均耗时" value={hourText(data?.summary.avgCompleteHours)} tone="warning" />
-          <Metric label="今日发起" value={data?.summary.startedToday ?? 0} />
-          <Metric label="今日完成" value={data?.summary.completedToday ?? 0} />
-          <Metric label="已通过" value={data?.summary.approved ?? 0} tone="success" />
-          <Metric label="已驳回/取消" value={(data?.summary.rejected ?? 0) + (data?.summary.canceled ?? 0)} tone="danger" />
+          <Metric label={t('ui.流程总量','流程总量')} value={data?.summary.total ?? 0} />
+          <Metric label={t('ui.审批中','审批中')} value={data?.summary.running ?? 0} tone="primary" />
+          <Metric label={t('ui.通过率','通过率')} value={percentText(data?.summary.approvalRate)} tone="success" />
+          <Metric label={t('ui.平均耗时','平均耗时')} value={hourText(data?.summary.avgCompleteHours)} tone="warning" />
+          <Metric label={t('ui.今日发起','今日发起')} value={data?.summary.startedToday ?? 0} />
+          <Metric label={t('ui.今日完成','今日完成')} value={data?.summary.completedToday ?? 0} />
+          <Metric label={t('ui.已通过','已通过')} value={data?.summary.approved ?? 0} tone="success" />
+          <Metric label={t('ui.已驳回/取消','已驳回/取消')} value={(data?.summary.rejected ?? 0) + (data?.summary.canceled ?? 0)} tone="danger" />
         </div>
       </section>
 
       <div style={mainGridStyle}>
         <section className={s.card}>
           <div className={s.cardBody}>
-            <h3 className={s.cardTitle} style={titleStyle}>流程类型排行</h3>
-            <p className={s.modalDesc} style={descStyle}>哪些流程被频繁使用，哪些还在流转中。</p>
+            <h3 className={s.cardTitle} style={titleStyle}>{t('ui.流程类型排行','流程类型排行')}</h3>
+            <p className={s.modalDesc} style={descStyle}>{t('ui.哪些流程被频繁使用，哪些还在流转中。','哪些流程被频繁使用，哪些还在流转中。')}</p>
             {(data?.definitions || []).length ? <div style={rankListStyle}>
                 {(data?.definitions || []).map(row => <div key={row.definition_id || row.definition_name} style={rankItemStyle}>
                     <div style={rowHeaderStyle}>
-                      <strong>{row.definition_name || "未命名流程"}</strong>
-                      <span>{row.total} 次</span>
+                      <strong>{row.definition_name || t('ui.未命名流程','未命名流程')}</strong>
+                      <span>{row.total} {t('ui.次','次')}</span>
                     </div>
                     <div style={barTrackStyle}>
                       <span style={{
@@ -83,22 +85,22 @@ export default function WorkflowAnalyticsPage() {
                   width: `${Math.max(4, Number(row.total || 0) / maxDefinitionTotal * 100)}%`
                 }} />
                     </div>
-                    <small>{row.category || "未分类"} · 审批中 {row.running} · 平均 {hourText(row.avg_complete_hours)}</small>
+                    <small>{row.category || t('ui.未分类','未分类')} · {t('ui.审批中','审批中')} {row.running} · {t('ui.平均','平均')} {hourText(row.avg_complete_hours)}</small>
                   </div>)}
-              </div> : <Empty text="当前周期暂无流程数据。" />}
+              </div> : <Empty text={t('ui.当前周期暂无流程数据。','当前周期暂无流程数据。')} />}
           </div>
         </section>
 
         <section className={s.card}>
           <div className={s.cardBody}>
-            <h3 className={s.cardTitle} style={titleStyle}>节点瓶颈</h3>
-            <p className={s.modalDesc} style={descStyle}>按等待时长和超时数识别容易卡住的审批节点。</p>
+            <h3 className={s.cardTitle} style={titleStyle}>{t('ui.节点瓶颈','节点瓶颈')}</h3>
+            <p className={s.modalDesc} style={descStyle}>{t('ui.按等待时长和超时数识别容易卡住的审批节点。','按等待时长和超时数识别容易卡住的审批节点。')}</p>
             {(data?.bottlenecks || []).length ? <div style={rankListStyle}>
                 {(data?.bottlenecks || []).map(row => <div key={row.node_id || row.node_name} style={rankItemStyle}>
                     <div style={rowHeaderStyle}>
-                      <strong>{row.node_name || row.node_id || "审批节点"}</strong>
+                      <strong>{row.node_name || row.node_id || t('ui.审批节点','审批节点')}</strong>
                       <span className={row.overdue_count ? `${s.badge} ${s.badgeDanger}` : `${s.badge} ${s.badgeInfo}`}>
-                        {row.overdue_count ? `${row.overdue_count} 超时` : `${row.todo_count} 待办`}
+                        {row.overdue_count ? `${row.overdue_count} ${t('ui.超时','超时')}` : `${row.todo_count} ${t('ui.待办','待办')}`}
                       </span>
                     </div>
                     <div style={barTrackStyle}>
@@ -107,9 +109,9 @@ export default function WorkflowAnalyticsPage() {
                   width: `${Math.max(4, Number(row.avg_waiting_hours || 0) / maxBottleneckWait * 100)}%`
                 }} />
                     </div>
-                    <small>平均等待 {hourText(row.avg_waiting_hours)} · 待办 {row.todo_count}</small>
+                    <small>{t('ui.平均等待','平均等待')} {hourText(row.avg_waiting_hours)} · {t('ui.待办','待办')} {row.todo_count}</small>
                   </div>)}
-              </div> : <Empty text="当前没有流转瓶颈。" />}
+              </div> : <Empty text={t('ui.当前没有流转瓶颈。','当前没有流转瓶颈。')} />}
           </div>
         </section>
       </div>
@@ -118,13 +120,13 @@ export default function WorkflowAnalyticsPage() {
         <div className={s.cardBody}>
           <div style={rowHeaderStyle}>
             <div>
-              <h3 className={s.cardTitle} style={titleStyle}>发起趋势</h3>
-              <p className={s.modalDesc} style={descStyle}>按日观察流程发起量，帮助判断业务高峰和人力配置。</p>
+              <h3 className={s.cardTitle} style={titleStyle}>{t('ui.发起趋势','发起趋势')}</h3>
+              <p className={s.modalDesc} style={descStyle}>{t('ui.按日观察流程发起量，帮助判断业务高峰和人力配置。','按日观察流程发起量，帮助判断业务高峰和人力配置。')}</p>
             </div>
-            <Link href="/workflow/instances" style={secondaryActionButton}>查看实例</Link>
+            <Link href="/workflow/instances" style={secondaryActionButton}>{t('ui.查看实例','查看实例')}</Link>
           </div>
           {(data?.trend || []).length ? <div style={trendGridStyle}>
-              {(data?.trend || []).map(row => <div key={row.day} style={trendItemStyle} title={`${formatDay(row.day)} 发起 ${row.started}`}>
+              {(data?.trend || []).map(row => <div key={row.day} style={trendItemStyle} title={`${formatDay(row.day)} ${t('ui.发起','发起')} ${row.started}`}>
                   <div style={trendBarBoxStyle}>
                     <span style={{
                 ...trendBarStyle,
@@ -133,7 +135,7 @@ export default function WorkflowAnalyticsPage() {
                   </div>
                   <small>{formatDay(row.day).slice(5)}</small>
                 </div>)}
-            </div> : <Empty text="当前周期暂无趋势数据。" />}
+            </div> : <Empty text={t('ui.当前周期暂无趋势数据。','当前周期暂无趋势数据。')} />}
         </div>
       </section>
     </div>;

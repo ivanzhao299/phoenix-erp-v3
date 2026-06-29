@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, X, CheckCheck } from "lucide-react";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Notif {
   id: string;
@@ -63,6 +64,7 @@ function beep() {
 }
 
 export function ApprovalNotifier() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notif[]>([]);
@@ -121,7 +123,7 @@ export function ApprovalNotifier() {
           const d = JSON.parse(e.data) as Record<string, unknown>;
           if (d?.type !== "notification") return;
           setBanner({
-            title: String(d.title ?? "新消息"),
+            title: String(d.title ?? t('ui.新消息','新消息')),
             sub: `${BIZ_LABEL[String(d.bizType ?? "")] ?? ""}${d.bizNo ? " " + d.bizNo : ""}`.trim(),
             link: notifLink({ linkType: d.linkType as string }),
           });
@@ -183,7 +185,7 @@ export function ApprovalNotifier() {
 
   return (
     <>
-      <button ref={bellRef} type="button" onClick={toggle} title={unread > 0 ? `${unread} 条未读` : "消息中心"}
+      <button ref={bellRef} type="button" onClick={toggle} title={unread > 0 ? `${unread} ${t('ui.条未读','条未读')}` : t('ui.消息中心','消息中心')}
         style={{
           position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 34, height: 34, borderRadius: 9, border: "1px solid var(--border)",
@@ -208,16 +210,16 @@ export function ApprovalNotifier() {
           boxShadow: "0 12px 36px rgba(0,0,0,0.22)", overflow: "hidden", animation: "phx-fade-in .14s ease",
         }}>
           <div style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>消息中心{unread > 0 ? ` · ${unread} 未读` : ""}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{t('ui.消息中心','消息中心')}{unread > 0 ? ` · ${unread} ${t('ui.未读','未读')}` : ""}</span>
             <button type="button" onClick={markAll} disabled={unread === 0}
               style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none",
                 color: unread === 0 ? "var(--text-disabled)" : "var(--color-primary)", cursor: unread === 0 ? "default" : "pointer", fontSize: 12 }}>
-              <CheckCheck size={13} /> 全部已读
+              <CheckCheck size={13} /> {t('ui.全部已读','全部已读')}
             </button>
           </div>
           <div style={{ maxHeight: 420, overflowY: "auto" }}>
             {items.length === 0 ? (
-              <div style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>暂无消息</div>
+              <div style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>{t('ui.暂无消息','暂无消息')}</div>
             ) : items.map((n) => (
               <div key={n.id} onClick={() => openNotif(n)}
                 style={{ display: "flex", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)",
@@ -238,7 +240,7 @@ export function ApprovalNotifier() {
           <div style={{ padding: "9px 14px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
             <button type="button" onClick={() => { setOpen(false); router.push("/workflow/todos"); }}
               style={{ border: "none", background: "none", color: "var(--color-primary)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
-              查看全部审批待办 →
+              {t('ui.查看全部审批待办 →','查看全部审批待办 →')}
             </button>
           </div>
         </div>, document.body)}
@@ -254,11 +256,11 @@ export function ApprovalNotifier() {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{banner.title}</div>
             <div style={{ fontSize: 12.5, opacity: 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {banner.sub ? `${banner.sub} — ` : ""}点击处理
+              {banner.sub ? `${banner.sub} — ` : ""}{t('ui.点击处理','点击处理')}
             </div>
           </div>
           <button type="button" onClick={(e) => { e.stopPropagation(); setBanner(null); }}
-            style={{ marginLeft: "auto", border: "none", background: "transparent", color: "inherit", cursor: "pointer", display: "flex", opacity: 0.85, flexShrink: 0 }} title="关闭">
+            style={{ marginLeft: "auto", border: "none", background: "transparent", color: "inherit", cursor: "pointer", display: "flex", opacity: 0.85, flexShrink: 0 }} title={t('ui.关闭','关闭')}>
             <X size={16} />
           </button>
         </div>, document.body)}
