@@ -189,6 +189,9 @@ export class GenericCrudController {
 
   private filterBlockedFields(table: string, body: any) {
     const COLUMN_BLACKLIST: Record<string, string[]> = {
+      // 评分加固：键名修正 sys_users(复数,已下架)→ sys_user(实表)。原 typo 使该黑名单形同虚设，
+      //   持 MENU_SETTINGS_USER:E 者可经 /api/crud 直写 password_hash/role/status 提权。两名都列以防回归。
+      sys_user: ['password_hash', 'salt', 'role', 'status', 'org_id'],
       sys_users: ['password_hash', 'salt', 'role', 'status', 'org_id'],
       _global: ['id', 'created_at'],
     };

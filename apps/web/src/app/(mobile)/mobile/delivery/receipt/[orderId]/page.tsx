@@ -171,7 +171,7 @@ export default function ReceiptPage({
     setSelectedItem(item);
     setReceivedQty(String(item.qty));
     setExceptionQty('0');
-    setExceptionType('缺货');
+    setExceptionType('SHORTAGE');  // 评分加固：原写中文 '缺货' 会覆盖枚举码并提交给后端，致脏数据；改回稳定码
     setRemark('');
     setPhotos([]);
     setSubmitError('');
