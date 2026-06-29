@@ -14,6 +14,13 @@ env:
   DB_USER: phoenix_v3
   DB_PASSWORD: phoenix_v3_pass
   DB_NAME: phoenix_erp
+  # P3(评分补强)：全局导出 PG*，让所有步骤里的裸 psql 连到 phoenix_v3，
+  #   而非解析到 CI runner 的 OS 用户 root（致 role "root" does not exist）。
+  PGHOST: 127.0.0.1
+  PGPORT: 5432
+  PGUSER: phoenix_v3
+  PGPASSWORD: phoenix_v3_pass
+  PGDATABASE: phoenix_erp
   JWT_SECRET: ci_test_secret_minlen_32_characters_xx
   JWT_SECRET_PREV: ""
   NODE_ENV: test
@@ -70,6 +77,12 @@ jobs:
       - name: Build API
         working-directory: apps/api
         run: pnpm build
+
+      # P3(评分补强)：此前直接起 API 打空库 → sys_user/sys_dict 等基线表不存在，9 套回归全挂。
+      #   补播种：镜像 deploy.yml 的 ci 模式（ddl/*.sql + v3_schema_complete + 基线 SQL + TS 迁移）。
+      - name: Seed DB schema (ddl + baseline + TS migrations)
+        working-directory: apps/api
+        run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
       - name: Start API (background)
         working-directory: apps/api
