@@ -147,6 +147,10 @@ jobs:
       - name: G5-C RBAC audit (admin + key endpoints)
         env:
           API_BASE: http://localhost:3100
+          # g5c-rbac-audit.sh 第 80 行 ${ADMIN_PASS:?} 强制要求该变量，缺则 set -u 秒退。
+          #   配合全局 ENABLE_DEV_LOGIN=true，admin/admin123 走 dev 快捷登录拿 token。
+          #   songmingguang 段未设 SONG_PASS 时脚本自跳过（line 130-132）。
+          ADMIN_PASS: admin123
         run: bash scripts/g5c-rbac-audit.sh "$API_BASE"
 
       - name: Dump API log on failure
