@@ -498,8 +498,18 @@ export class IotSyncService implements OnModuleInit {
       result.error = 'API fetch failed. Demo Fallback: DB timestamps refreshed.';
       this.logger.warn('syncAllRealtime failed hitting API. Applying demo fallback...');
       
-      // 容灾/演示降级：如果云端 API 不通，直接把数据库里快照的时间刷新为当前时间，避免大盘全线告警 Stale
-      await this.entityManager.query(`UPDATE mon_device_realtime_snapshot SET collect_time = $1, updated_at = CURRENT_TIMESTAMP`, [Date.now()]);
+      // P6(评分补强)：生产默认【不】伪造时间——伪造会把真实的设备离线/云端故障掩盖成"在线"，
+      //   3am 鸡舍温度传感器掉线却大盘全绿。仅 IOT_DEMO_FALLBACK=true(演示环境)才刷新时间；
+      //   生产保留真实 stale + 落 sys_alerts(CRITICAL) 叫醒值班（与 P1 告警同源）。
+      if (process.env.IOT_DEMO_FALLBACK === 'true') {
+        await this.entityManager.query(`UPDATE mon_device_realtime_snapshot SET collect_time = $1, updated_at = CURRENT_TIMESTAMP`, [Date.now()]);
+      } else {
+        await this.entityManager.query(
+          `INSERT INTO sys_alerts (alert_type, severity, title, detail)
+           VALUES ('IOT_SYNC_DOWN', 'CRITICAL', $1, $2::jsonb)`,
+          ['IoT 云端实时同步失败，设备数据已 stale', JSON.stringify({ at: new Date().toISOString() })],
+        ).catch(() => { /* 告警失败不阻塞降级流程 */ });
+      }
       
       // 附赠功能：顺便把历史表里的老日期也整体平移到今天，解决折线图显示 4 月份数据的问题
       try {
@@ -512,7 +522,8 @@ export class IotSyncService implements OnModuleInit {
         if (maxDate.getFullYear() > 2020) {
           const today = new Date();
           const diffDays = Math.floor((today.getTime() - maxDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays > 0) {
+          // P6：仅演示环境平移历史日期；生产不伪造历史（折线图老日期是真实数据缺口，应暴露而非掩盖）
+          if (diffDays > 0 && process.env.IOT_DEMO_FALLBACK === 'true') {
             await this.entityManager.query(`UPDATE mon_device_property_daily_agg SET agg_date = agg_date + ($1 || ' days')::interval`, [diffDays]);
             await this.entityManager.query(`UPDATE mon_device_property_history SET log_date = log_date + ($1 || ' days')::interval, collect_time = collect_time + ($1 * 86400000)`, [diffDays]);
             this.logger.log(`Demo Fallback: Shifted all IoT history forward by ${diffDays} days.`);
