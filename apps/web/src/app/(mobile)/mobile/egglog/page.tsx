@@ -8,6 +8,7 @@ import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MobilePageSkeleton, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
@@ -101,6 +102,7 @@ function HouseCard({
   const {
     t
   } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const [open, setOpen] = useState(false);
   const hasQuality = entry.bad > 0 || entry.dirty > 0 || entry.broken > 0;
   const hasEnv = entry.temp !== '' || entry.humidity !== '';
@@ -149,7 +151,7 @@ function HouseCard({
           fontSize: 11,
           color: t.textFaint
         }}>
-              已录 {existing.toLocaleString()} 枚
+              {tr('mob.brd.recorded', '已录')} {existing.toLocaleString()} {tr('mob.brd.egg_unit', '枚')}
             </div>}
         </div>
 
@@ -163,7 +165,7 @@ function HouseCard({
           <span style={{
           fontSize: 12,
           color: t.textMuted
-        }}>产蛋</span>
+        }}>{tr('mob.brd.egg_produced', '产蛋')}</span>
           <NumInput value={entry.eggs} onChange={v => onChange({
           ...entry,
           eggs: v
@@ -171,7 +173,7 @@ function HouseCard({
           <span style={{
           fontSize: 11,
           color: t.textFaint
-        }}>枚</span>
+        }}>{tr('mob.brd.egg_unit', '枚')}</span>
         </div>
 
         {/* Expand toggle */}
@@ -202,20 +204,20 @@ function HouseCard({
         color: t.textMuted,
         fontWeight: 600
       }}>
-            蛋品质分级
+            {tr('mob.brd.egg_quality_grade', '蛋品质分级')}
           </div>
           <div className={u.flexWrap12}>
             {([{
           key: 'bad',
-          label: '破损',
+          label: tr('mob.brd.bad_egg', '破损'),
           color: 'var(--status-danger)'
         }, {
           key: 'dirty',
-          label: '脏蛋',
+          label: tr('mob.brd.dirty_egg', '脏蛋'),
           color: 'var(--status-warning)'
         }, {
           key: 'broken',
-          label: '碎蛋',
+          label: tr('mob.brd.broken_egg', '碎蛋'),
           color: 'var(--status-warning)'
         }] as const).map(({
           key,
@@ -243,7 +245,7 @@ function HouseCard({
         color: t.textMuted,
         fontWeight: 600
       }}>
-            环境（选填）
+            {tr('mob.brd.env_optional', '环境（选填）')}
           </div>
           <div className={u.flexWrap12}>
             <div className={u.flexRow}>
@@ -251,7 +253,7 @@ function HouseCard({
             fontSize: 12,
             color: t.textSub,
             minWidth: 30
-          }}>温度</span>
+          }}>{tr('mob.brd.temperature', '温度')}</span>
               <input type="number" inputMode="decimal" placeholder="℃" value={entry.temp} onChange={e => onChange({
             ...entry,
             temp: e.target.value
@@ -278,7 +280,7 @@ function HouseCard({
             fontSize: 12,
             color: t.textSub,
             minWidth: 30
-          }}>湿度</span>
+          }}>{tr('mob.brd.humidity', '湿度')}</span>
               <input type="number" inputMode="decimal" placeholder="%" value={entry.humidity} onChange={e => onChange({
             ...entry,
             humidity: e.target.value
@@ -317,6 +319,7 @@ export default function EggLogPage() {
     toggle,
     t
   } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const {
     allowed,
     loading: permLoading,
@@ -380,7 +383,7 @@ export default function EggLogPage() {
   useEffect(() => {
     loadExisting(date, shift);
   }, [date, shift, loadExisting]);
-  if (permLoading) return <MobilePageSkeleton title="产蛋录入" onBack={() => router.back()} />;
+  if (permLoading) return <MobilePageSkeleton title={tr('mob.brd.egg_entry', '产蛋录入')} onBack={() => router.back()} />;
   if (!allowed) return null;
   const getEntry = (house: string) => entries[house] ?? emptyEntry();
   const totalEggs = flocks.reduce((sum, f) => {
@@ -394,7 +397,7 @@ export default function EggLogPage() {
       return e.eggs > 0 || e.bad > 0 || e.dirty > 0 || e.broken > 0;
     });
     if (toSave.length === 0) {
-      setError('没有需要提交的数据');
+      setError(tr('mob.brd.no_data_to_submit', '没有需要提交的数据'));
       return;
     }
     setSaving(true);
@@ -419,7 +422,7 @@ export default function EggLogPage() {
           operator
         });
       } catch (err: any) {
-        errors.push(`${key}: ${err?.message || '失败'}`);
+        errors.push(`${key}: ${err?.message || tr('mob.brd.failed', '失败')}`);
       }
     }
     setSaving(false);
@@ -428,7 +431,7 @@ export default function EggLogPage() {
       setError(errors.join('；'));
     } else {
       haptic('success');
-      toast.success('产蛋日报提交成功');
+      toast.success(tr('mob.brd.egg_report_submit_ok', '产蛋日报提交成功'));
       setSaved(true);
       await loadExisting(date, shift);
     }
@@ -468,7 +471,7 @@ export default function EggLogPage() {
         fontSize: 16,
         fontWeight: 700,
         color: t.text
-      }}>产蛋日报录入</div>
+      }}>{tr('mob.brd.egg_report_entry', '产蛋日报录入')}</div>
         {totalEggs > 0 && <div style={{
         padding: '4px 10px',
         borderRadius: 8,
@@ -478,7 +481,7 @@ export default function EggLogPage() {
         fontWeight: 700,
         color: 'var(--status-warning)'
       }}>
-            {totalEggs.toLocaleString()} 枚
+            {totalEggs.toLocaleString()} {tr('mob.brd.egg_unit', '枚')}
           </div>}
         <button onClick={toggle} style={{
         background: 'none',
@@ -557,7 +560,7 @@ export default function EggLogPage() {
           fontSize: 13,
           fontWeight: 600
         }}>
-              {s.label}
+              {s.key === '早班' ? tr('mob.brd.morning_shift', '早班') : s.key === '晚班' ? tr('mob.brd.evening_shift', '晚班') : s.label}
             </button>)}
         </div>
       </div>
@@ -575,8 +578,8 @@ export default function EggLogPage() {
         color: t.textFaint,
         fontSize: 14
       }}>
-            加载中…
-          </div> : flocks.length === 0 ? <MobileEmptyState icon="🥚" title="暂无产蛋数据" desc="今日还没有记录" /> : flocks.map(f => {
+            {tr('mob.brd.loading', '加载中…')}
+          </div> : flocks.length === 0 ? <MobileEmptyState icon="🥚" title={tr('mob.brd.no_egg_data', '暂无产蛋数据')} desc={tr('mob.brd.no_record_today', '今日还没有记录')} /> : flocks.map(f => {
         const key = f.house_code || f.flock_no;
         return <HouseCard key={key} house={f.house_code || key} flock_no={f.flock_no} entry={getEntry(key)} onChange={e => setEntries(prev => ({
           ...prev,
@@ -607,7 +610,7 @@ export default function EggLogPage() {
         textAlign: 'center',
         fontWeight: 600
       }}>
-            ✓ 提交成功
+            ✓ {tr('mob.brd.submit_ok', '提交成功')}
           </div>}
       </div>
 
@@ -641,7 +644,7 @@ export default function EggLogPage() {
           {saving ? <RefreshCw size={18} style={{
           animation: 'spin 1s linear infinite'
         }} /> : <Save size={18} />}
-          {saving ? '提交中…' : `提交 ${shift} 产蛋日报`}
+          {saving ? tr('mob.brd.submitting', '提交中…') : `${tr('mob.brd.submit', '提交')} ${shift === '早班' ? tr('mob.brd.morning_shift', '早班') : shift === '晚班' ? tr('mob.brd.evening_shift', '晚班') : shift} ${tr('mob.brd.egg_daily_report', '产蛋日报')}`}
         </button>
       </div>
 

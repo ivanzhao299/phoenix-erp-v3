@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
@@ -19,26 +20,31 @@ const C = {
 };
 
 // ── 状态机定义 ────────────────────────────────────────────────────────────────
-const STEPS = [
-  { key: 'PLANNED',   label: '已规划' },
-  { key: 'LOADING',   label: '装车中' },
-  { key: 'LOADED',    label: '已装车' },
-  { key: 'DEPARTED',  label: '已发车' },
-  { key: 'ARRIVED',   label: '已到达' },
-  { key: 'SIGNING',   label: '签收中' },
-  { key: 'COMPLETED', label: '已完成' },
-];
+type TFn = (key: string, fallback?: string) => string;
+function buildSteps(t: TFn) {
+  return [
+    { key: 'PLANNED',   label: t('mob.dlv.step_planned', '已规划') },
+    { key: 'LOADING',   label: t('mob.dlv.status_loading', '装车中') },
+    { key: 'LOADED',    label: t('mob.dlv.status_loaded', '已装车') },
+    { key: 'DEPARTED',  label: t('mob.dlv.step_departed', '已发车') },
+    { key: 'ARRIVED',   label: t('mob.dlv.status_arrived', '已到达') },
+    { key: 'SIGNING',   label: t('mob.dlv.status_signing', '签收中') },
+    { key: 'COMPLETED', label: t('mob.dlv.status_completed', '已完成') },
+  ];
+}
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PLANNED:   { label: '待装车', color: C.orange },
-  LOADING:   { label: '装车中', color: C.blue   },
-  LOADED:    { label: '已装车', color: C.blue   },
-  DEPARTED:  { label: '配送中', color: C.blue   },
-  ARRIVED:   { label: '已到达', color: C.blue   },
-  SIGNING:   { label: '签收中', color: C.orange },
-  COMPLETED: { label: '已完成', color: C.green  },
-  EXCEPTION: { label: '异常',   color: C.red    },
-};
+function buildStatusMap(t: TFn): Record<string, { label: string; color: string }> {
+  return {
+    PLANNED:   { label: t('mob.dlv.status_planned', '待装车'), color: C.orange },
+    LOADING:   { label: t('mob.dlv.status_loading', '装车中'), color: C.blue   },
+    LOADED:    { label: t('mob.dlv.status_loaded', '已装车'), color: C.blue   },
+    DEPARTED:  { label: t('mob.dlv.status_delivering', '配送中'), color: C.blue   },
+    ARRIVED:   { label: t('mob.dlv.status_arrived', '已到达'), color: C.blue   },
+    SIGNING:   { label: t('mob.dlv.status_signing', '签收中'), color: C.orange },
+    COMPLETED: { label: t('mob.dlv.status_completed', '已完成'), color: C.green  },
+    EXCEPTION: { label: t('mob.dlv.status_exception', '异常'),   color: C.red    },
+  };
+}
 
 interface DeliveryItem {
   id: string;
@@ -96,6 +102,8 @@ async function apiPost(path: string, body?: unknown) {
 
 // ── 状态时间轴 ────────────────────────────────────────────────────────────────
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
+  const { t } = useLanguage();
+  const STEPS = buildSteps(t);
   const currentIdx = STEPS.findIndex(s => s.key === currentStatus);
   const isException = currentStatus === 'EXCEPTION';
 
@@ -107,7 +115,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
       padding: '16px',
       marginBottom: 16,
     }}>
-      <div style={{ fontSize: 13, color: C.textSub, marginBottom: 12 }}>配送进度</div>
+      <div style={{ fontSize: 13, color: C.textSub, marginBottom: 12 }}>{t('mob.dlv.delivery_progress', '配送进度')}</div>
       <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', gap: 0 }}>
         {STEPS.map((step, idx) => {
           const done = currentIdx > idx;
@@ -144,7 +152,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               background: C.red, display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, color: 'var(--bg-card)', fontWeight: 700,
             }}>!</div>
-            <div style={{ fontSize: 10, color: C.red }}>异常</div>
+            <div style={{ fontSize: 10, color: C.red }}>{t('mob.dlv.status_exception', '异常')}</div>
           </div>
         )}
       </div>
@@ -185,6 +193,7 @@ function ItemRow({ item }: { item: DeliveryItem }) {
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
   const [order, setOrder] = useState<DeliveryOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -198,11 +207,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       const data = await apiFetch(`/api/v2/mobile/delivery/orders/${id}`);
       setOrder(data.data ?? data);
     } catch {
-      setError('加载失败，请返回重试');
+      setError(t('mob.dlv.load_failed_back', '加载失败，请返回重试'));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => { loadOrder(); }, [loadOrder]);
 
@@ -213,7 +222,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       await apiPost(`/api/v2/mobile/delivery/orders/${id}/${endpoint}`);
       await loadOrder();
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : '操作失败，请重试');
+      setActionError(e instanceof Error ? e.message : t('mob.dlv.action_failed', '操作失败，请重试'));
     } finally {
       setActionLoading(false);
     }
@@ -257,25 +266,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       case 'PLANNED':
         return (
           <button style={btnStyle(C.orange, dis)} onClick={() => doAction('start-loading')} disabled={dis}>
-            {dis ? '处理中…' : '📦 开始装车'}
+            {dis ? t('mob.dlv.processing', '处理中…') : `📦 ${t('mob.dlv.start_loading', '开始装车')}`}
           </button>
         );
       case 'LOADING':
         return (
           <button style={btnStyle(C.blue, dis)} onClick={() => doAction('finish-loading')} disabled={dis}>
-            {dis ? '处理中…' : '✅ 完成装车'}
+            {dis ? t('mob.dlv.processing', '处理中…') : `✅ ${t('mob.dlv.finish_loading', '完成装车')}`}
           </button>
         );
       case 'LOADED':
         return (
           <button style={btnStyle(C.blue, dis)} onClick={() => doAction('depart')} disabled={dis}>
-            {dis ? '处理中…' : '🚚 发车'}
+            {dis ? t('mob.dlv.processing', '处理中…') : `🚚 ${t('mob.dlv.next_depart', '发车')}`}
           </button>
         );
       case 'DEPARTED':
         return (
           <button style={btnStyle(C.green, dis)} onClick={() => doAction('arrive')} disabled={dis}>
-            {dis ? '处理中…' : '📍 到达'}
+            {dis ? t('mob.dlv.processing', '处理中…') : `📍 ${t('mob.dlv.arrive', '到达')}`}
           </button>
         );
       case 'ARRIVED':
@@ -286,21 +295,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               onClick={() => firstItem ? router.push(buildSignUrl(firstItem.id)) : doAction('sign')}
               disabled={dis}
             >
-              ✅ 正常签收
+              ✅ {t('mob.dlv.normal_sign', '正常签收')}
             </button>
             <button
               style={btnStyle(C.red, dis)}
               onClick={() => firstItem ? router.push(buildExceptionUrl(firstItem)) : router.push(`/mobile/delivery/orders/${id}/exception`)}
               disabled={dis}
             >
-              ⚠ 异常签收
+              ⚠ {t('mob.dlv.exception_sign', '异常签收')}
             </button>
           </div>
         );
       case 'COMPLETED':
         return (
           <button style={btnStyle(C.blue)} onClick={() => router.push(`/mobile/delivery/orders/${id}/photos`)}>
-            📷 查看照片
+            📷 {t('mob.dlv.view_photos', '查看照片')}
           </button>
         );
       default:
@@ -311,7 +320,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <div style={{ minHeight: '100svh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: C.textSub, fontSize: 14 }}>加载中…</div>
+        <div style={{ color: C.textSub, fontSize: 14 }}>{t('mob.dlv.loading', '加载中…')}</div>
       </div>
     );
   }
@@ -319,13 +328,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   if (error || !order) {
     return (
       <div style={{ minHeight: '100svh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <div style={{ color: C.red, fontSize: 14 }}>⚠ {error || '订单不存在'}</div>
-        <button onClick={() => router.back()} style={{ color: C.orange, background: 'none', border: 'none', fontSize: 15, cursor: 'pointer' }}>← 返回</button>
+        <div style={{ color: C.red, fontSize: 14 }}>⚠ {error || t('mob.dlv.order_not_found', '订单不存在')}</div>
+        <button onClick={() => router.back()} style={{ color: C.orange, background: 'none', border: 'none', fontSize: 15, cursor: 'pointer' }}>← {t('mob.dlv.back', '返回')}</button>
       </div>
     );
   }
 
-  const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, color: C.gray };
+  const statusInfo = buildStatusMap(t)[order.status] ?? { label: order.status, color: C.gray };
 
   return (
     <div style={{ minHeight: '100svh', background: C.bg, color: C.text, fontFamily: 'system-ui, -apple-system, sans-serif', paddingBottom: 100 }}>
@@ -363,14 +372,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* 基本信息 */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: C.textSub, marginBottom: 10 }}>配送信息</div>
+          <div style={{ fontSize: 13, color: C.textSub, marginBottom: 10 }}>{t('mob.dlv.delivery_info', '配送信息')}</div>
           {[
-            ['🏢 客户',   order.customerName],
-            ['📅 波次日期', order.waveDate],
-            ['📍 地址',   order.address],
-            ['👤 联系人', order.contactName],
-            ['📞 电话',   order.contactPhone],
-            ['📝 备注',   order.remark],
+            [`🏢 ${t('mob.dlv.field_customer', '客户')}`,   order.customerName],
+            [`📅 ${t('mob.dlv.field_wave_date', '波次日期')}`, order.waveDate],
+            [`📍 ${t('mob.dlv.field_address', '地址')}`,   order.address],
+            [`👤 ${t('mob.dlv.field_contact', '联系人')}`, order.contactName],
+            [`📞 ${t('mob.dlv.field_phone', '电话')}`,   order.contactPhone],
+            [`📝 ${t('mob.dlv.field_remark', '备注')}`,   order.remark],
           ].filter(([, v]) => v).map(([label, val]) => (
             <div key={label as string} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 13, color: C.textSub, flexShrink: 0 }}>{label as string}</span>
@@ -383,7 +392,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         {order.items && order.items.length > 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
             <div style={{ fontSize: 13, color: C.textSub, marginBottom: 4 }}>
-              商品明细（{order.items.length} 项）
+              {t('mob.dlv.item_detail', '商品明细')}（{order.items.length} {t('mob.dlv.item_count_unit', '项')}）
             </div>
             {order.items.map(item => (
               <div key={item.id}>
@@ -398,7 +407,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         background: `${C.green}22`, color: C.green, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                       }}
                     >
-                      ✅ 正常签收
+                      ✅ {t('mob.dlv.normal_sign', '正常签收')}
                     </button>
                     <button
                       onClick={() => router.push(buildExceptionUrl(item))}
@@ -407,7 +416,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         background: `${C.red}22`, color: C.red, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                       }}
                     >
-                      ⚠ 异常签收
+                      ⚠ {t('mob.dlv.exception_sign', '异常签收')}
                     </button>
                   </div>
                 )}
@@ -433,7 +442,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               textDecoration: 'underline',
             }}
           >
-            查看我的配送表现 →
+            {t('mob.dlv.view_my_performance', '查看我的配送表现')} →
           </button>
         </div>
       </div>
@@ -460,7 +469,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           padding: '10px 16px calc(10px + env(safe-area-inset-bottom))',
         }}>
           <div style={{ fontSize: 12, color: C.textSub, textAlign: 'center', marginBottom: 8 }}>
-            请对每个商品逐一签收，或使用下方按钮整单操作
+            {t('mob.dlv.sign_each_hint', '请对每个商品逐一签收，或使用下方按钮整单操作')}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             {renderActions(order)}

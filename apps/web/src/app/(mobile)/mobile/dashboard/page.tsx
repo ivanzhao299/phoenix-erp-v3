@@ -87,6 +87,7 @@ function MiniBarChart({
   const {
     t
   } = useMobileTheme();
+  const { t: tt } = useLanguage();
   if (!data.length) return null;
   const maxVal = Math.max(...data.map(d => d.summary.total_packed), 1);
   return <div>
@@ -94,7 +95,7 @@ function MiniBarChart({
       fontSize: 11,
       color: t.textFaint,
       marginBottom: 6
-    }}>近 7 日包装箱数</div>
+    }}>{tt('mob.home.last7_packing_boxes', '近 7 日包装箱数')}</div>
       <div style={{
       display: 'flex',
       gap: 4,
@@ -160,6 +161,7 @@ function Section({
   const {
     t
   } = useMobileTheme();
+  const { t: tt } = useLanguage();
   return <div style={{
     background: t.cardBg,
     border: `1px solid ${color}30`,
@@ -183,7 +185,7 @@ function Section({
         marginLeft: 'auto',
         fontSize: 11,
         color: t.textFaint
-      }}>加载中…</span>}
+      }}>{tt('mob.home.loading', '加载中…')}</span>}
       </div>
       {error ? <div style={{
       fontSize: 12,
@@ -250,7 +252,8 @@ export default function MobileDashboardPage() {
     hasPermission
   } = useAuth();
   const {
-    lang
+    lang,
+    t: tt
   } = useLanguage();
   const {
     isDark,
@@ -353,11 +356,11 @@ export default function MobileDashboardPage() {
   const eggStock = useMemo((): EggStockRow[] => Array.isArray(eggStockRaw) ? eggStockRaw as EggStockRow[] : [], [eggStockRaw]);
   // V2 配送统计（从 sal_delivery_orders 汇总，不再读旧 log_dispatch）
   const delStats = deliveryStats ?? null;
-  const kpiErr = _kpiErr ? '数据加载失败' : '';
-  const pkgErr = _pkgErr ? '数据加载失败' : '';
-  const qcErr = _qcErr ? '数据加载失败' : '';
-  const farmErr = _farmErr ? _farmErr.message?.includes('403') ? '权限不足' : _farmErr.message?.includes('401') ? '请重新登录' : '数据加载失败' : '';
-  if (permLoading) return <MobilePageSkeleton title="每日看板" statGrid onBack={() => router.back()} />;
+  const kpiErr = _kpiErr ? tt('mob.home.load_failed', '数据加载失败') : '';
+  const pkgErr = _pkgErr ? tt('mob.home.load_failed', '数据加载失败') : '';
+  const qcErr = _qcErr ? tt('mob.home.load_failed', '数据加载失败') : '';
+  const farmErr = _farmErr ? _farmErr.message?.includes('403') ? tt('mob.home.no_permission', '权限不足') : _farmErr.message?.includes('401') ? tt('mob.home.relogin', '请重新登录') : tt('mob.home.load_failed', '数据加载失败') : '';
+  if (permLoading) return <MobilePageSkeleton title={tt('mob.home.daily_board', '每日看板')} statGrid onBack={() => router.back()} />;
   if (!allowed) return null;
   const isToday = date === today;
   const prevDay = () => setDate(d => fmtDate(addDays(toDate(d), -1)));
@@ -412,8 +415,8 @@ export default function MobileDashboardPage() {
   const salesVal = kpi?.stats?.sales?.value;
   const salesUnit = kpi?.stats?.sales?.unit;
   const dateLabel = (() => {
-    if (date === today) return lang === 'en' ? 'Today' : lang === 'lo' ? 'ມື້ນີ້' : '今天';
-    if (date === fmtDate(addDays(toDate(today), -1))) return lang === 'en' ? 'Yesterday' : lang === 'lo' ? 'ມື້ວານ' : '昨天';
+    if (date === today) return lang === 'en' ? 'Today' : lang === 'lo' ? 'ມື້ນີ້' : tt('mob.home.today', '今天');
+    if (date === fmtDate(addDays(toDate(today), -1))) return lang === 'en' ? 'Yesterday' : lang === 'lo' ? 'ມື້ວານ' : tt('mob.home.yesterday', '昨天');
     return date;
   })();
   return <div style={{
@@ -450,7 +453,7 @@ export default function MobileDashboardPage() {
         color: t.text,
         flex: 1
       }}>
-          {lang === 'en' ? 'Daily Report' : lang === 'lo' ? 'ລາຍງານປະຈໍາວັນ' : '每日数据看板'}
+          {lang === 'en' ? 'Daily Report' : lang === 'lo' ? 'ລາຍງານປະຈໍາວັນ' : tt('mob.home.daily_data_board', '每日数据看板')}
         </span>
         <button onClick={toggle} style={{
         background: 'none',
@@ -524,14 +527,14 @@ export default function MobileDashboardPage() {
         <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
 
         {/* ══ 今日配送概况（LOG_MGR / DRIVER / ADMIN 专属） ══════════════════════ */}
-        {showDelivery && <Section title="今日配送概况" icon="🚛" color="var(--status-info)" loading={dispatchLoading}>
+        {showDelivery && <Section title={tt('mob.home.today_delivery_overview', '今日配送概况')} icon="🚛" color="var(--status-info)" loading={dispatchLoading}>
             {!delStats ? <div style={{
           textAlign: 'center',
           color: t.textFaint,
           fontSize: 13,
           padding: '10px 0'
         }}>
-                今日暂无配送数据
+                {tt('mob.home.no_delivery_today', '今日暂无配送数据')}
               </div> : <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -544,27 +547,27 @@ export default function MobileDashboardPage() {
             gap: 8
           }}>
                   {[{
-              label: '今日配送',
+              label: tt('mob.home.del_today', '今日配送'),
               value: delStats.todayWave ?? 0,
               color: 'var(--status-info)'
             }, {
-              label: '待装车',
+              label: tt('mob.home.del_to_load', '待装车'),
               value: delStats.planned ?? 0,
               color: 'var(--status-warning)'
             }, {
-              label: '配送中',
+              label: tt('mob.home.del_in_transit', '配送中'),
               value: delStats.inTransit ?? 0,
               color: 'var(--status-info)'
             }, {
-              label: '待签收',
+              label: tt('mob.home.del_pending_sign', '待签收'),
               value: delStats.pendingSign ?? 0,
               color: 'var(--status-warning)'
             }, {
-              label: '已完成',
+              label: tt('mob.home.del_completed', '已完成'),
               value: delStats.todayCompleted ?? delStats.completed ?? 0,
               color: 'var(--status-success)'
             }, {
-              label: '已取消',
+              label: tt('mob.home.del_cancelled', '已取消'),
               value: delStats.cancelled ?? 0,
               color: 'var(--slate-400)'
             }].map(({
@@ -608,22 +611,22 @@ export default function MobileDashboardPage() {
             gap: 6
           }}>
                   <Truck size={14} />
-                  进入配送管理
+                  {tt('mob.home.enter_delivery_mgmt', '进入配送管理')}
                 </button>
               </div>}
           </Section>}
 
         {/* ══ 生产概况（农场 / 管理层） ══════════════════════════════════════════ */}
-        {showFarm && <Section title="生产概况" icon="🐔" color="var(--status-success)" loading={kpiLoading} error={kpiErr}>
+        {showFarm && <Section title={tt('mob.home.production_overview', '生产概况')} icon="🐔" color="var(--status-success)" loading={kpiLoading} error={kpiErr}>
             <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(2,1fr)',
           gap: 8
         }}>
-              <StatCard label="今日产蛋" value={fmt(todayEggs)} unit="枚" color="var(--status-warning)" />
-              <StatCard label="产蛋率" value={layRate != null ? `${layRate}%` : '—'} color="var(--status-success)" />
-              <StatCard label="存栏数" value={fmt(layingTotal)} unit="只" />
-              <StatCard label="今日死淘" value={showFarmFull ? farm.length > 0 ? fmt(farmMortality) : '—' : '—'} unit="只" color={farmMortality > 0 ? 'var(--status-danger)' : undefined} />
+              <StatCard label={tt('mob.home.today_eggs', '今日产蛋')} value={fmt(todayEggs)} unit={tt('mob.home.unit_egg', '枚')} color="var(--status-warning)" />
+              <StatCard label={tt('mob.home.lay_rate', '产蛋率')} value={layRate != null ? `${layRate}%` : '—'} color="var(--status-success)" />
+              <StatCard label={tt('mob.home.stock_count', '存栏数')} value={fmt(layingTotal)} unit={tt('mob.home.unit_bird', '只')} />
+              <StatCard label={tt('mob.home.today_mortality', '今日死淘')} value={showFarmFull ? farm.length > 0 ? fmt(farmMortality) : '—' : '—'} unit={tt('mob.home.unit_bird', '只')} color={farmMortality > 0 ? 'var(--status-danger)' : undefined} />
             </div>
 
             {farmErr && <div style={{
@@ -632,7 +635,7 @@ export default function MobileDashboardPage() {
           color: t.textFaint,
           textAlign: 'center'
         }}>
-                死淘数据：{farmErr}
+                {tt('mob.home.mortality_data', '死淘数据：')}{farmErr}
               </div>}
 
             {/* 逐栋明细：仅 FARM_FULL 角色显示 */}
@@ -655,11 +658,11 @@ export default function MobileDashboardPage() {
               fontSize: 12,
               color: t.textMuted,
               fontWeight: 600
-            }}>逐栋明细 · {houseRows.length} 栋</span>
+            }}>{tt('mob.home.house_detail', '逐栋明细')} · {houseRows.length} {tt('mob.home.unit_house', '栋')}</span>
                   <span style={{
               fontSize: 11,
               color: t.textFaint
-            }}>{houseExpanded ? '收起 ▴' : '展开 ▾'}</span>
+            }}>{houseExpanded ? tt('mob.home.collapse', '收起 ▴') : tt('mob.home.expand', '展开 ▾')}</span>
                 </button>
                 {houseExpanded && <div style={{
             marginTop: 8,
@@ -674,9 +677,9 @@ export default function MobileDashboardPage() {
                         <tr style={{
                   color: t.textFaint
                 }}>
-                          {['栋舍', '产蛋', '死淘', '脏破蛋', '耗料(kg)'].map(h => <th key={h} style={{
+                          {[tt('mob.home.th_house', '栋舍'), tt('mob.home.th_eggs', '产蛋'), tt('mob.home.th_mortality', '死淘'), tt('mob.home.th_dirty_broken', '脏破蛋'), tt('mob.home.th_feed_kg', '耗料(kg)')].map((h, hi) => <th key={hi} style={{
                     padding: '4px 6px',
-                    textAlign: h === '栋舍' ? 'left' : 'right',
+                    textAlign: hi === 0 ? 'left' : 'right',
                     fontWeight: 600,
                     fontSize: 10
                   }}>{h}</th>)}
@@ -738,12 +741,12 @@ export default function MobileDashboardPage() {
               color: t.textMuted,
               fontWeight: 600
             }}>
-                    存栏批次 · {flocks.length} 批 · {fmt(flocks.reduce((s, f) => s + Number(f.current_qty || 0), 0))} 只
+                    {tt('mob.home.flock_batch', '存栏批次')} · {flocks.length} {tt('mob.home.unit_batch', '批')} · {fmt(flocks.reduce((s, f) => s + Number(f.current_qty || 0), 0))} {tt('mob.home.unit_bird', '只')}
                   </span>
                   <span style={{
               fontSize: 11,
               color: t.textFaint
-            }}>{flockExpanded ? '收起 ▴' : '展开 ▾'}</span>
+            }}>{flockExpanded ? tt('mob.home.collapse', '收起 ▴') : tt('mob.home.expand', '展开 ▾')}</span>
                 </button>
                 {flockExpanded && <div style={{
             marginTop: 8,
@@ -758,9 +761,9 @@ export default function MobileDashboardPage() {
                         <tr style={{
                   color: t.textFaint
                 }}>
-                          {['批次', '栋舍', '期初', '现存', '产蛋率'].map(h => <th key={h} style={{
+                          {[tt('mob.home.th_batch', '批次'), tt('mob.home.th_house', '栋舍'), tt('mob.home.th_initial', '期初'), tt('mob.home.th_current', '现存'), tt('mob.home.th_lay_rate', '产蛋率')].map((h, hi) => <th key={hi} style={{
                     padding: '4px 6px',
-                    textAlign: h === '批次' ? 'left' : 'right',
+                    textAlign: hi === 0 ? 'left' : 'right',
                     fontWeight: 600,
                     fontSize: 10
                   }}>{h}</th>)}
@@ -808,22 +811,22 @@ export default function MobileDashboardPage() {
           </Section>}
 
         {/* ══ 包装产出 ══════════════════════════════════════════════════════════ */}
-        {showPkg && <Section title="包装产出" icon="📦" color="var(--status-warning)" loading={pkgLoading} error={pkgErr}>
+        {showPkg && <Section title={tt('mob.home.packaging_output', '包装产出')} icon="📦" color="var(--status-warning)" loading={pkgLoading} error={pkgErr}>
             <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(2,1fr)',
           gap: 8,
           marginBottom: 10
         }}>
-              <StatCard label="完成箱数" value={fmt(pkgTotal)} unit="箱" color="var(--status-warning)" />
-              <StatCard label="完成任务数" value={fmt(pkgTasks)} unit="个" />
+              <StatCard label={tt('mob.home.boxes_done', '完成箱数')} value={fmt(pkgTotal)} unit={tt('mob.home.unit_box', '箱')} color="var(--status-warning)" />
+              <StatCard label={tt('mob.home.tasks_done', '完成任务数')} value={fmt(pkgTasks)} unit={tt('mob.home.unit_count', '个')} />
             </div>
             {byGrade.length > 0 && <div className={u.mb12}>
                 <div style={{
             fontSize: 11,
             color: t.textFaint,
             marginBottom: 6
-          }}>按等级分布</div>
+          }}>{tt('mob.home.by_grade', '按等级分布')}</div>
                 <div style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -851,7 +854,7 @@ export default function MobileDashboardPage() {
                       <div style={{
                 fontSize: 10,
                 color: t.textFaint
-              }}>枚</div>
+              }}>{tt('mob.home.unit_egg', '枚')}</div>
                     </div>)}
                 </div>
               </div>}
@@ -861,26 +864,26 @@ export default function MobileDashboardPage() {
           color: t.textFaint,
           textAlign: 'center',
           padding: '8px 0'
-        }}>当日暂无包装记录</div>}
+        }}>{tt('mob.home.no_packaging_today', '当日暂无包装记录')}</div>}
           </Section>}
 
         {/* ══ 品质检测 ══════════════════════════════════════════════════════════ */}
-        {showQuality && <Section title="品质检测" icon="🛡️" color="var(--color-purple-500)" loading={qcLoading} error={qcErr}>
+        {showQuality && <Section title={tt('mob.home.quality_inspection', '品质检测')} icon="🛡️" color="var(--color-purple-500)" loading={qcLoading} error={qcErr}>
             <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3,1fr)',
           gap: 8
         }}>
-              <StatCard label="今日检测" value={fmt(qcTotal)} unit="次" />
-              <StatCard label="合格率" value={qcRate != null ? `${qcRate}%` : '—'} color={qcRate != null ? qcRate >= 95 ? 'var(--status-success)' : qcRate >= 80 ? 'var(--status-warning)' : 'var(--status-danger)' : undefined} />
-              <StatCard label="不合格" value={fmt(qcFail)} unit="次" color={qcFail > 0 ? 'var(--status-danger)' : undefined} />
+              <StatCard label={tt('mob.home.today_inspection', '今日检测')} value={fmt(qcTotal)} unit={tt('mob.home.unit_times', '次')} />
+              <StatCard label={tt('mob.home.pass_rate', '合格率')} value={qcRate != null ? `${qcRate}%` : '—'} color={qcRate != null ? qcRate >= 95 ? 'var(--status-success)' : qcRate >= 80 ? 'var(--status-warning)' : 'var(--status-danger)' : undefined} />
+              <StatCard label={tt('mob.home.fail', '不合格')} value={fmt(qcFail)} unit={tt('mob.home.unit_times', '次')} color={qcFail > 0 ? 'var(--status-danger)' : undefined} />
             </div>
             {qcTotal === 0 && !qcLoading && <div style={{
           marginTop: 8,
           fontSize: 12,
           color: t.textFaint,
           textAlign: 'center'
-        }}>当日暂无检测记录</div>}
+        }}>{tt('mob.home.no_inspection_today', '当日暂无检测记录')}</div>}
           </Section>}
 
         {/* ══ 蛋品库存 ══════════════════════════════════════════════════════════ */}
@@ -907,7 +910,7 @@ export default function MobileDashboardPage() {
                 fontSize: 14,
                 fontWeight: 700,
                 color: t.text
-              }}>蛋品库存</span>
+              }}>{tt('mob.home.egg_stock', '蛋品库存')}</span>
                 </div>
                 <div className={u.tar}>
                   <span style={{
@@ -919,12 +922,12 @@ export default function MobileDashboardPage() {
                 fontSize: 11,
                 color: t.textMuted,
                 marginLeft: 3
-              }}>提</span>
+              }}>{tt('mob.home.unit_tray', '提')}</span>
                   <span style={{
                 fontSize: 13,
                 color: t.textFaint,
                 marginLeft: 6
-              }}>{totalQty.toLocaleString()} 枚</span>
+              }}>{totalQty.toLocaleString()} {tt('mob.home.unit_egg', '枚')}</span>
                 </div>
               </div>
               <div style={{
@@ -952,20 +955,20 @@ export default function MobileDashboardPage() {
               fontSize: 12,
               color: t.textFaint,
               padding: '4px 0'
-            }}>库存为零</div>}
+            }}>{tt('mob.home.zero_stock', '库存为零')}</div>}
               </div>
             </div>;
       })()}
 
         {/* ══ 销售情况 ══════════════════════════════════════════════════════════ */}
-        {showSales && <Section title="销售情况" icon="💰" color="var(--status-info)" loading={kpiLoading} error={kpiErr}>
+        {showSales && <Section title={tt('mob.home.sales_overview', '销售情况')} icon="💰" color="var(--status-info)" loading={kpiLoading} error={kpiErr}>
             <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(2,1fr)',
           gap: 8
         }}>
-              <StatCard label="今日销售额" value={salesVal != null ? fmt(Number(salesVal)) : '—'} unit={salesUnit?.split(' ')[0] || 'LAK'} color="var(--status-info)" />
-              <StatCard label="今日告警" value={String(alerts.length || kpi?.stats?.alerts?.value || 0)} unit="条" color={alerts.length > 0 ? 'var(--status-danger)' : undefined} />
+              <StatCard label={tt('mob.home.today_sales', '今日销售额')} value={salesVal != null ? fmt(Number(salesVal)) : '—'} unit={salesUnit?.split(' ')[0] || 'LAK'} color="var(--status-info)" />
+              <StatCard label={tt('mob.home.today_alerts', '今日告警')} value={String(alerts.length || kpi?.stats?.alerts?.value || 0)} unit={tt('mob.home.unit_item', '条')} color={alerts.length > 0 ? 'var(--status-danger)' : undefined} />
             </div>
             <div style={{
           marginTop: 8,
@@ -973,7 +976,7 @@ export default function MobileDashboardPage() {
           color: t.textFaint,
           textAlign: 'center'
         }}>
-              {isToday ? '今日 POS 销售数据' : '历史销售数据暂不支持按日查询'}
+              {isToday ? tt('mob.home.today_pos_data', '今日 POS 销售数据') : tt('mob.home.history_not_supported', '历史销售数据暂不支持按日查询')}
             </div>
           </Section>}
 
@@ -1001,7 +1004,7 @@ export default function MobileDashboardPage() {
               fontSize: 14,
               fontWeight: 700,
               color: 'var(--status-danger)'
-            }}>设备告警</span>
+            }}>{tt('mob.home.device_alert', '设备告警')}</span>
                 <span style={{
               fontSize: 11,
               padding: '2px 7px',
@@ -1010,13 +1013,13 @@ export default function MobileDashboardPage() {
               color: 'var(--status-danger)',
               fontWeight: 700
             }}>
-                  {alerts.length} 条未处理
+                  {alerts.length} {tt('mob.home.unhandled', '条未处理')}
                 </span>
               </div>
               <span style={{
             color: t.textMuted,
             fontSize: 12
-          }}>{alertsExpanded ? '收起' : '展开'}</span>
+          }}>{alertsExpanded ? tt('mob.home.collapse_plain', '收起') : tt('mob.home.expand_plain', '展开')}</span>
             </button>
             {alertsExpanded && <div style={{
           marginTop: 12,
@@ -1065,7 +1068,7 @@ export default function MobileDashboardPage() {
                 fontSize: 10,
                 color: t.textFaint,
                 fontWeight: 400
-              }}>阈值 {String(a.threshold)}</div>}
+              }}>{tt('mob.home.threshold', '阈值')} {String(a.threshold)}</div>}
                       </div>}
                   </div>)}
                 {alerts.length > 15 && <div style={{
@@ -1073,7 +1076,7 @@ export default function MobileDashboardPage() {
             fontSize: 12,
             color: t.textFaint
           }}>
-                    共 {alerts.length} 条，仅显示最新 15 条
+                    {tt('mob.home.total_prefix', '共')} {alerts.length} {tt('mob.home.show_latest_15', '条，仅显示最新 15 条')}
                   </div>}
               </div>}
           </div>}
@@ -1091,11 +1094,11 @@ export default function MobileDashboardPage() {
             <div style={{
           fontSize: 14,
           color: t.textSub
-        }}>您的看板正在配置中</div>
+        }}>{tt('mob.home.dashboard_configuring', '您的看板正在配置中')}</div>
             <div style={{
           fontSize: 12,
           marginTop: 6
-        }}>请联系管理员分配数据权限</div>
+        }}>{tt('mob.home.contact_admin_data_perm', '请联系管理员分配数据权限')}</div>
           </div>}
       </div>
     </div>;

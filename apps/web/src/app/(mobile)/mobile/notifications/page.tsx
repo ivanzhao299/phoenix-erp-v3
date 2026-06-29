@@ -10,6 +10,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { notificationApi, type MobileNotification } from '@/lib/mobile-api';
 import { authHeader } from '@/lib/mobile-auth-token';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Web Push 工具 ─────────────────────────────────────────────────────────────
 
@@ -25,60 +26,61 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 // ── 通知类型配置 ──────────────────────────────────────────────────────────────
 
-const TYPE_CONFIG: Record<string, {
+type TFn = (key: string, fallback: string) => string;
+const buildTypeConfig = (tr: TFn): Record<string, {
   icon: string;
   color: string;
   label: string;
-}> = {
+}> => ({
   TASK_CREATED: {
     icon: '📋',
     color: 'var(--color-purple-600)',
-    label: '新审批任务'
+    label: tr('mob.sys.notif_task_created', '新审批任务')
   },
   TASK_APPROVED: {
     icon: '✅',
     color: 'var(--status-success)',
-    label: '审批通过'
+    label: tr('mob.sys.notif_task_approved', '审批通过')
   },
   TASK_REJECTED: {
     icon: '❌',
     color: 'var(--status-danger)',
-    label: '审批拒绝'
+    label: tr('mob.sys.notif_task_rejected', '审批拒绝')
   },
   TASK_COMPLETED: {
     icon: '🎉',
     color: 'var(--status-success)',
-    label: '流程完成'
+    label: tr('mob.sys.notif_task_completed', '流程完成')
   },
   TASK_CANCELLED: {
     icon: '🚫',
     color: 'var(--slate-400)',
-    label: '流程取消'
+    label: tr('mob.sys.notif_task_cancelled', '流程取消')
   },
   REMINDER: {
     icon: '⏰',
     color: 'var(--status-warning)',
-    label: '催办提醒'
+    label: tr('mob.sys.notif_reminder', '催办提醒')
   },
   // Phase F: SLA 类型
   TASK_REMINDER: {
     icon: '⏰',
     color: 'var(--status-warning)',
-    label: '审批催办'
+    label: tr('mob.sys.notif_task_reminder', '审批催办')
   },
   TASK_OVERDUE: {
     icon: '🔴',
     color: 'var(--status-danger)',
-    label: '审批超期'
+    label: tr('mob.sys.notif_task_overdue', '审批超期')
   },
   TASK_ESCALATED: {
     icon: '🔺',
     color: 'var(--status-warning)',
-    label: '审批升级'
+    label: tr('mob.sys.notif_task_escalated', '审批升级')
   }
-};
-function getTypeConfig(type: string) {
-  return TYPE_CONFIG[type] ?? {
+});
+function getTypeConfig(type: string, tr: TFn) {
+  return buildTypeConfig(tr)[type] ?? {
     icon: '🔔',
     color: 'var(--gray-500)',
     label: type
@@ -99,7 +101,10 @@ function NotificationCard({
   const {
     t
   } = useMobileTheme();
-  const cfg = getTypeConfig(item.notificationType);
+  const {
+    t: tr
+  } = useLanguage();
+  const cfg = getTypeConfig(item.notificationType, tr);
   const isUnread = item.status === 'UNREAD';
   return <div style={{
     background: t.cardBg,
@@ -210,6 +215,9 @@ export default function NotificationsPage() {
     toggle,
     t
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const toast = useToast();
   const [items, setItems] = useState<MobileNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -246,13 +254,13 @@ export default function NotificationsPage() {
       const pkRes = await fetch('/api/notifications/push/public-key');
       const pkJson = await pkRes.json().catch(() => ({}));
       if (!pkJson.enabled) {
-        toast.error('推送功能暂未在服务器启用');
+        toast.error(tr('mob.sys.push_not_enabled', '推送功能暂未在服务器启用'));
         return;
       }
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') {
         setPushStatus('denied');
-        toast.error('推送权限被拒绝');
+        toast.error(tr('mob.sys.push_perm_denied', '推送权限被拒绝'));
         return;
       }
       const reg = swRegRef.current ?? (await navigator.serviceWorker.ready);
@@ -280,9 +288,9 @@ export default function NotificationsPage() {
       });
       setPushStatus('subscribed');
       haptic('success');
-      toast.success('推送通知已开启');
+      toast.success(tr('mob.sys.push_on', '推送通知已开启'));
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : '订阅失败，请重试');
+      toast.error(e instanceof Error ? e.message : tr('mob.sys.subscribe_failed', '订阅失败，请重试'));
     } finally {
       setPushWorking(false);
     }
@@ -304,9 +312,9 @@ export default function NotificationsPage() {
       }
       setPushStatus('idle');
       haptic('light');
-      toast.success('推送通知已关闭');
+      toast.success(tr('mob.sys.push_off', '推送通知已关闭'));
     } catch {
-      toast.error('操作失败，请重试');
+      toast.error(tr('mob.sys.op_failed_retry', '操作失败，请重试'));
     } finally {
       setPushWorking(false);
     }
@@ -323,11 +331,11 @@ export default function NotificationsPage() {
       setItems(listRes.items);
       setUnread(countRes);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '加载失败');
+      setErr(e instanceof Error ? e.message : tr('mob.sys.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, tr]);
   useEffect(() => {
     load();
   }, [load]);
@@ -345,14 +353,14 @@ export default function NotificationsPage() {
     try {
       await notificationApi.readAll();
       haptic('success');
-      toast.success('全部已读');
+      toast.success(tr('mob.sys.all_read', '全部已读'));
       setItems(prev => prev.map(n => ({
         ...n,
         status: 'READ'
       })));
       setUnread(0);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : '操作失败');
+      toast.error(e instanceof Error ? e.message : tr('mob.sys.op_failed', '操作失败'));
     }
   };
   const handleTap = (item: MobileNotification) => {
@@ -388,7 +396,7 @@ export default function NotificationsPage() {
         gap: 4
       }}>
           <ChevronLeft size={20} />
-          <span className={u.fs14}>返回</span>
+          <span className={u.fs14}>{tr('mob.sys.back', '返回')}</span>
         </button>
 
         <div className={u.flexRow8}>
@@ -397,7 +405,7 @@ export default function NotificationsPage() {
           fontWeight: 700,
           fontSize: 16,
           color: t.text
-        }}>通知中心</span>
+        }}>{tr('mob.sys.notif_center', '通知中心')}</span>
           {unread > 0 && <span style={{
           background: 'var(--status-danger)',
           color: 'var(--bg-card)',
@@ -412,7 +420,7 @@ export default function NotificationsPage() {
         display: 'flex',
         gap: 4
       }}>
-          {unread > 0 && <button onClick={handleReadAll} title="全部已读" style={{
+          {unread > 0 && <button onClick={handleReadAll} title={tr('mob.sys.all_read', '全部已读')} style={{
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -453,7 +461,7 @@ export default function NotificationsPage() {
       borderRadius: 12,
       padding: 4
     }}>
-        {([['all', '全部'], ['unread', `未读${unread > 0 ? ` (${unread})` : ''}`]] as const).map(([key, label]) => <button key={key} onClick={() => setFilter(key)} style={{
+        {([['all', tr('mob.sys.all', '全部')], ['unread', `${tr('mob.sys.unread', '未读')}${unread > 0 ? ` (${unread})` : ''}`]] as const).map(([key, label]) => <button key={key} onClick={() => setFilter(key)} style={{
         flex: 1,
         padding: '9px 0',
         borderRadius: 10,
@@ -493,10 +501,10 @@ export default function NotificationsPage() {
           fontSize: 13,
           color: t.text
         }}>
-              {pushStatus === 'subscribed' && '推送通知已开启'}
-              {pushStatus === 'unsupported' && '当前浏览器不支持推送通知'}
-              {pushStatus === 'denied' && '推送权限已被拒绝（请在浏览器设置中允许）'}
-              {pushStatus === 'idle' && '开启推送，审批变化第一时间收到通知'}
+              {pushStatus === 'subscribed' && tr('mob.sys.push_on', '推送通知已开启')}
+              {pushStatus === 'unsupported' && tr('mob.sys.push_unsupported', '当前浏览器不支持推送通知')}
+              {pushStatus === 'denied' && tr('mob.sys.push_denied_hint', '推送权限已被拒绝（请在浏览器设置中允许）')}
+              {pushStatus === 'idle' && tr('mob.sys.push_idle_hint', '开启推送，审批变化第一时间收到通知')}
             </span>
           </div>
           {(pushStatus === 'idle' || pushStatus === 'subscribed') && <button onClick={pushStatus === 'subscribed' ? handlePushUnsubscribe : handlePushSubscribe} disabled={pushWorking} style={{
@@ -511,7 +519,7 @@ export default function NotificationsPage() {
         fontWeight: 600,
         opacity: pushWorking ? 0.6 : 1
       }}>
-              {pushWorking ? '处理中…' : pushStatus === 'subscribed' ? '关闭' : '开启推送'}
+              {pushWorking ? tr('mob.sys.processing', '处理中…') : pushStatus === 'subscribed' ? tr('mob.sys.close', '关闭') : tr('mob.sys.enable_push', '开启推送')}
             </button>}
         </div>}
 
@@ -530,7 +538,7 @@ export default function NotificationsPage() {
       }}>
             {err}
           </div>}
-        {!loading && !err && items.length === 0 && <MobileEmptyState icon="🔕" title={filter === 'unread' ? '暂无未读通知' : '暂无通知'} desc="审批任务更新时会在这里通知您" />}
+        {!loading && !err && items.length === 0 && <MobileEmptyState icon="🔕" title={filter === 'unread' ? tr('mob.sys.no_unread_notif', '暂无未读通知') : tr('mob.sys.no_notif', '暂无通知')} desc={tr('mob.sys.notif_empty_desc', '审批任务更新时会在这里通知您')} />}
         {!loading && !err && items.map(item => <NotificationCard key={item.id} item={item} onRead={handleRead} onTap={handleTap} />)}
       </div>
     </div>;

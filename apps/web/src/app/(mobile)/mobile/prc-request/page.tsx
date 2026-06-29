@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardList, Save, Send, Plus, Trash2, Sun, Moon, Loader2 } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
 import { mobileApi } from '@/lib/mobile-api';
 import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
@@ -129,6 +130,18 @@ interface MaterialPickerProps {
 
 function MaterialPicker(props: MaterialPickerProps) {
   const { value, options, readonly, inputSt, labelSt, isDark, textSub, text, cardBg, onPick, onCreated } = props;
+  const { t } = useLanguage();
+  // 物料类型兜底标签的 i18n（dict 未命中时使用）
+  const materialTypeI18n: Record<string, string> = {
+    FEED_RAW: t('mob.biz.mat_feed_raw', '饲料原料'),
+    VET_DRUG: t('mob.biz.mat_vet_drug', '兽药疫苗'),
+    PACKAGING: t('mob.biz.mat_packaging', '包装材料'),
+    EQUIPMENT: t('mob.biz.mat_equipment', '设备及配件'),
+    CONSTRUCTION: t('mob.biz.mat_construction', '建筑材料'),
+    OFFICE: t('mob.biz.mat_office', '办公易耗'),
+    TOOL: t('mob.biz.mat_tool', '工具器具'),
+    OTHER: t('mob.biz.mat_other', '其他'),
+  };
   // search = 输入框文本；初始同步 value
   const [search, setSearch] = useState(value);
   const [open, setOpen] = useState(false);
@@ -189,7 +202,7 @@ function MaterialPicker(props: MaterialPickerProps) {
   const submitCreate = async () => {
     const name = kw;
     if (!name) {
-      setErr('请输入物料名称');
+      setErr(t('mob.biz.enter_material_name', '请输入物料名称'));
       return;
     }
     setSaving(true);
@@ -211,10 +224,10 @@ function MaterialPicker(props: MaterialPickerProps) {
         onCreated(opt);
         pick(opt.name);
       } else {
-        setErr(json.message ?? json.msg ?? '新建失败，请重试');
+        setErr(json.message ?? json.msg ?? t('mob.biz.create_failed_retry', '新建失败，请重试'));
       }
     } catch {
-      setErr('网络错误，请重试');
+      setErr(t('mob.biz.network_error_retry', '网络错误，请重试'));
     } finally {
       setSaving(false);
     }
@@ -243,7 +256,7 @@ function MaterialPicker(props: MaterialPickerProps) {
           setCreating(false);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="搜索或输入物料名称"
+        placeholder={t('mob.biz.search_or_enter_material', '搜索或输入物料名称')}
         disabled={readonly}
       />
 
@@ -266,7 +279,7 @@ function MaterialPicker(props: MaterialPickerProps) {
           ))}
 
           {filtered.length === 0 && !showCreate && (
-            <div style={{ padding: '12px 14px', fontSize: 13, color: textSub }}>暂无物料，输入名称可新建</div>
+            <div style={{ padding: '12px 14px', fontSize: 13, color: textSub }}>{t('mob.biz.no_material_create_hint', '暂无物料，输入名称可新建')}</div>
           )}
 
           {showCreate && !creating && (
@@ -280,7 +293,7 @@ function MaterialPicker(props: MaterialPickerProps) {
                 cursor: 'pointer'
               }}
             >
-              + 新建物料「{kw}」
+              {t('mob.biz.create_material_prefix', '+ 新建物料「')}{kw}{t('mob.biz.create_material_suffix', '」')}
             </div>
           )}
 
@@ -289,27 +302,27 @@ function MaterialPicker(props: MaterialPickerProps) {
               onMouseDown={e => e.stopPropagation()}
               style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}
             >
-              <div style={{ fontSize: 13, fontWeight: 700, color: text }}>新建物料：{kw}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: text }}>{t('mob.biz.new_material_label', '新建物料：')}{kw}</div>
               <div>
-                <span style={labelSt}>物料类型</span>
+                <span style={labelSt}>{t('mob.biz.material_type', '物料类型')}</span>
                 <select
                   style={inputSt}
                   value={newType}
                   onChange={e => setNewType(e.target.value)}
                 >
                   {matTypes.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                    <option key={o.value} value={o.value}>{materialTypeI18n[o.value] ?? o.label}</option>
                   ))}
                 </select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
-                  <span style={labelSt}>规格型号</span>
-                  <input style={inputSt} value={newSpec} onChange={e => setNewSpec(e.target.value)} placeholder="可选" />
+                  <span style={labelSt}>{t('mob.biz.spec_model', '规格型号')}</span>
+                  <input style={inputSt} value={newSpec} onChange={e => setNewSpec(e.target.value)} placeholder={t('mob.biz.optional2', '可选')} />
                 </div>
                 <div>
-                  <span style={labelSt}>单位</span>
-                  <input style={inputSt} value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="可选" />
+                  <span style={labelSt}>{t('mob.biz.unit', '单位')}</span>
+                  <input style={inputSt} value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder={t('mob.biz.optional2', '可选')} />
                 </div>
               </div>
               {err && (
@@ -332,7 +345,7 @@ function MaterialPicker(props: MaterialPickerProps) {
                     opacity: saving ? 0.6 : 1
                   }}
                 >
-                  {saving ? '保存中…' : '保存并选用'}
+                  {saving ? t('mob.biz.saving', '保存中…') : t('mob.biz.save_and_use', '保存并选用')}
                 </button>
                 <button
                   onMouseDown={e => { e.preventDefault(); setCreating(false); }}
@@ -349,7 +362,7 @@ function MaterialPicker(props: MaterialPickerProps) {
                     cursor: 'pointer'
                   }}
                 >
-                  取消
+                  {t('mob.biz.cancel', '取消')}
                 </button>
               </div>
             </div>
@@ -369,6 +382,17 @@ export default function PrcRequestPage() {
     toggle,
     t
   } = useMobileTheme();
+  const { t: tt } = useLanguage();
+  // 申请状态标签的 i18n 映射（键复用 mob.biz.*）
+  const statusLabel = (k: string) => ({
+    DRAFT: tt('mob.biz.status_draft', '草稿'),
+    SUBMITTED: tt('mob.biz.status_submitted', '待审批'),
+    IN_REVIEW: tt('mob.biz.status_in_review', '审批中'),
+    APPROVED: tt('mob.biz.status_pr_approved', '已审批'),
+    REJECTED: tt('mob.biz.status_rejected', '已拒绝'),
+    PO_CREATED: tt('mob.biz.status_po_created', '已转采购单'),
+    CANCELLED: tt('mob.biz.status_cancelled', '已取消'),
+  } as Record<string, string>)[k] ?? STATUS_LABEL[k] ?? k;
   const {
     allowed,
     loading: permLoading,
@@ -389,10 +413,10 @@ export default function PrcRequestPage() {
 
   // G101 统一字典化：枚举改走 sys_dict（带硬编码兜底——dict 空/失败回退，零回归）
   const [typeOpts, setTypeOpts] = useState([
-    { value: 'MATERIAL', label: '物料' }, { value: 'EQUIPMENT', label: '设备' },
-    { value: 'SERVICE', label: '服务' }, { value: 'FIXED_ASSET', label: '固定资产' }, { value: 'OTHER', label: '其他' }]);
+    { value: 'MATERIAL', label: tt('mob.biz.ptype_material', '物料') }, { value: 'EQUIPMENT', label: tt('mob.biz.ptype_equipment', '设备') },
+    { value: 'SERVICE', label: tt('mob.biz.ptype_service', '服务') }, { value: 'FIXED_ASSET', label: tt('mob.biz.ptype_fixed_asset', '固定资产') }, { value: 'OTHER', label: tt('mob.biz.mat_other', '其他') }]);
   const [urgencyOpts, setUrgencyOpts] = useState([
-    { value: 'NORMAL', label: '普通' }, { value: 'URGENT', label: '紧急' }, { value: 'CRITICAL', label: '非常紧急' }]);
+    { value: 'NORMAL', label: tt('mob.biz.urgency_normal', '普通') }, { value: 'URGENT', label: tt('mob.biz.urgency_urgent', '紧急') }, { value: 'CRITICAL', label: tt('mob.biz.urgency_critical', '非常紧急') }]);
   const [currencyOpts, setCurrencyOpts] = useState([
     { value: 'LAK', label: 'LAK' }, { value: 'CNY', label: 'CNY' }, { value: 'THB', label: 'THB' }, { value: 'USD', label: 'USD' }]);
   useEffect(() => {
@@ -470,14 +494,14 @@ export default function PrcRequestPage() {
     };
   }
   function validate(): string {
-    if (!subject.trim()) return '请填写申请主题';
-    if (!companyCode.trim()) return '请填写公司代码';
-    if (!companyName.trim()) return '请填写公司名称';
+    if (!subject.trim()) return tt('mob.biz.fill_subject', '请填写申请主题');
+    if (!companyCode.trim()) return tt('mob.biz.fill_company_code', '请填写公司代码');
+    if (!companyName.trim()) return tt('mob.biz.fill_company_name', '请填写公司名称');
     // G95-E：只校验已填卡，空卡忽略
     const filled = items.filter(r => r.itemName.trim());
-    if (filled.length === 0) return '请至少填写一条采购明细';
+    if (filled.length === 0) return tt('mob.biz.fill_at_least_one_item', '请至少填写一条采购明细');
     const badQty = filled.find(r => !r.qty || parseFloat(r.qty) <= 0);
-    if (badQty) return '已填明细的数量须大于 0';
+    if (badQty) return tt('mob.biz.qty_must_gt_zero', '已填明细的数量须大于 0');
     return '';
   }
 
@@ -500,13 +524,13 @@ export default function PrcRequestPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        setFormSuccess(`草稿已保存！单号：${json.prNo ?? json.req_no ?? json.id ?? ''}`);
+        setFormSuccess(`${tt('mob.biz.draft_saved_prefix', '草稿已保存！单号：')}${json.prNo ?? json.req_no ?? json.id ?? ''}`);
         resetForm();
       } else {
-        setFormError(json.message ?? json.msg ?? '保存失败，请重试');
+        setFormError(json.message ?? json.msg ?? tt('mob.biz.save_failed_retry', '保存失败，请重试'));
       }
     } catch {
-      setFormError('网络错误，请检查连接后重试');
+      setFormError(tt('mob.biz.network_error_check', '网络错误，请检查连接后重试'));
     } finally {
       setSaving(false);
     }
@@ -572,7 +596,7 @@ export default function PrcRequestPage() {
       });
       const createJson = await createRes.json().catch(() => ({}));
       if (!createRes.ok) {
-        setFormError(createJson.message ?? createJson.msg ?? '创建申请失败');
+        setFormError(createJson.message ?? createJson.msg ?? tt('mob.biz.create_request_failed', '创建申请失败'));
         return;
       }
       const prId = createJson.id;
@@ -588,15 +612,15 @@ export default function PrcRequestPage() {
       });
       const submitJson = await submitRes.json().catch(() => ({}));
       if (!submitRes.ok) {
-        setFormError(submitJson.message ?? submitJson.msg ?? '提交审批失败');
+        setFormError(submitJson.message ?? submitJson.msg ?? tt('mob.biz.submit_approval_failed', '提交审批失败'));
         return;
       }
-      setFormSuccess(`申请已提交审批！单号：${createJson.prNo ?? createJson.req_no ?? prId}`);
+      setFormSuccess(`${tt('mob.biz.request_submitted_prefix', '申请已提交审批！单号：')}${createJson.prNo ?? createJson.req_no ?? prId}`);
       setSubmitPickerOpen(false);
       resetForm();
       setTimeout(() => router.push('/mobile/workflow'), 1200);
     } catch {
-      setFormError('网络错误，请检查连接后重试');
+      setFormError(tt('mob.biz.network_error_check', '网络错误，请检查连接后重试'));
     } finally {
       setSubmitting(false);
     }
@@ -628,7 +652,7 @@ export default function PrcRequestPage() {
       const json = await res.json().catch(() => ({}));
       setRecords(json.items ?? json.data ?? []);
     } catch {
-      setRecError('申请记录加载失败');
+      setRecError(tt('mob.biz.records_load_failed', '申请记录加载失败'));
     } finally {
       setRecLoading(false);
     }
@@ -688,7 +712,7 @@ export default function PrcRequestPage() {
       } catch { /* 静默 */ }
     })();
   }, [allowed, permLoading, companyCode]);
-  if (permLoading) return <MobilePageSkeleton title="发起采购申请" tabs={['发起申请', '申请记录']} onBack={() => router.back()} />;
+  if (permLoading) return <MobilePageSkeleton title={tt('mob.biz.create_purchase_request', '发起采购申请')} tabs={[tt('mob.biz.create_request_tab', '发起申请'), tt('mob.biz.request_records_tab', '申请记录')]} onBack={() => router.back()} />;
   if (!allowed) return null;
 
   // ── 样式 ──────────────────────────────────────────────────────────────────
@@ -748,7 +772,7 @@ export default function PrcRequestPage() {
         gap: 4
       }}>
           <ChevronLeft size={20} />
-          <span className={u.fs14}>返回</span>
+          <span className={u.fs14}>{tt('mob.biz.back', '返回')}</span>
         </button>
         <div className={u.flexRow8}>
           <ClipboardList size={18} color="var(--status-success)" />
@@ -756,7 +780,7 @@ export default function PrcRequestPage() {
           fontWeight: 700,
           fontSize: 16,
           color: t.text
-        }}>发起采购申请</span>
+        }}>{tt('mob.biz.create_purchase_request', '发起采购申请')}</span>
         </div>
         <div style={{
         display: 'flex',
@@ -789,7 +813,7 @@ export default function PrcRequestPage() {
       padding: '8px 16px',
       textAlign: 'center'
     }}>
-          只读模式 — 您无权提交采购申请
+          {tt('mob.biz.readonly_no_submit', '只读模式 — 您无权提交采购申请')}
         </div>}
 
       {/* Tab 切换 */}
@@ -800,7 +824,7 @@ export default function PrcRequestPage() {
       borderRadius: 12,
       padding: 4
     }}>
-        {([['form', '发起申请'], ['records', '申请记录']] as const).map(([key, label]) => <button key={key} onClick={() => setTab(key)} style={{
+        {([['form', tt('mob.biz.create_request_tab', '发起申请')], ['records', tt('mob.biz.request_records_tab', '申请记录')]] as const).map(([key, label]) => <button key={key} onClick={() => setTab(key)} style={{
         flex: 1,
         padding: '9px 0',
         borderRadius: 10,
@@ -835,15 +859,15 @@ export default function PrcRequestPage() {
             fontWeight: 700,
             color: t.textSub,
             marginBottom: 2
-          }}>基本信息</div>
+          }}>{tt('mob.biz.basic_info', '基本信息')}</div>
 
               <div>
-                <span style={labelSt}>申请主题 *</span>
-                <input style={inputSt} value={subject} onChange={e => setSubject(e.target.value)} placeholder="例：5月饲料补充采购" disabled={readonly} />
+                <span style={labelSt}>{tt('mob.biz.request_subject_required', '申请主题 *')}</span>
+                <input style={inputSt} value={subject} onChange={e => setSubject(e.target.value)} placeholder={tt('mob.biz.subject_placeholder', '例：5月饲料补充采购')} disabled={readonly} />
               </div>
 
               <div>
-                <span style={labelSt}>公司 *</span>
+                <span style={labelSt}>{tt('mob.biz.company_required', '公司 *')}</span>
                 <select style={inputSt} value={companyCode} onChange={e => {
               const code = e.target.value;
               const opt = companyOptions.find(o => o.code === code);
@@ -853,20 +877,20 @@ export default function PrcRequestPage() {
               setProjectCode('');
               setProjectName('');
             }} disabled={readonly}>
-                  <option value="">请选择公司</option>
+                  <option value="">{tt('mob.biz.select_company', '请选择公司')}</option>
                   {companyOptions.map(o => <option key={o.code} value={o.code}>{o.name || o.code}</option>)}
                 </select>
               </div>
 
               <div>
-                <span style={labelSt}>项目</span>
+                <span style={labelSt}>{tt('mob.biz.project', '项目')}</span>
                 <select style={inputSt} value={projectCode} onChange={e => {
               const code = e.target.value;
               const opt = projectOptions.find(o => o.code === code);
               setProjectCode(code);
               setProjectName(opt?.name ?? '');
             }} disabled={readonly}>
-                  <option value="">（不指定项目）</option>
+                  <option value="">{tt('mob.biz.no_project', '（不指定项目）')}</option>
                   {projectOptions.map(o => <option key={o.code} value={o.code}>{o.name || o.code}</option>)}
                 </select>
               </div>
@@ -877,13 +901,13 @@ export default function PrcRequestPage() {
             gap: 10
           }}>
                 <div>
-                  <span style={labelSt}>采购类型</span>
+                  <span style={labelSt}>{tt('mob.biz.purchase_type', '采购类型')}</span>
                   <select style={inputSt} value={purchaseType} onChange={e => setPurchaseType(e.target.value)} disabled={readonly}>
                     {typeOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <span style={labelSt}>紧急程度</span>
+                  <span style={labelSt}>{tt('mob.biz.urgency_level', '紧急程度')}</span>
                   <select style={inputSt} value={urgency} onChange={e => setUrgency(e.target.value)} disabled={readonly}>
                     {urgencyOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -896,24 +920,24 @@ export default function PrcRequestPage() {
             gap: 10
           }}>
                 <div>
-                  <span style={labelSt}>货币</span>
+                  <span style={labelSt}>{tt('mob.biz.currency_label', '货币')}</span>
                   <select style={inputSt} value={currencyCode} onChange={e => setCurrencyCode(e.target.value)} disabled={readonly}>
                     {currencyOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <span style={labelSt}>期望到货日期</span>
+                  <span style={labelSt}>{tt('mob.biz.expected_arrival_date', '期望到货日期')}</span>
                   <input type="date" style={inputSt} value={expectedDate} onChange={e => setExpectedDate(e.target.value)} disabled={readonly} />
                 </div>
               </div>
 
               <div>
-                <span style={labelSt}>申请原因</span>
+                <span style={labelSt}>{tt('mob.biz.request_reason', '申请原因')}</span>
                 <textarea style={{
               ...inputSt,
               height: 72,
               resize: 'none'
-            } as React.CSSProperties} value={reason} onChange={e => setReason(e.target.value)} placeholder="请简述采购需求背景及用途" disabled={readonly} />
+            } as React.CSSProperties} value={reason} onChange={e => setReason(e.target.value)} placeholder={tt('mob.biz.reason_placeholder', '请简述采购需求背景及用途')} disabled={readonly} />
               </div>
             </div>
 
@@ -929,7 +953,7 @@ export default function PrcRequestPage() {
               fontSize: 13,
               fontWeight: 700,
               color: t.textSub
-            }}>采购明细 *</span>
+            }}>{tt('mob.biz.purchase_detail_required', '采购明细 *')}</span>
                 {!readonly && <button onClick={addItem} style={{
               display: 'flex',
               alignItems: 'center',
@@ -943,7 +967,7 @@ export default function PrcRequestPage() {
               fontWeight: 600,
               cursor: 'pointer'
             }}>
-                    <Plus size={13} />添加明细
+                    <Plus size={13} />{tt('mob.biz.add_detail', '添加明细')}
                   </button>}
               </div>
 
@@ -963,7 +987,7 @@ export default function PrcRequestPage() {
                 fontSize: 12,
                 fontWeight: 700,
                 color: t.textSub
-              }}>明细 {idx + 1}</span>
+              }}>{tt('mob.biz.detail_n', '明细')} {idx + 1}</span>
                     {!readonly && items.length > 1 && <button onClick={() => removeItem(row.key)} style={{
                 background: 'none',
                 border: 'none',
@@ -981,7 +1005,7 @@ export default function PrcRequestPage() {
               gap: 8
             }}>
                     <div>
-                      <span style={labelSt}>物品名称 *</span>
+                      <span style={labelSt}>{tt('mob.biz.item_name_required', '物品名称 *')}</span>
                       {/* G91：手机端物料选择 = 搜索 + 候选过滤 + 找不到就地新建（直存物料库，立即可选）。 */}
                       <MaterialPicker
                         value={row.itemName}
@@ -999,8 +1023,8 @@ export default function PrcRequestPage() {
                     </div>
 
                     <div>
-                      <span style={labelSt}>规格型号</span>
-                      <input style={inputSt} value={row.spec} onChange={e => updateItem(row.key, 'spec', e.target.value)} placeholder="例：43%蛋白，可选" disabled={readonly} />
+                      <span style={labelSt}>{tt('mob.biz.spec_model', '规格型号')}</span>
+                      <input style={inputSt} value={row.spec} onChange={e => updateItem(row.key, 'spec', e.target.value)} placeholder={tt('mob.biz.spec_placeholder', '例：43%蛋白，可选')} disabled={readonly} />
                     </div>
 
                     <div style={{
@@ -1009,16 +1033,16 @@ export default function PrcRequestPage() {
                 gap: 8
               }}>
                       <div>
-                        <span style={labelSt}>数量 *</span>
+                        <span style={labelSt}>{tt('mob.biz.qty_required', '数量 *')}</span>
                         <input type="number" inputMode="decimal" style={inputSt} value={row.qty} onChange={e => updateItem(row.key, 'qty', e.target.value)} placeholder="0" disabled={readonly} />
                       </div>
                       <div>
-                        <span style={labelSt}>单位</span>
-                        <input style={inputSt} value={row.unit} onChange={e => updateItem(row.key, 'unit', e.target.value)} placeholder="件" disabled={readonly} />
+                        <span style={labelSt}>{tt('mob.biz.unit', '单位')}</span>
+                        <input style={inputSt} value={row.unit} onChange={e => updateItem(row.key, 'unit', e.target.value)} placeholder={tt('mob.biz.unit_piece', '件')} disabled={readonly} />
                       </div>
                       <div>
-                        <span style={labelSt}>估算单价</span>
-                        <input type="number" inputMode="decimal" style={inputSt} value={row.estimatedUnitPrice} onChange={e => updateItem(row.key, 'estimatedUnitPrice', e.target.value)} placeholder="可选" disabled={readonly} />
+                        <span style={labelSt}>{tt('mob.biz.estimated_unit_price', '估算单价')}</span>
+                        <input type="number" inputMode="decimal" style={inputSt} value={row.estimatedUnitPrice} onChange={e => updateItem(row.key, 'estimatedUnitPrice', e.target.value)} placeholder={tt('mob.biz.optional2', '可选')} disabled={readonly} />
                       </div>
                     </div>
 
@@ -1029,7 +1053,7 @@ export default function PrcRequestPage() {
                 color: 'var(--status-success)',
                 fontWeight: 600
               }}>
-                        小计：{((parseFloat(row.qty) || 0) * (parseFloat(row.estimatedUnitPrice) || 0)).toLocaleString()} {currencyCode}
+                        {tt('mob.biz.subtotal_label', '小计：')}{((parseFloat(row.qty) || 0) * (parseFloat(row.estimatedUnitPrice) || 0)).toLocaleString()} {currencyCode}
                       </div>}
                   </div>
                 </div>)}
@@ -1042,7 +1066,7 @@ export default function PrcRequestPage() {
             fontWeight: 700,
             color: t.text
           }}>
-                  预估合计：{totalEstimated.toLocaleString()} {currencyCode}
+                  {tt('mob.biz.estimated_total_label', '预估合计：')}{totalEstimated.toLocaleString()} {currencyCode}
                 </div>}
             </div>
 
@@ -1086,11 +1110,11 @@ export default function PrcRequestPage() {
           padding: 60,
           color: t.textFaint,
           fontSize: 14
-        }}>暂无采购申请记录</div>}
+        }}>{tt('mob.biz.no_purchase_records', '暂无采购申请记录')}</div>}
             {!recLoading && records.map(row => {
           const st = (row.status || 'DRAFT').toUpperCase();
           const stColor = STATUS_COLOR[st] ?? 'var(--slate-400)';
-          const stLabel = STATUS_LABEL[st] ?? st;
+          const stLabel = statusLabel(st);
           const createdAt = row.created_at ?? row.createdAt;
           const total = row.total_amount ?? row.totalAmount;
           return <div key={row.id} style={{
@@ -1133,14 +1157,14 @@ export default function PrcRequestPage() {
                   color: t.textSub,
                   marginTop: 2
                 }}>
-                          预估合计：{total.toLocaleString()} {row.currency_code ?? row.currencyCode ?? ''}
+                          {tt('mob.biz.estimated_total_label', '预估合计：')}{total.toLocaleString()} {row.currency_code ?? row.currencyCode ?? ''}
                         </div>}
                       {createdAt && <div style={{
                   fontSize: 11,
                   color: t.textFaint,
                   marginTop: 4
                 }}>
-                          提交时间：{createdAt.slice(0, 16)}
+                          {tt('mob.biz.submit_time_label', '提交时间：')}{createdAt.slice(0, 16)}
                         </div>}
                     </div>
                     <span style={{
@@ -1193,7 +1217,7 @@ export default function PrcRequestPage() {
             {saving ? <Loader2 size={16} style={{
           animation: 'spin 1s linear infinite'
         }} /> : <Save size={16} />}
-            {saving ? '保存中…' : '保存草稿'}
+            {saving ? tt('mob.biz.saving', '保存中…') : tt('mob.biz.save_draft', '保存草稿')}
           </button>
           <button onClick={() => { void openSubmitPicker(); }} disabled={saving || submitting} style={{
         flex: 2,
@@ -1213,7 +1237,7 @@ export default function PrcRequestPage() {
             {submitting ? <Loader2 size={16} style={{
           animation: 'spin 1s linear infinite'
         }} /> : <Send size={16} />}
-            {submitting ? '提交中…' : '提交审批'}
+            {submitting ? tt('mob.biz.submitting', '提交中…') : tt('mob.biz.submit_approval', '提交审批')}
           </button>
         </div>}
 
@@ -1241,8 +1265,8 @@ export default function PrcRequestPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>提交审批</div>
-              <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>选择下一审批人，候选已按采购权限与数据域过滤</div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>{tt('mob.biz.submit_approval', '提交审批')}</div>
+              <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>{tt('mob.biz.pick_approver_hint', '选择下一审批人，候选已按采购权限与数据域过滤')}</div>
             </div>
             <button onClick={() => setSubmitPickerOpen(false)} disabled={submitting} style={{
               border: 'none',
@@ -1255,16 +1279,16 @@ export default function PrcRequestPage() {
           </div>
 
           <div style={{ padding: 12, borderRadius: 12, background: t.inputBg, border: `1px solid ${t.inputBorder}`, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>申请主题</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>{subject.trim() || '采购申请'}</div>
-            <div style={{ fontSize: 12, color: t.textSub, marginTop: 6 }}>{companyName || companyCode || '未选择公司'}{projectName ? ` · ${projectName}` : ''}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{tt('mob.biz.request_subject', '申请主题')}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{subject.trim() || tt('mob.biz.purchase_request', '采购申请')}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginTop: 6 }}>{companyName || companyCode || tt('mob.biz.no_company_selected', '未选择公司')}{projectName ? ` · ${projectName}` : ''}</div>
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={labelSt}>下一审批人</label>
-            {submitCandidateLoading ? <div style={{ padding: 18, textAlign: 'center', color: t.textSub, fontSize: 13 }}>正在加载可审批人员…</div>
+            <label style={labelSt}>{tt('mob.biz.next_approver', '下一审批人')}</label>
+            {submitCandidateLoading ? <div style={{ padding: 18, textAlign: 'center', color: t.textSub, fontSize: 13 }}>{tt('mob.biz.loading_approvers', '正在加载可审批人员…')}</div>
               : submitCandidates.length === 0 ? <div style={{ padding: 14, borderRadius: 12, background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', color: 'var(--status-warning)', fontSize: 13, lineHeight: 1.6 }}>
-                  暂未找到可指定审批人。可按审批规则提交；若流程规则未配置，后端会阻止提交并提示原因。
+                  {tt('mob.biz.no_approver_found', '暂未找到可指定审批人。可按审批规则提交；若流程规则未配置，后端会阻止提交并提示原因。')}
                 </div>
               : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {submitCandidates.map(candidate => (
@@ -1290,8 +1314,8 @@ export default function PrcRequestPage() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label style={labelSt}>提交说明</label>
-            <textarea style={{ ...inputSt, minHeight: 78, resize: 'vertical' }} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder="可填写采购背景、紧急原因或注意事项" />
+            <label style={labelSt}>{tt('mob.biz.submit_comment', '提交说明')}</label>
+            <textarea style={{ ...inputSt, minHeight: 78, resize: 'vertical' }} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder={tt('mob.biz.submit_comment_placeholder', '可填写采购背景、紧急原因或注意事项')} />
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
@@ -1304,7 +1328,7 @@ export default function PrcRequestPage() {
               color: t.text,
               fontSize: 15,
               fontWeight: 600
-            }}>取消</button>
+            }}>{tt('mob.biz.cancel', '取消')}</button>
             <button onClick={() => { void handleSubmit(submitApproverId || undefined); }} disabled={submitting || (!submitApproverId && submitCandidates.length > 0)} style={{
               flex: 2,
               padding: '13px 0',
@@ -1316,7 +1340,7 @@ export default function PrcRequestPage() {
               fontWeight: 800,
               opacity: (!submitApproverId && submitCandidates.length > 0) ? 0.55 : 1
             }}>
-              {submitting ? '提交中…' : submitApproverId ? '提交给所选审批人' : '按审批规则提交'}
+              {submitting ? tt('mob.biz.submitting', '提交中…') : submitApproverId ? tt('mob.biz.submit_to_approver', '提交给所选审批人') : tt('mob.biz.submit_by_rule', '按审批规则提交')}
             </button>
           </div>
         </div>

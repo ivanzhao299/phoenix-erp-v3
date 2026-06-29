@@ -7,6 +7,7 @@ import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, Che
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
@@ -49,9 +50,10 @@ function MaterialCard({
   const {
     t
   } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const alertColor = row.alert ? ALERT_COLOR[row.alert] : null;
-  const daysLabel = row.days_left != null ? `${row.days_left}天` : '—';
+  const daysLabel = row.days_left != null ? `${row.days_left}${tr('mob.brd.day_unit', '天')}` : '—';
   const daysColor = row.days_left == null ? t.textFaint : row.days_left <= 3 ? 'var(--status-danger)' : row.days_left <= 7 ? 'var(--status-warning)' : row.days_left <= 14 ? 'var(--status-warning)' : 'var(--status-success)';
   const setOutbound = (house: string, val: string) => {
     const detail = {
@@ -113,7 +115,7 @@ function MaterialCard({
             background: `${alertColor}20`,
             color: alertColor!
           }}>
-                {row.alert === 'CRITICAL' ? '⚠ 建议采购' : '关注'}
+                {row.alert === 'CRITICAL' ? `⚠ ${tr('mob.brd.suggest_purchase', '建议采购')}` : tr('mob.brd.attention', '关注')}
               </span>}
           </div>
           <div style={{
@@ -125,7 +127,7 @@ function MaterialCard({
             fontSize: 12,
             color: t.textSub
           }}>
-              库存 <b style={{
+              {tr('mob.brd.stock', '库存')} <b style={{
               color: t.text
             }}>{row.current_stock.toLocaleString('zh-CN')}</b>
             </span>
@@ -134,7 +136,7 @@ function MaterialCard({
             color: daysColor,
             fontWeight: 600
           }}>
-              可用 {daysLabel}
+              {tr('mob.brd.available', '可用')} {daysLabel}
             </span>
           </div>
         </div>
@@ -158,7 +160,7 @@ function MaterialCard({
             fontSize: 10,
             color: t.textFaint,
             marginBottom: 4
-          }}>昨日库存</div>
+          }}>{tr('mob.brd.prev_stock', '昨日库存')}</div>
               <div style={{
             fontSize: 14,
             color: t.textSub,
@@ -175,7 +177,7 @@ function MaterialCard({
             fontSize: 10,
             color: t.textFaint,
             marginBottom: 4
-          }}>今日入库</div>
+          }}>{tr('mob.brd.today_inbound', '今日入库')}</div>
               <input type="number" inputMode="numeric" min="0" value={numInput(row.inbound_qty)} onChange={e => onChange({
             inbound_qty: Number(e.target.value) || 0
           })} placeholder="0" style={inputStyle} />
@@ -185,7 +187,7 @@ function MaterialCard({
             fontSize: 10,
             color: t.textFaint,
             marginBottom: 4
-          }}>日用量</div>
+          }}>{tr('mob.brd.daily_usage', '日用量')}</div>
               <input type="number" inputMode="numeric" min="0" value={numInput(row.daily_usage)} onChange={e => onChange({
             daily_usage: Number(e.target.value) || 0
           })} placeholder="0" style={inputStyle} />
@@ -197,7 +199,7 @@ function MaterialCard({
         fontSize: 10,
         color: t.textFaint,
         marginBottom: 6
-      }}>今日出库（各栋）</div>
+      }}>{tr('mob.brd.today_outbound_houses', '今日出库（各栋）')}</div>
           <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3,1fr)',
@@ -229,7 +231,7 @@ function MaterialCard({
             <span style={{
           fontSize: 12,
           color: t.textMuted
-        }}>出库合计</span>
+        }}>{tr('mob.brd.outbound_total_label', '出库合计')}</span>
             <span style={{
           fontSize: 12,
           fontWeight: 700,
@@ -239,7 +241,7 @@ function MaterialCard({
           marginLeft: 'auto',
           fontSize: 12,
           color: t.textMuted
-        }}>→ 库存</span>
+        }}>→ {tr('mob.brd.stock', '库存')}</span>
             <span style={{
           fontSize: 12,
           fontWeight: 700,
@@ -253,7 +255,7 @@ function MaterialCard({
       }}>
             <input type="text" value={row.note} onChange={e => onChange({
           note: e.target.value
-        })} placeholder="备注（如：建议采购）" style={{
+        })} placeholder={tr('mob.brd.note_placeholder_purchase', '备注（如：建议采购）')} style={{
           ...inputStyle,
           textAlign: 'left'
         }} />
@@ -271,6 +273,7 @@ export default function FeedLedgerPage() {
     toggle,
     t
   } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const {
     allowed,
     loading: permLoading,
@@ -299,7 +302,7 @@ export default function FeedLedgerPage() {
       setHouses(detail.map((r: any) => r.house_code));
       setHouseMap(Object.fromEntries(detail.map((r: any) => [r.house_code, r.house_name || r.house_code])));
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -310,7 +313,7 @@ export default function FeedLedgerPage() {
   useEffect(() => {
     loadData(date);
   }, [date, loadData]);
-  if (permLoading) return <MobilePageSkeleton title="饲料台账" onBack={() => router.back()} />;
+  if (permLoading) return <MobilePageSkeleton title={tr('mob.brd.feed_ledger', '饲料台账')} onBack={() => router.back()} />;
   if (!allowed) return null;
 
   // 当某行修改时，重新计算 outbound_total 和 current_stock
@@ -341,16 +344,16 @@ export default function FeedLedgerPage() {
         const arr = Array.isArray(res?.data) ? res.data : res;
         if (Array.isArray(arr)) setRows(arr);
         haptic('success');
-        toast.success('饲料台账保存成功');
+        toast.success(tr('mob.brd.feed_ledger_save_ok', '饲料台账保存成功'));
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        setError(res?.msg || '保存失败');
+        setError(res?.msg || tr('mob.brd.save_fail', '保存失败'));
       }
     } catch (e: any) {
       haptic('error');
-      toast.error(e.message || '保存失败');
-      setError(e.message || '保存失败');
+      toast.error(e.message || tr('mob.brd.save_fail', '保存失败'));
+      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -360,7 +363,7 @@ export default function FeedLedgerPage() {
     if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1)));
   };
   const alertRows = rows.filter(r => r.alert);
-  const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
+  const dateLabel = isToday ? tr('mob.brd.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tr('mob.brd.yesterday', '昨天') : date;
   return <div style={{
     minHeight: '100svh',
     background: t.pageBg,
@@ -394,7 +397,7 @@ export default function FeedLedgerPage() {
         fontWeight: 700,
         color: t.text,
         flex: 1
-      }}>🌾 饲料台账</span>
+      }}>🌾 {tr('mob.brd.feed_ledger', '饲料台账')}</span>
         <button onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
@@ -429,7 +432,7 @@ export default function FeedLedgerPage() {
         fontWeight: 700
       }}>
           <Save size={14} />
-          {saving ? '保存中…' : saved ? '已保存' : '保存'}
+          {saving ? tr('mob.brd.saving', '保存中…') : saved ? tr('mob.brd.saved', '已保存') : tr('mob.brd.save', '保存')}
         </button>
       </div>
 
@@ -493,7 +496,7 @@ export default function FeedLedgerPage() {
           fontWeight: 700,
           color: 'var(--status-danger)',
           marginBottom: 6
-        }}>⚠ 库存预警</div>
+        }}>⚠ {tr('mob.brd.stock_alert', '库存预警')}</div>
             <div style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -513,7 +516,7 @@ export default function FeedLedgerPage() {
               fontWeight: 400,
               opacity: 0.7
             }}>
-                    {r.days_left}天
+                    {r.days_left}{tr('mob.brd.day_unit', '天')}
                   </span>
                 </div>)}
             </div>
@@ -535,7 +538,7 @@ export default function FeedLedgerPage() {
             {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} lines={3} />)}
           </div> : <>
             {rows.map((row, idx) => <MaterialCard key={row.material_name} row={row} houses={houses} houseMap={houseMap} onChange={patch => updateRow(idx, patch)} />)}
-            {rows.length === 0 && <MobileEmptyState icon="🌾" title="暂无饲料数据" desc="今日还没有饲料记录，可以尝试刷新" />}
+            {rows.length === 0 && <MobileEmptyState icon="🌾" title={tr('mob.brd.no_feed_data', '暂无饲料数据')} desc={tr('mob.brd.no_feed_record_today', '今日还没有饲料记录，可以尝试刷新')} />}
           </>}
       </div>
     </div>;

@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { MobileThemeProvider } from '@/contexts/MobileThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /** 全局断网提示条 — 悬浮在底部，网络恢复后 2 秒自动消失 */
 function NetworkBanner() {
+  const { t } = useLanguage();
   const [offline, setOffline] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
 
@@ -38,7 +40,7 @@ function NetworkBanner() {
       textAlign: 'center',
       transition: 'background 0.3s',
     }}>
-      {offline ? '⚠️ 当前无网络连接，数据可能无法提交' : '✅ 网络已恢复'}
+      {offline ? `⚠️ ${t('mob.sys.offline_msg', '当前无网络连接，数据可能无法提交')}` : `✅ ${t('mob.sys.online_restored', '网络已恢复')}`}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { MobileEmptyState } from '@/components/mobile/MobileSkeleton';
@@ -104,6 +105,7 @@ export default function MortalityPage() {
     toggle,
     t
   } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const {
     allowed,
     loading: permLoading,
@@ -125,7 +127,7 @@ export default function MortalityPage() {
   // 全部鸡舍（按 DataScope 过滤的真实栋舍，供"添加栋舍"下拉，杜绝手填错码）
   const [allHouses, setAllHouses] = useState<{ house_code: string; house_name?: string | null }[]>([]);
   const isToday = date === today;
-  const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
+  const dateLabel = isToday ? tr('mob.brd.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tr('mob.brd.yesterday', '昨天') : date;
   const loadData = useCallback(async (d: string) => {
     setLoading(true);
     setError('');
@@ -147,7 +149,7 @@ export default function MortalityPage() {
       setElimEdits(initElim);
       setReasonEdits(initReason);
     } catch (e: any) {
-      if (e.message?.includes('403')) setPermErr(true);else setError(e.message || '加载失败');
+      if (e.message?.includes('403')) setPermErr(true);else setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -213,16 +215,16 @@ export default function MortalityPage() {
       const anyFail = results.some(r => r.status === 'rejected' || r.status === 'fulfilled' && r.value?.code && r.value.code !== 200);
       if (!anyFail) {
         haptic('success');
-        toast.success('死淘记录保存成功');
+        toast.success(tr('mob.brd.mortality_save_ok', '死淘记录保存成功'));
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        setError('部分记录保存失败，请重试');
+        setError(tr('mob.brd.partial_save_fail', '部分记录保存失败，请重试'));
       }
     } catch (e: any) {
       haptic('error');
-      toast.error(e.message || '保存失败');
-      setError(e.message || '保存失败');
+      toast.error(e.message || tr('mob.brd.save_fail', '保存失败'));
+      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -260,7 +262,7 @@ export default function MortalityPage() {
         fontWeight: 700,
         color: t.text,
         flex: 1
-      }}>💀 死淘快录</span>
+      }}>💀 {tr('mob.brd.mortality_quick_entry', '死淘快录')}</span>
         <button onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
@@ -295,7 +297,7 @@ export default function MortalityPage() {
         fontWeight: 700
       }}>
           <Save size={14} />
-          {saving ? '提交中…' : saved ? '已保存' : '保存'}
+          {saving ? tr('mob.brd.submitting', '提交中…') : saved ? tr('mob.brd.saved', '已保存') : tr('mob.brd.save', '保存')}
         </button>
       </div>
 
@@ -367,12 +369,12 @@ export default function MortalityPage() {
             fontSize: 11,
             color: t.textMuted,
             marginBottom: 4
-          }}>死亡合计</div>
+          }}>{tr('mob.brd.mortality_total', '死亡合计')}</div>
               <div style={{
             fontSize: 22,
             fontWeight: 800,
             color: totalMort > 0 ? 'var(--status-danger)' : 'var(--status-success)'
-          }}>{totalMort} 只</div>
+          }}>{totalMort} {tr('mob.brd.bird_unit_only', '只')}</div>
             </div>
             <div style={{
           padding: '12px 14px',
@@ -384,12 +386,12 @@ export default function MortalityPage() {
             fontSize: 11,
             color: t.textMuted,
             marginBottom: 4
-          }}>淘汰合计</div>
+          }}>{tr('mob.brd.elimination_total', '淘汰合计')}</div>
               <div style={{
             fontSize: 22,
             fontWeight: 800,
             color: totalElim > 0 ? 'var(--status-warning)' : 'var(--status-success)'
-          }}>{totalElim} 只</div>
+          }}>{totalElim} {tr('mob.brd.bird_unit_only', '只')}</div>
             </div>
             {totalLoss > 0 && <div style={{
           gridColumn: '1/-1',
@@ -404,12 +406,12 @@ export default function MortalityPage() {
                 <span style={{
             fontSize: 12,
             color: t.textMuted
-          }}>今日总损耗 · {houseList.length} 栋</span>
+          }}>{tr('mob.brd.today_total_loss', '今日总损耗')} · {houseList.length} {tr('mob.brd.house_unit', '栋')}</span>
                 <span style={{
             fontSize: 16,
             fontWeight: 800,
             color: 'var(--status-danger)'
-          }}>{totalLoss} 只</span>
+          }}>{totalLoss} {tr('mob.brd.bird_unit_only', '只')}</span>
               </div>}
           </div>}
 
@@ -419,7 +421,7 @@ export default function MortalityPage() {
         color: t.textMuted,
         fontSize: 13
       }}>
-            权限不足（需要农场经理或管理员权限）
+            {tr('mob.brd.perm_insufficient', '权限不足（需要农场经理或管理员权限）')}
           </div>}
 
         {error && <div style={{
@@ -446,7 +448,7 @@ export default function MortalityPage() {
           animation: 'pulse 1.5s infinite'
         }} />)}
           </div> : !permErr && <>
-            {houseList.length === 0 && <MobileEmptyState icon="📊" title="暂无死淘记录" desc="今日还没有死淘数据" />}
+            {houseList.length === 0 && <MobileEmptyState icon="📊" title={tr('mob.brd.no_mortality_record', '暂无死淘记录')} desc={tr('mob.brd.no_mortality_today', '今日还没有死淘数据')} />}
             {houseList.map(house => {
           const mort = mortEdits[house] ?? 0;
           const elim = elimEdits[house] ?? 0;
@@ -478,11 +480,11 @@ export default function MortalityPage() {
                       <span style={{
                   fontSize: 13,
                   color: mort > 0 ? 'var(--status-danger)' : t.textSub
-                }}>死亡</span>
+                }}>{tr('mob.brd.mortality', '死亡')}</span>
                       {mort > 10 && <span style={{
                   fontSize: 10,
                   color: 'var(--status-danger)'
-                }}>⚠ 数量较大</span>}
+                }}>⚠ {tr('mob.brd.large_qty', '数量较大')}</span>}
                     </div>
                     <NumStepper value={mort} onChange={v => {
                 setMortEdits(p => ({
@@ -505,7 +507,7 @@ export default function MortalityPage() {
                       <span style={{
                   fontSize: 13,
                   color: elim > 0 ? 'var(--status-warning)' : t.textSub
-                }}>淘汰</span>
+                }}>{tr('mob.brd.elimination', '淘汰')}</span>
                     </div>
                     <NumStepper value={elim} onChange={v => {
                 setElimEdits(p => ({
@@ -523,7 +525,7 @@ export default function MortalityPage() {
                 [house]: e.target.value
               }));
               setSaved(false);
-            }} placeholder="淘汰原因（如：产蛋率低、受伤等）" style={{
+            }} placeholder={tr('mob.brd.culling_reason_placeholder', '淘汰原因（如：产蛋率低、受伤等）')} style={{
               width: '100%',
               height: 36,
               padding: '0 10px',
@@ -559,7 +561,7 @@ export default function MortalityPage() {
             fontSize: 13,
             outline: 'none'
           }}>
-                <option value="">+ 选择要添加的栋舍</option>
+                <option value="">+ {tr('mob.brd.select_house_to_add', '选择要添加的栋舍')}</option>
                 {allHouses.filter(h => h.house_code && !houseList.includes(h.house_code)).map(h => (
                   <option key={h.house_code} value={h.house_code}>{h.house_name || h.house_code}</option>
                 ))}
@@ -574,7 +576,7 @@ export default function MortalityPage() {
             fontSize: 13,
             fontWeight: 700
           }}>
-                添加
+                {tr('mob.brd.add', '添加')}
               </button>
             </div>
           </>}

@@ -10,6 +10,7 @@ import {
 } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 日期工具函数 ──────────────────────────────────────────────────────────────
 
@@ -56,13 +57,14 @@ function MiniBarChart({
   selectedDate: string;
 }) {
   const { t } = useMobileTheme();
+  const { t: tt } = useLanguage();
   if (!data.length) return null;
   const maxVal = Math.max(...data.map(d => d.summary.total_packed), 1);
 
   return (
     <div>
       <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>
-        近 7 日包装箱数
+        {tt('mob.biz.pkg_last7days_boxes', '近 7 日包装箱数')}
       </div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 60 }}>
         {data.map(day => {
@@ -137,6 +139,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
 export default function MobilePackagingPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tt } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('packaging');
   const today = fmtDate(new Date());
 
@@ -167,7 +170,7 @@ export default function MobilePackagingPage() {
     mobileApi
       .getPackagingReport(d)
       .then(data => { setPkg(data); })
-      .catch(() => { setPkgErr('数据加载失败'); setPkg(null); })
+      .catch(() => { setPkgErr(tt('mob.biz.load_failed', '数据加载失败')); setPkg(null); })
       .finally(() => { setPkgLoading(false); });
   }, []);
 
@@ -188,8 +191,8 @@ export default function MobilePackagingPage() {
   const byGrade  = pkg?.by_grade ?? [];
 
   const dateLabel = (() => {
-    if (date === today) return '今天';
-    if (date === fmtDate(addDays(toDate(today), -1))) return '昨天';
+    if (date === today) return tt('mob.biz.today', '今天');
+    if (date === fmtDate(addDays(toDate(today), -1))) return tt('mob.biz.yesterday', '昨天');
     return date;
   })();
 
@@ -234,7 +237,7 @@ export default function MobilePackagingPage() {
           <ArrowLeft size={20} />
         </button>
         <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>
-          📦 包装统计
+          📦 {tt('mob.biz.packaging_stats', '包装统计')}
         </span>
         <button
           onClick={() => setRefreshKey(k => k + 1)}
@@ -320,10 +323,10 @@ export default function MobilePackagingPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>今日汇总</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{tt('mob.biz.today_summary', '今日汇总')}</span>
             {pkgLoading && (
               <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textFaint }}>
-                加载中…
+                {tt('mob.biz.loading', '加载中…')}
               </span>
             )}
           </div>
@@ -338,20 +341,20 @@ export default function MobilePackagingPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
               {/* 完成箱数 */}
               <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成箱数</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{tt('mob.biz.completed_boxes', '完成箱数')}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--status-warning)', lineHeight: 1.1 }}>
                   {fmt(pkgTotal)}
                 </div>
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>箱</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{tt('mob.biz.unit_box', '箱')}</div>
               </div>
 
               {/* 完成任务数 */}
               <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成任务数</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{tt('mob.biz.completed_tasks', '完成任务数')}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: t.text, lineHeight: 1.1 }}>
                   {fmt(pkgTasks)}
                 </div>
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>个</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{tt('mob.biz.unit_count', '个')}</div>
               </div>
             </div>
           )}
@@ -369,7 +372,7 @@ export default function MobilePackagingPage() {
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>
-            等级分布
+            {tt('mob.biz.grade_distribution', '等级分布')}
           </div>
 
           {pkgLoading ? (
@@ -383,7 +386,7 @@ export default function MobilePackagingPage() {
                 padding: '20px 0',
               }}
             >
-              当日暂无包装记录
+              {tt('mob.biz.no_packaging_today', '当日暂无包装记录')}
             </div>
           ) : byGrade.length > 0 ? (
             <div
@@ -413,7 +416,7 @@ export default function MobilePackagingPage() {
                       {fmt(g.qty)}
                     </div>
                     <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>
-                      枚 · {fmt(g.tasks)}任务
+                      {tt('mob.biz.unit_egg', '枚')} · {fmt(g.tasks)}{tt('mob.biz.tasks_suffix', '任务')}
                     </div>
                   </div>
                 );
@@ -428,7 +431,7 @@ export default function MobilePackagingPage() {
                 padding: '20px 0',
               }}
             >
-              当日暂无包装记录
+              {tt('mob.biz.no_packaging_today', '当日暂无包装记录')}
             </div>
           )}
         </div>
@@ -444,7 +447,7 @@ export default function MobilePackagingPage() {
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>
-            7 日趋势
+            {tt('mob.biz.trend_7days', '7 日趋势')}
           </div>
 
           {trendLoading ? (
@@ -467,7 +470,7 @@ export default function MobilePackagingPage() {
                 padding: '12px 0',
               }}
             >
-              暂无趋势数据
+              {tt('mob.biz.no_trend_data', '暂无趋势数据')}
             </div>
           )}
         </div>
@@ -488,7 +491,7 @@ export default function MobilePackagingPage() {
             textDecoration: 'none',
           }}
         >
-          前往作业台 →
+          {tt('mob.biz.go_to_workstation', '前往作业台')} →
         </a>
       </div>
     </div>

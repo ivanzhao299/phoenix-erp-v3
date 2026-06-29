@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Sun, Moon, RefreshCw, Thermometer, Droplets, Wind, AlertTriangle, Activity, MonitorOff } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 设备监控总览数据结构（对齐 /api/v3/iot/devices/all-summary） ──────────────
 interface IotHouse {
@@ -48,31 +49,34 @@ const tok = () => {
 };
 
 // 数据新鲜度 → 文案/颜色
-const FRESH: Record<string, { label: string; color: string }> = {
-  normal:  { label: '实时', color: 'var(--status-success)' },
-  delayed: { label: '延迟', color: 'var(--status-warning)' },
-  stale:   { label: '陈旧', color: 'var(--status-danger)' },
-  no_data: { label: '无数据', color: 'var(--text-disabled)' },
-};
+type TFn = (key: string, fallback: string) => string;
+const buildFresh = (tr: TFn): Record<string, { label: string; color: string }> => ({
+  normal:  { label: tr('mob.sys.fresh_normal', '实时'), color: 'var(--status-success)' },
+  delayed: { label: tr('mob.sys.fresh_delayed', '延迟'), color: 'var(--status-warning)' },
+  stale:   { label: tr('mob.sys.fresh_stale', '陈旧'), color: 'var(--status-danger)' },
+  no_data: { label: tr('mob.sys.fresh_no_data', '无数据'), color: 'var(--text-disabled)' },
+});
 
 function fmt(v: number | null | undefined, digits = 1): string {
   if (v == null || isNaN(Number(v))) return '—';
   return Number(v).toFixed(digits);
 }
-function ago(ts?: string | number): string {
+function ago(ts: string | number | undefined, tr: TFn): string {
   if (ts == null) return '';
   const ms = Number(ts) > 1e12 ? Number(ts) : new Date(ts).getTime();
   if (isNaN(ms)) return '';
   const diff = Date.now() - ms;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${Math.floor(diff / 86_400_000)} 天前`;
+  if (diff < 60_000) return tr('mob.sys.just_now', '刚刚');
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} ${tr('mob.sys.minutes_ago', '分钟前')}`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} ${tr('mob.sys.hours_ago', '小时前')}`;
+  return `${Math.floor(diff / 86_400_000)} ${tr('mob.sys.days_ago', '天前')}`;
 }
 
 export default function DeviceMonitorMobilePage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tr } = useLanguage();
+  const FRESH = buildFresh(tr);
   // 设备监控只读：场长/兽医/饲养员/养殖技术员/场区经理/管理层可看；无权限自动跳回首页
   const { allowed, loading: permLoading } = useMobilePermission('device');
 
@@ -87,18 +91,18 @@ export default function DeviceMonitorMobilePage() {
     setError('');
     try {
       const res = await fetch(API, { headers: { Authorization: `Bearer ${tok()}` } });
-      if (!res.ok) { setError(res.status === 403 ? '无设备监控权限' : `加载失败（${res.status}）`); return; }
+      if (!res.ok) { setError(res.status === 403 ? tr('mob.sys.no_device_perm', '无设备监控权限') : `${tr('mob.sys.load_failed', '加载失败')}（${res.status}）`); return; }
       const json = await res.json();
-      if (!json?.ok || !json?.data) { setError(json?.error || '暂无设备数据'); return; }
+      if (!json?.ok || !json?.data) { setError(json?.error || tr('mob.sys.no_device_data', '暂无设备数据')); return; }
       setSummary(json.data.summary ?? {});
       setHouses(Array.isArray(json.data.houses) ? json.data.houses : []);
       setAlarms(Array.isArray(json.data.recentAlarms) ? json.data.recentAlarms : []);
     } catch {
-      setError('网络错误，请重试');
+      setError(tr('mob.sys.network_error', '网络错误，请重试'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
   useEffect(() => { if (allowed) void load(); }, [allowed, load]);
 
   if (permLoading || !allowed) {
@@ -124,7 +128,7 @@ export default function DeviceMonitorMobilePage() {
         <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ChevronLeft size={22} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>📡 设备监控</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>📡 {tr('mob.sys.device_monitor', '设备监控')}</span>
         <button onClick={() => void load()} disabled={loading} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: loading ? 'default' : 'pointer', padding: 4 }}>
           <RefreshCw size={18} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
@@ -136,22 +140,22 @@ export default function DeviceMonitorMobilePage() {
       <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* 汇总 KPI */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {kpi('在线鸡舍', `${summary.activeHouses ?? 0}/${summary.totalHouses ?? 0}`)}
-          {kpi('未处理告警', String(summary.totalAlarms ?? 0), (summary.totalAlarms ?? 0) > 0 ? 'var(--status-danger)' : undefined)}
-          {kpi('在线传感器', `${summary.onlineSensorCnt ?? 0}/${summary.totalSensorCnt ?? 0}`)}
+          {kpi(tr('mob.sys.online_houses', '在线鸡舍'), `${summary.activeHouses ?? 0}/${summary.totalHouses ?? 0}`)}
+          {kpi(tr('mob.sys.unhandled_alarms', '未处理告警'), String(summary.totalAlarms ?? 0), (summary.totalAlarms ?? 0) > 0 ? 'var(--status-danger)' : undefined)}
+          {kpi(tr('mob.sys.online_sensors', '在线传感器'), `${summary.onlineSensorCnt ?? 0}/${summary.totalSensorCnt ?? 0}`)}
         </div>
 
         {/* 最近告警 */}
         {alarms.length > 0 && (
           <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-danger) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-danger) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--status-danger)' }}>
-              <AlertTriangle size={15} /> 待处理告警（{alarms.length}）
+              <AlertTriangle size={15} /> {tr('mob.sys.pending_alarms', '待处理告警')}（{alarms.length}）
             </div>
             {alarms.map((a, i) => (
               <div key={a.id ?? i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: t.textSub }}>{a.erp_house_code} · {a.name_zh ?? '告警'}</span>
+                <span style={{ color: t.textSub }}>{a.erp_house_code} · {a.name_zh ?? tr('mob.sys.alarm', '告警')}</span>
                 <span style={{ color: t.text, fontWeight: 600 }}>
-                  {fmt(a.current_val)}{a.unit ?? ''} <span style={{ color: t.textFaint, fontWeight: 400 }}>{ago(a.triggered_at)}</span>
+                  {fmt(a.current_val)}{a.unit ?? ''} <span style={{ color: t.textFaint, fontWeight: 400 }}>{ago(a.triggered_at, tr)}</span>
                 </span>
               </div>
             ))}
@@ -159,17 +163,17 @@ export default function DeviceMonitorMobilePage() {
         )}
 
         {/* 鸡舍列表 */}
-        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>鸡舍实时环境（{houses.length}）</div>
+        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{tr('mob.sys.house_realtime_env', '鸡舍实时环境')}（{houses.length}）</div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 32, fontSize: 13, color: t.textMuted }}>加载中…</div>
+          <div style={{ textAlign: 'center', padding: 32, fontSize: 13, color: t.textMuted }}>{tr('mob.sys.loading', '加载中…')}</div>
         ) : error ? (
           <div style={{ textAlign: 'center', padding: 40, fontSize: 13, color: 'var(--status-danger)' }}>
             <MonitorOff size={32} style={{ opacity: 0.5 }} /><div style={{ marginTop: 8 }}>{error}</div>
           </div>
         ) : houses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, fontSize: 13, color: t.textFaint }}>
-            <MonitorOff size={32} style={{ opacity: 0.4 }} /><div style={{ marginTop: 8 }}>暂无已接入设备的鸡舍</div>
+            <MonitorOff size={32} style={{ opacity: 0.4 }} /><div style={{ marginTop: 8 }}>{tr('mob.sys.no_connected_houses', '暂无已接入设备的鸡舍')}</div>
           </div>
         ) : (
           houses.map(h => {
@@ -195,11 +199,11 @@ export default function DeviceMonitorMobilePage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {metric(Thermometer, '温度℃', fmt(h.avgTemp), 'var(--status-warning)')}
-                  {metric(Droplets, '湿度%', fmt(h.avgHumidity), 'var(--status-info)')}
+                  {metric(Thermometer, tr('mob.sys.temp_label', '温度℃'), fmt(h.avgTemp), 'var(--status-warning)')}
+                  {metric(Droplets, tr('mob.sys.humidity_label', '湿度%'), fmt(h.avgHumidity), 'var(--status-info)')}
                   {metric(Wind, 'CO₂', fmt(h.co2, 0), 'var(--text-secondary)')}
-                  {metric(Wind, '氨气', fmt(h.ammonia, 0), 'var(--status-success)')}
-                  {metric(Activity, '在线%', h.onlineRate != null ? String(Math.round(h.onlineRate * 100)) : '—', 'var(--status-success)')}
+                  {metric(Wind, tr('mob.sys.ammonia_label', '氨气'), fmt(h.ammonia, 0), 'var(--status-success)')}
+                  {metric(Activity, tr('mob.sys.online_label', '在线%'), h.onlineRate != null ? String(Math.round(h.onlineRate * 100)) : '—', 'var(--status-success)')}
                 </div>
               </div>
             );
@@ -207,7 +211,7 @@ export default function DeviceMonitorMobilePage() {
         )}
 
         <div style={{ fontSize: 11, color: t.textFaint, textAlign: 'center', marginTop: 4 }}>
-          设备监控为只读视图 · 数据源自现场 IoT 网关
+          {tr('mob.sys.device_readonly_note', '设备监控为只读视图 · 数据源自现场 IoT 网关')}
         </div>
       </div>
     </div>

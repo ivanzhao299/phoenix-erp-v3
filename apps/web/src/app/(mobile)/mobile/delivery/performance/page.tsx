@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const C = {
   bg:      'var(--brand-deep-1)',
@@ -59,6 +60,7 @@ function MetricCard({ label, value, unit, color }: { label: string; value: numbe
 
 export default function PerformancePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [data, setData] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,11 +73,11 @@ export default function PerformancePage() {
       const res = await apiFetch('/api/v2/mobile/delivery/performance');
       setData(res.data ?? res);
     } catch {
-      setError('加载失败，请点击刷新重试');
+      setError(t('mob.dlv.load_failed_refresh', '加载失败，请点击刷新重试'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadPerformance(); }, [loadPerformance]);
 
@@ -115,7 +117,7 @@ export default function PerformancePage() {
         >
           ←
         </button>
-        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>我的配送表现</div>
+        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>{t('mob.dlv.view_my_performance', '我的配送表现')}</div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -134,7 +136,7 @@ export default function PerformancePage() {
       <div style={{ padding: '16px 16px 100px' }}>
         {loading ? (
           <div style={{ textAlign: 'center', color: C.textSub, padding: 60, fontSize: 14 }}>
-            加载中…
+            {t('mob.dlv.loading', '加载中…')}
           </div>
         ) : error ? (
           <div style={{ textAlign: 'center', color: C.red, padding: 40, fontSize: 14 }}>
@@ -142,21 +144,21 @@ export default function PerformancePage() {
           </div>
         ) : !data ? (
           <div style={{ textAlign: 'center', color: C.textSub, padding: 60, fontSize: 14 }}>
-            📊 暂无绩效数据
+            📊 {t('mob.dlv.no_performance_data', '暂无绩效数据')}
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 13, color: C.textSub, marginBottom: 16 }}>配送数量</div>
+            <div style={{ fontSize: 13, color: C.textSub, marginBottom: 16 }}>{t('mob.dlv.delivery_count', '配送数量')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-              <MetricCard label="今日完成" value={data.todayCompleted ?? 0} unit=" 单" color={C.blue} />
-              <MetricCard label="本周完成" value={data.weekCompleted ?? 0} unit=" 单" color={C.blue} />
+              <MetricCard label={t('mob.dlv.today_completed', '今日完成')} value={data.todayCompleted ?? 0} unit={` ${t('mob.dlv.orders_unit', '单')}`} color={C.blue} />
+              <MetricCard label={t('mob.dlv.week_completed', '本周完成')} value={data.weekCompleted ?? 0} unit={` ${t('mob.dlv.orders_unit', '单')}`} color={C.blue} />
             </div>
 
-            <div style={{ fontSize: 13, color: C.textSub, marginBottom: 16 }}>绩效指标</div>
+            <div style={{ fontSize: 13, color: C.textSub, marginBottom: 16 }}>{t('mob.dlv.performance_metrics', '绩效指标')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
-              <MetricCard label="准时率" value={onTimeRate.toFixed(1)} unit="%" color={rateColor(onTimeRate)} />
-              <MetricCard label="异常率" value={exceptionRate.toFixed(1)} unit="%" color={exceptionRate < 5 ? C.green : exceptionRate > 15 ? C.red : C.orange} />
-              <MetricCard label="退货率" value={returnRate.toFixed(1)} unit="%" color={returnRate < 3 ? C.green : returnRate > 10 ? C.red : C.orange} />
+              <MetricCard label={t('mob.dlv.on_time_rate', '准时率')} value={onTimeRate.toFixed(1)} unit="%" color={rateColor(onTimeRate)} />
+              <MetricCard label={t('mob.dlv.exception_rate', '异常率')} value={exceptionRate.toFixed(1)} unit="%" color={exceptionRate < 5 ? C.green : exceptionRate > 15 ? C.red : C.orange} />
+              <MetricCard label={t('mob.dlv.return_rate', '退货率')} value={returnRate.toFixed(1)} unit="%" color={returnRate < 3 ? C.green : returnRate > 10 ? C.red : C.orange} />
             </div>
 
             {/* 准时率图示 */}
@@ -164,7 +166,7 @@ export default function PerformancePage() {
               background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: C.textSub }}>准时率</span>
+                <span style={{ fontSize: 13, color: C.textSub }}>{t('mob.dlv.on_time_rate', '准时率')}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: rateColor(onTimeRate) }}>{onTimeRate.toFixed(1)}%</span>
               </div>
               <div style={{ height: 8, background: 'var(--overlay-white-10)', borderRadius: 4, overflow: 'hidden' }}>

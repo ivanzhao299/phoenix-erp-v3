@@ -17,6 +17,7 @@ type NavCard = {
   titleEn: string;
   titleLo: string;
   desc: string;
+  descKey: string;
   href?: string;
   soon?: boolean;
   color: string;
@@ -31,6 +32,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Daily Board',
   titleLo: 'ກະດານປະຈໍາວັນ',
   desc: '生产·包装·品质·销售',
+  descKey: 'mob.home.desc_dashboard',
   color: 'var(--status-success)',
   href: '/mobile/dashboard',
   soon: false,
@@ -41,6 +43,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Feed Ledger',
   titleLo: 'ບັນທຶກອາຫານ',
   desc: '出入库登记·库存预警',
+  descKey: 'mob.home.desc_feed',
   color: 'var(--status-warning)',
   href: '/mobile/feed',
   soon: false,
@@ -51,6 +54,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Mortality',
   titleLo: 'ບັນທຶກຕາຍ',
   desc: '各栋死淘数量快速录入',
+  descKey: 'mob.home.desc_mortality',
   color: 'var(--status-danger)',
   href: '/mobile/mortality',
   soon: false,
@@ -61,6 +65,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Packaging',
   titleLo: 'ຫຸ້ມຫໍ່',
   desc: '班次产出、等级分布',
+  descKey: 'mob.home.desc_packaging',
   color: 'var(--color-purple-400)',
   href: '/mobile/packaging',
   soon: false,
@@ -71,6 +76,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Quality',
   titleLo: 'ຄຸນນະພາບ',
   desc: '首检、过程检、出库检',
+  descKey: 'mob.home.desc_quality',
   color: 'var(--color-purple-500)',
   href: '/mobile/quality',
   soon: false,
@@ -81,6 +87,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Egg Ledger',
   titleLo: 'ບັນທຶກໄຂ່',
   desc: '出入库登记·分级库存',
+  descKey: 'mob.home.desc_egg',
   color: 'var(--status-info)',
   href: '/mobile/egg',
   soon: false,
@@ -95,6 +102,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Medicine',
   titleLo: 'ຢາ',
   desc: '药品库存·出入库登记',
+  descKey: 'mob.home.desc_medicine',
   color: 'var(--color-purple-500)',
   href: '/mobile/medicine',
   soon: false,
@@ -105,6 +113,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Pkg Terminal',
   titleLo: 'Terminal',
   desc: '前往现场作业终端',
+  descKey: 'mob.home.desc_terminal',
   color: 'var(--status-warning)',
   href: '/terminal/packaging/dashboard',
   soon: false,
@@ -115,6 +124,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Hen Report',
   titleLo: 'ລາຍງານໄກ່',
   desc: '母鸡存栏·产蛋率·死淘',
+  descKey: 'mob.home.desc_henreport',
   color: 'var(--status-info)',
   href: '/mobile/henreport',
   soon: false,
@@ -125,6 +135,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Device Monitor',
   titleLo: 'ຕິດຕາມອຸປະກອນ',
   desc: '舍内环境·告警·传感器在线',
+  descKey: 'mob.home.desc_device',
   color: 'var(--status-info)',
   href: '/mobile/device',
   soon: false,
@@ -136,6 +147,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Houses',
   titleLo: 'ເລົ້າໄກ່',
   desc: '建/查本场鸡舍信息',
+  descKey: 'mob.home.desc_henhouse',
   color: 'var(--status-success)',
   href: '/mobile/henhouse',
   soon: false,
@@ -146,6 +158,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Egg Entry',
   titleLo: 'ບັນທຶກໄຂ່',
   desc: '各栋产蛋数量·班次录入',
+  descKey: 'mob.home.desc_egglog',
   color: 'var(--status-warning)',
   href: '/mobile/egglog',
   soon: false,
@@ -156,6 +169,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Analytics',
   titleLo: 'ທ່າອ່ຽງ',
   desc: '7/14/30天产蛋·死淘·饲料',
+  descKey: 'mob.home.desc_analytics',
   color: 'var(--color-accent)',
   href: '/mobile/analytics',
   soon: false,
@@ -166,6 +180,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Delivery',
   titleLo: 'ການຈັດສົ່ງ',
   desc: '查看配送波次 · 录入签收记录',
+  descKey: 'mob.home.desc_delivery',
   color: 'var(--status-info)',
   href: '/mobile/delivery',
   soon: false,
@@ -176,6 +191,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Request',
   titleLo: 'ຂໍຈັດຊື້',
   desc: '填报采购需求 · 查看申请进度',
+  descKey: 'mob.home.desc_prc_request',
   color: 'var(--status-success)',
   href: '/mobile/prc-request',
   soon: false,
@@ -186,6 +202,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'To Order',
   titleLo: 'ສ້າງໃບສັ່ງຊື້',
   desc: '已批申请 → 选供应商议价 → 转采购订单',
+  descKey: 'mob.home.desc_prc_order',
   color: 'var(--status-success)',
   href: '/mobile/prc-order',
   soon: false,
@@ -198,6 +215,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Approvals',
   titleLo: 'ການອະນຸມັດ',
   desc: '统一审批待办',
+  descKey: 'mob.home.desc_workflow',
   color: 'var(--color-purple-600)',
   href: '/mobile/workflow',
   soon: false,
@@ -209,6 +227,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Notifications',
   titleLo: 'ການແຈ້ງເຕືອນ',
   desc: '审批提醒 · 系统通知',
+  descKey: 'mob.home.desc_notifications',
   color: 'var(--status-warning)',
   href: '/mobile/notifications',
   soon: false,
@@ -221,6 +240,7 @@ const NAV_CARDS: NavCard[] = [{
   titleEn: 'Expenses',
   titleLo: 'ຄ່າໃຊ້ຈ່າຍ',
   desc: '提报费用 · 查看报销进度',
+  descKey: 'mob.home.desc_expenses',
   color: 'var(--color-teal-600, var(--status-info))',
   href: '/mobile/expenses',
   soon: false,
@@ -241,7 +261,8 @@ export default function MobileHomePage() {
   } = useAuth();
   const {
     lang,
-    toggleLanguage
+    toggleLanguage,
+    t: tt
   } = useLanguage();
   const router = useRouter();
   const {
@@ -363,13 +384,13 @@ export default function MobileHomePage() {
             fontWeight: 800,
             color: t.text,
             lineHeight: 1.2
-          }}>金凤凰 ERP</div>
+          }}>{tt('mob.home.app_title', '金凤凰 ERP')}</div>
             <div style={{
             fontSize: 11,
             color: t.textFaint,
             lineHeight: 1.2
           }}>
-              {user?.name || user?.username || '用户'}
+              {user?.name || user?.username || tt('mob.home.user', '用户')}
             </div>
           </div>
         </div>
@@ -400,7 +421,7 @@ export default function MobileHomePage() {
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           {/* 全屏按钮：Android Chrome / 桌面支持；iOS Safari 不支持 Fullscreen API，隐藏 */}
-          {fsSupported && <button onClick={toggleFullscreen} title={isFullscreen ? lang === 'en' ? 'Exit Fullscreen' : '退出全屏' : lang === 'en' ? 'Fullscreen' : '全屏'} style={{
+          {fsSupported && <button onClick={toggleFullscreen} title={isFullscreen ? lang === 'en' ? 'Exit Fullscreen' : tt('mob.home.exit_fullscreen', '退出全屏') : lang === 'en' ? 'Fullscreen' : tt('mob.home.fullscreen', '全屏')} style={{
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -426,7 +447,7 @@ export default function MobileHomePage() {
           fontWeight: 600
         }}>
             <LogOut size={14} />
-            {lang === 'en' ? 'Logout' : lang === 'lo' ? 'ອອກ' : '退出'}
+            {lang === 'en' ? 'Logout' : lang === 'lo' ? 'ອອກ' : tt('mob.home.logout', '退出')}
           </button>
         </div>
       </div>
@@ -455,7 +476,7 @@ export default function MobileHomePage() {
           color: 'var(--status-warning)',
           fontWeight: 600
         }}>
-            {user?.roleNameZh || user?.role || '管理员'}
+            {user?.roleNameZh || user?.role || tt('mob.home.admin', '管理员')}
           </span>
         </div>
       </div>
@@ -502,7 +523,7 @@ export default function MobileHomePage() {
           fontWeight: 700,
           letterSpacing: 0.5
         }}>
-                开发中
+                {tt('mob.home.coming_soon', '开发中')}
               </div>}
             <div style={{
           display: 'flex',
@@ -541,7 +562,7 @@ export default function MobileHomePage() {
           color: t.textFaint,
           lineHeight: 1.4
         }}>
-              {card.desc}
+              {tt(card.descKey, card.desc)}
             </div>
           </button>)}
 
@@ -557,11 +578,11 @@ export default function MobileHomePage() {
       }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🔒</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 6 }}>
-            尚未分配手机端功能
+            {tt('mob.home.no_mobile_func', '尚未分配手机端功能')}
           </div>
           <div style={{ fontSize: 12, color: t.textFaint, lineHeight: 1.6 }}>
-            您的账号（{user?.roleNameZh || user?.role || '未知角色'}）暂未授权任何手机端功能卡片。<br />
-            请联系系统管理员，在「用户管理」中为该角色开通手机端权限。
+            {tt('mob.home.no_func_hint_1', '您的账号（')}{user?.roleNameZh || user?.role || tt('mob.home.unknown_role', '未知角色')}{tt('mob.home.no_func_hint_2', '）暂未授权任何手机端功能卡片。')}<br />
+            {tt('mob.home.no_func_hint_3', '请联系系统管理员，在「用户管理」中为该角色开通手机端权限。')}
           </div>
         </div>}
       </div>

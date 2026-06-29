@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 import { mobileApi, QcInspection } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 日期工具 ──────────────────────────────────────────────────────────────────
 function fmtDate(d: Date): string {
@@ -20,16 +21,17 @@ function toDate(s: string): Date {
 }
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
-const CHECK_TYPE_LABELS: Record<string, string> = {
-  INCOMING: '来料检',
-  PROCESS:  '过程检',
-  OUTBOUND: '出库检',
-  FIRST:    '首检',
-  FINAL:    '终检',
-};
+type Translator = (key: string, fallback?: string) => string;
 
-function checkTypeLabel(type: string): string {
-  return CHECK_TYPE_LABELS[type] ?? type;
+function checkTypeLabel(type: string, tr: Translator): string {
+  const labels: Record<string, string> = {
+    INCOMING: tr('mob.brd.check_incoming', '来料检'),
+    PROCESS:  tr('mob.brd.check_process', '过程检'),
+    OUTBOUND: tr('mob.brd.check_outbound', '出库检'),
+    FIRST:    tr('mob.brd.check_first', '首检'),
+    FINAL:    tr('mob.brd.check_final', '终检'),
+  };
+  return labels[type] ?? type;
 }
 
 /** 从 checkTime 字符串提取 HH:mm */
@@ -42,6 +44,7 @@ function fmtTime(checkTime: string): string {
 // ── 单条记录卡片 ──────────────────────────────────────────────────────────────
 function InspectionCard({ item }: { item: QcInspection }) {
   const { t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const isPass = item.result === 'PASS';
   const isFail = item.result === 'FAIL';
@@ -50,7 +53,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
   const resultColor  = isPass ? 'var(--status-success)' : isFail ? 'var(--status-danger)' : t.textSub;
   const resultBg     = isPass ? 'var(--status-success-bg-medium)' : isFail ? 'var(--status-danger-bg-light)' : t.sectionBg;
   const resultBorder = isPass ? 'var(--status-success-bg-strong)' : isFail ? 'var(--status-danger-bg-medium)' : t.inputBorder;
-  const resultText   = isPass ? '✓ 合格' : isFail ? '✗ 不合格' : item.result;
+  const resultText   = isPass ? `✓ ${tr('mob.brd.qc_pass', '合格')}` : isFail ? `✗ ${tr('mob.brd.qc_fail', '不合格')}` : item.result;
 
   return (
     <div style={{
@@ -75,7 +78,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
             background: 'var(--status-info-bg)', color: 'var(--status-info)',
             border: '1px solid var(--overlay-blue-25)',
           }}>
-            {checkTypeLabel(item.checkType)}
+            {checkTypeLabel(item.checkType, tr)}
           </span>
         </div>
 
@@ -107,7 +110,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
           padding: '0 14px 12px',
           borderTop: '1px solid var(--status-danger-bg-medium)',
         }}>
-          <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, marginTop: 10 }}>不合格项详情</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, marginTop: 10 }}>{tr('mob.brd.fail_items_detail', '不合格项详情')}</div>
           <pre style={{
             margin: 0, fontSize: 11, lineHeight: 1.6,
             color: 'var(--status-danger)',
@@ -150,6 +153,7 @@ function SkeletonList() {
 export default function QualityPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('quality');
   const today  = fmtDate(new Date());
 
@@ -161,9 +165,9 @@ export default function QualityPage() {
 
   const isToday   = date === today;
   const dateLabel = isToday
-    ? '今天'
+    ? tr('mob.brd.today', '今天')
     : date === fmtDate(addDays(toDate(today), -1))
-      ? '昨天'
+      ? tr('mob.brd.yesterday', '昨天')
       : date;
 
   const loadData = useCallback(async (d: string) => {
@@ -175,7 +179,7 @@ export default function QualityPage() {
       const arr: QcInspection[] = Array.isArray(res) ? res : ((res as { data?: QcInspection[] })?.data ?? []);
       setItems(arr);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '加载失败';
+      const msg = e instanceof Error ? e.message : tr('mob.brd.load_fail', '加载失败');
       setError(msg);
     } finally {
       setLoading(false);
@@ -224,7 +228,7 @@ export default function QualityPage() {
         >
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🛡️ 品质检测</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🛡️ {tr('mob.brd.quality_inspection', '品质检测')}</span>
         <button
           onClick={() => loadData(date)}
           style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}
@@ -300,7 +304,7 @@ export default function QualityPage() {
                 background: t.cardBg,
                 border: `1px solid ${t.cardBorder}`,
               }}>
-                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>检测次数</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>{tr('mob.brd.inspect_count', '检测次数')}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: t.text }}>{total}</div>
               </div>
 
@@ -310,7 +314,7 @@ export default function QualityPage() {
                 background: `rgba(${passRateColor === 'var(--status-success)' ? '16,185,129' : passRateColor === 'var(--status-warning)' ? '245,158,11' : '239,68,68'},0.08)`,
                 border: `1px solid rgba(${passRateColor === 'var(--status-success)' ? '16,185,129' : passRateColor === 'var(--status-warning)' ? '245,158,11' : '239,68,68'},0.22)`,
               }}>
-                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>合格率</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>{tr('mob.brd.pass_rate', '合格率')}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: passRateColor }}>
                   {total > 0 ? `${passRate}%` : '—'}
                 </div>
@@ -322,7 +326,7 @@ export default function QualityPage() {
                 background: failCount > 0 ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)',
                 border: `1px solid ${failCount > 0 ? 'rgba(239,68,68,0.22)' : 'var(--status-success-bg-deep)'}`,
               }}>
-                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>不合格</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>{tr('mob.brd.qc_fail', '不合格')}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: failCount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
                   {failCount}
                 </div>
@@ -348,7 +352,7 @@ export default function QualityPage() {
                     outline: activeType === 'ALL' ? '1px solid var(--overlay-blue-25)' : `1px solid ${t.btnBorder}`,
                   }}
                 >
-                  全部 {total > 0 ? `(${total})` : ''}
+                  {tr('mob.brd.all', '全部')} {total > 0 ? `(${total})` : ''}
                 </button>
                 {typeSet.map(type => {
                   const cnt  = items.filter(i => i.checkType === type).length;
@@ -365,7 +369,7 @@ export default function QualityPage() {
                         outline: active ? '1px solid var(--overlay-blue-25)' : `1px solid ${t.btnBorder}`,
                       }}
                     >
-                      {checkTypeLabel(type)} ({cnt})
+                      {checkTypeLabel(type, tr)} ({cnt})
                     </button>
                   );
                 })}
@@ -378,7 +382,7 @@ export default function QualityPage() {
                 padding: '48px 20px', textAlign: 'center',
                 color: t.textFaint, fontSize: 14,
               }}>
-                当日暂无检测记录
+                {tr('mob.brd.no_inspection_record', '当日暂无检测记录')}
               </div>
             ) : (
               filtered.map(item => (

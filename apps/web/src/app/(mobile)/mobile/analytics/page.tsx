@@ -6,6 +6,7 @@ import { ChevronLeft, RefreshCw, TrendingUp, TrendingDown, Minus, Sun, Moon } fr
 import { mobileApi, FarmTrend, TrendRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -89,6 +90,9 @@ function StatCard({
   const {
     t
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   return <div style={{
     background: t.cardBg,
     border: `1px solid ${t.cardBorder}`,
@@ -129,7 +133,7 @@ function StatCard({
         color: t.textFaint,
         marginLeft: 4
       }}>
-            上期均 {prev}
+            {tr('mob.sys.prev_avg', '上期均')} {prev}
           </span>}
       </div>
       {children}
@@ -139,14 +143,11 @@ function StatCard({
 // ── Period chips ──────────────────────────────────────────────────────────────
 
 const PERIODS = [{
-  days: 7,
-  label: '7天'
+  days: 7
 }, {
-  days: 14,
-  label: '14天'
+  days: 14
 }, {
-  days: 30,
-  label: '30天'
+  days: 30
 }];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -158,6 +159,9 @@ export default function AnalyticsPage() {
     toggle,
     t
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const {
     allowed,
     loading: permLoading,
@@ -174,11 +178,11 @@ export default function AnalyticsPage() {
       const res = await mobileApi.getFarmTrend(d);
       setData(res);
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || tr('mob.sys.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
   useEffect(() => {
     load(days);
   }, [days, load]);
@@ -223,7 +227,7 @@ export default function AnalyticsPage() {
         fontSize: 16,
         fontWeight: 700,
         color: t.text
-      }}>生产趋势</div>
+      }}>{tr('mob.sys.production_trend', '生产趋势')}</div>
         <button onClick={() => load(days)} style={{
         background: 'none',
         border: 'none',
@@ -267,7 +271,7 @@ export default function AnalyticsPage() {
         fontSize: 13,
         fontWeight: 600
       }}>
-            {p.label}
+            {p.days}{tr('mob.sys.days_unit', '天')}
           </button>)}
         {s && <span style={{
         marginLeft: 'auto',
@@ -275,7 +279,7 @@ export default function AnalyticsPage() {
         color: t.textFaint,
         alignSelf: 'center'
       }}>
-            存栏 {(s.total_qty || 0).toLocaleString()} 只
+            {tr('mob.sys.stock_count', '存栏')} {(s.total_qty || 0).toLocaleString()} {tr('mob.sys.birds_unit', '只')}
           </span>}
       </div>
 
@@ -291,7 +295,7 @@ export default function AnalyticsPage() {
         padding: 48,
         color: t.textFaint,
         fontSize: 14
-      }}>加载中…</div>}
+      }}>{tr('mob.sys.loading', '加载中…')}</div>}
         {!loading && error && <div style={{
         padding: '12px 14px',
         borderRadius: 10,
@@ -305,22 +309,22 @@ export default function AnalyticsPage() {
 
         {!loading && s && <>
             {/* 产蛋率 */}
-            <StatCard label={`日均产蛋率（近 ${days} 天）`} value={s.lay_rate} unit="%" color={rateColor} prev={prevRateNum}>
+            <StatCard label={`${tr('mob.sys.daily_lay_rate', '日均产蛋率')}（${tr('mob.sys.recent', '近')} ${days} ${tr('mob.sys.days_unit', '天')}）`} value={s.lay_rate} unit="%" color={rateColor} prev={prevRateNum}>
               {rows.length > 0 && <BarChart data={rows} valueKey="eggs" color={rateColor} height={72} />}
             </StatCard>
 
             {/* 日均产蛋 */}
-            <StatCard label="日均产蛋" value={s.avg_eggs.toLocaleString()} unit="枚" color="var(--status-warning)" prev={s.prev_avg_eggs}>
+            <StatCard label={tr('mob.sys.daily_eggs', '日均产蛋')} value={s.avg_eggs.toLocaleString()} unit={tr('mob.sys.eggs_unit', '枚')} color="var(--status-warning)" prev={s.prev_avg_eggs}>
               {rows.length > 0 && <BarChart data={rows} valueKey="eggs" color="var(--status-warning)" height={60} />}
             </StatCard>
 
             {/* 死淘 */}
-            <StatCard label="日均死淘" value={s.avg_mortality + s.avg_elimination} unit="只" color="var(--status-danger)">
+            <StatCard label={tr('mob.sys.daily_mortality', '日均死淘')} value={s.avg_mortality + s.avg_elimination} unit={tr('mob.sys.birds_unit', '只')} color="var(--status-danger)">
               {rows.length > 0 && <BarChart data={rows} valueKey="mortality" color="var(--status-danger)" height={52} />}
             </StatCard>
 
             {/* 饲料 */}
-            <StatCard label="日均饲料消耗" value={s.avg_feed.toLocaleString()} unit="kg" color="var(--status-success)">
+            <StatCard label={tr('mob.sys.daily_feed', '日均饲料消耗')} value={s.avg_feed.toLocaleString()} unit="kg" color="var(--status-success)">
               {rows.length > 0 && <BarChart data={rows} valueKey="feed" color="var(--status-success)" height={52} />}
             </StatCard>
 
@@ -335,7 +339,7 @@ export default function AnalyticsPage() {
           color: t.textFaint,
           fontSize: 13
         }}>
-                近 {days} 天暂无日报数据
+                {tr('mob.sys.recent', '近')} {days} {tr('mob.sys.no_daily_report', '天暂无日报数据')}
               </div>}
           </>}
       </div>

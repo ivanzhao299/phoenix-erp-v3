@@ -11,6 +11,7 @@ import { mobileApi, EggStockRow, EggLedgerEntry, FarmCustomer } from '@/lib/mobi
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useProductGrades } from '@/hooks/useProductGrades';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -54,6 +55,7 @@ export default function EggPage() {
   const router = useRouter();
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('egg');
 
   const { grades: productGrades } = useProductGrades();
@@ -65,7 +67,7 @@ export default function EggPage() {
   const [tab, setTab]     = useState<Tab>('stock');
   const [date, setDate]   = useState(today);
   const isToday = date === today;
-  const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
+  const dateLabel = isToday ? tr('mob.brd.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tr('mob.brd.yesterday', '昨天') : date;
 
   const [stock, setStock]       = useState<EggStockRow[]>([]);
   const [ledger, setLedger]     = useState<EggLedgerEntry[]>([]);
@@ -94,7 +96,7 @@ export default function EggPage() {
       const data = await mobileApi.getEggStock();
       setStock(data);
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -107,7 +109,7 @@ export default function EggPage() {
       const data = await mobileApi.getEggLedger(d, d);
       setLedger(data);
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -178,7 +180,7 @@ export default function EggPage() {
       setTimeout(() => setSaved(false), 3000);
       loadStock();
     } catch (e: any) {
-      setError(e.message || '保存失败');
+      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -202,7 +204,7 @@ export default function EggPage() {
       setTimeout(() => setSaved(false), 3000);
       loadStock();
     } catch (e: any) {
-      setError(e.message || '保存失败');
+      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -215,9 +217,9 @@ export default function EggPage() {
   const totalTrays = stock.reduce((s, r) => s + r.trays, 0);
 
   const CHANGE_LABELS: Record<string, string> = {
-    EGG_INBOUND_HOUSE: '入库',
-    EGG_OUTBOUND_SALE: '出库',
-    EGG_WRITE_OFF:     '报损',
+    EGG_INBOUND_HOUSE: tr('mob.brd.inbound', '入库'),
+    EGG_OUTBOUND_SALE: tr('mob.brd.outbound', '出库'),
+    EGG_WRITE_OFF:     tr('mob.brd.write_off', '报损'),
   };
 
   return (
@@ -234,7 +236,7 @@ export default function EggPage() {
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🥚 鸡蛋出入库</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🥚 {tr('mob.brd.egg_io', '鸡蛋出入库')}</span>
         <button onClick={() => tab === 'stock' ? loadStock() : loadLedger(date)}
           style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
@@ -259,7 +261,7 @@ export default function EggPage() {
             }}
           >
             <Save size={14} />
-            {saving ? '提交…' : saved ? '已保存' : '保存'}
+            {saving ? tr('mob.brd.submitting_short', '提交…') : saved ? tr('mob.brd.saved', '已保存') : tr('mob.brd.save', '保存')}
           </button>
         )}
       </div>
@@ -271,7 +273,7 @@ export default function EggPage() {
         borderBottom: `1px solid ${t.barBorder}`,
       }}>
         {([
-          { key: 'stock',    label: '库存查询', icon: <Package size={14} /> },
+          { key: 'stock',    label: tr('mob.brd.stock_query', '库存查询'), icon: <Package size={14} /> },
         ] as const).map(tab_ => (
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
@@ -320,7 +322,7 @@ export default function EggPage() {
 
       {/* R1 — Farm Egg 库存能力已删除（本入口不再生成库存） */}
       <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-warning-bg-light)', border: '1px solid var(--status-warning)', color: 'var(--status-warning)', fontSize: 12, lineHeight: 1.5 }}>
-        ⚠️ 该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。
+        ⚠️ {tr('mob.brd.egg_frozen_banner', '该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。')}
       </div>
 
       {/* 内容区 */}
@@ -336,12 +338,12 @@ export default function EggPage() {
               gap: 8, marginBottom: 12,
             }}>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--status-warning-bg-faint)', border: '1px solid var(--status-warning-border)' }}>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总库存（枚）</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{tr('mob.brd.total_stock_eggs', '总库存（枚）')}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--status-warning)' }}>{totalStock.toLocaleString()}</div>
               </div>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--status-warning-bg-faint)', border: '1px solid var(--status-warning-border)' }}>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总提数</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--status-warning)' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>提</span></div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{tr('mob.brd.total_trays', '总提数')}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--status-warning)' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>{tr('mob.brd.tray_unit', '提')}</span></div>
               </div>
             </div>
 
@@ -360,10 +362,10 @@ export default function EggPage() {
                   <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? t.text : t.textMuted }}>{row.name}</span>
                   <div className={u.tar}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? 'var(--status-warning)' : t.textFaint }}>
-                      {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>枚</span>
+                      {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>{tr('mob.brd.egg_unit', '枚')}</span>
                     </div>
                     {row.trays > 0 && (
-                      <div style={{ fontSize: 11, color: t.textFaint }}>{row.trays} 提</div>
+                      <div style={{ fontSize: 11, color: t.textFaint }}>{row.trays} {tr('mob.brd.tray_unit', '提')}</div>
                     )}
                   </div>
                 </div>
@@ -377,8 +379,8 @@ export default function EggPage() {
           <>
             {inboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: t.textSub }}>本次入库合计</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-success)' }}>{inboundTotal.toLocaleString()} 枚</span>
+                <span style={{ fontSize: 13, color: t.textSub }}>{tr('mob.brd.inbound_total', '本次入库合计')}</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-success)' }}>{inboundTotal.toLocaleString()} {tr('mob.brd.egg_unit', '枚')}</span>
               </div>
             )}
 
@@ -404,7 +406,7 @@ export default function EggPage() {
             {/* 规格输入表格 */}
             <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 16px', background: t.cardBg, fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
-                <span>规格</span><span>数量（枚）</span>
+                <span>{tr('mob.brd.spec', '规格')}</span><span>{tr('mob.brd.qty_eggs', '数量（枚）')}</span>
               </div>
               {EGG_GRADES.map((g, idx) => (
                 <div key={g.code} style={{
@@ -429,8 +431,8 @@ export default function EggPage() {
           <>
             {outboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-danger-bg-faint)', border: '1px solid var(--status-danger-bg-medium)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: t.textSub }}>本次出库合计</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-danger)' }}>{outboundTotal.toLocaleString()} 枚</span>
+                <span style={{ fontSize: 13, color: t.textSub }}>{tr('mob.brd.outbound_total', '本次出库合计')}</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-danger)' }}>{outboundTotal.toLocaleString()} {tr('mob.brd.egg_unit', '枚')}</span>
               </div>
             )}
 
@@ -456,7 +458,7 @@ export default function EggPage() {
             {/* 规格 × 当前库存参考 */}
             <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '10px 16px', background: t.cardBg, fontSize: 12, color: t.textMuted, fontWeight: 600, gap: 8 }}>
-                <span>规格</span><span className={u.tar}>库存</span><span className={u.tar}>出库数</span>
+                <span>{tr('mob.brd.spec', '规格')}</span><span className={u.tar}>{tr('mob.brd.stock', '库存')}</span><span className={u.tar}>{tr('mob.brd.outbound_qty', '出库数')}</span>
               </div>
               {EGG_GRADES.map((g, idx) => {
                 const stockQty = stock.find(s => s.grade === g.code)?.qty ?? 0;
@@ -479,7 +481,7 @@ export default function EggPage() {
                         onChange={v => setOutbound(selectedCustomer, g.code, v)}
                       />
                       {overStock && outQty > 0 && (
-                        <div style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: 'var(--status-danger)', whiteSpace: 'nowrap' }}>超库存!</div>
+                        <div style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: 'var(--status-danger)', whiteSpace: 'nowrap' }}>{tr('mob.brd.over_stock', '超库存!')}</div>
                       )}
                     </div>
                   </div>
@@ -490,7 +492,7 @@ export default function EggPage() {
             {/* 今日流水简览 */}
             {ledger.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>今日流水</div>
+                <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>{tr('mob.brd.today_ledger', '今日流水')}</div>
                 {ledger.slice(0, 10).map(e => (
                   <div key={e.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',

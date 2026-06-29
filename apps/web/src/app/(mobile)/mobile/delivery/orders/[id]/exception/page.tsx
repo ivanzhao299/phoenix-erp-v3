@@ -3,6 +3,7 @@ import { useState, useEffect, use, Suspense } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { mobileApi } from '@/lib/mobile-api';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
@@ -19,13 +20,16 @@ const C = {
 
 // 异常类型与 PC 新版（sales2/delivery）同源 sys_dict『SAL_DELIVERY_EXCEPTION』。
 // 下方为离线兜底，值须与 PC 字典一致（含 LATE 超时，剔除旧版漂移的 EXPIRED）。
-const EXCEPTION_TYPES_FALLBACK = [
-  { value: 'SHORTAGE', label: '缺货' },
-  { value: 'DAMAGED',  label: '破损' },
-  { value: 'REJECTED', label: '客户拒收' },
-  { value: 'LATE',     label: '超时' },
-  { value: 'OTHER',    label: '其他' },
-];
+type TFn = (key: string, fallback?: string) => string;
+function buildExceptionTypesFallback(t: TFn) {
+  return [
+    { value: 'SHORTAGE', label: t('mob.dlv.exc_shortage', '缺货') },
+    { value: 'DAMAGED',  label: t('mob.dlv.exc_damaged', '破损') },
+    { value: 'REJECTED', label: t('mob.dlv.exc_rejected', '客户拒收') },
+    { value: 'LATE',     label: t('mob.dlv.exc_late', '超时') },
+    { value: 'OTHER',    label: t('mob.dlv.exc_other', '其他') },
+  ];
+}
 
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -36,6 +40,7 @@ function getToken() {
 function ExceptionForm({ id }: { id: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   // 从 query params 获取商品信息
   const itemId       = searchParams.get('itemId')       ?? '';
@@ -50,7 +55,7 @@ function ExceptionForm({ id }: { id: string }) {
   const [receivedQty,    setReceivedQty]    = useState('');
   const [exceptionQty,   setExceptionQty]   = useState('');
   const [exceptionType,  setExceptionType]  = useState('SHORTAGE');
-  const [exceptionTypes, setExceptionTypes] = useState(EXCEPTION_TYPES_FALLBACK);
+  const [exceptionTypes, setExceptionTypes] = useState(() => buildExceptionTypesFallback(t));
   const [remark,         setRemark]         = useState('');
 
   // 拉 sys_dict『SAL_DELIVERY_EXCEPTION』，与 PC 新版同源；失败保留兜底
@@ -64,9 +69,9 @@ function ExceptionForm({ id }: { id: string }) {
   const [success,        setSuccess]        = useState(false);
 
   const handleSubmit = async () => {
-    if (!signedBy.trim()) { setError('请填写签收人姓名'); return; }
-    if (receivedQty === '' || Number(receivedQty) < 0) { setError('请填写正常签收数量（可为0）'); return; }
-    if (!exceptionQty || Number(exceptionQty) <= 0) { setError('请填写异常数量（须大于0）'); return; }
+    if (!signedBy.trim()) { setError(t('mob.dlv.err_signer_name', '请填写签收人姓名')); return; }
+    if (receivedQty === '' || Number(receivedQty) < 0) { setError(t('mob.dlv.err_normal_qty', '请填写正常签收数量（可为0）')); return; }
+    if (!exceptionQty || Number(exceptionQty) <= 0) { setError(t('mob.dlv.err_exception_qty', '请填写异常数量（须大于0）')); return; }
 
     setSubmitting(true);
     setError('');
@@ -97,7 +102,7 @@ function ExceptionForm({ id }: { id: string }) {
       setSuccess(true);
       setTimeout(() => router.back(), 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '提交失败，请重试');
+      setError(e instanceof Error ? e.message : t('mob.dlv.submit_failed', '提交失败，请重试'));
     } finally {
       setSubmitting(false);
     }
@@ -129,11 +134,11 @@ function ExceptionForm({ id }: { id: string }) {
         alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
       }}>
         <div style={{ fontSize: 56 }}>✅</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>异常已记录</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>{t('mob.dlv.exception_recorded', '异常已记录')}</div>
         <div style={{ fontSize: 14, color: C.textSub, textAlign: 'center', lineHeight: 1.6 }}>
-          已自动创建退货单，请等待仓库处理
+          {t('mob.dlv.return_order_created', '已自动创建退货单，请等待仓库处理')}
         </div>
-        <div style={{ fontSize: 13, color: C.textSub }}>正在返回…</div>
+        <div style={{ fontSize: 13, color: C.textSub }}>{t('mob.dlv.returning', '正在返回…')}</div>
       </div>
     );
   }
@@ -147,7 +152,7 @@ function ExceptionForm({ id }: { id: string }) {
           border: `1px solid ${C.red}33`,
           borderRadius: 12, padding: '12px 14px',
         }}>
-          <div style={{ fontSize: 12, color: C.red, marginBottom: 4, fontWeight: 600 }}>⚠ 异常商品</div>
+          <div style={{ fontSize: 12, color: C.red, marginBottom: 4, fontWeight: 600 }}>⚠ {t('mob.dlv.exception_product', '异常商品')}</div>
           <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{productName}</div>
           <div style={{ fontSize: 12, color: C.textSub }}>{productCode}</div>
         </div>
@@ -155,12 +160,12 @@ function ExceptionForm({ id }: { id: string }) {
 
       {/* 签收人 */}
       <div>
-        <label style={labelStyle}>签收人姓名 *</label>
+        <label style={labelStyle}>{t('mob.dlv.label_signer_name', '签收人姓名')} *</label>
         <input
           style={inputStyle}
           value={signedBy}
           onChange={e => setSignedBy(e.target.value)}
-          placeholder="请填写签收人真实姓名"
+          placeholder={t('mob.dlv.ph_signer_real_name', '请填写签收人真实姓名')}
           autoFocus
         />
       </div>
@@ -168,7 +173,7 @@ function ExceptionForm({ id }: { id: string }) {
       {/* 正常数量 + 异常数量 */}
       <div style={{ display: 'flex', gap: 12 }}>
         <div className={u.flex1}>
-          <label style={labelStyle}>正常数量 *</label>
+          <label style={labelStyle}>{t('mob.dlv.label_normal_qty', '正常数量')} *</label>
           <input
             type="number"
             inputMode="numeric"
@@ -180,7 +185,7 @@ function ExceptionForm({ id }: { id: string }) {
           />
         </div>
         <div className={u.flex1}>
-          <label style={labelStyle}>异常数量 *</label>
+          <label style={labelStyle}>{t('mob.dlv.label_exception_qty', '异常数量')} *</label>
           <input
             type="number"
             inputMode="numeric"
@@ -195,7 +200,7 @@ function ExceptionForm({ id }: { id: string }) {
 
       {/* 异常原因 */}
       <div>
-        <label style={labelStyle}>异常原因 *</label>
+        <label style={labelStyle}>{t('mob.dlv.label_exception_reason', '异常原因')} *</label>
         <select
           style={{ ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }}
           value={exceptionType}
@@ -209,12 +214,12 @@ function ExceptionForm({ id }: { id: string }) {
 
       {/* 备注 */}
       <div>
-        <label style={labelStyle}>备注（可选）</label>
+        <label style={labelStyle}>{t('mob.dlv.label_remark_optional', '备注（可选）')}</label>
         <textarea
           style={{ ...inputStyle, height: 88, resize: 'none' }}
           value={remark}
           onChange={e => setRemark(e.target.value)}
-          placeholder="请描述异常情况（可选）"
+          placeholder={t('mob.dlv.ph_describe_exception', '请描述异常情况（可选）')}
         />
       </div>
 
@@ -248,11 +253,11 @@ function ExceptionForm({ id }: { id: string }) {
           WebkitTapHighlightColor: 'transparent',
         }}
       >
-        {submitting ? '提交中…' : '⚠ 提交异常记录'}
+        {submitting ? t('mob.dlv.submitting', '提交中…') : `⚠ ${t('mob.dlv.submit_exception_record', '提交异常记录')}`}
       </button>
 
       <div style={{ fontSize: 12, color: C.textSub, textAlign: 'center', lineHeight: 1.5 }}>
-        提交后将自动创建退货单，请确认信息无误后再提交
+        {t('mob.dlv.submit_return_hint', '提交后将自动创建退货单，请确认信息无误后再提交')}
       </div>
     </div>
   );
@@ -262,6 +267,7 @@ function ExceptionForm({ id }: { id: string }) {
 export default function ExceptionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <div style={{
@@ -286,12 +292,12 @@ export default function ExceptionPage({ params }: { params: Promise<{ id: string
         >
           ←
         </button>
-        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>⚠ 异常签收</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: C.red }}>⚠ {t('mob.dlv.exception_sign', '异常签收')}</span>
       </div>
 
       <Suspense fallback={
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textSub }}>
-          加载中…
+          {t('mob.dlv.loading', '加载中…')}
         </div>
       }>
         <ExceptionForm id={id} />

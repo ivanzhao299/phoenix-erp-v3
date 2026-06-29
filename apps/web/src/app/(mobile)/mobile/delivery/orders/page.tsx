@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const C = {
   bg:      'var(--brand-deep-1)',
@@ -16,24 +17,29 @@ const C = {
   gray:    'var(--slate-500)',
 };
 
-const STATUS_MAP: Record<string, { label: string; color: string; next: string }> = {
-  PLANNED:   { label: '待装车', color: C.orange, next: '去装车' },
-  LOADING:   { label: '装车中', color: C.blue,   next: '完成装车' },
-  LOADED:    { label: '已装车', color: C.blue,   next: '发车' },
-  DEPARTED:  { label: '配送中', color: C.blue,   next: '签收' },
-  ARRIVED:   { label: '已到达', color: C.blue,   next: '签收' },
-  COMPLETED: { label: '已完成', color: C.green,  next: '已完成 ✓' },
-  EXCEPTION: { label: '异常',   color: C.red,    next: '查看异常 ⚠' },
-};
+type TFn = (key: string, fallback?: string) => string;
+function buildStatusMap(t: TFn): Record<string, { label: string; color: string; next: string }> {
+  return {
+    PLANNED:   { label: t('mob.dlv.status_planned', '待装车'), color: C.orange, next: t('mob.dlv.next_go_load', '去装车') },
+    LOADING:   { label: t('mob.dlv.status_loading', '装车中'), color: C.blue,   next: t('mob.dlv.next_finish_load', '完成装车') },
+    LOADED:    { label: t('mob.dlv.status_loaded', '已装车'), color: C.blue,   next: t('mob.dlv.next_depart', '发车') },
+    DEPARTED:  { label: t('mob.dlv.status_delivering', '配送中'), color: C.blue,   next: t('mob.dlv.next_sign', '签收') },
+    ARRIVED:   { label: t('mob.dlv.status_arrived', '已到达'), color: C.blue,   next: t('mob.dlv.next_sign', '签收') },
+    COMPLETED: { label: t('mob.dlv.status_completed', '已完成'), color: C.green,  next: t('mob.dlv.next_completed', '已完成 ✓') },
+    EXCEPTION: { label: t('mob.dlv.status_exception', '异常'),   color: C.red,    next: t('mob.dlv.next_view_exception', '查看异常 ⚠') },
+  };
+}
 
-const TABS = [
-  { key: '',          label: '全部' },
-  { key: 'PLANNED',   label: '待装车' },
-  { key: 'DEPARTED',  label: '配送中' },
-  { key: 'ARRIVED',   label: '待签收' },
-  { key: 'COMPLETED', label: '已完成' },
-  { key: 'EXCEPTION', label: '异常' },
-];
+function buildTabs(t: TFn) {
+  return [
+    { key: '',          label: t('mob.dlv.tab_all', '全部') },
+    { key: 'PLANNED',   label: t('mob.dlv.status_planned', '待装车') },
+    { key: 'DEPARTED',  label: t('mob.dlv.status_delivering', '配送中') },
+    { key: 'ARRIVED',   label: t('mob.dlv.tab_pending_sign', '待签收') },
+    { key: 'COMPLETED', label: t('mob.dlv.status_completed', '已完成') },
+    { key: 'EXCEPTION', label: t('mob.dlv.status_exception', '异常') },
+  ];
+}
 
 interface DeliveryOrder {
   id: string;
@@ -77,6 +83,7 @@ function Skeleton() {
 
 export default function MyDeliveryOrdersPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [activeTab, setActiveTab] = useState('');
   const [loading, setLoading] = useState(true);
@@ -93,12 +100,12 @@ export default function MyDeliveryOrdersPage() {
       const data = await apiFetch(url);
       setOrders(data.data ?? data.list ?? data ?? []);
     } catch {
-      setError('加载失败，请点击刷新重试');
+      setError(t('mob.dlv.load_failed_refresh', '加载失败，请点击刷新重试'));
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadOrders(activeTab); }, [activeTab, loadOrders]);
 
@@ -135,7 +142,7 @@ export default function MyDeliveryOrdersPage() {
         >
           ←
         </button>
-        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>我的配送</div>
+        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>{t('mob.dlv.nav_my_delivery', '我的配送')}</div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -162,7 +169,7 @@ export default function MyDeliveryOrdersPage() {
           marginBottom: 16,
           overflow: 'hidden',
         }}>
-          {TABS.map(tab => (
+          {buildTabs(t).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -192,11 +199,11 @@ export default function MyDeliveryOrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <div style={{ textAlign: 'center', color: C.textSub, padding: 60, fontSize: 14 }}>
-            📦 暂无配送单
+            📦 {t('mob.dlv.no_orders', '暂无配送单')}
           </div>
         ) : (
           orders.map(order => {
-            const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, color: C.gray, next: '查看详情' };
+            const statusInfo = buildStatusMap(t)[order.status] ?? { label: order.status, color: C.gray, next: t('mob.dlv.view_detail', '查看详情') };
             return (
               <div
                 key={order.id}
@@ -217,7 +224,7 @@ export default function MyDeliveryOrdersPage() {
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{order.orderNo}</div>
                     <div style={{ fontSize: 13, color: C.textSub, marginTop: 4 }}>🏢 {order.customerName}</div>
                     {order.item_count !== undefined && (
-                      <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📦 {order.item_count} 项商品</div>
+                      <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📦 {order.item_count} {t('mob.dlv.items_unit', '项商品')}</div>
                     )}
                     <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📅 {order.waveDate}</div>
                   </div>
