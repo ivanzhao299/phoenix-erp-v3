@@ -163,6 +163,12 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
+        // B4: lookup.controller farms()/houses() 查询的列（company_code / site_code），
+        //   CI bootstrap 缺 → /api/lookup/farms、/api/lookup/houses 生产 500。补可空列对齐
+        //   service 契约（prod 已有则 ADD IF NOT EXISTS no-op）。语义层（治理是否应由站点
+        //   映射派生 company、site_code 是否应统一为 store_code）见 task #37，此处仅消 500。
+        `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS company_code VARCHAR(64)`,
+        `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS site_code    VARCHAR(64)`,
         // chn_distributor_grading（经销商分级）
         `CREATE TABLE IF NOT EXISTS chn_distributor_grading (
            id            SERIAL PRIMARY KEY,
