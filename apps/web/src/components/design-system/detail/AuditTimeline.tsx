@@ -19,11 +19,12 @@ export interface AuditTimelineProps {
   title?: string;
 }
 
-export function AuditTimeline({ items, title = '操作时间轴' }: AuditTimelineProps) {
+export function AuditTimeline({ items, title }: AuditTimelineProps) {
   const { t } = useLanguage();
+  const resolvedTitle = title ?? t('ui.操作时间轴','操作时间轴');
   return (
     <div>
-      {title && <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14, fontSize: 14 }}>{title}</div>}
+      {resolvedTitle && <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14, fontSize: 14 }}>{resolvedTitle}</div>}
       <div style={{ position: 'relative', paddingLeft: 20 }}>
         {items.map((t, i) => {
           const c = t.color || 'var(--color-primary)';

@@ -69,11 +69,13 @@ export function UserSelector({ value, onChange, options, disabled, allowEmpty = 
 }
 
 /** AttachmentField — FormField + AttachmentUploader 组合 */
-export function AttachmentField({ label = '附件', required, hint, value, onChange, readOnly }: {
+export function AttachmentField({ label, required, hint, value, onChange, readOnly }: {
   label?: string; required?: boolean; hint?: string; value: string[]; onChange: (urls: string[]) => void; readOnly?: boolean;
 }) {
+  const { t } = useLanguage();
+  const resolvedLabel = label ?? t('ui.附件','附件');
   return (
-    <FormField label={label} required={required} hint={hint}>
+    <FormField label={resolvedLabel} required={required} hint={hint}>
       <AttachmentUploader value={value} onChange={onChange} readOnly={readOnly} />
     </FormField>
   );

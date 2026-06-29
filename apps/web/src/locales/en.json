@@ -11003,5 +11003,7 @@
   "ui.🔒 账户冻结，禁止下单": "🔒 Account frozen; ordering prohibited",
   "ui.🚧 阻塞": "🚧 Blocked",
   "ui.🚫 账期逾期": "🚫 Payment Overdue",
-  "ui.🚫 超信用额度": "🚫 Credit Limit Exceeded"
+  "ui.🚫 超信用额度": "🚫 Credit Limit Exceeded",
+  "ui.搜索客户 / 供应商 / SKU / 仓库 / 账户…": "Search customer / supplier / SKU / warehouse / account…",
+  "ui.操作时间轴": "Activity Timeline"
 }

@@ -81,7 +81,9 @@ export function renderMdFieldInput(
   f: MdField,
   form: Record<string, any>,
   setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+  t?: (key: string, fallback?: string) => string,
 ): React.ReactNode {
+  const tr = t ?? ((_k: string, fb?: string) => fb ?? _k);
   // G83：主数据选择器化 — 函数式 setForm 防 onChange→onPick 顺序污染
   const code = String(form[f.key] ?? "");
   const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
@@ -112,7 +114,7 @@ export function renderMdFieldInput(
     return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
   if (f.type === "select")
     return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
-      <option value="">请选择</option>
+      <option value="">{tr('ui.请选择','请选择')}</option>
       {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>;
   if (f.type === "readonly")
@@ -424,7 +426,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {renderMdFieldInput(f, form, setForm)}
+                {renderMdFieldInput(f, form, setForm, t)}
               </div>
             ))}
             </div>

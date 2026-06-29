@@ -30,9 +30,10 @@ const STATUS_COLOR: Record<string, string> = {
   FROZEN: 'var(--status-info)', ARCHIVED: 'var(--slate-400)', REJECTED: 'var(--status-danger)',
 };
 
-export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU / 仓库 / 账户…', autoFocus = false }:
+export function MasterDataSearch({ placeholder, autoFocus = false }:
   { placeholder?: string; autoFocus?: boolean }) {
   const { t } = useLanguage();
+  const ph = placeholder ?? t('ui.搜索客户 / 供应商 / SKU / 仓库 / 账户…','搜索客户 / 供应商 / SKU / 仓库 / 账户…');
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,7 +86,7 @@ export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU
           value={keyword}
           onChange={e => { setKeyword(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder={placeholder}
+          placeholder={ph}
           style={{
             flex: 1, border: 'none', background: 'transparent', outline: 'none',
             fontSize: 13, color: 'var(--text-primary)',

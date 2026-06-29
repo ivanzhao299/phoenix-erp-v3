@@ -20,11 +20,12 @@ const RESULT_COLOR: Record<string, string> = {
   PENDING:  'var(--text-disabled)',
 };
 
-export function WorkflowTimeline({ steps, title = '审批流程' }: { steps: WorkflowStep[]; title?: string }) {
+export function WorkflowTimeline({ steps, title }: { steps: WorkflowStep[]; title?: string }) {
   const { t } = useLanguage();
+  const resolvedTitle = title ?? t('ui.审批流程','审批流程');
   return (
     <div>
-      {title && <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14, fontSize: 14 }}>{title}</div>}
+      {resolvedTitle && <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14, fontSize: 14 }}>{resolvedTitle}</div>}
       <div style={{ position: 'relative', paddingLeft: 20 }}>
         {steps.map((s, i) => {
           const c = RESULT_COLOR[s.result || 'PENDING'];

@@ -138,7 +138,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
                   <label style={{ ...formLabel, marginBottom: 4 }}>
                     {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                   </label>
-                  {renderMdFieldInput(f, form, setForm)}
+                  {renderMdFieldInput(f, form, setForm, t)}
                 </div>
               ))}
             </div>
