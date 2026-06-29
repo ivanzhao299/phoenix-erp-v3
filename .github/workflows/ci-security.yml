@@ -38,6 +38,9 @@ jobs:
       - name: Check nullable-in-unique constraints
         run: node scripts/check-nullable-in-unique.js
 
+      - name: Check i18n key parity & coverage (g-i18n)
+        run: node scripts/check-i18n-keys.js
+
       - name: W5 closeout static gate
         env:
           FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
