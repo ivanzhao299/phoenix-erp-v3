@@ -1773,7 +1773,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const t of houseTypeDicts) {
         await this.entityManager.query(`
           INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
-          SELECT $1, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
+          SELECT $1::varchar, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
           WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='BRD_HOUSE_TYPE')
         `, [t.code, t.zh, t.lo, t.en, t.sort])
           .catch((e: Error) => console.warn(`⚠️ sys_dict BRD_HOUSE_TYPE insert failed for ${t.code}:`, e.message));
@@ -2056,7 +2056,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const { code, label_zh, label_en, sort } of packLines) {
         await this.entityManager.query(
           `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status)
-           SELECT $1, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
+           SELECT $1::varchar, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_PACK_LINE')`,
           [code, label_zh, label_en, sort],
         ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_PACK_LINE insert failed for ${code}:`, e.message));
@@ -2081,7 +2081,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const s of shifts) {
         await this.entityManager.query(
           `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status, config_json)
-           SELECT $1, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5
+           SELECT $1::varchar, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_SHIFT')`,
           [s.code, s.zh, s.en, s.sort, JSON.stringify({ timeRange: s.timeRange })],
         ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_SHIFT insert failed for ${s.code}:`, e.message));
