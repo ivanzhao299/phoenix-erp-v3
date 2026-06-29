@@ -12,6 +12,7 @@ import { haptic } from '@/lib/haptic';
 import { approvalApi, type WorkflowTask, type WorkflowTaskPage, type InstanceDetail, type ApprovalReassignCandidate } from '@/lib/mobile-api';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -1078,6 +1079,7 @@ export default function WorkflowPage() {
     t: tr
   } = useLanguage();
   const toast = useToast();
+  const { allowed, loading: permLoading } = useMobilePermission('workflow');  // F10 加固：页面级门禁
   const [tab, setTab] = useState<Tab>('todos');
   const [todos, setTodos] = useState<WorkflowTask[]>([]);
   const [history, setHistory] = useState<WorkflowTask[]>([]);
@@ -1140,6 +1142,7 @@ export default function WorkflowPage() {
     setDetailTask(null);
     loadTodos();
   }
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
   return <div style={{
     minHeight: '100svh',
     background: t.pageBg,

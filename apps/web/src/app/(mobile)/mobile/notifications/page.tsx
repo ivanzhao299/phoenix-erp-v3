@@ -11,6 +11,7 @@ import { haptic } from '@/lib/haptic';
 import { notificationApi, type MobileNotification } from '@/lib/mobile-api';
 import { authHeader } from '@/lib/mobile-auth-token';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── Web Push 工具 ─────────────────────────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export default function NotificationsPage() {
     t: tr
   } = useLanguage();
   const toast = useToast();
+  const { allowed, loading: permLoading } = useMobilePermission('notifications');  // F10 加固：页面级门禁
   const [items, setItems] = useState<MobileNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -368,6 +370,7 @@ export default function NotificationsPage() {
       router.push('/mobile/workflow');
     }
   };
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
   return <div style={{
     minHeight: '100svh',
     background: t.pageBg,

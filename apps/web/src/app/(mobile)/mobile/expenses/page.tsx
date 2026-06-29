@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, Plus, Receipt, Clock, CheckCircle, XCircle, Wallet, Send } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
 import { mobileApi } from '@/lib/mobile-api';
@@ -109,6 +110,7 @@ export default function MobileExpensesPage() {
     isDark
   } = useMobileTheme();
   const { t } = useLanguage();
+  const { allowed, loading: permLoading } = useMobilePermission('expenses');  // F10 加固：页面级门禁
   // 费用类型 / 状态标签的 i18n 映射（在组件内按 t 翻译，键复用 mob.biz.*）
   const expenseTypeI18n: Record<string, string> = {
     TRAVEL: t('mob.biz.exp_type_travel', '差旅'),
@@ -301,6 +303,8 @@ export default function MobileExpensesPage() {
     }
     return [];
   };
+
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
 
   // ── 详情视图 ─────────────────────────────────────────────────────────────
 

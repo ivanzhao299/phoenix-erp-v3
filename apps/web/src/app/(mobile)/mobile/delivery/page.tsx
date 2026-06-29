@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -238,6 +239,7 @@ function Skeleton() {
 export default function DeliveryPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { allowed, loading: permLoading } = useMobilePermission('delivery');  // F10 加固：页面级门禁
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [activeTab, setActiveTab] = useState('PLANNED');
@@ -276,6 +278,7 @@ export default function DeliveryPage() {
     await Promise.all([loadStats(), loadOrders(activeTab)]);
     setRefreshing(false);
   };
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染页面（后端亦有 @RequireMenu 兜底）
   return <div style={{
     minHeight: '100svh',
     background: C.bg,

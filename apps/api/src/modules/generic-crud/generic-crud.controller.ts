@@ -98,9 +98,24 @@ export class GenericCrudController {
         : method === 'DELETE' ? 'D'   // G33-A：DELETE 升级为 D 权限
         : 'E';
       if (hasPerm(perms, fallbackMenu, requiredOp)) return;
+      // F9(task #27 加固)：部分表后端主码与前端 usePermission 域刻意不同
+      //   （brd_vaccinations/medications：BE=MENU_FARM_DATA 录入域 / FE=MENU_FARM_VET 兽医防疫域，
+      //    见 G33-B 与 G18-1/G24-A）。补 altMenu OR：持任一域对应操作权即放行，让兽医防疫域用户
+      //   （如宋明光持 FARM_VET 无 FARM_DATA）按 FE 意图录入而不被 BE 误 403。
+      for (const alt of this.tableToAltMenus(table)) {
+        if (hasPerm(perms, alt, requiredOp)) return;
+      }
     }
 
     throw new ForbiddenException(`权限不足：您（角色=${userRole}）无权 ${method} 访问 [${table}]，需 menu=${fallbackMenu ?? '-'} 的对应权限`);
+  }
+
+  /**
+   * F9：表名 → 备选菜单码（OR 关系）。用于 FE/BE 域刻意不同的表，避免持 FE 域权的用户被 BE 误 403。
+   */
+  private tableToAltMenus(table: string): string[] {
+    if (table === 'brd_vaccinations' || table === 'brd_medications') return ['MENU_FARM_VET'];
+    return [];
   }
 
   /**
