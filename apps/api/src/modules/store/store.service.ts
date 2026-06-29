@@ -83,7 +83,7 @@ export class StoreService {
          COALESCE(SUM(CASE WHEN pay_method='CASH' THEN net_amount ELSE 0 END),0)::float8 AS cash_sales,
          COALESCE(SUM(CASE WHEN pay_method IN ('QR_CODE','QR','CARD') THEN net_amount ELSE 0 END),0)::float8 AS qr_sales,
          COALESCE(SUM(discount_amount),0)::float8 AS discount_total
-       FROM pos_sales WHERE store_code = $1 AND substr(created_at,1,10) = $2`,
+       FROM pos_sales WHERE store_code = $1 AND substr(created_at::text,1,10) = $2`,
       [storeCode, date],
     );
 
@@ -95,7 +95,7 @@ export class StoreService {
               SUM(si.subtotal)::float8 AS total_amount
          FROM pos_sale_items si
          JOIN pos_sales s ON s.sale_no = si.sale_no
-        WHERE s.store_code = $1 AND substr(s.created_at,1,10) = $2
+        WHERE s.store_code = $1 AND substr(s.created_at::text,1,10) = $2
         GROUP BY si.product_code
         ORDER BY total_amount DESC`,
       [storeCode, date],
@@ -141,7 +141,7 @@ export class StoreService {
            COALESCE(SUM(CASE WHEN pay_method='CASH' THEN net_amount ELSE 0 END),0)::float8 AS cash_sales,
            COALESCE(SUM(CASE WHEN pay_method IN ('QR_CODE','QR','CARD') THEN net_amount ELSE 0 END),0)::float8 AS qr_sales,
            COALESCE(SUM(discount_amount),0)::float8 AS discount_total
-         FROM pos_sales WHERE store_code = $1 AND substr(created_at,1,10) = $2`,
+         FROM pos_sales WHERE store_code = $1 AND substr(created_at::text,1,10) = $2`,
         [storeCode, date],
       );
 

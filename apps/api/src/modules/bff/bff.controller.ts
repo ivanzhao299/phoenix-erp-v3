@@ -177,12 +177,12 @@ export class DashboardBffController {
           ? `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
                     COALESCE(SUM(net_amount),0)::float8 AS sales, COUNT(*)::int AS txns
                FROM pos_sales
-              WHERE substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD') AND store_code = $1
+              WHERE substr(created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD') AND store_code = $1
               GROUP BY dow ORDER BY dow`
           : `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
                     COALESCE(SUM(net_amount),0)::float8 AS sales, COUNT(*)::int AS txns
                FROM pos_sales
-              WHERE substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
+              WHERE substr(created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
               GROUP BY dow ORDER BY dow`,
         scopeStore ? [scopeStore] : [],
       ),
@@ -263,7 +263,7 @@ export class DashboardBffController {
         `SELECT COALESCE(SUM(net_amount),0)::float8 AS total_sales,
                 COUNT(*)::int AS total_txns
            FROM pos_sales
-          WHERE store_code = $1 AND substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')`,
+          WHERE store_code = $1 AND substr(created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')`,
         [store],
       ),
       [{ total_sales: 0, total_txns: 0 }],
@@ -274,7 +274,7 @@ export class DashboardBffController {
       this.em.query(
         `SELECT COALESCE(SUM(si.qty),0)::int AS total_qty
            FROM pos_sale_items si JOIN pos_sales s ON s.sale_no = si.sale_no
-          WHERE s.store_code = $1 AND substr(s.created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')`,
+          WHERE s.store_code = $1 AND substr(s.created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')`,
         [store],
       ),
       [{ total_qty: 0 }],
@@ -286,7 +286,7 @@ export class DashboardBffController {
                 COALESCE(SUM(net_amount),0)::float8 AS sales,
                 COUNT(*)::int AS txns
            FROM pos_sales
-          WHERE store_code = $1 AND substr(created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
+          WHERE store_code = $1 AND substr(created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
           GROUP BY day ORDER BY day ASC`,
         [store],
       ),
@@ -312,7 +312,7 @@ export class DashboardBffController {
                 SUM(si.qty)::int AS total_qty,
                 SUM(si.subtotal)::float8 AS total_amount
            FROM pos_sale_items si JOIN pos_sales s ON s.sale_no = si.sale_no
-          WHERE s.store_code = $1 AND substr(s.created_at,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
+          WHERE s.store_code = $1 AND substr(s.created_at::text,1,10) >= to_char(CURRENT_DATE - INTERVAL '7 days','YYYY-MM-DD')
           GROUP BY si.product_name_zh
           ORDER BY total_amount DESC LIMIT 3`,
         [store],
