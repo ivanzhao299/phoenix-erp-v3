@@ -459,6 +459,15 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS check_pack     BOOLEAN DEFAULT false`,
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS check_label    BOOLEAN DEFAULT false`,
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS insp_no        VARCHAR(64)`,
+        // B3: quality.service.createInspection() 写入但 V2 schema 缺失的列（无 catch → 缺列直接
+        //     生产 500）。列名与 service INSERT 严格对齐（含 camelCase 引号标识符）。
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS henhouse          VARCHAR(64)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "checkType"       VARCHAR(32)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "checkTime"       VARCHAR(32)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS items             INTEGER DEFAULT 0`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "failItems"       INTEGER DEFAULT 0`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS remark            TEXT`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS env_snapshot_json TEXT`,
 
         `CREATE TABLE IF NOT EXISTS qa_inspection_items (
            id           SERIAL PRIMARY KEY,
@@ -495,6 +504,13 @@ export class GenericCrudService implements OnModuleInit {
          )`,
         `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS severity   VARCHAR(20) DEFAULT 'LOW'`,
         `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+        // B3: quality.service.createNonConformance() 写入但 V2 schema 缺失的列（无 catch → 生产 500）。
+        //     原 schema 用 ncr_no，service 用 nc_no；两者并存（nc_no 为 service 实际写入键）。
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS nc_no        VARCHAR(50)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS issue_type   VARCHAR(50)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS batch_no     VARCHAR(64)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS store_code   VARCHAR(30)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS action_taken TEXT`,
 
         // ── 质量标准历史（audit） ─────────────────────────────────────────
         `CREATE TABLE IF NOT EXISTS qa_standards_history (
