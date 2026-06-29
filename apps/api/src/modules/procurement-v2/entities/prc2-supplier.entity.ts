@@ -22,6 +22,10 @@ export class Prc2SupplierEntity {
   @Column({ name: 'supplier_name_en', type: 'varchar', length: 256, nullable: true })
   supplierNameEn: string;
 
+  // task #25 多语言名称（_lo 由 AddMasterDataMultilingualNames 迁移建列；对齐 entity↔DB 消 g197-I 漂移）
+  @Column({ name: 'supplier_name_lo', type: 'varchar', length: 255, nullable: true })
+  supplierNameLo: string | null;
+
   @Column({ name: 'country_code', type: 'varchar', length: 8, nullable: true })
   countryCode: string;
 
