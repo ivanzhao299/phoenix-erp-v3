@@ -437,6 +437,10 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.target }}
           tags: |
             type=raw,value=latest
+            # P5(评分补强)：除 latest 外，每次推一个不可变的 per-commit SHA tag 进 ghcr，
+            #   作为确定的回滚目标（节点本地被 prune 也无妨，registry 保留）。
+            #   回滚：docker compose 用 IMAGE_TAG=sha-<commit> 重拉旧镜像即可。
+            type=sha,format=long,prefix=sha-
 
       - name: Build & push ${{ matrix.target }} image
         if: steps.skip.outputs.skip != 'true'
