@@ -24,6 +24,10 @@ env:
   JWT_SECRET: ci_test_secret_minlen_32_characters_xx
   JWT_SECRET_PREV: ""
   NODE_ENV: test
+  # P3(评分补强)：镜像 deploy.yml 的 test job —— 回归套件用 admin/admin123 dev 快捷登录拿 token。
+  #   缺此变量时 auth.service 走真实密码校验 → admin 登录 "密码错误" → system 回归第一步即挂。
+  #   main.ts 仅在 NODE_ENV=production 时禁止本变量（fail-closed），CI(NODE_ENV=test)安全。
+  ENABLE_DEV_LOGIN: "true"
 
 jobs:
   regression:
