@@ -77,3 +77,27 @@
 - `mobile/*` 采购页 `unit:'件'`、`reason:'常规采购补货'` 作后端默认值。
 
 建议下一轮统一改为字典码/枚举码，避免多语言切换后写入脏数据。
+
+---
+
+## 8. 复核与落实结果（「按建议落实」时逐条对 actual SQL/代码验证）
+
+落实前对每条 finding 的前提**实查代码/SQL**，结果：静态权威矩阵在 scope/role-gap 类有多处误报。
+
+| ID | 复核结论 | 处置 |
+|---|---|---|
+| **F1** | 确证：5 个 `MENU_STORE_PAYMENT*` 0 条 sys_menu INSERT，无授权，控制器实引用 | **✅ 已修** 迁移 `1782720`：seed 5 码 + 授收银(记录/账户 V,E)/店长(全 + 确认/作废 V,E + 导出 V,X) |
+| **F2** | 确证 | **✅ 已修** 迁移 `1782710` |
+| **F3** | **不修**：供应商为**集团共享主数据**，采购员维护供应商信息属正常职能；降只读会破坏合法功能 | 不动 |
+| **F4** | **误报**：`bff.controller` dashboard kpi 已按 `isGlobalKpi`/`scopeStore` 自收窄，非全局用户只见本场区 | 不动 |
+| **F5** | 确证 | **✅ 已修** 迁移 `1782710` |
+| **F6** | 确证：`MENU_SALES2_DASHBOARD` 0 条 sys_menu INSERT、无授权 → 非超管销售角色被挡在 /sales2 落地页 | **✅ 已修** 迁移 `1782720`：seed + 授 V 给 SALES2_ORDER 持有者 |
+| **F7** | **误报**：实查 SQL，FIN_ACCT 已持 `MENU_FIN2_AR V,C,E,X`/`MENU_FIN2_EXPENSE V,C,E`/`MENU_FIN2_AP V,C,E,X`（矩阵重建有误） | 不动 |
+| **F8** | **误报**：`procurement-v2/dashboard.service` 每查询带 `scope.params`，服务层已收窄 | 不动 |
+| **F9** | **延后**：FE `FARM_VET`（G24-A 免疫归兽医域 / G18-1 宋明光）与 BE `FARM_DATA`（G33-B 记录归录入域）**均刻意**，改任一侧破坏既定设计，须域主决策（建议 generic-crud 对 brd_vaccinations/medications 加 FARM_VET altMenu） | 待决策 |
+| **F10** | **延后**：纯 UX，后端端点已守卫；无统一硬门禁范式，盲加风险>收益 | 待决策 |
+
+**本轮共修 4 处确证的 403/可达性缺陷（F1/F2/F5/F6），均为 RBAC 配置 DML 迁移（幂等/含 down/过门禁）。**
+关键纪律：F4/F7/F8 经实查代码均为静态矩阵**误报**（服务层已收窄或角色实持权），F3 系集团共享主数据非泄漏——**未盲目按误报授/撤生产权限**。F9/F10 涉刻意设计/纯 UX，留待域主与 UX 决策。
+
+迁移清单：`1782710-FixReimburseMenuAndSourceModeGrants`（F2+F5）、`1782720-SeedStorePaymentAndSales2DashboardMenus`（F1+F6）。
