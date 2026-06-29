@@ -435,7 +435,7 @@ export default function StorePosPage() {
     setVoiding(true);
     try {
       await api('POST', `/api/v2/store-sales/${voidTarget.id}/void`, { reason });
-      showToast(`已作废 ${voidTarget.sale_no}`, 'success');
+      showToast(`${t('ui.已作废','已作废')} ${voidTarget.sale_no}`, 'success');
       setVoidTarget(null);
       setVoidReason('');
       loadSales(salesPage);
@@ -458,7 +458,7 @@ export default function StorePosPage() {
     setReturning(true);
     try {
       await api('POST', `/api/v2/store-sales/${returnTarget.id}/return`, { reason });
-      showToast(`已退货 ${returnTarget.sale_no}`, 'success');
+      showToast(`${t('ui.已退货','已退货')} ${returnTarget.sale_no}`, 'success');
       setReturnTarget(null);
       setReturnReason('');
       loadSales(salesPage);
@@ -627,7 +627,7 @@ export default function StorePosPage() {
           customerName: customerName || undefined
         });
       }
-      showToast(`销售单 ${sale.sale_no} 开立成功`, 'success');
+      showToast(`${t('ui.销售单','销售单')} ${sale.sale_no} ${t('ui.开立成功','开立成功')}`, 'success');
       clearCart();
       loadSummary();
       loadCurrentShift();
@@ -884,7 +884,7 @@ export default function StorePosPage() {
                 const exact = products.find(p => p.sku_code === q || p.product_code === q);
                 const target = exact ?? (filteredProducts.length === 1 ? filteredProducts[0] : undefined);
                 if (target) { addToCart(target); setProductQuery(''); }
-                else showToast(`未找到商品「${q}」`, 'error');
+                else showToast(`${t('ui.未找到商品','未找到商品')}「${q}」`, 'error');
               }}
               placeholder={t('ui.扫码或搜索商品（回车加购）','扫码或搜索商品（回车加购）')} style={{
               width: '100%',

@@ -221,6 +221,7 @@ function CompactHouseCard({
   house: HouseData;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   const fresh = FRESH[house.dataFreshness] ?? FRESH.no_data;
 
   // Map system alarm counts by full code (e.g. "environment", "control")
@@ -329,7 +330,7 @@ function CompactHouseCard({
         fontSize: 10,
         color: "var(--text-secondary)",
         marginLeft: 4
-      }}>系统健康</span>
+      }}>{t('ui.系统健康','系统健康')}</span>
       </div>
 
       {/* Footer */}
@@ -354,7 +355,7 @@ function CompactHouseCard({
         color: "var(--color-primary)",
         fontWeight: 600
       }}>
-          进入鸡舍 →
+          {t('ui.进入鸡舍','进入鸡舍')} →
         </span>
       </div>
     </div>;
@@ -366,6 +367,7 @@ function AlarmRow({
   alarm: AlarmItem;
   now: Date;
 }) {
+  const { t } = useLanguage();
   const catKey = alarm.system_category || alarm.category || "";
   const catCfg = SYSTEM_CATEGORY_MAP[catKey];
   const isCritical = alarm.severity === "critical";
@@ -400,7 +402,7 @@ function AlarmRow({
         borderRadius: 8,
         border: "1px solid"
       }}>
-            📊 传感器
+            📊 {t('ui.传感器','传感器')}
           </span>}
       </div>
 

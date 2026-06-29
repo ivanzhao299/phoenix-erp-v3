@@ -163,6 +163,7 @@ function HouseCard({
   freshLabel: string;
   noBatchLabel: string;
 }) {
+  const { t } = useLanguage();
   const fr = FRESH[house.dataFreshness] || FRESH.no_data;
   const hasAlarm = house.alarmCount > 0;
   return <div onClick={onClick} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} style={{
@@ -299,15 +300,15 @@ function HouseCard({
           display: 'flex',
           gap: 10
         }}>
-              <span>耗料 <strong style={{
+              <span>{t('ui.耗料','耗料')} <strong style={{
               color: 'var(--text-primary)',
               fontSize: 11
             }}>{house.feedToday != null ? `${Number(house.feedToday).toFixed(0)}kg` : '—'}</strong></span>
-              <span>饮水 <strong style={{
+              <span>{t('ui.饮水','饮水')} <strong style={{
               color: 'var(--text-primary)',
               fontSize: 11
             }}>{house.waterToday != null ? `${Number(house.waterToday).toFixed(1)}T` : '—'}</strong></span>
-              <span>在线 <strong style={{
+              <span>{t('ui.在线','在线')} <strong style={{
               fontSize: 11,
               color: (house.onlineRate ?? 0) > 0.8 ? 'var(--status-success)' : (house.onlineRate ?? 0) > 0.5 ? 'var(--status-warning)' : 'var(--status-danger)'
             }}>{Math.round((house.onlineRate ?? 0) * 100)}%</strong></span>
@@ -319,7 +320,7 @@ function HouseCard({
           display: 'flex',
           alignItems: 'center',
           gap: 2
-        }}>进入总览 <ChevronRight size={11} /></span>
+        }}>{t('ui.进入总览','进入总览')} <ChevronRight size={11} /></span>
           </div>
         </> : <div style={{
       padding: 14,
@@ -333,7 +334,7 @@ function HouseCard({
       justifyContent: 'center',
       gap: 6
     }}>
-          <WifiOff size={13} /> 暂无采集数据
+          <WifiOff size={13} /> {t('ui.暂无采集数据','暂无采集数据')}
         </div>}
     </div>;
 }

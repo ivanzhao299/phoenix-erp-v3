@@ -674,7 +674,7 @@ export default function DailyPage() {
                     background: 'var(--bg-card)', border: `1px solid ${gradeCellAccent}`, color: gradeCellAccent,
                     display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
                   }}>
-                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}枚</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
+                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}{t('ui.枚', '枚')}</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
                   </button>
                 </div>
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
@@ -832,10 +832,10 @@ export default function DailyPage() {
         return (
           <ModalV2 open={true} onClose={() => setGradeModalRowId(null)} title={`${shiftLabel(row.shift)} · ${t('ui.9 档分级录入', '9 档分级录入')}`} width={600}>
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
-                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> 枚 · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> 枚</div>
+                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> {t('ui.枚', '枚')} · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> {t('ui.枚', '枚')}</div>
                 {eggsNum > 0 && !inTolerance && (
                   <div style={{ marginTop: 6, color: 'var(--status-warning)', fontSize: 12 }}>
-                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} 枚（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
+                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} {t('ui.枚', '枚')}（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
                   </div>
                 )}
               </div>

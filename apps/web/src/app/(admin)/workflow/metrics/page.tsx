@@ -197,6 +197,7 @@ function PushHealthCard({
 }: {
   health: PushHealth;
 }) {
+  const { t } = useLanguage();
   const ok = health.enabled && health.hasPublicKey && health.hasPrivateKey;
   return <div style={{
     background: ok ? 'color-mix(in srgb, var(--status-success) 12%, transparent)' : 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
@@ -230,7 +231,7 @@ function PushHealthCard({
           fontSize: 15,
           fontWeight: 700,
           color: 'var(--text-primary)'
-        }}>Web Push 推送</span>
+        }}>{t('ui.Web Push 推送','Web Push 推送')}</span>
           <span style={{
           fontSize: 11,
           fontWeight: 700,
@@ -260,7 +261,7 @@ function PushHealthCard({
         fontSize: 12,
         color: 'var(--status-danger)'
       }}>
-            请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务
+            {t('ui.请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务','请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务')}
           </div>}
       </div>
     </div>;
@@ -270,6 +271,7 @@ function PushHealthCard({
 
 export default function WorkflowMetricsPage() {
   const { t } = useLanguage();
+  const tr = t;
   const workflowPerm = usePermission('MENU_WORKFLOW_METRICS');
   const canViewMetrics = workflowPerm.check('X') || workflowPerm.check('E') || workflowPerm.check('D');
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -484,9 +486,9 @@ export default function WorkflowMetricsPage() {
                         {t.reminderCount > 0 ? <span style={{
                   color: 'var(--status-warning)',
                   fontWeight: 700
-                }}>{t.reminderCount} 次</span> : <span style={{
+                }}>{t.reminderCount} {tr('ui.次','次')}</span> : <span style={{
                   color: 'var(--text-disabled)'
-                }}>0 次</span>}
+                }}>0 {tr('ui.次','次')}</span>}
                       </td>
                     </tr>)}
                 </tbody>

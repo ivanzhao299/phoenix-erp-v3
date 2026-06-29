@@ -27,10 +27,11 @@ const API = async (path: string, opts: RequestInit = {}) => {
 };
 
 function UserTypeBadge({ type }: { type: string }) {
+  const { t } = useLanguage();
   return type === "TEST" ? (
     <span className={`${s.badge} ${s.badgePurple}`}><FlaskConical size={9} /> TEST</span>
   ) : (
-    <span className={`${s.badge} ${s.badgeSuccess}`}><UserCheck size={9} /> 正式</span>
+    <span className={`${s.badge} ${s.badgeSuccess}`}><UserCheck size={9} /> {t("ui.正式", "正式")}</span>
   );
 }
 

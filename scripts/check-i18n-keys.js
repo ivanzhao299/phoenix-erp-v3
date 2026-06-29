@@ -29,8 +29,10 @@ const diff = (a, b, an, bn) => {
 diff(zk, ek, 'zh', 'en'); diff(zk, lk, 'zh', 'lo');
 diff(ek, zk, 'en', 'zh'); diff(lk, zk, 'lo', 'zh');
 
-// 收集代码里字面量 t('key' / t("key")
-const pat = /\bt\(\s*(['"])(.*?)\1/g;
+// 收集代码里字面量 t('key' / 别名 tr/tt/tFn('key')（agents 为避 t 影子常用别名）。
+//   仅登记「带命名空间点」的键（ui./common./dict. 等），避免误捕无关的 tr()/tt() 调用。
+const pat = /\b(?:t|tr|tt|tFn)\(\s*(['"])(.*?)\1/g;
+const KEYISH = /^[A-Za-z][\w-]*\./;
 const referenced = new Set();
 const walk = (dir) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -38,7 +40,7 @@ const walk = (dir) => {
     if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== '.next') walk(p); }
     else if (/\.(tsx?|jsx?)$/.test(e.name)) {
       const s = fs.readFileSync(p, 'utf8'); let m;
-      while ((m = pat.exec(s))) { if (m[2]) referenced.add(m[2]); }
+      while ((m = pat.exec(s))) { if (m[2] && KEYISH.test(m[2])) referenced.add(m[2]); }
     }
   }
 };

@@ -1150,7 +1150,7 @@ function ChecklistsTab({
             fontSize: 12,
             outline: "none",
             width: 160
-          }} placeholder="备注（失败/阻塞时填写）" value={remarksInput[item.id] ?? item.remark ?? ""} onChange={e => setRemarksInput(v => ({
+          }} placeholder={t('ui.备注（失败/阻塞时填写）','备注（失败/阻塞时填写）')} value={remarksInput[item.id] ?? item.remark ?? ""} onChange={e => setRemarksInput(v => ({
             ...v,
             [item.id]: e.target.value
           }))} />

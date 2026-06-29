@@ -186,7 +186,7 @@ export default function FeedbackWidget({ companyCode }: { companyCode?: string }
                     <div>
                       <label className="block text-xs text-text-dim mb-1">{tt('ui.详细描述（可选，写清步骤/期望/实际更易被智能体修复）','详细描述（可选，写清步骤/期望/实际更易被智能体修复）')}</label>
                       <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4}
-                        placeholder={tt('ui.1. 我做了什么\n2. 期望看到什么\n3. 实际发生了什么','1. 我做了什么\n2. 期望看到什么\n3. 实际发生了什么')}
+                        placeholder={tt('ui.反馈描述占位模板','1. 我做了什么\n2. 期望看到什么\n3. 实际发生了什么')}
                         className="w-full px-3 py-2 rounded-lg border border-border bg-bg-muted text-text text-sm outline-none focus:border-brand resize-y" />
                     </div>
                     <div className="text-xs text-text-dim flex items-center gap-1.5">

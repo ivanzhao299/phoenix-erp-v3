@@ -134,6 +134,7 @@ function Table({
 }
 export default function TraceabilityPage() {
   const { t } = useLanguage();
+  const tFn = t;
   const {
     canView
   } = usePermission("MENU_TRACEABILITY_VIEW");
@@ -168,7 +169,7 @@ export default function TraceabilityPage() {
       sa = t.sales || {},
       fi = t.finance || {};
     return <div>
-        <Section icon={<Factory size={14} />} title="生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）">
+        <Section icon={<Factory size={14} />} title={tFn('ui.生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）','生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）')}>
           <KV k="场站" v={p.site} /><KV k="产线" v={p.line} /><KV k="生产日期" v={p.productionDate} />
           <div style={{
           marginTop: 6
@@ -225,7 +226,7 @@ export default function TraceabilityPage() {
             label: "收蛋"
           }]} /></div>
         </Section>
-        {pk && <Section icon={<Package size={14} />} title="包装域（包装批次 / 分级 / 班次 / 人员）">
+        {pk && <Section icon={<Package size={14} />} title={tFn('ui.包装域（包装批次 / 分级 / 班次 / 人员）','包装域（包装批次 / 分级 / 班次 / 人员）')}>
             <KV k="包装批次" v={pk.packingCode} /><KV k="分级码" v={pk.gradingCode} /><KV k="总箱数" v={pk.totalBoxes} /><KV k="总枚数" v={pk.totalEggs} />
             <KV k="班次" v={pk.shiftCode} /><KV k="包装人员" v={pk.operator} /><KV k="班组长" v={pk.supervisor} />
             <div style={{
@@ -253,7 +254,7 @@ export default function TraceabilityPage() {
           label: "打印时间"
         }]} />
         </Section>
-        <Section icon={<Warehouse size={14} />} title="库存域（批次 / SKU / 规格 / 流水）">
+        <Section icon={<Warehouse size={14} />} title={tFn('ui.库存域（批次 / SKU / 规格 / 流水）','库存域（批次 / SKU / 规格 / 流水）')}>
           <KV k="库存批次" v={inv.batchNo} /><KV k="SKU" v={inv.skuCode} /><KV k="产品" v={inv.productCode} />
           <KV k="等级" v={inv.grade} /><KV k="规格" v={inv.specCode} /><KV k="数量/可用" v={`${inv.qty ?? "-"} / ${inv.qtyAvailable ?? "-"}`} />
           <KV k="生产日期" v={inv.eggDate} /><KV k="到期日" v={inv.expireDate} /><KV k="来源" v={inv.sourceType} /><KV k="公司" v={inv.companyCode} />
@@ -273,12 +274,12 @@ export default function TraceabilityPage() {
             label: "时间"
           }]} /></div>
         </Section>
-        <Section icon={<ShoppingCart size={14} />} title="销售域（销售订单 / 门店 POS）">
+        <Section icon={<ShoppingCart size={14} />} title={tFn('ui.销售域（销售订单 / 门店 POS）','销售域（销售订单 / 门店 POS）')}>
           <div className={u.mb8}><div style={{
             fontSize: 11,
             color: "var(--text-disabled)",
             marginBottom: 3
-          }}>销售订单</div>
+          }}>{tFn('ui.销售订单','销售订单')}</div>
             <Table rows={sa.salesOrders} cols={[{
             k: "order_no",
             label: "订单"
@@ -299,7 +300,7 @@ export default function TraceabilityPage() {
             fontSize: 11,
             color: "var(--text-disabled)",
             marginBottom: 3
-          }}>门店 POS</div>
+          }}>{tFn('ui.门店 POS','门店 POS')}</div>
             <Table rows={sa.storeSales} cols={[{
             k: "sale_no",
             label: "POS单"
@@ -317,7 +318,7 @@ export default function TraceabilityPage() {
             label: "时间"
           }]} /></div>
         </Section>
-        <Section icon={<Banknote size={14} />} title="财务域（应收 / 现金）">
+        <Section icon={<Banknote size={14} />} title={tFn('ui.财务域（应收 / 现金）','财务域（应收 / 现金）')}>
           <div className={u.mb8}><Table rows={fi.ar} cols={[{
             k: "source_no",
             label: "来源单"
@@ -345,7 +346,7 @@ export default function TraceabilityPage() {
           label: "时间"
         }]} />
         </Section>
-        {t.returns && t.returns.length > 0 && <Section icon={<RotateCcw size={14} />} title="退货 / 报损">
+        {t.returns && t.returns.length > 0 && <Section icon={<RotateCcw size={14} />} title={tFn('ui.退货 / 报损','退货 / 报损')}>
             <Table rows={t.returns} cols={[{
           k: "change_type",
           label: "类型"

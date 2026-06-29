@@ -200,7 +200,7 @@ export default function SalesChannelsPage() {
                   </div>
                   <div style={kpiCardCompactValue(tone)}>
                     {count}
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 4 }}>家</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 4 }}>{t('ui.家','家')}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{desc}</div>
                 </div>
