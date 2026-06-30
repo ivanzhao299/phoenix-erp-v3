@@ -11044,5 +11044,15 @@
   "ui.门店 POS": "Store POS",
   "ui.问题反馈": "Feedback",
   "ui.页面出现了意外错误": "An unexpected error occurred on this page",
-  "ui.反馈描述占位模板": "1. What I did\n2. What I expected\n3. What actually happened"
+  "ui.反馈描述占位模板": "1. What I did\n2. What I expected\n3. What actually happened",
+  "uat.img_too_large": "Each image must be ≤ 8MB",
+  "uat.upload_failed": "Upload failed",
+  "uat.reporter_auto": "Current user",
+  "uat.reporter_auto_hint": "Auto-filled from current user",
+  "uat.desc_paste_ph": "Details (paste a screenshot with Ctrl/Cmd+V)",
+  "uat.screenshots": "Screenshots",
+  "uat.uploading": "Uploading…",
+  "uat.add_screenshot": "Add screenshot",
+  "uat.paste_hint": "or paste into the description box",
+  "ui.该审批记录不存在或无权查看": "This approval record does not exist or you do not have permission to view it"
 }

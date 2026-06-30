@@ -6,6 +6,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { PageHeaderV2, KpiCard } from "@/components/design-system";
 import type { AccentColor } from "@/lib/design-tokens";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 // 将 var(--status-*) 颜色提示映射为 KpiCard accentColor 枚举
 function accentFromVar(v?: string): AccentColor {
@@ -310,11 +311,18 @@ export default function UATPage() {
 // ─────────────────────────────────────────────
 function FeedbacksTab() {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  // 报告人自动取当前登录人（不再手填）；用户对象异步就绪后回填
+  const loginName = user?.name || user?.username || "";
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  // ref → 本地 objectURL 预览（仅用于即时缩略图展示，不影响提交的受控 ref）
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [updateValues, setUpdateValues] = useState<Record<number, {
     status: string;
     assigneeName: string;
@@ -328,8 +336,47 @@ function FeedbacksTab() {
     companyCode: "",
     feedbackType: "BUG",
     severity: "MEDIUM",
-    reporterName: ""
+    reporterName: "",
+    screenshotUrls: [] as string[]
   });
+  // 登录人就绪后自动回填报告人（仅当当前为空，避免覆盖）
+  useEffect(() => {
+    if (loginName) setForm(f => (f.reporterName ? f : { ...f, reporterName: loginName }));
+  }, [loginName]);
+
+  // 上传图片（截图）到统一受控通道 /api/upload/contract，回存 fileId/url 到 screenshotUrls
+  const uploadFiles = useCallback(async (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    setUploading(true); setUploadErr("");
+    try {
+      const added: string[] = [];
+      const pv: Record<string, string> = {};
+      for (const file of imgs) {
+        if (file.size > 8 * 1024 * 1024) { setUploadErr(t('uat.img_too_large', '单张图片不超过 8MB')); continue; }
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/upload/contract", { method: "POST", headers: { Authorization: `Bearer ${tok()}` }, body: fd });
+        if (!res.ok) { setUploadErr(`${t('uat.upload_failed', '上传失败')} (${res.status})`); continue; }
+        const j = await res.json().catch(() => ({}));
+        const ref = j?.fileId ? String(j.fileId) : (j?.url ? String(j.url) : "");
+        if (ref) { added.push(ref); pv[ref] = URL.createObjectURL(file); }
+      }
+      if (added.length) {
+        setForm(f => ({ ...f, screenshotUrls: [...f.screenshotUrls, ...added] }));
+        setPreviews(p => ({ ...p, ...pv }));
+      }
+    } catch {
+      setUploadErr(t('uat.upload_failed', '上传失败'));
+    } finally { setUploading(false); }
+  }, [t]);
+
+  // 粘贴图片（截图直接 Ctrl/Cmd+V）
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const files = items.filter(it => it.kind === "file" && it.type.startsWith("image/")).map(it => it.getAsFile()).filter(Boolean) as File[];
+    if (files.length) { e.preventDefault(); void uploadFiles(files); }
+  }, [uploadFiles]);
   const load = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -365,8 +412,11 @@ function FeedbacksTab() {
         companyCode: "",
         feedbackType: "BUG",
         severity: "MEDIUM",
-        reporterName: ""
+        reporterName: loginName,
+        screenshotUrls: []
       });
+      setPreviews(p => { Object.values(p).forEach(URL.revokeObjectURL); return {}; });
+      setUploadErr("");
       load();
     } catch {
       /* ignore */
@@ -465,16 +515,16 @@ function FeedbacksTab() {
           })} placeholder={t('ui.问题标题','问题标题')} />
             </div>
             <div>
-              <label className={u.muted12}>{t('ui.报告人 *','报告人 *')}</label>
-              <input style={{
+              <label className={u.muted12}>{t('ui.报告人','报告人')}</label>
+              <input readOnly value={form.reporterName || loginName || t('uat.reporter_auto', '当前登录人')} title={t('uat.reporter_auto_hint', '自动取当前登录人')} style={{
             ...inputStyle,
             width: "100%",
             boxSizing: "border-box",
-            marginTop: 4
-          }} value={form.reporterName} onChange={e => setForm({
-            ...form,
-            reporterName: e.target.value
-          })} placeholder={t('ui.姓名','姓名')} />
+            marginTop: 4,
+            background: "var(--bg-muted)",
+            color: "var(--text-secondary)",
+            cursor: "not-allowed"
+          }} />
             </div>
             <div>
               <label className={u.muted12}>{t('ui.模块','模块')}</label>
@@ -547,13 +597,39 @@ function FeedbacksTab() {
             marginTop: 4,
             resize: "vertical",
             minHeight: 70
-          }} value={form.description} onChange={e => setForm({
+          }} value={form.description} onPaste={handlePaste} onChange={e => setForm({
             ...form,
             description: e.target.value
-          })} placeholder={t('ui.详细描述','详细描述')} />
+          })} placeholder={t('uat.desc_paste_ph', '详细描述（可直接 Ctrl/Cmd+V 粘贴截图）')} />
+            </div>
+
+            {/* 截图：支持粘贴(在描述框 Ctrl/Cmd+V) 或点击上传 */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label className={u.muted12}>{t('uat.screenshots', '截图')}</label>
+              <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {form.screenshotUrls.map((ref, i) => (
+                  <div key={ref + i} style={{ position: "relative", width: 72, height: 72, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)", background: "var(--bg-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {previews[ref]
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={previews[ref]} alt={`screenshot-${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <span style={{ fontSize: 20 }}>🖼️</span>}
+                    <button type="button" onClick={() => {
+                      setForm(f => ({ ...f, screenshotUrls: f.screenshotUrls.filter((_, j) => j !== i) }));
+                      setPreviews(p => { const { [ref]: gone, ...rest } = p; if (gone) URL.revokeObjectURL(gone); return rest; });
+                    }}
+                      style={{ position: "absolute", top: 2, right: 2, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: "50%", border: "none", background: "var(--overlay-black-50, rgba(0,0,0,.5))", color: "#fff", fontSize: 12, cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
+                ))}
+                <label style={{ ...inputStyle, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", width: "auto", color: "var(--text-secondary)" }}>
+                  <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => { void uploadFiles(Array.from(e.target.files || [])); e.currentTarget.value = ""; }} />
+                  {uploading ? t('uat.uploading', '上传中…') : `+ ${t('uat.add_screenshot', '添加截图')}`}
+                </label>
+                <span className={u.muted12}>{t('uat.paste_hint', '或在描述框直接粘贴')}</span>
+              </div>
+              {uploadErr && <div style={{ color: "var(--status-danger)", fontSize: 12, marginTop: 4 }}>{uploadErr}</div>}
             </div>
           </div>
-          <button onClick={handleCreate} disabled={!form.title || !form.reporterName} style={{
+          <button onClick={handleCreate} disabled={!form.title || uploading} style={{
         marginTop: 14,
         padding: "8px 20px",
         background: "var(--color-accent)",
@@ -563,7 +639,7 @@ function FeedbacksTab() {
         cursor: "pointer",
         fontSize: 13,
         fontWeight: 600,
-        opacity: !form.title || !form.reporterName ? 0.5 : 1
+        opacity: !form.title || uploading ? 0.5 : 1
       }}>
             {t('ui.提交反馈','提交反馈')}
           </button>
