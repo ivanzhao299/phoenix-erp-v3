@@ -11054,5 +11054,10 @@
   "uat.uploading": "Uploading…",
   "uat.add_screenshot": "Add screenshot",
   "uat.paste_hint": "or paste into the description box",
-  "ui.该审批记录不存在或无权查看": "This approval record does not exist or you do not have permission to view it"
+  "ui.该审批记录不存在或无权查看": "This approval record does not exist or you do not have permission to view it",
+  "mob.sys.diag_failed": "Diagnosis failed, please retry",
+  "mob.sys.no_live_data": "No live data",
+  "mob.sys.diag_hint": "Data comes from on-site IoT gateway sync; tap below to find the cause.",
+  "mob.sys.diagnosing": "Diagnosing…",
+  "mob.sys.diagnose_why": "Diagnose: why no data?"
 }

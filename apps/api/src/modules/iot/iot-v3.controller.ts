@@ -169,6 +169,80 @@ export class IotV3Controller {
   }
 
   /**
+   * GET /api/v3/iot/devices/sync-health
+   * 设备监控"为什么没有数据"自诊断：把链路各环节状态一次性返回，给出明确原因。
+   * 只读、不依赖外部 API；判定顺序 = 真实失败优先级。
+   */
+  @Get('sync-health')
+  async getSyncHealth() {
+    try {
+      const em = (this.monDeviceService as any).entityManager;
+
+      const mappings = await em.query(`
+        SELECT erp_house_code, house_name, vendor_house_id, status
+        FROM mon_house_device_mapping ORDER BY erp_house_code
+      `).catch(() => []);
+
+      const snapAgg = await em.query(`
+        SELECT erp_house_code, COUNT(*)::int AS cnt, MAX(collect_time) AS last_ct
+        FROM mon_device_realtime_snapshot GROUP BY erp_house_code
+      `).catch(() => []);
+      const snapMap = new Map<string, { cnt: number; last_ct: any }>(
+        snapAgg.map((r: any) => [r.erp_house_code, { cnt: Number(r.cnt), last_ct: r.last_ct }]),
+      );
+
+      const hbRows = await em.query(
+        `SELECT job_name, last_status, last_success_at, last_failure_at, fail_count, last_detail, updated_at
+         FROM sys_cron_heartbeat WHERE job_name = 'iot_sync' LIMIT 1`,
+      ).catch(() => []);
+      const heartbeat = hbRows[0] ?? null;
+
+      const totalHouses    = mappings.length;
+      const mappedActive   = mappings.filter((m: any) => m.vendor_house_id && m.status === 'ACTIVE').length;
+      const housesWithData = mappings.filter((m: any) => (snapMap.get(m.erp_house_code)?.cnt ?? 0) > 0).length;
+      const totalSnapshots = snapAgg.reduce((s: number, r: any) => s + Number(r.cnt), 0);
+      const lastCollectMs  = snapAgg.reduce((mx: number, r: any) => {
+        const v = r.last_ct == null ? 0 : (Number(r.last_ct) > 1e12 ? Number(r.last_ct) : new Date(r.last_ct).getTime());
+        return isNaN(v) ? mx : Math.max(mx, v);
+      }, 0);
+
+      // 判定原因（优先级从根因到表象）
+      let code = 'OK';
+      let reason = '链路正常';
+      if (totalHouses === 0) {
+        code = 'NO_MAPPING'; reason = '未配置任何鸡舍设备映射，请到「设备运维中心」新建映射';
+      } else if (mappedActive === 0) {
+        code = 'NO_VENDOR_BINDING'; reason = '鸡舍已建但未绑定第三方设备（vendor_house_id 为空或映射未启用），请在「设备运维中心 → 栏舍映射」绑定并启用';
+      } else if (heartbeat && heartbeat.last_status === 'FAILED') {
+        code = 'SYNC_FAILED'; reason = `实时同步任务最近失败：${(heartbeat.last_detail || '').slice(0, 160)}`;
+      } else if (totalSnapshots === 0) {
+        code = 'NO_SNAPSHOT'; reason = '已绑定但实时同步暂无产出——多为第三方 IoT 凭据/网络问题或同步任务尚未运行，可在「设备运维中心」点「同步第三方栏舍」并检查 API 认证状态';
+      } else if (lastCollectMs > 0 && Date.now() - lastCollectMs > 30 * 60 * 1000) {
+        code = 'STALE'; reason = '有历史数据但已超过 30 分钟未更新，实时采集可能中断';
+      }
+
+      return {
+        ok: true,
+        data: {
+          code,
+          reason,
+          summary: { totalHouses, mappedActive, housesWithData, totalSnapshots, lastCollectAt: lastCollectMs || null },
+          heartbeat,
+          houses: mappings.map((m: any) => ({
+            erpHouseCode: m.erp_house_code,
+            houseName: m.house_name || m.erp_house_code,
+            vendorHouseId: m.vendor_house_id || null,
+            status: m.status,
+            snapshotCount: snapMap.get(m.erp_house_code)?.cnt ?? 0,
+          })),
+        },
+      };
+    } catch (e: any) {
+      return { ok: false, error: e?.message, data: null };
+    }
+  }
+
+  /**
    * POST /api/v3/iot/devices/sync/realtime
    * 触发全场实时数据采集
    */
