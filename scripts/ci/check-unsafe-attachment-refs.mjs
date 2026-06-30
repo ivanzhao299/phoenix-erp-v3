@@ -17,6 +17,9 @@ function trackedFrontendSources() {
 const allowlist = [
   /^apps\/web\/src\/lib\/attachments\.ts$/,
   /^apps\/web\/src\/app\/\(admin\)\/store-payment\/page\.tsx$/,
+  // 单测夹具：测试 isUnsafeAttachmentRef 必含 /uploads/、http:// 等"反例"字面量，
+  //   且 __tests__ 不是上线 UI 面，安全规则（禁裸暴露）不适用，整目录豁免。
+  /^apps\/web\/src\/__tests__\//,
 ];
 
 const checks = [
