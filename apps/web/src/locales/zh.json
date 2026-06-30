@@ -11044,5 +11044,15 @@
   "ui.门店 POS": "门店 POS",
   "ui.问题反馈": "问题反馈",
   "ui.页面出现了意外错误": "页面出现了意外错误",
-  "ui.反馈描述占位模板": "1. 我做了什么\n2. 期望看到什么\n3. 实际发生了什么"
+  "ui.反馈描述占位模板": "1. 我做了什么\n2. 期望看到什么\n3. 实际发生了什么",
+  "uat.img_too_large": "单张图片不超过 8MB",
+  "uat.upload_failed": "上传失败",
+  "uat.reporter_auto": "当前登录人",
+  "uat.reporter_auto_hint": "自动取当前登录人",
+  "uat.desc_paste_ph": "详细描述（可直接 Ctrl/Cmd+V 粘贴截图）",
+  "uat.screenshots": "截图",
+  "uat.uploading": "上传中…",
+  "uat.add_screenshot": "添加截图",
+  "uat.paste_hint": "或在描述框直接粘贴",
+  "ui.该审批记录不存在或无权查看": "该审批记录不存在或无权查看"
 }

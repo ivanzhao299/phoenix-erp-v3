@@ -131,6 +131,37 @@ export class UatFeedbackService {
         dto.screenshotUrls ? JSON.stringify(dto.screenshotUrls) : null,
       ],
     );
+
+    // 统一交给 studio：用户上报的"前端错误"(type=BUG) 同步落一条 sys_error_logs，
+    // 与系统自动捕获的后端/程序错误并入同一错误日志中心，便于统一研判/修复。
+    // error_type='USER_FEEDBACK' 以区分来源；写失败不阻断反馈创建。
+    if ((dto.feedbackType ?? 'BUG') === 'BUG') {
+      try {
+        await this.ds.query(
+          `INSERT INTO sys_error_logs
+            (error_type, http_status, error_message, stack_trace, pg_error_code,
+             request_method, request_path, request_body, user_id, username, ip_address, user_agent)
+           VALUES ('USER_FEEDBACK', NULL, $1, NULL, NULL, 'FEEDBACK', $2, $3, $4, $5, NULL, NULL)`,
+          [
+            `[${dto.severity ?? 'MEDIUM'}] ${dto.title}`,
+            `feedback:${rows[0].feedback_no}`,
+            JSON.stringify({
+              feedbackNo: rows[0].feedback_no,
+              moduleCode: dto.moduleCode ?? null,
+              companyCode: dto.companyCode ?? null,
+              severity: dto.severity ?? 'MEDIUM',
+              description: dto.description ?? null,
+              screenshotUrls: dto.screenshotUrls ?? null,
+            }),
+            dto.reporterId ?? userId ?? null,
+            dto.reporterName ?? username ?? null,
+          ],
+        );
+      } catch {
+        /* 错误日志中心同步失败不影响反馈本身 */
+      }
+    }
+
     return rows[0];
   }
 
