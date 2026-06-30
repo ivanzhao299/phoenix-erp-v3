@@ -216,11 +216,16 @@ export class GenericCrudController {
 
     // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
     const userStoreCode: string | undefined = req.user?.storeCode;
+    const roles: string[] = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+    // G125：集团层级角色（超管/CEO/集团财务）视为全局——修「ROLE_ADMIN 被默认绑单场(如孟赛)后
+    //   username≠'admin' → 被判非全局 → brd_daily_logs 等行级注入 store/site → 只看一个场」。
+    const GLOBAL_ROLES = new Set(['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_GROUP_FINANCE']);
     const isGlobal =
       !userStoreCode ||
       userStoreCode === 'ALL' ||
       (req.user?.permissions || []).includes('*') ||
-      req.user?.username === 'admin';
+      req.user?.username === 'admin' ||
+      roles.some((r) => GLOBAL_ROLES.has(r));
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
