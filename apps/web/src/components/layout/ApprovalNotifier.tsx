@@ -40,9 +40,12 @@ function timeAgo(iso?: string): string {
   if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
   return `${Math.floor(s / 86400)} 天前`;
 }
-// 点消息进入的目标页：审批类→待办；否则待办兜底
+// 点消息进入的目标页：审批类→待办深链（带 instanceId 直接打开该实例详情）；否则待办兜底
 function notifLink(n: { linkType?: string | null; linkId?: string | null }): string {
   if (n.linkType && n.linkType.startsWith("/")) return n.linkType;
+  if (n.linkType === "APPROVAL_INSTANCE" && n.linkId) {
+    return `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}`;
+  }
   return "/workflow/todos";
 }
 
@@ -125,7 +128,7 @@ export function ApprovalNotifier() {
           setBanner({
             title: String(d.title ?? t('ui.新消息','新消息')),
             sub: `${BIZ_LABEL[String(d.bizType ?? "")] ?? ""}${d.bizNo ? " " + d.bizNo : ""}`.trim(),
-            link: notifLink({ linkType: d.linkType as string }),
+            link: notifLink({ linkType: d.linkType as string, linkId: d.linkId as string }),
           });
           beep();
           refreshCount();

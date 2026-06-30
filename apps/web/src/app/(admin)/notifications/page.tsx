@@ -145,7 +145,8 @@ export default function NotificationsPage() {
   const handleClick = (n: Notification) => {
     handleMarkRead(n);
     if (n.linkType === "APPROVAL_INSTANCE") {
-      router.push("/workflow/todos");
+      // 深链带 instanceId，直接打开该审批实例详情，避免落到通用待办列表后查无此条
+      router.push(n.linkId ? `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}` : "/workflow/todos");
     }
   };
   const applyFilter = () => {
