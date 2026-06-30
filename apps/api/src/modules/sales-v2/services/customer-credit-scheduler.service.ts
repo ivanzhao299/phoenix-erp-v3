@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CustomerCreditService } from './customer-credit.service';
+import { CronMonitorService } from '../../system-monitor/services/cron-monitor.service';
 
 /**
  * 客户信用定时任务
@@ -22,6 +23,7 @@ export class CustomerCreditSchedulerService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly creditService: CustomerCreditService,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   @Cron('0 0 2 * * *', { name: 'credit_daily_refresh', timeZone: 'Asia/Vientiane' })
@@ -37,6 +39,9 @@ export class CustomerCreditSchedulerService {
 
     try {
       await this.doRefresh();
+      await this.cronMon.ok('credit_daily_refresh');
+    } catch (e: any) {
+      await this.cronMon.fail('credit_daily_refresh', e?.message ?? String(e));
     } finally {
       await this.ds.query(
         `SELECT pg_advisory_unlock(hashtext('credit_scheduler'))`,

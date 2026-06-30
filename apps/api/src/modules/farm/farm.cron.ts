@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 @Injectable()
 export class FarmCronService {
@@ -10,6 +11,7 @@ export class FarmCronService {
   constructor(
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -40,8 +42,10 @@ export class FarmCronService {
       `, [today]);
       this.logger.log(`Updated to cleared: ${Array.isArray(res2) ? res2[1] : (res2?.rowCount || 0)} records`);
 
+      await this.cronMon.ok('farm_daily');
     } catch (e) {
       this.logger.error('Failed to update medication status', (e as Error).stack);
+      await this.cronMon.fail('farm_daily', (e as Error)?.message ?? String(e));
     }
   }
 }

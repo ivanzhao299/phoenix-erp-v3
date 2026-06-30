@@ -13,6 +13,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { NotificationDispatcherService } from './notification-dispatcher.service';
+import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 @Injectable()
 export class NotificationSchedulerService {
@@ -21,33 +22,36 @@ export class NotificationSchedulerService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly dispatcher: NotificationDispatcherService,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   /** 每分钟扫一次 SCHEDULE 规则 */
   @Cron('0 * * * * *')
   async tick(): Promise<void> {
-    const now = new Date();
-    const rules = await this.ds.query(
-      `SELECT rule_code, category, trigger_config
-         FROM sys_notification_rules
-        WHERE status='ACTIVE' AND event_type='SCHEDULE'`,
-    ).catch(() => []);
+    await this.cronMon.runGuarded('notification_tick', async () => {
+      const now = new Date();
+      const rules = await this.ds.query(
+        `SELECT rule_code, category, trigger_config
+           FROM sys_notification_rules
+          WHERE status='ACTIVE' AND event_type='SCHEDULE'`,
+      ).catch(() => []);
 
-    for (const r of rules) {
-      const cron = r.trigger_config?.cron;
-      if (typeof cron !== 'string') continue;
-      if (!this.cronMatches(cron, now)) continue;
+      for (const r of rules) {
+        const cron = r.trigger_config?.cron;
+        if (typeof cron !== 'string') continue;
+        if (!this.cronMatches(cron, now)) continue;
 
-      const ctx: Record<string, any> = {
-        scheduled_at: now.toISOString(),
-        yesterday_date: this.fmtDate(new Date(now.getTime() - 86400000)),
-        today_date: this.fmtDate(now),
-      };
+        const ctx: Record<string, any> = {
+          scheduled_at: now.toISOString(),
+          yesterday_date: this.fmtDate(new Date(now.getTime() - 86400000)),
+          today_date: this.fmtDate(now),
+        };
 
-      this.dispatcher.fire(r.rule_code, ctx).catch((e) =>
-        this.logger.error(`[scheduler] fire ${r.rule_code} fail: ${e?.message}`),
-      );
-    }
+        this.dispatcher.fire(r.rule_code, ctx).catch((e) =>
+          this.logger.error(`[scheduler] fire ${r.rule_code} fail: ${e?.message}`),
+        );
+      }
+    });
   }
 
   /**

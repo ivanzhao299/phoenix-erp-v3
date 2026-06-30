@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EntityManager } from 'typeorm';
+import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 @Injectable()
 export class IotSyncService implements OnModuleInit {
@@ -19,7 +20,10 @@ export class IotSyncService implements OnModuleInit {
   private accessToken: string | null = null;
   private expireTime: number = 0;
 
-  constructor(private readonly entityManager: EntityManager) {}
+  constructor(
+    private readonly entityManager: EntityManager,
+    private readonly cronMon: CronMonitorService,
+  ) {}
 
   /** 每 5 分钟自动同步全场实时数据（与 V2 版本保持一致）*/
   @Cron('0 */5 * * * *')
@@ -33,8 +37,10 @@ export class IotSyncService implements OnModuleInit {
     try {
       const result = await this.syncAllRealtime();
       this.logger.log(`✅ [定时任务] 同步完成：${result.successHouses} 栋成功，${result.totalUpdated} 条数据`);
+      await this.cronMon.ok('iot_sync', `houses=${result.successHouses} updated=${result.totalUpdated}`);
     } catch (e: any) {
       this.logger.error('❌ [定时任务] 同步异常：' + e.message);
+      await this.cronMon.fail('iot_sync', e?.message ?? String(e));
     } finally {
       this._syncLock = false;
     }

@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { WorkflowSlaService } from './workflow-sla.service';
+import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 /**
  * Workflow SLA 调度器
@@ -23,6 +24,7 @@ export class WorkflowSlaScheduler {
   constructor(
     private readonly sla: WorkflowSlaService,
     @InjectDataSource() private readonly ds: DataSource,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   @Cron('0 */15 * * * *')   // 每 15 分钟整点触发（:00, :15, :30, :45）
@@ -56,8 +58,10 @@ export class WorkflowSlaScheduler {
     try {
       await this.sla.checkOverdueTasks();
       this.logger.log('[SLA Scheduler] SLA check completed');
+      await this.cronMon.ok('workflow_sla');
     } catch (err) {
       this.logger.error(`[SLA Scheduler] SLA check failed: ${(err as any)?.message ?? err}`);
+      await this.cronMon.fail('workflow_sla', (err as any)?.message ?? String(err));
     } finally {
       this.running = false;
       // 释放 advisory lock
