@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal, Info } from "lucide-react";
@@ -479,9 +479,26 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  // FIX：下拉菜单经 createPortal 渲染到 body，并按按钮 rect 用 position:fixed 定位。
+  //   旧实现用 position:absolute 渲染在表格内，被外层卡片 overflow:hidden + 表格
+  //   overflowX:auto 两层裁剪框纵向裁掉 → 菜单整体被裁不可见也不可点（点 ⋯「无响应」）。
+  //   与编辑抽屉、消息中心下拉同模式（portal 到 body 绕过祖先裁剪/transform）。
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const [menuRect, setMenuRect] = useState<{ top: number; right: number } | null>(null);
   const archived = row.status === "ARCHIVED";
 
   if (!canEdit) return null;
+
+  const toggleMenu = () => {
+    setOpen(o => {
+      const next = !o;
+      if (next && moreBtnRef.current) {
+        const r = moreBtnRef.current.getBoundingClientRect();
+        setMenuRect({ top: r.bottom + 4, right: window.innerWidth - r.right });
+      }
+      return next;
+    });
+  };
 
   return (
     <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
@@ -493,17 +510,18 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
       {transitions.length > 0 && (
         <div style={{ position: "relative" }}>
           <button
+            ref={moreBtnRef}
             type="button"
-            onClick={() => setOpen(o => !o)}
+            onClick={toggleMenu}
             title={t('ui.更多操作','更多操作')}
             style={iconBtn}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
           >
             <MoreHorizontal size={14} />
           </button>
-          {open && (
+          {open && menuRect && typeof document !== 'undefined' && createPortal(
             <div style={{
-              position: "absolute", right: 0, top: 30, zIndex: 10,
+              position: "fixed", right: menuRect.right, top: menuRect.top, zIndex: 11000,
               background: "var(--bg-card)", border: "1px solid var(--border)",
               borderRadius: 8, padding: 4, minWidth: 130,
               boxShadow: "0 4px 16px var(--overlay-black-15)",
@@ -525,7 +543,8 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
                   <a.icon size={12} /> {a.label}
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       )}
