@@ -11054,5 +11054,10 @@
   "uat.uploading": "上传中…",
   "uat.add_screenshot": "添加截图",
   "uat.paste_hint": "或在描述框直接粘贴",
-  "ui.该审批记录不存在或无权查看": "该审批记录不存在或无权查看"
+  "ui.该审批记录不存在或无权查看": "该审批记录不存在或无权查看",
+  "mob.sys.diag_failed": "诊断失败，请稍后重试",
+  "mob.sys.no_live_data": "当前无实时数据",
+  "mob.sys.diag_hint": "数据来自现场 IoT 网关同步，点下方按钮可定位原因。",
+  "mob.sys.diagnosing": "诊断中…",
+  "mob.sys.diagnose_why": "诊断：为什么没有数据？"
 }

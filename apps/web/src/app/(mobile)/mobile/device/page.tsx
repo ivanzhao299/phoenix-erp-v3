@@ -85,6 +85,21 @@ export default function DeviceMonitorMobilePage() {
   const [alarms, setAlarms] = useState<IotAlarm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [diag, setDiag] = useState<{ code: string; reason: string } | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+
+  // 自诊断：为什么没有数据（调后端 sync-health，定位链路断点）
+  const runDiag = useCallback(async () => {
+    setDiagLoading(true); setDiag(null);
+    try {
+      const res = await fetch('/api/v3/iot/devices/sync-health', { headers: { Authorization: `Bearer ${tok()}` } });
+      const json = await res.json().catch(() => null);
+      if (json?.ok && json?.data) setDiag({ code: json.data.code, reason: json.data.reason });
+      else setDiag({ code: 'ERR', reason: tr('mob.sys.diag_failed', '诊断失败，请稍后重试') });
+    } catch {
+      setDiag({ code: 'ERR', reason: tr('mob.sys.diag_failed', '诊断失败，请稍后重试') });
+    } finally { setDiagLoading(false); }
+  }, [tr]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +159,23 @@ export default function DeviceMonitorMobilePage() {
           {kpi(tr('mob.sys.unhandled_alarms', '未处理告警'), String(summary.totalAlarms ?? 0), (summary.totalAlarms ?? 0) > 0 ? 'var(--status-danger)' : undefined)}
           {kpi(tr('mob.sys.online_sensors', '在线传感器'), `${summary.onlineSensorCnt ?? 0}/${summary.totalSensorCnt ?? 0}`)}
         </div>
+
+        {/* 无数据自诊断：实时传感器为 0 时给出"为什么没有数据"的明确原因 */}
+        {!loading && !error && (summary.totalSensorCnt ?? 0) === 0 && (
+          <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-warning) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-warning) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-warning)' }}>
+              ⚠️ {tr('mob.sys.no_live_data', '当前无实时数据')}
+            </div>
+            {diag ? (
+              <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>{diag.reason}</div>
+            ) : (
+              <div style={{ fontSize: 12, color: t.textMuted }}>{tr('mob.sys.diag_hint', '数据来自现场 IoT 网关同步，点下方按钮可定位原因。')}</div>
+            )}
+            <button onClick={() => void runDiag()} disabled={diagLoading} style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 600, color: 'var(--status-warning)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)`, borderRadius: 8, padding: '6px 12px', cursor: diagLoading ? 'default' : 'pointer' }}>
+              {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
+            </button>
+          </div>
+        )}
 
         {/* 最近告警 */}
         {alarms.length > 0 && (
