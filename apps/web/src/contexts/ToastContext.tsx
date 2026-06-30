@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 
 interface Toast { id: number; type: string; message: string; }
@@ -105,7 +105,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('approval-hint', handler);
   }, [add]);
 
-  const toast = buildToast(add);
+  // add 已 useCallback 稳定 → toast 仅构建一次，避免每次渲染换引用让所有 useToast 消费者重渲染
+  const toast = useMemo(() => buildToast(add), [add]);
   return (
     <ToastContext.Provider value={toast}>
       {children}

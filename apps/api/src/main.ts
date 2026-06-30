@@ -58,10 +58,14 @@ async function bootstrap() {
   });
 
   // ── 安全响应头 ────────────────────────────────────────────────────────────────
+  // 评分补强：关掉 Express 默认 X-Powered-By（泄露技术栈，给攻击者指纹）。
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
   app.use((_req: any, res: any, next: any) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
+    // 不外泄 referer（含 token 的 URL 不随跳转外发）
+    res.setHeader('Referrer-Policy', 'no-referrer');
     if (isProd) {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }

@@ -447,6 +447,11 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                 key={item.id}
                 className={`${styles.railItem} ${isThisActive ? styles.railActive : ""}`}
                 title={t('menu.' + item.id, item.label)}
+                onMouseEnter={() => {
+                  // 收起态 rail 走 router.push（无内建预取）→ 悬停即预取目标路由 chunk，点击秒开
+                  const p = item.children ? item.children[0].path : item.path;
+                  if (p) router.prefetch(p);
+                }}
                 onClick={() => {
                   if (item.children) router.push(item.children[0].path!);
                   else if (item.path) router.push(item.path);
@@ -468,6 +473,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                   aria-expanded={isOpen}
                   aria-label={t('menu.' + item.id, item.label)}
                   className={`${styles.groupHeader} ${isThisActive ? styles.groupActive : ""}`}
+                  onMouseEnter={() => router.prefetch(item.children![0].path!)}
                   onClick={() => {
                     toggle(item.id);
                     router.push(item.children![0].path!);

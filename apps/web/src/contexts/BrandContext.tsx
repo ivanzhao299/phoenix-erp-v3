@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 export interface BrandConfig {
   system_name:  string;
@@ -68,8 +68,10 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     reloadBrand();
   }, [reloadBrand]);
 
+  const value = useMemo(() => ({ brand, reloadBrand }), [brand, reloadBrand]);
+
   return (
-    <BrandContext.Provider value={{ brand, reloadBrand }}>
+    <BrandContext.Provider value={value}>
       {children}
     </BrandContext.Provider>
   );

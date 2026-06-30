@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { Cron } from '@nestjs/schedule';
 import { NotificationService } from '../../notification/notification.service';
+import { CronMonitorService } from '../../system-monitor/services/cron-monitor.service';
 
 /**
  * g199-C AR 三方对账 — fin_ar_invoices(业务侧) ↔ fin_ar_ledger(ERP 总账) ↔ chanjet_ar_snapshot(好业财)
@@ -51,6 +52,7 @@ export class ArReconciliationService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly notif: NotificationService,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   private scope(): { all: boolean; codes: string[] } {
@@ -374,81 +376,83 @@ export class ArReconciliationService {
   /** 每月 1 号 03:00 跑上月对账(避业务高峰) */
   @Cron('0 0 3 1 * *', { name: 'g199-d-monthly-ar-reconciliation' })
   async cronMonthlyReconciliation(): Promise<void> {
-    const periodDate = this.previousMonthStart();
-    this.log.log(`g199-D cron 启动 period=${periodDate}`);
+    await this.cronMon.runGuarded('g199-d-monthly-ar-reconciliation', async () => {
+      const periodDate = this.previousMonthStart();
+      this.log.log(`g199-D cron 启动 period=${periodDate}`);
 
-    // 取所有同步启用的公司
-    const companies: Array<{ companyCode: string; companyName: string }> =
-      await this.ds.query(
-        `SELECT company_code AS "companyCode", company_name AS "companyName"
-         FROM chanjet_book_company_map WHERE sync_enabled = true
-         ORDER BY company_code`,
-      );
+      // 取所有同步启用的公司
+      const companies: Array<{ companyCode: string; companyName: string }> =
+        await this.ds.query(
+          `SELECT company_code AS "companyCode", company_name AS "companyName"
+           FROM chanjet_book_company_map WHERE sync_enabled = true
+           ORDER BY company_code`,
+        );
 
-    if (!companies.length) {
-      this.log.warn('g199-D cron 跳过:无 sync_enabled 公司');
-      return;
-    }
-
-    // 接收者预查一次,后面每家公司复用
-    const receivers = await this.receivers();
-    if (!receivers.length) {
-      this.log.warn('g199-D cron 跳过通知:无 MENU_FIN2_AR_LEDGER:V 接收者');
-    }
-
-    let totalMismatch = 0;
-    let totalWarn = 0;
-    const perCompany: Array<{ companyCode: string; companyName: string; mismatch: number; warn: number; ok: number; topRows: ReconRow[] }> = [];
-
-    for (const c of companies) {
-      try {
-        const r = await this.cronReconcileCompany(c.companyCode, periodDate);
-        const top = r.rows.filter(x => x.status !== 'OK').slice(0, 5);
-        perCompany.push({ ...c, mismatch: r.counts.mismatch, warn: r.counts.warn, ok: r.counts.ok, topRows: top });
-        totalMismatch += r.counts.mismatch;
-        totalWarn += r.counts.warn;
-        this.log.log(`g199-D ${c.companyCode} mismatch=${r.counts.mismatch} warn=${r.counts.warn} ok=${r.counts.ok}`);
-      } catch (err) {
-        this.log.error(`g199-D ${c.companyCode} 对账失败: ${(err as Error).message}`);
+      if (!companies.length) {
+        this.log.warn('g199-D cron 跳过:无 sync_enabled 公司');
+        return;
       }
-    }
 
-    // 全 OK 就不通知(避免无意义打扰)
-    if (totalMismatch + totalWarn === 0) {
-      this.log.log(`g199-D ${periodDate} 全部 OK,不通知`);
-      return;
-    }
-
-    // 单条汇总通知(每接收者一条)
-    const periodLabel = periodDate.slice(0, 7);
-    const summary = perCompany
-      .filter(c => c.mismatch + c.warn > 0)
-      .map(c => {
-        const top = c.topRows.map(r => `  • ${r.customerName}: ②=${r.ledgerClosing.toFixed(2)} ③=${r.chanjetEndbalance.toFixed(2)} 差=${r.deltaLedgerChanjet.toFixed(2)}`).join('\n');
-        return `【${c.companyName}】差异 ${c.mismatch} 严重 / ${c.warn} 预警 / ${c.ok} OK\n${top}`;
-      })
-      .join('\n\n');
-
-    const title = `📊 应收三方对账 ${periodLabel} 差异:${totalMismatch} 严重 / ${totalWarn} 预警`;
-    const content = `${summary}\n\n点击查看对账详情:/finance2/ar-reconciliation?periodDate=${periodDate}`;
-
-    for (const u of receivers) {
-      try {
-        await this.notif.create({
-          userId: u.id,
-          notificationType: 'AR_RECONCILIATION',
-          title,
-          content,
-          linkType: 'PAGE',
-          linkId: `/finance2/ar-reconciliation?periodDate=${periodDate}`,
-          bizType: 'AR_RECON_MONTHLY',
-          bizNo: periodLabel,
-        });
-      } catch (err) {
-        this.log.warn(`g199-D 通知 user=${u.id}(${u.name}) 失败: ${(err as Error).message}`);
+      // 接收者预查一次,后面每家公司复用
+      const receivers = await this.receivers();
+      if (!receivers.length) {
+        this.log.warn('g199-D cron 跳过通知:无 MENU_FIN2_AR_LEDGER:V 接收者');
       }
-    }
-    this.log.log(`g199-D 通知已发 ${receivers.length} 人 period=${periodDate}`);
+
+      let totalMismatch = 0;
+      let totalWarn = 0;
+      const perCompany: Array<{ companyCode: string; companyName: string; mismatch: number; warn: number; ok: number; topRows: ReconRow[] }> = [];
+
+      for (const c of companies) {
+        try {
+          const r = await this.cronReconcileCompany(c.companyCode, periodDate);
+          const top = r.rows.filter(x => x.status !== 'OK').slice(0, 5);
+          perCompany.push({ ...c, mismatch: r.counts.mismatch, warn: r.counts.warn, ok: r.counts.ok, topRows: top });
+          totalMismatch += r.counts.mismatch;
+          totalWarn += r.counts.warn;
+          this.log.log(`g199-D ${c.companyCode} mismatch=${r.counts.mismatch} warn=${r.counts.warn} ok=${r.counts.ok}`);
+        } catch (err) {
+          this.log.error(`g199-D ${c.companyCode} 对账失败: ${(err as Error).message}`);
+        }
+      }
+
+      // 全 OK 就不通知(避免无意义打扰)
+      if (totalMismatch + totalWarn === 0) {
+        this.log.log(`g199-D ${periodDate} 全部 OK,不通知`);
+        return;
+      }
+
+      // 单条汇总通知(每接收者一条)
+      const periodLabel = periodDate.slice(0, 7);
+      const summary = perCompany
+        .filter(c => c.mismatch + c.warn > 0)
+        .map(c => {
+          const top = c.topRows.map(r => `  • ${r.customerName}: ②=${r.ledgerClosing.toFixed(2)} ③=${r.chanjetEndbalance.toFixed(2)} 差=${r.deltaLedgerChanjet.toFixed(2)}`).join('\n');
+          return `【${c.companyName}】差异 ${c.mismatch} 严重 / ${c.warn} 预警 / ${c.ok} OK\n${top}`;
+        })
+        .join('\n\n');
+
+      const title = `📊 应收三方对账 ${periodLabel} 差异:${totalMismatch} 严重 / ${totalWarn} 预警`;
+      const content = `${summary}\n\n点击查看对账详情:/finance2/ar-reconciliation?periodDate=${periodDate}`;
+
+      for (const u of receivers) {
+        try {
+          await this.notif.create({
+            userId: u.id,
+            notificationType: 'AR_RECONCILIATION',
+            title,
+            content,
+            linkType: 'PAGE',
+            linkId: `/finance2/ar-reconciliation?periodDate=${periodDate}`,
+            bizType: 'AR_RECON_MONTHLY',
+            bizNo: periodLabel,
+          });
+        } catch (err) {
+          this.log.warn(`g199-D 通知 user=${u.id}(${u.name}) 失败: ${(err as Error).message}`);
+        }
+      }
+      this.log.log(`g199-D 通知已发 ${receivers.length} 人 period=${periodDate}`);
+    });
   }
 
   /** 手动触发(测试/补跑用) — 不上端点,只在 service 留口,后续要时再加 controller */

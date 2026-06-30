@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EggInventoryService } from './egg-inventory.service';
+import { CronMonitorService } from '../../system-monitor/services/cron-monitor.service';
 
 /**
  * EggInventorySchedulerService — Sales V2 Phase 7
@@ -21,6 +22,7 @@ export class EggInventorySchedulerService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly eggInventory: EggInventoryService,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   // ── 每日 01:00 鸡蛋库存维护 ─────────────────────────────────────────────────
@@ -46,9 +48,11 @@ export class EggInventorySchedulerService {
       this.logger.log(
         `[EggScheduler] 完成: 过期=${stats.expiredBatches} 临期=${stats.expiringBatches} 耗时=${stats.durationMs}ms`,
       );
+      await this.cronMon.ok('egg_inventory_daily', `expired=${stats.expiredBatches} expiring=${stats.expiringBatches}`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.error(`[EggScheduler] 执行失败: ${msg}`);
+      await this.cronMon.fail('egg_inventory_daily', msg);
     } finally {
       await this.ds.query(`SELECT pg_advisory_unlock(hashtext('egg_inventory_scheduler'))`);
     }

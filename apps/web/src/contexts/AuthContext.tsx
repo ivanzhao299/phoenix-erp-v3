@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 
 type AuthUser = {
   id?: string | number;
@@ -323,13 +323,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => clearInterval(interval);
   }, [token]);
 
+  // value 记忆化：权限/便捷方法均 useCallback 稳定，仅 user/token/loading 真变化时换引用，
+  // 避免本 Provider（顶层，含 5min token 刷新）任意重渲染就让全树 useAuth 消费者重渲染。
+  const value = useMemo(() => ({
+    user, token, isLoggedIn, loading,
+    login, logout,
+    hasPermission, hasRole,
+    canView, canCreate, canEdit, canDelete, canApprove, canExport,
+  }), [
+    user, token, isLoggedIn, loading,
+    login, logout,
+    hasPermission, hasRole,
+    canView, canCreate, canEdit, canDelete, canApprove, canExport,
+  ]);
+
   return (
-    <AuthContext.Provider value={{
-      user, token, isLoggedIn, loading,
-      login, logout,
-      hasPermission, hasRole,
-      canView, canCreate, canEdit, canDelete, canApprove, canExport,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

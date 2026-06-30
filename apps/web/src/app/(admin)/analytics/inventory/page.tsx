@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -143,32 +143,29 @@ export default function InventoryAnalyticsPage() {
     void load();
   }, [load]);
 
-  // 统计
-  const activeBatches = batches.filter(
-    (b) => !b.status || b.status === "AVAILABLE" || b.status === "LOCKED"
-  );
-  const totalQty = batches.reduce(
-    (s, b) => s + Number(b.quantity_kg ?? b.qty ?? 0),
-    0
-  );
-  const expiringBatches = batches.filter((b) => {
-    const days = getRemainingDays(b);
-    return days !== null && days < 7;
-  });
-
-  // 等级分布
-  const gradeMap: Record<string, number> = { AA: 0, A: 0, B: 0, C: 0 };
-  batches.forEach((b) => {
-    const g = (b.grade ?? b.sku_code ?? "").toUpperCase();
-    if (g.includes("AA")) gradeMap["AA"]++;
-    else if (g.includes("A")) gradeMap["A"]++;
-    else if (g.includes("B")) gradeMap["B"]++;
-    else if (g.includes("C")) gradeMap["C"]++;
-  });
-
-  const recent = [...batches]
-    .sort((a, b) => (b.grading_date ?? "") > (a.grading_date ?? "") ? 1 : -1)
-    .slice(0, 10);
+  // 统计聚合：仅在 batches 变化时重算，避免每次渲染（含无关 state 变更）全量 reduce/filter/sort
+  const { activeBatches, totalQty, expiringBatches, gradeMap, recent } = useMemo(() => {
+    const active = batches.filter(
+      (b) => !b.status || b.status === "AVAILABLE" || b.status === "LOCKED"
+    );
+    const qty = batches.reduce((s, b) => s + Number(b.quantity_kg ?? b.qty ?? 0), 0);
+    const expiring = batches.filter((b) => {
+      const days = getRemainingDays(b);
+      return days !== null && days < 7;
+    });
+    const grades: Record<string, number> = { AA: 0, A: 0, B: 0, C: 0 };
+    batches.forEach((b) => {
+      const g = (b.grade ?? b.sku_code ?? "").toUpperCase();
+      if (g.includes("AA")) grades["AA"]++;
+      else if (g.includes("A")) grades["A"]++;
+      else if (g.includes("B")) grades["B"]++;
+      else if (g.includes("C")) grades["C"]++;
+    });
+    const recentList = [...batches]
+      .sort((a, b) => ((b.grading_date ?? "") > (a.grading_date ?? "") ? 1 : -1))
+      .slice(0, 10);
+    return { activeBatches: active, totalQty: qty, expiringBatches: expiring, gradeMap: grades, recent: recentList };
+  }, [batches]);
 
   return (
     <div>

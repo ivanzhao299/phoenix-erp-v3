@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { SysChanjetStateEntity } from './sys-chanjet-state.entity';
+import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 interface TokenEntry {
   openToken: string;
@@ -30,6 +31,7 @@ export class ChanjetAuthService implements OnModuleInit {
     private cfg: ConfigService,
     @InjectRepository(SysChanjetStateEntity)
     private stateRepo: Repository<SysChanjetStateEntity>,
+    private readonly cronMon: CronMonitorService,
   ) {}
 
   private maskSensitive(value: unknown): unknown {
@@ -116,8 +118,10 @@ export class ChanjetAuthService implements OnModuleInit {
       this.tokenCache.clear();  // 清缓存强制重换
       await this.getOpenToken();
       this.log.log('cron: openToken 已 refresh');
+      await this.cronMon.ok('chanjet-refresh-token');
     } catch (err) {
       this.log.warn(`cron refresh token 失败: ${(err as Error).message}`);
+      await this.cronMon.fail('chanjet-refresh-token', (err as Error)?.message ?? String(err));
     }
   }
 
@@ -130,11 +134,14 @@ export class ChanjetAuthService implements OnModuleInit {
       const ok = result?.code === '200' || Array.isArray(result?.value);
       if (ok) {
         this.log.log('cron health check: 连接正常');
+        await this.cronMon.ok('chanjet-health-check');
       } else {
         this.log.error(`cron health check: 异常 ${JSON.stringify(result).slice(0, 200)}`);
+        await this.cronMon.fail('chanjet-health-check', `异常响应 ${JSON.stringify(result).slice(0, 500)}`);
       }
     } catch (err) {
       this.log.error(`cron health check 失败: ${(err as Error).message}`);
+      await this.cronMon.fail('chanjet-health-check', (err as Error)?.message ?? String(err));
     }
   }
 

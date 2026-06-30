@@ -52,6 +52,8 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
 // [Production Stabilization Phase 1] 系统监控 + 配置治理 + 错误追踪
 import { SystemMonitorModule } from './modules/system-monitor/system-monitor.module';
+// [G126] 全局 cron 心跳自监控（评分补强 P6）
+import { CronMonitorModule } from './modules/system-monitor/cron-monitor.module';
 // [Phase E] UAT & Pilot Run Runtime
 import { UatModule } from './modules/uat/uat.module';
 // [Sales V2 Phase 9] 直营店收银作业台
@@ -132,6 +134,8 @@ import { DocumentIntelligenceModule } from './modules/document-intelligence/docu
     NotificationModule,
     SalesV2Module,          // Sales V2 Phase 0 Clean Baseline
     SystemMonitorModule,    // Production Stabilization Phase 1
+    CronMonitorModule,      // G126 全局 cron 心跳自监控
+
     UatModule,              // Phase E: UAT & Pilot Run Runtime
     StorePosModule,         // Sales V2 Phase 9: 直营店收银作业台
     ProductMasterModule,    // Product Master Phase H2: 等级/规格/SKU 主数据

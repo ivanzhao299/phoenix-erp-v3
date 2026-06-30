@@ -193,7 +193,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # 评分补强 P11：16→18 对齐生产(PG18)与回归套件。此前 deploy 门禁跑 PG16，
+        #   放过了 now()::text / substr 等 PG18 专属行为差异(曾致生产 500)。
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: phoenix_v3
           POSTGRES_PASSWORD: phoenix_v3_pass
@@ -300,23 +302,21 @@ jobs:
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
           MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
-      - name: Check entity ↔ DB schema sync (g195-P5, warn-only)
+      - name: Check entity ↔ DB schema sync (g195-P6, HARD gate)
         working-directory: apps/api
         run: |
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
           rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null
           out=$(./node_modules/.bin/typeorm migration:generate -d dist/database/data-source.js /tmp/_p5_entity_diff 2>&1) || true
           if echo "$out" | grep -q "No changes in database schema"; then
-            echo "✅ entity ↔ DB schema 已同步"
+            echo "✅ entity ↔ DB schema 已同步（零漂移）"
           else
-            echo "::warning::⚠️ entity 改动可能未配套迁移(g195-P5 warn-only;P6+ 切真红灯)"
             echo "──── 关键错误行 (grep) ────"
             echo "$out" | grep -E 'QueryFailedError|does not exist|MigrationGenerateCommand|column .* does not exist|relation .* does not exist|Cannot find|table .* does not exist' | head -20 || true
             echo "──── 引用堆栈(头 20 行) ────"
             echo "$out" | head -20
             echo "──── 输出尾部(失败上下文,后 15 行)────"
             echo "$out" | tail -15
-            bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt
             for diff_file in /tmp/*_p5_entity_diff*.ts; do
               [ -f "$diff_file" ] || continue
               total=$(wc -l < "$diff_file")
@@ -327,6 +327,12 @@ jobs:
               echo "$up_segment" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120
             done
             rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null
+            # G126(评分补强 P9)：warn-only → 真红灯。漂移超 baseline(锁定) 即失败 → 强制补迁移/对齐 entity。
+            if ! bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt; then
+              echo "::error::❌ entity↔DB 漂移超过 baseline。请补迁移(apps/api/src/database/migrations/)或对齐 entity 声明；见上「真业务漂移行」。"
+              exit 1
+            fi
+            echo "::notice::entity↔DB 有差异但未超已锁定 baseline → 通过（不许新增漂移）。"
           fi
 
       - name: Start API
@@ -361,6 +367,12 @@ jobs:
       - name: Regression — finance
         working-directory: apps/api
         run: pnpm test:regr:finance
+
+      # 评分补强 P11 修正：部署阻断门禁只跑稳定核心 5 模块(system/breeding/packaging/wms/finance) + PG18，
+      #   保持确定性。完整 9 模块(+pos-store/quality/pda/bi) 与 G5-C RBAC 巡检由 regression.yml
+      #   (PR 门禁，权威 V3 回归套件) 覆盖——bi/quality/pos-store 走 probe-skip 自隔离、对 seed 完整度
+      #   敏感(缺 farm_device_* / qa_standards.product_type 等漂移列即偶发红，见任务 #35-37)，
+      #   放进会阻断生产部署的门禁会因偶发失败卡住上线，故不在此重复。
 
       - name: Dump API log on failure
         if: failure()

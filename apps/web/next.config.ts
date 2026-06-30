@@ -95,7 +95,9 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // 优化包导入，减少首屏 bundle 大小
-    optimizePackageImports: ["lucide-react"],
+    //   recharts 仅 breeding/device 一页用，App Router 已按路由分包；
+    //   加入此列表进一步 tree-shake 其命名导出，缩小该路由 chunk。
+    optimizePackageImports: ["lucide-react", "recharts"],
   },
 };
 
