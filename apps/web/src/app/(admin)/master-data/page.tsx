@@ -13,6 +13,7 @@ import { Network, Building, FolderKanban, ShieldCheck, Users, Globe, Store, Egg,
 import request from "@/lib/api-client";
 import { MasterDataSearch } from "@/components/master-data/MasterDataSearch";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
+import { LoadingSkeleton } from "@/components/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -456,14 +457,7 @@ export default function MasterDataHubPage() {
       })}
       </div>
 
-      {loading && centers.length === 0 && <div style={{
-      padding: 60,
-      textAlign: 'center',
-      color: 'var(--text-secondary)',
-      fontSize: 14
-    }}>
-          {t('md.loading', '加载中…')}
-        </div>}
+      {loading && centers.length === 0 && <LoadingSkeleton variant="card" rows={6} />}
     </div>;
 }
 function Stat({

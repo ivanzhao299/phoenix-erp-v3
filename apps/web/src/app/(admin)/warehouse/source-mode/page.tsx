@@ -7,6 +7,7 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LoadingSkeleton } from "@/components/design-system";
 
 /**
  * 库存来源模式（库存来源模式治理 P1A）
@@ -172,7 +173,7 @@ export default function SourceModePage() {
       }}>
           <Settings2 size={16} /> {t('ui.当前模式配置','当前模式配置')}
         </div>
-        {loading ? <div className={u.muted}>{t('ui.加载中...','加载中...')}</div> : <div className="bg-bg-card border border-border" style={{
+        {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} cols={5} /></div> : <div className="bg-bg-card border border-border" style={{
         borderRadius: 10,
         overflow: "hidden"
       }}>

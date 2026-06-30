@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
-import { ManagedAttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2 } from '@/components/design-system';
+import { ManagedAttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/contexts/AuthContext';
 import { currencySymbol } from '@/lib/currency';
@@ -1060,7 +1060,7 @@ export default function ShareholderFundsPage() {
             </button>
           </div>
 
-          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.common.loading','加载中')}…</div> : contributions.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>
+          {loading ? <LoadingSkeleton variant="card" rows={4} /> : contributions.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>
               <Users size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
               {t('fin2.shfunds.empty_records','暂无股东资金记录')}
             </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1113,7 +1113,7 @@ export default function ShareholderFundsPage() {
               <RefreshCw size={13} />
             </button>
           </div>
-          {loading ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.common.loading','加载中')}…</div> : settlements.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.shfunds.no_settlement','暂无结算记录')}</div> : <div style={{
+          {loading ? <LoadingSkeleton variant="card" rows={4} /> : settlements.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '48px 0' }}>{t('fin2.shfunds.no_settlement','暂无结算记录')}</div> : <div style={{
         display: 'flex', flexDirection: 'column', gap: 8,
       }}>
               {settlements.map(s => {

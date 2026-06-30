@@ -11,6 +11,7 @@ import {
   tableContainer, tableHeaderCell, tableBodyCell,
 } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LoadingSkeleton } from "@/components/design-system";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -200,10 +201,7 @@ export default function CustomerCreditPage() {
 
       {/* 加载中 */}
       {loading && !error && (
-        <div className="flex items-center justify-center py-20 text-text-dim">
-          <RefreshCw size={20} className="animate-spin mr-2" />
-          {t('ui.加载中…','加载中…')}
-        </div>
+        <LoadingSkeleton variant="table" rows={10} cols={5} />
       )}
 
       {!loading && !error && (

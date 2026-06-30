@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useMemo } from "react";
+import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Package, Truck, Users, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,9 +37,10 @@ function getToken() {
   );
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
+async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getToken()}` },
+    signal,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -97,51 +99,29 @@ function StatCard({
 
 export default function FeedAnalyticsPage() {
   const { t } = useLanguage();
-  const [records, setRecords] = useState<Receipt[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const raw = await apiFetch<ReceiptsResponse | Receipt[]>(
-        "/api/v2/procurement/receipts?limit=100"
-      );
-      let list: Receipt[] = [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else {
-        list = raw.data ?? raw.items ?? raw.list ?? [];
-      }
-      setRecords(list);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // 统计
-  const thisMonth = getThisMonthStr();
-  const monthRecords = records.filter((r) =>
-    (r.arrive_date ?? "").startsWith(thisMonth)
+  // useAbortableLoad：快速切页/刷新自动取消旧请求（防旧覆盖新 + 省带宽）
+  const { data, loading, error, reload } = useAbortableLoad<Receipt[]>(
+    (signal) =>
+      apiFetch<ReceiptsResponse | Receipt[]>("/api/v2/procurement/receipts?limit=100", signal).then((raw) =>
+        Array.isArray(raw) ? raw : raw.data ?? raw.items ?? raw.list ?? [],
+      ),
+    [],
+    { initial: [] },
   );
-  const monthBatches = monthRecords.length;
-  const monthWeight = monthRecords.reduce(
-    (s, r) => s + Number(r.net_weight ?? r.actual_qty ?? 0),
-    0
-  );
-  const supplierSet = new Set(records.map((r) => r.supplier_code).filter(Boolean));
-  const supplierCount = supplierSet.size;
+  const records = data ?? [];
 
-  const recent = [...records]
-    .sort((a, b) => (b.arrive_date ?? "") > (a.arrive_date ?? "") ? 1 : -1)
-    .slice(0, 10);
+  // 统计：仅在 records 变化时重算（不再每次渲染全量 filter/reduce/Set/sort）
+  const { monthBatches, monthWeight, supplierCount, recent } = useMemo(() => {
+    const thisMonth = getThisMonthStr();
+    const monthRecords = records.filter((r) => (r.arrive_date ?? "").startsWith(thisMonth));
+    const weight = monthRecords.reduce((s, r) => s + Number(r.net_weight ?? r.actual_qty ?? 0), 0);
+    const suppliers = new Set(records.map((r) => r.supplier_code).filter(Boolean));
+    const recentList = [...records]
+      .sort((a, b) => ((b.arrive_date ?? "") > (a.arrive_date ?? "") ? 1 : -1))
+      .slice(0, 10);
+    return { monthBatches: monthRecords.length, monthWeight: weight, supplierCount: suppliers.size, recent: recentList };
+  }, [records]);
 
   return (
     <div>
@@ -150,7 +130,7 @@ export default function FeedAnalyticsPage() {
         subtitle={t("analytics.feed_subtitle", "采购到货统计 · 饲料品类分布 · 供应商分析")}
         actions={
           <button
-            onClick={() => void load()}
+            onClick={() => reload()}
             disabled={loading}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >

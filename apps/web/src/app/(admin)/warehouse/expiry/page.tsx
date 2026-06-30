@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadingSkeleton } from "@/components/design-system";
 import {
   AlertTriangle, Clock, RefreshCw, AlertOctagon, CalendarClock, Info, PartyPopper,
 } from "lucide-react";
@@ -166,9 +167,7 @@ export default function ExpiryAlertPage() {
 
       {/* g200e 告警列表 — 业务列表卡(白底 + 左 tone 色条),非 KPI 卡风格,避免与顶部重复 */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: 60, color: "var(--text-secondary)" }}>
-          {t("ui.加载临期数据中", "加载临期数据中…")}
-        </div>
+        <LoadingSkeleton variant="card" rows={6} />
       ) : alerts.length === 0 ? (
         <div style={{ ...inlineAlert("success"), justifyContent: "center", padding: "16px 20px", fontSize: 14 }}>
           <PartyPopper size={16} /> {t("ui.太棒了当前没有任何库存处于临期预警状态", "太棒了！当前没有任何库存处于临期预警状态")}

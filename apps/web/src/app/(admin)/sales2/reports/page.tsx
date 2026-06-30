@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import type { AccentColor } from "@/lib/design-tokens";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LoadingSkeleton } from "@/components/design-system";
 
 // 旧硬编码色 → 全局语义强调色，复用全局 KpiCard 样式
 const COLOR_TO_ACCENT: Record<string, AccentColor> = {
@@ -320,7 +321,7 @@ function PriceTab() {
       color: "var(--status-danger)",
       marginBottom: 8
     }}>{error}</div>}
-      {loading ? <Spinner /> : <Section title={`价格异常订单（偏离 ≥ ${threshold}% 或低于底价）`}>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={8} /> : <Section title={`价格异常订单（偏离 ≥ ${threshold}% 或低于底价）`}>
           <Table cols={[t('ui.订单号','订单号'), t('ui.客户','客户'), t('ui.产品','产品'), t('ui.实际价','实际价'), t('ui.标准价','标准价'), t('ui.底价','底价'), t('ui.偏离%','偏离%'), t('ui.日期','日期')]} rows={data.map(r => [r.sales_order_no, r.customer_name ?? r.customer_code, r.product_code, fmt(r.actual_unit_price), fmt(r.resolved_unit_price), <span key="fp" style={{
         color: r.below_floor_price ? "var(--status-danger)" : "var(--gray-700)"
       }}>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TrendingDown, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, Download, X, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/design-system';
+import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
@@ -804,10 +804,9 @@ export default function Finance2ApPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
-                textAlign: 'center',
-                padding: 40
-              }}>{t('fin2.common.loading', '加载中…')}</td></tr> : records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
+              {loading && records.length === 0 ? <tr><td colSpan={9} style={{
+                padding: 16
+              }}><LoadingSkeleton variant="table" rows={10} cols={9} /></td></tr> : records.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
                 textAlign: 'center',
                 padding: 40
               }}>
