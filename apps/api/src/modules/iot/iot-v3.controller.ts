@@ -68,6 +68,16 @@ export class IotV3Controller {
       const STALE_MS = 30 * 60 * 1000; // 30 分钟无数据视为陈旧
       const now = Date.now();
 
+      // collect_time 兼容 epoch ms / 时间戳字符串（与下方 dataFreshness 同口径）
+      const toMs = (ct: any): number => (Number(ct) > 1e12 ? Number(ct) : new Date(ct).getTime());
+      // "在线" = 有值且最近一次采集未陈旧；快照按 (house,property) upsert 永久保留，
+      //   仅判 value != null 会把早已掉线的传感器仍计为在线 → 在线数/在线率虚高。
+      const isOnline = (p: any): boolean => {
+        if (p.value == null) return false;
+        const ms = toMs(p.collect_time);
+        return !isNaN(ms) && now - ms < STALE_MS;
+      };
+
       const houses = mappings.map((m: any) => {
         const props = snapshotMap.get(m.erp_house_code) || [];
         const hasData = props.length > 0;
@@ -92,9 +102,9 @@ export class IotV3Controller {
           dataFreshness = age < 10 * 60 * 1000 ? 'normal' : age < STALE_MS ? 'delayed' : 'stale';
         }
 
-        // 在线率（有值的指标数 / 总指标数）
+        // 在线率（最近有效采集的指标数 / 总指标数）—— 含陈旧过滤，避免掉线传感器虚计在线
         const onlineRate = hasData
-          ? props.filter((p: any) => p.value != null).length / props.length
+          ? props.filter(isOnline).length / props.length
           : 0;
 
         // 5大系统健康点
@@ -133,7 +143,7 @@ export class IotV3Controller {
       const alarmHouses   = houses.filter((h: any) => h.alarmCount > 0).length;
       const activeHouses  = houses.filter((h: any) => h.hasData).length;
       const allProps      = snapshots;
-      const onlineSensor  = allProps.filter((p: any) => p.value != null).length;
+      const onlineSensor  = allProps.filter(isOnline).length;  // 仅计最近未陈旧的传感器
       const totalSensor   = allProps.length;
 
       return {
