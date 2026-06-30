@@ -473,6 +473,48 @@ export class WmsService {
     }
   }
 
+  /**
+   * 库存批次概览聚合（前端 analytics/inventory 由"拉 200 行客户端 reduce"改为调本端点）。
+   * 复用 getInventoryBatches 同款 DataScope 查询（不猜列名，零 500 风险），在服务端对
+   * 全部在范围内活跃批次(qty>0)做 reduce——KPI 覆盖全量而非仅最新 200 行，前端只取小对象。
+   * reduce 规则与前端原逻辑逐一对齐（active/totalQty/expiring/grade 桶/recent）。
+   */
+  async getInventoryBatchesSummary() {
+    const empty = { totalCount: 0, activeCount: 0, totalQtyKg: 0, expiringCount: 0, gradeBuckets: { AA: 0, A: 0, B: 0, C: 0 }, recent: [] as any[] };
+    try {
+      const scope = this.warehouseScope('warehouse_code', 0);
+      const rows: any[] = await this.em.query(
+        `SELECT * FROM inv_batches WHERE qty > 0 AND ${scope.sql}`,
+        scope.params,
+      );
+      const isActive = (s?: string) => !s || s === 'AVAILABLE' || s === 'LOCKED';
+      const remainingDays = (b: any): number | null => {
+        if (b.remaining_days != null) return Number(b.remaining_days);
+        if (b.expiry_date) return Math.floor((new Date(b.expiry_date).getTime() - Date.now()) / 86400000);
+        return null;
+      };
+      const gradeBuckets = { AA: 0, A: 0, B: 0, C: 0 };
+      let totalQtyKg = 0, activeCount = 0, expiringCount = 0;
+      for (const b of rows) {
+        if (isActive(b.status)) activeCount++;
+        totalQtyKg += Number(b.quantity_kg ?? b.qty ?? 0);
+        const d = remainingDays(b);
+        if (d !== null && d < 7) expiringCount++;
+        const g = String(b.grade ?? b.sku_code ?? '').toUpperCase();
+        if (g.includes('AA')) gradeBuckets.AA++;
+        else if (g.includes('A')) gradeBuckets.A++;
+        else if (g.includes('B')) gradeBuckets.B++;
+        else if (g.includes('C')) gradeBuckets.C++;
+      }
+      const recent = [...rows]
+        .sort((a, b) => ((b.grading_date ?? '') > (a.grading_date ?? '') ? 1 : -1))
+        .slice(0, 10);
+      return { code: 200, data: { totalCount: rows.length, activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } };
+    } catch {
+      return { code: 200, data: empty };
+    }
+  }
+
   async getReceivingOrders() {
     try {
       const scope = this.warehouseScope('warehouse_code', 0);

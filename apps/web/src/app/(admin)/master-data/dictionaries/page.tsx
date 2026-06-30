@@ -21,7 +21,7 @@ import {
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
-import { Panel, SearchInput } from "@/components/design-system";
+import { Panel, SearchInput, LoadingSkeleton } from "@/components/design-system";
 import { dictTypeLabel as typeLabel } from "@/lib/dict-type-labels";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B
@@ -246,7 +246,7 @@ export default function MdDictionariesPage() {
 
       {/* ── Phase 3: 字典明细分组 ───────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)' }}>{t('md.loadingDots', '加载中...')}</div>
+        <LoadingSkeleton variant="table" rows={10} cols={4} />
       ) : grouped.length === 0 ? (
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)', border: '1px dashed var(--border)', borderRadius: 8 }}>
           {t('md.noDictUnderFilter', '当前条件下无字典')}

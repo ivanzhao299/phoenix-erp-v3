@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,12 +20,20 @@ interface Batch {
   expiry_date?: string;
 }
 
-interface BatchResponse {
-  data?: Batch[];
-  items?: Batch[];
-  list?: Batch[];
-  total?: number;
+// 后端聚合返回（/api/inventory/batches/summary）—— 服务端 reduce 覆盖全量在范围批次
+interface InvSummary {
+  totalCount: number;
+  activeCount: number;
+  totalQtyKg: number;
+  expiringCount: number;
+  gradeBuckets: { AA: number; A: number; B: number; C: number };
+  recent: Batch[];
 }
+
+const EMPTY_SUMMARY: InvSummary = {
+  totalCount: 0, activeCount: 0, totalQtyKg: 0, expiringCount: 0,
+  gradeBuckets: { AA: 0, A: 0, B: 0, C: 0 }, recent: [],
+};
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
@@ -38,9 +46,10 @@ function getToken() {
   );
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
+async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getToken()}` },
+    signal,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -112,60 +121,17 @@ function StatCard({
 
 export default function InventoryAnalyticsPage() {
   const { t } = useLanguage();
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      // 修复 404：原 /api/wms/batches 路由不存在；真实库存批次端点为 /api/inventory/batches
-      //   （MENU_WMS_VIEW:V 守卫，{code,data} 形）。
-      const raw = await apiFetch<BatchResponse | Batch[]>(
-        "/api/inventory/batches"
-      );
-      let list: Batch[] = [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else {
-        list = raw.data ?? raw.items ?? raw.list ?? [];
-      }
-      setBatches(list);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // 统计聚合：仅在 batches 变化时重算，避免每次渲染（含无关 state 变更）全量 reduce/filter/sort
-  const { activeBatches, totalQty, expiringBatches, gradeMap, recent } = useMemo(() => {
-    const active = batches.filter(
-      (b) => !b.status || b.status === "AVAILABLE" || b.status === "LOCKED"
-    );
-    const qty = batches.reduce((s, b) => s + Number(b.quantity_kg ?? b.qty ?? 0), 0);
-    const expiring = batches.filter((b) => {
-      const days = getRemainingDays(b);
-      return days !== null && days < 7;
-    });
-    const grades: Record<string, number> = { AA: 0, A: 0, B: 0, C: 0 };
-    batches.forEach((b) => {
-      const g = (b.grade ?? b.sku_code ?? "").toUpperCase();
-      if (g.includes("AA")) grades["AA"]++;
-      else if (g.includes("A")) grades["A"]++;
-      else if (g.includes("B")) grades["B"]++;
-      else if (g.includes("C")) grades["C"]++;
-    });
-    const recentList = [...batches]
-      .sort((a, b) => ((b.grading_date ?? "") > (a.grading_date ?? "") ? 1 : -1))
-      .slice(0, 10);
-    return { activeBatches: active, totalQty: qty, expiringBatches: expiring, gradeMap: grades, recent: recentList };
-  }, [batches]);
+  // 取数改为后端聚合端点 /api/inventory/batches/summary（服务端 reduce，KPI 覆盖全量在范围批次，
+  // 不再拉 200 行客户端 reduce），并用 useAbortableLoad：快速切页/刷新自动取消旧请求，防旧覆盖新 + 省带宽。
+  const { data, loading, error, reload } = useAbortableLoad<InvSummary>(
+    (signal) =>
+      apiFetch<{ code: number; data: InvSummary }>("/api/inventory/batches/summary", signal)
+        .then((r) => r.data ?? EMPTY_SUMMARY),
+    [],
+    { initial: EMPTY_SUMMARY },
+  );
+  const { activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } = data ?? EMPTY_SUMMARY;
 
   return (
     <div>
@@ -174,7 +140,7 @@ export default function InventoryAnalyticsPage() {
         subtitle={t("analytics.inventory_subtitle", "批次库存概览 · 等级分布 · 临期预警")}
         actions={
           <button
-            onClick={() => void load()}
+            onClick={() => reload()}
             disabled={loading}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
@@ -207,21 +173,21 @@ export default function InventoryAnalyticsPage() {
             <StatCard
               icon={Layers}
               title={t("analytics.inventory_active_batches", "活跃批次数")}
-              value={activeBatches.length}
+              value={activeCount}
               sub={t("analytics.unit_batch", "批")}
               color="var(--color-accent)"
             />
             <StatCard
               icon={BarChart2}
               title={t("analytics.inventory_total_qty", "总库存量")}
-              value={`${fmtNum(totalQty)} kg`}
+              value={`${fmtNum(totalQtyKg)} kg`}
               sub={t("analytics.inventory_all_batches_total", "所有批次合计")}
               color="var(--status-success)"
             />
             <StatCard
               icon={AlertTriangle}
               title={t("analytics.inventory_expiring_batches", "临期批次")}
-              value={expiringBatches.length}
+              value={expiringCount}
               sub={t("analytics.inventory_remaining_days_lt7", "剩余天数 < 7 天")}
               color="var(--status-danger)"
             />
@@ -243,7 +209,7 @@ export default function InventoryAnalyticsPage() {
                     className="text-2xl font-bold mb-1"
                     style={{ color: GRADE_COLORS[g] }}
                   >
-                    {gradeMap[g]}
+                    {gradeBuckets[g]}
                   </div>
                   <div className="text-xs font-semibold" style={{ color: GRADE_COLORS[g] }}>
                     {g} {t("analytics.grade_suffix", "级")}

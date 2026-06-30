@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Receipt, Plus, RefreshCw, Send, ChevronRight, AlertTriangle, DollarSign, Calendar, Building2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/design-system';
+import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -520,10 +520,7 @@ export default function ExpensesPage() {
 
       {/* 列表 */}
       <div style={tableContainer}>
-        {loading && <div className="text-text-muted" style={{
-        padding: 32,
-        textAlign: 'center'
-      }}>{t('fin2.expenses.loading_dots','加载中...')}</div>}
+        {loading && <div style={{ padding: 20 }}><LoadingSkeleton variant="table" rows={10} cols={5} /></div>}
         {!loading && items.length === 0 && <div className="text-text-muted" style={{
         padding: 40,
         textAlign: 'center'

@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
+import { LoadingSkeleton } from "@/components/design-system";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Check, BarChart2 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -392,12 +393,7 @@ export default function LocationsPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} style={{
-              padding: 40,
-              textAlign: "center",
-              color: "var(--text-secondary)",
-              fontSize: 13
-            }}>{t("common.loading", "加载中…")}</td></tr>}
+            {loading && <tr><td colSpan={10} style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={10} cols={10} /></td></tr>}
             {!loading && filtered.length === 0 && <tr><td colSpan={10} style={{
               padding: 40,
               textAlign: "center",

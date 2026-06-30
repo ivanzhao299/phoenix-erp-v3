@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useMemo } from "react";
+import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Egg, TrendingDown, Calendar, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,9 +39,10 @@ function getToken() {
   );
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
+async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getToken()}` },
+    signal,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -108,46 +110,26 @@ function StatCard({
 
 export default function ProductionAnalyticsPage() {
   const { t } = useLanguage();
-  const [reports, setReports] = useState<DailyReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const raw = await apiFetch<ReportResponse | DailyReport[]>(
-        "/api/breeding/daily-reports?limit=30"
-      );
-      let list: DailyReport[] = [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else {
-        list = raw.data ?? raw.items ?? raw.list ?? [];
-      }
-      setReports(list);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("analytics.load_failed", "加载失败"));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // useAbortableLoad：快速切页/刷新自动取消旧请求（防旧覆盖新 + 省带宽）
+  const { data, loading, error, reload } = useAbortableLoad<DailyReport[]>(
+    (signal) =>
+      apiFetch<ReportResponse | DailyReport[]>("/api/breeding/daily-reports?limit=30", signal).then((raw) =>
+        Array.isArray(raw) ? raw : raw.data ?? raw.items ?? raw.list ?? [],
+      ),
+    [],
+    { initial: [] },
+  );
+  const reports = data ?? [];
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // 统计
-  const totalEggs = reports.reduce((s, r) => s + getEggs(r), 0);
-  const avgDailyEggs = reports.length > 0 ? totalEggs / reports.length : 0;
-  const avgMortality =
-    reports.length > 0
-      ? reports.reduce((s, r) => s + getMortality(r), 0) / reports.length
-      : 0;
-
-  const recent = [...reports]
-    .sort((a, b) => getDate(b) > getDate(a) ? 1 : -1)
-    .slice(0, 10);
+  // 统计：仅在 reports 变化时重算（不再每次渲染全量 reduce/sort）
+  const { totalEggs, avgDailyEggs, avgMortality, recent } = useMemo(() => {
+    const total = reports.reduce((s, r) => s + getEggs(r), 0);
+    const avgDaily = reports.length > 0 ? total / reports.length : 0;
+    const avgMort = reports.length > 0 ? reports.reduce((s, r) => s + getMortality(r), 0) / reports.length : 0;
+    const recentList = [...reports].sort((a, b) => (getDate(b) > getDate(a) ? 1 : -1)).slice(0, 10);
+    return { totalEggs: total, avgDailyEggs: avgDaily, avgMortality: avgMort, recent: recentList };
+  }, [reports]);
 
   return (
     <div>
@@ -156,7 +138,7 @@ export default function ProductionAnalyticsPage() {
         subtitle={t("analytics.production_subtitle", "日产蛋量趋势 · 死淘率分析 · 饲料转化率")}
         actions={
           <button
-            onClick={() => void load()}
+            onClick={() => reload()}
             disabled={loading}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >

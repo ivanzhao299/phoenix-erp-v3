@@ -5,7 +5,7 @@ import { useToast } from '@/contexts/ToastContext';
 import u from "@/styles/uix-utils.module.css";
 import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity, Pencil, ArrowLeftRight, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/design-system';
+import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 import { currencySymbol } from '@/lib/currency';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -916,11 +916,7 @@ export default function CashAccountsPage() {
       </div>
 
       {/* 账户列表 */}
-      {loading ? <div className="text-text-muted" style={{
-      textAlign: 'center',
-      padding: 48,
-      fontSize: 14
-    }}>{t('fin2.common.loading_ellipsis','加载中…')}</div> : accounts.length === 0 ? <div className="text-text-muted" style={{
+      {loading ? <LoadingSkeleton variant="card" rows={6} /> : accounts.length === 0 ? <div className="text-text-muted" style={{
       textAlign: 'center',
       padding: 48,
       fontSize: 14

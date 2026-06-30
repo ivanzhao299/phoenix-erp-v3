@@ -8,6 +8,7 @@ import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LoadingSkeleton } from "@/components/design-system";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -480,11 +481,7 @@ function BatchesTab() {
         </div>}
 
       {/* 批次表格 */}
-      {loading ? <div style={{
-      textAlign: 'center',
-      color: 'var(--gray-400)',
-      padding: 40
-    }}>{t('ui.加载中...','加载中...')}</div> : <div className={u.scrollX}>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={11} /> : <div className={u.scrollX}>
           <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
@@ -581,11 +578,7 @@ function ExpiringTab() {
       marginBottom: 8
     }}>{error}</div>}
 
-      {loading ? <div style={{
-      textAlign: 'center',
-      color: 'var(--gray-400)',
-      padding: 40
-    }}>{t('ui.加载中...','加载中...')}</div> : <div className={u.scrollX}>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={9} /> : <div className={u.scrollX}>
           <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
@@ -851,11 +844,7 @@ function LossTab() {
       marginBottom: 8
     }}>{error}</div>}
 
-      {loading ? <div style={{
-      textAlign: 'center',
-      color: 'var(--gray-400)',
-      padding: 40
-    }}>{t('ui.加载中...','加载中...')}</div> : data && <div>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={5} /> : data && <div>
           <div style={{
         display: 'flex',
         gap: 12,

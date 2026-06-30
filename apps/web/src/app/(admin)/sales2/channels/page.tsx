@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LoadingSkeleton } from "@/components/design-system";
 // g200b/d 模板 token(2026-06-19)
 import {
   secondaryActionButton, inlineAlert,
@@ -174,10 +175,7 @@ export default function SalesChannelsPage() {
 
       {/* 加载中 */}
       {loading && (
-        <div className="flex items-center justify-center py-20 text-text-dim">
-          <RefreshCw size={20} className="animate-spin mr-2" />
-          {t('ui.加载中…','加载中…')}
-        </div>
+        <LoadingSkeleton variant="table" rows={10} cols={3} />
       )}
 
       {!loading && (

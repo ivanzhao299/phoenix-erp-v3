@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Wallet, RefreshCw, AlertTriangle, CreditCard, CheckCircle, Clock, Ban } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/design-system';
+import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
 
@@ -327,10 +327,7 @@ export default function ReimbursementsPage() {
 
       {/* 列表 */}
       <div style={tableContainer}>
-        {loading && <div className="text-text-muted" style={{
-        padding: 32,
-        textAlign: 'center'
-      }}>{t('fin2.reimburse.loading_dots','加载中...')}</div>}
+        {loading && <div style={{ padding: 20 }}><LoadingSkeleton variant="table" rows={10} cols={5} /></div>}
         {!loading && items.length === 0 && <div className="text-text-muted" style={{
         padding: 40,
         textAlign: 'center'

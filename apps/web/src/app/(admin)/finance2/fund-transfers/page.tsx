@@ -8,6 +8,7 @@ import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSel
 import { usePermission } from '@/hooks/usePermission';
 import { currencySymbol } from '@/lib/currency';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { LoadingSkeleton } from '@/components/design-system';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -366,7 +367,7 @@ export default function FundTransfersPage() {
       </div>
 
       {/* 转账列表 */}
-      {loading ? <div className="text-text-dim text-sm text-center py-12">{t('fin2.transfers.loading','加载中…')}</div> : transfers.length === 0 ? <div className="text-text-muted text-sm text-center py-12">
+      {loading ? <LoadingSkeleton variant="card" rows={4} /> : transfers.length === 0 ? <div className="text-text-muted text-sm text-center py-12">
           <ArrowLeftRight size={32} style={{
         margin: '0 auto 12px',
         display: 'block',

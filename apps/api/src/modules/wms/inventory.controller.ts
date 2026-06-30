@@ -34,6 +34,13 @@ export class InventoryController {
     return await this.wmsService.getInventoryBatches();
   }
 
+  // 库存批次概览聚合：前端 analytics/inventory 改调本端点（服务端 reduce，覆盖全量在范围批次）
+  @Get('batches/summary')
+  @RequireMenu('MENU_WMS_VIEW', 'V')
+  async getBatchesSummary() {
+    return await this.wmsService.getInventoryBatchesSummary();
+  }
+
   @Get('receiving/orders')
   @RequireMenu('MENU_WMS_VIEW', 'V')
   async getReceivingOrders() {

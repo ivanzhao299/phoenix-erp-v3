@@ -9,6 +9,7 @@ import {
 } from '@/components/design-system/cockpit-styles';
 import { currencySymbol } from '@/lib/currency';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { LoadingSkeleton } from '@/components/design-system';
 
 /**
  * 应收总账（G41）— 刘杰（集团财务总监）
@@ -131,7 +132,7 @@ export default function ArLedgerPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} style={{ padding: 28, textAlign: 'center', color: 'var(--text-dim)' }}>{t('fin2.common.loading', '加载中…')}</td></tr>
+              <tr><td colSpan={10} style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={10} cols={10} /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={10} style={{ padding: 28, textAlign: 'center', color: 'var(--text-dim)' }}>{t('fin2.arledger.empty', '暂无应收总账数据')}</td></tr>
             ) : rows.map(r => (

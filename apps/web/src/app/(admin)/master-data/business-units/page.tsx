@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { CompanySelector } from "@/components/shared-selectors/MasterDataSelectors";
 import { ConfirmDialogV2 } from "@/components/design-system/dialogs/ConfirmDialogV2";
+import { LoadingSkeleton } from "@/components/design-system";
 import { usePermission } from "@/hooks/usePermission";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -79,7 +80,7 @@ export default function BusinessUnitsPage() {
       />
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>{t('md.loading', '加载中…')}</div>
+        <LoadingSkeleton variant="card" rows={6} />
       ) : data.length === 0 ? (
         <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
           {t('md.buEmpty', '暂无事业群数据（部署 g110 迁移后生效）。')}
