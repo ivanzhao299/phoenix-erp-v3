@@ -577,7 +577,7 @@ export default function ShareholderFundsPage() {
               </div>
             </div>
 
-            <div className={s.formSection}>
+            <div>
               <div style={{
             fontWeight: 600,
             marginBottom: 12,
@@ -592,7 +592,7 @@ export default function ShareholderFundsPage() {
               <Row label={t('prc2.status', "状态")} value={STATUS_LABELS[detail.status] ?? detail.status} />
             </div>
 
-            <div className={s.formSection} style={{
+            <div style={{
           marginTop: 16
         }}>
               <div style={{
@@ -607,7 +607,7 @@ export default function ShareholderFundsPage() {
               <Row label={t('prc2.amount_base', "金额（基准）")} value={`${detail.baseCurrency} ${fmtNum(detail.amountBase)}`} />
             </div>
 
-            <div className={s.formSection} style={{
+            <div style={{
           marginTop: 16
         }}>
               <div style={{

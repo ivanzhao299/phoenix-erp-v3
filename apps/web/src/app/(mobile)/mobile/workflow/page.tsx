@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import u from "@/styles/uix-utils.module.css";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardCheck, X, CheckCircle, XCircle, Sun, Moon, Clock, Building2, FolderOpen, ChevronDown, ChevronUp, Forward } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
@@ -1070,6 +1070,7 @@ function HistoryCard({
 type Tab = 'todos' | 'history';
 export default function WorkflowPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     isDark,
     toggle,
@@ -1125,6 +1126,51 @@ export default function WorkflowPage() {
   useEffect(() => {
     if (tab === 'todos') loadTodos();else loadHistory();
   }, [tab, loadTodos, loadHistory]);
+  // 消息中心深链：/mobile/workflow?instanceId=<id> 直接拉取并打开该审批实例详情，
+  // 不依赖待办列表（列表受 DataScope/分页/已被他人处理过滤，可能查无此条 → 空白）。
+  useEffect(() => {
+    const focusId = searchParams.get('instanceId');
+    if (!focusId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const d = await approvalApi.getInstance(focusId);
+        if (!alive || !d) return;
+        // 由实例详情合成最小 WorkflowTask，供详情抽屉与审批/拒绝/转交动作复用
+        const synthetic: WorkflowTask = {
+          taskSource: 'APPROVAL_ENGINE',
+          taskId: String(d.id),
+          instanceId: String(d.id),
+          instanceNo: d.instanceNo ?? null,
+          bizType: d.bizType ?? null,
+          bizId: d.bizId ?? null,
+          bizNo: d.bizNo ?? null,
+          subject: d.subject ?? null,
+          amount: null,
+          currencyCode: null,
+          companyCode: null,
+          companyName: null,
+          projectCode: null,
+          projectName: null,
+          requiredRole: null,
+          stepNo: null,
+          totalSteps: d.steps?.length ?? null,
+          currentStepNo: null,
+          startedBy: d.startedBy ?? null,
+          status: d.status,
+          createdAt: d.startedAt ?? '',
+          dueAt: null,
+          isOverdue: false,
+          escalationLevel: 0,
+        };
+        setDetailTask(synthetic);
+      } catch (e: unknown) {
+        if (alive) toast.error(e instanceof Error ? e.message : tr('mob.sys.load_failed', '加载失败'));
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   function openApprove(task: WorkflowTask) {
     setActionTask(task);
     setActionMode('approve');

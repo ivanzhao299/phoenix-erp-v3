@@ -652,8 +652,12 @@ export interface MobileNotification {
   title:            string;
   body:             string;
   status:           string;
-  refId:            string | null;
-  refType:          string | null;
+  // 后端 /api/notifications 返回的是 linkType/linkId（原 refType/refId 命名与后端不符，
+  // 导致移动端 handleTap 的 refType 判定恒为假、点通知不跳转）。保留可选别名兜底。
+  linkId:           string | null;
+  linkType:         string | null;
+  refId?:           string | null;
+  refType?:         string | null;
   createdAt:        string;
 }
 

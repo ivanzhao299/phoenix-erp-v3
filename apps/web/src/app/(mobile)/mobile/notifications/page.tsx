@@ -366,8 +366,12 @@ export default function NotificationsPage() {
     }
   };
   const handleTap = (item: MobileNotification) => {
-    if (item.refType === 'APPROVAL_INSTANCE' && item.refId) {
-      router.push('/mobile/workflow');
+    // 后端返回 linkType/linkId（旧 refType/refId 命名不符，恒判失败导致点通知不跳转）；
+    // 带 instanceId 深链直达该审批实例详情，避免落到待办列表后查无此条而空白。
+    const linkType = item.linkType ?? item.refType ?? null;
+    const linkId = item.linkId ?? item.refId ?? null;
+    if (linkType === 'APPROVAL_INSTANCE' && linkId) {
+      router.push(`/mobile/workflow?instanceId=${encodeURIComponent(linkId)}`);
     }
   };
   if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）

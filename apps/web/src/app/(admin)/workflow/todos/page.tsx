@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search, Forward } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -265,6 +266,7 @@ async function rejectInstance(instanceId: string, comment: string) {
 export default function ApprovalTodosPage() {
   const { t } = useLanguage();
   const toast = useToast();
+  const searchParams = useSearchParams();
   const [resp, setResp] = useState<TaskListResponse>({
     items: [],
     total: 0,
@@ -311,6 +313,56 @@ export default function ApprovalTodosPage() {
   useEffect(() => {
     load();
   }, [load]);
+  // 消息中心深链：/workflow/todos?instanceId=<id> 直接打开该审批实例详情，
+  // 不依赖 my-tasks 列表是否含该条（修复「点通知进来空白」——通知带的是具体实例，
+  // 但列表受 DataScope/分页/已被同角色他人处理 等过滤，可能查不到对应条目）。
+  useEffect(() => {
+    const focusId = searchParams.get("instanceId");
+    if (!focusId) return;
+    let alive = true;
+    (async () => {
+      const d = await fetchDetail(focusId);
+      if (!alive) return;
+      if (!d) {
+        toast.error(t('ui.该审批记录不存在或无权查看','该审批记录不存在或无权查看'));
+        return;
+      }
+      // 由实例详情合成最小 UnifiedTask，供抽屉头部与审批/拒绝/转交动作复用
+      const synthetic: UnifiedTask = {
+        taskSource: "APPROVAL_ENGINE",
+        taskId: String(d.id),
+        instanceId: String(d.id),
+        instanceNo: d.instanceNo ?? null,
+        bizType: d.bizType,
+        bizId: d.bizId,
+        bizNo: d.bizNo ?? null,
+        subject: d.subject ?? null,
+        amount: d.amount ?? null,
+        currencyCode: d.currencyCode ?? null,
+        companyCode: d.companyCode ?? null,
+        companyName: d.companyName ?? null,
+        projectCode: d.projectCode ?? null,
+        projectName: d.projectName ?? null,
+        requiredRole: "",
+        stepNo: d.currentStepNo ?? null,
+        totalSteps: d.totalSteps ?? null,
+        currentStepNo: d.currentStepNo ?? null,
+        startedBy: null,
+        status: d.status,
+        createdAt: d.startedAt ?? "",
+      };
+      setSelected(synthetic);
+      setComment("");
+      setDecision("approve");
+      setCandidates([]);
+      setPickedTo("");
+      setDetail(d);
+      setDrawerOpen(true);
+    })();
+    return () => { alive = false; };
+    // 仅在挂载/深链变化时触发；toast/t 稳定引用，无需入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const applyFilter = () => {
     setPage(1);
     load({
