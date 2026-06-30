@@ -88,18 +88,34 @@ export default function DeviceMonitorMobilePage() {
   const [diag, setDiag] = useState<{ code: string; reason: string } | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
 
-  // 自诊断：为什么没有数据（调后端 sync-health，定位链路断点）
+  // 自诊断：为什么没有数据（调后端 sync-health，定位链路断点）。
+  // 始终给出确定结论：成功→中文原因；异常→带 HTTP 状态/错误，便于定位（不再出现"点了没反应"）。
   const runDiag = useCallback(async () => {
     setDiagLoading(true); setDiag(null);
+    const fail = (msg: string) => setDiag({ code: 'ERR', reason: `${tr('mob.sys.diag_failed', '诊断失败')}：${msg}` });
     try {
       const res = await fetch('/api/v3/iot/devices/sync-health', { headers: { Authorization: `Bearer ${tok()}` } });
-      const json = await res.json().catch(() => null);
-      if (json?.ok && json?.data) setDiag({ code: json.data.code, reason: json.data.reason });
-      else setDiag({ code: 'ERR', reason: tr('mob.sys.diag_failed', '诊断失败，请稍后重试') });
-    } catch {
-      setDiag({ code: 'ERR', reason: tr('mob.sys.diag_failed', '诊断失败，请稍后重试') });
+      const raw = await res.text();
+      let json: any = null;
+      try { json = raw ? JSON.parse(raw) : null; } catch { /* 非 JSON */ }
+      if (json?.ok && json?.data?.reason) {
+        setDiag({ code: String(json.data.code ?? ''), reason: String(json.data.reason) });
+      } else if (json?.error) {
+        fail(`${String(json.error).slice(0, 140)}`);
+      } else {
+        fail(`HTTP ${res.status}${raw ? ' · ' + raw.slice(0, 100) : ''}`);
+      }
+    } catch (e: any) {
+      fail(e?.message || 'network');
     } finally { setDiagLoading(false); }
   }, [tr]);
+
+  // 无实时数据时自动跑一次诊断（用户无需手动点；可再点按钮重试）
+  useEffect(() => {
+    if (!loading && !error && (summary.totalSensorCnt ?? 0) === 0 && allowed && !diag && !diagLoading) {
+      void runDiag();
+    }
+  }, [loading, error, summary.totalSensorCnt, allowed, diag, diagLoading, runDiag]);
 
   const load = useCallback(async () => {
     setLoading(true);
