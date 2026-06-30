@@ -193,7 +193,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # 评分补强 P11：16→18 对齐生产(PG18)与回归套件。此前 deploy 门禁跑 PG16，
+        #   放过了 now()::text / substr 等 PG18 专属行为差异(曾致生产 500)。
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: phoenix_v3
           POSTGRES_PASSWORD: phoenix_v3_pass
@@ -362,9 +364,30 @@ jobs:
       - name: Regression — wms
         working-directory: apps/api
         run: pnpm test:regr:wms
+      - name: Regression — pos-store
+        working-directory: apps/api
+        run: pnpm test:regr:pos-store
       - name: Regression — finance
         working-directory: apps/api
         run: pnpm test:regr:finance
+      - name: Regression — quality
+        working-directory: apps/api
+        run: pnpm test:regr:quality
+      - name: Regression — pda
+        working-directory: apps/api
+        run: pnpm test:regr:pda
+      - name: Regression — bi
+        working-directory: apps/api
+        run: pnpm test:regr:bi
+
+      # 评分补强 P11：部署门禁补齐与 V3 回归套件(regression.yml)同款 G5-C RBAC 巡检，
+      #   admin/老角色访问关键 endpoint 应 200；守卫与 sys_role_menu_permission 漂移即红。
+      - name: G5-C RBAC audit (admin + key endpoints)
+        working-directory: ${{ github.workspace }}
+        env:
+          API_BASE: http://localhost:3100
+          ADMIN_PASS: admin123
+        run: bash scripts/g5c-rbac-audit.sh "$API_BASE"
 
       - name: Dump API log on failure
         if: failure()
