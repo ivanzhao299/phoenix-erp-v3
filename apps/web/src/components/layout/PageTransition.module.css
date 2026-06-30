@@ -1,0 +1,26 @@
+/* G89-UX 页面切换过渡 — 路由变化时对内容区做一次轻量淡入+上移，
+   消除"硬切白块"的生硬感。仅在导航（pathname 变化）时触发，
+   同页内 setState 重渲染不触发（key 不变）。尊重 prefers-reduced-motion。 */
+
+.fade {
+  animation: phxPageIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes phxPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade {
+    animation: none;
+    will-change: auto;
+  }
+}

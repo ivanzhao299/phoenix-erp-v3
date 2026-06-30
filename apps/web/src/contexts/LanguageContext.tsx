@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useCallback, useRef, useReducer } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useReducer, useMemo } from 'react';
 
 const SUPPORTED_LANGS = ['zh', 'en', 'lo'];
 
@@ -89,8 +89,15 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     setAppLanguage(sequence[lang] || 'zh');
   }, [lang, setAppLanguage]);
 
+  // value 记忆化：仅在 lang / t / tField 等真变化时换引用，
+  // 避免 Provider 任意重渲染就让 ~148 个 useLanguage 消费者全部重渲染。
+  const value = useMemo(
+    () => ({ lang, setAppLanguage, toggleLanguage, t, tField }),
+    [lang, setAppLanguage, toggleLanguage, t, tField],
+  );
+
   return (
-    <LanguageContext.Provider value={{ lang, setAppLanguage, toggleLanguage, t, tField }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

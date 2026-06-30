@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 /**
  * 唯一主题源(2026-06-27 统一):
@@ -62,10 +62,12 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [themeMode]);
 
-  const toggleTheme = (newMode: string) => setThemeMode(newMode);
+  const toggleTheme = useCallback((newMode: string) => setThemeMode(newMode), []);
+
+  const value = useMemo(() => ({ themeMode, toggleTheme }), [themeMode, toggleTheme]);
 
   return (
-    <ThemeContext.Provider value={{ themeMode, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

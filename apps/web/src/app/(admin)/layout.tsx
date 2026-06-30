@@ -16,6 +16,7 @@ import styles from "./admin.module.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthFetchInterceptor } from "@/components/AuthFetchInterceptor";
+import { PageTransition } from "@/components/layout/PageTransition";
 
 // ── Page title: path → locale key → Chinese fallback ─────────────
 // 使用 menu.<childId> 作为 key，与 Sidebar 共享同一翻译源
@@ -270,9 +271,9 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
           </div>
         </header>
 
-        {/* Content */}
+        {/* Content — 路由切换轻量淡入过渡（消除硬切白块的生硬感） */}
         <div className={styles.content}>
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
       <Toaster position="top-right" richColors />
