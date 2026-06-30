@@ -492,7 +492,7 @@ export default function ImmunePage() {
               <input value={form.dose} onChange={e => setForm(p => ({
               ...p,
               dose: e.target.value
-            }))} placeholder={DOSE_BY_METHOD[form.method] || '如0.5ml/只'} className={s.inp} />
+            }))} placeholder={DOSE_BY_METHOD[form.method] || t('ui.如0.5ml/只', '如0.5ml/只')} className={s.inp} />
             </div>
           </div>
           <div className={s.fieldRow}>
@@ -505,7 +505,7 @@ export default function ImmunePage() {
               <input value={form.vaccineBatchNo} onChange={e => setForm(p => ({
               ...p,
               vaccineBatchNo: e.target.value
-            }))} placeholder="如VAC-2026-001" className={s.inp} style={{
+            }))} placeholder={t('ui.如VAC-2026-001', '如VAC-2026-001')} className={s.inp} style={{
               fontFamily: 'monospace'
             }} />
             </div>
@@ -514,7 +514,7 @@ export default function ImmunePage() {
               <input type="number" onFocus={e => e.currentTarget.select()} min="1" value={form.flockCount} onChange={e => setForm(p => ({
               ...p,
               flockCount: String(Math.max(0, Math.floor(Number(e.target.value) || 0)) || '')
-            }))} placeholder="如5000" className={s.inp} />
+            }))} placeholder={t('ui.如5000', '如5000')} className={s.inp} />
             </div>
           </div>
           <div className={s.field}>

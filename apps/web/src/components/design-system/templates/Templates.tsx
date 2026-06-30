@@ -11,6 +11,7 @@ import { StatusBadge } from '../status/StatusBadge';
 import { MobilePageShell } from '../mobile/MobileKit';
 import { WorkbenchShell } from '../workbench/WorkbenchKit';
 import { KPI_GRID } from '@/lib/design-tokens';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * 全站页面模板（Design System V2 · UI-2.3）。
@@ -54,19 +55,20 @@ export interface DocumentTemplateProps {
   timeline?: TimelineItem[];         // 审计时间线
 }
 export function DocumentTemplate(p: DocumentTemplateProps) {
+  const { t } = useLanguage();
   return (
     <div style={{ padding: 24, maxWidth: 1080 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb}
         actions={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{p.status && <StatusBadge status={p.status} size="md" />}{p.actions}</div>} />
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <DetailPanel title="基础信息" items={p.baseInfo} />
-          {p.lines && <PageSection title="明细">{p.lines}</PageSection>}
-          {p.attachments && <PageSection title="附件"><AttachmentViewer urls={p.attachments.urls} count={p.attachments.count} /></PageSection>}
+          <DetailPanel title={t('ui.基础信息','基础信息')} items={p.baseInfo} />
+          {p.lines && <PageSection title={t('ui.明细','明细')}>{p.lines}</PageSection>}
+          {p.attachments && <PageSection title={t('ui.附件','附件')}><AttachmentViewer urls={p.attachments.urls} count={p.attachments.count} /></PageSection>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {p.workflow && <PageSection title="审批流"><WorkflowTimeline steps={p.workflow} title="" /></PageSection>}
-          {p.timeline && <PageSection title="操作时间线"><AuditTimeline items={p.timeline} title="" /></PageSection>}
+          {p.workflow && <PageSection title={t('ui.审批流','审批流')}><WorkflowTimeline steps={p.workflow} title="" /></PageSection>}
+          {p.timeline && <PageSection title={t('ui.操作时间线','操作时间线')}><AuditTimeline items={p.timeline} title="" /></PageSection>}
         </div>
       </div>
     </div>
@@ -101,12 +103,13 @@ export interface ApprovalTemplateProps<T = any> {
   detail?: { open: boolean; title?: string; onClose: () => void; baseInfo?: DetailItem[]; steps?: WorkflowStep[]; footer?: React.ReactNode };
 }
 export function ApprovalTemplate<T = any>(p: ApprovalTemplateProps<T>) {
+  const { t } = useLanguage();
   return (
     <div style={{ padding: 24 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb} actions={p.actions} />
       <DataTableV3 rows={p.rows} columns={p.columns} loading={p.loading} pageSize={p.pageSize} rowKey={p.rowKey} />
       {p.detail && (
-        <DrawerV2 open={p.detail.open} title={p.detail.title || '审批详情'} onClose={p.detail.onClose} footer={p.detail.footer}>
+        <DrawerV2 open={p.detail.open} title={p.detail.title || t('ui.审批详情','审批详情')} onClose={p.detail.onClose} footer={p.detail.footer}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {p.detail.baseInfo && <DetailPanel items={p.detail.baseInfo} />}
             {p.detail.steps && <WorkflowTimeline steps={p.detail.steps} />}
@@ -124,16 +127,17 @@ export interface ConfigTemplateProps {
   sections: ConfigSection[]; dirty?: boolean; onSave?: () => void; saving?: boolean;
 }
 export function ConfigTemplate(p: ConfigTemplateProps) {
+  const { t } = useLanguage();
   return (
     <div style={{ padding: 24, maxWidth: 920 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb}
         actions={p.onSave && (
           <button onClick={p.onSave} disabled={p.saving || !p.dirty}
             style={{ padding: '8px 18px', borderRadius: 'var(--radius-md)', border: 'none', background: p.dirty ? 'var(--color-primary)' : 'var(--bg-muted)', color: p.dirty ? 'var(--text-on-dark)' : 'var(--text-disabled)', fontWeight: 600, cursor: p.dirty ? 'pointer' : 'not-allowed' }}>
-            {p.saving ? '保存中…' : '保存'}
+            {p.saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
           </button>
         )} />
-      {p.dirty && <div style={{ marginBottom: 12, padding: '8px 14px', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--status-warning) 14%, transparent)', color: 'var(--status-warning)', fontSize: 12.5 }}>有未保存的更改</div>}
+      {p.dirty && <div style={{ marginBottom: 12, padding: '8px 14px', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--status-warning) 14%, transparent)', color: 'var(--status-warning)', fontSize: 12.5 }}>{t('ui.有未保存的更改','有未保存的更改')}</div>}
       {p.sections.map((s, i) => <PageSection key={i} title={s.title}>{s.content}</PageSection>)}
     </div>
   );
@@ -149,19 +153,20 @@ export interface DetailTemplateProps {
   timeline?: TimelineItem[];
 }
 export function DetailTemplate(p: DetailTemplateProps) {
+  const { t } = useLanguage();
   return (
     <div style={{ padding: 24, maxWidth: 1080 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb}
         actions={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{p.status && <StatusBadge status={p.status} size="md" />}{p.actions}</div>} />
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <DetailPanel title="核心信息" items={p.coreFields} />
+          <DetailPanel title={t('ui.核心信息','核心信息')} items={p.coreFields} />
           {p.sections?.map((s, i) => <PageSection key={i} title={s.title}>{s.content}</PageSection>)}
-          {p.attachments && <PageSection title="附件"><AttachmentViewer urls={p.attachments.urls} count={p.attachments.count} /></PageSection>}
+          {p.attachments && <PageSection title={t('ui.附件','附件')}><AttachmentViewer urls={p.attachments.urls} count={p.attachments.count} /></PageSection>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {p.approval && <PageSection title="审批记录"><WorkflowTimeline steps={p.approval} title="" /></PageSection>}
-          {p.timeline && <PageSection title="操作记录"><AuditTimeline items={p.timeline} title="" /></PageSection>}
+          {p.approval && <PageSection title={t('ui.审批记录','审批记录')}><WorkflowTimeline steps={p.approval} title="" /></PageSection>}
+          {p.timeline && <PageSection title={t('ui.操作记录','操作记录')}><AuditTimeline items={p.timeline} title="" /></PageSection>}
         </div>
       </div>
     </div>

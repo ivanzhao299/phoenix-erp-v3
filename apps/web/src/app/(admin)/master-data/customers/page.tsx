@@ -6,6 +6,7 @@ import { MasterDataRuntimePanel, type MdField } from "@/components/master-data/M
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { customerConfig } from "@/components/master-data/detail-configs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * 主数据中心 — 客户主数据 Runtime（G3-A + UIX-7 产品化）
@@ -31,15 +32,16 @@ export const CUSTOMER_FIELDS: MdField[] = [
 ];
 
 export default function CustomerRuntimePage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title="客户中心" subtitle="客户运营态势 · 业务关系 · 应收风险 · 点击编码查看客户全景" breadcrumb={["主数据中心", "客户中心"]} />
+      <PageHeader title={t('md.customerCenter', '客户中心')} subtitle={t('md.customerCenterSub', '客户运营态势 · 业务关系 · 应收风险 · 点击编码查看客户全景')} breadcrumb={[t('md.center', '主数据中心'), t('md.customerCenter', '客户中心')]} />
       <MasterDataCenterStrip type="customer" />
       <MasterDataRuntimePanel
         type="customer"
-        title="客户"
+        title={t('md.customer', '客户')}
         codeKey="customer_no"
         nameKey="customer_name"
         mode="page"
@@ -47,11 +49,11 @@ export default function CustomerRuntimePage() {
         onCodeClick={(code) => router.push("/master-data/customers/" + encodeURIComponent(code))}
         fields={CUSTOMER_FIELDS}
         columns={[
-          { key: "customer_name", label: "客户名称" },
-          { key: "customer_type", label: "类型" },
-          { key: "company_code", label: "公司" },
-          { key: "contact_name", label: "联系人" },
-          { key: "contact_phone", label: "电话" },
+          { key: "customer_name", label: t('md.customerName', '客户名称') },
+          { key: "customer_type", label: t('md.type', '类型') },
+          { key: "company_code", label: t('md.company', '公司') },
+          { key: "contact_name", label: t('md.contactName', '联系人') },
+          { key: "contact_phone", label: t('md.phone', '电话') },
         ]}
       />
       <MasterDataDetailDrawer

@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── JSON Schema 类型 ───────────────────────────────────────────────────────────
 
@@ -108,10 +109,11 @@ export function WorkflowFormRenderer({
   disabled = false,
   className,
 }: WorkflowFormRendererProps) {
+  const { t } = useLanguage();
   if (!schema?.properties) {
     return (
       <div style={{ color: 'var(--slate-400)', fontSize: 14, padding: 16 }}>
-        表单结构未定义（schema.properties 为空）
+        {t('ui.表单结构未定义（schema.properties 为空）','表单结构未定义（schema.properties 为空）')}
       </div>
     );
   }
@@ -155,7 +157,7 @@ export function WorkflowFormRenderer({
                   type="text"
                   value={String(fieldValue ?? '')}
                   onChange={e => onChange(key, e.target.value)}
-                  placeholder={ui?.placeholder ?? `请输入${title}`}
+                  placeholder={ui?.placeholder ?? `${t('ui.请输入','请输入')}${title}`}
                   maxLength={propSchema.maxLength}
                   disabled={disabled}
                   style={{
@@ -172,7 +174,7 @@ export function WorkflowFormRenderer({
               <textarea
                 value={String(fieldValue ?? '')}
                 onChange={e => onChange(key, e.target.value)}
-                placeholder={ui?.placeholder ?? `请输入${title}`}
+                placeholder={ui?.placeholder ?? `${t('ui.请输入','请输入')}${title}`}
                 rows={ui?.rows ?? 3}
                 maxLength={propSchema.maxLength}
                 disabled={disabled}
@@ -193,7 +195,7 @@ export function WorkflowFormRenderer({
                   type="number"
                   value={fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : ''}
                   onChange={e => onChange(key, e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder={ui?.placeholder ?? `请输入${title}`}
+                  placeholder={ui?.placeholder ?? `${t('ui.请输入','请输入')}${title}`}
                   min={propSchema.minimum}
                   max={propSchema.maximum}
                   disabled={disabled}
@@ -231,7 +233,7 @@ export function WorkflowFormRenderer({
                 disabled={disabled}
                 style={{ ...baseStyle, ...disabledStyle, cursor: disabled ? 'not-allowed' : 'pointer' }}
               >
-                <option value="">— 请选择 —</option>
+                <option value="">{t('ui.— 请选择 —','— 请选择 —')}</option>
                 {/* 优先使用 uiSchema options，否则使用 schema.enum */}
                 {(ui?.options
                   ? ui.options

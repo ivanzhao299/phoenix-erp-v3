@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowCcTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 function statusToneCC(status: string): Tone {
@@ -17,6 +18,7 @@ function statusToneCC(status: string): Tone {
   return "default";
 }
 export default function WorkflowCcPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowCcTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,29 +49,29 @@ export default function WorkflowCcPage() {
     setError("");
     try {
       await workflowApi.markCcRead(row.id);
-      setNotice("已标记为已读。");
+      setNotice(t('ui.已标记为已读。','已标记为已读。'));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "标记已读失败");
+      setError(err instanceof Error ? err.message : t('ui.标记已读失败','标记已读失败'));
     } finally {
       setLoading(false);
     }
   }
   return <div>
-      <PageHeader title="抄送我的" subtitle="查看流程知会、同步审批结果和业务变更，不需要审批也能保留阅读记录" breadcrumb={["工作流", "抄送我的"]} actions={<Link href="/workflow/start" style={primaryActionButton}>发起申请</Link>} />
+      <PageHeader title={t('ui.抄送我的','抄送我的')} subtitle={t('ui.查看流程知会、同步审批结果和业务变更，不需要审批也能保留阅读记录','查看流程知会、同步审批结果和业务变更，不需要审批也能保留阅读记录')} breadcrumb={[t('ui.工作流','工作流'), t('ui.抄送我的','抄送我的')]} actions={<Link href="/workflow/start" style={primaryActionButton}>{t('ui.发起申请','发起申请')}</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={summaryStyle}>
-          <Metric label="全部知会" value={rows.length} />
-          <Metric label="未读" value={unreadCount} tone={unreadCount ? "warn" : "ok"} />
-          <Metric label="已读" value={rows.length - unreadCount} />
+          <Metric label={t('ui.全部知会','全部知会')} value={rows.length} />
+          <Metric label={t('ui.未读','未读')} value={unreadCount} tone={unreadCount ? "warn" : "ok"} />
+          <Metric label={t('ui.已读','已读')} value={rows.length - unreadCount} />
           <div style={{
           marginLeft: "auto",
           display: "flex",
           gap: 8
         }}>
-            <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>刷新</button>
-            <Link href="/workflow/tasks/todo" style={secondaryActionButton}>去处理待办</Link>
+            <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>{t('ui.刷新','刷新')}</button>
+            <Link href="/workflow/tasks/todo" style={secondaryActionButton}>{t('ui.去处理待办','去处理待办')}</Link>
           </div>
         </div>
       </section>
@@ -79,10 +81,10 @@ export default function WorkflowCcPage() {
           <div className={s.cardBody}>
             <div style={sectionHeaderStyle}>
               <div>
-                <h3 className={s.cardTitle}>知会列表</h3>
-                <p className={`${s.modalDesc} ${u.mt4}`}>未读会自动排在前面。</p>
+                <h3 className={s.cardTitle}>{t('ui.知会列表','知会列表')}</h3>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.未读会自动排在前面。','未读会自动排在前面。')}</p>
               </div>
-              {unreadCount ? <span style={actionPill('warning')}>{unreadCount} 条未读</span> : <span style={actionPill('success')}>已全部阅读</span>}
+              {unreadCount ? <span style={actionPill('warning')}>{unreadCount} {t('ui.条未读','条未读')}</span> : <span style={actionPill('success')}>{t('ui.已全部阅读','已全部阅读')}</span>}
             </div>
 
             {rows.length ? <div style={listStyle}>
@@ -93,13 +95,13 @@ export default function WorkflowCcPage() {
             }}>
                     <span style={itemTopStyle}>
                       <strong>{row.title || row.instance_no}</strong>
-                      {!row.read_at ? <b style={unreadDotStyle}>未读</b> : <small>已读</small>}
+                      {!row.read_at ? <b style={unreadDotStyle}>{t('ui.未读','未读')}</b> : <small>{t('ui.已读','已读')}</small>}
                     </span>
-                    <span>{row.definition_name || "工作流"} · {row.starter_name || "发起人"}</span>
+                    <span>{row.definition_name || t('ui.工作流','工作流')} · {row.starter_name || t('ui.发起人','发起人')}</span>
                     <small>{row.instance_no || "-"} · {formatDate(row.created_at)}</small>
                   </button>)}
               </div> : <div className={s.emptyState}>
-                <div className={s.emptyStateText}>当前没有抄送给你的流程。</div>
+                <div className={s.emptyStateText}>{t('ui.当前没有抄送给你的流程。','当前没有抄送给你的流程。')}</div>
               </div>}
           </div>
         </section>
@@ -110,33 +112,33 @@ export default function WorkflowCcPage() {
                 <div>
                   <h3 className={s.cardTitle}>{selected.title}</h3>
                   <p className={`${s.modalDesc} ${u.mt4}`}>
-                    {selected.definition_name || "工作流"} · {selected.instance_no || "-"}
+                    {selected.definition_name || t('ui.工作流','工作流')} · {selected.instance_no || "-"}
                   </p>
                 </div>
                 <span className={statusBadgeClass(selected.instance_status)}>{statusText(selected.instance_status)}</span>
               </div>
 
               <div className={`${s.infoGrid3} ${u.mb16}`}>
-                <Meta label="发起人" value={selected.starter_name || "-"} />
-                <Meta label="知会对象" value={receiverText(selected)} />
-                <Meta label="知会时间" value={formatDate(selected.created_at)} />
-                <Meta label="阅读状态" value={selected.read_at ? `已读 ${formatDate(selected.read_at)}` : "未读"} />
+                <Meta label={t('ui.发起人','发起人')} value={selected.starter_name || "-"} />
+                <Meta label={t('ui.知会对象','知会对象')} value={receiverText(selected)} />
+                <Meta label={t('ui.知会时间','知会时间')} value={formatDate(selected.created_at)} />
+                <Meta label={t('ui.阅读状态','阅读状态')} value={selected.read_at ? `${t('ui.已读','已读')} ${formatDate(selected.read_at)}` : t('ui.未读','未读')} />
               </div>
 
               {notice ? <div className={s.successBanner}>{notice}</div> : null}
               {error ? <div className={s.errorBanner}>{error}</div> : null}
 
-              <h4 className={s.formSection}>申请内容</h4>
+              <h4 className={s.formSection}>{t('ui.申请内容','申请内容')}</h4>
               <WorkflowDataView data={selected.form_data_json || {}} schema={selected.form_schema_json} />
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看流程详情</Link>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>{t('ui.查看流程详情','查看流程详情')}</Link>
                 <button type="button" style={primaryActionButton} disabled={loading || Boolean(selected.read_at)} onClick={() => markRead()}>
-                  {selected.read_at ? "已读" : loading ? "处理中..." : "标记已读"}
+                  {selected.read_at ? t('ui.已读','已读') : loading ? t('ui.处理中...','处理中...') : t('ui.标记已读','标记已读')}
                 </button>
               </div>
             </div> : <div className={s.emptyState}>
-              <div className={s.emptyStateText}>选择一条知会后查看内容。</div>
+              <div className={s.emptyStateText}>{t('ui.选择一条知会后查看内容。','选择一条知会后查看内容。')}</div>
             </div>}
         </section>
       </div>

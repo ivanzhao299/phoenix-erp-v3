@@ -30,6 +30,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { organizationConfig, companyConfig } from "@/components/master-data/detail-configs";
@@ -164,28 +165,30 @@ const inputFieldDisabled: React.CSSProperties = { ...inputField, opacity: 0.5, c
 // ── Helper components ─────────────────────────────────────────────────────────
 
 function OrgTypeBadge({ type }: { type: OrgType }) {
+  const { t } = useLanguage();
   const cfg = ORG_TYPE_CONFIG[type] ?? ORG_TYPE_CONFIG.DEPARTMENT;
   // 用 pillBadge 全局 token 统一 padding/字号/圆角；颜色保留 className 控制（每个 type 不同 brand 色）
   return (
     <span className={cfg.badgeCls} style={pillBadge}>
       <cfg.Icon size={14} />
-      {cfg.label}
+      {t('md.orgType.' + type, cfg.label)}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
   if (status === "ACTIVE") {
     return (
       <span className="bg-success/10 text-success border-success/20" style={pillBadge}>
-        <CheckCircle2 size={14} /> 启用
+        <CheckCircle2 size={14} /> {t('md.enabled', '启用')}
       </span>
     );
   }
   if (status === "INACTIVE") {
     return (
       <span className="bg-danger/10 text-danger border-danger/20" style={pillBadge}>
-        <XCircle size={14} /> 停用
+        <XCircle size={14} /> {t('md.disabled', '停用')}
       </span>
     );
   }
@@ -210,6 +213,7 @@ function TreeNode({
   onSelect: (code: string) => void;
   onToggleCollapse: (id: number) => void;
 }) {
+  const { t } = useLanguage();
   const cfg = ORG_TYPE_CONFIG[node.orgType] ?? ORG_TYPE_CONFIG.DEPARTMENT;
   const isSelected = selectedCode === node.orgCode;
   const isCollapsed = collapsed.has(node.id);
@@ -273,7 +277,7 @@ function TreeNode({
 
         {/* Status dot */}
         {node.status !== "ACTIVE" && (
-          <span className="w-1.5 h-1.5 rounded-full bg-danger flex-shrink-0" title="已停用" />
+          <span className="w-1.5 h-1.5 rounded-full bg-danger flex-shrink-0" title={t('md.disabledStatus', '已停用')} />
         )}
 
         {/* Type badge (compact, only shown on hover or selected) */}
@@ -327,6 +331,7 @@ function DetailRow({ label, value, mono = false }: {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MdOrganizationsPage() {
+  const { t } = useLanguage();
   const toast = useToast();
   const { canView, canCreate, canEdit, canDelete } = usePermission("MENU_MD_ORG");
 
@@ -400,7 +405,7 @@ export default function MdOrganizationsPage() {
         setFlat(list);
       }
     } catch (e) {
-      toast.error("加载组织架构失败：" + (e instanceof Error ? e.message : "网络错误"));
+      toast.error(t('md.loadOrgFailed', '加载组织架构失败：') + (e instanceof Error ? e.message : t('md.networkError', '网络错误')));
     } finally {
       setLoading(false);
     }
@@ -487,8 +492,8 @@ export default function MdOrganizationsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.orgName.trim()) { toast.error("组织名称不能为空"); return; }
-    if (!editingCode && !form.orgCode.trim()) { toast.error("新建时必须填写组织编码"); return; }
+    if (!form.orgName.trim()) { toast.error(t('md.orgNameRequired', '组织名称不能为空')); return; }
+    if (!editingCode && !form.orgCode.trim()) { toast.error(t('md.orgCodeRequired', '新建时必须填写组织编码')); return; }
 
     setSaving(true);
     try {
@@ -519,7 +524,7 @@ export default function MdOrganizationsPage() {
       const json = await res.json();
 
       if (json.code === 200) {
-        toast.success(editingCode ? "组织信息已更新" : "组织节点已创建");
+        toast.success(editingCode ? t('md.orgUpdated', '组织信息已更新') : t('md.orgCreated', '组织节点已创建'));
         setDrawerOpen(false);
         const newCode = editingCode ?? (json.data?.orgCode ?? form.orgCode.toUpperCase());
         await load();
@@ -528,7 +533,7 @@ export default function MdOrganizationsPage() {
         throw new Error(json.message ?? json.msg ?? `HTTP ${res.status}`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t('md.opFailed', '操作失败'));
     } finally {
       setSaving(false);
     }
@@ -540,7 +545,7 @@ export default function MdOrganizationsPage() {
     if (!selectedOrg || toggling) return;
     const isActive = selectedOrg.status === "ACTIVE";
     const action = isActive ? "disable" : "enable";
-    const label  = isActive ? "停用" : "启用";
+    const label  = isActive ? t('md.disabled', '停用') : t('md.enabled', '启用');
 
     setToggling(true);
     try {
@@ -549,13 +554,13 @@ export default function MdOrganizationsPage() {
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success(`已${label}组织「${selectedOrg.orgShortName || selectedOrg.orgName}」`);
+        toast.success(`${t('md.done', '已')}${label}${t('md.orgWord', '组织')}「${selectedOrg.orgShortName || selectedOrg.orgName}」`);
         await load();
       } else {
         throw new Error(json.message ?? `HTTP ${res.status}`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t('md.opFailed', '操作失败'));
     } finally {
       setToggling(false);
     }
@@ -579,7 +584,7 @@ export default function MdOrganizationsPage() {
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success(`已删除组织「${name}」`);
+        toast.success(`${t('md.deletedOrg', '已删除组织')}「${name}」`);
         const parentCode = selectedOrg.parentCode;
         await load();
         setSelectedCode(parentCode ?? null);
@@ -587,7 +592,7 @@ export default function MdOrganizationsPage() {
         throw new Error(json.message ?? `HTTP ${res.status}`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "删除失败");
+      toast.error(e instanceof Error ? e.message : t('md.deleteFailed', '删除失败'));
     } finally {
       setDeleting(false);
     }
@@ -600,18 +605,18 @@ export default function MdOrganizationsPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (!canView) {
-    return <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>无权限查看组织架构</div>;
+    return <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>{t('md.noPermOrg', '无权限查看组织架构')}</div>;
   }
 
   return (
     <div className="animate-fade-in flex flex-col gap-0" style={{ padding: "24px 32px" }}>
       <PageHeader
-        title="组织架构"
-        subtitle={`共 ${totalCount} 个组织 · 启用 ${activeCount} · 健康度 ${totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}% — 集团 / 公司 / 场区 / 部门（事业群已解耦为业务维度）`}
-        breadcrumb={["主数据中心", "组织架构"]}
+        title={t('md.orgStructure', '组织架构')}
+        subtitle={`${t('md.total', '共')} ${totalCount} ${t('md.orgsUnit', '个组织')} · ${t('md.enabled', '启用')} ${activeCount} · ${t('md.healthScore', '健康度')} ${totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}% — ${t('md.orgStructureHint', '集团 / 公司 / 场区 / 部门（事业群已解耦为业务维度）')}`}
+        breadcrumb={[t('md.center', '主数据中心'), t('md.orgStructure', '组织架构')]}
         actions={canCreate ? (
           <button type="button" onClick={openNew} style={primaryActionButton}>
-            <Plus size={14} /> 新增组织
+            <Plus size={14} /> {t('md.newOrg', '新增组织')}
           </button>
         ) : null}
       />
@@ -635,12 +640,12 @@ export default function MdOrganizationsPage() {
           {/* Tree header — 用 cockpitCardHeader token 跟右栏 4 卡 header 风格一致 */}
           <div style={cockpitCardHeader}>
             <Network size={14} style={{ color: 'var(--color-primary)' }} />
-            <span style={cockpitCardHeaderTitle}>组织树</span>
+            <span style={cockpitCardHeaderTitle}>{t('md.orgTree', '组织树')}</span>
             <span style={cockpitCardHeaderHint}>{activeCount}/{totalCount}</span>
             <button
               onClick={load}
               disabled={loading}
-              title="刷新"
+              title={t('md.refresh', '刷新')}
               style={{ background: 'transparent', border: 'none', padding: 4, borderRadius: 6, cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex' }}
             >
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
@@ -650,7 +655,7 @@ export default function MdOrganizationsPage() {
           {/* Search + Filter + Expand/collapse 合并成一个工具栏，去段间 border-b */}
           <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Search */}
-            <SearchInput value={treeSearch} onChange={setTreeSearch} placeholder="搜索组织名称或编码…" />
+            <SearchInput value={treeSearch} onChange={setTreeSearch} placeholder={t('md.searchOrgPlaceholder', '搜索组织名称或编码…')} />
 
             {/* Filter pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -670,7 +675,7 @@ export default function MdOrganizationsPage() {
                     border: filter === f.value ? '1px solid var(--color-primary)' : '1px solid var(--border)',
                   }}
                 >
-                  {f.label}
+                  {t('md.orgFilter.' + (f.value || 'ALL'), f.label)}
                 </button>
               ))}
             </div>
@@ -694,7 +699,7 @@ export default function MdOrganizationsPage() {
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-text-dim">
                 <Inbox size={28} className="opacity-30" />
                 <span className="text-xs text-center">
-                  {treeSearch ? "无匹配结果" : "暂无组织数据"}
+                  {treeSearch ? t('md.noMatch', '无匹配结果') : t('md.noOrgData', '暂无组织数据')}
                 </span>
               </div>
             ) : filteredTree.map(node => (
@@ -742,15 +747,15 @@ export default function MdOrganizationsPage() {
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-muted)', cursor: 'pointer' }}
                   >
-                    查看下级 <ArrowRight size={11} />
+                    {t('md.viewChildren', '查看下级')} <ArrowRight size={11} />
                   </button>
                 )}
                 <button
                   onClick={() => setDetailCode(selectedOrg.orgCode)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-primary)', background: 'var(--bg-muted)', cursor: 'pointer' }}
-                  title={selectedOrg.orgType === "COMPANY" ? "公司中心" : "组织中心"}
+                  title={selectedOrg.orgType === "COMPANY" ? t('md.companyCenter', '公司中心') : t('md.orgCenter', '组织中心')}
                 >
-                  <Info size={12} /> {selectedOrg.orgType === "COMPANY" ? "公司中心" : "组织中心"}
+                  <Info size={12} /> {selectedOrg.orgType === "COMPANY" ? t('md.companyCenter', '公司中心') : t('md.orgCenter', '组织中心')}
                 </button>
                 {canEdit && (
                   <>
@@ -758,7 +763,7 @@ export default function MdOrganizationsPage() {
                       onClick={openEdit}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid var(--color-primary)', color: 'var(--color-primary)', background: 'transparent', cursor: 'pointer' }}
                     >
-                      <Edit3 size={12} /> 编辑
+                      <Edit3 size={12} /> {t('md.edit', '编辑')}
                     </button>
                     <button
                       onClick={handleToggleStatus}
@@ -773,8 +778,8 @@ export default function MdOrganizationsPage() {
                       {toggling
                         ? <RefreshCw size={12} className="animate-spin" />
                         : selectedOrg.status === 'ACTIVE'
-                          ? <><PowerOff size={12} /> 停用</>
-                          : <><Power size={12} /> 启用</>}
+                          ? <><PowerOff size={12} /> {t('md.disabled', '停用')}</>
+                          : <><Power size={12} /> {t('md.enabled', '启用')}</>}
                     </button>
                   </>
                 )}
@@ -782,14 +787,14 @@ export default function MdOrganizationsPage() {
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    title="删除组织（有子节点或成员绑定时不可删）"
+                    title={t('md.deleteOrgTitle', '删除组织（有子节点或成员绑定时不可删）')}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
                       border: '1px solid var(--status-danger)', color: 'var(--status-danger)',
                       background: 'transparent', cursor: 'pointer', opacity: deleting ? 0.5 : 1,
                     }}
                   >
-                    {deleting ? <RefreshCw size={12} className="animate-spin" /> : <><Trash2 size={12} /> 删除</>}
+                    {deleting ? <RefreshCw size={12} className="animate-spin" /> : <><Trash2 size={12} /> {t('md.delete', '删除')}</>}
                   </button>
                 )}
               </div>
@@ -797,8 +802,8 @@ export default function MdOrganizationsPage() {
               {/* ORG-MERGE — Tab 切换 */}
               <div style={{ display: 'flex', gap: 4, padding: '0 16px', borderBottom: '1px solid var(--border)' }}>
                 {[
-                  { key: 'info', label: '组织档案' },
-                  { key: 'members', label: '成员管理' },
+                  { key: 'info', label: t('md.orgArchive', '组织档案') },
+                  { key: 'members', label: t('md.memberManage', '成员管理') },
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -826,7 +831,7 @@ export default function MdOrganizationsPage() {
                   {/* Section header: 与左栏"组织树"header 风格一致（cockpitCardHeader token） */}
                   <div style={cockpitCardHeader}>
                     <Info size={14} style={{ color: 'var(--color-primary)' }} />
-                    <span style={cockpitCardHeaderTitle}>组织档案</span>
+                    <span style={cockpitCardHeaderTitle}>{t('md.orgArchive', '组织档案')}</span>
                     <span style={cockpitCardHeaderHint}>
                       {ORG_TYPE_CONFIG[selectedOrg.orgType]?.label} · L{selectedOrg.level}
                     </span>
@@ -834,45 +839,45 @@ export default function MdOrganizationsPage() {
 
                   {/* 2 列属性网格 */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0' }}>
-                    <PropCell label="正式全称" value={selectedOrg.orgName} mono={false} />
-                    <PropCell label="简称" value={selectedOrg.orgShortName || '—'} />
-                    <PropCell label="组织编码" value={selectedOrg.orgCode} mono />
-                    <PropCell label="组织类型" value={<OrgTypeBadge type={selectedOrg.orgType} />} />
-                    <PropCell label="状态" value={<StatusBadge status={selectedOrg.status} />} />
-                    <PropCell label="层级" value={
+                    <PropCell label={t('md.formalFullName', '正式全称')} value={selectedOrg.orgName} mono={false} />
+                    <PropCell label={t('md.shortName', '简称')} value={selectedOrg.orgShortName || '—'} />
+                    <PropCell label={t('md.orgCode', '组织编码')} value={selectedOrg.orgCode} mono />
+                    <PropCell label={t('md.orgTypeLabel', '组织类型')} value={<OrgTypeBadge type={selectedOrg.orgType} />} />
+                    <PropCell label={t('md.status', '状态')} value={<StatusBadge status={selectedOrg.status} />} />
+                    <PropCell label={t('md.level', '层级')} value={
                       <span className="inline-flex items-center gap-1.5">
                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-brand/10 text-brand text-[11px] font-bold">{selectedOrg.level}</span>
                         <span className="text-xs text-text-muted">L{selectedOrg.level}</span>
                       </span>
                     } />
-                    <PropCell label="上级组织" value={
+                    <PropCell label={t('md.parentOrg', '上级组织')} value={
                       parentOrg
                         ? <button onClick={() => setSelectedCode(parentOrg.orgCode)}
                             className="inline-flex items-center gap-1 text-brand hover:underline" style={{ fontSize: 13, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
                             {parentOrg.orgShortName || parentOrg.orgName}<ArrowRight size={11} />
                           </button>
-                        : <span className="text-text-dim text-xs">顶级组织</span>
+                        : <span className="text-text-dim text-xs">{t('md.topOrg', '顶级组织')}</span>
                     } />
-                    <PropCell label="下级数量" value={
+                    <PropCell label={t('md.childCount', '下级数量')} value={
                       <span style={{ fontSize: 13 }}>
                         <strong style={{ color: 'var(--text-primary)' }}>{flat.filter(o => o.parentId === selectedOrg.id).length}</strong>
-                        <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>直属 ·</span>
+                        <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>{t('md.direct', '直属')} ·</span>
                         <strong style={{ color: 'var(--text-primary)' }}>{flat.filter(o => o.path?.includes(`/${selectedOrg.id}/`) || o.parentId === selectedOrg.id).length}</strong>
-                        <span style={{ color: 'var(--text-secondary)' }}>全部</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{t('md.all', '全部')}</span>
                       </span>
                     } />
-                    {selectedOrg.companyCode && <PropCell label="关联公司" value={selectedOrg.companyCode} mono />}
-                    {selectedOrg.managerName && <PropCell label="负责人" value={selectedOrg.managerName} />}
-                    <PropCell label="排序权重" value={String(selectedOrg.sortOrder ?? 0)} />
+                    {selectedOrg.companyCode && <PropCell label={t('md.linkedCompany', '关联公司')} value={selectedOrg.companyCode} mono />}
+                    {selectedOrg.managerName && <PropCell label={t('md.manager', '负责人')} value={selectedOrg.managerName} />}
+                    <PropCell label={t('md.sortWeight', '排序权重')} value={String(selectedOrg.sortOrder ?? 0)} />
                     {selectedOrg.orgType === "SITE" && selectedOrg.siteBusinessType && (
-                      <PropCell label="场区业务类型" value={SITE_BUSINESS_TYPES.find(t => t.value === selectedOrg.siteBusinessType)?.label ?? selectedOrg.siteBusinessType} />
+                      <PropCell label={t('md.siteBizType', '场区业务类型')} value={t('md.siteBiz.' + selectedOrg.siteBusinessType, SITE_BUSINESS_TYPES.find(tb => tb.value === selectedOrg.siteBusinessType)?.label ?? selectedOrg.siteBusinessType)} />
                     )}
                   </div>
 
                   {/* 路径独占一行（无 borderTop，共用 propCell 风格） */}
                   {selectedOrg.path && (
                     <div style={propCell}>
-                      <span style={propLabel}>组织路径</span>
+                      <span style={propLabel}>{t('md.orgPath', '组织路径')}</span>
                       <code style={{ ...propValue, fontFamily: 'monospace', wordBreak: 'break-all' }}>{selectedOrg.path}</code>
                     </div>
                   )}
@@ -880,7 +885,7 @@ export default function MdOrganizationsPage() {
                   {/* 备注独占一行 */}
                   {selectedOrg.remark && (
                     <div style={propCell}>
-                      <span style={propLabel}>备注</span>
+                      <span style={propLabel}>{t('md.remark', '备注')}</span>
                       <span style={propValue}>{selectedOrg.remark}</span>
                     </div>
                   )}
@@ -895,8 +900,8 @@ export default function MdOrganizationsPage() {
                 <Network size={32} className="text-brand opacity-50" />
               </div>
               <div>
-                <p className="text-sm font-medium text-text-muted">在左侧点击组织节点</p>
-                <p className="text-xs text-text-dim mt-1">查看完整组织信息和层级关系</p>
+                <p className="text-sm font-medium text-text-muted">{t('md.clickOrgNode', '在左侧点击组织节点')}</p>
+                <p className="text-xs text-text-dim mt-1">{t('md.viewFullOrgInfo', '查看完整组织信息和层级关系')}</p>
               </div>
             </div>
 
@@ -910,7 +915,7 @@ export default function MdOrganizationsPage() {
       <RightDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={editingCode ? `编辑组织 — ${editingCode}` : "新建组织"}
+        title={editingCode ? `${t('md.editOrg', '编辑组织')} — ${editingCode}` : t('md.newOrgDrawer', '新建组织')}
         width="480px"
         footer={
           <div className="flex gap-3 w-full">
@@ -919,7 +924,7 @@ export default function MdOrganizationsPage() {
               onClick={() => setDrawerOpen(false)}
               style={{ ...secondaryActionButton, flex: 1, justifyContent: 'center', padding: '10px 18px' }}
             >
-              取消
+              {t('md.cancel', '取消')}
             </button>
             <button
               type="button"
@@ -930,9 +935,9 @@ export default function MdOrganizationsPage() {
               {saving ? (
                 <>
                   <RefreshCw size={13} className="animate-spin" />
-                  保存中…
+                  {t('md.saving', '保存中…')}
                 </>
-              ) : editingCode ? "保存修改" : "创建组织"}
+              ) : editingCode ? t('md.saveEdit', '保存修改') : t('md.createOrg', '创建组织')}
             </button>
           </div>
         }
@@ -942,56 +947,56 @@ export default function MdOrganizationsPage() {
           {/* Org code — required on create, read-only on edit */}
           <div>
             <label style={formLabel}>
-              组织编码
+              {t('md.orgCode', '组织编码')}
               {!editingCode && <span className="text-danger ml-0.5">*</span>}
-              {editingCode && <span className="ml-1 font-normal text-text-dim">（创建后不可修改）</span>}
+              {editingCode && <span className="ml-1 font-normal text-text-dim">{t('md.notEditableAfterCreate', '（创建后不可修改）')}</span>}
             </label>
             <input
               style={editingCode ? inputFieldDisabled : inputField}
               value={form.orgCode}
               readOnly={!!editingCode}
               onChange={e => setForm(p => ({ ...p, orgCode: e.target.value.toUpperCase() }))}
-              placeholder="如 GRP-LAODAN、CO-FHA（字母数字连字符）"
+              placeholder={t('md.orgCodePlaceholder', '如 GRP-LAODAN、CO-FHA（字母数字连字符）')}
             />
           </div>
 
           {/* Org name */}
           <div>
             <label style={formLabel}>
-              正式全称 <span className="text-danger">*</span>
+              {t('md.formalFullName', '正式全称')} <span className="text-danger">*</span>
             </label>
             <input
               style={inputField}
               value={form.orgName}
               autoFocus={!editingCode}
               onChange={e => setForm(p => ({ ...p, orgName: e.target.value }))}
-              placeholder="例：老单农业集团有限公司"
+              placeholder={t('md.orgNamePlaceholder', '例：老单农业集团有限公司')}
             />
           </div>
 
           {/* Org short name */}
           <div>
-            <label style={formLabel}>简称（展示用）</label>
+            <label style={formLabel}>{t('md.shortNameForDisplay', '简称（展示用）')}</label>
             <input
               style={inputField}
               value={form.orgShortName}
               onChange={e => setForm(p => ({ ...p, orgShortName: e.target.value }))}
-              placeholder="例：老单集团"
+              placeholder={t('md.shortNamePlaceholder', '例：老单集团')}
             />
           </div>
 
           {/* Org type */}
           <div>
             <label style={formLabel}>
-              组织类型 <span className="text-danger">*</span>
+              {t('md.orgTypeLabel', '组织类型')} <span className="text-danger">*</span>
             </label>
             <select
               style={inputField}
               value={form.orgType}
               onChange={e => setForm(p => ({ ...p, orgType: e.target.value as OrgType }))}
             >
-              {ORG_TYPES_SELECT.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {ORG_TYPES_SELECT.map(opt => (
+                <option key={opt.value} value={opt.value}>{t('md.orgTypeSelect.' + opt.value, opt.label)}</option>
               ))}
             </select>
           </div>
@@ -999,15 +1004,15 @@ export default function MdOrganizationsPage() {
           {/* Site business type — only for SITE */}
           {form.orgType === "SITE" && (
             <div>
-              <label style={formLabel}>场区业务类型</label>
+              <label style={formLabel}>{t('md.siteBizType', '场区业务类型')}</label>
               <select
                 style={inputField}
                 value={form.siteBusinessType}
                 onChange={e => setForm(p => ({ ...p, siteBusinessType: e.target.value as SiteBusinessType | "" }))}
               >
-                <option value="">请选择（可选）</option>
-                {SITE_BUSINESS_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                <option value="">{t('md.pleaseSelectOptional', '请选择（可选）')}</option>
+                {SITE_BUSINESS_TYPES.map(opt => (
+                  <option key={opt.value} value={opt.value}>{t('md.siteBizSelect.' + opt.value, opt.label)}</option>
                 ))}
               </select>
             </div>
@@ -1015,19 +1020,19 @@ export default function MdOrganizationsPage() {
 
           {/* Parent org */}
           <div>
-            <label style={formLabel}>上级组织</label>
+            <label style={formLabel}>{t('md.parentOrg', '上级组织')}</label>
             <select
               style={inputField}
               value={form.parentCode}
               onChange={e => setForm(p => ({ ...p, parentCode: e.target.value }))}
             >
-              <option value="">无（顶级组织）</option>
+              <option value="">{t('md.noneTopOrg', '无（顶级组织）')}</option>
               {flat
                 .filter(o => o.orgCode !== editingCode)
                 .map(o => (
                   <option key={o.id} value={o.orgCode}>
                     {"　".repeat(Math.max(0, o.level - 1))}
-                    {ORG_TYPE_CONFIG[o.orgType]?.label ?? o.orgType} · {o.orgShortName || o.orgName}
+                    {t('md.orgType.' + o.orgType, ORG_TYPE_CONFIG[o.orgType]?.label ?? o.orgType)} · {o.orgShortName || o.orgName}
                   </option>
                 ))
               }
@@ -1036,37 +1041,37 @@ export default function MdOrganizationsPage() {
 
           {/* Company code */}
           <div>
-            <label style={formLabel}>关联公司编码（可选）</label>
+            <label style={formLabel}>{t('md.linkedCompanyCodeOptional', '关联公司编码（可选）')}</label>
             <input
               style={inputField}
               value={form.companyCode}
               onChange={e => setForm(p => ({ ...p, companyCode: e.target.value }))}
-              placeholder="如 CO-FHA，用于数据范围过滤"
+              placeholder={t('md.companyCodePlaceholder', '如 CO-FHA，用于数据范围过滤')}
             />
           </div>
 
           {/* Sort order */}
           <div>
-            <label style={formLabel}>排序权重</label>
+            <label style={formLabel}>{t('md.sortWeight', '排序权重')}</label>
             <input
               type="number"
               style={inputField}
               value={form.sortOrder}
               onChange={e => setForm(p => ({ ...p, sortOrder: e.target.value }))}
-              placeholder="数值越小越靠前，默认 0"
+              placeholder={t('md.sortWeightPlaceholder', '数值越小越靠前，默认 0')}
               min={0}
             />
           </div>
 
           {/* Remark */}
           <div>
-            <label style={formLabel}>备注</label>
+            <label style={formLabel}>{t('md.remark', '备注')}</label>
             <textarea
               style={{ ...inputField, resize: 'none' }}
               rows={2}
               value={form.remark}
               onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-              placeholder="可选"
+              placeholder={t('md.optional', '可选')}
             />
           </div>
         </div>
@@ -1082,10 +1087,10 @@ export default function MdOrganizationsPage() {
 
       <ConfirmDialogV2
         open={confirmDelete}
-        title="删除组织"
-        message={selectedOrg ? `确定删除组织「${selectedOrg.orgShortName || selectedOrg.orgName}」（${selectedOrg.orgCode}）？删除不可恢复；有子节点或成员绑定时将被拒绝。` : ''}
+        title={t('md.deleteOrg', '删除组织')}
+        message={selectedOrg ? t('md.deleteOrgConfirm', '确定删除组织「{name}」（{code}）？删除不可恢复；有子节点或成员绑定时将被拒绝。').replace('{name}', selectedOrg.orgShortName || selectedOrg.orgName).replace('{code}', selectedOrg.orgCode) : ''}
         danger
-        confirmLabel="删除"
+        confirmLabel={t('md.delete', '删除')}
         loading={deleting}
         onConfirm={doDelete}
         onCancel={() => setConfirmDelete(false)}

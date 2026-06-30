@@ -37,6 +37,13 @@ export class FinCashAccountEntity {
   @Column({ name: 'account_name', type: 'varchar', length: 200 })
   accountName: string;
 
+  // task #25 多语言名称（AddMasterDataMultilingualNames 迁移建列；对齐 entity↔DB 消 g197-I 漂移）
+  @Column({ name: 'account_name_en', type: 'varchar', length: 255, nullable: true })
+  accountNameEn: string | null;
+
+  @Column({ name: 'account_name_lo', type: 'varchar', length: 255, nullable: true })
+  accountNameLo: string | null;
+
   // ── 公司维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'company_code', type: 'varchar', length: 64 })
   companyCode: string;

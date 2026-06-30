@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { fieldInputStyle } from './FormField';
 
 /**
@@ -14,12 +15,13 @@ export interface DateRangePickerProps {
 }
 
 export function DateRangePicker({ value, onChange, disabled }: DateRangePickerProps) {
+  const { t } = useLanguage();
   const inp: React.CSSProperties = { ...fieldInputStyle, width: 'auto', flex: 1, opacity: disabled ? 0.6 : 1 };
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <input type="date" value={value.from} disabled={disabled} max={value.to || undefined}
         onChange={(e) => onChange({ ...value, from: e.target.value })} style={inp} />
-      <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>至</span>
+      <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{t('ui.至','至')}</span>
       <input type="date" value={value.to} disabled={disabled} min={value.from || undefined}
         onChange={(e) => onChange({ ...value, to: e.target.value })} style={inp} />
     </div>

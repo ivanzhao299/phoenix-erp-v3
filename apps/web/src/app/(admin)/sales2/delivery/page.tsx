@@ -11,6 +11,7 @@ import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, DriverSelector, VehicleSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -260,6 +261,7 @@ function StatusBadge({
 
 type Tab = 'orders' | 'drivers' | 'vehicles';
 export default function DeliveryPage() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>('orders');
 
   // ── 配送单列表 ──
@@ -574,7 +576,7 @@ export default function DeliveryPage() {
     padding: '24px 32px',
     maxWidth: 1400
   }}>
-      <PageHeaderV2 title="配送管理" subtitle="配送单管理 · 装车→发车→到达→签收" />
+      <PageHeaderV2 title={t('ui.配送管理','配送管理')} subtitle={t('ui.配送单管理 · 装车→发车→到达→签收','配送单管理 · 装车→发车→到达→签收')} />
 
       {/* ── Dashboard Stats ── */}
       {stats && <div style={{
@@ -582,31 +584,31 @@ export default function DeliveryPage() {
       marginBottom: 24
     }}>
           {[{
-        label: '待装车',
+        label: t('ui.待装车','待装车'),
         value: stats.planned,
         color: 'var(--text-disabled)'
       }, {
-        label: '装车中',
+        label: t('ui.装车中','装车中'),
         value: stats.loading,
         color: 'var(--status-warning)'
       }, {
-        label: '已装车',
+        label: t('ui.已装车','已装车'),
         value: stats.loaded,
         color: 'var(--color-accent)'
       }, {
-        label: '在途中',
+        label: t('ui.在途中','在途中'),
         value: stats.departed,
         color: 'var(--status-special)'
       }, {
-        label: '已到达',
+        label: t('ui.已到达','已到达'),
         value: stats.arrived,
         color: 'var(--color-accent)'
       }, {
-        label: '今日完成',
+        label: t('ui.今日完成','今日完成'),
         value: stats.completedToday,
         color: 'var(--status-success)'
       }, {
-        label: '今日总单',
+        label: t('ui.今日总单','今日总单'),
         value: stats.totalToday,
         color: 'var(--text-secondary)'
       }].map(({
@@ -625,15 +627,15 @@ export default function DeliveryPage() {
     }}>
         {([{
         key: 'orders',
-        label: '配送单',
+        label: t('ui.配送单','配送单'),
         icon: Truck
       }, {
         key: 'drivers',
-        label: '司机档案',
+        label: t('ui.司机档案','司机档案'),
         icon: Users
       }, {
         key: 'vehicles',
-        label: '车辆档案',
+        label: t('ui.车辆档案','车辆档案'),
         icon: Car
       }] as const).map(({
         key,
@@ -685,7 +687,7 @@ export default function DeliveryPage() {
               transform: 'translateY(-50%)',
               opacity: 0.4
             }} />
-                <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setPage(1), loadOrders(1))} placeholder="配送单号 / 司机 / 车牌" style={{
+                <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setPage(1), loadOrders(1))} placeholder={t('ui.配送单号 / 司机 / 车牌','配送单号 / 司机 / 车牌')} style={{
               width: '100%',
               paddingLeft: 32,
               paddingRight: 12,
@@ -710,7 +712,7 @@ export default function DeliveryPage() {
             fontSize: 13,
             padding: '0 8px'
           }}>
-                <option value="">全部状态</option>
+                <option value="">{t('ui.全部状态','全部状态')}</option>
                 {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <button onClick={() => {
@@ -746,7 +748,7 @@ export default function DeliveryPage() {
             alignItems: 'center',
             gap: 5
           }}>
-                <Plus size={13} />新建
+                <Plus size={13} />{t('ui.新建','新建')}
               </button>
             </div>
 
@@ -757,7 +759,7 @@ export default function DeliveryPage() {
           gap: 6
         }}>
               {loading && <div className={u.p24}><LoadingSkeleton variant="line" rows={5} /></div>}
-              {!loading && orders.length === 0 && <EmptyState title="暂无配送单" compact />}
+              {!loading && orders.length === 0 && <EmptyState title={t('ui.暂无配送单','暂无配送单')} compact />}
               {orders.map(o => <div key={o.id} onClick={() => loadDetail(o)} style={{
             padding: '12px 16px',
             borderRadius: 8,
@@ -801,13 +803,13 @@ export default function DeliveryPage() {
                     <span><Package size={10} style={{
                   display: 'inline',
                   marginRight: 3
-                }} />{o.total_orders}单 / {o.total_qty}件</span>
+                }} />{o.total_orders}{t('ui.单','单')} / {o.total_qty}{t('ui.件','件')}</span>
                   </div>
                   {o.wave_date && <div style={{
               marginTop: 4,
               fontSize: 11,
               color: 'var(--text-secondary)'
-            }}>波次：{o.wave_date}</div>}
+            }}>{t('ui.波次：','波次：')}{o.wave_date}</div>}
                 </div>)}
             </div>
 
@@ -830,14 +832,14 @@ export default function DeliveryPage() {
             color: 'inherit',
             fontSize: 13
           }}>
-                  上一页
+                  {t('ui.上一页','上一页')}
                 </button>
                 <span style={{
             fontSize: 12,
             padding: '4px 8px',
             opacity: 0.5
           }}>
-                  第 {page} 页 / 共 {Math.ceil(total / 20)} 页
+                  {t('ui.第','第')} {page} {t('ui.页 / 共','页 / 共')} {Math.ceil(total / 20)} {t('ui.页','页')}
                 </span>
                 <button disabled={page * 20 >= total} onClick={() => {
             setPage(page + 1);
@@ -851,7 +853,7 @@ export default function DeliveryPage() {
             color: 'inherit',
             fontSize: 13
           }}>
-                  下一页
+                  {t('ui.下一页','下一页')}
                 </button>
               </div>}
           </div>
@@ -901,7 +903,7 @@ export default function DeliveryPage() {
           gap: 8,
           marginBottom: 16
         }}>
-                {[['公司', selected.company_code], ['司机', selected.driver_name ?? '—'], ['车辆', selected.vehicle_no ?? '—'], ['路线', selected.route_name ?? '—'], ['波次日期', selected.wave_date ?? '—'], ['预计到达', selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], ['实际到达', selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], ['完成时间', selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
+                {[[t('ui.公司','公司'), selected.company_code], [t('ui.司机','司机'), selected.driver_name ?? '—'], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
                     <span style={{
               color: 'var(--text-secondary)',
               marginRight: 6
@@ -920,23 +922,23 @@ export default function DeliveryPage() {
           fontSize: 11
         }}>
                 {[{
-            label: '创建',
+            label: t('ui.创建','创建'),
             time: selected.created_at,
             color: 'var(--text-disabled)'
           }, {
-            label: '开始装车',
+            label: t('ui.开始装车','开始装车'),
             time: selected.loading_start_at,
             color: 'var(--status-warning)'
           }, {
-            label: '发车',
+            label: t('ui.发车','发车'),
             time: selected.departure_at,
             color: 'var(--status-special)'
           }, {
-            label: '到达',
+            label: t('ui.到达','到达'),
             time: selected.actual_arrival_at,
             color: 'var(--color-accent)'
           }, {
-            label: '完成',
+            label: t('ui.完成','完成'),
             time: selected.completed_at,
             color: 'var(--status-success)'
           }].map(({
@@ -1020,7 +1022,7 @@ export default function DeliveryPage() {
             alignItems: 'center',
             gap: 5
           }}>
-                      <Ban size={12} />取消
+                      <Ban size={12} />{t('ui.取消','取消')}
                     </button>}
                 </div>}
               {actionErr && <div style={{
@@ -1038,15 +1040,15 @@ export default function DeliveryPage() {
             letterSpacing: 0.8,
             marginBottom: 8,
             textTransform: 'uppercase'
-          }}>配送明细</div>
+          }}>{t('ui.配送明细','配送明细')}</div>
                 {detailLoading && <div style={{
             fontSize: 12,
             opacity: 0.4
-          }}>加载中…</div>}
+          }}>{t('ui.加载中…','加载中…')}</div>}
                 {!detailLoading && items.length === 0 && <div style={{
             fontSize: 12,
             opacity: 0.4
-          }}>暂无明细</div>}
+          }}>{t('ui.暂无明细','暂无明细')}</div>}
                 <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -1072,8 +1074,8 @@ export default function DeliveryPage() {
                   color: 'var(--text-secondary)',
                   marginTop: 2
                 }}>
-                          {item.customer_name ?? '—'} · 计划 {item.planned_qty} 件
-                          {item.received_qty !== null && ` · 签收 ${item.received_qty} 件`}
+                          {item.customer_name ?? '—'} · {t('ui.计划','计划')} {item.planned_qty} {t('ui.件','件')}
+                          {item.received_qty !== null && ` · ${t('ui.签收','签收')} ${item.received_qty} ${t('ui.件','件')}`}
                         </div>
                       </div>
                       <div className={u.flexRow8}>
@@ -1085,7 +1087,7 @@ export default function DeliveryPage() {
                   background: item.status === 'SIGNED' ? 'var(--status-success-bg)' : item.status === 'EXCEPTION' ? 'var(--status-danger-bg-light)' : 'var(--status-neutral-bg)',
                   color: item.status === 'SIGNED' ? 'var(--status-success)' : item.status === 'EXCEPTION' ? 'var(--status-danger)' : 'var(--text-disabled)'
                 }}>
-                          {item.status === 'SIGNED' ? '已签收' : item.status === 'EXCEPTION' ? '异常' : '待签收'}
+                          {item.status === 'SIGNED' ? t('ui.已签收','已签收') : item.status === 'EXCEPTION' ? t('ui.异常','异常') : t('ui.待签收','待签收')}
                         </span>
                         {!['SIGNED', 'EXCEPTION', 'RETURNED'].includes(item.status) && ['ARRIVED', 'PARTIALLY_SIGNED'].includes(selected.status) && <button onClick={() => {
                   setSigningItem(item);
@@ -1105,7 +1107,7 @@ export default function DeliveryPage() {
                   fontSize: 11,
                   fontWeight: 600
                 }}>
-                              签收
+                              {t('ui.签收','签收')}
                             </button>}
                       </div>
                     </div>)}
@@ -1121,7 +1123,7 @@ export default function DeliveryPage() {
             letterSpacing: 0.8,
             marginBottom: 8,
             textTransform: 'uppercase'
-          }}>签收记录</div>
+          }}>{t('ui.签收记录','签收记录')}</div>
                   <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -1145,12 +1147,12 @@ export default function DeliveryPage() {
                           {r.signed_by && <span style={{
                   color: 'var(--text-secondary)',
                   marginLeft: 8
-                }}>签收人：{r.signed_by}</span>}
+                }}>{t('ui.签收人：','签收人：')}{r.signed_by}</span>}
                           {r.exception_type && <span style={{
                   color: 'var(--status-danger)',
                   marginLeft: 8
                 }}>
-                              [{r.exception_type}] 异常 {r.exception_qty} 件
+                              [{r.exception_type}] {t('ui.异常','异常')} {r.exception_qty} {t('ui.件','件')}
                             </span>}
                         </div>
                         <div className={u.flexRow8}>
@@ -1168,7 +1170,7 @@ export default function DeliveryPage() {
                   color: 'var(--text-secondary)',
                   fontSize: 11
                 }}>
-                            收 {r.received_qty} 件 · {new Date(r.signed_at).toLocaleDateString('zh-CN')}
+                            {t('ui.收','收')} {r.received_qty} {t('ui.件','件')} · {new Date(r.signed_at).toLocaleDateString('zh-CN')}
                           </span>
                         </div>
                       </div>)}
@@ -1198,14 +1200,14 @@ export default function DeliveryPage() {
           alignItems: 'center',
           gap: 5
         }}>
-              <Plus size={13} />新建司机
+              <Plus size={13} />{t('ui.新建司机','新建司机')}
             </button>
           </div>
           {driverLoading && <div style={{
         textAlign: 'center',
         padding: 40,
         opacity: 0.4
-      }}>加载中…</div>}
+      }}>{t('ui.加载中…','加载中…')}</div>}
           <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -1226,12 +1228,12 @@ export default function DeliveryPage() {
             fontSize: 12,
             color: 'var(--text-disabled)'
           }}>
-                  <div>工号：<span style={{
+                  <div>{t('ui.工号：','工号：')}<span style={{
                 fontFamily: 'monospace'
               }}>{d.driver_code}</span></div>
-                  {d.phone && <div>电话：{d.phone}</div>}
-                  {d.license_no && <div>驾照：{d.license_no}</div>}
-                  <div>公司：{d.company_code}</div>
+                  {d.phone && <div>{t('ui.电话：','电话：')}{d.phone}</div>}
+                  {d.license_no && <div>{t('ui.驾照：','驾照：')}{d.license_no}</div>}
+                  <div>{t('ui.公司：','公司：')}{d.company_code}</div>
                 </div>
                 <div style={{
             marginTop: 8
@@ -1244,7 +1246,7 @@ export default function DeliveryPage() {
               background: d.status === 'ACTIVE' ? 'var(--status-success-bg)' : 'var(--status-neutral-bg-light)',
               color: d.status === 'ACTIVE' ? 'var(--status-success)' : 'var(--text-secondary)'
             }}>
-                    {d.status === 'ACTIVE' ? '在职' : '停用'}
+                    {d.status === 'ACTIVE' ? t('ui.在职','在职') : t('ui.停用','停用')}
                   </span>
                 </div>
               </div>)}
@@ -1255,7 +1257,7 @@ export default function DeliveryPage() {
           opacity: 0.4,
           fontSize: 13
         }}>
-                暂无司机档案
+                {t('ui.暂无司机档案','暂无司机档案')}
               </div>}
           </div>
         </div>}
@@ -1281,14 +1283,14 @@ export default function DeliveryPage() {
           alignItems: 'center',
           gap: 5
         }}>
-              <Plus size={13} />新建车辆
+              <Plus size={13} />{t('ui.新建车辆','新建车辆')}
             </button>
           </div>
           {vehicleLoading && <div style={{
         textAlign: 'center',
         padding: 40,
         opacity: 0.4
-      }}>加载中…</div>}
+      }}>{t('ui.加载中…','加载中…')}</div>}
           <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -1316,10 +1318,10 @@ export default function DeliveryPage() {
             fontSize: 12,
             color: 'var(--text-disabled)'
           }}>
-                  {v.plate_no && <div>车牌：{v.plate_no}</div>}
-                  {v.vehicle_type && <div>类型：{v.vehicle_type}</div>}
-                  {v.capacity && <div>载重：{v.capacity} kg</div>}
-                  <div>公司：{v.company_code}</div>
+                  {v.plate_no && <div>{t('ui.车牌：','车牌：')}{v.plate_no}</div>}
+                  {v.vehicle_type && <div>{t('ui.类型：','类型：')}{v.vehicle_type}</div>}
+                  {v.capacity && <div>{t('ui.载重：','载重：')}{v.capacity} kg</div>}
+                  <div>{t('ui.公司：','公司：')}{v.company_code}</div>
                 </div>
                 <div style={{
             marginTop: 8
@@ -1332,7 +1334,7 @@ export default function DeliveryPage() {
               background: v.status === 'ACTIVE' ? 'var(--status-success-bg)' : v.status === 'MAINTENANCE' ? 'var(--status-warning-bg-light)' : 'var(--status-neutral-bg-light)',
               color: v.status === 'ACTIVE' ? 'var(--status-success)' : v.status === 'MAINTENANCE' ? 'var(--status-warning)' : 'var(--text-secondary)'
             }}>
-                    {v.status === 'ACTIVE' ? '可用' : v.status === 'MAINTENANCE' ? '维修中' : '停用'}
+                    {v.status === 'ACTIVE' ? t('ui.可用','可用') : v.status === 'MAINTENANCE' ? t('ui.维修中','维修中') : t('ui.停用','停用')}
                   </span>
                 </div>
               </div>)}
@@ -1343,20 +1345,20 @@ export default function DeliveryPage() {
           opacity: 0.4,
           fontSize: 13
         }}>
-                暂无车辆档案
+                {t('ui.暂无车辆档案','暂无车辆档案')}
               </div>}
           </div>
         </div>}
 
       {/* ══════════════════ 新建配送单 弹窗 ══════════════════ */}
-      <ModalV2 open={showCreate} onClose={() => { setShowCreate(false); setCreateErr(''); }} title="新建配送单" width={520}
+      <ModalV2 open={showCreate} onClose={() => { setShowCreate(false); setCreateErr(''); }} title={t('ui.新建配送单','新建配送单')} width={520}
         footer={<>
           <button onClick={() => { setShowCreate(false); setCreateErr(''); }} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
           <button disabled={createLoading} onClick={submitCreate} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600, opacity: createLoading ? 0.6 : 1
-          }}>{createLoading ? '提交中…' : '确认新建'}</button>
+          }}>{createLoading ? t('ui.提交中…','提交中…') : t('ui.确认新建','确认新建')}</button>
         </>}>
             <div style={{
           display: 'flex',
@@ -1369,7 +1371,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>公司 *</div>
+            }}>{t('ui.公司 *','公司 *')}</div>
                 <CompanySelector value={createForm.companyCode} onChange={v => setCreateForm(f => ({
               ...f,
               companyCode: v
@@ -1380,7 +1382,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>销售订单ID（逗号或换行分隔）*</div>
+            }}>{t('ui.销售订单ID（逗号或换行分隔）*','销售订单ID（逗号或换行分隔）*')}</div>
                 <textarea value={createForm.salesOrderIds} onChange={e => setCreateForm(f => ({
               ...f,
               salesOrderIds: e.target.value
@@ -1402,7 +1404,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>司机</div>
+            }}>{t('ui.司机','司机')}</div>
                 <DriverSelector value={createForm.driverName} onChange={v => setCreateForm(f => ({
               ...f,
               driverName: v
@@ -1414,7 +1416,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>车辆</div>
+            }}>{t('ui.车辆','车辆')}</div>
                 <VehicleSelector value={createForm.vehicleNo} onChange={v => setCreateForm(f => ({
               ...f,
               vehicleNo: v
@@ -1425,7 +1427,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>路线名称</div>
+            }}>{t('ui.路线名称','路线名称')}</div>
                 <input value={createForm.routeName} onChange={e => setCreateForm(f => ({
               ...f,
               routeName: e.target.value
@@ -1446,7 +1448,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>波次日期</div>
+            }}>{t('ui.波次日期','波次日期')}</div>
                 <input type="date" value={createForm.waveDate} onChange={e => setCreateForm(f => ({
               ...f,
               waveDate: e.target.value
@@ -1467,7 +1469,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>预计到达时间</div>
+            }}>{t('ui.预计到达时间','预计到达时间')}</div>
                 <input type="datetime-local" value={createForm.expectedArrivalAt} onChange={e => setCreateForm(f => ({
               ...f,
               expectedArrivalAt: e.target.value
@@ -1488,7 +1490,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>备注</div>
+            }}>{t('ui.备注','备注')}</div>
                 <textarea value={createForm.remark} onChange={e => setCreateForm(f => ({
               ...f,
               remark: e.target.value
@@ -1513,16 +1515,16 @@ export default function DeliveryPage() {
       </ModalV2>
 
       {/* ══════════════════ 签收 弹窗 ══════════════════ */}
-      <ModalV2 open={!!signingItem} onClose={() => { setSigningItem(null); setSignErr(''); }} title="客户签收" width={420}
+      <ModalV2 open={!!signingItem} onClose={() => { setSigningItem(null); setSignErr(''); }} title={t('ui.客户签收','客户签收')} width={420}
         footer={<>
           <button onClick={() => { setSigningItem(null); setSignErr(''); }} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
           <button disabled={signLoading || !receivedQty} onClick={submitReceipt} style={{
             padding: '8px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
             background: signingMode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)',
             color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600, opacity: signLoading || !receivedQty ? 0.6 : 1
-          }}>{signLoading ? '提交中…' : '确认签收'}</button>
+          }}>{signLoading ? t('ui.提交中…','提交中…') : t('ui.确认签收','确认签收')}</button>
         </>}>
         {signingItem && <>
             <div style={{
@@ -1553,7 +1555,7 @@ export default function DeliveryPage() {
             background: signingMode === mode ? mode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)' : 'transparent',
             color: signingMode === mode ? 'var(--bg-card)' : 'var(--text-secondary)'
           }}>
-                  {mode === 'normal' ? '✅ 正常签收' : '⚠️ 异常签收'}
+                  {mode === 'normal' ? t('ui.✅ 正常签收','✅ 正常签收') : t('ui.⚠️ 异常签收','⚠️ 异常签收')}
                 </button>)}
             </div>
 
@@ -1567,8 +1569,8 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>签收人</div>
-                <input value={signedBy} onChange={e => setSignedBy(e.target.value)} placeholder="客户姓名" style={{
+            }}>{t('ui.签收人','签收人')}</div>
+                <input value={signedBy} onChange={e => setSignedBy(e.target.value)} placeholder={t('ui.客户姓名','客户姓名')} style={{
               width: '100%',
               height: 34,
               borderRadius: 6,
@@ -1586,7 +1588,7 @@ export default function DeliveryPage() {
               color: 'var(--text-disabled)',
               marginBottom: 4
             }}>
-                  实收数量 *（计划 {signingItem.planned_qty} 件）
+                  {t('ui.实收数量 *（计划','实收数量 *（计划')} {signingItem.planned_qty} {t('ui.件）','件）')}
                 </div>
                 <input type="number" min={0} value={receivedQty} onChange={e => setReceivedQty(e.target.value)} style={{
               width: '100%',
@@ -1606,7 +1608,7 @@ export default function DeliveryPage() {
                 fontSize: 12,
                 color: 'var(--text-disabled)',
                 marginBottom: 4
-              }}>异常数量 *</div>
+              }}>{t('ui.异常数量 *','异常数量 *')}</div>
                     <input type="number" min={0} value={exceptionQty} onChange={e => setExceptionQty(e.target.value)} style={{
                 width: '100%',
                 height: 34,
@@ -1624,7 +1626,7 @@ export default function DeliveryPage() {
                 fontSize: 12,
                 color: 'var(--text-disabled)',
                 marginBottom: 4
-              }}>异常类型 *</div>
+              }}>{t('ui.异常类型 *','异常类型 *')}</div>
                     {/* G4-C：异常类型来自 sys_dict(SAL_DELIVERY_EXCEPTION) */}
                     <DictSelect dictType="SAL_DELIVERY_EXCEPTION" value={exceptionType} onChange={setExceptionType} allowEmpty={false} />
                   </label>
@@ -1634,7 +1636,7 @@ export default function DeliveryPage() {
               fontSize: 12,
               color: 'var(--text-disabled)',
               marginBottom: 4
-            }}>备注</div>
+            }}>{t('ui.备注','备注')}</div>
                 <input value={signRemark} onChange={e => setSignRemark(e.target.value)} style={{
               width: '100%',
               height: 34,
@@ -1657,14 +1659,14 @@ export default function DeliveryPage() {
       </ModalV2>
 
       {/* ══════════════════ 新建司机 弹窗 ══════════════════ */}
-      <ModalV2 open={showDriverForm} onClose={() => { setShowDriverForm(false); setDriverErr(''); }} title="新建司机" width={400}
+      <ModalV2 open={showDriverForm} onClose={() => { setShowDriverForm(false); setDriverErr(''); }} title={t('ui.新建司机','新建司机')} width={400}
         footer={<>
           <button onClick={() => { setShowDriverForm(false); setDriverErr(''); }} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
           <button onClick={submitDriver} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600
-          }}>保存</button>
+          }}>{t('ui.保存','保存')}</button>
         </>}>
             <div style={{
           display: 'flex',
@@ -1672,16 +1674,16 @@ export default function DeliveryPage() {
           gap: 10
         }}>
               {[{
-            label: '姓名 *',
+            label: t('ui.姓名 *','姓名 *'),
             field: 'driverName'
           }, {
-            label: '电话',
+            label: t('ui.电话','电话'),
             field: 'phone'
           }, {
-            label: '驾照号',
+            label: t('ui.驾照号','驾照号'),
             field: 'licenseNo'
           }, {
-            label: '公司代码 *',
+            label: t('ui.公司代码 *','公司代码 *'),
             field: 'companyCode'
           }].map(({
             label,
@@ -1716,14 +1718,14 @@ export default function DeliveryPage() {
       </ModalV2>
 
       {/* ══════════════════ 新建车辆 弹窗 ══════════════════ */}
-      <ModalV2 open={showVehicleForm} onClose={() => { setShowVehicleForm(false); setVehicleErr(''); }} title="新建车辆" width={400}
+      <ModalV2 open={showVehicleForm} onClose={() => { setShowVehicleForm(false); setVehicleErr(''); }} title={t('ui.新建车辆','新建车辆')} width={400}
         footer={<>
           <button onClick={() => { setShowVehicleForm(false); setVehicleErr(''); }} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
           <button onClick={submitVehicle} style={{
             padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600
-          }}>保存</button>
+          }}>{t('ui.保存','保存')}</button>
         </>}>
             <div style={{
           display: 'flex',
@@ -1731,20 +1733,20 @@ export default function DeliveryPage() {
           gap: 10
         }}>
               {[{
-            label: '车辆编号 *',
+            label: t('ui.车辆编号 *','车辆编号 *'),
             field: 'vehicleNo'
           }, {
-            label: '车牌号',
+            label: t('ui.车牌号','车牌号'),
             field: 'plateNo'
           }, {
-            label: '车辆类型',
+            label: t('ui.车辆类型','车辆类型'),
             field: 'vehicleType'
           }, {
-            label: '载重(kg)',
+            label: t('ui.载重(kg)','载重(kg)'),
             field: 'capacity',
             type: 'number'
           }, {
-            label: '公司代码 *',
+            label: t('ui.公司代码 *','公司代码 *'),
             field: 'companyCode'
           }].map(({
             label,
@@ -1779,6 +1781,6 @@ export default function DeliveryPage() {
         }}>{vehicleErr}</div>}
       </ModalV2>
 
-      <ConfirmDialogV2 open={cancelConfirm} title="取消配送单" danger confirmLabel="确认取消" message="确认取消此配送单？此操作不可撤销。" onConfirm={doCancelOrder} onCancel={() => setCancelConfirm(false)} />
+      <ConfirmDialogV2 open={cancelConfirm} title={t('ui.取消配送单','取消配送单')} danger confirmLabel={t('ui.确认取消','确认取消')} message={t('ui.确认取消此配送单？此操作不可撤销。','确认取消此配送单？此操作不可撤销。')} onConfirm={doCancelOrder} onCancel={() => setCancelConfirm(false)} />
     </div>;
 }

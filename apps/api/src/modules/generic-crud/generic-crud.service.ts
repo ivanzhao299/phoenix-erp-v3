@@ -163,6 +163,12 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
+        // B4: lookup.controller farms()/houses() 查询的列（company_code / site_code），
+        //   CI bootstrap 缺 → /api/lookup/farms、/api/lookup/houses 生产 500。补可空列对齐
+        //   service 契约（prod 已有则 ADD IF NOT EXISTS no-op）。语义层（治理是否应由站点
+        //   映射派生 company、site_code 是否应统一为 store_code）见 task #37，此处仅消 500。
+        `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS company_code VARCHAR(64)`,
+        `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS site_code    VARCHAR(64)`,
         // chn_distributor_grading（经销商分级）
         `CREATE TABLE IF NOT EXISTS chn_distributor_grading (
            id            SERIAL PRIMARY KEY,
@@ -459,6 +465,15 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS check_pack     BOOLEAN DEFAULT false`,
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS check_label    BOOLEAN DEFAULT false`,
         `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS insp_no        VARCHAR(64)`,
+        // B3: quality.service.createInspection() 写入但 V2 schema 缺失的列（无 catch → 缺列直接
+        //     生产 500）。列名与 service INSERT 严格对齐（含 camelCase 引号标识符）。
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS henhouse          VARCHAR(64)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "checkType"       VARCHAR(32)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "checkTime"       VARCHAR(32)`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS items             INTEGER DEFAULT 0`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS "failItems"       INTEGER DEFAULT 0`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS remark            TEXT`,
+        `ALTER TABLE qa_inspections ADD COLUMN IF NOT EXISTS env_snapshot_json TEXT`,
 
         `CREATE TABLE IF NOT EXISTS qa_inspection_items (
            id           SERIAL PRIMARY KEY,
@@ -495,6 +510,13 @@ export class GenericCrudService implements OnModuleInit {
          )`,
         `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS severity   VARCHAR(20) DEFAULT 'LOW'`,
         `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+        // B3: quality.service.createNonConformance() 写入但 V2 schema 缺失的列（无 catch → 生产 500）。
+        //     原 schema 用 ncr_no，service 用 nc_no；两者并存（nc_no 为 service 实际写入键）。
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS nc_no        VARCHAR(50)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS issue_type   VARCHAR(50)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS batch_no     VARCHAR(64)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS store_code   VARCHAR(30)`,
+        `ALTER TABLE qa_non_conformance ADD COLUMN IF NOT EXISTS action_taken TEXT`,
 
         // ── 质量标准历史（audit） ─────────────────────────────────────────
         `CREATE TABLE IF NOT EXISTS qa_standards_history (
@@ -1773,7 +1795,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const t of houseTypeDicts) {
         await this.entityManager.query(`
           INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
-          SELECT $1, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
+          SELECT $1::varchar, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
           WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='BRD_HOUSE_TYPE')
         `, [t.code, t.zh, t.lo, t.en, t.sort])
           .catch((e: Error) => console.warn(`⚠️ sys_dict BRD_HOUSE_TYPE insert failed for ${t.code}:`, e.message));
@@ -2056,7 +2078,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const { code, label_zh, label_en, sort } of packLines) {
         await this.entityManager.query(
           `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status)
-           SELECT $1, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
+           SELECT $1::varchar, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_PACK_LINE')`,
           [code, label_zh, label_en, sort],
         ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_PACK_LINE insert failed for ${code}:`, e.message));
@@ -2081,7 +2103,7 @@ export class GenericCrudService implements OnModuleInit {
       for (const s of shifts) {
         await this.entityManager.query(
           `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status, config_json)
-           SELECT $1, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5
+           SELECT $1::varchar, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_SHIFT')`,
           [s.code, s.zh, s.en, s.sort, JSON.stringify({ timeRange: s.timeRange })],
         ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_SHIFT insert failed for ${s.code}:`, e.message));

@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface FilterItem {
   label: string;
@@ -26,13 +27,14 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({ items, value, onChange, size = 'md', inline = false }: FilterBarProps) {
+  const { t } = useLanguage();
   const padding = size === 'sm' ? '4px 10px' : '6px 14px';
   const fontSize = size === 'sm' ? 12 : 13;
 
   return (
     <div
       role="tablist"
-      aria-label="筛选"
+      aria-label={t('ui.筛选', '筛选')}
       style={{
         display: inline ? 'inline-flex' : 'flex',
         gap: 8, flexWrap: 'wrap',

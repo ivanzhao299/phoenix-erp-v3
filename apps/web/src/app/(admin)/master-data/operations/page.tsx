@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import { usePermission } from "@/hooks/usePermission";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { RefreshCw, CheckSquare, AlertTriangle, Users, Copy, Lock, ExternalLink, Briefcase } from "lucide-react";
 
 /**
@@ -60,6 +61,7 @@ const TYPE_LABEL: Record<string, string> = {
   dict: '字典'
 };
 export default function OperationsPage() {
+  const { t } = useLanguage();
   const centerPerm = usePermission("MENU_MD_CENTER");
   const canView = centerPerm.canView || centerPerm.isSuper;
   const [todo, setTodo] = useState<Todo | null>(null);
@@ -71,7 +73,7 @@ export default function OperationsPage() {
     try {
       setTodo(await request<Todo>('/master-data/operations/todo'));
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || t('md.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -85,12 +87,12 @@ export default function OperationsPage() {
   useEffect(() => {
     if (canView) void load();
   }, [canView, load]);
-  if (!canView) return <div className={u.emptyPad40}>无权限访问主数据运营工作台</div>;
+  if (!canView) return <div className={u.emptyPad40}>{t('md.noPermOps', '无权限访问主数据运营工作台')}</div>;
   return <div>
-      <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+      <PageHeader title={t('md.opsTitle', '主数据运营工作台')} subtitle={t('md.opsSub', '待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理')} breadcrumb={[t('md.center', '主数据中心'), t('md.opsWorkbench', '运营工作台')]} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} style={{
         animation: loading ? 'spin 1s linear infinite' : 'none'
-      }} /> 刷新
+      }} /> {t('md.refresh', '刷新')}
           </button>} />
 
       {error && <div style={{
@@ -108,15 +110,15 @@ export default function OperationsPage() {
       gap: 12,
       marginBottom: 20
     }}>
-          <KpiCard label="待审批主数据" value={summary.pendingTotal} icon={CheckSquare} accent="var(--status-warning)" />
-          <KpiCard label="缺联系信息" value={summary.missingTotal} icon={Users} accent="var(--status-info)" />
-          <KpiCard label="重复编码风险" value={summary.duplicateTotal} icon={Copy} accent="var(--status-danger)" />
-          <KpiCard label="近 7 天归档阻断" value={summary.blockedTotal} icon={Lock} accent="var(--color-purple-500)" />
+          <KpiCard label={t('md.pendingMdData', '待审批主数据')} value={summary.pendingTotal} icon={CheckSquare} accent="var(--status-warning)" />
+          <KpiCard label={t('md.missingContact', '缺联系信息')} value={summary.missingTotal} icon={Users} accent="var(--status-info)" />
+          <KpiCard label={t('md.dupCodeRisk', '重复编码风险')} value={summary.duplicateTotal} icon={Copy} accent="var(--status-danger)" />
+          <KpiCard label={t('md.archiveBlocked7d', '近 7 天归档阻断')} value={summary.blockedTotal} icon={Lock} accent="var(--color-purple-500)" />
         </div>}
 
       {/* 1. 待审批 */}
-      <Section title="待审批主数据" icon={CheckSquare} count={summary?.pendingTotal ?? 0}>
-        {todo?.pendingApprovals.length === 0 ? <EmptyHint text="🎉 暂无待审批主数据" /> : <div style={{
+      <Section title={t('md.pendingMdData', '待审批主数据')} icon={CheckSquare} count={summary?.pendingTotal ?? 0}>
+        {todo?.pendingApprovals.length === 0 ? <EmptyHint text={t('md.noPendingMd', '🎉 暂无待审批主数据')} /> : <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
         gap: 10
@@ -145,7 +147,7 @@ export default function OperationsPage() {
                 fontSize: 13,
                 fontWeight: 600
               }}>
-                     {TYPE_LABEL[p.type] ?? p.type}
+                     {t('md.typeLabel.' + p.type, TYPE_LABEL[p.type] ?? p.type)}
                      <span style={{
                   marginLeft: 6,
                   padding: '1px 8px',
@@ -162,7 +164,7 @@ export default function OperationsPage() {
                 color: 'var(--text-secondary)',
                 marginTop: 2
               }}>
-                     例：{p.examples.slice(0, 3).join('、') || '—'}
+                     {t('md.example', '例：')}{p.examples.slice(0, 3).join('、') || '—'}
                    </div>
                  </div>
                  <ExternalLink size={13} style={{
@@ -174,8 +176,8 @@ export default function OperationsPage() {
       </Section>
 
       {/* 2. 缺联系信息 */}
-      <Section title="缺联系信息" icon={Users} count={summary?.missingTotal ?? 0}>
-        {todo?.missingContact.length === 0 ? <EmptyHint text="✓ 客户/供应商联系信息完整" /> : <div style={{
+      <Section title={t('md.missingContact', '缺联系信息')} icon={Users} count={summary?.missingTotal ?? 0}>
+        {todo?.missingContact.length === 0 ? <EmptyHint text={t('md.contactComplete', '✓ 客户/供应商联系信息完整')} /> : <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: 10
@@ -193,14 +195,14 @@ export default function OperationsPage() {
                    <div style={{
                 fontSize: 13,
                 fontWeight: 600
-              }}>{TYPE_LABEL[m.source] ?? m.source}</div>
+              }}>{t('md.typeLabel.' + m.source, TYPE_LABEL[m.source] ?? m.source)}</div>
                    <div style={{
                 fontSize: 11,
                 color: 'var(--text-secondary)'
               }}>
                      <strong style={{
                   color: 'var(--status-danger)'
-                }}>{m.count}</strong> 条 ACTIVE 记录缺电话
+                }}>{m.count}</strong> {t('md.activeRecordsMissingPhone', '条 ACTIVE 记录缺电话')}
                    </div>
                  </div>
                  <ExternalLink size={13} style={{
@@ -212,8 +214,8 @@ export default function OperationsPage() {
       </Section>
 
       {/* 3. 重复编码 */}
-      <Section title="重复编码风险" icon={Copy} count={summary?.duplicateTotal ?? 0}>
-        {todo?.duplicateCodes.length === 0 ? <EmptyHint text="✓ 无重复编码" /> : <div style={{
+      <Section title={t('md.dupCodeRisk', '重复编码风险')} icon={Copy} count={summary?.duplicateTotal ?? 0}>
+        {todo?.duplicateCodes.length === 0 ? <EmptyHint text={t('md.noDupCode', '✓ 无重复编码')} /> : <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: 10
@@ -232,21 +234,21 @@ export default function OperationsPage() {
               flex: 1,
               fontSize: 13,
               fontWeight: 600
-            }}>{TYPE_LABEL[d.source] ?? d.source}</div>
+            }}>{t('md.typeLabel.' + d.source, TYPE_LABEL[d.source] ?? d.source)}</div>
                  <span style={{
               fontSize: 14,
               fontWeight: 700,
               color: 'var(--status-danger)'
-            }}>{d.count} 组</span>
+            }}>{d.count} {t('md.unitGroup', '组')}</span>
                </div>
              </div>)}
-           {todo?.duplicateCodes.every(d => d.count === 0) && <EmptyHint text="✓ 无重复编码" />}
+           {todo?.duplicateCodes.every(d => d.count === 0) && <EmptyHint text={t('md.noDupCode', '✓ 无重复编码')} />}
          </div>}
       </Section>
 
       {/* 4. 归档阻断历史 */}
-      <Section title="归档阻断历史（近 7 天）" icon={Lock} count={summary?.blockedTotal ?? 0}>
-        {todo?.archiveBlocked.length === 0 ? <EmptyHint text="✓ 近期无归档阻断事件" /> : <div style={{
+      <Section title={t('md.archiveBlockedHistory', '归档阻断历史（近 7 天）')} icon={Lock} count={summary?.blockedTotal ?? 0}>
+        {todo?.archiveBlocked.length === 0 ? <EmptyHint text={t('md.noArchiveBlocked', '✓ 近期无归档阻断事件')} /> : <div style={{
         display: 'flex',
         flexDirection: 'column',
         gap: 8
@@ -294,7 +296,7 @@ export default function OperationsPage() {
       padding: 60,
       textAlign: 'center',
       color: 'var(--text-secondary)'
-    }}>加载中…</div>}
+    }}>{t('md.loading', '加载中…')}</div>}
     </div>;
 }
 function KpiCard({

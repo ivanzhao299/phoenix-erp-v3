@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { RefreshCw, Cloud, Download, BookOpen, CheckCircle2 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // g200a/c 模板 token(2026-06-19)
 import {
@@ -103,6 +104,7 @@ interface ImportResult {
 }
 
 export default function ChanjetSyncPage() {
+  const { t } = useLanguage();
   const { canView, canEdit } = usePermission('MENU_FIN2_AR');
   const { canView: canViewLedger, canEdit: canEditLedger } = usePermission('MENU_FIN2_AR_LEDGER');
 
@@ -155,7 +157,7 @@ export default function ChanjetSyncPage() {
       if (companyCode) qs.set('companyCode', companyCode);
       const data = await request<SnapshotResp>(`/chanjet/ar-snapshot?${qs}`);
       if (!data.success) {
-        setError(data.error || '读取失败');
+        setError(data.error || t('fin2.chanjet.read_failed','读取失败'));
         setRows([]); setCount(0); setTotalEndbalance(0);
       } else {
         setRows(data.rows || []);
@@ -165,21 +167,21 @@ export default function ChanjetSyncPage() {
         if (data.rows && data.rows.length > 0) setLastSync(data.rows[0].syncedAt);
       }
     } catch (e) {
-      setError((e as Error).message || '网络错误');
+      setError((e as Error).message || t('fin2.chanjet.network_error','网络错误'));
     } finally {
       setLoading(false);
     }
-  }, [companyCode, period]);
+  }, [companyCode, period, t]);
 
   const loadImportPreview = useCallback(async () => {
-    if (!companyCode) { setImportError('请先选具体公司'); return; }
-    if (!/^\d{6}$/.test(period)) { setImportError('期间格式 YYYYMM'); return; }
+    if (!companyCode) { setImportError(t('fin2.chanjet.select_company_first','请先选具体公司')); return; }
+    if (!/^\d{6}$/.test(period)) { setImportError(t('fin2.chanjet.period_format_yyyymm','期间格式 YYYYMM')); return; }
     setImportLoading(true); setImportError(''); setImportResult(null);
     try {
       const d = await request<{ success: boolean; error?: string } & ImportPreview>(
         `/chanjet/ar-ledger-import-preview?companyCode=${companyCode}&period=${period}`,
       );
-      if (!d.success) { setImportError(d.error || '预览失败'); setImportPreview(null); }
+      if (!d.success) { setImportError(d.error || t('fin2.chanjet.preview_failed','预览失败')); setImportPreview(null); }
       else setImportPreview(d);
       setTimeout(() => document.getElementById('ar-import-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e) {
@@ -187,12 +189,12 @@ export default function ChanjetSyncPage() {
     } finally {
       setImportLoading(false);
     }
-  }, [companyCode, period]);
+  }, [companyCode, period, t]);
 
   const doImport = useCallback(async (dryRun: boolean) => {
     if (!canEditLedger) return;
     if (!importPreview) return;
-    if (!confirm(`确认将 ${companyCode} 期间 ${period} 的好业财数据${dryRun ? '试运行' : '正式'}入账到 fin_ar_ledger?`)) return;
+    if (!confirm(`${t('fin2.chanjet.import_confirm_a','确认将 ')}${companyCode}${t('fin2.chanjet.import_confirm_b',' 期间 ')}${period}${t('fin2.chanjet.import_confirm_c',' 的好业财数据')}${dryRun ? t('fin2.chanjet.dry_run','试运行') : t('fin2.chanjet.formal','正式')}${t('fin2.chanjet.import_confirm_d','入账到 fin_ar_ledger?')}`)) return;
     setImportLoading(true); setImportError(''); setImportResult(null);
     try {
       const d = await request<ImportResult>('/chanjet/ar-ledger-import', {
@@ -200,56 +202,56 @@ export default function ChanjetSyncPage() {
         body: JSON.stringify({ companyCode, period, dryRun }),
       });
       setImportResult(d);
-      if (!d.success) setImportError(d.error || '入账失败');
+      if (!d.success) setImportError(d.error || t('fin2.chanjet.import_failed','入账失败'));
       else if (!dryRun) await loadImportPreview(); // 入账后刷新预览
     } catch (e) {
       setImportError((e as Error).message);
     } finally {
       setImportLoading(false);
     }
-  }, [companyCode, period, canEditLedger, importPreview, loadImportPreview]);
+  }, [companyCode, period, canEditLedger, importPreview, loadImportPreview, t]);
 
   const sync = useCallback(async () => {
     if (!canEdit) return;
-    if (!companyCode) { setError('请选具体公司再同步(集团视角不支持同步)'); return; }
-    if (!/^\d{6}$/.test(period)) { setError('期间格式: YYYYMM(如 202605)'); return; }
+    if (!companyCode) { setError(t('fin2.chanjet.select_company_to_sync','请选具体公司再同步(集团视角不支持同步)')); return; }
+    if (!/^\d{6}$/.test(period)) { setError(t('fin2.chanjet.period_format_example','期间格式: YYYYMM(如 202605)')); return; }
     setSyncing(true); setError('');
     try {
       const data = await request<SyncResp>('/chanjet/sync-ar', {
         method: 'POST',
         body: JSON.stringify({ companyCode, period, currency: 'RMB' }),
       });
-      if (!data.success) setError(data.error || '同步失败');
+      if (!data.success) setError(data.error || t('fin2.chanjet.sync_failed','同步失败'));
       else await load();
     } catch (e) {
-      setError((e as Error).message || '同步失败');
+      setError((e as Error).message || t('fin2.chanjet.sync_failed','同步失败'));
     } finally {
       setSyncing(false);
     }
-  }, [companyCode, period, canEdit, load]);
+  }, [companyCode, period, canEdit, load, t]);
 
   if (!canView) {
     return (
       <div style={{ padding: 32 }}>
-        <PageHeader title="好业财应收同步" />
-        <div style={{ color: '#ef4444' }}>无权限访问(需 MENU_FIN2_AR:V)</div>
+        <PageHeader title={t('fin2.chanjet.page_title','好业财应收同步')} />
+        <div style={{ color: '#ef4444' }}>{t('fin2.chanjet.no_perm','无权限访问(需 MENU_FIN2_AR:V)')}</div>
       </div>
     );
   }
 
   return (
     <div style={{ padding: 24, maxWidth: 1600 }}>
-      <PageHeader title="好业财应收同步" subtitle="只读好业财 → 写 PG · 按公司视角 · DataScope 自动过滤" />
+      <PageHeader title={t('fin2.chanjet.page_title','好业财应收同步')} subtitle={t('fin2.chanjet.subtitle','只读好业财 → 写 PG · 按公司视角 · DataScope 自动过滤')} />
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>公司</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t('fin2.common.company','公司')}</label>
           <select
             value={companyCode}
             onChange={e => setCompanyCode(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 220 }}
           >
-            <option value="">集团 / 全部允许公司</option>
+            <option value="">{t('fin2.common.group_all_companies','集团 / 全部允许公司')}</option>
             {companies.map(c => (
               <option key={c.companyCode} value={c.companyCode}>
                 {c.companyName}
@@ -258,7 +260,7 @@ export default function ChanjetSyncPage() {
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>起始日</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t('fin2.chanjet.start_date','起始日')}</label>
           <input
             type="date"
             value={startDate}
@@ -267,7 +269,7 @@ export default function ChanjetSyncPage() {
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>截止日</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t('fin2.chanjet.end_date','截止日')}</label>
           <input
             type="date"
             value={endDate}
@@ -276,11 +278,11 @@ export default function ChanjetSyncPage() {
           />
         </div>
         <button onClick={load} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.6 : 1 }}>
-          <Download size={14} /> {loading ? '加载中…' : '读取快照(PG)'}
+          <Download size={14} /> {loading ? t('fin2.common.loading_ellipsis','加载中…') : t('fin2.chanjet.read_snapshot','读取快照(PG)')}
         </button>
         {canEdit && companyCode && (
           <button onClick={sync} disabled={syncing} style={actionPill('success', syncing)}>
-            <Cloud size={14} /> {syncing ? '同步中…' : '同步好业财 → PG'}
+            <Cloud size={14} /> {syncing ? t('fin2.chanjet.syncing','同步中…') : t('fin2.chanjet.sync_to_pg','同步好业财 → PG')}
           </button>
         )}
         {canEdit && (
@@ -289,30 +291,30 @@ export default function ChanjetSyncPage() {
               try {
                 const r = await request<{ success?: boolean; error?: string }>('/chanjet/trigger-ticket', { method: 'POST' });
                 alert(r?.success === false
-                  ? `刷新授权失败：${r?.error || '未知错误'}`
-                  : '已请求好业财重新推送授权票据(appTicket)。请约 10 秒后再点"同步好业财 → PG"。');
+                  ? `${t('fin2.chanjet.refresh_auth_failed','刷新授权失败：')}${r?.error || t('fin2.chanjet.unknown_error','未知错误')}`
+                  : t('fin2.chanjet.refresh_auth_ok','已请求好业财重新推送授权票据(appTicket)。请约 10 秒后再点"同步好业财 → PG"。'));
               } catch (e) {
-                alert(`刷新授权失败：${e instanceof Error ? e.message : '网络错误'}`);
+                alert(`${t('fin2.chanjet.refresh_auth_failed','刷新授权失败：')}${e instanceof Error ? e.message : t('fin2.chanjet.network_error','网络错误')}`);
               }
             }}
-            title='appTicket 过期(code=4041 appTicket已失效)时点此，让好业财重新推送授权票据'
+            title={t('fin2.chanjet.refresh_auth_title','appTicket 过期(code=4041 appTicket已失效)时点此，让好业财重新推送授权票据')}
             style={secondaryActionButton}
           >
-            <RefreshCw size={14} /> 刷新授权
+            <RefreshCw size={14} /> {t('fin2.chanjet.refresh_auth','刷新授权')}
           </button>
         )}
-        <button onClick={load} disabled={loading} title="刷新" style={secondaryActionButton}>
+        <button onClick={load} disabled={loading} title={t('fin2.common.refresh','刷新')} style={secondaryActionButton}>
           <RefreshCw size={14} />
         </button>
         <button
           onClick={async () => {
-            if (!companyCode) { setDeptError('请先选具体公司(不能用集团视角)'); return; }
+            if (!companyCode) { setDeptError(t('fin2.chanjet.select_company_not_group','请先选具体公司(不能用集团视角)')); return; }
             setDeptLoading(true); setDeptError(''); setDeptDiff(null);
             try {
               const data = await request<{ success: boolean } & NonNullable<typeof deptDiff> & { error?: string }>(
                 `/chanjet/departments-diff?companyCode=${companyCode}`,
               );
-              if (!data.success) setDeptError(data.error || '对账失败');
+              if (!data.success) setDeptError(data.error || t('fin2.chanjet.reconcile_failed','对账失败'));
               else setDeptDiff({
                 chanjet: data.chanjet, erp: data.erp,
                 both: data.both, chanjetOnly: data.chanjetOnly, erpOnly: data.erpOnly,
@@ -328,16 +330,16 @@ export default function ChanjetSyncPage() {
           disabled={deptLoading || !companyCode}
           style={actionPill('info', deptLoading || !companyCode)}
         >
-          {deptLoading ? '部门对账中…' : '部门对账'}
+          {deptLoading ? t('fin2.chanjet.dept_reconciling','部门对账中…') : t('fin2.chanjet.dept_reconcile','部门对账')}
         </button>
         {canViewLedger && (
           <button
             onClick={loadImportPreview}
             disabled={importLoading || !companyCode}
-            title={!companyCode ? '请先选具体公司' : '预览入账总账差异'}
+            title={!companyCode ? t('fin2.chanjet.select_company_first','请先选具体公司') : t('fin2.chanjet.preview_import_title','预览入账总账差异')}
             style={actionPill('info', importLoading || !companyCode)}
           >
-            <BookOpen size={14} /> {importLoading ? '预览中…' : '预览入账总账'}
+            <BookOpen size={14} /> {importLoading ? t('fin2.chanjet.previewing','预览中…') : t('fin2.chanjet.preview_import','预览入账总账')}
           </button>
         )}
       </div>
@@ -354,16 +356,16 @@ export default function ChanjetSyncPage() {
         marginBottom: 16,
       }}>
         <div style={kpiCardCompact('brand')}>
-          <div style={kpiCardCompactLabel}>往来单位数</div>
+          <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_counterparties','往来单位数')}</div>
           <div style={kpiCardCompactValue('brand')}>{count}</div>
         </div>
         <div style={kpiCardCompact('success')}>
-          <div style={kpiCardCompactLabel}>期末余额合计({currency})</div>
+          <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_end_balance_total','期末余额合计')}({currency})</div>
           <div style={kpiCardCompactValue('success')}>{fmt(totalEndbalance)}</div>
         </div>
         {lastSync && (
           <div style={kpiCardCompact('default')}>
-            <div style={kpiCardCompactLabel}>最后同步</div>
+            <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_last_sync','最后同步')}</div>
             <div style={{ ...kpiCardCompactValue('default'), fontSize: 14, fontFamily: 'inherit' }}>{new Date(lastSync).toLocaleString('zh-CN')}</div>
           </div>
         )}
@@ -373,21 +375,21 @@ export default function ChanjetSyncPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead style={{ background: '#f9fafb' }}>
             <tr>
-              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>公司</th>
-              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>结算往来单位</th>
-              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>编码</th>
-              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>期初余额</th>
-              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>本期应收</th>
-              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>本期已收</th>
-              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>期末余额</th>
-              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>币种</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>{t('fin2.common.company','公司')}</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>{t('fin2.chanjet.col_counterparty','结算往来单位')}</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>{t('fin2.chanjet.col_code','编码')}</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>{t('fin2.common.opening_balance','期初余额')}</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>{t('fin2.chanjet.col_current_ar','本期应收')}</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>{t('fin2.chanjet.col_current_received','本期已收')}</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>{t('fin2.chanjet.col_end_balance','期末余额')}</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>{t('fin2.common.currency','币种')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
                 <td colSpan={8} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
-                  无数据。{canEdit ? '选公司后点"同步好业财 → PG"拉取。' : '请有 E 权限的用户先同步。'}
+                  {t('fin2.chanjet.no_data','无数据。')}{canEdit ? t('fin2.chanjet.no_data_edit','选公司后点"同步好业财 → PG"拉取。') : t('fin2.chanjet.no_data_view','请有 E 权限的用户先同步。')}
                 </td>
               </tr>
             )}
@@ -411,9 +413,7 @@ export default function ChanjetSyncPage() {
 
       {/* 铁律横条 — g200c(2026-06-19):hex 浅黄 → inlineAlert('warning') */}
       <div style={{ ...inlineAlert('warning'), marginTop: 16, lineHeight: 1.6 }}>
-        <strong>铁律</strong>：只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
-        按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。
-        何时可写好业财由用户明示。
+        <strong>{t('fin2.chanjet.iron_rule','铁律')}</strong>：{t('fin2.chanjet.iron_rule_body','只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。 按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。 何时可写好业财由用户明示。')}
       </div>
 
       {/* g199-B 审核入账总账 */}
@@ -422,10 +422,10 @@ export default function ChanjetSyncPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
               <BookOpen size={16} style={{ verticalAlign: -2, marginRight: 6, color: 'var(--status-info)' }} />
-              审核入账总账（chanjet_ar_snapshot → fin_ar_ledger）
+              {t('fin2.chanjet.audit_import_title','审核入账总账（chanjet_ar_snapshot → fin_ar_ledger）')}
             </h3>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              铁律: 财务总监审核入账 · 同客户多科目自动聚合 · source=CHANJET_VERIFIED_YYYYMMDD
+              {t('fin2.chanjet.audit_import_hint','铁律: 财务总监审核入账 · 同客户多科目自动聚合 · source=CHANJET_VERIFIED_YYYYMMDD')}
             </div>
           </div>
 
@@ -433,7 +433,7 @@ export default function ChanjetSyncPage() {
 
           {!importPreview && !importError && (
             <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-              先选公司+期间,点上方"预览入账总账"按钮查看差异;确认无误后由财务总监(MENU_FIN2_AR_LEDGER:E)入账。
+              {t('fin2.chanjet.import_guide','先选公司+期间,点上方"预览入账总账"按钮查看差异;确认无误后由财务总监(MENU_FIN2_AR_LEDGER:E)入账。')}
             </div>
           )}
 
@@ -442,37 +442,37 @@ export default function ChanjetSyncPage() {
               {/* 4 状态卡 → kpiCardCompact(tone) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
                 <div style={kpiCardCompact('success')}>
-                  <div style={kpiCardCompactLabel}>新增 {importPreview.newRows.length}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>fin_ar_ledger 中尚无</div>
+                  <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_new','新增')} {importPreview.newRows.length}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.chanjet.kpi_new_hint','fin_ar_ledger 中尚无')}</div>
                 </div>
                 <div style={kpiCardCompact('warning')}>
-                  <div style={kpiCardCompactLabel}>金额变动 {importPreview.changedRows.length}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>期末与现存账不同</div>
+                  <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_changed','金额变动')} {importPreview.changedRows.length}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.chanjet.kpi_changed_hint','期末与现存账不同')}</div>
                 </div>
                 <div style={kpiCardCompact('default')}>
-                  <div style={kpiCardCompactLabel}>无差异 {importPreview.unchangedCount}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>不会覆盖</div>
+                  <div style={kpiCardCompactLabel}>{t('fin2.chanjet.kpi_unchanged','无差异')} {importPreview.unchangedCount}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.chanjet.kpi_unchanged_hint','不会覆盖')}</div>
                 </div>
                 <div style={kpiCardCompact('info')}>
                   <div style={kpiCardCompactLabel}>farm_code: {importPreview.farmCode}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>期间日 {importPreview.periodDate}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.chanjet.period_date','期间日')} {importPreview.periodDate}</div>
                 </div>
               </div>
 
               {importPreview.newRows.length > 0 && (
                 <details open style={{ marginBottom: 8 }}>
                   <summary style={{ ...inlineAlert('success'), cursor: 'pointer', fontWeight: 500 }}>
-                    新增 {importPreview.newRows.length} 行明细
+                    {t('fin2.chanjet.kpi_new','新增')} {importPreview.newRows.length} {t('fin2.chanjet.rows_detail','行明细')}
                   </summary>
                   <div style={{ ...tableContainer, marginTop: 6 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr>
-                          <th style={tableHeaderCell}>编码</th>
-                          <th style={tableHeaderCell}>客户</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>期末应收</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>本期应收</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>本期已收</th>
+                          <th style={tableHeaderCell}>{t('fin2.chanjet.col_code','编码')}</th>
+                          <th style={tableHeaderCell}>{t('fin2.common.customer','客户')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_end_ar','期末应收')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_current_ar','本期应收')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_current_received','本期已收')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -494,16 +494,16 @@ export default function ChanjetSyncPage() {
               {importPreview.changedRows.length > 0 && (
                 <details open style={{ marginBottom: 8 }}>
                   <summary style={{ ...inlineAlert('warning'), cursor: 'pointer', fontWeight: 500 }}>
-                    金额变动 {importPreview.changedRows.length} 行(覆盖现存账)
+                    {t('fin2.chanjet.kpi_changed','金额变动')} {importPreview.changedRows.length} {t('fin2.chanjet.rows_overwrite','行(覆盖现存账)')}
                   </summary>
                   <div style={{ ...tableContainer, marginTop: 6 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr>
-                          <th style={tableHeaderCell}>客户</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>原期末</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>新期末</th>
-                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>差额</th>
+                          <th style={tableHeaderCell}>{t('fin2.common.customer','客户')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_old_end','原期末')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_new_end','新期末')}</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('fin2.chanjet.col_delta','差额')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -528,27 +528,27 @@ export default function ChanjetSyncPage() {
                   onClick={() => doImport(true)}
                   disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
                   style={{ ...secondaryActionButton, opacity: (!canEditLedger || importLoading) ? 0.5 : 1 }}
-                  title={canEditLedger ? '不写库,只算最终入账数' : '需 MENU_FIN2_AR_LEDGER:E'}
+                  title={canEditLedger ? t('fin2.chanjet.dry_run_title','不写库,只算最终入账数') : t('fin2.chanjet.need_ledger_perm','需 MENU_FIN2_AR_LEDGER:E')}
                 >
-                  试运行(不写库)
+                  {t('fin2.chanjet.dry_run_no_write','试运行(不写库)')}
                 </button>
                 <button
                   onClick={() => doImport(false)}
                   disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
                   style={{ ...primaryActionButton, opacity: (!canEditLedger || importLoading) ? 0.5 : 1 }}
-                  title={canEditLedger ? '写 fin_ar_ledger(可逆,按 uq upsert)' : '需 MENU_FIN2_AR_LEDGER:E'}
+                  title={canEditLedger ? t('fin2.chanjet.formal_import_title','写 fin_ar_ledger(可逆,按 uq upsert)') : t('fin2.chanjet.need_ledger_perm','需 MENU_FIN2_AR_LEDGER:E')}
                 >
-                  <CheckCircle2 size={14} /> 正式入账 fin_ar_ledger
+                  <CheckCircle2 size={14} /> {t('fin2.chanjet.formal_import','正式入账 fin_ar_ledger')}
                 </button>
                 {!canEditLedger && (
-                  <span style={{ fontSize: 12, color: 'var(--status-danger)' }}>需财务总监(MENU_FIN2_AR_LEDGER:E)操作</span>
+                  <span style={{ fontSize: 12, color: 'var(--status-danger)' }}>{t('fin2.chanjet.need_cfo','需财务总监(MENU_FIN2_AR_LEDGER:E)操作')}</span>
                 )}
               </div>
 
               {importResult && (
                 <div style={{ ...inlineAlert(importResult.success ? 'success' : 'danger'), marginTop: 12 }}>
                   {importResult.success
-                    ? `✓ ${importResult.dryRun ? '试运行' : '入账'}完成: upserted=${importResult.upserted} skipped=${importResult.skipped} source=${importResult.source}`
+                    ? `✓ ${importResult.dryRun ? t('fin2.chanjet.dry_run','试运行') : t('fin2.chanjet.import_word','入账')}${t('fin2.chanjet.import_done','完成: ')}upserted=${importResult.upserted} skipped=${importResult.skipped} source=${importResult.source}`
                     : `✗ ${importResult.error}`}
                 </div>
               )}
@@ -560,16 +560,16 @@ export default function ChanjetSyncPage() {
       {/* 部门对账(顶部按钮触发,自动滚到这里) */}
       <div id="dept-diff-section" style={{ ...actionGroupBox, marginTop: 24, padding: 16, background: 'var(--bg-card)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>部门对账（好业财 ↔ ERP）</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>{t('fin2.chanjet.dept_reconcile_title','部门对账（好业财 ↔ ERP）')}</h3>
           <button
             onClick={async () => {
-              if (!companyCode) { setDeptError('请先选具体公司(不能用集团视角)'); return; }
+              if (!companyCode) { setDeptError(t('fin2.chanjet.select_company_not_group','请先选具体公司(不能用集团视角)')); return; }
               setDeptLoading(true); setDeptError(''); setDeptDiff(null);
               try {
                 const data = await request<{ success: boolean } & NonNullable<typeof deptDiff> & { error?: string }>(
                   `/chanjet/departments-diff?companyCode=${companyCode}`,
                 );
-                if (!data.success) setDeptError(data.error || '对账失败');
+                if (!data.success) setDeptError(data.error || t('fin2.chanjet.reconcile_failed','对账失败'));
                 else setDeptDiff({
                   chanjet: data.chanjet, erp: data.erp,
                   both: data.both, chanjetOnly: data.chanjetOnly, erpOnly: data.erpOnly,
@@ -583,37 +583,37 @@ export default function ChanjetSyncPage() {
             disabled={deptLoading || !companyCode}
             style={actionPill('info', deptLoading || !companyCode)}
           >
-            {deptLoading ? '对账中…' : '查看部门差异'}
+            {deptLoading ? t('fin2.chanjet.reconciling','对账中…') : t('fin2.chanjet.view_dept_diff','查看部门差异')}
           </button>
         </div>
         {deptError && <div style={{ ...inlineAlert('danger'), marginBottom: 8 }}>{deptError}</div>}
         {!companyCode && !deptDiff && (
-          <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>请先选具体公司,点"查看部门差异"。</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{t('fin2.chanjet.dept_diff_guide','请先选具体公司,点"查看部门差异"。')}</div>
         )}
         {deptDiff && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
             <div style={{ ...inlineAlert('success'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>✓ 两边都有 ({deptDiff.both.length})</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>✓ {t('fin2.chanjet.both_have','两边都有')} ({deptDiff.both.length})</div>
               {deptDiff.both.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.both.slice(0, 30).map(d => (
                   <div key={d.chanjetId} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-success) 30%, transparent)' }}>
                     <div style={{ color: 'var(--text-primary)' }}>{d.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>好业财#{d.chanjetId} ↔ ERP {d.erpOrgCode}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.common.chanjet','好业财')}#{d.chanjetId} ↔ ERP {d.erpOrgCode}</div>
                   </div>
                 ))}
             </div>
             <div style={{ ...inlineAlert('warning'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ 只在好业财 ({deptDiff.chanjetOnly.length})</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ {t('fin2.chanjet.only_chanjet','只在好业财')} ({deptDiff.chanjetOnly.length})</div>
               {deptDiff.chanjetOnly.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.chanjetOnly.slice(0, 30).map(d => (
                   <div key={d.id} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-warning) 30%, transparent)' }}>
                     <div style={{ color: 'var(--text-primary)' }}>{d.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>好业财#{d.id} code={d.code || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('fin2.common.chanjet','好业财')}#{d.id} code={d.code || '—'}</div>
                   </div>
                 ))}
             </div>
             <div style={{ ...inlineAlert('danger'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ 只在 ERP ({deptDiff.erpOnly.length})</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ {t('fin2.chanjet.only_erp','只在 ERP')} ({deptDiff.erpOnly.length})</div>
               {deptDiff.erpOnly.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.erpOnly.slice(0, 30).map(d => (
                   <div key={d.orgCode} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-danger) 30%, transparent)' }}>
@@ -625,7 +625,7 @@ export default function ChanjetSyncPage() {
           </div>
         )}
         <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
-          匹配规则:按部门名称严格匹配。差异列出后,你可以决定:建映射表 / 在好业财补 / 在 ERP 补 / 维持差异。
+          {t('fin2.chanjet.match_rule','匹配规则:按部门名称严格匹配。差异列出后,你可以决定:建映射表 / 在好业财补 / 在 ERP 补 / 维持差异。')}
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { LoadingSkeleton } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { BANK_ACCOUNT_FIELDS } from "../../page";
 
@@ -10,6 +11,7 @@ const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
 
 export default function BankAccountEditPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -40,14 +42,14 @@ export default function BankAccountEditPage() {
   if (loading) return <div style={{ padding: 32 }}><LoadingSkeleton variant="card" rows={6} /></div>;
   if (notFound || !row) return (
     <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-      未找到编码 {code} 的银行账户
+      {t('md.notfound_prefix','未找到编码')} {code} {t('md.notfound_suffix_bank_account','的银行账户')}
     </div>
   );
 
   return (
     <MasterDataFormPage
       type="bank-account"
-      title="银行账户"
+      title={t('md.entity_bank_account','银行账户')}
       codeKey="bank_account_code"
       nameKey="bank_name"
       fields={BANK_ACCOUNT_FIELDS}

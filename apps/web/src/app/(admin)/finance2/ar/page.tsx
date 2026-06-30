@@ -8,6 +8,7 @@ import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -191,10 +192,11 @@ function AgingBadge({
 }: {
   bucket: string;
 }) {
+  const { t } = useLanguage();
   const cfg = AGING_MAP[bucket];
   if (!cfg || bucket === 'NOT_DUE') return null;
   return <span className={`text-[10px] font-bold ml-1 ${cfg.colorClass}`}>
-      [{cfg.label}]
+      [{t(`fin2.ar.aging_${bucket.toLowerCase()}`, cfg.label)}]
     </span>;
 }
 function SourceBadge({
@@ -202,6 +204,7 @@ function SourceBadge({
 }: {
   type: string;
 }) {
+  const { t } = useLanguage();
   const cfg = SOURCE_MAP[type] ?? {
     label: type,
     colorClass: 'text-text-muted'
@@ -209,7 +212,7 @@ function SourceBadge({
   // 用 opacity-based background tint
   return <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap
       bg-current/[0.08] ${cfg.colorClass}`}>
-      {cfg.label}
+      {SOURCE_MAP[type] ? t(`fin2.ar.source_${type.toLowerCase()}`, cfg.label) : cfg.label}
     </span>;
 }
 
@@ -265,6 +268,7 @@ function CreateArModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     companyCode: '',
     companyName: '',
@@ -285,15 +289,15 @@ function CreateArModal({
   }));
   const handleSubmit = async () => {
     if (!form.companyCode.trim()) {
-      setErr('请选择公司');
+      setErr(t('fin2.ar.err_select_company', '请选择公司'));
       return;
     }
     if (!form.customerName.trim()) {
-      setErr('请选择客户');
+      setErr(t('fin2.ar.err_select_customer', '请选择客户'));
       return;
     }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr('请填写有效的发票金额');
+      setErr(t('fin2.ar.err_valid_amount', '请填写有效的发票金额'));
       return;
     }
     setSaving(true);
@@ -317,7 +321,7 @@ function CreateArModal({
       onCreated();
       onClose();
     } catch (e: any) {
-      setErr(e.message ?? '创建失败');
+      setErr(e.message ?? t('fin2.common.create_failed', '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -333,7 +337,7 @@ function CreateArModal({
           <div className="text-text" style={{
           fontWeight: 700,
           fontSize: 16
-        }}>新建应收发票</div>
+        }}>{t('fin2.ar.create_title', '新建应收发票')}</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
             <X size={18} className="text-text-dim" />
           </button>
@@ -350,20 +354,20 @@ function CreateArModal({
         }}>
             <div>
               <label style={formLabel}>
-                公司 <span className="text-red-500">*</span>
+                {t('fin2.common.company', '公司')} <span className="text-red-500">*</span>
               </label>
               {/* G4-A：从 org_units(COMPANY) 主数据加载，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
-              <label style={formLabel}>货币</label>
+              <label style={formLabel}>{t('fin2.ar.currency', '货币')}</label>
               {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
               <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
             <label style={formLabel}>
-              客户 <span className="text-red-500">*</span>
+              {t('fin2.common.customer', '客户')} <span className="text-red-500">*</span>
             </label>
             {/* G4-A：从客户主数据(仅ACTIVE)选择，自动带出名称 */}
             <CustomerSelector value={form.customerCode} onChange={v => set('customerCode', v)} onPick={o => set('customerName', o?.raw?.name ?? o?.label ?? '')} />
@@ -375,13 +379,13 @@ function CreateArModal({
         }}>
             <div>
               <label style={formLabel}>
-                发票金额 <span className="text-red-500">*</span>
+                {t('fin2.ar.invoice_amount', '发票金额')} <span className="text-red-500">*</span>
               </label>
               <input style={inputField} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <label style={formLabel}>发票号</label>
-              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
+              <label style={formLabel}>{t('fin2.ar.invoice_no', '发票号')}</label>
+              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder={t('fin2.common.optional', '可选')} />
             </div>
           </div>
           <div style={{
@@ -390,16 +394,16 @@ function CreateArModal({
           gap: 10
         }}>
             <div>
-              <label style={formLabel}>发票日期</label>
+              <label style={formLabel}>{t('fin2.ar.invoice_date', '发票日期')}</label>
               <input style={inputField} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label style={formLabel}>到期日</label>
+              <label style={formLabel}>{t('fin2.ar.due_date', '到期日')}</label>
               <input style={inputField} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
             </div>
           </div>
           <div>
-            <label style={formLabel}>备注</label>
+            <label style={formLabel}>{t('fin2.common.remark', '备注')}</label>
             <textarea style={{ ...inputField, resize: 'none',
             height: 56 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
@@ -412,10 +416,10 @@ function CreateArModal({
           justifyContent: 'flex-end'
         }}>
             <button onClick={onClose} style={secondaryActionButton}>
-              取消
+              {t('fin2.common.cancel', '取消')}
             </button>
             <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, ...(saving ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}>
-              {saving ? '创建中…' : '确认创建'}
+              {saving ? t('fin2.common.creating', '创建中…') : t('fin2.ar.confirm_create', '确认创建')}
             </button>
           </div>
         </div>
@@ -434,6 +438,7 @@ function CreateReceiptModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     companyCode: selectedAr?.company_code ?? '',
     companyName: selectedAr?.company_name ?? '',
@@ -455,19 +460,19 @@ function CreateReceiptModal({
   }));
   const handleSubmit = async () => {
     if (!form.companyCode.trim()) {
-      setErr('请选择公司');
+      setErr(t('fin2.ar.err_select_company', '请选择公司'));
       return;
     }
     if (!form.customerName.trim()) {
-      setErr('请选择客户');
+      setErr(t('fin2.ar.err_select_customer', '请选择客户'));
       return;
     }
     if (!form.receiptDate) {
-      setErr('请选择收款日期');
+      setErr(t('fin2.ar.err_select_receipt_date', '请选择收款日期'));
       return;
     }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr('请填写有效收款金额');
+      setErr(t('fin2.ar.err_valid_receipt_amount', '请填写有效收款金额'));
       return;
     }
     setSaving(true);
@@ -504,7 +509,7 @@ function CreateReceiptModal({
       onCreated();
       onClose();
     } catch (e: any) {
-      setErr(e.message ?? '创建失败');
+      setErr(e.message ?? t('fin2.common.create_failed', '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -521,7 +526,7 @@ function CreateReceiptModal({
           fontWeight: 700,
           fontSize: 16
         }}>
-            {selectedAr ? `录入收款 — ${selectedAr.ar_no}` : '新建收款'}
+            {selectedAr ? `${t('fin2.ar.receipt_for', '录入收款')} — ${selectedAr.ar_no}` : t('fin2.ar.new_receipt', '新建收款')}
           </div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
             <X size={18} className="text-text-dim" />
@@ -529,8 +534,8 @@ function CreateReceiptModal({
         </div>
         {selectedAr && <div className="bg-success/10 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 mb-4 text-xs text-emerald-700 dark:text-emerald-300">
             <strong>{selectedAr.customer_name}</strong>｜
-            余额 <strong>{fmtMoney(selectedAr.balance_amount_original, selectedAr.currency_code)}</strong>
-            {selectedAr.due_date && ` · 到期 ${fmtDate(selectedAr.due_date)}`}
+            {t('fin2.common.balance', '余额')} <strong>{fmtMoney(selectedAr.balance_amount_original, selectedAr.currency_code)}</strong>
+            {selectedAr.due_date && ` · ${t('fin2.ar.due', '到期')} ${fmtDate(selectedAr.due_date)}`}
           </div>}
         <div style={{
         display: 'flex',
@@ -543,17 +548,17 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label style={formLabel}>公司 *</label>
+              <label style={formLabel}>{t('fin2.common.company', '公司')} *</label>
               {/* G4-A：公司主数据，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
-              <label style={formLabel}>货币</label>
+              <label style={formLabel}>{t('fin2.ar.currency', '货币')}</label>
               <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
-            <label style={formLabel}>客户 *</label>
+            <label style={formLabel}>{t('fin2.common.customer', '客户')} *</label>
             {/* G4-A：客户主数据，自动带出名称 */}
             <CustomerSelector value={form.customerCode} onChange={v => set('customerCode', v)} onPick={o => set('customerName', o?.raw?.name ?? o?.label ?? '')} />
           </div>
@@ -563,11 +568,11 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label style={formLabel}>收款金额 *</label>
+              <label style={formLabel}>{t('fin2.ar.receipt_amount', '收款金额')} *</label>
               <input style={inputField} type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} />
             </div>
             <div>
-              <label style={formLabel}>收款日期 *</label>
+              <label style={formLabel}>{t('fin2.ar.receipt_date', '收款日期')} *</label>
               <input style={inputField} type="date" value={form.receiptDate} onChange={e => set('receiptDate', e.target.value)} />
             </div>
           </div>
@@ -577,27 +582,27 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label style={formLabel}>收款方式</label>
+              <label style={formLabel}>{t('fin2.ar.receipt_method', '收款方式')}</label>
               {/* G4-A：收款方式枚举来自 sys_dict(FIN_RECEIPT_METHOD) */}
-              <DictSelect dictType="FIN_RECEIPT_METHOD" value={form.receiptMethod} onChange={v => set('receiptMethod', v)} placeholder="请选择收款方式" />
+              <DictSelect dictType="FIN_RECEIPT_METHOD" value={form.receiptMethod} onChange={v => set('receiptMethod', v)} placeholder={t('fin2.ar.receipt_method_ph', '请选择收款方式')} />
             </div>
             <div>
-              <label style={formLabel}>收款账户</label>
+              <label style={formLabel}>{t('fin2.ar.receipt_account', '收款账户')}</label>
               {/* G4-A：从资金账户主数据(仅ACTIVE)选择，value=account_code */}
               <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} />
             </div>
           </div>
           <div>
-            <label style={formLabel}>银行流水号</label>
-            <input style={inputField} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
+            <label style={formLabel}>{t('fin2.ar.bank_ref', '银行流水号')}</label>
+            <input style={inputField} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder={t('fin2.common.optional', '可选')} />
           </div>
           <div>
-            <label style={formLabel}>备注</label>
+            <label style={formLabel}>{t('fin2.common.remark', '备注')}</label>
             <textarea style={{ ...inputField, resize: 'none',
             height: 52 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
           {selectedAr && <div className="bg-info/10 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-              提交后将自动核销到 <strong>{selectedAr.ar_no}</strong>（草稿 → 立即确认）
+              {t('fin2.ar.auto_allocate_1', '提交后将自动核销到')} <strong>{selectedAr.ar_no}</strong>（{t('fin2.ar.auto_allocate_2', '草稿 → 立即确认')}）
             </div>}
           {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2">
               <AlertCircle size={13} /> {err}
@@ -608,10 +613,10 @@ function CreateReceiptModal({
           justifyContent: 'flex-end'
         }}>
             <button onClick={onClose} style={secondaryActionButton}>
-              取消
+              {t('fin2.common.cancel', '取消')}
             </button>
             <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, ...(saving ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}>
-              {saving ? '处理中…' : '确认收款'}
+              {saving ? t('fin2.common.processing', '处理中…') : t('fin2.ar.confirm_receipt', '确认收款')}
             </button>
           </div>
         </div>
@@ -630,6 +635,7 @@ function ArDetailDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t } = useLanguage();
   const [detail, setDetail] = useState<ArInvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -657,7 +663,7 @@ function ArDetailDrawer({
       onChanged();
       onClose();
     } catch (e: any) {
-      setCancelErr(e.message ?? '取消失败');
+      setCancelErr(e.message ?? t('fin2.ar.cancel_failed', '取消失败'));
     } finally {
       setCancelling(false);
     }
@@ -673,13 +679,13 @@ function ArDetailDrawer({
   return <div style={drawerMask} onClick={onClose}>
       <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={drawerHeader}>
-          <div style={drawerHeaderTitle}>应收发票详情</div>
+          <div style={drawerHeaderTitle}>{t('fin2.ar.detail_title', '应收发票详情')}</div>
           <button onClick={onClose} style={drawerCloseButton}>
             <X size={18} />
           </button>
         </div>
 
-        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>}
+        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>{t('fin2.common.loading', '加载中…')}</div>}
 
         {!loading && detail && <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* 基本信息块 — token detailInfoBox */}
@@ -694,7 +700,7 @@ function ArDetailDrawer({
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                {[['客户', detail.customer_name], ['公司', detail.company_code], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => (
+                {[[t('fin2.common.customer', '客户'), detail.customer_name], [t('fin2.common.company', '公司'), detail.company_code], [t('fin2.ar.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ar.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ar.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), detail.project_code ?? '—'], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
                   <div key={k}>
                     <span className="text-text-muted">{k}：</span>
                     <span className={`text-text ${u.fw500}`}>{v}</span>
@@ -706,9 +712,9 @@ function ArDetailDrawer({
             {/* 3 金额卡 — moneyCell + tone,放大字号 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {([
-                { label: '发票金额', value: fmtMoney(detail.amount_original,          detail.currency_code), tone: 'default' as const },
-                { label: '已收金额', value: fmtMoney(detail.received_amount_original, detail.currency_code), tone: 'success' as const },
-                { label: '待收余额', value: fmtMoney(detail.balance_amount_original,  detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
+                { label: t('fin2.ar.invoice_amount', '发票金额'), value: fmtMoney(detail.amount_original,          detail.currency_code), tone: 'default' as const },
+                { label: t('fin2.ar.received_amount', '已收金额'), value: fmtMoney(detail.received_amount_original, detail.currency_code), tone: 'success' as const },
+                { label: t('fin2.ar.balance_due', '待收余额'), value: fmtMoney(detail.balance_amount_original,  detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
               ]).map(item => (
                 <div key={item.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                   <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{item.label}</div>
@@ -720,17 +726,17 @@ function ArDetailDrawer({
             {/* 账龄告警 — token inlineAlert('danger') */}
             {detail.aging_bucket !== 'NOT_DUE' && (
               <div style={inlineAlert('danger')}>
-                <AlertTriangle size={13} /> 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
+                <AlertTriangle size={13} /> {t('fin2.common.aging', '账龄')}：{AGING_MAP[detail.aging_bucket] ? t(`fin2.ar.aging_${detail.aging_bucket.toLowerCase()}`, AGING_MAP[detail.aging_bucket].label) : detail.aging_bucket}
               </div>
             )}
 
             {/* 收款核销记录 */}
             <div>
               <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-                收款核销记录（{detail.allocations.length} 条）
+                {t('fin2.ar.receipt_records', '收款核销记录')}（{detail.allocations.length} {t('fin2.common.rows_unit', '条')}）
               </div>
               {detail.allocations.length === 0 ? (
-                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无收款记录</div>
+                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>{t('fin2.ar.no_receipt_records', '暂无收款记录')}</div>
               ) : detail.allocations.map(a => (
                 /* g200a:token recordRow('success') — 白底 + 左 3px success 色条 */
                 <div key={a.id} style={recordRow('success')}>
@@ -755,7 +761,7 @@ function ArDetailDrawer({
               <div>
                 {!showReceipt ? (
                   <button onClick={() => setShowReceipt(true)} style={actionPill('success')}>
-                    <Receipt size={11} /> 录入收款
+                    <Receipt size={11} /> {t('fin2.ar.receipt_for', '录入收款')}
                   </button>
                 ) : (
                   <div style={actionGroupBox}>
@@ -772,22 +778,22 @@ function ArDetailDrawer({
               <div style={actionGroupBox}>
                 {!showCancel ? (
                   <button onClick={() => setShowCancel(true)} style={actionPill('danger')}>
-                    <Ban size={11} /> 取消此应收发票
+                    <Ban size={11} /> {t('fin2.ar.cancel_invoice', '取消此应收发票')}
                   </button>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>确认取消应收发票</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>{t('fin2.ar.confirm_cancel_invoice', '确认取消应收发票')}</div>
                     <textarea
                       value={cancelReason}
                       onChange={e => setCancelReason(e.target.value)}
-                      placeholder="取消原因（可选）"
+                      placeholder={t('fin2.ar.cancel_reason_ph', '取消原因（可选）')}
                       style={{ ...inputField, height: 56, resize: 'none', fontFamily: 'inherit' }}
                     />
                     {cancelErr && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{cancelErr}</div>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>放弃</button>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>{t('fin2.common.discard', '放弃')}</button>
                       <button onClick={handleCancel} disabled={cancelling} style={actionPill('danger', cancelling)}>
-                        {cancelling ? '处理中…' : '确认取消'}
+                        {cancelling ? t('fin2.common.processing', '处理中…') : t('fin2.ar.confirm_cancel', '确认取消')}
                       </button>
                     </div>
                   </div>
@@ -818,6 +824,7 @@ export default function Finance2ArPage() {
   //   注:确认收款(confirm)后端要 MENU_FIN2_AR:A,此处按钮仅控"录入"(:C),审批态由后端兜底。
   const { canCreate: canCreateAr }    = usePermission('MENU_FIN2_AR');
   const { canCreate: canCreateArTxn } = usePermission('MENU_FIN2_AR');
+  const { t } = useLanguage();
   const [tab, setTab] = useState<TabKey>('invoices');
 
   // AR 列表
@@ -873,7 +880,7 @@ export default function Finance2ArPage() {
       setInvTotal(res.total);
       setInvPage(res.page);
     } catch (e: any) {
-      setInvError(e.message ?? '加载失败');
+      setInvError(e.message ?? t('fin2.common.load_failed', '加载失败'));
     } finally {
       setInvLoading(false);
     }
@@ -933,21 +940,21 @@ export default function Finance2ArPage() {
   // ── 渲染 ────────────────────────────────────────────────────────────────────
 
   return <div>
-      <PageHeader title="应收账款管理" subtitle="客户应收账款 · 收款核销 · 账龄分析" breadcrumb={['财务管理', '应收账款']} actions={<div style={{
+      <PageHeader title={t('fin2.ar.page_title', '应收账款管理')} subtitle={t('fin2.ar.page_subtitle', '客户应收账款 · 收款核销 · 账龄分析')} breadcrumb={[t('fin2.common.finance_mgmt', '财务管理'), t('fin2.ar.breadcrumb', '应收账款')]} actions={<div style={{
       display: 'flex',
       gap: 8
     }}>
             <button onClick={() => { loadInvoices(1); loadSummary(); }} disabled={invLoading} style={secondaryActionButton}>
-              <RefreshCw size={13} style={{ animation: invLoading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+              <RefreshCw size={13} style={{ animation: invLoading ? 'spin 1s linear infinite' : 'none' }} /> {t('fin2.common.refresh', '刷新')}
             </button>
             {canCreateArTxn && (
               <button onClick={() => setShowReceipt(true)} style={secondaryActionButton}>
-                <Receipt size={13} /> 录入收款
+                <Receipt size={13} /> {t('fin2.ar.receipt_for', '录入收款')}
               </button>
             )}
             {canCreateAr && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={13} /> 新建应收发票
+                <Plus size={13} /> {t('fin2.ar.create_title', '新建应收发票')}
               </button>
             )}
           </div>} />
@@ -959,25 +966,25 @@ export default function Finance2ArPage() {
       gap: 10,
       marginBottom: 20
     }}>
-        <KpiCard label="应收账单总数" value={String(summary?.total_invoices ?? '—')} icon={TrendingUp} color="var(--status-success)" loading={sumLoading} />
-        <KpiCard label="未收款" value={String(summary?.open_invoices ?? '—')} icon={Clock} color="var(--status-warning)" loading={sumLoading} />
-        <KpiCard label="部分收款" value={String(summary?.partial_invoices ?? '—')} icon={TrendingUp} color="var(--status-info)" loading={sumLoading} />
-        <KpiCard label="已收清" value={String(summary?.received_invoices ?? '—')} icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
-        <KpiCard label="逾期笔数" value={String(summary?.overdue_invoices ?? '—')} icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
-        <KpiCard label="待收余额" value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0].currency_code) : sumLoading ? '…' : '—'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} 个币种` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_total', '应收账单总数')} value={String(summary?.total_invoices ?? '—')} icon={TrendingUp} color="var(--status-success)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_open', '未收款')} value={String(summary?.open_invoices ?? '—')} icon={Clock} color="var(--status-warning)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_partial', '部分收款')} value={String(summary?.partial_invoices ?? '—')} icon={TrendingUp} color="var(--status-info)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_received', '已收清')} value={String(summary?.received_invoices ?? '—')} icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_overdue', '逾期笔数')} value={String(summary?.overdue_invoices ?? '—')} icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
+        <KpiCard label={t('fin2.ar.kpi_balance', '待收余额')} value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0].currency_code) : sumLoading ? '…' : '—'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} ${t('fin2.common.currencies_unit', '个币种')}` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
       </div>
 
       {/* Tabs */}
       <div style={tabBar}>
         {([{
         key: 'invoices',
-        label: '应收账单'
+        label: t('fin2.ar.tab_invoices', '应收账单')
       }, {
         key: 'receipts',
-        label: '收款记录'
+        label: t('fin2.ar.tab_receipts', '收款记录')
       }, {
         key: 'aging',
-        label: '账龄分析'
+        label: t('fin2.ar.tab_aging', '账龄分析')
       }] as {
         key: TabKey;
         label: string;
@@ -995,19 +1002,19 @@ export default function Finance2ArPage() {
             <Filter size={14} color="var(--text-secondary)" />
             {[{
           key: 'OPEN',
-          label: '未收款'
+          label: t('fin2.ar.kpi_open', '未收款')
         }, {
           key: 'PARTIALLY_RECEIVED',
-          label: '部分收款'
+          label: t('fin2.ar.kpi_partial', '部分收款')
         }, {
           key: 'RECEIVED',
-          label: '已收清'
+          label: t('fin2.ar.kpi_received', '已收清')
         }, {
           key: 'OVERDUE',
-          label: '已逾期'
+          label: t('fin2.ar.filter_overdue', '已逾期')
         }, {
           key: 'CANCELLED',
-          label: '已取消'
+          label: t('fin2.common.cancelled', '已取消')
         }].map(sItem => (
           <button key={sItem.key} onClick={() => {
             setStatus(p => p === sItem.key ? '' : sItem.key);
@@ -1018,12 +1025,12 @@ export default function Finance2ArPage() {
         ))}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder="应收编号 / 客户 / 发票号…" style={toolbarSearchInput} />
+              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder={t('fin2.ar.search_ph', '应收编号 / 客户 / 发票号…')} style={toolbarSearchInput} />
               <button onClick={() => {
             setKeyword(searchInput.trim());
             setInvPage(1);
           }} style={primaryActionButton}>
-                <Search size={13} /> 搜索
+                <Search size={13} /> {t('fin2.common.search', '搜索')}
               </button>
             </div>
           </div>
@@ -1038,18 +1045,18 @@ export default function Finance2ArPage() {
               <table className={s.table}>
                 <thead>
                   <tr>
-                    {['应收编号', '来源', '客户', '公司', '发票日期', '到期日', '发票金额', '待收余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+                    {[['ar_no', '应收编号'], ['source', '来源'], ['customer', '客户'], ['company', '公司'], ['invoice_date', '发票日期'], ['due_date', '到期日'], ['invoice_amount', '发票金额'], ['balance_due', '待收余额'], ['status', '状态']].map(([k, h]) => <th key={k} className={u.nowrap}>{t(`fin2.ar.col_${k}`, h)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {invLoading && invoices.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
                   textAlign: 'center',
                   padding: 40
-                }}>加载中…</td></tr> : invoices.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
+                }}>{t('fin2.common.loading', '加载中…')}</td></tr> : invoices.length === 0 ? <tr><td colSpan={9} className="text-text-muted" style={{
                   textAlign: 'center',
                   padding: 40
                 }}>
-                      暂无应收记录。可点击 <strong>新建应收发票</strong> 手工录入。
+                      {t('fin2.ar.empty_1', '暂无应收记录。可点击')} <strong>{t('fin2.ar.create_title', '新建应收发票')}</strong> {t('fin2.ar.empty_2', '手工录入。')}
                     </td></tr> : invoices.map((r, i) => <tr key={r.id} onClick={() => setSelectedInvId(r.id)} className={`border-b border-border/30 cursor-pointer hover:bg-emerald-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                       <td className={`font-mono text-emerald-600 dark:text-emerald-400 ${u.nowrap}`}>
                         {r.ar_no}
@@ -1081,7 +1088,7 @@ export default function Finance2ArPage() {
               </table>
             </div>
             <div style={tablePagination}>
-              <span>共 {invTotal} 条（第 {invPage} / {invTotalPages} 页）</span>
+              <span>{t('fin2.common.total', '共')} {invTotal} {t('fin2.common.rows_unit', '条')}（{t('fin2.common.page_no', '第')} {invPage} / {invTotalPages} {t('fin2.common.page_unit', '页')}）</span>
               <div style={{
             display: 'flex',
             gap: 6
@@ -1114,18 +1121,18 @@ export default function Finance2ArPage() {
             <table className={s.table}>
               <thead>
                 <tr>
-                  {['收款编号', '客户', '公司', '收款日期', '收款金额', '方式', '流水号', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+                  {[['receipt_no', '收款编号'], ['customer', '客户'], ['company', '公司'], ['receipt_date', '收款日期'], ['receipt_amount', '收款金额'], ['method', '方式'], ['ref_no', '流水号'], ['status', '状态']].map(([k, h]) => <th key={k} className={u.nowrap}>{t(`fin2.ar.rcol_${k}`, h)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {recLoading && receipts.length === 0 ? <tr><td colSpan={8} className="text-text-muted" style={{
                 textAlign: 'center',
                 padding: 40
-              }}>加载中…</td></tr> : receipts.length === 0 ? <tr><td colSpan={8} className="text-text-muted" style={{
+              }}>{t('fin2.common.loading', '加载中…')}</td></tr> : receipts.length === 0 ? <tr><td colSpan={8} className="text-text-muted" style={{
                 textAlign: 'center',
                 padding: 40
               }}>
-                    暂无收款记录。
+                    {t('fin2.ar.no_receipts', '暂无收款记录。')}
                   </td></tr> : receipts.map((r, i) => <tr key={r.id} className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                     <td className={`font-mono text-emerald-600 dark:text-emerald-400 ${u.nowrap}`}>
                       {r.receipt_no}
@@ -1150,7 +1157,7 @@ export default function Finance2ArPage() {
             </table>
           </div>
           <div style={tablePagination}>
-            <span>共 {recTotal} 条</span>
+            <span>{t('fin2.common.total', '共')} {recTotal} {t('fin2.common.rows_unit', '条')}</span>
             <div style={{
           display: 'flex',
           gap: 6
@@ -1181,7 +1188,7 @@ export default function Finance2ArPage() {
           {agingLoading ? <div className="text-text-muted" style={{
         textAlign: 'center',
         padding: 40
-      }}>加载中…</div> : !aging ? null : <>
+      }}>{t('fin2.common.loading', '加载中…')}</div> : !aging ? null : <>
               {/* 汇总桶 */}
               <div style={{
           display: 'grid',
@@ -1191,31 +1198,31 @@ export default function Finance2ArPage() {
         }}>
                 {[{
             key: 'NOT_DUE',
-            label: '未到期',
+            label: t('fin2.ar.bucket_not_due', '未到期'),
             value: aging.buckets?.NOT_DUE ?? 0,
             colorClass: 'text-emerald-600 dark:text-emerald-400',
             borderColor: 'border-emerald-200 dark:border-emerald-800'
           }, {
             key: '0_30',
-            label: '逾期≤30天',
+            label: t('fin2.ar.bucket_0_30', '逾期≤30天'),
             value: aging.buckets?.['0_30'] ?? 0,
             colorClass: 'text-warning',
             borderColor: 'border-warning/20'
           }, {
             key: '31_60',
-            label: '逾期31-60天',
+            label: t('fin2.ar.bucket_31_60', '逾期31-60天'),
             value: aging.buckets?.['31_60'] ?? 0,
             colorClass: 'text-orange-600 dark:text-orange-400',
             borderColor: 'border-orange-200 dark:border-orange-800'
           }, {
             key: '61_90',
-            label: '逾期61-90天',
+            label: t('fin2.ar.bucket_61_90', '逾期61-90天'),
             value: aging.buckets?.['61_90'] ?? 0,
             colorClass: 'text-danger',
             borderColor: 'border-danger/20'
           }, {
             key: '90_PLUS',
-            label: '逾期>90天',
+            label: t('fin2.ar.bucket_90_plus', '逾期>90天'),
             value: aging.buckets?.['90_PLUS'] ?? 0,
             colorClass: 'text-red-800 dark:text-red-300',
             borderColor: 'border-red-300 dark:border-red-700'
@@ -1234,23 +1241,23 @@ export default function Finance2ArPage() {
               {/* 客户明细 */}
               <div style={tableContainer}>
                 <div className="border-b border-border text-text-muted px-4 py-3 text-sm font-semibold">
-                  客户账龄明细（截至 {new Date().toLocaleDateString('zh-CN')}）
+                  {t('fin2.ar.customer_aging_detail', '客户账龄明细')}（{t('fin2.ar.as_of', '截至')} {new Date().toLocaleDateString('zh-CN')}）
                 </div>
                 <div className={u.scrollX}>
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        {['客户', '币种', '未到期', '≤30天', '31-60天', '61-90天', '>90天', '合计'].map(h => <th key={h} style={{
+                        {[['customer', '客户'], ['currency', '币种'], ['not_due', '未到期'], ['le_30', '≤30天'], ['31_60', '31-60天'], ['61_90', '61-90天'], ['gt_90', '>90天'], ['total', '合计']].map(([k, h]) => <th key={k} style={{
                     whiteSpace: 'nowrap',
-                    textAlign: h === '客户' ? 'left' : 'right'
-                  }}>{h}</th>)}
+                    textAlign: k === 'customer' ? 'left' : 'right'
+                  }}>{t(`fin2.ar.acol_${k}`, h)}</th>)}
                       </tr>
                     </thead>
                     <tbody>
                       {(aging.byCustomer ?? []).length === 0 ? <tr><td colSpan={8} className="text-text-muted" style={{
                     textAlign: 'center',
                     padding: 30
-                  }}>暂无账龄数据</td></tr> : (aging.byCustomer ?? []).map((row: any, i: number) => <tr key={i} className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
+                  }}>{t('fin2.ar.no_aging', '暂无账龄数据')}</td></tr> : (aging.byCustomer ?? []).map((row: any, i: number) => <tr key={i} className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                           <td className="text-text">
                             {row.customer_name ?? '—'}
                             {row.customer_code && <div className={`text-text-muted ${u.fs10}`}>{row.customer_code}</div>}

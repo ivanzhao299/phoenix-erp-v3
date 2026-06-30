@@ -43,6 +43,13 @@ export class SalCustomerEntity {
   @Column({ name: 'customer_name', type: 'varchar', length: 128 })
   customerName: string;
 
+  // task #25 多语言名称（迁移 AddMasterDataMultilingualNames 已建 DB 列；此处声明对齐 entity↔DB，消 g197-I 漂移）
+  @Column({ name: 'customer_name_en', type: 'varchar', length: 255, nullable: true })
+  customerNameEn: string | null;
+
+  @Column({ name: 'customer_name_lo', type: 'varchar', length: 255, nullable: true })
+  customerNameLo: string | null;
+
   @Column({ name: 'customer_type', type: 'varchar', length: 32, default: 'RETAIL' })
   customerType: string;
 

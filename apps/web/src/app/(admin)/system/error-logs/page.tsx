@@ -9,6 +9,7 @@ import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import PageHeader from "@/components/PageHeader";
 import { FileWarning, RefreshCw, X, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ErrorRow {
   id:             number;
@@ -37,6 +38,7 @@ function statusStyle(code: number | null): { bg: string; color: string } {
 const PAGE_SIZE = 50;
 
 export default function ErrorLogsPage() {
+  const { t } = useLanguage();
   const [rows, setRows]       = useState<ErrorRow[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(1);
@@ -78,17 +80,17 @@ export default function ErrorLogsPage() {
   return (
     <div>
       <PageHeader
-        title="错误日志"
+        title={t('ui.错误日志','错误日志')}
         subtitle={`共 ${total} 条 · 系统异常记录 / 错误追踪（只读 append-only）`}
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input value={errorType} onChange={e => setErrorType(e.target.value)} placeholder="错误类型"
+            <input value={errorType} onChange={e => setErrorType(e.target.value)} placeholder={t('ui.错误类型','错误类型')}
               style={{ padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13, width: 140 }} />
-            <input value={httpStatus} onChange={e => setHttpStatus(e.target.value)} placeholder="HTTP 状态" inputMode="numeric"
+            <input value={httpStatus} onChange={e => setHttpStatus(e.target.value)} placeholder={t('ui.HTTP 状态','HTTP 状态')} inputMode="numeric"
               style={{ padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", fontSize: 13, width: 100 }} />
             <button onClick={() => fetchList(1)} disabled={loading}
               style={{ padding: "6px 14px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <RefreshCw size={14} /> 查询
+              <RefreshCw size={14} /> {t('ui.查询','查询')}
             </button>
           </div>
         }
@@ -97,14 +99,14 @@ export default function ErrorLogsPage() {
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>
           <thead>
-            <tr>{["时间", "类型", "HTTP", "方法 / 路径", "错误消息", "用户", "IP", "操作"].map(h => <th key={h} className={u.nowrap}>{h}</th>)}</tr>
+            <tr>{[t('ui.时间','时间'), t('ui.类型','类型'), "HTTP", t('ui.方法 / 路径','方法 / 路径'), t('ui.错误消息','错误消息'), t('ui.用户','用户'), "IP", t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Loader2 size={22} className="animate-spin" /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--status-success)" }}>
-                <FileWarning size={26} /><p style={{ margin: "8px 0 0", fontWeight: 600 }}>无错误记录</p>
+                <FileWarning size={26} /><p style={{ margin: "8px 0 0", fontWeight: 600 }}>{t('ui.无错误记录','无错误记录')}</p>
               </td></tr>
             ) : rows.map(r => {
               const sty = statusStyle(r.http_status);
@@ -119,7 +121,7 @@ export default function ErrorLogsPage() {
                   <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.error_message ?? "—"}</td>
                   <td style={{ fontSize: 12 }}>{r.username ?? (r.user_id ?? "—")}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)" }}>{r.ip_address ?? "—"}</td>
-                  <td><span style={{ color: "var(--color-accent)", fontSize: 12, fontWeight: 600 }}>详情</span></td>
+                  <td><span style={{ color: "var(--color-accent)", fontSize: 12, fontWeight: 600 }}>{t('ui.详情','详情')}</span></td>
                 </tr>
               );
             })}
@@ -130,9 +132,9 @@ export default function ErrorLogsPage() {
       {/* 分页 */}
       {pages > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-          <button disabled={page <= 1} onClick={() => fetchList(page - 1)} style={{ padding: "5px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: page > 1 ? "pointer" : "not-allowed", fontSize: 13 }}>上一页</button>
+          <button disabled={page <= 1} onClick={() => fetchList(page - 1)} style={{ padding: "5px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: page > 1 ? "pointer" : "not-allowed", fontSize: 13 }}>{t('ui.上一页','上一页')}</button>
           <span style={{ lineHeight: "32px", fontSize: 13, color: "var(--text-secondary)" }}>第 {page} / {pages} 页 · 共 {total} 条</span>
-          <button disabled={page >= pages} onClick={() => fetchList(page + 1)} style={{ padding: "5px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: page < pages ? "pointer" : "not-allowed", fontSize: 13 }}>下一页</button>
+          <button disabled={page >= pages} onClick={() => fetchList(page + 1)} style={{ padding: "5px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: page < pages ? "pointer" : "not-allowed", fontSize: 13 }}>{t('ui.下一页','下一页')}</button>
         </div>
       )}
 
@@ -141,7 +143,7 @@ export default function ErrorLogsPage() {
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-mask)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={() => { setDetail(null); setLoadingDetail(false); }}>
           <div onClick={e => e.stopPropagation()} style={{ width: 560, maxWidth: "92vw", height: "100%", background: "var(--bg-card)", borderLeft: "1px solid var(--border)", overflowY: "auto", padding: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>错误详情</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('ui.错误详情','错误详情')}</h3>
               <button onClick={() => { setDetail(null); setLoadingDetail(false); }} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-secondary)" }}><X size={18} /></button>
             </div>
             {loadingDetail ? (
@@ -149,13 +151,13 @@ export default function ErrorLogsPage() {
             ) : detail && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13 }}>
                 {([
-                  ["错误类型", detail.error_type],
-                  ["HTTP 状态", detail.http_status ?? "—"],
-                  ["PG 错误码", detail.pg_error_code ?? "—"],
-                  ["请求", `${detail.request_method ?? ""} ${detail.request_path ?? "—"}`],
-                  ["用户", detail.username ?? (detail.user_id ?? "—")],
+                  [t('ui.错误类型','错误类型'), detail.error_type],
+                  [t('ui.HTTP 状态','HTTP 状态'), detail.http_status ?? "—"],
+                  [t('ui.PG 错误码','PG 错误码'), detail.pg_error_code ?? "—"],
+                  [t('ui.请求','请求'), `${detail.request_method ?? ""} ${detail.request_path ?? "—"}`],
+                  [t('ui.用户','用户'), detail.username ?? (detail.user_id ?? "—")],
                   ["IP", detail.ip_address ?? "—"],
-                  ["时间", new Date(detail.created_at).toLocaleString("zh-CN")],
+                  [t('ui.时间','时间'), new Date(detail.created_at).toLocaleString("zh-CN")],
                 ] as [string, React.ReactNode][]).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", gap: 10 }}>
                     <span style={{ color: "var(--text-secondary)", width: 84, flexShrink: 0 }}>{k}</span>
@@ -163,12 +165,12 @@ export default function ErrorLogsPage() {
                   </div>
                 ))}
                 <div>
-                  <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>错误消息</div>
+                  <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>{t('ui.错误消息','错误消息')}</div>
                   <div style={{ background: "var(--bg-muted)", borderRadius: "var(--radius-md)", padding: 10, fontFamily: "monospace", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{detail.error_message ?? "—"}</div>
                 </div>
                 <div>
-                  <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>堆栈 stack_trace</div>
-                  <pre style={{ background: "var(--bg-muted)", borderRadius: "var(--radius-md)", padding: 10, fontSize: 11, overflowX: "auto", maxHeight: 360, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{detail.stack_trace ?? "（无堆栈）"}</pre>
+                  <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>{t('ui.堆栈','堆栈')} stack_trace</div>
+                  <pre style={{ background: "var(--bg-muted)", borderRadius: "var(--radius-md)", padding: 10, fontSize: 11, overflowX: "auto", maxHeight: 360, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{detail.stack_trace ?? t('ui.（无堆栈）','（无堆栈）')}</pre>
                 </div>
               </div>
             )}

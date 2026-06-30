@@ -7,6 +7,7 @@ import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ShoppingCart, List, X,
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useProductGrades } from '@/hooks/useProductGrades';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,6 +48,7 @@ export default function SalesPage() {
     toggle,
     t
   } = useMobileTheme();
+  const { t: tt } = useLanguage();
   const {
     allowed,
     loading: permLoading,
@@ -61,7 +63,7 @@ export default function SalesPage() {
   const [tab, setTab] = useState<Tab>('new');
   const [date, setDate] = useState(today);
   const isToday = date === today;
-  const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
+  const dateLabel = isToday ? tt('mob.biz.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tt('mob.biz.yesterday', '昨天') : date;
   const [customers, setCustomers] = useState<FarmCustomer[]>([]);
   const [selCustomer, setSelCustomer] = useState<FarmCustomer | null>(null);
   const [entries, setEntries] = useState<Record<string, GradeEntry>>({});
@@ -115,15 +117,15 @@ export default function SalesPage() {
       const data = await mobileApi.getFarmSales(d);
       setHistory(data);
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tt('mob.biz.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tt]);
   useEffect(() => {
     if (tab === 'history') loadHistory(date);
   }, [tab, date, loadHistory]);
-  if (permLoading) return <MobilePageSkeleton title="销售出库" tabs={['开单', '记录']} onBack={() => router.back()} />;
+  if (permLoading) return <MobilePageSkeleton title={tt('mob.biz.sales_outbound', '销售出库')} tabs={[tt('mob.biz.create_order', '开单'), tt('mob.biz.records', '记录')]} onBack={() => router.back()} />;
   if (!allowed) return null;
   const getQty = (g: string) => entries[g]?.qty ?? 0;
   // Sales V2 Phase 2: 优先使用用户录入价格，其次 dynamicPrices（API），不再硬编码
@@ -145,7 +147,7 @@ export default function SalesPage() {
   const totalAmount = EGG_GRADES.reduce((s, g) => s + getQty(g.code) * getPrice(g.code), 0);
   const handleSubmit = async () => {
     if (!selCustomer) {
-      setError('请选择客户');
+      setError(tt('mob.biz.select_customer', '请选择客户'));
       return;
     }
     const items: FarmSaleItem[] = EGG_GRADES.filter(g => getQty(g.code) > 0).map(g => ({
@@ -156,7 +158,7 @@ export default function SalesPage() {
       unit_price: getPrice(g.code)
     }));
     if (items.length === 0) {
-      setError('请填写出货数量');
+      setError(tt('mob.biz.fill_shipment_qty', '请填写出货数量'));
       return;
     }
     setSubmitting(true);
@@ -171,24 +173,24 @@ export default function SalesPage() {
         operator: token ? 'mobile' : 'mobile'
       });
       haptic('success');
-      toast.success('销售单开单成功');
+      toast.success(tt('mob.biz.sale_order_created', '销售单开单成功'));
       setSuccessNo(res.order_no);
       setEntries({});
     } catch (e: any) {
       haptic('error');
-      toast.error(e.message || '开单失败');
-      setError(e.message || '提交失败');
+      toast.error(e.message || tt('mob.biz.create_order_failed', '开单失败'));
+      setError(e.message || tt('mob.biz.submit_failed', '提交失败'));
     } finally {
       setSubmitting(false);
     }
   };
   const handleCancel = async (orderNo: string) => {
-    if (!confirm(`确认撤销 ${orderNo}？库存将恢复。`)) return;
+    if (!confirm(`${tt('mob.biz.confirm_cancel_prefix', '确认撤销')} ${orderNo}${tt('mob.biz.confirm_cancel_suffix', '？库存将恢复。')}`)) return;
     try {
       await mobileApi.cancelFarmSale(orderNo, 'mobile');
       loadHistory(date);
     } catch (e: any) {
-      setError(e.message || '撤销失败');
+      setError(e.message || tt('mob.biz.cancel_failed', '撤销失败'));
     }
   };
   const historyTotal = history.reduce((s, r) => s + Number(r.total_amount), 0);
@@ -225,7 +227,7 @@ export default function SalesPage() {
         fontWeight: 700,
         color: t.text,
         flex: 1
-      }}>🛒 销售出库</span>
+      }}>🛒 {tt('mob.biz.sales_outbound', '销售出库')}</span>
         {tab === 'history' && <button onClick={() => loadHistory(date)} style={{
         background: 'none',
         border: 'none',
@@ -257,11 +259,11 @@ export default function SalesPage() {
     }}>
         {([{
         key: 'new',
-        label: '开单',
+        label: tt('mob.biz.create_order', '开单'),
         icon: <ShoppingCart size={14} />
       }, {
         key: 'history',
-        label: '记录',
+        label: tt('mob.biz.records', '记录'),
         icon: <List size={14} />
       }] as const).map(tab_ => <button key={tab_.key} onClick={() => setTab(tab_.key)} style={{
         display: 'flex',
@@ -345,7 +347,7 @@ export default function SalesPage() {
       fontSize: 13,
       fontWeight: 600
     }}>
-          ✓ 出库单已创建：{successNo}
+          ✓ {tt('mob.biz.outbound_created', '出库单已创建：')}{successNo}
         </div>}
 
       {/* 内容区 */}
@@ -365,7 +367,7 @@ export default function SalesPage() {
             fontSize: 12,
             color: t.textMuted,
             marginBottom: 8
-          }}>客户</div>
+          }}>{tt('mob.biz.customer', '客户')}</div>
               <div style={{
             display: 'flex',
             gap: 8,
@@ -403,7 +405,7 @@ export default function SalesPage() {
             color: t.textMuted,
             fontWeight: 600
           }}>
-                <span>规格</span><span className={u.tar}>数量（枚）</span><span className={u.tar}>单价（LAK）</span>
+                <span>{tt('mob.biz.spec', '规格')}</span><span className={u.tar}>{tt('mob.biz.qty_eggs', '数量（枚）')}</span><span className={u.tar}>{tt('mob.biz.unit_price_lak', '单价（LAK）')}</span>
               </div>
 
               {EGG_GRADES.map((g, idx) => {
@@ -427,7 +429,7 @@ export default function SalesPage() {
                       {sub > 0 && <div style={{
                   fontSize: 10,
                   color: 'var(--status-success)'
-                }}>小计 {fmtMoney(sub)}</div>}
+                }}>{tt('mob.biz.subtotal', '小计')} {fmtMoney(sub)}</div>}
                     </div>
                     <input type="number" inputMode="numeric" min="0" value={qty || ''} onChange={e => setEntry(g.code, 'qty', Math.max(0, Number(e.target.value) || 0))} placeholder="0" style={{
                 height: 34,
@@ -474,7 +476,7 @@ export default function SalesPage() {
                 <span style={{
             fontSize: 12,
             color: t.textMuted
-          }}>今日合计 · {history.length} 单</span>
+          }}>{tt('mob.biz.today_total', '今日合计')} · {history.length} {tt('mob.biz.orders_unit', '单')}</span>
                 <span style={{
             fontSize: 18,
             fontWeight: 800,
@@ -482,7 +484,7 @@ export default function SalesPage() {
           }}>₭ {fmtMoney(historyTotal)}</span>
               </div>}
 
-            {loading ? <div>{[1, 2, 3].map(i => <SkeletonCard key={i} lines={3} />)}</div> : history.length === 0 ? <MobileEmptyState icon="🛒" title="暂无销售记录" desc="今日还没有销售出库记录" /> : history.map(rec => <div key={rec.order_no} style={{
+            {loading ? <div>{[1, 2, 3].map(i => <SkeletonCard key={i} lines={3} />)}</div> : history.length === 0 ? <MobileEmptyState icon="🛒" title={tt('mob.biz.no_sales_records', '暂无销售记录')} desc={tt('mob.biz.no_sales_today', '今日还没有销售出库记录')} /> : history.map(rec => <div key={rec.order_no} style={{
           borderRadius: 14,
           marginBottom: 10,
           background: rec.status === 'CANCELLED' ? t.cardBg : 'var(--status-success-bg-faint)',
@@ -519,7 +521,7 @@ export default function SalesPage() {
                       {rec.status === 'CANCELLED' && <div style={{
                 fontSize: 10,
                 color: 'var(--status-danger)'
-              }}>已撤销</div>}
+              }}>{tt('mob.biz.cancelled', '已撤销')}</div>}
                     </div>
                   </div>
 
@@ -556,7 +558,7 @@ export default function SalesPage() {
               alignItems: 'center',
               gap: 4
             }}>
-                          <X size={12} /> 撤销此单
+                          <X size={12} /> {tt('mob.biz.cancel_this_order', '撤销此单')}
                         </button>}
                     </div>}
                 </div>)}
@@ -584,7 +586,7 @@ export default function SalesPage() {
           fontSize: 11,
           color: t.textFaint
         }}>
-              {totalQty > 0 ? `${totalQty.toLocaleString()} 枚` : '未填写数量'}
+              {totalQty > 0 ? `${totalQty.toLocaleString()} ${tt('mob.biz.unit_egg', '枚')}` : tt('mob.biz.qty_not_filled', '未填写数量')}
             </div>
             <div style={{
           fontSize: 20,
@@ -606,7 +608,7 @@ export default function SalesPage() {
         fontSize: 15,
         fontWeight: 800
       }}>
-            {submitting ? '提交中…' : '确认出库'}
+            {submitting ? tt('mob.biz.submitting', '提交中…') : tt('mob.biz.confirm_outbound', '确认出库')}
           </button>
         </div>}
     </div>;

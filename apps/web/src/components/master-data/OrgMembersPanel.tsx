@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, UserPlus, X, Trash2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -51,6 +52,7 @@ interface AllUser {
 }
 
 export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgName?: string }) {
+  const { t } = useLanguage();
   const toast = useToast();
   const { canCreate, canEdit, canDelete } = usePermission("MENU_SETTINGS_DATA_SCOPE");
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -124,11 +126,11 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success(`已分配至「${orgName || '当前组织'}」`);
+        toast.success(`${t('ui.已分配至','已分配至')}「${orgName || t('ui.当前组织','当前组织')}」`);
         await loadMembers(orgId);
-      } else throw new Error(json.message ?? "分配失败");
+      } else throw new Error(json.message ?? t('ui.分配失败','分配失败'));
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "操作失败");
+      toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
     } finally { setAssigning(null); }
   };
 
@@ -140,35 +142,35 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.code === 200) {
         setMembers(prev => prev.map(p => p.userOrgId === m.userOrgId ? { ...p, dataScopeLevel: level } : p));
-        toast.success("数据范围已更新");
+        toast.success(t('ui.数据范围已更新','数据范围已更新'));
       } else {
         // G88：失败必须如实报错（原版静默吞掉）
-        toast.error(json.message ?? `更新失败（HTTP ${res.status}）`);
+        toast.error(json.message ?? `${t('ui.更新失败','更新失败')}（HTTP ${res.status}）`);
       }
-    } catch { toast.error("更新失败"); }
+    } catch { toast.error(t('ui.更新失败','更新失败')); }
   };
 
   const removeMember = async (m: OrgMember) => {
-    if (!window.confirm(`确定将「${m.realNameZh || m.username}」从该组织移除？\n（仅解除组织绑定，不会删除用户账号）`)) return;
+    if (!window.confirm(`${t('ui.确定将','确定将')}「${m.realNameZh || m.username}」${t('ui.从该组织移除？\n（仅解除组织绑定，不会删除用户账号）','从该组织移除？\n（仅解除组织绑定，不会删除用户账号）')}`)) return;
     setAssigning(m.id);
     try {
       const res = await fetch(`/api/org/user-orgs/${m.userOrgId}`, { method: "DELETE", headers: hdr() });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.code === 200) {
         // G88：原版不校验响应、失败也弹"已移除"——配合后端字段错位形成"删不掉"假象，已修
-        toast.success("已移除");
+        toast.success(t('ui.已移除','已移除'));
         if (orgId) await loadMembers(orgId);
       } else {
-        toast.error(json.message ?? `移除失败（HTTP ${res.status}）`);
+        toast.error(json.message ?? `${t('ui.移除失败','移除失败')}（HTTP ${res.status}）`);
       }
-    } catch { toast.error("操作失败"); }
+    } catch { toast.error(t('ui.操作失败','操作失败')); }
     finally { setAssigning(null); }
   };
 
   if (!orgId) {
     return (
       <div style={{ ...cockpitCard, padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
-        请先在左侧选择一个组织节点
+        {t('ui.请先在左侧选择一个组织节点','请先在左侧选择一个组织节点')}
       </div>
     );
   }
@@ -177,36 +179,36 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
     <div style={{ ...cockpitCard, display: 'flex', flexDirection: 'column' }}>
       <div style={cockpitCardHeader}>
         <UserPlus size={14} style={{ color: 'var(--color-primary)' }} />
-        <span style={cockpitCardHeaderTitle}>组织成员</span>
-        <span style={cockpitCardHeaderHint}>{members.length} 人</span>
+        <span style={cockpitCardHeaderTitle}>{t('ui.组织成员','组织成员')}</span>
+        <span style={cockpitCardHeaderHint}>{members.length} {t('ui.人','人')}</span>
         {canCreate && (
           <button
             type="button"
             onClick={() => setAssignDrawer(true)}
             style={{ ...primaryActionButton, padding: '6px 14px', fontSize: 12 }}
           >
-            <UserPlus size={12} /> 添加成员
+            <UserPlus size={12} /> {t('ui.添加成员','添加成员')}
           </button>
         )}
       </div>
 
       <div style={{ padding: '4px 12px 12px' }}>
         {loading ? (
-          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>加载中…</div>
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>{t('ui.加载中…','加载中…')}</div>
         ) : members.length === 0 ? (
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-            该组织暂无成员。点击右上"添加成员"分配用户。
+            {t('ui.该组织暂无成员。点击右上"添加成员"分配用户。','该组织暂无成员。点击右上"添加成员"分配用户。')}
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ color: 'var(--text-secondary)' }}>
-                <th style={thStyle}>成员</th>
-                <th style={thStyle}>账号</th>
-                <th style={thStyle}>角色</th>
-                <th style={{ ...thStyle, textAlign: 'center', width: 140 }}>数据范围</th>
-                <th style={{ ...thStyle, textAlign: 'center', width: 80 }}>状态</th>
-                <th style={{ ...thStyle, textAlign: 'right', width: 80 }}>操作</th>
+                <th style={thStyle}>{t('ui.成员','成员')}</th>
+                <th style={thStyle}>{t('ui.账号','账号')}</th>
+                <th style={thStyle}>{t('ui.角色','角色')}</th>
+                <th style={{ ...thStyle, textAlign: 'center', width: 140 }}>{t('ui.数据范围','数据范围')}</th>
+                <th style={{ ...thStyle, textAlign: 'center', width: 80 }}>{t('ui.状态','状态')}</th>
+                <th style={{ ...thStyle, textAlign: 'right', width: 80 }}>{t('ui.操作','操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -214,7 +216,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                 <tr key={m.userOrgId} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={tdStyle}>
                     <strong style={{ color: 'var(--text-primary)' }}>{m.realNameZh || m.username}</strong>
-                    {m.isPrimary && <span style={{ ...inlineBadge('success'), marginLeft: 6 }}>主部门</span>}
+                    {m.isPrimary && <span style={{ ...inlineBadge('success'), marginLeft: 6 }}>{t('ui.主部门','主部门')}</span>}
                   </td>
                   <td style={{ ...tdStyle, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{m.username}</td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{m.roleNameZh || m.role || '—'}</td>
@@ -235,7 +237,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <span style={inlineBadge(String(m.userStatus) === 'ACTIVE' || m.userStatus === 1 ? 'success' : 'default')}>
-                      {String(m.userStatus) === 'ACTIVE' || m.userStatus === 1 ? '在职' : '停用'}
+                      {String(m.userStatus) === 'ACTIVE' || m.userStatus === 1 ? t('ui.在职','在职') : t('ui.停用','停用')}
                     </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
@@ -243,7 +245,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                       <button
                         onClick={() => removeMember(m)}
                         disabled={assigning === m.id}
-                        title="移除"
+                        title={t('ui.移除','移除')}
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 4 }}
                       >
                         <Trash2 size={14} />
@@ -262,14 +264,14 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
         <div style={drawerMask} onClick={() => setAssignDrawer(false)}>
           <div style={drawerPanel(460)} onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeader}>
-              <h2 style={drawerHeaderTitle}>添加成员到「{orgName || '组织'}」</h2>
+              <h2 style={drawerHeaderTitle}>{t('ui.添加成员到','添加成员到')}「{orgName || t('ui.组织','组织')}」</h2>
               <button onClick={() => setAssignDrawer(false)} style={drawerCloseButton}>
                 <X size={18} />
               </button>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={formLabel}>数据范围等级</label>
+              <label style={formLabel}>{t('ui.数据范围等级','数据范围等级')}</label>
               <select value={assignScope} onChange={(e) => setAssignScope(e.target.value)} style={inputField}>
                 {SCOPE_LEVELS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
@@ -280,7 +282,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
               <input
                 value={assignSearch}
                 onChange={(e) => setAssignSearch(e.target.value)}
-                placeholder="搜索用户名 / 真实姓名…"
+                placeholder={t('ui.搜索用户名 / 真实姓名…','搜索用户名 / 真实姓名…')}
                 style={{ ...inputField, paddingLeft: 32 }}
               />
             </div>
@@ -288,7 +290,7 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {candidateUsers.length === 0 ? (
                 <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-                  暂无候选用户
+                  {t('ui.暂无候选用户','暂无候选用户')}
                 </div>
               ) : candidateUsers.map(u => (
                 <button
@@ -312,14 +314,14 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
                     <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{u.realNameZh || u.username}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{u.username} · {u.roleNameZh || u.role || '—'}</div>
                   </div>
-                  {assigning === u.id ? <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>分配中…</span> : <UserPlus size={14} style={{ color: 'var(--color-primary)' }} />}
+                  {assigning === u.id ? <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('ui.分配中…','分配中…')}</span> : <UserPlus size={14} style={{ color: 'var(--color-primary)' }} />}
                 </button>
               ))}
             </div>
 
             <div style={drawerFooter}>
               <button onClick={() => setAssignDrawer(false)} style={{ ...secondaryActionButton, flex: 1, justifyContent: 'center' }}>
-                完成
+                {t('ui.完成','完成')}
               </button>
             </div>
           </div>

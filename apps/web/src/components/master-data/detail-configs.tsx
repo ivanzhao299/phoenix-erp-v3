@@ -8,6 +8,7 @@
  */
 
 import { ReactNode } from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Phone, User, Building2, Calendar, ShoppingCart, ShoppingBag,
   Receipt, CreditCard, Activity, AlertCircle, Package, Layers,
@@ -62,8 +63,9 @@ function RecentRows({ rows, getKey, getLabel, getSub, getRight }: {
   getLabel: (r: any) => ReactNode; getSub?: (r: any) => ReactNode;
   getRight?: (r: any) => ReactNode;
 }) {
+  const { t } = useLanguage();
   if (!rows || rows.length === 0) {
-    return <div style={{ padding: '16px 12px', textAlign: 'center', background: 'var(--bg-muted)', borderRadius: 'var(--radius-card)', fontSize: 12, color: 'var(--text-secondary)' }}>暂无</div>;
+    return <div style={{ padding: '16px 12px', textAlign: 'center', background: 'var(--bg-muted)', borderRadius: 'var(--radius-card)', fontSize: 12, color: 'var(--text-secondary)' }}>{t('ui.暂无','暂无')}</div>;
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

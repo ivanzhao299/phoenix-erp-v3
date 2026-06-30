@@ -54,12 +54,14 @@ function ResultSection({
   icon,
   title,
   count,
-  children
+  children,
+  t
 }: {
   icon: React.ReactNode;
   title: string;
   count: number;
   children: React.ReactNode;
+  t: (key: string, fallback?: string) => string;
 }) {
   return <div className={u.mb20}>
       <div style={{
@@ -82,7 +84,7 @@ function ResultSection({
         background: 'var(--bg-muted)',
         padding: '1px 8px',
         borderRadius: 10
-      }}>{count} 条</span>
+      }}>{count} {t('ui.条', '条')}</span>
       </div>
       {children}
     </div>;
@@ -189,14 +191,14 @@ export default function ForwardTracePage() {
       fontSize: 13
     }}>
           <AlertCircle size={15} />
-          {t("ui.查询失败", "查询失败")}：{error}
+          {t("ui.查询失败", "查询失败")}{t("ui.：", "：")}{error}
         </div>}
 
       {/* 空态引导（未搜索时） */}
       {!result && !loading && !error && <div style={{
       paddingTop: 32
     }}>
-          <EmptyState title="输入批次号开始追溯" description="输入库存批次号（EGG-YYYYMMDD-*）或包装批次号（PKG-*），回车或点击追溯按钮" />
+          <EmptyState title={t("ui.输入批次号开始追溯", "输入批次号开始追溯")} description={t("ui.追溯空态说明", "输入库存批次号（EGG-YYYYMMDD-*）或包装批次号（PKG-*），回车或点击追溯按钮")} />
         </div>}
 
       {/* 追溯结果 */}
@@ -207,7 +209,7 @@ export default function ForwardTracePage() {
       padding: '20px 20px 4px'
     }}>
           {/* 批次信息 */}
-          <ResultSection icon={<Package size={14} />} title="批次信息" count={result.batch ? 1 : 0}>
+          <ResultSection t={t} icon={<Package size={14} />} title={t("ui.批次信息", "批次信息")} count={result.batch ? 1 : 0}>
             {result.batch ? <KVRow item={result.batch} keys={BATCH_KEYS} /> : <div style={{
           padding: '10px 14px',
           borderRadius: 8,
@@ -216,17 +218,17 @@ export default function ForwardTracePage() {
           color: 'var(--status-danger)',
           fontSize: 13
         }}>
-                未找到批次「{batchNo}」
+                {t("ui.未找到批次", "未找到批次")}「{batchNo}」
               </div>}
           </ResultSection>
 
           {/* 质检记录 */}
-          <ResultSection icon={<ClipboardList size={14} />} title={t("ui.质检记录", "质检记录")} count={result.inspections.length}>
+          <ResultSection t={t} icon={<ClipboardList size={14} />} title={t("ui.质检记录", "质检记录")} count={result.inspections.length}>
             {result.inspections.length === 0 ? <div style={{
           fontSize: 13,
           color: 'var(--text-secondary)',
           padding: '8px 0'
-        }}>暂无质检记录</div> : <div style={{
+        }}>{t("ui.暂无质检记录", "暂无质检记录")}</div> : <div style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 6
@@ -236,12 +238,12 @@ export default function ForwardTracePage() {
           </ResultSection>
 
           {/* 关联订单 */}
-          <ResultSection icon={<ShoppingCart size={14} />} title={t("ui.关联订单", "关联订单")} count={result.orders.length}>
+          <ResultSection t={t} icon={<ShoppingCart size={14} />} title={t("ui.关联订单", "关联订单")} count={result.orders.length}>
             {result.orders.length === 0 ? <div style={{
           fontSize: 13,
           color: 'var(--text-secondary)',
           padding: '8px 0'
-        }}>暂无关联订单</div> : <div style={{
+        }}>{t("ui.暂无关联订单", "暂无关联订单")}</div> : <div style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 6

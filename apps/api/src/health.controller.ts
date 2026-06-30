@@ -138,7 +138,7 @@ export class HealthController {
       );
 
       const [posToday] = await this.em.query(
-        `SELECT COUNT(*)::int AS cnt FROM pos_sales WHERE substr(created_at,1,10) = to_char(CURRENT_DATE,'YYYY-MM-DD')`,
+        `SELECT COUNT(*)::int AS cnt FROM pos_sales WHERE substr(created_at::text,1,10) = to_char(CURRENT_DATE,'YYYY-MM-DD')`,
       ).catch(() => [{ cnt: 0 }]);
       push('phoenix_pos_sales_today_total', 'POS sales count for today', 'gauge', [[null, Number(posToday?.cnt) || 0]]);
 

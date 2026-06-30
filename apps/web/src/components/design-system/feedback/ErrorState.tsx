@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * ErrorState — 统一错误态。暗色经 CSS 变量适配。
@@ -13,7 +14,9 @@ export interface ErrorStateProps {
   compact?: boolean;
 }
 
-export function ErrorState({ title = '加载失败', message, onRetry, compact }: ErrorStateProps) {
+export function ErrorState({ title, message, onRetry, compact }: ErrorStateProps) {
+  const { t } = useLanguage();
+  const resolvedTitle = title ?? t('ui.加载失败','加载失败');
   return (
     <div
       style={{
@@ -30,7 +33,7 @@ export function ErrorState({ title = '加载失败', message, onRetry, compact }
       >
         <AlertTriangle size={compact ? 20 : 26} />
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{resolvedTitle}</div>
       {message && <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360 }}>{message}</div>}
       {onRetry && (
         <button
@@ -40,7 +43,7 @@ export function ErrorState({ title = '加载失败', message, onRetry, compact }
             background: 'var(--bg-card)', color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer', fontSize: 13,
           }}
         >
-          重试
+          {t('ui.重试','重试')}
         </button>
       )}
     </div>

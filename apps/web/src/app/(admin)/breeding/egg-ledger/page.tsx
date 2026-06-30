@@ -13,16 +13,18 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function DeprecatedEggLedgerPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   useEffect(() => {
     router.replace('/breeding/daily');
   }, [router]);
   return (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-      <h3 style={{ color: 'var(--text-primary)', marginBottom: 12 }}>页面已迁移</h3>
-      <p>蛋品台账已合并到「日生产日报」，正在跳转…</p>
+      <h3 style={{ color: 'var(--text-primary)', marginBottom: 12 }}>{t('breeding.pageMigrated', '页面已迁移')}</h3>
+      <p>{t('breeding.eggLedgerMerged', '蛋品台账已合并到「日生产日报」，正在跳转…')}</p>
     </div>
   );
 }

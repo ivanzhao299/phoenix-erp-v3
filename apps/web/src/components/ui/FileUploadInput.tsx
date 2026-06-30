@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { Paperclip, X, Loader2, FileText, ImageIcon } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { isProtectedFileRef, isUnsafeAttachmentRef } from '@/lib/attachments';
 
 interface FileUploadInputProps {
@@ -28,9 +29,11 @@ export function FileUploadInput({
   value,
   onChange,
   disabled = false,
-  label = '上传附件（PDF / 图片，≤15MB）',
+  label,
   apiBase,
 }: FileUploadInputProps) {
+  const { t } = useLanguage();
+  const resolvedLabel = label ?? t('ui.上传附件（PDF / 图片，≤15MB）', '上传附件（PDF / 图片，≤15MB）');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,12 +56,12 @@ export function FileUploadInput({
       } else if (json.code === 200 && json.url && !isUnsafeAttachmentRef(String(json.url))) {
         onChange(String(json.url));
       } else if (json.code === 200 && json.url) {
-        setError('上传失败：服务端返回裸链接，已按安全策略拒绝');
+        setError(t('ui.上传失败：服务端返回裸链接，已按安全策略拒绝','上传失败：服务端返回裸链接，已按安全策略拒绝'));
       } else {
-        setError(json.message || '上传失败：服务端未返回受控 fileId');
+        setError(json.message || t('ui.上传失败：服务端未返回受控 fileId','上传失败：服务端未返回受控 fileId'));
       }
     } catch {
-      setError('网络错误，请检查连接');
+      setError(t('ui.网络错误，请检查连接','网络错误，请检查连接'));
     } finally {
       setUploading(false);
     }
@@ -70,7 +73,7 @@ export function FileUploadInput({
     ? protectedRef
       ? value
       : unsafeRef
-        ? '历史附件链接已禁用'
+        ? t('ui.历史附件链接已禁用','历史附件链接已禁用')
         : decodeURIComponent(value.split('/').pop() || value)
     : '';
 
@@ -102,7 +105,7 @@ export function FileUploadInput({
             : <ImageIcon size={14} color={unsafeRef ? 'var(--status-warning)' : 'var(--status-info)'} style={{ flexShrink: 0 }} />
           }
           <span
-            title={unsafeRef ? '安全策略禁止打开裸链接' : fileName}
+            title={unsafeRef ? t('ui.安全策略禁止打开裸链接','安全策略禁止打开裸链接') : fileName}
             style={{
               flex: 1,
               color: unsafeRef ? 'var(--status-warning)' : 'var(--color-primary)',
@@ -112,9 +115,9 @@ export function FileUploadInput({
               fontSize: 12,
             }}
           >
-            {fileName || '附件'}
+            {fileName || t('ui.附件','附件')}
           </span>
-          {protectedRef && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>受控</span>}
+          {protectedRef && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>{t('ui.受控','受控')}</span>}
           {!disabled && (
             <>
               <button
@@ -132,12 +135,12 @@ export function FileUploadInput({
                   flexShrink: 0,
                 }}
               >
-                替换
+                {t('ui.替换','替换')}
               </button>
               <button
                 type="button"
                 onClick={() => onChange('')}
-                title="移除附件"
+                title={t('ui.移除附件','移除附件')}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -179,7 +182,7 @@ export function FileUploadInput({
             ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
             : <Paperclip size={14} />
           }
-          {uploading ? '上传中...' : label}
+          {uploading ? t('ui.上传中...','上传中...') : resolvedLabel}
         </button>
       )}
 
@@ -189,7 +192,7 @@ export function FileUploadInput({
 
       {value && (
         <span style={{ fontSize: 12, color: unsafeRef ? 'var(--status-warning)' : 'var(--text-tertiary)', marginTop: 2 }}>
-          {unsafeRef ? '安全策略禁止裸链接访问，请重新上传生成受控附件引用。' : '附件已保存为受控引用，预览/下载需由业务模块受控端点提供。'}
+          {unsafeRef ? t('ui.安全策略禁止裸链接访问，请重新上传生成受控附件引用。','安全策略禁止裸链接访问，请重新上传生成受控附件引用。') : t('ui.附件已保存为受控引用，预览/下载需由业务模块受控端点提供。','附件已保存为受控引用，预览/下载需由业务模块受控端点提供。')}
         </span>
       )}
 

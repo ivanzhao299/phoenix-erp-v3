@@ -7,6 +7,7 @@
  */
 
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 原子骨架块 ────────────────────────────────────────────────────────────────
 
@@ -177,18 +178,20 @@ interface MobileEmptyStateProps {
  */
 export function MobileEmptyState({
   icon = '📭',
-  title = '暂无数据',
+  title,
   desc,
   action,
 }: MobileEmptyStateProps) {
   const { t } = useMobileTheme();
+  const { t: tr } = useLanguage();
+  const resolvedTitle = title ?? tr('ui.暂无数据','暂无数据');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
     }}>
       <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 16 }}>{icon}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 6 }}>{resolvedTitle}</div>
       {desc && (
         <div style={{ fontSize: 13, color: t.textFaint, lineHeight: 1.6, maxWidth: 240 }}>{desc}</div>
       )}

@@ -11,6 +11,7 @@ import { ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus, Search, Ref
 import { usePermission } from '@/hooks/usePermission';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CustomerSelector, StoreSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 客户主数据 + POS-P0 门店/资金账户选择器
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -265,6 +266,7 @@ function Toast({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StorePosPage() {
+  const { t } = useLanguage();
   const {
     hasPerm
   } = usePermission('MENU_STORE_POS');
@@ -427,13 +429,13 @@ export default function StorePosPage() {
     if (!voidTarget) return;
     const reason = voidReason.trim();
     if (!reason) {
-      showToast('请填写作废原因', 'error');
+      showToast(t('ui.请填写作废原因','请填写作废原因'), 'error');
       return;
     }
     setVoiding(true);
     try {
       await api('POST', `/api/v2/store-sales/${voidTarget.id}/void`, { reason });
-      showToast(`已作废 ${voidTarget.sale_no}`, 'success');
+      showToast(`${t('ui.已作废','已作废')} ${voidTarget.sale_no}`, 'success');
       setVoidTarget(null);
       setVoidReason('');
       loadSales(salesPage);
@@ -450,13 +452,13 @@ export default function StorePosPage() {
     if (!returnTarget) return;
     const reason = returnReason.trim();
     if (!reason) {
-      showToast('请填写退货原因', 'error');
+      showToast(t('ui.请填写退货原因','请填写退货原因'), 'error');
       return;
     }
     setReturning(true);
     try {
       await api('POST', `/api/v2/store-sales/${returnTarget.id}/return`, { reason });
-      showToast(`已退货 ${returnTarget.sale_no}`, 'success');
+      showToast(`${t('ui.已退货','已退货')} ${returnTarget.sale_no}`, 'success');
       setReturnTarget(null);
       setReturnReason('');
       loadSales(salesPage);
@@ -556,25 +558,25 @@ export default function StorePosPage() {
   // ── 提交销售 ─────────────────────────────────────────────────────────────
   const handleCheckout = async () => {
     if (!cart.length) {
-      showToast('购物车为空', 'error');
+      showToast(t('ui.购物车为空','购物车为空'), 'error');
       return;
     }
     if (!storeCode) {
-      showToast('请先设置门店信息', 'error');
+      showToast(t('ui.请先设置门店信息','请先设置门店信息'), 'error');
       return;
     }
     const paid = payType === 'CREDIT' ? 0 : Number(paidAmount) || totalAmount;
     if (payType !== 'CREDIT' && paid <= 0) {
-      showToast('请输入收款金额', 'error');
+      showToast(t('ui.请输入收款金额','请输入收款金额'), 'error');
       return;
     }
     // POS-P0-3：现金/混合收款必须选资金账户(防"收了钱不入账")
     if (payType !== 'CREDIT' && !cashAccountId) {
-      showToast('请选择收款资金账户', 'error');
+      showToast(t('ui.请选择收款资金账户','请选择收款资金账户'), 'error');
       return;
     }
     if (payType === 'MIXED' && paid >= totalAmount) {
-      showToast('混合收款实收额应小于订单总额', 'error');
+      showToast(t('ui.混合收款实收额应小于订单总额','混合收款实收额应小于订单总额'), 'error');
       return;
     }
     setProcessing(true);
@@ -625,7 +627,7 @@ export default function StorePosPage() {
           customerName: customerName || undefined
         });
       }
-      showToast(`销售单 ${sale.sale_no} 开立成功`, 'success');
+      showToast(`${t('ui.销售单','销售单')} ${sale.sale_no} ${t('ui.开立成功','开立成功')}`, 'success');
       clearCart();
       loadSummary();
       loadCurrentShift();
@@ -639,7 +641,7 @@ export default function StorePosPage() {
   // ── 开班 ─────────────────────────────────────────────────────────────────
   const handleOpenShift = async () => {
     if (!storeCode) {
-      showToast('请先设置门店', 'error');
+      showToast(t('ui.请先设置门店','请先设置门店'), 'error');
       return;
     }
     try {
@@ -648,7 +650,7 @@ export default function StorePosPage() {
         companyCode,
         openingCash: Number(openingCash) || 0
       });
-      showToast('开班成功', 'success');
+      showToast(t('ui.开班成功','开班成功'), 'success');
       setShowShiftModal(null);
       setOpeningCash('');
       loadCurrentShift();
@@ -664,7 +666,7 @@ export default function StorePosPage() {
         closingCash: Number(closingCash) || 0,
         remark: shiftRemark || undefined
       });
-      showToast('交班成功', 'success');
+      showToast(t('ui.交班成功','交班成功'), 'success');
       setShowShiftModal(null);
       setClosingCash('');
       setShiftRemark('');
@@ -690,7 +692,7 @@ export default function StorePosPage() {
   const [setupCompanyName, setSetupCompanyName] = useState('');
   const handleSaveSetup = () => {
     if (!setupStoreCode || !setupCompanyCode) {
-      showToast('门店编码和公司编码为必填', 'error');
+      showToast(t('ui.门店编码和公司编码为必填','门店编码和公司编码为必填'), 'error');
       return;
     }
     const info = {
@@ -736,7 +738,7 @@ export default function StorePosPage() {
         fontWeight: 700,
         fontSize: 16,
         color: 'var(--bg-muted)'
-      }}>直营店收银</span>
+      }}>{t('ui.直营店收银','直营店收银')}</span>
         {storeCode && <span style={{
         fontSize: 13,
         color: 'var(--text-disabled)',
@@ -763,7 +765,7 @@ export default function StorePosPage() {
                 <span style={{
             fontSize: 12,
             color: 'var(--status-success)'
-          }}>班次进行中 · 开班 {fmtDate(currentShift.opened_at)}</span>
+          }}>{t('ui.班次进行中 · 开班','班次进行中 · 开班')} {fmtDate(currentShift.opened_at)}</span>
                 {hasPerm('C') && <button onClick={() => setShowShiftModal('close')} style={{
             marginLeft: 4,
             padding: '2px 10px',
@@ -777,7 +779,7 @@ export default function StorePosPage() {
                     <LogOut size={11} style={{
               marginRight: 4,
               verticalAlign: 'middle'
-            }} />交班
+            }} />{t('ui.交班','交班')}
                   </button>}
               </> : <>
                 <span style={{
@@ -790,7 +792,7 @@ export default function StorePosPage() {
                 <span style={{
             fontSize: 12,
             color: 'var(--status-danger)'
-          }}>未开班</span>
+          }}>{t('ui.未开班','未开班')}</span>
                 {hasPerm('C') && <button onClick={() => setShowShiftModal('open')} style={{
             marginLeft: 4,
             padding: '2px 10px',
@@ -804,7 +806,7 @@ export default function StorePosPage() {
                     <LogIn size={11} style={{
               marginRight: 4,
               verticalAlign: 'middle'
-            }} />开班
+            }} />{t('ui.开班','开班')}
                   </button>}
               </>}
           </div>}
@@ -822,7 +824,7 @@ export default function StorePosPage() {
         background: view === v ? 'var(--color-accent)' : 'transparent',
         color: view === v ? 'var(--bg-card)' : 'var(--text-disabled)'
       }}>
-            {v === 'pos' ? '收银台' : v === 'history' ? '销售记录' : '班次管理'}
+            {v === 'pos' ? t('ui.收银台','收银台') : v === 'history' ? t('ui.销售记录','销售记录') : t('ui.班次管理','班次管理')}
           </button>)}
 
         <button onClick={() => setShowStoreSetup(true)} style={{
@@ -834,7 +836,7 @@ export default function StorePosPage() {
         fontSize: 12,
         cursor: 'pointer'
       }}>
-          设置门店
+          {t('ui.设置门店','设置门店')}
         </button>
       </div>
 
@@ -882,9 +884,9 @@ export default function StorePosPage() {
                 const exact = products.find(p => p.sku_code === q || p.product_code === q);
                 const target = exact ?? (filteredProducts.length === 1 ? filteredProducts[0] : undefined);
                 if (target) { addToCart(target); setProductQuery(''); }
-                else showToast(`未找到商品「${q}」`, 'error');
+                else showToast(`${t('ui.未找到商品','未找到商品')}「${q}」`, 'error');
               }}
-              placeholder="扫码或搜索商品（回车加购）" style={{
+              placeholder={t('ui.扫码或搜索商品（回车加购）','扫码或搜索商品（回车加购）')} style={{
               width: '100%',
               padding: '6px 8px 6px 28px',
               borderRadius: 6,
@@ -922,20 +924,20 @@ export default function StorePosPage() {
           }}>
                   <Loader2 size={20} className="animate-spin" /> <span style={{
               marginLeft: 8
-            }}>加载中...</span>
+            }}>{t('ui.加载中...','加载中...')}</span>
                 </div> : !storeCode ? <div style={{
             textAlign: 'center',
             color: 'var(--text-secondary)',
             marginTop: 60,
             fontSize: 13
-          }}>请先配置门店</div> : filteredProducts.length === 0 ? <div style={{
+          }}>{t('ui.请先配置门店','请先配置门店')}</div> : filteredProducts.length === 0 ? <div style={{
             textAlign: 'center',
             color: 'var(--text-secondary)',
             marginTop: 60,
             fontSize: 13
           }}>{products.length === 0
-            ? <>本店所属公司暂无 <b>ACTIVE 价格本</b>，收银台无可售商品。<br />请先在「销售管理 / 价格管理」为公司 <b>{companyCode || '—'}</b> 配置并启用价格本。</>
-            : <>无匹配「{productQuery}」的商品</>}</div> : <div style={{
+            ? <>{t('ui.本店所属公司暂无','本店所属公司暂无')} <b>{t('ui.ACTIVE 价格本','ACTIVE 价格本')}</b>{t('ui.，收银台无可售商品。','，收银台无可售商品。')}<br />{t('ui.请先在「销售管理 / 价格管理」为公司','请先在「销售管理 / 价格管理」为公司')} <b>{companyCode || '—'}</b> {t('ui.配置并启用价格本。','配置并启用价格本。')}</>
+            : <>{t('ui.无匹配','无匹配')}「{productQuery}」{t('ui.的商品','的商品')}</>}</div> : <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 8
@@ -1000,7 +1002,7 @@ export default function StorePosPage() {
             alignItems: 'center',
             gap: 6
           }}>
-                <ShoppingCart size={16} /> 购物车
+                <ShoppingCart size={16} /> {t('ui.购物车','购物车')}
                 {cart.length > 0 && <span style={{
               background: 'var(--color-accent)',
               color: 'var(--text-on-dark)',
@@ -1022,7 +1024,7 @@ export default function StorePosPage() {
             fontSize: 12,
             cursor: 'pointer'
           }}>
-                  清空
+                  {t('ui.清空','清空')}
                 </button>}
             </div>
 
@@ -1036,7 +1038,7 @@ export default function StorePosPage() {
             color: 'var(--text-secondary)',
             marginTop: 80,
             fontSize: 13
-          }}>请从左侧添加商品</div> : cart.map((item, idx) => <div key={idx} style={{
+          }}>{t('ui.请从左侧添加商品','请从左侧添加商品')}</div> : cart.map((item, idx) => <div key={idx} style={{
             display: 'flex',
             alignItems: 'center',
             padding: '8px 6px',
@@ -1079,7 +1081,7 @@ export default function StorePosPage() {
                               color: belowFloor ? 'var(--status-danger)' : 'var(--text-on-dark)',
                             }} />
                           <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>× {item.qty}</span>
-                          {belowFloor && <span style={{ fontSize: 10, color: 'var(--status-danger)' }}>低于最低价 {fmt(floor)}</span>}
+                          {belowFloor && <span style={{ fontSize: 10, color: 'var(--status-danger)' }}>{t('ui.低于最低价','低于最低价')} {fmt(floor)}</span>}
                         </div>;
                       })()}
                     </div>
@@ -1146,7 +1148,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             marginBottom: 4
           }}>
-                  <span>小计</span><span>¥{fmt(subtotal)}</span>
+                  <span>{t('ui.小计','小计')}</span><span>¥{fmt(subtotal)}</span>
                 </div>
                 <div style={{
             display: 'flex',
@@ -1156,7 +1158,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             marginBottom: 2
           }}>
-                  <span>优惠</span>
+                  <span>{t('ui.优惠','优惠')}</span>
                   <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1184,7 +1186,7 @@ export default function StorePosPage() {
             color: 'var(--status-success)',
             marginTop: 4
           }}>
-                  <span>合计</span><span>¥{fmt(totalAmount)}</span>
+                  <span>{t('ui.合计','合计')}</span><span>¥{fmt(totalAmount)}</span>
                 </div>
               </div>}
           </div>
@@ -1202,7 +1204,7 @@ export default function StorePosPage() {
           fontWeight: 600,
           marginBottom: 14,
           color: 'var(--bg-muted)'
-        }}>结账方式</div>
+        }}>{t('ui.结账方式','结账方式')}</div>
 
             {/* 支付类型 */}
             <div style={{
@@ -1210,7 +1212,7 @@ export default function StorePosPage() {
           gap: 6,
           marginBottom: 14
         }}>
-              {([['CASH', '现金/转账'], ['CREDIT', '赊销'], ['MIXED', '混合']] as [PayType, string][]).map(([v, l]) => <button key={v} onClick={() => setPayType(v)} style={{
+              {([['CASH', t('ui.现金/转账','现金/转账')], ['CREDIT', t('ui.赊销','赊销')], ['MIXED', t('ui.混合','混合')]] as [PayType, string][]).map(([v, l]) => <button key={v} onClick={() => setPayType(v)} style={{
             flex: 1,
             padding: '7px 0',
             borderRadius: 6,
@@ -1234,7 +1236,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             display: 'block',
             marginBottom: 3
-          }}>客户 *</label>
+          }}>{t('ui.客户 *','客户 *')}</label>
                 {/* G4-C：客户主数据(仅 ACTIVE)，自动带出名称，禁止手填 */}
                 <CustomerSelector value={customerCode} onChange={setCustomerCode} onPick={o => setCustomerName(o?.raw?.name ?? o?.label ?? '')} />
               </div>}
@@ -1248,21 +1250,21 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             display: 'block',
             marginBottom: 3
-          }}>支付方式</label>
+          }}>{t('ui.支付方式','支付方式')}</label>
                 {/* G4-C：支付方式来自 sys_dict(SAL_PAY_METHOD) */}
                 <DictSelect dictType="SAL_PAY_METHOD" value={payMethod} onChange={setPayMethod} allowEmpty={false} />
               </div>}
 
             {/* POS-P0-3：收款资金账户（去硬编码 id=1，按门店所属公司过滤，修"收了钱不入账"） */}
             {payType !== 'CREDIT' && <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>收款账户 *</label>
+                <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>{t('ui.收款账户 *','收款账户 *')}</label>
                 <CashAccountSelector
                   valueField="id"
                   companyCode={companyCode || undefined}
                   currencyCode={cartCurrency || undefined}
                   value={cashAccountId ? String(cashAccountId) : ''}
                   onChange={(v) => setCashAccountId(Number(v) || 0)}
-                  placeholder={cartCurrency ? `选择 ${cartCurrency} 收款账户` : '选择收款资金账户'}
+                  placeholder={cartCurrency ? `选择 ${cartCurrency} 收款账户` : t('ui.选择收款资金账户','选择收款资金账户')}
                 />
               </div>}
 
@@ -1276,7 +1278,7 @@ export default function StorePosPage() {
             display: 'block',
             marginBottom: 3
           }}>
-                  {payType === 'MIXED' ? '本次收款金额' : '实收金额'}
+                  {payType === 'MIXED' ? t('ui.本次收款金额','本次收款金额') : t('ui.实收金额','实收金额')}
                 </label>
                 <input type="number" min="0" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} placeholder={`¥ ${fmt(totalAmount)}`} style={{
             width: '100%',
@@ -1295,7 +1297,7 @@ export default function StorePosPage() {
             color: 'var(--status-warning)',
             marginTop: 3
           }}>
-                    赊账金额：¥{fmt(totalAmount - Number(paidAmount))}
+                    {t('ui.赊账金额：','赊账金额：')}¥{fmt(totalAmount - Number(paidAmount))}
                   </div>}
               </div>}
 
@@ -1310,7 +1312,7 @@ export default function StorePosPage() {
                 <span style={{
             fontSize: 12,
             color: 'var(--status-success)'
-          }}>找零：</span>
+          }}>{t('ui.找零：','找零：')}</span>
                 <span style={{
             fontSize: 16,
             fontWeight: 700,
@@ -1333,13 +1335,13 @@ export default function StorePosPage() {
             color: 'var(--text-secondary)',
             marginBottom: 6,
             fontWeight: 600
-          }}>今日汇总</div>
+          }}>{t('ui.今日汇总','今日汇总')}</div>
                 <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '4px 16px'
           }}>
-                  {[['销售额', `¥${fmt(summary.total_sales)}`], ['单数', `${summary.sale_count} 单`], ['现金收', `¥${fmt(summary.cash_sales)}`], ['赊销额', `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
+                  {[[t('ui.销售额','销售额'), `¥${fmt(summary.total_sales)}`], [t('ui.单数','单数'), `${summary.sale_count} 单`], [t('ui.现金收','现金收'), `¥${fmt(summary.cash_sales)}`], [t('ui.赊销额','赊销额'), `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontSize: 12
@@ -1371,9 +1373,9 @@ export default function StorePosPage() {
           justifyContent: 'center',
           gap: 8
         }}>
-              {processing ? <><Loader2 size={16} className="animate-spin" />处理中...</> : <>
+              {processing ? <><Loader2 size={16} className="animate-spin" />{t('ui.处理中...','处理中...')}</> : <>
                 <CheckCircle size={16} />
-                结账 {cart.length > 0 ? `· ¥${fmt(totalAmount)}` : ''}
+                {t('ui.结账','结账')} {cart.length > 0 ? `· ¥${fmt(totalAmount)}` : ''}
               </>}
             </button>
           </div>
@@ -1397,7 +1399,7 @@ export default function StorePosPage() {
           fontSize: 16,
           fontWeight: 600,
           margin: 0
-        }}>销售记录</h2>
+        }}>{t('ui.销售记录','销售记录')}</h2>
             <button onClick={() => loadSales(1)} style={{
           padding: '5px 12px',
           borderRadius: 6,
@@ -1410,7 +1412,7 @@ export default function StorePosPage() {
           alignItems: 'center',
           gap: 5
         }}>
-              <RefreshCw size={13} />刷新
+              <RefreshCw size={13} />{t('ui.刷新','刷新')}
             </button>
           </div>
 
@@ -1423,14 +1425,14 @@ export default function StorePosPage() {
       }}>
               <Loader2 size={24} /> <span style={{
           marginLeft: 8
-        }}>加载中...</span>
+        }}>{t('ui.加载中...','加载中...')}</span>
             </div> : <>
               <table className={s.table}>
                 <thead>
                   <tr style={{
               borderBottom: '1px solid var(--border-dark-faint)'
             }}>
-                    {['单号', '类型', '状态', '收款', '金额', '已收', '客户', '时间', '操作'].map(h => <th key={h} style={{
+                    {[t('ui.单号','单号'), t('ui.类型','类型'), t('ui.状态','状态'), t('ui.收款','收款'), t('ui.金额','金额'), t('ui.已收','已收'), t('ui.客户','客户'), t('ui.时间','时间'), t('ui.操作','操作')].map(h => <th key={h} style={{
                 padding: '8px 10px',
                 textAlign: 'left',
                 color: 'var(--text-secondary)',
@@ -1481,7 +1483,7 @@ export default function StorePosPage() {
                       <td style={{
                 padding: '8px 10px',
                 color: 'var(--border)'
-              }}>{s.customer_name || '散客'}</td>
+              }}>{s.customer_name || t('ui.散客','散客')}</td>
                       <td style={{
                 padding: '8px 10px',
                 color: 'var(--text-secondary)',
@@ -1499,7 +1501,7 @@ export default function StorePosPage() {
                     color: 'var(--color-accent)',
                     cursor: 'pointer',
                     fontSize: 12
-                  }}>详情</button>
+                  }}>{t('ui.详情','详情')}</button>
                           {hasPerm('D') && s.status === 'OPEN' && <button onClick={() => { setVoidTarget(s); setVoidReason(''); }} style={{
                     padding: '3px 10px',
                     borderRadius: 5,
@@ -1508,7 +1510,7 @@ export default function StorePosPage() {
                     color: 'var(--status-danger)',
                     cursor: 'pointer',
                     fontSize: 12
-                  }}>作废</button>}
+                  }}>{t('ui.作废','作废')}</button>}
                           {hasPerm('D') && s.status === 'COMPLETED' && <button onClick={() => { setReturnTarget(s); setReturnReason(''); }} style={{
                     padding: '3px 10px',
                     borderRadius: 5,
@@ -1517,7 +1519,7 @@ export default function StorePosPage() {
                     color: 'var(--status-warning)',
                     cursor: 'pointer',
                     fontSize: 12
-                  }}>退货</button>}
+                  }}>{t('ui.退货','退货')}</button>}
                         </div>
                       </td>
                     </tr>)}
@@ -1525,7 +1527,7 @@ export default function StorePosPage() {
                 padding: '40px',
                 textAlign: 'center',
                 color: 'var(--text-secondary)'
-              }}>暂无数据</td></tr>}
+              }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
                 </tbody>
               </table>
 
@@ -1543,12 +1545,12 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: salesPage > 1 ? 'pointer' : 'not-allowed',
             fontSize: 13
-          }}>上一页</button>
+          }}>{t('ui.上一页','上一页')}</button>
                   <span style={{
             lineHeight: '32px',
             fontSize: 13,
             color: 'var(--text-secondary)'
-          }}>第 {salesPage} 页 · 共 {salesTotal} 条</span>
+          }}>{t('ui.第','第')} {salesPage} {t('ui.页 · 共','页 · 共')} {salesTotal} {t('ui.条','条')}</span>
                   <button disabled={salesPage * 20 >= salesTotal} onClick={() => loadSales(salesPage + 1)} style={{
             padding: '5px 12px',
             borderRadius: 5,
@@ -1557,7 +1559,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: salesPage * 20 < salesTotal ? 'pointer' : 'not-allowed',
             fontSize: 13
-          }}>下一页</button>
+          }}>{t('ui.下一页','下一页')}</button>
                 </div>}
             </>}
         </div>}
@@ -1580,7 +1582,7 @@ export default function StorePosPage() {
           fontSize: 16,
           fontWeight: 600,
           margin: 0
-        }}>班次管理</h2>
+        }}>{t('ui.班次管理','班次管理')}</h2>
             <div style={{
           display: 'flex',
           gap: 8
@@ -1597,7 +1599,7 @@ export default function StorePosPage() {
             alignItems: 'center',
             gap: 5
           }}>
-                  <LogIn size={13} />开班
+                  <LogIn size={13} />{t('ui.开班','开班')}
                 </button>}
               {hasPerm('C') && currentShift && <button onClick={() => setShowShiftModal('close')} style={{
             padding: '5px 14px',
@@ -1611,7 +1613,7 @@ export default function StorePosPage() {
             alignItems: 'center',
             gap: 5
           }}>
-                  <LogOut size={13} />交班
+                  <LogOut size={13} />{t('ui.交班','交班')}
                 </button>}
               <button onClick={() => loadShiftHistory(1)} style={{
             padding: '5px 12px',
@@ -1625,7 +1627,7 @@ export default function StorePosPage() {
             alignItems: 'center',
             gap: 5
           }}>
-                <RefreshCw size={13} />刷新
+                <RefreshCw size={13} />{t('ui.刷新','刷新')}
               </button>
             </div>
           </div>
@@ -1643,13 +1645,13 @@ export default function StorePosPage() {
           fontWeight: 600,
           color: 'var(--status-success)',
           marginBottom: 8
-        }}>当前班次 · {currentShift.closing_no}</div>
+        }}>{t('ui.当前班次 ·','当前班次 ·')} {currentShift.closing_no}</div>
               <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '8px 16px'
         }}>
-                {[['开班时间', fmtDate(currentShift.opened_at)], ['开班现金', `¥${fmt(currentShift.opening_cash)}`], ['操作员', currentShift.operator_name || '—'], ['状态', '进行中']].map(([k, v]) => <div key={k}>
+                {[[t('ui.开班时间','开班时间'), fmtDate(currentShift.opened_at)], [t('ui.开班现金','开班现金'), `¥${fmt(currentShift.opening_cash)}`], [t('ui.操作员','操作员'), currentShift.operator_name || '—'], [t('ui.状态','状态'), t('ui.进行中','进行中')]].map(([k, v]) => <div key={k}>
                     <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
@@ -1674,14 +1676,14 @@ export default function StorePosPage() {
       }}>
               <Loader2 size={24} /><span style={{
           marginLeft: 8
-        }}>加载中...</span>
+        }}>{t('ui.加载中...','加载中...')}</span>
             </div> : <>
               <table className={s.table}>
                 <thead>
                   <tr style={{
               borderBottom: '1px solid var(--border-dark-faint)'
             }}>
-                    {['班次编号', '状态', '开班', '交班', '开班现金', '交班现金', '差异', '总销售', '现金收', '单数'].map(h => <th key={h} style={{
+                    {[t('ui.班次编号','班次编号'), t('ui.状态','状态'), t('ui.开班','开班'), t('ui.交班','交班'), t('ui.开班现金','开班现金'), t('ui.交班现金','交班现金'), t('ui.差异','差异'), t('ui.总销售','总销售'), t('ui.现金收','现金收'), t('ui.单数','单数')].map(h => <th key={h} style={{
                 padding: '8px 10px',
                 textAlign: 'left',
                 color: 'var(--text-secondary)',
@@ -1703,7 +1705,7 @@ export default function StorePosPage() {
                       <td style={{
                 padding: '8px 10px'
               }}>
-                        <Badge label={sh.status === 'OPEN' ? '进行中' : '已完成'} color={sh.status === 'OPEN' ? 'var(--status-success)' : 'var(--text-disabled)'} bg={sh.status === 'OPEN' ? 'var(--status-success-bg)' : 'var(--status-neutral-bg)'} />
+                        <Badge label={sh.status === 'OPEN' ? t('ui.进行中','进行中') : t('ui.已完成','已完成')} color={sh.status === 'OPEN' ? 'var(--status-success)' : 'var(--text-disabled)'} bg={sh.status === 'OPEN' ? 'var(--status-success-bg)' : 'var(--status-neutral-bg)'} />
                       </td>
                       <td style={{
                 padding: '8px 10px',
@@ -1744,7 +1746,7 @@ export default function StorePosPage() {
                 padding: '40px',
                 textAlign: 'center',
                 color: 'var(--text-secondary)'
-              }}>暂无班次记录</td></tr>}
+              }}>{t('ui.暂无班次记录','暂无班次记录')}</td></tr>}
                 </tbody>
               </table>
 
@@ -1762,12 +1764,12 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: shiftPage > 1 ? 'pointer' : 'not-allowed',
             fontSize: 13
-          }}>上一页</button>
+          }}>{t('ui.上一页','上一页')}</button>
                   <span style={{
             lineHeight: '32px',
             fontSize: 13,
             color: 'var(--text-secondary)'
-          }}>第 {shiftPage} 页 · 共 {shiftTotal} 条</span>
+          }}>{t('ui.第','第')} {shiftPage} {t('ui.页 · 共','页 · 共')} {shiftTotal} {t('ui.条','条')}</span>
                   <button disabled={shiftPage * 15 >= shiftTotal} onClick={() => loadShiftHistory(shiftPage + 1)} style={{
             padding: '5px 12px',
             borderRadius: 5,
@@ -1776,7 +1778,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: shiftPage * 15 < shiftTotal ? 'pointer' : 'not-allowed',
             fontSize: 13
-          }}>下一页</button>
+          }}>{t('ui.下一页','下一页')}</button>
                 </div>}
             </>}
         </div>}
@@ -1804,13 +1806,13 @@ export default function StorePosPage() {
           margin: '0 0 20px',
           fontSize: 16,
           fontWeight: 600
-        }}>开班</h3>
+        }}>{t('ui.开班','开班')}</h3>
             <label style={{
           fontSize: 13,
           color: 'var(--text-disabled)',
           display: 'block',
           marginBottom: 4
-        }}>开班现金（备用金）</label>
+        }}>{t('ui.开班现金（备用金）','开班现金（备用金）')}</label>
             <input type="number" min="0" value={openingCash} onChange={e => setOpeningCash(e.target.value)} placeholder="0.00" style={{
           width: '100%',
           padding: '8px 12px',
@@ -1836,7 +1838,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: 'pointer',
             fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
               <button onClick={handleOpenShift} style={{
             padding: '8px 18px',
             borderRadius: 6,
@@ -1846,7 +1848,7 @@ export default function StorePosPage() {
             cursor: 'pointer',
             fontSize: 13,
             fontWeight: 600
-          }}>确认开班</button>
+          }}>{t('ui.确认开班','确认开班')}</button>
             </div>
           </div>
         </div>}
@@ -1874,7 +1876,7 @@ export default function StorePosPage() {
           margin: '0 0 20px',
           fontSize: 16,
           fontWeight: 600
-        }}>交班 / 日结</h3>
+        }}>{t('ui.交班 / 日结','交班 / 日结')}</h3>
 
             {summary && <div style={{
           padding: '10px 14px',
@@ -1887,13 +1889,13 @@ export default function StorePosPage() {
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 6
-          }}>本班统计（参考）</div>
+          }}>{t('ui.本班统计（参考）','本班统计（参考）')}</div>
                 <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 6
           }}>
-                  {[['总销售额', `¥${fmt(summary.total_sales)}`], ['现金收款', `¥${fmt(summary.cash_sales)}`], ['销售单数', `${summary.sale_count} 单`], ['赊销额', `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
+                  {[[t('ui.总销售额','总销售额'), `¥${fmt(summary.total_sales)}`], [t('ui.现金收款','现金收款'), `¥${fmt(summary.cash_sales)}`], [t('ui.销售单数','销售单数'), `${summary.sale_count} 单`], [t('ui.赊销额','赊销额'), `¥${fmt(summary.credit_sales)}`]].map(([k, v]) => <div key={k} style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontSize: 13
@@ -1918,7 +1920,7 @@ export default function StorePosPage() {
             }}>
                       <span style={{
                 color: 'var(--text-disabled)'
-              }}>系统现金（预计）</span>
+              }}>{t('ui.系统现金（预计）','系统现金（预计）')}</span>
                       <span style={{
                 color: 'var(--status-success)',
                 fontWeight: 600
@@ -1932,7 +1934,7 @@ export default function StorePosPage() {
           color: 'var(--text-disabled)',
           display: 'block',
           marginBottom: 4
-        }}>实际清点现金</label>
+        }}>{t('ui.实际清点现金','实际清点现金')}</label>
             <input type="number" min="0" value={closingCash} onChange={e => setClosingCash(e.target.value)} placeholder="0.00" style={{
           width: '100%',
           padding: '8px 12px',
@@ -1951,8 +1953,8 @@ export default function StorePosPage() {
           color: 'var(--text-disabled)',
           display: 'block',
           marginBottom: 4
-        }}>备注</label>
-            <textarea value={shiftRemark} onChange={e => setShiftRemark(e.target.value)} placeholder="可选，如有差异请说明原因" rows={2} style={{
+        }}>{t('ui.备注','备注')}</label>
+            <textarea value={shiftRemark} onChange={e => setShiftRemark(e.target.value)} placeholder={t('ui.可选，如有差异请说明原因','可选，如有差异请说明原因')} rows={2} style={{
           width: '100%',
           padding: '8px 12px',
           borderRadius: 6,
@@ -1979,7 +1981,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: 'pointer',
             fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
               <button onClick={handleCloseShift} style={{
             padding: '8px 18px',
             borderRadius: 6,
@@ -1989,7 +1991,7 @@ export default function StorePosPage() {
             cursor: 'pointer',
             fontSize: 13,
             fontWeight: 600
-          }}>确认交班</button>
+          }}>{t('ui.确认交班','确认交班')}</button>
             </div>
           </div>
         </div>}
@@ -2017,10 +2019,10 @@ export default function StorePosPage() {
           margin: '0 0 20px',
           fontSize: 16,
           fontWeight: 600
-        }}>门店设置</h3>
+        }}>{t('ui.门店设置','门店设置')}</h3>
             {/* POS-P0-2:门店从主数据选择(去手填),自动带出所属公司,受 DataScope 过滤 */}
             <div className={u.mb12}>
-              <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>选择门店 *</label>
+              <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>{t('ui.选择门店 *','选择门店 *')}</label>
               <StoreSelector
                 value={setupStoreCode}
                 onChange={(v) => setSetupStoreCode(v)}
@@ -2031,11 +2033,11 @@ export default function StorePosPage() {
                   setSetupCompanyCode(r.companyCode ?? '');
                   setSetupCompanyName(r.companyCode ?? '');
                 }}
-                placeholder="搜索并选择门店（自动带出所属公司）"
+                placeholder={t('ui.搜索并选择门店（自动带出所属公司）','搜索并选择门店（自动带出所属公司）')}
               />
               {setupCompanyCode && (
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
-                  门店：{setupStoreName || setupStoreCode}　·　所属公司：{setupCompanyCode}
+                  {t('ui.门店：','门店：')}{setupStoreName || setupStoreCode}{t('ui.　·　所属公司：','　·　所属公司：')}{setupCompanyCode}
                 </div>
               )}
             </div>
@@ -2053,7 +2055,7 @@ export default function StorePosPage() {
             color: 'var(--text-disabled)',
             cursor: 'pointer',
             fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
               <button onClick={handleSaveSetup} style={{
             padding: '8px 18px',
             borderRadius: 6,
@@ -2063,7 +2065,7 @@ export default function StorePosPage() {
             cursor: 'pointer',
             fontSize: 13,
             fontWeight: 600
-          }}>保存</button>
+          }}>{t('ui.保存','保存')}</button>
             </div>
           </div>
         </div>}
@@ -2090,28 +2092,28 @@ export default function StorePosPage() {
         border: '1px solid var(--border-dark)'
       }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>销售单详情</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t('ui.销售单详情','销售单详情')}</h3>
               <button onClick={() => { setDetailSale(null); setLoadingDetail(false); }} style={{
             border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-disabled)'
           }}><X size={18} /></button>
             </div>
             {loadingDetail ? <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 160, color: 'var(--text-secondary)' }}>
-              <Loader2 size={22} /> <span style={{ marginLeft: 8 }}>加载中...</span>
+              <Loader2 size={22} /> <span style={{ marginLeft: 8 }}>{t('ui.加载中...','加载中...')}</span>
             </div> : detailSale && <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13, marginBottom: 16 }}>
                 {([
-                  ['单号', detailSale.sale_no],
-                  ['类型', SALE_TYPE_MAP[detailSale.sale_type]?.label ?? detailSale.sale_type],
-                  ['状态', STATUS_MAP[detailSale.status]?.label ?? detailSale.status],
-                  ['收款', PAY_STATUS_MAP[detailSale.payment_status]?.label ?? detailSale.payment_status],
-                  ['客户', detailSale.customer_name || '散客'],
-                  ['门店', detailSale.store_name || storeName || storeCode],
-                  ['金额', `¥${fmt(detailSale.total_amount)}`],
-                  ['已收', `¥${fmt(detailSale.paid_amount)}`],
-                  ['应收', `¥${fmt(detailSale.receivable_amount)}`],
-                  ['折扣', `¥${fmt(detailSale.discount_amount)}`],
-                  ['收银员', detailSale.created_by_name || '—'],
-                  ['时间', fmtDate(detailSale.created_at)],
+                  [t('ui.单号','单号'), detailSale.sale_no],
+                  [t('ui.类型','类型'), SALE_TYPE_MAP[detailSale.sale_type]?.label ?? detailSale.sale_type],
+                  [t('ui.状态','状态'), STATUS_MAP[detailSale.status]?.label ?? detailSale.status],
+                  [t('ui.收款','收款'), PAY_STATUS_MAP[detailSale.payment_status]?.label ?? detailSale.payment_status],
+                  [t('ui.客户','客户'), detailSale.customer_name || t('ui.散客','散客')],
+                  [t('ui.门店','门店'), detailSale.store_name || storeName || storeCode],
+                  [t('ui.金额','金额'), `¥${fmt(detailSale.total_amount)}`],
+                  [t('ui.已收','已收'), `¥${fmt(detailSale.paid_amount)}`],
+                  [t('ui.应收','应收'), `¥${fmt(detailSale.receivable_amount)}`],
+                  [t('ui.折扣','折扣'), `¥${fmt(detailSale.discount_amount)}`],
+                  [t('ui.收银员','收银员'), detailSale.created_by_name || '—'],
+                  [t('ui.时间','时间'), fmtDate(detailSale.created_at)],
                 ] as [string, string][]).map(([k, v]) => <div key={k}>
                   <span style={{ color: 'var(--text-secondary)' }}>{k}：</span>
                   <span style={{ color: 'var(--text-on-dark)' }}>{v}</span>
@@ -2120,11 +2122,11 @@ export default function StorePosPage() {
               {detailSale.status === 'VOID' && detailSale.void_reason && <div style={{
             padding: '8px 12px', marginBottom: 14, borderRadius: 6,
             background: 'var(--status-danger-bg)', color: 'var(--status-danger)', fontSize: 13
-          }}>作废原因：{detailSale.void_reason}</div>}
+          }}>{t('ui.作废原因：','作废原因：')}{detailSale.void_reason}</div>}
               <table className={s.table}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-dark-faint)' }}>
-                    {['商品', '规格/等级', '数量', '单价', '小计'].map(h => <th key={h} style={{
+                    {[t('ui.商品','商品'), t('ui.规格/等级','规格/等级'), t('ui.数量','数量'), t('ui.单价','单价'), t('ui.小计','小计')].map(h => <th key={h} style={{
                   padding: '6px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12
                 }}>{h}</th>)}
                   </tr>
@@ -2137,7 +2139,7 @@ export default function StorePosPage() {
                     <td style={{ padding: '6px 8px', fontSize: 13 }}>¥{fmt(it.unit_price)}</td>
                     <td style={{ padding: '6px 8px', fontSize: 13, color: 'var(--status-success)' }}>¥{fmt(it.amount)}</td>
                   </tr>)}
-                  {(!detailSale.items || detailSale.items.filter(it => it && it.id != null).length === 0) && <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>无明细</td></tr>}
+                  {(!detailSale.items || detailSale.items.filter(it => it && it.id != null).length === 0) && <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>{t('ui.无明细','无明细')}</td></tr>}
                 </tbody>
               </table>
             </>}
@@ -2163,12 +2165,12 @@ export default function StorePosPage() {
         width: 420,
         border: '1px solid var(--border-dark)'
       }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>作废销售单</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>{t('ui.作废销售单','作废销售单')}</h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-              即将作废 <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{voidTarget.sale_no}</span>，此操作不可撤销。
+              {t('ui.即将作废','即将作废')} <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{voidTarget.sale_no}</span>{t('ui.，此操作不可撤销。','，此操作不可撤销。')}
             </p>
-            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>作废原因 *</label>
-            <textarea value={voidReason} onChange={e => setVoidReason(e.target.value)} rows={3} placeholder="请填写作废原因" style={{
+            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>{t('ui.作废原因 *','作废原因 *')}</label>
+            <textarea value={voidReason} onChange={e => setVoidReason(e.target.value)} rows={3} placeholder={t('ui.请填写作废原因','请填写作废原因')} style={{
           width: '100%',
           boxSizing: 'border-box',
           padding: '8px 10px',
@@ -2183,13 +2185,13 @@ export default function StorePosPage() {
               <button onClick={() => { setVoidTarget(null); setVoidReason(''); }} disabled={voiding} style={{
             padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)',
             background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
               <button onClick={submitVoid} disabled={voiding} style={{
             padding: '8px 18px', borderRadius: 6, border: 'none',
             background: 'var(--status-danger)', color: 'var(--text-on-dark)',
             cursor: voiding ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
             opacity: voiding ? 0.6 : 1
-          }}>{voiding ? '处理中...' : '确认作废'}</button>
+          }}>{voiding ? t('ui.处理中...','处理中...') : t('ui.确认作废','确认作废')}</button>
             </div>
           </div>
         </div>}
@@ -2213,15 +2215,15 @@ export default function StorePosPage() {
         width: 440,
         border: '1px solid var(--border-dark)'
       }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>退货 / 冲红</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>{t('ui.退货 / 冲红','退货 / 冲红')}</h3>
             <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-secondary)' }}>
-              即将整单退货 <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{returnTarget.sale_no}</span>（¥{fmt(returnTarget.total_amount)}）。
+              {t('ui.即将整单退货','即将整单退货')} <span style={{ color: 'var(--color-accent)', fontFamily: 'monospace' }}>{returnTarget.sale_no}</span>（¥{fmt(returnTarget.total_amount)}）。
             </p>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--text-disabled)' }}>
-              将反向：库存入隔离退货批（待复检）、已收现金退款（¥{fmt(returnTarget.paid_amount)}）、应收红冲。此操作不可撤销。
+              {t('ui.将反向：库存入隔离退货批（待复检）、已收现金退款（','将反向：库存入隔离退货批（待复检）、已收现金退款（')}¥{fmt(returnTarget.paid_amount)}{t('ui.）、应收红冲。此操作不可撤销。','）、应收红冲。此操作不可撤销。')}
             </p>
-            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>退货原因 *</label>
-            <textarea value={returnReason} onChange={e => setReturnReason(e.target.value)} rows={3} placeholder="请填写退货原因" style={{
+            <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>{t('ui.退货原因 *','退货原因 *')}</label>
+            <textarea value={returnReason} onChange={e => setReturnReason(e.target.value)} rows={3} placeholder={t('ui.请填写退货原因','请填写退货原因')} style={{
           width: '100%',
           boxSizing: 'border-box',
           padding: '8px 10px',
@@ -2236,13 +2238,13 @@ export default function StorePosPage() {
               <button onClick={() => { setReturnTarget(null); setReturnReason(''); }} disabled={returning} style={{
             padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)',
             background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13
-          }}>取消</button>
+          }}>{t('ui.取消','取消')}</button>
               <button onClick={submitReturn} disabled={returning} style={{
             padding: '8px 18px', borderRadius: 6, border: 'none',
             background: 'var(--status-warning)', color: 'var(--text-on-dark)',
             cursor: returning ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
             opacity: returning ? 0.6 : 1
-          }}>{returning ? '处理中...' : '确认退货'}</button>
+          }}>{returning ? t('ui.处理中...','处理中...') : t('ui.确认退货','确认退货')}</button>
             </div>
           </div>
         </div>}

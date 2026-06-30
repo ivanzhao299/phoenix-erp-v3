@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { Settings2, RefreshCw, Save, Lock } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 interface Config {
   id: number;
@@ -17,6 +18,7 @@ interface Config {
   updated_at: string | null;
 }
 export default function SystemConfigsPage() {
+  const { t } = useLanguage();
   const [configs, setConfigs] = useState<Config[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -46,7 +48,7 @@ export default function SystemConfigsPage() {
     setEditValue(cfg.config_value);
   };
   const handleSave = async (key: string) => {
-    if (!editValue.trim()) return alert("配置值不能为空");
+    if (!editValue.trim()) return alert(t('ui.配置值不能为空', '配置值不能为空'));
     setSaving(true);
     try {
       const res = await fetch(`/api/system/configs/${encodeURIComponent(key)}`, {
@@ -64,7 +66,7 @@ export default function SystemConfigsPage() {
         fetchConfigs();
       } else {
         const e = await res.json();
-        alert(e.msg ?? "修改失败");
+        alert(e.msg ?? t('ui.修改失败', '修改失败'));
       }
     } finally {
       setSaving(false);
@@ -72,14 +74,14 @@ export default function SystemConfigsPage() {
   };
   const groups = Array.from(new Set(configs.map(c => c.config_group)));
   return <div>
-      <PageHeader title="生产配置治理" subtitle="禁止硬编码业务参数；所有修改须记录 updated_by / updated_at" actions={<div className={u.flexRow8}>
+      <PageHeader title={t('ui.生产配置治理', '生产配置治理')} subtitle={t('ui.禁止硬编码业务参数；所有修改须记录 updated_by / updated_at', '禁止硬编码业务参数；所有修改须记录 updated_by / updated_at')} actions={<div className={u.flexRow8}>
             <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} style={{
         padding: "6px 12px",
         borderRadius: "var(--radius-md)",
         border: "1px solid var(--border)",
         fontSize: 13
       }}>
-              <option value="">全部分组</option>
+              <option value="">{t('ui.全部分组', '全部分组')}</option>
               {groups.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             <button onClick={fetchConfigs} disabled={loading} style={{
@@ -94,7 +96,7 @@ export default function SystemConfigsPage() {
         cursor: "pointer",
         fontSize: 13
       }}>
-              <RefreshCw size={13} />刷新
+              <RefreshCw size={13} />{t('ui.刷新', '刷新')}
             </button>
           </div>} />
 
@@ -107,7 +109,7 @@ export default function SystemConfigsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["分组", "配置键", "当前值", "类型", "说明", "最后修改", "操作"].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t('ui.分组', '分组'), t('ui.配置键', '配置键'), t('ui.当前值', '当前值'), t('ui.类型', '类型'), t('ui.说明', '说明'), t('ui.最后修改', '最后修改'), t('ui.操作', '操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -161,7 +163,7 @@ export default function SystemConfigsPage() {
                 color: "var(--text-secondary)",
                 fontSize: 11
               }}>
-                      <Lock size={12} />只读
+                      <Lock size={12} />{t('ui.只读', '只读')}
                     </span> : editId === cfg.id ? <div style={{
                 display: "flex",
                 gap: 6
@@ -186,7 +188,7 @@ export default function SystemConfigsPage() {
                   cursor: "pointer",
                   fontSize: 12
                 }}>
-                        取消
+                        {t('ui.取消', '取消')}
                       </button>
                     </div> : <button onClick={() => handleEdit(cfg)} style={{
                 padding: "3px 10px",
@@ -198,7 +200,7 @@ export default function SystemConfigsPage() {
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                      编辑
+                      {t('ui.编辑', '编辑')}
                     </button>}
                 </td>
               </tr>)}

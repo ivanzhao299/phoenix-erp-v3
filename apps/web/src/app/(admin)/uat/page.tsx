@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { PageHeaderV2, KpiCard } from "@/components/design-system";
 import type { AccentColor } from "@/lib/design-tokens";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // 将 var(--status-*) 颜色提示映射为 KpiCard accentColor 枚举
 function accentFromVar(v?: string): AccentColor {
@@ -216,6 +217,7 @@ const TABS: {
   label: "上线准备度"
 }];
 export default function UATPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>("feedbacks");
 
   // Dashboard metrics
@@ -255,7 +257,7 @@ export default function UATPage() {
     maxWidth: 1400,
     margin: "0 auto"
   }}>
-      <PageHeaderV2 title="UAT & 试运行" subtitle="用户验收测试、培训记录、验收清单与上线准备度管理" />
+      <PageHeaderV2 title={t('ui.UAT & 试运行','UAT & 试运行')} subtitle={t('ui.用户验收测试、培训记录、验收清单与上线准备度管理','用户验收测试、培训记录、验收清单与上线准备度管理')} />
 
       {/* ── Dashboard ── */}
       <div style={{
@@ -264,11 +266,11 @@ export default function UATPage() {
       flexWrap: "wrap",
       marginBottom: 28
     }}>
-        <MetricCard title="未解决问题" value={feedbackSummary?.openCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} sub="待处理 + 处理中" />
-        <MetricCard title="严重问题" value={feedbackSummary?.criticalCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} sub="最高严重度" />
-        <MetricCard title="验收通过率" value={avgPassPct !== null ? `${avgPassPct}%` : "—"} sub="所有模块均值" />
-        <MetricCard title="培训场次" value={trainingSummary?.totalCount ?? "—"} sub="累计已完成" />
-        <MetricCard title="上线准备度" value={readinessScore !== null ? `${readinessScore}` : "—"} borderColor={readinessScore !== null ? readinessColor : undefined} valueColor={readinessScore !== null ? readinessColor : undefined} sub={readinessScore !== null ? readinessScore >= 80 ? "可以上线" : readinessScore >= 60 ? "需要改进" : "不建议上线" : undefined} />
+        <MetricCard title={t('ui.未解决问题','未解决问题')} value={feedbackSummary?.openCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined} sub={t('ui.待处理 + 处理中','待处理 + 处理中')} />
+        <MetricCard title={t('ui.严重问题','严重问题')} value={feedbackSummary?.criticalCount ?? "—"} borderColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} valueColor={feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined} sub={t('ui.最高严重度','最高严重度')} />
+        <MetricCard title={t('ui.验收通过率','验收通过率')} value={avgPassPct !== null ? `${avgPassPct}%` : "—"} sub={t('ui.所有模块均值','所有模块均值')} />
+        <MetricCard title={t('ui.培训场次','培训场次')} value={trainingSummary?.totalCount ?? "—"} sub={t('ui.累计已完成','累计已完成')} />
+        <MetricCard title={t('ui.上线准备度','上线准备度')} value={readinessScore !== null ? `${readinessScore}` : "—"} borderColor={readinessScore !== null ? readinessColor : undefined} valueColor={readinessScore !== null ? readinessColor : undefined} sub={readinessScore !== null ? readinessScore >= 80 ? t('ui.可以上线','可以上线') : readinessScore >= 60 ? t('ui.需要改进','需要改进') : t('ui.不建议上线','不建议上线') : undefined} />
       </div>
 
       {/* ── Tabs ── */}
@@ -307,6 +309,7 @@ export default function UATPage() {
 // Tab 1: 问题反馈
 // ─────────────────────────────────────────────
 function FeedbacksTab() {
+  const { t } = useLanguage();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("");
@@ -405,13 +408,13 @@ function FeedbacksTab() {
       flexWrap: "wrap"
     }}>
         <select style={selectStyle} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"].map(s => <option key={s} value={s}>
               {STATUS_LABEL[s] ?? s}
             </option>)}
         </select>
         <select style={selectStyle} value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
-          <option value="">全部严重度</option>
+          <option value="">{t('ui.全部严重度','全部严重度')}</option>
           {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map(s => <option key={s} value={s}>
               {SEVERITY_LABEL[s] ?? s}
             </option>)}
@@ -427,7 +430,7 @@ function FeedbacksTab() {
         fontSize: 13,
         fontWeight: 600
       }}>
-          {showCreateForm ? "取消" : "+ 新建反馈"}
+          {showCreateForm ? t('ui.取消','取消') : t('ui.+ 新建反馈','+ 新建反馈')}
         </button>
       </div>
 
@@ -443,14 +446,14 @@ function FeedbacksTab() {
         fontWeight: 600,
         marginBottom: 14,
         fontSize: 14
-      }}>新建问题反馈</div>
+      }}>{t('ui.新建问题反馈','新建问题反馈')}</div>
           <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
         gap: 12
       }}>
             <div>
-              <label className={u.muted12}>标题 *</label>
+              <label className={u.muted12}>{t('ui.标题 *','标题 *')}</label>
               <input style={{
             ...inputStyle,
             width: "100%",
@@ -459,10 +462,10 @@ function FeedbacksTab() {
           }} value={form.title} onChange={e => setForm({
             ...form,
             title: e.target.value
-          })} placeholder="问题标题" />
+          })} placeholder={t('ui.问题标题','问题标题')} />
             </div>
             <div>
-              <label className={u.muted12}>报告人 *</label>
+              <label className={u.muted12}>{t('ui.报告人 *','报告人 *')}</label>
               <input style={{
             ...inputStyle,
             width: "100%",
@@ -471,10 +474,10 @@ function FeedbacksTab() {
           }} value={form.reporterName} onChange={e => setForm({
             ...form,
             reporterName: e.target.value
-          })} placeholder="姓名" />
+          })} placeholder={t('ui.姓名','姓名')} />
             </div>
             <div>
-              <label className={u.muted12}>模块</label>
+              <label className={u.muted12}>{t('ui.模块','模块')}</label>
               <select style={{
             ...selectStyle,
             width: "100%",
@@ -490,7 +493,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label className={u.muted12}>严重度</label>
+              <label className={u.muted12}>{t('ui.严重度','严重度')}</label>
               <select style={{
             ...selectStyle,
             width: "100%",
@@ -506,7 +509,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label className={u.muted12}>类型</label>
+              <label className={u.muted12}>{t('ui.类型','类型')}</label>
               <select style={{
             ...selectStyle,
             width: "100%",
@@ -522,7 +525,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label className={u.muted12}>公司代码</label>
+              <label className={u.muted12}>{t('ui.公司代码','公司代码')}</label>
               <input style={{
             ...inputStyle,
             width: "100%",
@@ -531,12 +534,12 @@ function FeedbacksTab() {
           }} value={form.companyCode} onChange={e => setForm({
             ...form,
             companyCode: e.target.value
-          })} placeholder="可选" />
+          })} placeholder={t('ui.可选','可选')} />
             </div>
             <div style={{
           gridColumn: "1 / -1"
         }}>
-              <label className={u.muted12}>描述</label>
+              <label className={u.muted12}>{t('ui.描述','描述')}</label>
               <textarea style={{
             ...inputStyle,
             width: "100%",
@@ -547,7 +550,7 @@ function FeedbacksTab() {
           }} value={form.description} onChange={e => setForm({
             ...form,
             description: e.target.value
-          })} placeholder="详细描述" />
+          })} placeholder={t('ui.详细描述','详细描述')} />
             </div>
           </div>
           <button onClick={handleCreate} disabled={!form.title || !form.reporterName} style={{
@@ -562,7 +565,7 @@ function FeedbacksTab() {
         fontWeight: 600,
         opacity: !form.title || !form.reporterName ? 0.5 : 1
       }}>
-            提交反馈
+            {t('ui.提交反馈','提交反馈')}
           </button>
         </div>}
 
@@ -571,7 +574,7 @@ function FeedbacksTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["编号", "标题", "模块", "类型", "严重度", "状态", "报告人", "创建时间", "操作"].map(h => <th key={h} className={u.nowrap}>
+              {[t('ui.编号','编号'), t('ui.标题','标题'), t('ui.模块','模块'), t('ui.类型','类型'), t('ui.严重度','严重度'), t('ui.状态','状态'), t('ui.报告人','报告人'), t('ui.创建时间','创建时间'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>
                     {h}
                   </th>)}
             </tr>
@@ -583,7 +586,7 @@ function FeedbacksTab() {
               textAlign: "center",
               color: "var(--text-disabled)"
             }}>
-                  暂无数据
+                  {t('ui.暂无数据','暂无数据')}
                 </td>
               </tr>}
             {feedbacks.map(fb => <tr key={fb.id}>
@@ -635,7 +638,7 @@ function FeedbacksTab() {
                   fontSize: 12,
                   padding: "3px 6px",
                   width: 90
-                }} placeholder="指派给" value={updateValues[fb.id]?.assigneeName ?? fb.assigneeName ?? ""} onChange={e => setUpdateValues(v => ({
+                }} placeholder={t('ui.指派给','指派给')} value={updateValues[fb.id]?.assigneeName ?? fb.assigneeName ?? ""} onChange={e => setUpdateValues(v => ({
                   ...v,
                   [fb.id]: {
                     ...v[fb.id],
@@ -651,7 +654,7 @@ function FeedbacksTab() {
                   cursor: "pointer",
                   fontSize: 12
                 }}>
-                        保存
+                        {t('ui.保存','保存')}
                       </button>
                       <button onClick={() => setUpdatingId(null)} style={{
                   padding: "3px 10px",
@@ -662,7 +665,7 @@ function FeedbacksTab() {
                   cursor: "pointer",
                   fontSize: 12
                 }}>
-                        取消
+                        {t('ui.取消','取消')}
                       </button>
                     </div> : <button onClick={() => {
                 setUpdatingId(fb.id);
@@ -682,7 +685,7 @@ function FeedbacksTab() {
                 fontSize: 12,
                 color: "var(--text-primary)"
               }}>
-                      指派/更新
+                      {t('ui.指派/更新','指派/更新')}
                     </button>}
                 </td>
               </tr>)}
@@ -696,6 +699,7 @@ function FeedbacksTab() {
 // Tab 2: 培训记录
 // ─────────────────────────────────────────────
 function TrainingsTab() {
+  const { t } = useLanguage();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [summary, setSummary] = useState<TrainingSummary | null>(null);
   const [filterType, setFilterType] = useState("");
@@ -806,9 +810,9 @@ function TrainingsTab() {
       alignItems: "center"
     }}>
         <select style={selectStyle} value={filterType} onChange={e => setFilterType(e.target.value)}>
-          <option value="">全部类型</option>
-          {trainingTypes.map(t => <option key={t} value={t}>
-              {t}
+          <option value="">{t('ui.全部类型','全部类型')}</option>
+          {trainingTypes.map(tt => <option key={tt} value={tt}>
+              {tt}
             </option>)}
         </select>
         <button onClick={() => setShowCreateForm(v => !v)} style={{
@@ -822,7 +826,7 @@ function TrainingsTab() {
         fontSize: 13,
         fontWeight: 600
       }}>
-          {showCreateForm ? "取消" : "+ 新建培训"}
+          {showCreateForm ? t('ui.取消','取消') : t('ui.+ 新建培训','+ 新建培训')}
         </button>
       </div>
 
@@ -838,42 +842,42 @@ function TrainingsTab() {
         fontWeight: 600,
         marginBottom: 14,
         fontSize: 14
-      }}>新建培训记录</div>
+      }}>{t('ui.新建培训记录','新建培训记录')}</div>
           <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
         gap: 12
       }}>
             {[{
-          label: "培训标题 *",
+          label: t('ui.培训标题 *','培训标题 *'),
           key: "trainingTitle",
           type: "text",
-          placeholder: "培训标题"
+          placeholder: t('ui.培训标题','培训标题')
         }, {
-          label: "讲师 *",
+          label: t('ui.讲师 *','讲师 *'),
           key: "trainerName",
           type: "text",
-          placeholder: "姓名"
+          placeholder: t('ui.姓名','姓名')
         }, {
-          label: "参与人数",
+          label: t('ui.参与人数','参与人数'),
           key: "participantCount",
           type: "number",
-          placeholder: "人数"
+          placeholder: t('ui.人数','人数')
         }, {
-          label: "培训日期",
+          label: t('ui.培训日期','培训日期'),
           key: "trainingDate",
           type: "date",
           placeholder: ""
         }, {
-          label: "评分 (0-100)",
+          label: t('ui.评分 (0-100)','评分 (0-100)'),
           key: "score",
           type: "number",
-          placeholder: "可选"
+          placeholder: t('ui.可选','可选')
         }, {
-          label: "备注",
+          label: t('ui.备注','备注'),
           key: "remark",
           type: "text",
-          placeholder: "可选"
+          placeholder: t('ui.可选','可选')
         }].map(f => <div key={f.key}>
                 <label className={u.muted12}>{f.label}</label>
                 <input type={f.type} style={{
@@ -887,7 +891,7 @@ function TrainingsTab() {
           })} placeholder={f.placeholder} />
               </div>)}
             <div>
-              <label className={u.muted12}>培训类型</label>
+              <label className={u.muted12}>{t('ui.培训类型','培训类型')}</label>
               <select style={{
             ...selectStyle,
             width: "100%",
@@ -897,8 +901,8 @@ function TrainingsTab() {
             ...form,
             trainingType: e.target.value
           })}>
-                {trainingTypes.map(t => <option key={t} value={t}>
-                    {t}
+                {trainingTypes.map(tt => <option key={tt} value={tt}>
+                    {tt}
                   </option>)}
               </select>
             </div>
@@ -915,7 +919,7 @@ function TrainingsTab() {
         fontWeight: 600,
         opacity: !form.trainingTitle || !form.trainerName ? 0.5 : 1
       }}>
-            提交
+            {t('ui.提交','提交')}
           </button>
         </div>}
 
@@ -924,7 +928,7 @@ function TrainingsTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["编号", "培训类型", "标题", "讲师", "参与人数", "日期", "评分", "备注"].map(h => <th key={h} className={u.nowrap}>
+              {[t('ui.编号','编号'), t('ui.培训类型','培训类型'), t('ui.标题','标题'), t('ui.讲师','讲师'), t('ui.参与人数','参与人数'), t('ui.日期','日期'), t('ui.评分','评分'), t('ui.备注','备注')].map(h => <th key={h} className={u.nowrap}>
                   {h}
                 </th>)}
             </tr>
@@ -936,7 +940,7 @@ function TrainingsTab() {
               textAlign: "center",
               color: "var(--text-disabled)"
             }}>
-                  暂无数据
+                  {t('ui.暂无数据','暂无数据')}
                 </td>
               </tr>}
             {trainings.map(t => <tr key={t.id}>
@@ -981,6 +985,7 @@ function ChecklistsTab({
   progress: ChecklistProgress[];
   onProgressRefresh: () => void;
 }) {
+  const { t } = useLanguage();
   const [groups, setGroups] = useState<ChecklistGroup[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [remarksInput, setRemarksInput] = useState<Record<number, string>>({});
@@ -1030,7 +1035,7 @@ function ChecklistsTab({
         marginBottom: 12,
         color: "var(--text-primary)"
       }}>
-            模块验收进度
+            {t('ui.模块验收进度','模块验收进度')}
           </div>
           <div style={{
         display: "grid",
@@ -1079,7 +1084,7 @@ function ChecklistsTab({
       color: "var(--text-disabled)",
       textAlign: "center",
       padding: 32
-    }}>暂无验收清单数据</div>}
+    }}>{t('ui.暂无验收清单数据','暂无验收清单数据')}</div>}
       {groups.map(group => <div key={group.moduleCode} style={{
       border: "1px solid var(--border)",
       borderRadius: 10,
@@ -1145,7 +1150,7 @@ function ChecklistsTab({
             fontSize: 12,
             outline: "none",
             width: 160
-          }} placeholder="备注（失败/阻塞时填写）" value={remarksInput[item.id] ?? item.remark ?? ""} onChange={e => setRemarksInput(v => ({
+          }} placeholder={t('ui.备注（失败/阻塞时填写）','备注（失败/阻塞时填写）')} value={remarksInput[item.id] ?? item.remark ?? ""} onChange={e => setRemarksInput(v => ({
             ...v,
             [item.id]: e.target.value
           }))} />
@@ -1156,19 +1161,19 @@ function ChecklistsTab({
           }}>
                     {[{
               s: "PASSED",
-              label: "✅ 通过",
+              label: t('ui.✅ 通过','✅ 通过'),
               bg: "var(--status-success)"
             }, {
               s: "FAILED",
-              label: "❌ 失败",
+              label: t('ui.❌ 失败','❌ 失败'),
               bg: "var(--status-danger)"
             }, {
               s: "BLOCKED",
-              label: "🚧 阻塞",
+              label: t('ui.🚧 阻塞','🚧 阻塞'),
               bg: "var(--status-warning)"
             }, {
               s: "NOT_STARTED",
-              label: "↩️ 重置",
+              label: t('ui.↩️ 重置','↩️ 重置'),
               bg: "var(--text-secondary)"
             }].map(({
               s,
@@ -1197,6 +1202,7 @@ function ChecklistsTab({
 // Tab 4: 试运行
 // ─────────────────────────────────────────────
 function PilotRunTab() {
+  const { t } = useLanguage();
   const [runs, setRuns] = useState<PilotRun[]>([]);
   const [_summary, setSummary] = useState<PilotRunSummary | null>(null);
   const [filterStatus, setFilterStatus] = useState("");
@@ -1287,7 +1293,7 @@ function PilotRunTab() {
       alignItems: "center"
     }}>
         <select style={selectStyle} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {["PLANNED", "RUNNING", "PAUSED", "COMPLETED", "ABORTED"].map(s => <option key={s} value={s}>
               {s}
             </option>)}
@@ -1303,7 +1309,7 @@ function PilotRunTab() {
         fontSize: 13,
         fontWeight: 600
       }}>
-          {showCreateForm ? "取消" : "+ 创建试运行"}
+          {showCreateForm ? t('ui.取消','取消') : t('ui.+ 创建试运行','+ 创建试运行')}
         </button>
       </div>
 
@@ -1318,37 +1324,37 @@ function PilotRunTab() {
         fontWeight: 600,
         marginBottom: 14,
         fontSize: 14
-      }}>创建试运行</div>
+      }}>{t('ui.创建试运行','创建试运行')}</div>
           <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
         gap: 12
       }}>
             {[{
-          label: "公司代码 *",
+          label: t('ui.公司代码 *','公司代码 *'),
           key: "companyCode",
           type: "text",
-          placeholder: "代码"
+          placeholder: t('ui.代码','代码')
         }, {
-          label: "站点名称 *",
+          label: t('ui.站点名称 *','站点名称 *'),
           key: "siteName",
           type: "text",
-          placeholder: "站点"
+          placeholder: t('ui.站点','站点')
         }, {
-          label: "开始日期",
+          label: t('ui.开始日期','开始日期'),
           key: "runStartDate",
           type: "date",
           placeholder: ""
         }, {
-          label: "结束日期",
+          label: t('ui.结束日期','结束日期'),
           key: "runEndDate",
           type: "date",
           placeholder: ""
         }, {
-          label: "备注",
+          label: t('ui.备注','备注'),
           key: "remark",
           type: "text",
-          placeholder: "可选"
+          placeholder: t('ui.可选','可选')
         }].map(f => <div key={f.key}>
                 <label className={u.muted12}>{f.label}</label>
                 <input type={f.type} style={{
@@ -1374,7 +1380,7 @@ function PilotRunTab() {
         fontWeight: 600,
         opacity: !form.companyCode || !form.siteName ? 0.5 : 1
       }}>
-            创建
+            {t('ui.创建','创建')}
           </button>
         </div>}
 
@@ -1382,7 +1388,7 @@ function PilotRunTab() {
         <table className={s.table}>
           <thead>
             <tr>
-              {["编号", "公司", "站点", "开始日期", "结束日期", "状态", "订单数", "配送数", "问题数", "操作"].map(h => <th key={h} className={u.nowrap}>
+              {[t('ui.编号','编号'), t('ui.公司','公司'), t('ui.站点','站点'), t('ui.开始日期','开始日期'), t('ui.结束日期','结束日期'), t('ui.状态','状态'), t('ui.订单数','订单数'), t('ui.配送数','配送数'), t('ui.问题数','问题数'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>
                     {h}
                   </th>)}
             </tr>
@@ -1394,7 +1400,7 @@ function PilotRunTab() {
               textAlign: "center",
               color: "var(--text-disabled)"
             }}>
-                  暂无试运行数据
+                  {t('ui.暂无试运行数据','暂无试运行数据')}
                 </td>
               </tr>}
             {runs.map(run => <tr key={run.id}>
@@ -1456,7 +1462,7 @@ function PilotRunTab() {
                   fontSize: 12,
                   padding: "3px 6px",
                   width: 64
-                }} placeholder={f === "orderCount" ? "订单" : f === "deliveryCount" ? "配送" : "问题"} value={updateValues[f] as number | undefined ?? ""} onChange={e => setUpdateValues(v => ({
+                }} placeholder={f === "orderCount" ? t('ui.订单','订单') : f === "deliveryCount" ? t('ui.配送','配送') : t('ui.问题','问题')} value={updateValues[f] as number | undefined ?? ""} onChange={e => setUpdateValues(v => ({
                   ...v,
                   [f]: Number(e.target.value)
                 }))} />)}
@@ -1469,7 +1475,7 @@ function PilotRunTab() {
                   cursor: "pointer",
                   fontSize: 12
                 }}>
-                        保存
+                        {t('ui.保存','保存')}
                       </button>
                       <button onClick={() => setUpdatingId(null)} style={{
                   padding: "3px 10px",
@@ -1480,7 +1486,7 @@ function PilotRunTab() {
                   cursor: "pointer",
                   fontSize: 12
                 }}>
-                        取消
+                        {t('ui.取消','取消')}
                       </button>
                     </div> : <button onClick={() => {
                 setUpdatingId(run.id);
@@ -1499,7 +1505,7 @@ function PilotRunTab() {
                 fontSize: 12,
                 color: "var(--text-primary)"
               }}>
-                      更新
+                      {t('ui.更新','更新')}
                     </button>}
                 </td>
               </tr>)}
@@ -1519,9 +1525,10 @@ function ReadinessTab({
   readiness: Readiness | null;
   onRefresh: () => void;
 }) {
+  const { t } = useLanguage();
   const score = readiness?.score ?? null;
   const scoreColor = score === null ? "var(--text-secondary)" : score >= 80 ? "var(--status-success)" : score >= 60 ? "var(--status-warning)" : "var(--status-danger)";
-  const statusLabel = score === null ? "—" : score >= 80 ? "可以上线" : score >= 60 ? "需要改进" : "不建议上线";
+  const statusLabel = score === null ? "—" : score >= 80 ? t('ui.可以上线','可以上线') : score >= 60 ? t('ui.需要改进','需要改进') : t('ui.不建议上线','不建议上线');
   return <div>
       {/* Score display */}
       <div style={{
@@ -1566,7 +1573,7 @@ function ReadinessTab({
           fontWeight: 600,
           fontSize: 13
         }}>
-              存在严重级别未解决问题,强烈建议上线前处理
+              {t('ui.存在严重级别未解决问题,强烈建议上线前处理','存在严重级别未解决问题,强烈建议上线前处理')}
             </div>}
           <button onClick={onRefresh} style={{
           padding: "8px 20px",
@@ -1578,7 +1585,7 @@ function ReadinessTab({
           fontSize: 13,
           fontWeight: 600
         }}>
-            刷新评分
+            {t('ui.刷新评分','刷新评分')}
           </button>
         </div>
       </div>
@@ -1591,13 +1598,13 @@ function ReadinessTab({
         marginBottom: 12,
         color: "var(--text-primary)"
       }}>
-            评分维度明细
+            {t('ui.评分维度明细','评分维度明细')}
           </div>
           <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
-                  {["维度", "权重", "通过/总计", "评分", "加权"].map(h => <th key={h}>
+                  {[t('ui.维度','维度'), t('ui.权重','权重'), t('ui.通过/总计','通过/总计'), t('ui.评分','评分'), t('ui.加权','加权')].map(h => <th key={h}>
                       {h}
                     </th>)}
                 </tr>
@@ -1635,7 +1642,7 @@ function ReadinessTab({
               borderTop: "2px solid var(--border)"
             }}>
                   <td colSpan={4} className={u.fw700}>
-                    综合评分
+                    {t('ui.综合评分','综合评分')}
                   </td>
                   <td style={{
                 fontWeight: 800,
@@ -1656,7 +1663,7 @@ function ReadinessTab({
       padding: 48,
       fontSize: 14
     }}>
-          暂无准备度数据，请点击「刷新评分」加载
+          {t('ui.暂无准备度数据，请点击「刷新评分」加载','暂无准备度数据，请点击「刷新评分」加载')}
         </div>}
     </div>;
 }

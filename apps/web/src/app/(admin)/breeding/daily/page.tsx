@@ -82,7 +82,7 @@ export default function DailyPage() {
     if (action === 'create' || action === 'mortality') {
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        toast.success(action === 'mortality' ? '已定位到死淘登记表单' : '已定位到日报录入表单');
+        toast.success(action === 'mortality' ? t('ui.已定位到死淘登记表单', '已定位到死淘登记表单') : t('ui.已定位到日报录入表单', '已定位到日报录入表单'));
       }, 300);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,9 +271,9 @@ export default function DailyPage() {
         if (diff > tolerance) {
           const ok = await showConfirm({
             type: 'confirm', icon: '⚠️',
-            title: `${shiftLabel(r.shift)}：9 档分级总数与产蛋数不一致`,
-            message: `9 档分级 sum = ${gradeSum} 枚\n产蛋总数 = ${eggs} 枚\n差 ${diff} 枚（容差 ${Math.round(tolerance)}）\n\n是否继续提交？`,
-            confirmLabel: '继续提交',
+            title: `${shiftLabel(r.shift)}${t('ui.：9 档分级总数与产蛋数不一致', '：9 档分级总数与产蛋数不一致')}`,
+            message: `${t('ui.9 档分级 sum =', '9 档分级 sum =')} ${gradeSum} ${t('ui.枚', '枚')}\n${t('ui.产蛋总数 =', '产蛋总数 =')} ${eggs} ${t('ui.枚', '枚')}\n${t('ui.差', '差')} ${diff} ${t('ui.枚（容差', '枚（容差')} ${Math.round(tolerance)}${t('ui.）', '）')}\n\n${t('ui.是否继续提交？', '是否继续提交？')}`,
+            confirmLabel: t('ui.继续提交', '继续提交'),
           });
           if (!ok) return;
         }
@@ -356,10 +356,10 @@ export default function DailyPage() {
         const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
         const ok = await showConfirm({
           type: 'confirm', icon: '📦',
-          title: '日报已保存 — 是否同步入销售库存？',
-          message: `共 ${rowsWithGrades.length} 个班次填了 9 档分级，合计 ${totalSum.toLocaleString()} 枚。\n\n确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。\n取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。`,
-          confirmLabel: '同步入销售库存',
-          cancelLabel: '仅保存日报',
+          title: t('ui.日报已保存 — 是否同步入销售库存？', '日报已保存 — 是否同步入销售库存？'),
+          message: `${t('ui.共', '共')} ${rowsWithGrades.length} ${t('ui.个班次填了 9 档分级，合计', '个班次填了 9 档分级，合计')} ${totalSum.toLocaleString()} ${t('ui.枚。', '枚。')}\n\n${t('ui.确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。', '确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。')}\n${t('ui.取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。', '取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。')}`,
+          confirmLabel: t('ui.同步入销售库存', '同步入销售库存'),
+          cancelLabel: t('ui.仅保存日报', '仅保存日报'),
         });
         if (ok) {
           // 调 daily-inbound endpoint 一键入库
@@ -374,16 +374,16 @@ export default function DailyPage() {
             });
             const j = await res.json();
             if (res.ok && j.code === 200) {
-              toast.success(`✓ 已入库 ${allItems.length} 个批次，合计 ${totalSum.toLocaleString()} 枚`);
+              toast.success(`✓ ${t('ui.已入库', '已入库')} ${allItems.length} ${t('ui.个批次，合计', '个批次，合计')} ${totalSum.toLocaleString()} ${t('ui.枚', '枚')}`);
             } else {
               if (j.message?.includes('PACKAGING_INBOUND')) {
-                toast.error('当前 SITE 是包装入库模式，请去包装作业中心完成');
+                toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
               } else {
-                toast.error(`入库失败：${j.message || res.statusText}`);
+                toast.error(`${t('ui.入库失败：', '入库失败：')}${j.message || res.statusText}`);
               }
             }
           } catch (e: any) {
-            toast.error(`入库失败：${e.message}`);
+            toast.error(`${t('ui.入库失败：', '入库失败：')}${e.message}`);
           }
         }
       }
@@ -674,7 +674,7 @@ export default function DailyPage() {
                     background: 'var(--bg-card)', border: `1px solid ${gradeCellAccent}`, color: gradeCellAccent,
                     display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
                   }}>
-                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}枚</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
+                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}{t('ui.枚', '枚')}</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
                   </button>
                 </div>
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
@@ -832,10 +832,10 @@ export default function DailyPage() {
         return (
           <ModalV2 open={true} onClose={() => setGradeModalRowId(null)} title={`${shiftLabel(row.shift)} · ${t('ui.9 档分级录入', '9 档分级录入')}`} width={600}>
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
-                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> 枚 · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> 枚</div>
+                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> {t('ui.枚', '枚')} · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> {t('ui.枚', '枚')}</div>
                 {eggsNum > 0 && !inTolerance && (
                   <div style={{ marginTop: 6, color: 'var(--status-warning)', fontSize: 12 }}>
-                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} 枚（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
+                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} {t('ui.枚', '枚')}（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
                   </div>
                 )}
               </div>

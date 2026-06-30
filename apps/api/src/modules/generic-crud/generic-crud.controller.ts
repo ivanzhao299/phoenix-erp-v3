@@ -98,9 +98,24 @@ export class GenericCrudController {
         : method === 'DELETE' ? 'D'   // G33-A：DELETE 升级为 D 权限
         : 'E';
       if (hasPerm(perms, fallbackMenu, requiredOp)) return;
+      // F9(task #27 加固)：部分表后端主码与前端 usePermission 域刻意不同
+      //   （brd_vaccinations/medications：BE=MENU_FARM_DATA 录入域 / FE=MENU_FARM_VET 兽医防疫域，
+      //    见 G33-B 与 G18-1/G24-A）。补 altMenu OR：持任一域对应操作权即放行，让兽医防疫域用户
+      //   （如宋明光持 FARM_VET 无 FARM_DATA）按 FE 意图录入而不被 BE 误 403。
+      for (const alt of this.tableToAltMenus(table)) {
+        if (hasPerm(perms, alt, requiredOp)) return;
+      }
     }
 
     throw new ForbiddenException(`权限不足：您（角色=${userRole}）无权 ${method} 访问 [${table}]，需 menu=${fallbackMenu ?? '-'} 的对应权限`);
+  }
+
+  /**
+   * F9：表名 → 备选菜单码（OR 关系）。用于 FE/BE 域刻意不同的表，避免持 FE 域权的用户被 BE 误 403。
+   */
+  private tableToAltMenus(table: string): string[] {
+    if (table === 'brd_vaccinations' || table === 'brd_medications') return ['MENU_FARM_VET'];
+    return [];
   }
 
   /**
@@ -174,6 +189,9 @@ export class GenericCrudController {
 
   private filterBlockedFields(table: string, body: any) {
     const COLUMN_BLACKLIST: Record<string, string[]> = {
+      // 评分加固：键名修正 sys_users(复数,已下架)→ sys_user(实表)。原 typo 使该黑名单形同虚设，
+      //   持 MENU_SETTINGS_USER:E 者可经 /api/crud 直写 password_hash/role/status 提权。两名都列以防回归。
+      sys_user: ['password_hash', 'salt', 'role', 'status', 'org_id'],
       sys_users: ['password_hash', 'salt', 'role', 'status', 'org_id'],
       _global: ['id', 'created_at'],
     };
@@ -198,11 +216,16 @@ export class GenericCrudController {
 
     // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
     const userStoreCode: string | undefined = req.user?.storeCode;
+    const roles: string[] = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+    // G125：集团层级角色（超管/CEO/集团财务）视为全局——修「ROLE_ADMIN 被默认绑单场(如孟赛)后
+    //   username≠'admin' → 被判非全局 → brd_daily_logs 等行级注入 store/site → 只看一个场」。
+    const GLOBAL_ROLES = new Set(['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_GROUP_FINANCE']);
     const isGlobal =
       !userStoreCode ||
       userStoreCode === 'ALL' ||
       (req.user?.permissions || []).includes('*') ||
-      req.user?.username === 'admin';
+      req.user?.username === 'admin' ||
+      roles.some((r) => GLOBAL_ROLES.has(r));
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如

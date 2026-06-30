@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * ModalV2 — 居中模态（表单/详情用）。统一标题/关闭/暗色/ESC/点遮罩关闭。
@@ -21,6 +22,7 @@ export interface ModalV2Props {
 }
 
 export function ModalV2({ open, title, width = 520, onClose, children, footer, closeOnBackdrop = true }: ModalV2Props) {
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -50,7 +52,7 @@ export function ModalV2({ open, title, width = 520, onClose, children, footer, c
         {title && (
           <div style={{ display: 'flex', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)' }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</div>
-            <button onClick={onClose} title="关闭" style={{ marginLeft: 'auto', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'background .15s' }}
+            <button onClick={onClose} title={t('ui.关闭', '关闭')} style={{ marginLeft: 'auto', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'background .15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <X size={18} />
             </button>

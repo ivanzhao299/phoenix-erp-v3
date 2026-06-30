@@ -116,37 +116,37 @@ export default function HenReportPage() {
       marginBottom: 20
     }}>
           {[{
-        label: '存栏合计',
+        label: t('ui.存栏合计', '存栏合计'),
         value: totals.current_qty.toLocaleString(),
-        unit: '羽',
+        unit: t('ui.羽', '羽'),
         color: 'var(--color-primary)'
       }, {
-        label: '产蛋合计',
+        label: t('ui.产蛋合计', '产蛋合计'),
         value: totals.eggs.toLocaleString(),
-        unit: '枚',
+        unit: t('ui.枚', '枚'),
         color: 'var(--status-warning)'
       }, {
-        label: '综合产蛋率',
+        label: t('ui.综合产蛋率', '综合产蛋率'),
         value: totals.lay_rate,
         unit: '',
         color: rateColor(totals.lay_rate)
       }, {
-        label: '死亡',
+        label: t('ui.死亡', '死亡'),
         value: totals.mortality.toLocaleString(),
-        unit: '羽',
+        unit: t('ui.羽', '羽'),
         color: 'var(--status-danger)'
       }, {
-        label: '淘汰',
+        label: t('ui.淘汰', '淘汰'),
         value: totals.elimination.toLocaleString(),
-        unit: '羽',
+        unit: t('ui.羽', '羽'),
         color: 'var(--status-warning)'
       }, {
-        label: '损耗合计',
+        label: t('ui.损耗合计', '损耗合计'),
         value: totals.total_loss.toLocaleString(),
-        unit: '羽',
+        unit: t('ui.羽', '羽'),
         color: 'var(--status-danger)'
       }, {
-        label: '饲料消耗',
+        label: t('ui.饲料消耗', '饲料消耗'),
         value: totals.feed.toLocaleString(),
         unit: 'kg',
         color: 'var(--status-special)'
@@ -198,14 +198,14 @@ export default function HenReportPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {['栋舍', '批次号', '存栏数(羽)', '日龄(天)', '产蛋(枚)', '产蛋率', '死亡(羽)', '淘汰(羽)', '损耗合计', '饲料(kg)', '淘汰原因'].map(h => <th key={h} style={{
-              textAlign: h === '栋舍' || h === '批次号' || h === '淘汰原因' ? 'left' : 'right',
+              {[t('ui.栋舍', '栋舍'), t('ui.批次号', '批次号'), t('ui.存栏数(羽)', '存栏数(羽)'), t('ui.日龄(天)', '日龄(天)'), t('ui.产蛋(枚)', '产蛋(枚)'), t('ui.产蛋率', '产蛋率'), t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.损耗合计', '损耗合计'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.淘汰原因', '淘汰原因')].map((h, hi) => <th key={hi} style={{
+              textAlign: hi === 0 || hi === 1 || hi === 10 ? 'left' : 'right',
               whiteSpace: 'nowrap'
             }}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={11} className={u.emptyCenter}>加载中…</td></tr> : rows.length === 0 ? <tr><td colSpan={11} className={u.emptyCenter}>暂无数据</td></tr> : rows.map((row, i) => {
+            {loading ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : rows.length === 0 ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : rows.map((row, i) => {
             const rate = parseFloat(row.lay_rate);
             return <tr key={i}>
                   <td>{row.house_code}</td>
@@ -253,7 +253,7 @@ export default function HenReportPage() {
                 <td colSpan={2} style={{
               padding: '10px 12px',
               color: 'var(--text-secondary)'
-            }}>合计</td>
+            }}>{t('ui.合计', '合计')}</td>
                 <td style={{
               padding: '10px 12px',
               textAlign: 'right',

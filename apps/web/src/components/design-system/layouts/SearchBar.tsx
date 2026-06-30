@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Search, X } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface SearchBarProps {
   value: string;
@@ -31,9 +32,11 @@ const SIZES: Record<NonNullable<SearchBarProps['size']>, { h: number; px: number
 };
 
 export function SearchBar({
-  value, onChange, onSubmit, placeholder = '搜索…',
+  value, onChange, onSubmit, placeholder,
   debounce = 300, size = 'md', disabled, width = 280,
 }: SearchBarProps) {
+  const { t } = useLanguage();
+  const ph = placeholder ?? t('ui.搜索…','搜索…');
   const [local, setLocal] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cfg = SIZES[size];
@@ -65,7 +68,7 @@ export function SearchBar({
       <input
         type="search"
         disabled={disabled}
-        placeholder={placeholder}
+        placeholder={ph}
         value={local}
         onChange={(e) => { setLocal(e.target.value); emit(e.target.value); }}
         onKeyDown={(e) => {
@@ -75,12 +78,12 @@ export function SearchBar({
           flex: 1, border: 'none', outline: 'none', background: 'transparent',
           color: 'var(--text-primary)', fontSize: cfg.fs,
         }}
-        aria-label={placeholder}
+        aria-label={ph}
       />
       {local ? (
         <button
           type="button"
-          aria-label="清除"
+          aria-label={t('ui.清除','清除')}
           onClick={() => { setLocal(''); onChange(''); onSubmit?.(''); }}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

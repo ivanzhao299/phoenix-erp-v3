@@ -4,6 +4,7 @@ import {
   CheckCircle, AlertCircle, Clock, FileText, Link2, Activity, History, Info,
 } from "lucide-react";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ReferenceGraph } from "./ReferenceGraph";
 
 /**
@@ -73,6 +74,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
+  const { t } = useLanguage();
   const { objectType, objectCode, title, status, effectiveDate, expireDate, basicInfo, extraTabs } = props;
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [refs, setRefs] = useState<References | null>(null);
@@ -125,8 +127,8 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
           <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', color: 'var(--color-primary)', marginTop: 2 }}>{objectCode}</div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
             objectType: <span style={{ fontFamily: 'monospace' }}>{objectType}</span>
-            {effectiveDate && <> · 生效 {effectiveDate}</>}
-            {expireDate && <> · 失效 {expireDate}</>}
+            {effectiveDate && <> · {t('ui.生效','生效')} {effectiveDate}</>}
+            {expireDate && <> · {t('ui.失效','失效')} {expireDate}</>}
           </div>
         </div>
         {status && (
@@ -160,11 +162,11 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
 
       {/* Tab 内容 */}
       <div style={{ padding: 20, borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', minHeight: 240 }}>
-        {activeTab === 'basic' && (basicInfo ?? <div style={{ color: 'var(--text-secondary)' }}>暂无基础信息（请由父组件传入 basicInfo）</div>)}
+        {activeTab === 'basic' && (basicInfo ?? <div style={{ color: 'var(--text-secondary)' }}>{t('ui.暂无基础信息（请由父组件传入 basicInfo）','暂无基础信息（请由父组件传入 basicInfo）')}</div>)}
 
         {activeTab === 'lifecycle' && (
           <div>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>生命周期</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>{t('ui.生命周期','生命周期')}</h3>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Object.keys(STATUS_COLOR).map(s => (
                 <span key={s} style={{
@@ -177,9 +179,9 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
               ))}
             </div>
             <div style={{ marginTop: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
-              {effectiveDate && <>生效日期：<strong style={{ color: 'var(--text-primary)' }}>{effectiveDate}</strong>　</>}
-              {expireDate && <>失效日期：<strong style={{ color: 'var(--text-primary)' }}>{expireDate}</strong></>}
-              {!effectiveDate && !expireDate && '尚未设置生效/失效日期'}
+              {effectiveDate && <>{t('ui.生效日期：','生效日期：')}<strong style={{ color: 'var(--text-primary)' }}>{effectiveDate}</strong>　</>}
+              {expireDate && <>{t('ui.失效日期：','失效日期：')}<strong style={{ color: 'var(--text-primary)' }}>{expireDate}</strong></>}
+              {!effectiveDate && !expireDate && t('ui.尚未设置生效/失效日期','尚未设置生效/失效日期')}
             </div>
           </div>
         )}
@@ -187,16 +189,16 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
         {activeTab === 'reference' && (
           <div>
             <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Link2 size={14} /> 被引用关系
+              <Link2 size={14} /> {t('ui.被引用关系','被引用关系')}
               {refs && (
                 <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 6 }}>
-                  共 {refs.totalReferences} 处 · {refs.canArchive ? '可归档' : <span style={{ color: 'var(--status-danger)', fontWeight: 600 }}>不可归档（被引用）</span>}
+                  {t('ui.共','共')} {refs.totalReferences} {t('ui.处','处')} · {refs.canArchive ? t('ui.可归档','可归档') : <span style={{ color: 'var(--status-danger)', fontWeight: 600 }}>{t('ui.不可归档（被引用）','不可归档（被引用）')}</span>}
                 </span>
               )}
             </h3>
-            {loadingRefs ? <div style={{ color: 'var(--text-secondary)' }}>加载中…</div> :
-             !refs ? <div style={{ color: 'var(--text-secondary)' }}>暂无引用数据</div> :
-             refs.totalReferences === 0 ? <div style={{ color: 'var(--status-success)' }}>✓ 该主数据当前无业务引用，可安全归档</div> :
+            {loadingRefs ? <div style={{ color: 'var(--text-secondary)' }}>{t('ui.加载中…','加载中…')}</div> :
+             !refs ? <div style={{ color: 'var(--text-secondary)' }}>{t('ui.暂无引用数据','暂无引用数据')}</div> :
+             refs.totalReferences === 0 ? <div style={{ color: 'var(--status-success)' }}>✓ {t('ui.该主数据当前无业务引用，可安全归档','该主数据当前无业务引用，可安全归档')}</div> :
              <ReferenceGraph centerLabel={objectCode} centerType={objectType} references={refs.references} />
             }
           </div>
@@ -204,31 +206,31 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
 
         {activeTab === 'quality' && (
           <div>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>质量评分</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>{t('ui.质量评分','质量评分')}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-              <QualityCard label="状态" value={status === 'ACTIVE' ? '生效中' : status ?? '—'} ok={status === 'ACTIVE'} />
-              <QualityCard label="生效日期" value={effectiveDate ?? '未设置'} ok={!!effectiveDate} />
-              <QualityCard label="引用情况" value={refs ? `${refs.totalReferences} 处` : '未查询'} ok={(refs?.totalReferences ?? 0) > 0 || status !== 'ARCHIVED'} />
-              <QualityCard label="归档风险" value={refs?.canArchive ? '无' : '有引用'} ok={refs?.canArchive !== false} />
+              <QualityCard label={t('ui.状态','状态')} value={status === 'ACTIVE' ? t('ui.生效中','生效中') : status ?? '—'} ok={status === 'ACTIVE'} />
+              <QualityCard label={t('ui.生效日期','生效日期')} value={effectiveDate ?? t('ui.未设置','未设置')} ok={!!effectiveDate} />
+              <QualityCard label={t('ui.引用情况','引用情况')} value={refs ? `${refs.totalReferences} ${t('ui.处','处')}` : t('ui.未查询','未查询')} ok={(refs?.totalReferences ?? 0) > 0 || status !== 'ARCHIVED'} />
+              <QualityCard label={t('ui.归档风险','归档风险')} value={refs?.canArchive ? t('ui.无','无') : t('ui.有引用','有引用')} ok={refs?.canArchive !== false} />
             </div>
             <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 12, color: 'var(--text-secondary)' }}>
               <Info size={12} style={{ display: 'inline', marginRight: 4 }} />
-              全局健康评分见 <a href="/data-quality" style={{ color: 'var(--color-accent)' }}>G5 数据质量中心</a> 与 <a href="/master-data/governance" style={{ color: 'var(--color-accent)' }}>主数据治理驾驶舱</a>
+              {t('ui.全局健康评分见','全局健康评分见')} <a href="/data-quality" style={{ color: 'var(--color-accent)' }}>{t('ui.G5 数据质量中心','G5 数据质量中心')}</a> {t('ui.与','与')} <a href="/master-data/governance" style={{ color: 'var(--color-accent)' }}>{t('ui.主数据治理驾驶舱','主数据治理驾驶舱')}</a>
             </div>
           </div>
         )}
 
         {activeTab === 'audit' && (
           <div>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>审计日志</h3>
-            {loadingAudit ? <div style={{ color: 'var(--text-secondary)' }}>加载中…</div> :
-             audit.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>暂无审计记录</div> :
+            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>{t('ui.审计日志','审计日志')}</h3>
+            {loadingAudit ? <div style={{ color: 'var(--text-secondary)' }}>{t('ui.加载中…','加载中…')}</div> :
+             audit.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>{t('ui.暂无审计记录','暂无审计记录')}</div> :
              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                {audit.map(a => (
                  <div key={a.id} style={{ padding: '10px 14px', background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12 }}>
                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                      <span style={{ padding: '1px 8px', borderRadius: 4, background: 'var(--color-accent)1a', color: 'var(--color-accent)', fontWeight: 600 }}>{a.action}</span>
-                     <span style={{ color: 'var(--text-primary)' }}>{a.operator ?? '系统'}</span>
+                     <span style={{ color: 'var(--text-primary)' }}>{a.operator ?? t('ui.系统','系统')}</span>
                      <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}>{new Date(a.created_at).toLocaleString('zh-CN')}</span>
                    </div>
                    {a.reason && <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>{a.reason}</div>}
@@ -252,7 +254,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
           fontSize: 12, color: 'var(--status-warning)', display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <AlertCircle size={13} />
-          <strong>风险提示：</strong>该主数据被 {refs.totalReferences} 处业务单据引用，归档将被阻断；冻结将触发引用方告警
+          <strong>{t('ui.风险提示：','风险提示：')}</strong>{t('ui.该主数据被','该主数据被')} {refs.totalReferences} {t('ui.处业务单据引用，归档将被阻断；冻结将触发引用方告警','处业务单据引用，归档将被阻断；冻结将触发引用方告警')}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle, XCircle, Clock, RefreshCw, ChevronLeft, Che
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -136,6 +137,7 @@ function normalizeHistory(data: ApprovalHistoryResponse, pageSize: number) {
 
 // ── 组件 ─────────────────────────────────────────────────────────────────────
 export default function ApprovalHistoryPage() {
+  const { t } = useLanguage();
   const [list, setList] = useState<ApprovalInstance[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -153,7 +155,7 @@ export default function ApprovalHistoryPage() {
     } catch (err) {
       setList([]);
       setTotal(0);
-      setError(err instanceof Error ? err.message : "加载审批历史失败");
+      setError(err instanceof Error ? err.message : t('ui.加载审批历史失败','加载审批历史失败'));
     } finally {
       setLoading(false);
     }
@@ -167,7 +169,7 @@ export default function ApprovalHistoryPage() {
     setPage(1);
   };
   return <div>
-      <PageHeader title="审批历史" subtitle="查看所有已完成的审批记录" breadcrumb={["审批中心", "历史"]} />
+      <PageHeader title={t('ui.审批历史','审批历史')} subtitle={t('ui.查看所有已完成的审批记录','查看所有已完成的审批记录')} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.历史','历史')]} />
 
       <section className={s.card}>
         <div className={s.cardBody} style={{
@@ -182,7 +184,7 @@ export default function ApprovalHistoryPage() {
             fontSize: 13,
             color: "var(--text-secondary)",
             marginRight: 4
-          }}>业务类型：</span>
+          }}>{t('ui.业务类型：','业务类型：')}</span>
             {BIZ_TYPE_FILTERS.map(f => <button key={f.value} onClick={() => handleBizTypeChange(f.value)} style={{
             padding: "4px 12px",
             borderRadius: 6,
@@ -200,7 +202,7 @@ export default function ApprovalHistoryPage() {
           <button style={secondaryActionButton} onClick={load} disabled={loading}>
             <RefreshCw size={14} style={{
             marginRight: 6
-          }} />刷新
+          }} />{t('ui.刷新','刷新')}
           </button>
         </div>
 
@@ -208,7 +210,7 @@ export default function ApprovalHistoryPage() {
         textAlign: "center",
         color: "var(--text-disabled)",
         padding: 48
-      }}>加载中…</div> : error ? <div className={s.cardBody} style={{
+      }}>{t('ui.加载中…','加载中…')}</div> : error ? <div className={s.cardBody} style={{
         textAlign: "center",
         color: "var(--status-danger)",
         padding: 48
@@ -218,7 +220,7 @@ export default function ApprovalHistoryPage() {
           opacity: 0.75
         }} />
             <p style={{ margin: "0 0 12px" }}>{error}</p>
-            <button style={secondaryActionButton} onClick={load}>重新加载</button>
+            <button style={secondaryActionButton} onClick={load}>{t('ui.重新加载','重新加载')}</button>
           </div> : list.length === 0 ? <div className={s.cardBody} style={{
         textAlign: "center",
         color: "var(--text-disabled)",
@@ -228,25 +230,25 @@ export default function ApprovalHistoryPage() {
           margin: "0 auto 12px",
           opacity: 0.4
         }} />
-            <p>暂无审批历史</p>
+            <p>{t('ui.暂无审批历史','暂无审批历史')}</p>
           </div> : <>
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th>业务类型</th>
-                  <th>单据编号</th>
-                  <th>主题</th>
-                  <th>金额</th>
-                  <th>公司</th>
-                  <th>审批结果</th>
-                  <th>提交时间</th>
-                  <th>完成时间</th>
+                  <th>{t('ui.业务类型','业务类型')}</th>
+                  <th>{t('ui.单据编号','单据编号')}</th>
+                  <th>{t('ui.主题','主题')}</th>
+                  <th>{t('ui.金额','金额')}</th>
+                  <th>{t('ui.公司','公司')}</th>
+                  <th>{t('ui.审批结果','审批结果')}</th>
+                  <th>{t('ui.提交时间','提交时间')}</th>
+                  <th>{t('ui.完成时间','完成时间')}</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map(inst => {
               const cfg = STATUS_CONFIG[inst.status] ?? {
-                label: inst.status || "已完成",
+                label: inst.status || t('ui.已完成','已完成'),
                 color: "var(--text-disabled)",
                 icon: null
               };
@@ -304,7 +306,7 @@ export default function ApprovalHistoryPage() {
               <span style={{
             fontSize: 13,
             color: "var(--text-secondary)"
-          }}>共 {total} 条</span>
+          }}>{t('ui.共','共')} {total} {t('ui.条','条')}</span>
               <div style={{
             display: "flex",
             gap: 6

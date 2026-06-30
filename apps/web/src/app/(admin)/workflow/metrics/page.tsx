@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { Activity, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, RefreshCw, BarChart3, ArrowUpCircle, Bell, Wifi, WifiOff } from 'lucide-react';
 import s from "@/components/ui/admin-ui.module.css";
 import { usePermission } from "@/hooks/usePermission";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ function PushHealthCard({
 }: {
   health: PushHealth;
 }) {
+  const { t } = useLanguage();
   const ok = health.enabled && health.hasPublicKey && health.hasPrivateKey;
   return <div style={{
     background: ok ? 'color-mix(in srgb, var(--status-success) 12%, transparent)' : 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
@@ -229,7 +231,7 @@ function PushHealthCard({
           fontSize: 15,
           fontWeight: 700,
           color: 'var(--text-primary)'
-        }}>Web Push 推送</span>
+        }}>{t('ui.Web Push 推送','Web Push 推送')}</span>
           <span style={{
           fontSize: 11,
           fontWeight: 700,
@@ -259,7 +261,7 @@ function PushHealthCard({
         fontSize: 12,
         color: 'var(--status-danger)'
       }}>
-            请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务
+            {t('ui.请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务','请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务')}
           </div>}
       </div>
     </div>;
@@ -268,6 +270,8 @@ function PushHealthCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function WorkflowMetricsPage() {
+  const { t } = useLanguage();
+  const tr = t;
   const workflowPerm = usePermission('MENU_WORKFLOW_METRICS');
   const canViewMetrics = workflowPerm.check('X') || workflowPerm.check('E') || workflowPerm.check('D');
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -298,7 +302,7 @@ export default function WorkflowMetricsPage() {
       if (ph) setPushHealth(ph);
       setRefreshingAt(new Date());
     } catch {
-      setError('数据加载失败，请检查权限后重试');
+      setError(t('ui.数据加载失败，请检查权限后重试','数据加载失败，请检查权限后重试'));
     } finally {
       setLoading(false);
     }
@@ -317,7 +321,7 @@ export default function WorkflowMetricsPage() {
     });
   }
   if (!canViewMetrics) {
-    return <div className={u.emptyPad40}>无权限访问审批看板。请联系系统管理员授予工作流统计权限。</div>;
+    return <div className={u.emptyPad40}>{t('ui.无权限访问审批看板。请联系系统管理员授予工作流统计权限。','无权限访问审批看板。请联系系统管理员授予工作流统计权限。')}</div>;
   }
 
   return <div style={{
@@ -354,14 +358,14 @@ export default function WorkflowMetricsPage() {
             fontSize: 22,
             fontWeight: 800,
             color: 'var(--text-primary)'
-          }}>审批流程健康看板</h1>
+          }}>{t('ui.审批流程健康看板','审批流程健康看板')}</h1>
             <p style={{
             margin: 0,
             fontSize: 13,
             color: 'var(--text-secondary)'
           }}>
-              实时 SLA 监控 · 超期检测 · 瓶颈分析
-              {refreshingAt && ` · 更新于 ${refreshingAt.toLocaleTimeString('zh-CN')}`}
+              {t('ui.实时 SLA 监控 · 超期检测 · 瓶颈分析','实时 SLA 监控 · 超期检测 · 瓶颈分析')}
+              {refreshingAt && ` · ${t('ui.更新于','更新于')} ${refreshingAt.toLocaleTimeString('zh-CN')}`}
             </p>
           </div>
         </div>
@@ -381,7 +385,7 @@ export default function WorkflowMetricsPage() {
           <RefreshCw size={14} style={{
           animation: loading ? 'spin 1s linear infinite' : 'none'
         }} />
-          {loading ? '刷新中…' : '刷新'}
+          {loading ? t('ui.刷新中…','刷新中…') : t('ui.刷新','刷新')}
         </button>
       </div>
 
@@ -410,32 +414,32 @@ export default function WorkflowMetricsPage() {
       gap: 16,
       marginBottom: 32
     }}>
-          <KpiCard label="待审批任务" value={overview.pendingTasks} sub="当前未完成" icon={Clock} color="var(--status-special)" />
-          <KpiCard label="超期任务" value={overview.overdueTasks} sub={`超期率 ${overdueRate}%`} icon={AlertTriangle} color="var(--status-danger)" alert={overview.overdueTasks > 0} />
-          <KpiCard label="今日完成" value={overview.completedToday} sub="含通过/拒绝" icon={CheckCircle} color="var(--status-success)" />
-          <KpiCard label="升级任务" value={overview.escalatedTasks} sub="待升级审批人处理" icon={ArrowUpCircle} color="var(--status-warning)" alert={overview.escalatedTasks > 0} />
-          <KpiCard label="平均处理时长" value={overview.avgApprovalHours != null ? `${overview.avgApprovalHours}h` : '—'} sub="含进行中" icon={TrendingUp} color="var(--color-accent)" />
-          <KpiCard label="平均完成时长" value={overview.avgCompletionHours != null ? `${overview.avgCompletionHours}h` : '—'} sub="仅已完结实例" icon={Activity} color="var(--status-success)" />
+          <KpiCard label={t('ui.待审批任务','待审批任务')} value={overview.pendingTasks} sub={t('ui.当前未完成','当前未完成')} icon={Clock} color="var(--status-special)" />
+          <KpiCard label={t('ui.超期任务','超期任务')} value={overview.overdueTasks} sub={`${t('ui.超期率','超期率')} ${overdueRate}%`} icon={AlertTriangle} color="var(--status-danger)" alert={overview.overdueTasks > 0} />
+          <KpiCard label={t('ui.今日完成','今日完成')} value={overview.completedToday} sub={t('ui.含通过/拒绝','含通过/拒绝')} icon={CheckCircle} color="var(--status-success)" />
+          <KpiCard label={t('ui.升级任务','升级任务')} value={overview.escalatedTasks} sub={t('ui.待升级审批人处理','待升级审批人处理')} icon={ArrowUpCircle} color="var(--status-warning)" alert={overview.escalatedTasks > 0} />
+          <KpiCard label={t('ui.平均处理时长','平均处理时长')} value={overview.avgApprovalHours != null ? `${overview.avgApprovalHours}h` : '—'} sub={t('ui.含进行中','含进行中')} icon={TrendingUp} color="var(--color-accent)" />
+          <KpiCard label={t('ui.平均完成时长','平均完成时长')} value={overview.avgCompletionHours != null ? `${overview.avgCompletionHours}h` : '—'} sub={t('ui.仅已完结实例','仅已完结实例')} icon={Activity} color="var(--status-success)" />
         </div>}
 
       {/* ── 超期任务 Top 20 ── */}
       <div className={u.mb24}>
-        <Section title="超期待办 Top 20" icon={AlertTriangle} iconColor="var(--status-danger)" badge={overdueTasks.length > 0 ? <span style={{
+        <Section title={t('ui.超期待办 Top 20','超期待办 Top 20')} icon={AlertTriangle} iconColor="var(--status-danger)" badge={overdueTasks.length > 0 ? <span style={{
         fontSize: 12,
         color: 'var(--status-danger)',
         fontWeight: 700,
         marginLeft: 4
       }}>
-                  {overdueTasks.length} 条
+                  {overdueTasks.length} {t('ui.条','条')}
                 </span> : <span style={{
         fontSize: 12,
         color: 'var(--text-disabled)',
         marginLeft: 4
-      }}>按到期时间升序</span>}>
-          {loading && !overdueTasks.length ? <EmptyState msg="加载中…" /> : overdueTasks.length === 0 ? <EmptyState msg="暂无超期任务 🎉" /> : <table className={s.table}>
+      }}>{t('ui.按到期时间升序','按到期时间升序')}</span>}>
+          {loading && !overdueTasks.length ? <EmptyState msg={t('ui.加载中…','加载中…')} /> : overdueTasks.length === 0 ? <EmptyState msg={t('ui.暂无超期任务 🎉','暂无超期任务 🎉')} /> : <table className={s.table}>
                 <thead>
                   <tr>
-                    {['业务类型', '业务单号', '审批角色', '到期时间', '已超期', '催办次数'].map(h => <th key={h}>{h}</th>)}
+                    {[t('ui.业务类型','业务类型'), t('ui.业务单号','业务单号'), t('ui.审批角色','审批角色'), t('ui.到期时间','到期时间'), t('ui.已超期','已超期'), t('ui.催办次数','催办次数')].map(h => <th key={h}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -482,9 +486,9 @@ export default function WorkflowMetricsPage() {
                         {t.reminderCount > 0 ? <span style={{
                   color: 'var(--status-warning)',
                   fontWeight: 700
-                }}>{t.reminderCount} 次</span> : <span style={{
+                }}>{t.reminderCount} {tr('ui.次','次')}</span> : <span style={{
                   color: 'var(--text-disabled)'
-                }}>0 次</span>}
+                }}>0 {tr('ui.次','次')}</span>}
                       </td>
                     </tr>)}
                 </tbody>
@@ -494,22 +498,22 @@ export default function WorkflowMetricsPage() {
 
       {/* ── 升级任务列表 ── */}
       <div className={u.mb24}>
-        <Section title="已升级任务" icon={ArrowUpCircle} iconColor="var(--status-warning)" badge={escalatedTasks.length > 0 ? <span style={{
+        <Section title={t('ui.已升级任务','已升级任务')} icon={ArrowUpCircle} iconColor="var(--status-warning)" badge={escalatedTasks.length > 0 ? <span style={{
         fontSize: 12,
         color: 'var(--status-warning)',
         fontWeight: 700,
         marginLeft: 4
       }}>
-                  {escalatedTasks.length} 条
+                  {escalatedTasks.length} {t('ui.条','条')}
                 </span> : <span style={{
         fontSize: 12,
         color: 'var(--text-disabled)',
         marginLeft: 4
-      }}>升级层级降序</span>}>
-          {loading && !escalatedTasks.length ? <EmptyState msg="加载中…" /> : escalatedTasks.length === 0 ? <EmptyState msg="暂无升级任务 ✅" /> : <table className={s.table}>
+      }}>{t('ui.升级层级降序','升级层级降序')}</span>}>
+          {loading && !escalatedTasks.length ? <EmptyState msg={t('ui.加载中…','加载中…')} /> : escalatedTasks.length === 0 ? <EmptyState msg={t('ui.暂无升级任务 ✅','暂无升级任务 ✅')} /> : <table className={s.table}>
                 <thead>
                   <tr>
-                    {['业务类型', '业务单号', '升级审批角色', '升级层级', '到期时间', '创建时间'].map(h => <th key={h}>{h}</th>)}
+                    {[t('ui.业务类型','业务类型'), t('ui.业务单号','业务单号'), t('ui.升级审批角色','升级审批角色'), t('ui.升级层级','升级层级'), t('ui.到期时间','到期时间'), t('ui.创建时间','创建时间')].map(h => <th key={h}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -566,15 +570,15 @@ export default function WorkflowMetricsPage() {
       </div>
 
       {/* ── 瓶颈角色 ── */}
-      <Section title="瓶颈角色分析" icon={Users} iconColor="var(--status-special)" badge={<span style={{
+      <Section title={t('ui.瓶颈角色分析','瓶颈角色分析')} icon={Users} iconColor="var(--status-special)" badge={<span style={{
       fontSize: 12,
       color: 'var(--text-disabled)',
       marginLeft: 4
-    }}>按超期量排序</span>}>
-        {loading && !bottlenecks.length ? <EmptyState msg="加载中…" /> : bottlenecks.length === 0 ? <EmptyState msg="暂无数据（尚无审批实例）" /> : <table className={s.table}>
+    }}>{t('ui.按超期量排序','按超期量排序')}</span>}>
+        {loading && !bottlenecks.length ? <EmptyState msg={t('ui.加载中…','加载中…')} /> : bottlenecks.length === 0 ? <EmptyState msg={t('ui.暂无数据（尚无审批实例）','暂无数据（尚无审批实例）')} /> : <table className={s.table}>
               <thead>
                 <tr>
-                  {['审批角色', '待办量', '超期量', '平均处理时长'].map(h => <th key={h}>{h}</th>)}
+                  {[t('ui.审批角色','审批角色'), t('ui.待办量','待办量'), t('ui.超期量','超期量'), t('ui.平均处理时长','平均处理时长')].map(h => <th key={h}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>

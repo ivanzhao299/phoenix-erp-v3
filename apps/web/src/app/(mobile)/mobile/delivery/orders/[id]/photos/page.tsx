@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
@@ -66,6 +67,7 @@ function compressImage(file: File): Promise<string> {
 export default function PhotosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [photos,     setPhotos]     = useState<string[]>([]);
@@ -83,20 +85,20 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
       const compressed = await Promise.all(files.map(f => compressImage(f)));
       setPhotos(prev => [...prev, ...compressed]);
     } catch {
-      setError('图片处理失败，请重试');
+      setError(t('mob.dlv.image_process_failed', '图片处理失败，请重试'));
     } finally {
       setUploading(false);
       // 清空 input 以允许再次选同一文件
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, []);
+  }, [t]);
 
   const removePhoto = (idx: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSave = async () => {
-    if (photos.length === 0) { setError('请先添加至少一张照片'); return; }
+    if (photos.length === 0) { setError(t('mob.dlv.add_at_least_one_photo', '请先添加至少一张照片')); return; }
     setSaving(true);
     setError('');
     try {
@@ -113,7 +115,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
       setSuccess(true);
       setTimeout(() => router.back(), 1500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '保存失败，请重试');
+      setError(e instanceof Error ? e.message : t('mob.dlv.save_failed', '保存失败，请重试'));
     } finally {
       setSaving(false);
     }
@@ -126,8 +128,8 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
         flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16,
       }}>
         <div style={{ fontSize: 56 }}>✅</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>照片已保存</div>
-        <div style={{ fontSize: 14, color: C.textSub }}>正在返回…</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>{t('mob.dlv.photos_saved', '照片已保存')}</div>
+        <div style={{ fontSize: 14, color: C.textSub }}>{t('mob.dlv.returning', '正在返回…')}</div>
       </div>
     );
   }
@@ -155,7 +157,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
         >
           ←
         </button>
-        <span style={{ fontSize: 17, fontWeight: 700 }}>📷 签收照片</span>
+        <span style={{ fontSize: 17, fontWeight: 700 }}>📷 {t('mob.dlv.sign_photos', '签收照片')}</span>
       </div>
 
       <div style={{ padding: '20px 16px' }}>
@@ -165,7 +167,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
           borderRadius: 12, padding: '12px 14px', marginBottom: 20,
           fontSize: 13, color: C.textSub, lineHeight: 1.6,
         }}>
-          📸 请拍摄签收现场照片，图片会自动压缩至 300KB 以内。每次可添加多张照片，保存前可删除不需要的照片。
+          📸 {t('mob.dlv.photos_hint', '请拍摄签收现场照片，图片会自动压缩至 300KB 以内。每次可添加多张照片，保存前可删除不需要的照片。')}
         </div>
 
         {/* 照片网格 */}
@@ -180,7 +182,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
               <div key={idx} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: C.card }}>
                 <img
                   src={photo}
-                  alt={`签收照片 ${idx + 1}`}
+                  alt={`${t('mob.dlv.sign_photos', '签收照片')} ${idx + 1}`}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
                 {/* 删除按钮 */}
@@ -221,7 +223,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
             marginBottom: 16,
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📷</div>
-            <div style={{ fontSize: 14, color: C.textSub }}>点击下方按钮添加签收照片</div>
+            <div style={{ fontSize: 14, color: C.textSub }}>{t('mob.dlv.tap_add_photos', '点击下方按钮添加签收照片')}</div>
           </div>
         )}
 
@@ -232,7 +234,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
             borderRadius: 14, padding: 20, textAlign: 'center',
             marginBottom: 16, color: C.textSub, fontSize: 14,
           }}>
-            ⏳ 处理图片中…
+            ⏳ {t('mob.dlv.processing_images', '处理图片中…')}
           </div>
         )}
 
@@ -251,7 +253,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
         {/* 图片数量提示 */}
         {photos.length > 0 && (
           <div style={{ fontSize: 12, color: C.textSub, marginBottom: 12, textAlign: 'center' }}>
-            已添加 {photos.length} 张照片
+            {t('mob.dlv.added', '已添加')} {photos.length} {t('mob.dlv.photos_unit', '张照片')}
           </div>
         )}
       </div>
@@ -292,7 +294,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          {uploading ? '处理中…' : '📷 添加照片'}
+          {uploading ? t('mob.dlv.processing', '处理中…') : `📷 ${t('mob.dlv.add_photos', '添加照片')}`}
         </button>
 
         {/* 保存 */}
@@ -312,7 +314,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          {saving ? '保存中…' : `💾 保存（${photos.length}）`}
+          {saving ? t('mob.dlv.saving', '保存中…') : `💾 ${t('mob.dlv.save', '保存')}（${photos.length}）`}
         </button>
       </div>
     </div>

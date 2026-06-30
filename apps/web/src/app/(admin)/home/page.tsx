@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
 import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
@@ -53,7 +54,7 @@ function hasAnyPerm(hasPermission: PermissionChecker, menuCodes: string[]) {
   return menuCodes.some(code => hasPermission(code));
 }
 
-function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker): { label: string; href: string; icon: any } {
+function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker, t: (k: string, f?: string) => string): { label: string; href: string; icon: any } {
   // 高频作业角色：直接送到每日工作台（一站式录入入口）
   if (hasPermission('MENU_DASHBOARD') && role && (
     role.includes('PRODUCTION_DATA_SUPERVISOR') ||
@@ -63,32 +64,32 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
     role.includes('CASHIER') ||
     role.includes('STORE_MGR')
   )) {
-    return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
+    return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/todos', icon: Inbox };
-  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
+  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
+  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: t('home.enterCashCenter', '进入资金账户中心'), href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN')) {
     const financePath = getFirstAccessiblePath(hasPermission, 'finance');
-    if (financePath) return { label: '进入财务中心', href: financePath, icon: Wallet };
+    if (financePath) return { label: t('home.enterFinance', '进入财务中心'), href: financePath, icon: Wallet };
   }
   if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
     const procurementPath = getFirstAccessiblePath(hasPermission, 'procurement');
-    if (procurementPath) return { label: '进入采购中心', href: procurementPath, icon: ShoppingBag };
+    if (procurementPath) return { label: t('home.enterProcurement', '进入采购中心'), href: procurementPath, icon: ShoppingBag };
   }
   if (role?.includes('SALES')) {
     const salesPath = getFirstAccessiblePath(hasPermission, 'sales');
-    if (salesPath) return { label: '进入销售中心', href: salesPath, icon: ShoppingCart };
+    if (salesPath) return { label: t('home.enterSales', '进入销售中心'), href: salesPath, icon: ShoppingCart };
   }
   if (role?.includes('WMS')) {
     const inventoryPath = getFirstAccessiblePath(hasPermission, 'inventory');
-    if (inventoryPath) return { label: '进入库存中心', href: inventoryPath, icon: Warehouse };
+    if (inventoryPath) return { label: t('home.enterInventory', '进入库存中心'), href: inventoryPath, icon: Warehouse };
   }
   const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
-  if (masterPath) return { label: '进入主数据中心', href: masterPath, icon: Sparkles };
-  if (hasPermission('MENU_MD_QUALITY')) return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
-  if (hasPermission('MENU_DASHBOARD')) return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
+  if (masterPath) return { label: t('home.enterMasterData', '进入主数据中心'), href: masterPath, icon: Sparkles };
+  if (hasPermission('MENU_MD_QUALITY')) return { label: t('home.enterDataQuality', '进入数据质量驾驶舱'), href: '/data-quality', icon: ShieldAlert };
+  if (hasPermission('MENU_DASHBOARD')) return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
   const firstPath = getFirstAccessiblePath(hasPermission);
-  return { label: firstPath ? '进入我的工作区' : '查看我的待办', href: firstPath || '/workflow/todos', icon: Inbox };
+  return { label: firstPath ? t('home.enterWorkspace', '进入我的工作区') : t('home.viewMyTodos', '查看我的待办'), href: firstPath || '/workflow/todos', icon: Inbox };
 }
 
 // G18-4 IA：home 不再 redirect 到 daily-work。
@@ -99,6 +100,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
+  const { t } = useLanguage();
   const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
   // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
   const hasQualityPerm = hasPermission('MENU_MD_QUALITY');
@@ -161,28 +163,28 @@ export default function HomePage() {
   const avgHealth = useMemo(() => centers.length === 0 ? 0 : Math.round(centers.reduce((s, c) => s + c.healthScore, 0) / centers.length), [centers]);
 
   const role = (user as any)?.role || ((user as any)?.roles && (user as any).roles[0]) || '';
-  const displayName: string = (user as any)?.realNameZh || (user as any)?.username || '用户';
+  const displayName: string = (user as any)?.realNameZh || (user as any)?.username || t('home.user', '用户');
   const todoCount = summary?.todo ?? 0;
-  const cta = ctaFor(role, todoCount, hasPermission);
+  const cta = ctaFor(role, todoCount, hasPermission, t);
   const greeting = useMemo(() => {
     const h = new Date().getHours();
-    if (h < 6)  return '凌晨好';
-    if (h < 12) return '早上好';
-    if (h < 14) return '中午好';
-    if (h < 18) return '下午好';
-    return '晚上好';
-  }, []);
+    if (h < 6)  return t('home.greetEarly', '凌晨好');
+    if (h < 12) return t('home.greetMorning', '早上好');
+    if (h < 14) return t('home.greetNoon', '中午好');
+    if (h < 18) return t('home.greetAfternoon', '下午好');
+    return t('home.greetEvening', '晚上好');
+  }, [t]);
 
   // 今日要点（智能文案）— G11：高危告警/主数据待审批 仅治理类角色可见
   const todayBriefing = useMemo(() => {
     const parts: string[] = [];
-    if (todoCount > 0)                          parts.push(`${todoCount} 个待办待处理`);
-    if ((summary?.overdueTodo ?? 0) > 0)        parts.push(`${summary?.overdueTodo} 个超时`);
-    if (hasQualityPerm && (scores?.highAlertCount ?? 0) > 0)  parts.push(`${scores?.highAlertCount} 项高危告警`);
-    if (hasCentersPerm && totalPending > 0)     parts.push(`${totalPending} 单主数据待审批`);
-    if (parts.length === 0) return '今天没有紧急事项，可以专注做事。';
-    return '今天有 ' + parts.join('、') + '，请优先处理。';
-  }, [todoCount, summary, scores, totalPending, hasQualityPerm, hasCentersPerm]);
+    if (todoCount > 0)                          parts.push(`${todoCount} ${t('home.todosPending', '个待办待处理')}`);
+    if ((summary?.overdueTodo ?? 0) > 0)        parts.push(`${summary?.overdueTodo} ${t('home.overdueUnit', '个超时')}`);
+    if (hasQualityPerm && (scores?.highAlertCount ?? 0) > 0)  parts.push(`${scores?.highAlertCount} ${t('home.highAlertsUnit', '项高危告警')}`);
+    if (hasCentersPerm && totalPending > 0)     parts.push(`${totalPending} ${t('home.mdPendingUnit', '单主数据待审批')}`);
+    if (parts.length === 0) return t('home.noUrgent', '今天没有紧急事项，可以专注做事。');
+    return t('home.todayHas', '今天有 ') + parts.join(t('home.listSep', '、')) + t('home.handlePriority', '，请优先处理。');
+  }, [todoCount, summary, scores, totalPending, hasQualityPerm, hasCentersPerm, t]);
 
   return (
     <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -205,12 +207,12 @@ export default function HomePage() {
       {hasPermission('MENU_FARM_DATA') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {([
-            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', tone: 'info' as const, Icon: Bird },
-            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', tone: 'success' as const, Icon: EggFried },
-            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', tone: 'success' as const, Icon: LineChart },
-            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
-            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', tone: 'info' as const, Icon: Droplets },
-            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', tone: ((farmKpi.alarmCount ?? 0) > 0 ? 'danger' : 'success') as 'danger' | 'success', Icon: AlertTriangle },
+            { label: t('home.kpiTotalStock', '当前总存栏'), value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: t('home.unitBird', '羽'), tone: 'info' as const, Icon: Bird },
+            { label: t('home.kpiEggsToday', '今日产蛋'), value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: t('home.unitEgg', '枚'), tone: 'success' as const, Icon: EggFried },
+            { label: t('home.kpiLayRate', '今日产蛋率'), value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', tone: 'success' as const, Icon: LineChart },
+            { label: t('home.kpiFeedToday', '今日饲料消耗'), value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
+            { label: t('home.kpiWaterToday', '今日用水'), value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', tone: 'info' as const, Icon: Droplets },
+            { label: t('home.kpiAlarm', '设备告警'), value: farmKpi.alarmCount?.toString() ?? '0', unit: t('home.unitItem', '条'), tone: ((farmKpi.alarmCount ?? 0) > 0 ? 'danger' : 'success') as 'danger' | 'success', Icon: AlertTriangle },
           ]).map(k => (
             <div key={k.label} style={kpiCardCompact(k.tone)}>
               <div style={kpiCardCompactLabel}>
@@ -272,6 +274,7 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
   todoCount: number; overdueCount: number; highAlertCount: number;
   masterDataPath?: string; showAlertBubble: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <div style={{
       position: 'relative',
@@ -300,7 +303,7 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
       {/* 左：欢迎文案 + CTA */}
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-          <span style={inlineBadge('default')}>运营工作台</span>
+          <span style={inlineBadge('default')}>{t('home.opsWorkbench', '运营工作台')}</span>
           <span style={{ opacity: 0.6 }}>·</span>
           <span>{new Date().toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </div>
@@ -332,7 +335,7 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
               background: 'var(--bg-muted)', border: '1px solid var(--border)',
               color: 'var(--text-primary)', fontSize: 13, fontWeight: 500, textDecoration: 'none',
             }}>
-              <Sparkles size={12} /> 主数据中心
+              <Sparkles size={12} /> {t('home.masterDataCenter', '主数据中心')}
             </Link>
           )}
         </div>
@@ -340,10 +343,10 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
 
       {/* 右：数字气泡 — G11：高危告警仅治理类角色可见 */}
       <div style={{ position: 'relative', display: 'flex', gap: 8 }}>
-        <NumberBubble icon={<Inbox size={13} />} label="待办" value={todoCount} tone="brand" />
-        <NumberBubble icon={<Clock size={13} />} label="超时" value={overdueCount} tone={overdueCount > 0 ? 'danger' : 'default'} />
+        <NumberBubble icon={<Inbox size={13} />} label={t('home.todo', '待办')} value={todoCount} tone="brand" />
+        <NumberBubble icon={<Clock size={13} />} label={t('home.overdue', '超时')} value={overdueCount} tone={overdueCount > 0 ? 'danger' : 'default'} />
         {showAlertBubble && (
-          <NumberBubble icon={<Bell size={13} />} label="高危告警" value={highAlertCount} tone={highAlertCount > 0 ? 'warning' : 'default'} />
+          <NumberBubble icon={<Bell size={13} />} label={t('home.highAlert', '高危告警')} value={highAlertCount} tone={highAlertCount > 0 ? 'warning' : 'default'} />
         )}
       </div>
     </div>
@@ -379,6 +382,7 @@ function NumberBubble({ icon, label, value, tone }: { icon: React.ReactNode; lab
 // 待办 Timeline
 // ══════════════════════════════════════════════════════
 function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount: number }) {
+  const { t: tr } = useLanguage();
   return (
     <div style={{ ...cockpitCard, padding: 14, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -389,19 +393,19 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
         }}>
           <Target size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>事务流 · 我的待办</h3>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{tr('home.todoFlow', '事务流 · 我的待办')}</h3>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
-          共 <strong style={{ color: 'var(--color-primary)' }}>{todoCount}</strong> 单
+          {tr('home.total', '共')} <strong style={{ color: 'var(--color-primary)' }}>{todoCount}</strong> {tr('home.orderUnit', '单')}
         </span>
         <Link href="/workflow/todos" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-          全部 <ChevronRight size={12} />
+          {tr('home.all', '全部')} <ChevronRight size={12} />
         </Link>
       </div>
 
       {todoList.length === 0 ? (
         <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
           <CheckCircle2 size={32} style={{ color: 'var(--status-success)', marginBottom: 8, opacity: 0.6 }} />
-          <div style={{ fontSize: 13 }}>暂无待办任务，今天可以专注做事 ✨</div>
+          <div style={{ fontSize: 13 }}>{tr('home.noTodo', '暂无待办任务，今天可以专注做事 ✨')}</div>
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 12 }}>
@@ -433,13 +437,13 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
                     <strong style={{ fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                       {t.title || t.node_name || t.task_no}
                     </strong>
-                    {isOverdue && <span style={inlineBadge('danger')}>已超时</span>}
-                    {isUrgent && <span style={inlineBadge('warning')}>24h 内</span>}
+                    {isOverdue && <span style={inlineBadge('danger')}>{tr('home.overdueTag', '已超时')}</span>}
+                    {isUrgent && <span style={inlineBadge('warning')}>{tr('home.within24h', '24h 内')}</span>}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', gap: 10 }}>
                     <span>{t.node_name}</span>
-                    {t.starter_name && <span>· 发起：{t.starter_name}</span>}
-                    {due && <span>· 截止 {due.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                    {t.starter_name && <span>· {tr('home.starter', '发起：')}{t.starter_name}</span>}
+                    {due && <span>· {tr('home.due', '截止')} {due.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
                   </div>
                 </div>
                 <ChevronRight size={14} style={{ color: 'var(--text-secondary)', alignSelf: 'center' }} />
@@ -456,16 +460,17 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
 // 经营概览（紧凑 5 卡 horizontal）
 // ══════════════════════════════════════════════════════
 function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker }) {
+  const { t } = useLanguage();
   // G20-3 IA 立宪（B1 欠债治理）：经营概览 vs 业务中心导航职责划清
   //   · BusinessOverview = 财务指标导航（销售/现金/应收/应付）
   //   · SHORTCUTS         = 业务中心 8 大入口（客户/供应商/采购/销售/财务/库存/工作流/数据质量）
   //   删"库存"卡 — 与 SHORTCUTS.inventory 完全重叠（同 href / 同 perm，纯重复）
   //   后续 G21+ 计划：BusinessOverview 进一步改为纯指标卡（带今日数字、删 href），与 SHORTCUTS 完全分离
   const allCards = [
-    { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'] },
-    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH_VIEW' },
-    { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
-    { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },
+    { label: t('home.bizSales', '销售'), icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: t('home.bizSalesSub', '订单 · 收款'),  perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'] },
+    { label: t('home.bizCash', '现金'), icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: t('home.bizCashSub', '账户 · 流水'),  perm: 'MENU_FIN2_CASH_VIEW' },
+    { label: t('home.bizAr', '应收'), icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: t('home.bizArSub', '发票 · 账龄'),  perm: 'MENU_FIN2_AR' },
+    { label: t('home.bizAp', '应付'), icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: t('home.bizApSub', '账期 · 付款'),  perm: 'MENU_FIN2_AP' },
   ];
   const cards = allCards.filter(c => hasPermission(c.perm) || (c.altPerms?.some(p => hasPermission(p)) ?? false));
   if (cards.length === 0) return null;
@@ -479,8 +484,8 @@ function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker 
         }}>
           <TrendingUp size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>经营概览</h3>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 业务全景（{cards.length}）</span>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t('home.bizOverview', '经营概览')}</h3>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· {t('home.bizPanorama', '业务全景')}（{cards.length}）</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cards.length, 5)}, 1fr)`, gap: 10 }}>
         {cards.map((c, i) => (
@@ -510,11 +515,12 @@ function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker 
 // 数据质量评分（环形）
 // ══════════════════════════════════════════════════════
 function QualityScoreCard({ score, masterDataScore }: { score: number; masterDataScore: number }) {
+  const { t } = useLanguage();
   const tone = score >= 90 ? 'var(--status-success)'
              : score >= 75 ? 'var(--color-primary)'
              : score >= 60 ? 'var(--status-warning)'
              : 'var(--status-danger)';
-  const toneLabel = score >= 90 ? '优秀' : score >= 75 ? '良好' : score >= 60 ? '及格' : '需整改';
+  const toneLabel = score >= 90 ? t('home.excellent', '优秀') : score >= 75 ? t('home.good', '良好') : score >= 60 ? t('home.pass', '及格') : t('home.needFix', '需整改');
   return (
     <Link href="/data-quality" style={{ ...cockpitCard, padding: 14, textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -525,15 +531,15 @@ function QualityScoreCard({ score, masterDataScore }: { score: number; masterDat
         }}>
           <ShieldAlert size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>数据质量驾驶舱</h3>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t('home.dataQuality', '数据质量驾驶舱')}</h3>
         <ChevronRight size={14} style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <RingProgress value={score} max={100} color={tone} size={92} thickness={8} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.3 }}>综合评分</span>
-          <span style={{ fontSize: 14, color: tone, fontWeight: 700 }}>{toneLabel} · 7 维加权</span>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>主数据健康 {masterDataScore}/100</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.3 }}>{t('home.compositeScore', '综合评分')}</span>
+          <span style={{ fontSize: 14, color: tone, fontWeight: 700 }}>{toneLabel} · {t('home.sevenDimWeighted', '7 维加权')}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('home.masterDataHealth', '主数据健康')} {masterDataScore}/100</span>
         </div>
       </div>
     </Link>
@@ -566,6 +572,7 @@ function RingProgress({ value, max, color, size, thickness }: { value: number; m
 // 风险预警 banner
 // ══════════════════════════════════════════════════════
 function RiskAlertBanner({ highAlertCount, totalAlertCount }: { highAlertCount: number; totalAlertCount: number }) {
+  const { t } = useLanguage();
   return (
     <Link href="/data-quality" style={{
       ...cockpitCard,
@@ -583,9 +590,9 @@ function RiskAlertBanner({ highAlertCount, totalAlertCount }: { highAlertCount: 
         <AlertTriangle size={18} />
       </span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-danger)' }}>需立即关注</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-danger)' }}>{t('home.needAttention', '需立即关注')}</div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-          <strong style={{ color: 'var(--status-danger)' }}>{highAlertCount}</strong> 项高危告警 · 共 <strong>{totalAlertCount}</strong> 条
+          <strong style={{ color: 'var(--status-danger)' }}>{highAlertCount}</strong> {t('home.highAlertsUnit', '项高危告警')} · {t('home.total', '共')} <strong>{totalAlertCount}</strong> {t('home.itemUnit', '条')}
         </div>
       </div>
       <ChevronRight size={16} style={{ color: 'var(--status-danger)' }} />
@@ -597,6 +604,7 @@ function RiskAlertBanner({ highAlertCount, totalAlertCount }: { highAlertCount: 
 // 主数据健康度
 // ══════════════════════════════════════════════════════
 function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: number; totalObjects: number; totalRisk: number }) {
+  const { t } = useLanguage();
   const tone = healthScore >= 90 ? 'var(--status-success)' : healthScore >= 75 ? 'var(--color-primary)' : healthScore >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
   return (
     <Link href="/master-data" style={{ ...cockpitCard, padding: 14, textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -604,7 +612,7 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'var(--bg-muted)', color: tone }}>
           <Zap size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>主数据健康度</h3>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t('home.masterDataHealthScore', '主数据健康度')}</h3>
         <ChevronRight size={14} style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -615,8 +623,8 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
         <div style={{ height: '100%', width: `${healthScore}%`, background: tone, opacity: 0.85, transition: 'width 0.6s ease' }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)' }}>
-        <span>在管 <strong style={{ color: 'var(--text-primary)' }}>{totalObjects}</strong> 条</span>
-        <span>风险 <strong style={{ color: totalRisk > 0 ? 'var(--status-warning)' : 'var(--text-primary)' }}>{totalRisk}</strong> 条</span>
+        <span>{t('home.managed', '在管')} <strong style={{ color: 'var(--text-primary)' }}>{totalObjects}</strong> {t('home.itemUnit', '条')}</span>
+        <span>{t('home.risk', '风险')} <strong style={{ color: totalRisk > 0 ? 'var(--status-warning)' : 'var(--text-primary)' }}>{totalRisk}</strong> {t('home.itemUnit', '条')}</span>
       </div>
     </Link>
   );
@@ -626,6 +634,7 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
 // 8 大业务中心 tile 阵列
 // ══════════════════════════════════════════════════════
 function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) {
+  const { t } = useLanguage();
   // G11：按权限过滤业务中心 — 无权访问的不显示
   const visible = SHORTCUTS.filter(s => {
     const href = s.groupId ? getFirstAccessiblePath(hasPermission, s.groupId) : s.href;
@@ -642,8 +651,8 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) 
         }}>
           <Sparkles size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>业务中心</h3>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 一键直达（{visible.length}）</span>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t('home.bizCenter', '业务中心')}</h3>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· {t('home.oneClick', '一键直达')}（{visible.length}）</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
         {visible.map(s => {
@@ -666,7 +675,7 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) 
             }}>
               <s.icon size={16} />
             </span>
-            <strong style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{s.label}</strong>
+            <strong style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{t(`home.shortcut.${s.key}`, s.label)}</strong>
             <ArrowRight size={12} style={{ color: s.accent }} />
           </Link>
           );

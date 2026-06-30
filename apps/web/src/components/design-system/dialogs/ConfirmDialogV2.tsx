@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { ModalV2 } from './ModalV2';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * ConfirmDialogV2 — 统一确认框。取代 window.confirm / window.prompt。
@@ -19,9 +20,13 @@ export interface ConfirmDialogV2Props {
 }
 
 export function ConfirmDialogV2({
-  open, title = '请确认', message, confirmLabel = '确认', cancelLabel = '取消',
+  open, title, message, confirmLabel, cancelLabel,
   danger, loading, onConfirm, onCancel,
 }: ConfirmDialogV2Props) {
+  const { t } = useLanguage();
+  const titleResolved = title ?? t('ui.请确认', '请确认');
+  const confirmLabelResolved = confirmLabel ?? t('ui.确认', '确认');
+  const cancelLabelResolved = cancelLabel ?? t('ui.取消', '取消');
   const btn = (bg: string, fg: string, border?: string): React.CSSProperties => ({
     padding: '9px 22px', borderRadius: 10, border: border || 'none',
     background: bg, color: fg, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13.5,
@@ -30,14 +35,14 @@ export function ConfirmDialogV2({
   return (
     <ModalV2
       open={open}
-      title={title}
+      title={titleResolved}
       width={420}
       onClose={onCancel}
       footer={
         <>
-          <button onClick={onCancel} disabled={loading} style={btn('var(--bg-card)', 'var(--text-primary)', '1px solid var(--border)')}>{cancelLabel}</button>
+          <button onClick={onCancel} disabled={loading} style={btn('var(--bg-card)', 'var(--text-primary)', '1px solid var(--border)')}>{cancelLabelResolved}</button>
           <button onClick={onConfirm} disabled={loading} style={btn(danger ? 'var(--status-danger)' : 'var(--color-primary)', 'var(--text-on-dark)')}>
-            {loading ? '处理中…' : confirmLabel}
+            {loading ? t('ui.处理中…', '处理中…') : confirmLabelResolved}
           </button>
         </>
       }

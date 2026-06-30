@@ -45,10 +45,12 @@ const exportTableCsv = (columns: Column[], data: Record<string, unknown>[], file
 };
 
 function DataTable<T extends object = Record<string, unknown>>({
-  columns = [], data = [], searchPlaceholder = '搜索...', searchKeys = [],
-  pageSize = 12, filters, rowKey = 'id', onRowClick, emptyText = '暂无数据', exportFilename,
+  columns = [], data = [], searchPlaceholder, searchKeys = [],
+  pageSize = 12, filters, rowKey = 'id', onRowClick, emptyText, exportFilename,
 }: DataTableProps<T>) {
   const { t } = useLanguage() || { t: (k: string, f: string) => f || k };
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('ui.搜索...', '搜索...');
+  const resolvedEmptyText = emptyText ?? t('ui.暂无数据', '暂无数据');
   const [query, setQuery] = useState('');
   const [page, setPage]   = useState(1);
 
@@ -69,20 +71,20 @@ function DataTable<T extends object = Record<string, unknown>>({
         <div style={{ position:'relative', flex:'1', minWidth:'200px', maxWidth:'300px' }}>
           <Search size={15} style={{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', color:'var(--text-secondary)' }} />
           <input type="text" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }}
-            placeholder={searchPlaceholder}
+            placeholder={resolvedSearchPlaceholder}
             className="phx-input"
             style={{ width:'100%', paddingLeft:'32px', paddingRight:'10px', height:'34px' }}
           />
         </div>
         {filters}
-        <span style={{ fontSize:'12px', color:'var(--text-secondary)', marginLeft:'auto' }}>共 {filtered.length} 条</span>
+        <span style={{ fontSize:'12px', color:'var(--text-secondary)', marginLeft:'auto' }}>{t('ui.共','共')} {filtered.length} {t('ui.条','条')}</span>
         {exportFilename && (
           <button type="button" onClick={() => exportTableCsv(columns as Column[], data as Record<string, unknown>[], exportFilename)}
             style={{ display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', fontSize:'12px', fontWeight:'600',
               border:'1px solid var(--border)', borderRadius:'var(--radius-md)', backgroundColor:'var(--bg-page)', color:'var(--text-primary)', cursor:'pointer', whiteSpace:'nowrap', transition:'border-color 0.18s, color 0.18s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--color-primary)'; (e.currentTarget as HTMLElement).style.color='var(--color-primary)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLElement).style.color='var(--text-primary)'; }}>
-            <Download size={13} /> 导出 CSV
+            <Download size={13} /> {t('ui.导出 CSV','导出 CSV')}
           </button>
         )}
       </div>
@@ -101,7 +103,7 @@ function DataTable<T extends object = Record<string, unknown>>({
           </thead>
           <tbody>
             {paged.length === 0 ? (
-              <tr><td colSpan={columns.length} style={{ textAlign:'center', padding:'48px 16px', color:'var(--text-secondary)' }}>{emptyText}</td></tr>
+              <tr><td colSpan={columns.length} style={{ textAlign:'center', padding:'48px 16px', color:'var(--text-secondary)' }}>{resolvedEmptyText}</td></tr>
             ) : (
               paged.map((row, i) => (
                 <tr key={String(asMap(row)[rowKey] ?? i)} onClick={() => onRowClick && onRowClick(row)}

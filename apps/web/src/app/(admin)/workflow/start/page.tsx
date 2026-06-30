@@ -11,6 +11,7 @@ import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPi
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { dataSourceLabel } from "@/lib/workflow-data-catalog";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 type RuntimeSchema = {
   fields?: Array<{
     key: string;
@@ -36,6 +37,7 @@ type RuntimeGraph = {
   }>;
 };
 export default function WorkflowStartPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCode = searchParams.get("code") || "";
@@ -86,7 +88,7 @@ export default function WorkflowStartPage() {
         setCategory(categoryText(target.category));
         if (smartRequested || requestedCode) setStep("fill");
       }
-    }).catch(err => setError(err instanceof Error ? err.message : "流程加载失败"));
+    }).catch(err => setError(err instanceof Error ? err.message : t('ui.流程加载失败','流程加载失败')));
   }, [requestedCode, smartRequested]);
   useEffect(() => {
     if (!selectedId) return;
@@ -125,17 +127,17 @@ export default function WorkflowStartPage() {
   }
   function validateDraft() {
     if (!selectedId) {
-      setError("请选择要发起的流程。");
+      setError(t('ui.请选择要发起的流程。','请选择要发起的流程。'));
       setStep("select");
       return false;
     }
     if (!title.trim()) {
-      setError("请填写申请标题。");
+      setError(t('ui.请填写申请标题。','请填写申请标题。'));
       return false;
     }
     const missing = (schema?.fields || []).filter(field => field.required && isEmpty(formData[field.key]));
     if (missing.length > 0) {
-      setError(`请填写必填项：${missing.map(field => field.label).join("、")}`);
+      setError(`${t('ui.请填写必填项：','请填写必填项：')}${missing.map(field => field.label).join("、")}`);
       return false;
     }
     setError("");
@@ -159,14 +161,14 @@ export default function WorkflowStartPage() {
       });
       router.push(`/workflow/instances/${res.data.id}`);
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "发起流程失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.发起流程失败','发起流程失败'));
     } finally {
       setSubmitting(false);
     }
   }
   const fillSmartDraft = useCallback(async () => {
     if (!selected || !schema?.fields?.length) {
-      setError("请先选择一个已绑定表单的流程。");
+      setError(t('ui.请先选择一个已绑定表单的流程。','请先选择一个已绑定表单的流程。'));
       return;
     }
     setSmartFilling(true);
@@ -182,7 +184,7 @@ export default function WorkflowStartPage() {
       setFormData(next);
       if (!title.trim()) setTitle(`${selected.name} - ${formatDate(new Date())}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "智能生成草稿失败");
+      setError(err instanceof Error ? err.message : t('ui.智能生成草稿失败','智能生成草稿失败'));
     } finally {
       setSmartFilling(false);
     }
@@ -200,29 +202,29 @@ export default function WorkflowStartPage() {
     setError("");
   }
   return <div>
-      <PageHeader title="发起申请" subtitle="选择一个已启用流程，填写业务表单并提交审批" breadcrumb={["工作流", "发起申请"]} />
+      <PageHeader title={t('ui.发起申请','发起申请')} subtitle={t('ui.选择一个已启用流程，填写业务表单并提交审批','选择一个已启用流程，填写业务表单并提交审批')} breadcrumb={[t('ui.工作流','工作流'), t('ui.发起申请','发起申请')]} />
 
       {smartRequested ? <div style={smartEntryBannerStyle}>
           <div>
-            <span className={`${s.badge} ${s.badgeSuccess}`}>AI 智能发起</span>
-            <strong>已按常用业务场景进入发起页</strong>
-            <span>系统会自动选择流程并生成草稿，字段值仍可人工修改。</span>
+            <span className={`${s.badge} ${s.badgeSuccess}`}>{t('ui.AI 智能发起','AI 智能发起')}</span>
+            <strong>{t('ui.已按常用业务场景进入发起页','已按常用业务场景进入发起页')}</strong>
+            <span>{t('ui.系统会自动选择流程并生成草稿，字段值仍可人工修改。','系统会自动选择流程并生成草稿，字段值仍可人工修改。')}</span>
           </div>
-          <Link href="/workflow" style={secondaryActionButton}>返回工作流中心</Link>
+          <Link href="/workflow" style={secondaryActionButton}>{t('ui.返回工作流中心','返回工作流中心')}</Link>
         </div> : null}
 
       <div style={wizardStyle}>
         <button type="button" style={step === "select" ? activeStepStyle : stepStyle} onClick={() => setStep("select")}>
-          <strong>1 选择流程</strong>
-          <span>按业务场景找到要办的事</span>
+          <strong>{t('ui.1 选择流程','1 选择流程')}</strong>
+          <span>{t('ui.按业务场景找到要办的事','按业务场景找到要办的事')}</span>
         </button>
         <button type="button" style={step === "fill" ? activeStepStyle : stepStyle} disabled={!selected} onClick={() => selected && setStep("fill")}>
-          <strong>2 填写资料</strong>
+          <strong>{t('ui.2 填写资料','2 填写资料')}</strong>
           <span>{progressText}</span>
         </button>
         <button type="button" style={step === "confirm" ? activeStepStyle : stepStyle} disabled={!selected} onClick={goConfirm}>
-          <strong>3 确认提交</strong>
-          <span>检查审批路径和申请内容</span>
+          <strong>{t('ui.3 确认提交','3 确认提交')}</strong>
+          <span>{t('ui.检查审批路径和申请内容','检查审批路径和申请内容')}</span>
         </button>
       </div>
 
@@ -230,11 +232,11 @@ export default function WorkflowStartPage() {
         <section className={s.card}>
           <div className={s.cardBody}>
             <div style={sectionHeaderStyle}>
-              <h3 className={s.cardTitle}>选择流程</h3>
-              <span className={`${s.badge} ${s.badgeNeutral}`}>{defs.length} 个可发起</span>
+              <h3 className={s.cardTitle}>{t('ui.选择流程','选择流程')}</h3>
+              <span className={`${s.badge} ${s.badgeNeutral}`}>{defs.length} {t('ui.个可发起','个可发起')}</span>
             </div>
             <div style={filterStackStyle}>
-              <input className={s.inp} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索流程名称、编码或业务场景" />
+              <input className={s.inp} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t('ui.搜索流程名称、编码或业务场景','搜索流程名称、编码或业务场景')} />
               <div style={tabsStyle}>
                 {categories.map(item => <button key={item} type="button" className={`${s.tabPill} ${item === category ? s.tabPillActive : ""}`} onClick={() => setCategory(item)}>
                     {item}
@@ -244,17 +246,17 @@ export default function WorkflowStartPage() {
             <div style={flowListStyle}>
               {filteredDefs.map(def => <button key={def.id} type="button" style={def.id === selectedId ? selectedFlowStyle : flowStyle} onClick={() => chooseDefinition(def)}>
                   <strong>{def.name}</strong>
-                  <span>{categoryText(def.category)} · {def.description || "已配置审批流程"}</span>
-                  <small>{def.id === selectedId ? "当前选择 · 下一步填写资料" : "选择这个流程"}</small>
+                  <span>{categoryText(def.category)} · {def.description || t('ui.已配置审批流程','已配置审批流程')}</span>
+                  <small>{def.id === selectedId ? t('ui.当前选择 · 下一步填写资料','当前选择 · 下一步填写资料') : t('ui.选择这个流程','选择这个流程')}</small>
                 </button>)}
               {defs.length === 0 ? <div className={s.emptyState}>
                   <div className={s.emptyStateText}>
-                    暂无可发起流程。请先由管理员到 <Link href="/workflow/definitions">流程定义</Link> 发布流程。
+                    {t('ui.暂无可发起流程。请先由管理员到 ','暂无可发起流程。请先由管理员到 ')}<Link href="/workflow/definitions">{t('ui.流程定义','流程定义')}</Link>{t('ui. 发布流程。',' 发布流程。')}
                   </div>
                 </div> : null}
               {defs.length > 0 && filteredDefs.length === 0 ? <div className={s.emptyState}>
-                  <div className={s.emptyStateText}>没有找到匹配流程。</div>
-                  <div className={s.emptyStateHint}>换一个关键词或分类试试。</div>
+                  <div className={s.emptyStateText}>{t('ui.没有找到匹配流程。','没有找到匹配流程。')}</div>
+                  <div className={s.emptyStateHint}>{t('ui.换一个关键词或分类试试。','换一个关键词或分类试试。')}</div>
                 </div> : null}
             </div>
           </div>
@@ -268,95 +270,95 @@ export default function WorkflowStartPage() {
                 <p className={`${s.modalDesc} ${u.mt4}`}>{stepDesc(step, selected?.description)}</p>
               </div>
               <div style={toolbarActionsStyle}>
-                {selected ? <span className={`${s.badge} ${schema ? s.badgeSuccess : s.badgeWarning}`}>{schema ? progressText : "通用说明"}</span> : null}
-                <Link href="/workflow/instances" style={secondaryActionButton}>查看我发起的</Link>
+                {selected ? <span className={`${s.badge} ${schema ? s.badgeSuccess : s.badgeWarning}`}>{schema ? progressText : t('ui.通用说明','通用说明')}</span> : null}
+                <Link href="/workflow/instances" style={secondaryActionButton}>{t('ui.查看我发起的','查看我发起的')}</Link>
               </div>
             </div>
 
             {step === "select" ? <div className={s.emptyState}>
-                <div className={s.emptyStateText}>先从左侧选择一个要发起的业务流程。</div>
-                <div className={s.emptyStateHint}>选择后系统会加载表单、审批路径和数据依赖。</div>
+                <div className={s.emptyStateText}>{t('ui.先从左侧选择一个要发起的业务流程。','先从左侧选择一个要发起的业务流程。')}</div>
+                <div className={s.emptyStateHint}>{t('ui.选择后系统会加载表单、审批路径和数据依赖。','选择后系统会加载表单、审批路径和数据依赖。')}</div>
               </div> : null}
 
             {step === "fill" && selected && schema ? <div style={smartPanelStyle}>
                 <div>
-                  <strong>智能填单助手</strong>
+                  <strong>{t('ui.智能填单助手','智能填单助手')}</strong>
                   <p className={`${s.modalDesc} ${u.mt4}`}>
-                    按当前流程自动补全常用字段，数据库字段会优先选取可用业务数据，生成后仍可手动修改。
+                    {t('ui.按当前流程自动补全常用字段，数据库字段会优先选取可用业务数据，生成后仍可手动修改。','按当前流程自动补全常用字段，数据库字段会优先选取可用业务数据，生成后仍可手动修改。')}
                   </p>
                 </div>
                 <div style={smartMetaStyle}>
                   <span className={s.badge}>{smartSummary}</span>
-                  <button type="button" style={secondaryActionButton} disabled={smartFilling} onClick={clearDraft}>清空</button>
+                  <button type="button" style={secondaryActionButton} disabled={smartFilling} onClick={clearDraft}>{t('ui.清空','清空')}</button>
                   <button type="button" style={primaryActionButton} disabled={smartFilling} onClick={fillSmartDraft}>
-                    {smartFilling ? "生成中..." : "智能生成草稿"}
+                    {smartFilling ? t('ui.生成中...','生成中...') : t('ui.智能生成草稿','智能生成草稿')}
                   </button>
                 </div>
               </div> : null}
 
             {step === "fill" && selected ? <div style={readinessPanelStyle}>
                 <div style={readinessCardStyle}>
-                  <span className={s.badge}>审批路径</span>
-                  <strong>{approvalPath.length ? `${approvalPath.length} 个审批节点` : "暂无审批节点"}</strong>
+                  <span className={s.badge}>{t('ui.审批路径','审批路径')}</span>
+                  <strong>{approvalPath.length ? `${approvalPath.length} ${t('ui.个审批节点','个审批节点')}` : t('ui.暂无审批节点','暂无审批节点')}</strong>
                   <div style={pathStyle}>
-                    {(approvalPath.length ? approvalPath : ["提交后自动归档"]).map((item, index) => <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>)}
+                    {(approvalPath.length ? approvalPath : [t('ui.提交后自动归档','提交后自动归档')]).map((item, index) => <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>)}
                   </div>
                 </div>
                 <div style={readinessCardStyle}>
-                  <span className={s.badge}>资料清单</span>
-                  <strong>{schema?.fields?.length || 0} 个字段 · {requiredFields.length} 个必填</strong>
-                  <span style={hintStyle}>{missingRequired.length ? `还缺：${missingRequired.map(field => field.label).join("、")}` : "必填资料已准备完整"}</span>
+                  <span className={s.badge}>{t('ui.资料清单','资料清单')}</span>
+                  <strong>{schema?.fields?.length || 0} {t('ui.个字段','个字段')} · {requiredFields.length} {t('ui.个必填','个必填')}</strong>
+                  <span style={hintStyle}>{missingRequired.length ? `${t('ui.还缺：','还缺：')}${missingRequired.map(field => field.label).join("、")}` : t('ui.必填资料已准备完整','必填资料已准备完整')}</span>
                 </div>
                 <div style={readinessCardStyle}>
-                  <span className={s.badge}>数据来源</span>
-                  <strong>{dataSourceFields.length ? `${dataSourceFields.length} 个数据库字段` : "无数据库字段"}</strong>
+                  <span className={s.badge}>{t('ui.数据来源','数据来源')}</span>
+                  <strong>{dataSourceFields.length ? `${dataSourceFields.length} ${t('ui.个数据库字段','个数据库字段')}` : t('ui.无数据库字段','无数据库字段')}</strong>
                   <span style={hintStyle}>
-                    {dataSourceFields.length ? dataSourceFields.map(field => `${field.label}：${dataSourceLabel(String(field.dataSource || ""))}`).join("；") : "该表单主要依赖人工填写"}
+                    {dataSourceFields.length ? dataSourceFields.map(field => `${field.label}：${dataSourceLabel(String(field.dataSource || ""))}`).join("；") : t('ui.该表单主要依赖人工填写','该表单主要依赖人工填写')}
                   </span>
                 </div>
                 <div style={readinessCardStyle}>
-                  <span className={s.badge}>发起建议</span>
-                  <strong>{missingRequired.length ? "先补齐必填资料" : "可以提交审批"}</strong>
-                  <span style={hintStyle}>{schema ? "提交后系统会按审批路径自动生成待办。" : "建议管理员先绑定专用表单。"}</span>
+                  <span className={s.badge}>{t('ui.发起建议','发起建议')}</span>
+                  <strong>{missingRequired.length ? t('ui.先补齐必填资料','先补齐必填资料') : t('ui.可以提交审批','可以提交审批')}</strong>
+                  <span style={hintStyle}>{schema ? t('ui.提交后系统会按审批路径自动生成待办。','提交后系统会按审批路径自动生成待办。') : t('ui.建议管理员先绑定专用表单。','建议管理员先绑定专用表单。')}</span>
                 </div>
               </div> : null}
 
             {step === "fill" ? <>
                 <label className={s.field}>
-                  <span className={s.lbl}>申请标题</span>
-                  <input className={s.inp} value={title} onChange={e => setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
+                  <span className={s.lbl}>{t('ui.申请标题','申请标题')}</span>
+                  <input className={s.inp} value={title} onChange={e => setTitle(e.target.value)} placeholder={t('ui.例如：5月门店物料采购申请','例如：5月门店物料采购申请')} />
                 </label>
 
                 {selected ? <div className={s.infoBanner}>
-                    {schema ? "该流程已绑定业务表单，提交后会自动进入审批节点。" : "该流程暂未绑定专用表单，系统会以申请说明作为审批内容。"}
+                    {schema ? t('ui.该流程已绑定业务表单，提交后会自动进入审批节点。','该流程已绑定业务表单，提交后会自动进入审批节点。') : t('ui.该流程暂未绑定专用表单，系统会以申请说明作为审批内容。','该流程暂未绑定专用表单，系统会以申请说明作为审批内容。')}
                   </div> : null}
 
-                {loading ? <div className={s.emptyState}><div className={s.emptyStateText}>正在加载表单...</div></div> : schema ? <div className={u.mb14}>
+                {loading ? <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.正在加载表单...','正在加载表单...')}</div></div> : schema ? <div className={u.mb14}>
                     <FormRenderer schema={schema} value={formData} onChange={setFormData} />
                   </div> : <label className={s.field}>
-                    <span className={s.lbl}>申请说明</span>
-                    <textarea className={s.textarea} value={note} onChange={e => setNote(e.target.value)} placeholder="这个流程暂未绑定专用表单，可先填写申请说明。" />
+                    <span className={s.lbl}>{t('ui.申请说明','申请说明')}</span>
+                    <textarea className={s.textarea} value={note} onChange={e => setNote(e.target.value)} placeholder={t('ui.这个流程暂未绑定专用表单，可先填写申请说明。','这个流程暂未绑定专用表单，可先填写申请说明。')} />
                   </label>}
               </> : null}
 
             {step === "confirm" && selected ? <div style={confirmStackStyle}>
                 <div style={confirmPanelStyle}>
-                  <span className={s.badge}>提交前确认</span>
+                  <span className={s.badge}>{t('ui.提交前确认','提交前确认')}</span>
                   <strong>{title || selected.name}</strong>
-                  <span>{selected.name} · {approvalPath.length ? `${approvalPath.length} 个审批节点` : "提交后自动归档"}</span>
+                  <span>{selected.name} · {approvalPath.length ? `${approvalPath.length} ${t('ui.个审批节点','个审批节点')}` : t('ui.提交后自动归档','提交后自动归档')}</span>
                 </div>
                 <div style={readinessPanelStyle}>
                   <div style={readinessCardStyle}>
-                    <span className={s.badge}>审批路径</span>
-                    <strong>{approvalPath.length ? "按以下节点流转" : "无人工审批节点"}</strong>
+                    <span className={s.badge}>{t('ui.审批路径','审批路径')}</span>
+                    <strong>{approvalPath.length ? t('ui.按以下节点流转','按以下节点流转') : t('ui.无人工审批节点','无人工审批节点')}</strong>
                     <div style={pathStyle}>
-                      {(approvalPath.length ? approvalPath : ["提交后自动归档"]).map((item, index) => <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>)}
+                      {(approvalPath.length ? approvalPath : [t('ui.提交后自动归档','提交后自动归档')]).map((item, index) => <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>)}
                     </div>
                   </div>
                   <div style={readinessCardStyle}>
-                    <span className={s.badge}>资料状态</span>
-                    <strong>{missingRequired.length ? "仍有缺失" : "资料完整"}</strong>
-                    <span style={hintStyle}>{missingRequired.length ? missingRequired.map(field => field.label).join("、") : "必填资料已通过检查，可以提交。"}</span>
+                    <span className={s.badge}>{t('ui.资料状态','资料状态')}</span>
+                    <strong>{missingRequired.length ? t('ui.仍有缺失','仍有缺失') : t('ui.资料完整','资料完整')}</strong>
+                    <span style={hintStyle}>{missingRequired.length ? missingRequired.map(field => field.label).join("、") : t('ui.必填资料已通过检查，可以提交。','必填资料已通过检查，可以提交。')}</span>
                   </div>
                 </div>
                 <WorkflowDataView data={schema ? formData : {
@@ -367,13 +369,13 @@ export default function WorkflowStartPage() {
             {error ? <div className={s.errorBanner}>{error}</div> : null}
 
             <div style={footerStyle}>
-              <Link href="/workflow/tasks/todo" style={secondaryActionButton}>我的待办</Link>
-              {step === "select" ? <button type="button" style={primaryActionButton} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
-              {step === "fill" ? <button type="button" style={primaryActionButton} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
+              <Link href="/workflow/tasks/todo" style={secondaryActionButton}>{t('ui.我的待办','我的待办')}</Link>
+              {step === "select" ? <button type="button" style={primaryActionButton} disabled={!selected} onClick={() => selected && setStep("fill")}>{t('ui.下一步：填写资料','下一步：填写资料')}</button> : null}
+              {step === "fill" ? <button type="button" style={primaryActionButton} disabled={!selectedId || submitting} onClick={goConfirm}>{t('ui.下一步：确认提交','下一步：确认提交')}</button> : null}
               {step === "confirm" ? <>
-                  <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
+                  <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => setStep("fill")}>{t('ui.返回修改','返回修改')}</button>
                   <button type="button" style={primaryActionButton} disabled={!selectedId || submitting} onClick={submit}>
-                    {submitting ? "提交中..." : "确认提交"}
+                    {submitting ? t('ui.提交中...','提交中...') : t('ui.确认提交','确认提交')}
                   </button>
                 </> : null}
             </div>

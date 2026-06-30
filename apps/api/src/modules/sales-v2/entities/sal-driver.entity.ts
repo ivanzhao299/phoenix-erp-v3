@@ -8,6 +8,9 @@ export class SalDriverEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'driver_code', type: 'varchar', length: 64, unique: true }) driverCode: string;
   @Column({ name: 'driver_name', type: 'varchar', length: 256 }) driverName: string;
+  // task #25 多语言名称（AddMasterDataMultilingualNames 迁移建列；对齐 entity↔DB 消 g197-I 漂移）
+  @Column({ name: 'driver_name_en', type: 'varchar', length: 255, nullable: true }) driverNameEn: string | null;
+  @Column({ name: 'driver_name_lo', type: 'varchar', length: 255, nullable: true }) driverNameLo: string | null;
   @Column({ name: 'phone', type: 'varchar', length: 32, nullable: true }) phone: string | null;
   @Column({ name: 'license_no', type: 'varchar', length: 64, nullable: true }) licenseNo: string | null;
   @Column({ name: 'company_code', type: 'varchar', length: 64 }) companyCode: string;

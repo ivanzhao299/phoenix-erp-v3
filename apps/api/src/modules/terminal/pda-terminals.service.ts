@@ -63,7 +63,7 @@ export class PdaTerminalsService {
       `INSERT INTO pda_terminals
          (name, brand, model, serial, scan_protocol, scan_prefix, scan_suffix,
           location, enabled_modules, printer_ip, notes, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active', now()::text)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active', now())`,
       [
         String(name).trim(), brand, model, serial, scan_protocol,
         scan_prefix, scan_suffix, location, modulesJson, printer_ip, notes,
@@ -121,7 +121,7 @@ export class PdaTerminalsService {
       const autoName = name || `${brand || '未知品牌'}-${String(serial).slice(-6)}`;
       await this.em.query(
         `INSERT INTO pda_terminals (name, brand, model, serial, app_version, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, 'pending', now()::text)`,
+         VALUES ($1, $2, $3, $4, $5, 'pending', now())`,
         [autoName, brand, model, serial, app_version],
       );
       existing = await this.em.query(`SELECT * FROM pda_terminals WHERE serial = $1`, [serial]);
@@ -133,7 +133,7 @@ export class PdaTerminalsService {
     }
 
     await this.em.query(
-      `UPDATE pda_terminals SET app_version = $1, last_seen = now()::text WHERE serial = $2`,
+      `UPDATE pda_terminals SET app_version = $1, last_seen = now() WHERE serial = $2`,
       [app_version, serial],
     );
     const row = existing[0];
@@ -163,7 +163,7 @@ export class PdaTerminalsService {
     const { serial } = body || {};
     if (!serial) throw new BadRequestException('serial 不能为空');
     await this.em.query(
-      `UPDATE pda_terminals SET last_seen = now()::text WHERE serial = $1`,
+      `UPDATE pda_terminals SET last_seen = now() WHERE serial = $1`,
       [serial],
     );
     return { code: 0, ts: new Date().toISOString() };
@@ -171,7 +171,7 @@ export class PdaTerminalsService {
 
   // ─── 全局系统配置 ───────────────────────────────────────────────────────
   async getSystemConfig() {
-    const rows = await this.em.query(`SELECT key, value FROM pda_system_config`).catch(() => []);
+    const rows = await this.em.query(`SELECT config_key AS key, config_value AS value FROM pda_system_config`).catch(() => []);
     return { code: 0, data: Object.fromEntries(rows.map((r: any) => [r.key, r.value])) };
   }
 
@@ -181,13 +181,13 @@ export class PdaTerminalsService {
     const updates = Object.entries(body || {}).filter(([k]) => allowed.includes(k));
     for (const [k, v] of updates) {
       await this.em.query(
-        `INSERT INTO pda_system_config (key, value, updated_at)
-         VALUES ($1, $2, now()::text)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
+        `INSERT INTO pda_system_config (config_key, config_value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = EXCLUDED.updated_at`,
         [k, String(v)],
       );
     }
-    const rows = await this.em.query(`SELECT key, value FROM pda_system_config`).catch(() => []);
+    const rows = await this.em.query(`SELECT config_key AS key, config_value AS value FROM pda_system_config`).catch(() => []);
     return { code: 0, data: Object.fromEntries(rows.map((r: any) => [r.key, r.value])) };
   }
 

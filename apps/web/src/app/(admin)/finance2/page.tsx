@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { KPI_GRID, type AccentColor } from '@/lib/design-tokens';
 import { currencySymbol } from '@/lib/currency';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 设计系统 token 映射 ───────────────────────────────────────────────────────
 type AccentKey = "blue" | "green" | "amber" | "red" | "violet" | "indigo" | "cyan" | "teal" | "slate";
@@ -157,6 +158,7 @@ const MODULES: ModuleItem[] = [
 export default function Finance2DashboardPage() {
   const { canCreate: canCreateTxn } = usePermission('MENU_FIN2_CASH_TXN');  // G58 出纳现金收付款入口
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const [arSummary,      setArSummary]      = useState<ArSummaryData | null>(null);
   const [cashDash,       setCashDash]       = useState<CashDashData | null>(null);
   const [shSummary,      setShSummary]      = useState<ShSummaryData | null>(null);
@@ -205,7 +207,7 @@ export default function Finance2DashboardPage() {
         pendingTransfers: pendingTfr.status === 'fulfilled' ? pendingTfr.value.total : 0,
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '加载失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.load_failed','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -257,37 +259,37 @@ export default function Finance2DashboardPage() {
   // ── 6 核心 KPI ─────────────────────────────────────────────────────────
   const kpis = [
     {
-      label:       '现金账户余额',
+      label:       t('fin2.common.cash_balance','现金账户余额'),
       value:       cashBalanceDisplay,
-      subValue:    cashDash?.summary ? `${cashDash.summary.totalAccounts} 个账户` : undefined,
+      subValue:    cashDash?.summary ? `${cashDash.summary.totalAccounts} ${t('fin2.home.accounts_unit','个账户')}` : undefined,
       icon:        Wallet,
       accentColor: 'blue' as AccentColor,
     },
     {
-      label:       '应收待收款',
+      label:       t('fin2.home.ar_receivable','应收待收款'),
       value:       arSummary ? `¥ ${fmt(arSummary.balance_amount_original)}` : '—',
-      subValue:    arSummary ? `${arSummary.open_invoices} 笔未收 / ${arSummary.overdue_invoices} 笔逾期` : undefined,
+      subValue:    arSummary ? `${arSummary.open_invoices} ${t('fin2.home.unpaid_unit','笔未收')} / ${arSummary.overdue_invoices} ${t('fin2.home.overdue_unit','笔逾期')}` : undefined,
       icon:        TrendingUp,
       accentColor: 'green' as AccentColor,
     },
     {
-      label:       '应付待付款',
+      label:       t('fin2.home.ap_payable','应付待付款'),
       value:       reportOverview ? `¥ ${fmt(reportOverview.apOpen)}` : '—',
       icon:        TrendingDown,
       accentColor: 'red' as AccentColor,
     },
     {
-      label:       '待报销金额',
+      label:       t('fin2.home.reimb_amount','待报销金额'),
       value:       reportOverview ? `¥ ${fmt(reportOverview.reimbursementPendingAmount)}` : '—',
-      subValue:    expSummary ? `${expSummary.pendingReimb} 笔待报销` : undefined,
+      subValue:    expSummary ? `${expSummary.pendingReimb} ${t('fin2.home.pending_reimb_unit','笔待报销')}` : undefined,
       icon:        Receipt,
       accentColor: 'amber' as AccentColor,
     },
     {
-      label:       '可支配资金',
+      label:       t('fin2.common.disposable_funds','可支配资金'),
       value:       disposableDisplay,
       subValue:    reportOverview
-        ? `今日流入 ¥${fmt(reportOverview.todayInflow)} / 流出 ¥${fmt(reportOverview.todayOutflow)}`
+        ? `${t('fin2.home.today_inflow','今日流入')} ¥${fmt(reportOverview.todayInflow)} / ${t('fin2.home.outflow','流出')} ¥${fmt(reportOverview.todayOutflow)}`
         : undefined,
       icon:        Activity,
       accentColor: reportOverview?.netOperatingPosition !== undefined && reportOverview.netOperatingPosition >= 0
@@ -295,9 +297,9 @@ export default function Finance2DashboardPage() {
         : ('red' as AccentColor),
     },
     {
-      label:       '股东出资余额',
+      label:       t('fin2.home.shareholder_balance','股东出资余额'),
       value:       shSummary ? `¥ ${fmt(shSummary.balanceAmountOriginal)}` : '—',
-      subValue:    shSummary ? `${shSummary.pendingConfirmations} 笔待确认` : undefined,
+      subValue:    shSummary ? `${shSummary.pendingConfirmations} ${t('fin2.home.pending_confirm_unit','笔待确认')}` : undefined,
       icon:        Users,
       accentColor: 'indigo' as AccentColor,
     },
@@ -306,9 +308,9 @@ export default function Finance2DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="财务管理"
-        subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 可支配资金"
-        breadcrumb={['财务管理', '驾驶舱']}
+        title={t('fin2.common.finance_mgmt','财务管理')}
+        subtitle={t('fin2.home.subtitle','应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 可支配资金')}
+        breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.home.cockpit','驾驶舱')]}
         actions={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* G58 出纳每日操作入口：现金收付款逐笔录入（CASH_TXN:C） */}
@@ -321,7 +323,7 @@ export default function Finance2DashboardPage() {
                   background: 'var(--accent-primary, #4f46e5)', color: '#fff', textDecoration: 'none',
                 }}
               >
-                <Wallet size={14} /> 现金收付款
+                <Wallet size={14} /> {t('fin2.home.cash_payment','现金收付款')}
               </Link>
             )}
             <Button
@@ -331,7 +333,7 @@ export default function Finance2DashboardPage() {
               disabled={loading}
             >
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              刷新
+              {t('fin2.common.refresh','刷新')}
             </Button>
           </div>
         }
@@ -346,7 +348,7 @@ export default function Finance2DashboardPage() {
 
       {/* ── 6 大 KPI 指标 ─────────────────────────────────────────────── */}
       <div className="mb-2">
-        <SectionLabel>财务核心指标</SectionLabel>
+        <SectionLabel>{t('fin2.home.core_metrics','财务核心指标')}</SectionLabel>
         <div className="mb-8" style={KPI_GRID}>
           {kpis.map((kpi) => (
             <KpiCard
@@ -367,8 +369,7 @@ export default function Finance2DashboardPage() {
         <div className="flex items-center gap-2 bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-6 text-sm text-danger">
           <AlertTriangle size={15} className="flex-shrink-0" />
           <span>
-            当前有 <strong>{arSummary.overdue_invoices}</strong> 笔应收账款逾期，
-            逾期余额 <strong>¥ {fmt(arSummary.overdue_balance)}</strong>，请及时跟进。
+            {t('fin2.home.overdue_alert_pre','当前有')} <strong>{arSummary.overdue_invoices}</strong> {t('fin2.home.overdue_alert_mid','笔应收账款逾期，逾期余额')} <strong>¥ {fmt(arSummary.overdue_balance)}</strong>{t('fin2.home.overdue_alert_post','，请及时跟进。')}
           </span>
         </div>
       )}
@@ -378,13 +379,13 @@ export default function Finance2DashboardPage() {
         <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 mb-6 text-sm text-warning">
           <DollarSign size={15} className="flex-shrink-0" />
           <span>
-            有 <strong>{cashDash.pendingTransfers}</strong> 笔转账申请等待审批。
+            {t('fin2.home.pending_tfr_pre','有')} <strong>{cashDash.pendingTransfers}</strong> {t('fin2.home.pending_tfr_post','笔转账申请等待审批。')}
           </span>
         </div>
       )}
 
       {/* ── 功能模块导航 ──────────────────────────────────────────────── */}
-      <SectionLabel>功能模块</SectionLabel>
+      <SectionLabel>{t('fin2.home.func_modules','功能模块')}</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {MODULES
           .filter(m => hasPermission(m.perm, 'V'))
@@ -392,8 +393,8 @@ export default function Finance2DashboardPage() {
           <NavCard
             key={m.path}
             icon={m.icon}
-            title={m.title}
-            description={m.description}
+            title={t(`fin2.home.mod_${m.path.split('/').pop()?.replace(/-/g, '_')}_title`, m.title)}
+            description={t(`fin2.home.mod_${m.path.split('/').pop()?.replace(/-/g, '_')}_desc`, m.description)}
             href={m.path}
             accent={m.accent}
           />

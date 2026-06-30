@@ -372,7 +372,7 @@ export default function RoleDetailPage() {
             {editable && ROLE_TYPE_DEFAULT_DESC[form.role_type] && form.description !== ROLE_TYPE_DEFAULT_DESC[form.role_type] && (
               <button type="button" onClick={() => setForm({ ...form, description: ROLE_TYPE_DEFAULT_DESC[form.role_type] })}
                 style={{ fontSize: 11, padding: "1px 8px", borderRadius: 4, cursor: "pointer", border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3 }}
-                title="恢复为该业务域的默认说明文本">
+                title={t("ui.恢复为该业务域的默认说明文本","恢复为该业务域的默认说明文本")}>
                 ↩ {t("ui.恢复默认", "恢复默认")}
               </button>
             )}
@@ -413,7 +413,7 @@ export default function RoleDetailPage() {
           );
         })}
         <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--text-secondary)", opacity: 0.6, alignSelf: "center" }}>
-          🔒 = 敏感菜单，建议谨慎授写权限
+          🔒 = {t("ui.敏感菜单建议谨慎授写权限","敏感菜单，建议谨慎授写权限")}
         </span>
       </div>
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { LoadingSkeleton } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { CUSTOMER_FIELDS } from "../../page";
 
@@ -13,6 +14,7 @@ const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
 
 export default function CustomerEditPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -43,14 +45,14 @@ export default function CustomerEditPage() {
   if (loading) return <div style={{ padding: 32 }}><LoadingSkeleton variant="card" rows={6} /></div>;
   if (notFound || !row) return (
     <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-      未找到编码 {code} 的客户档案
+      {t('md.notfound_prefix','未找到编码')} {code} {t('md.notfound_suffix_customer','的客户档案')}
     </div>
   );
 
   return (
     <MasterDataFormPage
       type="customer"
-      title="客户"
+      title={t('md.entity_customer','客户')}
       codeKey="customer_no"
       nameKey="customer_name"
       fields={CUSTOMER_FIELDS}

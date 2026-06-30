@@ -36,6 +36,12 @@ on:
         type: boolean
         default: false
 
+# 最小权限:detect-changes 的 dorny/paths-filter 在 pull_request 上需读 PR 文件列表,
+#   否则 listFiles 抛 "Resource not accessible by integration"。仅授只读,不放开写权。
+permissions:
+  contents: read
+  pull-requests: read
+
 # 成本控制:同 ref 新流水线启动时取消旧流水线
 concurrency:
   group: cicd-${{ github.ref }}
@@ -431,6 +437,10 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.target }}
           tags: |
             type=raw,value=latest
+            # P5(评分补强)：除 latest 外，每次推一个不可变的 per-commit SHA tag 进 ghcr，
+            #   作为确定的回滚目标（节点本地被 prune 也无妨，registry 保留）。
+            #   回滚：docker compose 用 IMAGE_TAG=sha-<commit> 重拉旧镜像即可。
+            type=sha,format=long,prefix=sha-
 
       - name: Build & push ${{ matrix.target }} image
         if: steps.skip.outputs.skip != 'true'

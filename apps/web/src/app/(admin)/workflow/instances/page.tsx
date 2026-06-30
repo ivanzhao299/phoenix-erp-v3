@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 const STATUS_FILTERS = [{
   label: "全部",
   value: ""
@@ -25,6 +26,7 @@ const STATUS_FILTERS = [{
   value: "CANCELED"
 }];
 export default function WorkflowInstancesPage() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [rows, setRows] = useState<WorkflowInstance[]>([]);
   const [status, setStatus] = useState(searchParams.get("status") || "");
@@ -56,7 +58,7 @@ export default function WorkflowInstancesPage() {
       setRows(data);
     } catch (err) {
       console.error('[workflow/instances] load failed:', err);
-      setLoadError(err instanceof Error ? `加载流程实例失败：${err.message}` : '加载流程实例失败');
+      setLoadError(err instanceof Error ? `${t('ui.加载流程实例失败','加载流程实例失败')}：${err.message}` : t('ui.加载流程实例失败','加载流程实例失败'));
       setRows([]);
     }
   }, [status, ownerFilter, myUserId]);
@@ -73,7 +75,7 @@ export default function WorkflowInstancesPage() {
     return map;
   }, [rows]);
   return <div>
-      <PageHeader title="流程实例" subtitle="查看我发起或参与过的流程，跟踪当前审批状态" breadcrumb={["工作流", "流程实例"]} actions={<Link href="/workflow/start" style={primaryActionButton}>发起申请</Link>} />
+      <PageHeader title={t('ui.流程实例','流程实例')} subtitle={t('ui.查看我发起或参与过的流程，跟踪当前审批状态','查看我发起或参与过的流程，跟踪当前审批状态')} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程实例','流程实例')]} actions={<Link href="/workflow/start" style={primaryActionButton}>{t('ui.发起申请','发起申请')}</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={{
@@ -83,7 +85,7 @@ export default function WorkflowInstancesPage() {
         gap: 16
       }}>
           <div>
-            <h3 className={s.cardTitle}>实例列表</h3>
+            <h3 className={s.cardTitle}>{t('ui.实例列表','实例列表')}</h3>
             <p className={`${s.modalDesc} ${u.mt4}`}>当前条件下共 {rows.length} 条流程。</p>
           </div>
           <div style={filterStyle}>
@@ -102,31 +104,31 @@ export default function WorkflowInstancesPage() {
           <div className={s.cardBody} style={{
         color: 'var(--status-danger)'
       }}>
-            <strong>⚠ 数据加载失败</strong>
+            <strong>⚠ {t('ui.数据加载失败','数据加载失败')}</strong>
             <div style={{
           marginTop: 4,
           fontSize: 13
         }}>{loadError}</div>
-            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>重试</button>
+            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>{t('ui.重试','重试')}</button>
           </div>
         </section>}
 
       <section className={s.card}>
         {rows.length ? <table className={s.table}>
-            <thead><tr><th>编号</th><th>标题</th><th>状态</th><th>发起人</th><th>发起时间</th><th>操作</th></tr></thead>
+            <thead><tr><th>{t('ui.编号','编号')}</th><th>{t('ui.标题','标题')}</th><th>{t('ui.状态','状态')}</th><th>{t('ui.发起人','发起人')}</th><th>{t('ui.发起时间','发起时间')}</th><th>{t('ui.操作','操作')}</th></tr></thead>
             <tbody>{rows.map(row => <tr key={row.id}>
                 <td><Link href={`/workflow/instances/${row.id}`}>{row.instance_no}</Link></td>
                 <td>
                   <strong>{row.title}</strong>
-                  <div style={subTextStyle}>{row.business_type || "工作流"}</div>
+                  <div style={subTextStyle}>{row.business_type || t('ui.工作流','工作流')}</div>
                 </td>
                 <td><span className={statusBadgeClass(row.status)}>{statusText(row.status)}</span></td>
                 <td>{row.starter_name || "-"}</td>
                 <td>{formatDate(row.created_at)}</td>
-                <td><Link href={`/workflow/instances/${row.id}`}>查看详情</Link></td>
+                <td><Link href={`/workflow/instances/${row.id}`}>{t('ui.查看详情','查看详情')}</Link></td>
               </tr>)}</tbody>
           </table> : <div className={s.emptyState}>
-            <div className={s.emptyStateText}>当前没有流程实例，可以先发起一个申请。</div>
+            <div className={s.emptyStateText}>{t('ui.当前没有流程实例，可以先发起一个申请。','当前没有流程实例，可以先发起一个申请。')}</div>
           </div>}
       </section>
     </div>;

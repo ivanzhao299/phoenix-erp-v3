@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * WorkbenchKit 部件（Design System V2 · UI-2.5）— POS/作业台专用组件。
@@ -34,10 +35,12 @@ export function WorkbenchProductCard({ name, price, sku, sub, disabled, onClick 
 }
 
 /** WorkbenchCartPanel — 购物车面板容器 */
-export function WorkbenchCartPanel({ title = '购物车', children, footer }: { title?: string; children: React.ReactNode; footer?: React.ReactNode }) {
+export function WorkbenchCartPanel({ title, children, footer }: { title?: string; children: React.ReactNode; footer?: React.ReactNode }) {
+  const { t } = useLanguage();
+  const resolvedTitle = title ?? t('ui.购物车','购物车');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, height: '100%', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 15, fontWeight: 700, color: 'var(--color-primary)' }}>{title}</div>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 15, fontWeight: 700, color: 'var(--color-primary)' }}>{resolvedTitle}</div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>{children}</div>
       {footer && <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>{footer}</div>}
     </div>
@@ -74,11 +77,13 @@ export function WorkbenchKeypad({ onKey }: { onKey: (k: string) => void }) {
 }
 
 /** WorkbenchEmptyState — 作业台空态(空购物车/无商品) */
-export function WorkbenchEmptyState({ icon: Icon, title = '暂无数据', hint }: { icon?: React.ElementType; title?: string; hint?: string }) {
+export function WorkbenchEmptyState({ icon: Icon, title, hint }: { icon?: React.ElementType; title?: string; hint?: string }) {
+  const { t } = useLanguage();
+  const resolvedTitle = title ?? t('ui.暂无数据','暂无数据');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40, color: 'var(--text-secondary)', textAlign: 'center' }}>
       {Icon && <div style={{ color: 'var(--text-disabled)' }}><Icon size={40} /></div>}
-      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>{resolvedTitle}</div>
       {hint && <div style={{ fontSize: 13 }}>{hint}</div>}
     </div>
   );

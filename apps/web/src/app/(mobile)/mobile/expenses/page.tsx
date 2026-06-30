@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, Plus, Receipt, Clock, CheckCircle, XCircle, Wallet, Send } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
 import { mobileApi } from '@/lib/mobile-api';
 import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
@@ -107,6 +109,28 @@ export default function MobileExpensesPage() {
   const {
     isDark
   } = useMobileTheme();
+  const { t } = useLanguage();
+  const { allowed, loading: permLoading } = useMobilePermission('expenses');  // F10 加固：页面级门禁
+  // 费用类型 / 状态标签的 i18n 映射（在组件内按 t 翻译，键复用 mob.biz.*）
+  const expenseTypeI18n: Record<string, string> = {
+    TRAVEL: t('mob.biz.exp_type_travel', '差旅'),
+    MEAL: t('mob.biz.exp_type_meal', '餐饮'),
+    ENTERTAINMENT: t('mob.biz.exp_type_entertainment', '招待'),
+    OFFICE: t('mob.biz.exp_type_office', '办公'),
+    MATERIAL: t('mob.biz.exp_type_material', '物料'),
+    TRANSPORT: t('mob.biz.exp_type_transport', '交通'),
+    OTHER: t('mob.biz.exp_type_other', '其他'),
+  };
+  const statusLabelI18n: Record<string, string> = {
+    DRAFT: t('mob.biz.status_draft', '草稿'),
+    PENDING_APPROVAL: t('mob.biz.status_pending_approval', '审批中'),
+    APPROVED: t('mob.biz.status_approved', '已审批'),
+    REJECTED: t('mob.biz.status_rejected', '已拒绝'),
+    CANCELLED: t('mob.biz.status_cancelled', '已取消'),
+    REIMBURSED: t('mob.biz.status_reimbursed', '已报销'),
+  };
+  const expTypeLabel = (k: string) => expenseTypeI18n[k] ?? EXPENSE_TYPES[k] ?? k;
+  const statusLabel = (k: string) => statusLabelI18n[k] ?? (STATUS_CFG[k]?.label ?? k);
   const [tab, setTab] = useState<Tab>('list');
   const [records, setRecords] = useState<ExpenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +150,7 @@ export default function MobileExpensesPage() {
   const [saveErr, setSaveErr] = useState('');
 
   // G101：费用类型走字典 FIN_EXPENSE_TYPE（兜底 EXPENSE_TYPES，零回归）
-  const [expTypeOpts, setExpTypeOpts] = useState(Object.entries(EXPENSE_TYPES).map(([value, label]) => ({ value, label })));
+  const [expTypeOpts, setExpTypeOpts] = useState(Object.keys(EXPENSE_TYPES).map(value => ({ value, label: expTypeLabel(value) })));
   useEffect(() => { mobileApi.getDict('FIN_EXPENSE_TYPE').then(d => { if (d.length) setExpTypeOpts(d); }); }, []);
 
   // 公司下拉：/api/lookup/companies 已按 DataScope 过滤（仅返回用户归属公司）；唯一则自动选中
@@ -174,11 +198,11 @@ export default function MobileExpensesPage() {
       }>('/api/v2/finance/expenses?pageSize=50');
       setRecords(res.data);
     } catch {
-      setError('加载失败');
+      setError(t('mob.biz.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     void loadList();
   }, [loadList]);
@@ -206,7 +230,7 @@ export default function MobileExpensesPage() {
       void loadDetail(id);
       void loadList();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '提交失败');
+      setError(e instanceof Error ? e.message : t('mob.biz.submit_failed', '提交失败'));
     }
   };
 
@@ -214,7 +238,7 @@ export default function MobileExpensesPage() {
 
   const createExpense = async () => {
     if (!form.companyCode || !form.amountOriginal) {
-      setSaveErr('公司代码和金额必填');
+      setSaveErr(t('mob.biz.company_amount_required', '公司代码和金额必填'));
       return;
     }
     setSaving(true);
@@ -244,7 +268,7 @@ export default function MobileExpensesPage() {
       setTab('list');
       void loadList();
     } catch (e: unknown) {
-      setSaveErr(e instanceof Error ? e.message : '创建失败');
+      setSaveErr(e instanceof Error ? e.message : t('mob.biz.create_failed', '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -280,6 +304,8 @@ export default function MobileExpensesPage() {
     return [];
   };
 
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
+
   // ── 详情视图 ─────────────────────────────────────────────────────────────
 
   if (selectedId !== null) {
@@ -307,14 +333,14 @@ export default function MobileExpensesPage() {
           fontWeight: 700,
           fontSize: 16,
           color: text
-        }}>费用申请详情</span>
+        }}>{t('mob.biz.expense_detail', '费用申请详情')}</span>
         </div>
 
         {detailLoading ? <div style={{
         textAlign: 'center',
         color: sub,
         paddingTop: 60
-      }}>加载中...</div> : detail ? <>
+      }}>{t('mob.biz.loading_dots', '加载中...')}</div> : detail ? <>
             <div style={{
           background: card,
           borderRadius: 14,
@@ -340,7 +366,7 @@ export default function MobileExpensesPage() {
               color: cfg.color,
               background: `${cfg.color}20`
             }}>
-                  {cfg.label}
+                  {statusLabel(detail.status)}
                 </span>
               </div>
               <div style={{
@@ -349,7 +375,7 @@ export default function MobileExpensesPage() {
             gap: '10px',
             fontSize: 13
           }}>
-                {[['费用类型', EXPENSE_TYPES[detail.expense_type] ?? detail.expense_type], ['币种', detail.currency_code], ['金额', `${detail.currency_code} ${fmt(detail.amount_original)}`], ['费用日期', detail.expense_date ?? '—'], ['公司', detail.company_name], ['申请人', detail.requester_name ?? '—']].map(([k, v]) => <div key={k}>
+                {[[t('mob.biz.expense_type', '费用类型'), expTypeLabel(detail.expense_type)], [t('mob.biz.currency', '币种'), detail.currency_code], [t('mob.biz.amount', '金额'), `${detail.currency_code} ${fmt(detail.amount_original)}`], [t('mob.biz.expense_date', '费用日期'), detail.expense_date ?? '—'], [t('mob.biz.company', '公司'), detail.company_name], [t('mob.biz.requester', '申请人'), detail.requester_name ?? '—']].map(([k, v]) => <div key={k}>
                     <div style={{
                 color: sub,
                 fontSize: 11,
@@ -379,12 +405,12 @@ export default function MobileExpensesPage() {
               color: sub,
               fontSize: 11,
               marginBottom: 8
-            }}>费用凭证</div>
+            }}>{t('mob.biz.expense_voucher', '费用凭证')}</div>
                   <AttachmentUploader
                     value={normalizeAttachments(detail.attachment_urls)}
                     onChange={() => undefined}
                     readOnly
-                    label="费用凭证"
+                    label={t('mob.biz.expense_voucher', '费用凭证')}
                   />
                 </div>}
             </div>
@@ -405,7 +431,7 @@ export default function MobileExpensesPage() {
           gap: 8,
           marginBottom: 12
         }}>
-                <Send size={16} /> 提交审批
+                <Send size={16} /> {t('mob.biz.submit_approval', '提交审批')}
               </button>}
 
             {/* 关联报销 */}
@@ -419,9 +445,10 @@ export default function MobileExpensesPage() {
             fontSize: 14,
             color: text,
             marginBottom: 10
-          }}>关联报销</div>
+          }}>{t('mob.biz.related_reimbursement', '关联报销')}</div>
                 {detail.reimbursements.map(r => {
             const rCfg = STATUS_CFG[r.status] ?? STATUS_CFG.PENDING_APPROVAL;
+            const rStatus = STATUS_CFG[r.status] ? r.status : 'PENDING_APPROVAL';
             return <div key={r.id} style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -437,7 +464,7 @@ export default function MobileExpensesPage() {
                 fontSize: 11,
                 fontWeight: 700,
                 color: rCfg.color
-              }}>{rCfg.label}</span>
+              }}>{statusLabel(rStatus)}</span>
                     </div>;
           })}
               </div>}
@@ -445,7 +472,7 @@ export default function MobileExpensesPage() {
         color: sub,
         textAlign: 'center',
         paddingTop: 60
-      }}>记录不存在</div>}
+      }}>{t('mob.biz.record_not_found', '记录不存在')}</div>}
       </div>;
   }
 
@@ -480,7 +507,7 @@ export default function MobileExpensesPage() {
           fontWeight: 800,
           fontSize: 18,
           color: text
-        }}>费用申请</span>
+        }}>{t('mob.biz.expense_request', '费用申请')}</span>
         </div>
         <button onClick={() => void loadList()} disabled={loading} style={{
         background: 'none',
@@ -502,7 +529,7 @@ export default function MobileExpensesPage() {
       padding: 3,
       marginBottom: 20
     }}>
-        {(['list', 'create'] as Tab[]).map(t => <button key={t} onClick={() => setTab(t)} style={{
+        {(['list', 'create'] as Tab[]).map(tabKey => <button key={tabKey} onClick={() => setTab(tabKey)} style={{
         flex: 1,
         padding: '8px 0',
         borderRadius: 8,
@@ -510,11 +537,11 @@ export default function MobileExpensesPage() {
         cursor: 'pointer',
         fontSize: 13,
         fontWeight: 600,
-        background: tab === t ? isDark ? 'var(--gray-800)' : 'var(--bg-card)' : 'transparent',
-        color: tab === t ? text : sub,
-        boxShadow: tab === t ? '0 1px 4px var(--overlay-black-10)' : 'none'
+        background: tab === tabKey ? isDark ? 'var(--gray-800)' : 'var(--bg-card)' : 'transparent',
+        color: tab === tabKey ? text : sub,
+        boxShadow: tab === tabKey ? '0 1px 4px var(--overlay-black-10)' : 'none'
       }}>
-            {t === 'list' ? '我的申请' : '+ 新建'}
+            {tabKey === 'list' ? t('mob.biz.my_requests', '我的申请') : t('mob.biz.new_create', '+ 新建')}
           </button>)}
       </div>
 
@@ -529,7 +556,7 @@ export default function MobileExpensesPage() {
         textAlign: 'center',
         color: sub,
         paddingTop: 60
-      }}>加载中...</div> : records.length === 0 ? <div style={{
+      }}>{t('mob.biz.loading_dots', '加载中...')}</div> : records.length === 0 ? <div style={{
         textAlign: 'center',
         color: sub,
         paddingTop: 60
@@ -538,11 +565,11 @@ export default function MobileExpensesPage() {
           opacity: 0.3,
           marginBottom: 10
         }} />
-              <div>暂无费用申请</div>
+              <div>{t('mob.biz.no_expense_request', '暂无费用申请')}</div>
               <div style={{
           fontSize: 12,
           marginTop: 4
-        }}>点击"新建"发起申请</div>
+        }}>{t('mob.biz.tap_new_to_create', '点击"新建"发起申请')}</div>
             </div> : records.map(item => {
         const cfg = STATUS_CFG[item.status] ?? STATUS_CFG.DRAFT;
         return <div key={item.id} onClick={() => setSelectedId(item.id)} style={{
@@ -570,7 +597,7 @@ export default function MobileExpensesPage() {
               padding: '2px 8px',
               borderRadius: 10,
               background: `${cfg.color}18`
-            }}>{cfg.label}</span>
+            }}>{statusLabel(item.status)}</span>
                   </div>
                   <div className={u.flexBetween}>
                     <div>
@@ -578,7 +605,7 @@ export default function MobileExpensesPage() {
                 fontSize: 12,
                 color: sub
               }}>
-                        {EXPENSE_TYPES[item.expense_type] ?? item.expense_type}
+                        {expTypeLabel(item.expense_type)}
                         {item.expense_date ? ` · ${item.expense_date}` : ''}
                       </div>
                       {item.description && <div style={{
@@ -612,15 +639,15 @@ export default function MobileExpensesPage() {
         fontSize: 15,
         color: text,
         marginBottom: 18
-      }}>新建费用申请</div>
+      }}>{t('mob.biz.new_expense_request', '新建费用申请')}</div>
 
           <div className={u.mb14}>
-            <div style={{ fontSize: 12, color: sub, marginBottom: 6 }}>公司 *</div>
+            <div style={{ fontSize: 12, color: sub, marginBottom: 6 }}>{t('mob.biz.company_required', '公司 *')}</div>
             <select value={form.companyCode} onChange={e => setForm(f => ({ ...f, companyCode: e.target.value }))} style={{
               width: '100%', padding: '10px 12px', borderRadius: 10,
               border: `1.5px solid ${border}`, background: card, color: text, fontSize: 14,
             }}>
-              <option value="">{companyOpts.length ? '— 请选择公司 —' : '（无可选公司，请联系管理员）'}</option>
+              <option value="">{companyOpts.length ? t('mob.biz.select_company_dash', '— 请选择公司 —') : t('mob.biz.no_company_contact_admin', '（无可选公司，请联系管理员）')}</option>
               {companyOpts.map(o => <option key={o.value} value={o.value}>{o.label}（{o.value}）</option>)}
             </select>
           </div>
@@ -630,7 +657,7 @@ export default function MobileExpensesPage() {
           fontSize: 12,
           color: sub,
           marginBottom: 6
-        }}>费用类型 *</div>
+        }}>{t('mob.biz.expense_type_required', '费用类型 *')}</div>
             <select value={form.expenseType} onChange={e => setForm(f => ({
           ...f,
           expenseType: e.target.value
@@ -652,7 +679,7 @@ export default function MobileExpensesPage() {
           fontSize: 12,
           color: sub,
           marginBottom: 6
-        }}>币种</div>
+        }}>{t('mob.biz.currency', '币种')}</div>
             <select value={form.currencyCode} onChange={e => setForm(f => ({
           ...f,
           currencyCode: e.target.value
@@ -670,12 +697,12 @@ export default function MobileExpensesPage() {
           </div>
 
           {[{
-        label: '金额 *',
+        label: t('mob.biz.amount_required', '金额 *'),
         key: 'amountOriginal' as const,
         type: 'number',
         placeholder: '0.00'
       }, {
-        label: '费用日期',
+        label: t('mob.biz.expense_date', '费用日期'),
         key: 'expenseDate' as const,
         type: 'date',
         placeholder: ''
@@ -698,11 +725,11 @@ export default function MobileExpensesPage() {
           fontSize: 12,
           color: sub,
           marginBottom: 6
-        }}>费用说明</div>
+        }}>{t('mob.biz.expense_desc', '费用说明')}</div>
             <textarea value={form.description} onChange={e => setForm(f => ({
           ...f,
           description: e.target.value
-        }))} rows={3} placeholder="请描述费用用途..." style={{
+        }))} rows={3} placeholder={t('mob.biz.expense_desc_placeholder', '请描述费用用途...')} style={{
           width: '100%',
           padding: '10px 12px',
           borderRadius: 10,
@@ -720,7 +747,7 @@ export default function MobileExpensesPage() {
           fontSize: 12,
           color: sub,
           marginBottom: 6
-        }}>费用凭证</div>
+        }}>{t('mob.biz.expense_voucher', '费用凭证')}</div>
             <div style={{
           padding: 10,
           borderRadius: 12,
@@ -730,7 +757,7 @@ export default function MobileExpensesPage() {
               <AttachmentUploader
                 value={form.attachmentUrls}
                 onChange={urls => setForm(f => ({ ...f, attachmentUrls: urls }))}
-                label="上传发票/小票/付款截图（可多选）"
+                label={t('mob.biz.upload_voucher_label', '上传发票/小票/付款截图（可多选）')}
               />
             </div>
             <div style={{
@@ -738,7 +765,7 @@ export default function MobileExpensesPage() {
           color: sub,
           marginTop: 6,
           lineHeight: 1.45
-        }}>支持 PDF、图片，多张凭证会随费用申请一并提交审批。</div>
+        }}>{t('mob.biz.voucher_hint', '支持 PDF、图片，多张凭证会随费用申请一并提交审批。')}</div>
           </div>
 
           {saveErr && <div style={{
@@ -758,14 +785,14 @@ export default function MobileExpensesPage() {
         fontSize: 15,
         cursor: 'pointer'
       }}>
-            {saving ? '创建中...' : '创建草稿'}
+            {saving ? t('mob.biz.creating', '创建中...') : t('mob.biz.create_draft', '创建草稿')}
           </button>
           <div style={{
         fontSize: 12,
         color: sub,
         textAlign: 'center',
         marginTop: 8
-      }}>创建后可在「我的申请」中提交审批</div>
+      }}>{t('mob.biz.create_then_submit_hint', '创建后可在「我的申请」中提交审批')}</div>
         </div>}
     </div>;
 }

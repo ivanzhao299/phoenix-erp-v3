@@ -391,7 +391,7 @@ function MobileLoginInner() {
         textTransform: 'uppercase',
         marginBottom: 10
       }}>
-            开发测试账号
+            {t('ui.开发测试账号', '开发测试账号')}
           </div>
           <div style={{
         display: 'flex',
@@ -459,10 +459,10 @@ function MobileLoginInner() {
         fontSize: 10,
         color: th.textFaint
       }}>
-            统一密码: <code style={{
+            {t('ui.统一密码', '统一密码:')} <code style={{
           color: th.textMuted
         }}>123456</code>
-            {' · '}超管: <code style={{
+            {' · '}{t('ui.超管', '超管:')} <code style={{
           color: th.textMuted
         }}>admin123</code>
           </div>

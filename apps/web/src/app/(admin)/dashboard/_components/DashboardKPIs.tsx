@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { TrendingUp, AlertCircle, Egg, PackageSearch, BatteryWarning, ArrowUpRight, RefreshCw, ShieldCheck, CreditCard, Tractor } from 'lucide-react';
 import styles from './dashboard.module.css';
 import { usePolling } from '@/hooks/usePolling';
+import { useLanguage } from '@/contexts/LanguageContext';
 import u from "@/styles/uix-utils.module.css";
 const CARD_THEMES = [{
   accent: 'var(--status-info)',
@@ -224,6 +225,7 @@ interface Props {
 export default function DashboardKPIs({
   initialData
 }: Props) {
+  const { t } = useLanguage();
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
   const [kpi, setKpi] = useState<KpiData>(initialData);
   const [loading, setLoading] = useState(false);
@@ -249,7 +251,7 @@ export default function DashboardKPIs({
       }
       if (integrityRes?.code === 200) setIntegrity(integrityRes.data);
     } catch {
-      setLastUpdated('加载失败');
+      setLastUpdated(t('dash.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -273,13 +275,13 @@ export default function DashboardKPIs({
           fontSize: 20,
           fontWeight: 800,
           color: 'var(--text-primary)'
-        }}>{kpi.isGroupView === false ? '本场区/本店经营看板' : '集团总部经营驾驶舱'}</h2>
+        }}>{kpi.isGroupView === false ? t('dash.siteBoard', '本场区/本店经营看板') : t('dash.groupCockpit', '集团总部经营驾驶舱')}</h2>
           <p style={{
           fontSize: 13,
           color: 'var(--text-secondary)',
           marginTop: 4
         }}>
-            实时数据{lastUpdated && <span> · 最近更新：{lastUpdated}</span>}
+            {t('dash.realtimeData', '实时数据')}{lastUpdated && <span> · {t('dash.lastUpdated', '最近更新：')}{lastUpdated}</span>}
           </p>
         </div>
         <button type="button" onClick={fetchKpi} style={{
@@ -297,7 +299,7 @@ export default function DashboardKPIs({
       }}>
           <RefreshCw size={15} style={{
           animation: loading ? 'spin 1s linear infinite' : 'none'
-        }} />刷新数据
+        }} />{t('dash.refreshData', '刷新数据')}
         </button>
       </div>
 
@@ -307,11 +309,11 @@ export default function DashboardKPIs({
       gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
       gap: 20
     }}>
-        <StatCard loading={loading} themeIdx={0} title="当日产蛋量" value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} />
-        <StatCard loading={loading} themeIdx={1} title="库存总量" value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} />
-        <StatCard loading={loading} themeIdx={2} title="今日POS收银" value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} />
-        <StatCard loading={loading} themeIdx={4} title="今日农场直销" value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} />
-        <StatCard loading={loading} themeIdx={3} title="待处理预警" value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} alert />
+        <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} />
+        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} />
+        <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} />
+        <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} />
+        <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} alert />
       </div>
 
       {/* Integrity score */}
@@ -336,7 +338,7 @@ export default function DashboardKPIs({
         }}>
               <ShieldCheck size={16} style={{
             color: 'var(--color-primary)'
-          }} />全链路数据完整性
+          }} />{t('dash.dataIntegrity', '全链路数据完整性')}
             </div>
             <div style={{
           display: 'flex',
@@ -346,7 +348,7 @@ export default function DashboardKPIs({
               <span style={{
             fontSize: 13,
             color: 'var(--text-secondary)'
-          }}>总分</span>
+          }}>{t('dash.totalScore', '总分')}</span>
               <span style={{
             fontSize: 24,
             fontWeight: 800,
@@ -362,7 +364,7 @@ export default function DashboardKPIs({
             background: integrity.grade === 'A' ? 'var(--status-success-bg-faint)' : integrity.grade === 'B' ? 'var(--status-warning-bg-faint)' : 'var(--status-danger-bg-faint)',
             color: integrity.grade === 'A' ? 'var(--status-success)' : integrity.grade === 'B' ? 'var(--status-warning)' : 'var(--status-danger)'
           }}>
-                {integrity.grade}级
+                {integrity.grade}{t('dash.gradeUnit', '级')}
               </span>
             </div>
           </div>
@@ -438,7 +440,7 @@ export default function DashboardKPIs({
             fontSize: 18,
             fontWeight: 600,
             color: 'var(--color-primary)'
-          }}>近7日经营走势</h3>
+          }}>{t('dash.trend7d', '近7日经营走势')}</h3>
             <div style={{
             display: 'flex',
             gap: 12,
@@ -457,7 +459,7 @@ export default function DashboardKPIs({
                 borderRadius: 2,
                 background: 'var(--color-primary)',
                 display: 'inline-block'
-              }} />产蛋(千枚)
+              }} />{t('dash.legendEggs', '产蛋(千枚)')}
               </span>
               <span style={{
               display: 'flex',
@@ -470,7 +472,7 @@ export default function DashboardKPIs({
                 borderRadius: 2,
                 background: 'var(--status-warning)',
                 display: 'inline-block'
-              }} />POS收银(LAK)
+              }} />{t('dash.legendPos', 'POS收银(LAK)')}
               </span>
               <span style={{
               display: 'flex',
@@ -483,7 +485,7 @@ export default function DashboardKPIs({
                 borderRadius: 2,
                 background: 'var(--color-purple-500)',
                 display: 'inline-block'
-              }} />农场直销(LAK)
+              }} />{t('dash.legendFarm', '农场直销(LAK)')}
               </span>
             </div>
           </div>
@@ -547,7 +549,7 @@ export default function DashboardKPIs({
                 width: '100%',
                 justifyContent: 'center'
               }}>
-                    <div title={`产蛋 ${d.prod}k`} style={{
+                    <div title={`${t('dash.barEggs', '产蛋')} ${d.prod}k`} style={{
                   width: 11,
                   background: 'var(--color-primary)',
                   borderRadius: '4px 4px 0 0',
@@ -555,14 +557,14 @@ export default function DashboardKPIs({
                   transition: 'height 0.8s ease-out',
                   boxShadow: '0 0 8px rgba(14,165,233,0.3)'
                 }} />
-                    <div title={`POS收银 ${d.sales.toLocaleString()} LAK`} style={{
+                    <div title={`${t('dash.barPos', 'POS收银')} ${d.sales.toLocaleString()} LAK`} style={{
                   width: 11,
                   background: 'linear-gradient(180deg,var(--status-warning),var(--status-warning))',
                   borderRadius: '4px 4px 0 0',
                   height: `${d.sales / maxVal * 100}%`,
                   transition: 'height 0.8s ease-out 0.15s'
                 }} />
-                    <div title={`农场直销 ${(d.farmSales ?? 0).toLocaleString()} LAK`} style={{
+                    <div title={`${t('dash.barFarm', '农场直销')} ${(d.farmSales ?? 0).toLocaleString()} LAK`} style={{
                   width: 11,
                   background: 'linear-gradient(180deg,var(--color-purple-500),var(--color-purple-400))',
                   borderRadius: '4px 4px 0 0',
@@ -594,7 +596,7 @@ export default function DashboardKPIs({
           alignItems: 'center',
           gap: 8
         }}>
-            <BatteryWarning size={20} color="var(--status-warning)" />业务实时预警
+            <BatteryWarning size={20} color="var(--status-warning)" />{t('dash.realtimeAlerts', '业务实时预警')}
           </h3>
           <div style={{
           display: 'flex',
@@ -605,14 +607,14 @@ export default function DashboardKPIs({
             borderLeft: `var(--card-accent-width) solid var(--status-${item.type === 'danger' ? 'danger' : item.type === 'warning' ? 'warning' : 'info'})`
           }}>
                 <span>{item.text}</span>
-                <button type="button" className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>已处理</button>
+                <button type="button" className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>{t('dash.handled', '已处理')}</button>
               </div>)}
             {alerts.length === 0 && <div className={u.emptyPad40}>
                 <div style={{
               fontSize: 32,
               marginBottom: 8
             }}>✅</div>
-                <div>今日无待处理预警</div>
+                <div>{t('dash.noAlerts', '今日无待处理预警')}</div>
               </div>}
           </div>
         </div>

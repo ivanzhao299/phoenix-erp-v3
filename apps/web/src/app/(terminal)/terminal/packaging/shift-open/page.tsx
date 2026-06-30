@@ -366,7 +366,7 @@ export default function ShiftOpenPage() {
               color: T.TXT,
               fontSize: 14
             }}>
-                {sites.length === 0 && <option value="">（无可选场站）</option>}
+                {sites.length === 0 && <option value="">{t('ui.（无可选场站）', '（无可选场站）')}</option>}
                 {sites.map(s => <option key={s.site_id} value={s.site_id}>{s.site_name}（{s.site_id}）</option>)}
               </select>
             </div>

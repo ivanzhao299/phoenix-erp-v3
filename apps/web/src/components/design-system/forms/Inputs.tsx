@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { fieldInputStyle, FormField } from './FormField';
 import { SelectField, type Option } from './SelectField';
 import { AttachmentUploader } from './AttachmentUploader';
@@ -63,15 +64,18 @@ export function DateInput({ value, onChange, disabled, min, max }: { value: stri
 export function UserSelector({ value, onChange, options, disabled, allowEmpty = true }: {
   value: string; onChange: (v: string) => void; options: Option[]; disabled?: boolean; allowEmpty?: boolean;
 }) {
-  return <SelectField value={value} onChange={onChange} options={options} placeholder="选择用户" disabled={disabled} allowEmpty={allowEmpty} emptyLabel="选择用户" />;
+  const { t } = useLanguage();
+  return <SelectField value={value} onChange={onChange} options={options} placeholder={t('ui.选择用户','选择用户')} disabled={disabled} allowEmpty={allowEmpty} emptyLabel={t('ui.选择用户','选择用户')} />;
 }
 
 /** AttachmentField — FormField + AttachmentUploader 组合 */
-export function AttachmentField({ label = '附件', required, hint, value, onChange, readOnly }: {
+export function AttachmentField({ label, required, hint, value, onChange, readOnly }: {
   label?: string; required?: boolean; hint?: string; value: string[]; onChange: (urls: string[]) => void; readOnly?: boolean;
 }) {
+  const { t } = useLanguage();
+  const resolvedLabel = label ?? t('ui.附件','附件');
   return (
-    <FormField label={label} required={required} hint={hint}>
+    <FormField label={resolvedLabel} required={required} hint={hint}>
       <AttachmentUploader value={value} onChange={onChange} readOnly={readOnly} />
     </FormField>
   );

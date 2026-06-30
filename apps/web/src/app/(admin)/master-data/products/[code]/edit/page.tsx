@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { LoadingSkeleton } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { PRODUCT_FIELDS } from "../../page";
 
@@ -10,6 +11,7 @@ const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
 
 export default function ProductEditPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -40,14 +42,14 @@ export default function ProductEditPage() {
   if (loading) return <div style={{ padding: 32 }}><LoadingSkeleton variant="card" rows={6} /></div>;
   if (notFound || !row) return (
     <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-      未找到编码 {code} 的产品档案
+      {t('md.notfound_prefix','未找到编码')} {code} {t('md.notfound_suffix_product','的产品档案')}
     </div>
   );
 
   return (
     <MasterDataFormPage
       type="product"
-      title="产品"
+      title={t('md.entity_product','产品')}
       codeKey="product_code"
       nameKey="product_name"
       fields={PRODUCT_FIELDS}

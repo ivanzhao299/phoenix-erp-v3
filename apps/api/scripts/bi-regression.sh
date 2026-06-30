@@ -34,7 +34,7 @@ $PSQL $DB -q -c "DELETE FROM pos_sale_items WHERE sale_no='$SALE_BI';" >/dev/nul
 $PSQL $DB -q -c "DELETE FROM pos_sales WHERE sale_no='$SALE_BI';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no='$BATCH_BI';" >/dev/null
 $PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code) VALUES ('$BATCH_BI','REGR-BI',300,300,'AVAILABLE','WMS-VTE-MAIN');" >/dev/null
-$PSQL $DB -q -c "INSERT INTO pos_sales (sale_no, store_code, cashier, net_amount, pay_method, status, created_at, updated_at) VALUES ('$SALE_BI','$STORE_BI','test',888,'CASH','COMPLETED',now()::text,now()::text);" >/dev/null
+$PSQL $DB -q -c "INSERT INTO pos_sales (sale_no, store_code, cashier, net_amount, pay_method, status, created_at, updated_at) VALUES ('$SALE_BI','$STORE_BI','test',888,'CASH','COMPLETED',now(),now());" >/dev/null
 $PSQL $DB -q -c "INSERT INTO pos_sale_items (sale_no, product_code, product_name_zh, batch_no, qty, unit_price, subtotal, store_code, created_at) VALUES ('$SALE_BI','REGR-BI','BI测试品','$BATCH_BI',10,88.8,888,'$STORE_BI',now());" >/dev/null
 
 # ──────────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Sun, Moon } from 'lucide-react';
 import { mobileApi, HenReportRow, DailyHenReport } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -30,6 +31,7 @@ function MetaChip({ label, value, color }: { label: string; value: string | numb
 
 function HouseCard({ row }: { row: HenReportRow }) {
   const { t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const [open, setOpen] = useState(false);
   const layRateNum = parseFloat(row.lay_rate);
   const rateColor = layRateNum >= 85 ? 'var(--status-success)' : layRateNum >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
@@ -66,9 +68,9 @@ function HouseCard({ row }: { row: HenReportRow }) {
         <div style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{row.flock_no}</div>
           <div style={{ fontSize: 11, color: t.textFaint }}>
-            {row.age_days != null ? `日龄 ${row.age_days}天` : ''}
+            {row.age_days != null ? `${tr('mob.brd.age_days', '日龄')} ${row.age_days}${tr('mob.brd.day_unit', '天')}` : ''}
             {row.age_days != null && row.current_qty > 0 ? ' · ' : ''}
-            存栏 {row.current_qty.toLocaleString()}只
+            {tr('mob.brd.in_stock_birds', '存栏')} {row.current_qty.toLocaleString()}{tr('mob.brd.bird_unit_only', '只')}
           </div>
         </div>
 
@@ -92,11 +94,11 @@ function HouseCard({ row }: { row: HenReportRow }) {
       {/* Expanded detail */}
       {open && (
         <div style={{ padding: '0 14px 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <MetaChip label="产蛋" value={row.eggs.toLocaleString()} color="var(--status-warning)" />
-          <MetaChip label="死亡" value={row.mortality} color="var(--status-danger)" />
-          <MetaChip label="淘汰" value={row.elimination} color="var(--status-warning)" />
-          <MetaChip label="合计损耗" value={row.total_loss} color="var(--status-danger)" />
-          <MetaChip label="饲料(kg)" value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="var(--status-success)" />
+          <MetaChip label={tr('mob.brd.egg_produced', '产蛋')} value={row.eggs.toLocaleString()} color="var(--status-warning)" />
+          <MetaChip label={tr('mob.brd.mortality', '死亡')} value={row.mortality} color="var(--status-danger)" />
+          <MetaChip label={tr('mob.brd.elimination', '淘汰')} value={row.elimination} color="var(--status-warning)" />
+          <MetaChip label={tr('mob.brd.total_loss', '合计损耗')} value={row.total_loss} color="var(--status-danger)" />
+          <MetaChip label={tr('mob.brd.feed_kg', '饲料(kg)')} value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="var(--status-success)" />
           {row.mortality_reason && (
             <div style={{
               width: '100%', marginTop: 4,
@@ -105,7 +107,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
               border: '1px solid rgba(239,68,68,0.2)',
               fontSize: 12, color: t.textSub,
             }}>
-              死亡原因：{row.mortality_reason}
+              {tr('mob.brd.mortality_reason', '死亡原因')}：{row.mortality_reason}
             </div>
           )}
           {row.culling_reason && (
@@ -116,7 +118,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
               border: '1px solid rgba(249,115,22,0.2)',
               fontSize: 12, color: t.textSub,
             }}>
-              淘汰原因：{row.culling_reason}
+              {tr('mob.brd.culling_reason', '淘汰原因')}：{row.culling_reason}
             </div>
           )}
         </div>
@@ -127,6 +129,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
 
 function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
   const { t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8,
@@ -135,12 +138,12 @@ function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
       borderBottom: `1px solid ${t.divider}`,
     }}>
       {[
-        { label: '总存栏', value: totals.current_qty.toLocaleString() + '只', color: 'var(--status-warning)' },
-        { label: '总产蛋', value: totals.eggs.toLocaleString() + '枚', color: 'var(--status-success)' },
-        { label: '综合产蛋率', value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? 'var(--status-success)' : 'var(--status-danger)' },
-        { label: '死亡', value: String(totals.mortality), color: 'var(--status-danger)' },
-        { label: '淘汰', value: String(totals.elimination), color: 'var(--status-warning)' },
-        { label: '今日损耗', value: String(totals.total_loss), color: 'var(--status-danger)' },
+        { label: tr('mob.brd.total_in_stock', '总存栏'), value: totals.current_qty.toLocaleString() + tr('mob.brd.bird_unit_only', '只'), color: 'var(--status-warning)' },
+        { label: tr('mob.brd.total_eggs', '总产蛋'), value: totals.eggs.toLocaleString() + tr('mob.brd.egg_unit', '枚'), color: 'var(--status-success)' },
+        { label: tr('mob.brd.overall_lay_rate', '综合产蛋率'), value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? 'var(--status-success)' : 'var(--status-danger)' },
+        { label: tr('mob.brd.mortality', '死亡'), value: String(totals.mortality), color: 'var(--status-danger)' },
+        { label: tr('mob.brd.elimination', '淘汰'), value: String(totals.elimination), color: 'var(--status-warning)' },
+        { label: tr('mob.brd.today_loss', '今日损耗'), value: String(totals.total_loss), color: 'var(--status-danger)' },
       ].map(item => (
         <div key={item.label} style={{
           background: `${item.color}10`, border: `1px solid ${item.color}25`,
@@ -157,6 +160,7 @@ function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
 export default function DailyHenReportPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('henreport');
   const [date, setDate] = useState(today());
   const [report, setReport] = useState<DailyHenReport | null>(null);
@@ -170,7 +174,7 @@ export default function DailyHenReportPage() {
       const data = await mobileApi.getDailyHenReport(d);
       setReport(data);
     } catch (e: any) {
-      setError(e?.message || '加载失败');
+      setError(e?.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -205,7 +209,7 @@ export default function DailyHenReportPage() {
         }}>
           <ChevronLeft size={22} />
         </button>
-        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: t.text }}>母鸡存栏日报</div>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: t.text }}>{tr('mob.brd.hen_stock_report', '母鸡存栏日报')}</div>
         <button onClick={() => load(date)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
           color: t.textSub, padding: 4, display: 'flex', alignItems: 'center',
@@ -258,7 +262,7 @@ export default function DailyHenReportPage() {
       }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
-            加载中…
+            {tr('mob.brd.loading', '加载中…')}
           </div>
         )}
 
@@ -274,7 +278,7 @@ export default function DailyHenReportPage() {
 
         {!loading && !error && report && report.rows.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
-            暂无存栏鸡群数据
+            {tr('mob.brd.no_flock_data', '暂无存栏鸡群数据')}
           </div>
         )}
 

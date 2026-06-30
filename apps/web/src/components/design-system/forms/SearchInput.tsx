@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Search } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * SearchInput — 全局搜索框（图标 + 输入）。
@@ -14,7 +15,9 @@ export interface SearchInputProps {
   autoFocus?: boolean;
 }
 
-export function SearchInput({ value, onChange, placeholder = '搜索…', autoFocus }: SearchInputProps) {
+export function SearchInput({ value, onChange, placeholder, autoFocus }: SearchInputProps) {
+  const { t } = useLanguage();
+  const placeholderResolved = placeholder ?? t('ui.搜索…', '搜索…');
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <Search
@@ -28,7 +31,7 @@ export function SearchInput({ value, onChange, placeholder = '搜索…', autoFo
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholderResolved}
         style={{
           width: '100%', padding: '8px 12px 8px 30px',
           fontSize: 12, borderRadius: 8,

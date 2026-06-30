@@ -12,6 +12,7 @@ import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { usePermission } from '@/hooks/usePermission'; // H1 修:退货页按钮按 MENU_SALES2_RETURN 权限门控
 import { CompanySelector, CustomerSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -241,6 +242,7 @@ function CreateReturnDrawer({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     salesOrderNo: '',
     customerCode: '',
@@ -275,11 +277,11 @@ function CreateReturnDrawer({
   } : it));
   const handleCreate = async () => {
     if (!form.companyCode) {
-      setError('请填写公司代码');
+      setError(t('ui.请填写公司代码','请填写公司代码'));
       return;
     }
     if (!items.some(it => it.productCode)) {
-      setError('至少添加一条明细');
+      setError(t('ui.至少添加一条明细','至少添加一条明细'));
       return;
     }
     setLoading(true);
@@ -298,15 +300,15 @@ function CreateReturnDrawer({
       });
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '创建失败');
+      setError(e instanceof Error ? e.message : t('ui.创建失败','创建失败'));
     } finally {
       setLoading(false);
     }
   };
-  return <ModalV2 open={open} title="新建退货单" onClose={onClose} width={660}
+  return <ModalV2 open={open} title={t('ui.新建退货单','新建退货单')} onClose={onClose} width={660}
       footer={<>
-        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>取消</button>
-        <button onClick={handleCreate} disabled={loading} style={{ padding: '8px 24px', background: 'var(--color-accent)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>{loading ? '创建中...' : '创建退货单'}</button>
+        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>{t('ui.取消','取消')}</button>
+        <button onClick={handleCreate} disabled={loading} style={{ padding: '8px 24px', background: 'var(--color-accent)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>{loading ? t('ui.创建中...','创建中...') : t('ui.创建退货单','创建退货单')}</button>
       </>}>
         {error && <div style={{
         background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
@@ -327,7 +329,7 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>公司 *</div>
+          }}>{t('ui.公司','公司')} *</div>
             {/* G4-C：公司主数据，DataScope 自动过滤 */}
             <CompanySelector value={form.companyCode} onChange={v => setForm(p => ({
             ...p,
@@ -339,7 +341,7 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>销售订单号</div>
+          }}>{t('ui.销售订单号','销售订单号')}</div>
             <input value={form.salesOrderNo} placeholder="SO-..." onChange={e => setForm(p => ({
             ...p,
             salesOrderNo: e.target.value
@@ -357,7 +359,7 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>客户 *</div>
+          }}>{t('ui.客户','客户')} *</div>
             {/* G4-C：客户主数据，自动带出名称 */}
             <CustomerSelector value={form.customerCode} onChange={v => setForm(p => ({
             ...p,
@@ -372,7 +374,7 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>退货类型 *</div>
+          }}>{t('ui.退货类型','退货类型')} *</div>
             <select value={form.returnType} onChange={e => setForm(p => ({
             ...p,
             returnType: e.target.value
@@ -391,12 +393,12 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>退货原因 *</div>
+          }}>{t('ui.退货原因','退货原因')} *</div>
             {/* G4-C：退货原因来自 sys_dict(SAL_RETURN_REASON) */}
             <DictSelect dictType="SAL_RETURN_REASON" value={form.reasonCode} onChange={v => setForm(p => ({
             ...p,
             reasonCode: v
-          }))} placeholder="请选择退货原因" />
+          }))} placeholder={t('ui.请选择退货原因','请选择退货原因')} />
           </div>
         </div>
 
@@ -404,7 +406,7 @@ function CreateReturnDrawer({
         marginBottom: 4,
         fontSize: 12,
         color: 'var(--text-secondary)'
-      }}>备注</div>
+      }}>{t('ui.备注','备注')}</div>
         <textarea value={form.remark} onChange={e => setForm(p => ({
         ...p,
         remark: e.target.value
@@ -424,7 +426,7 @@ function CreateReturnDrawer({
         alignItems: 'center',
         marginBottom: 12
       }}>
-          <span className={u.fw600}>退货明细</span>
+          <span className={u.fw600}>{t('ui.退货明细','退货明细')}</span>
           <button onClick={addItem} style={{
           background: 'var(--color-accent)',
           color: 'var(--text-on-dark)',
@@ -433,7 +435,7 @@ function CreateReturnDrawer({
           padding: '4px 12px',
           cursor: 'pointer',
           fontSize: 13
-        }}>+ 添加</button>
+        }}>+ {t('ui.添加','添加')}</button>
         </div>
         {items.map((it, i) => <div key={i} style={{
         background: 'var(--bg-muted)',
@@ -447,7 +449,7 @@ function CreateReturnDrawer({
             fontSize: 11,
             color: 'var(--color-purple-500)',
             marginBottom: 2
-          }}>商品（SKU 主数据）*</div>
+          }}>{t('ui.商品（SKU 主数据）','商品（SKU 主数据）')}*</div>
               <SkuSelector value={(it as any).skuCode ?? ''} onChange={code => updateItem(i, 'skuCode' as any, code)} onPick={o => {
             const raw = o?.raw;
             updateItem(i, 'productCode', raw?.product_code ?? '');
@@ -470,8 +472,8 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>产品代码</div>
-                <input value={it.productCode} readOnly placeholder="由 SKU 自动带出" style={{
+            }}>{t('ui.产品代码','产品代码')}</div>
+                <input value={it.productCode} readOnly placeholder={t('ui.由 SKU 自动带出','由 SKU 自动带出')} style={{
               width: '100%',
               padding: '6px 8px',
               border: '1px solid var(--border)',
@@ -487,8 +489,8 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>产品名称</div>
-                <input value={it.productName} readOnly placeholder="自动带出" style={{
+            }}>{t('ui.产品名称','产品名称')}</div>
+                <input value={it.productName} readOnly placeholder={t('ui.自动带出','自动带出')} style={{
               width: '100%',
               padding: '6px 8px',
               border: '1px solid var(--border)',
@@ -504,7 +506,7 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>退货数量 *</div>
+            }}>{t('ui.退货数量','退货数量')} *</div>
                 <input type="number" min={1} value={it.returnedQty} onChange={e => updateItem(i, 'returnedQty', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
@@ -519,7 +521,7 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>单价</div>
+            }}>{t('ui.单价','单价')}</div>
                 <input type="number" min={0} value={it.unitPrice} onChange={e => updateItem(i, 'unitPrice', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
@@ -531,7 +533,7 @@ function CreateReturnDrawer({
               </div>
             </div>
             <div className={u.flexBetween}>
-              <span className={u.muted12}>小计：{fmt(it.returnedQty * it.unitPrice)} {/* currency */}</span>
+              <span className={u.muted12}>{t('ui.小计：','小计：')}{fmt(it.returnedQty * it.unitPrice)} {/* currency */}</span>
               {items.length > 1 && <button onClick={() => removeItem(i)} style={{
             background: 'color-mix(in srgb, var(--status-danger) 14%, transparent)',
             color: 'var(--status-danger)',
@@ -540,7 +542,7 @@ function CreateReturnDrawer({
             padding: '2px 8px',
             cursor: 'pointer',
             fontSize: 12
-          }}>删除</button>}
+          }}>{t('ui.删除','删除')}</button>}
             </div>
           </div>)}
 
@@ -558,6 +560,7 @@ function InspectionDrawer({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLanguage();
   const [results, setResults] = useState<Array<{
     itemId: string;
     acceptedQty: number;
@@ -584,15 +587,15 @@ function InspectionDrawer({
       });
       onDone();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '提交失败');
+      setError(e instanceof Error ? e.message : t('ui.提交失败','提交失败'));
     } finally {
       setLoading(false);
     }
   };
-  return <ModalV2 open={!!order} title={`质检录入 — ${order.return_no}`} onClose={onClose} width={620}
+  return <ModalV2 open={!!order} title={`${t('ui.质检录入','质检录入')} — ${order.return_no}`} onClose={onClose} width={620}
       footer={<>
-        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>取消</button>
-        <button onClick={handleSubmit} disabled={loading} style={{ padding: '8px 24px', background: 'var(--status-special)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{loading ? '提交中...' : '完成质检'}</button>
+        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>{t('ui.取消','取消')}</button>
+        <button onClick={handleSubmit} disabled={loading} style={{ padding: '8px 24px', background: 'var(--status-special)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{loading ? t('ui.提交中...','提交中...') : t('ui.完成质检','完成质检')}</button>
       </>}>
         {error && <div style={{
         background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
@@ -608,7 +611,7 @@ function InspectionDrawer({
         marginBottom: 20,
         fontSize: 13
       }}>
-          ⚠ 安全约束：accepted_qty + damaged_qty ≤ returned_qty，且破损商品不回库存
+          {t('ui.⚠ 安全约束：accepted_qty + damaged_qty ≤ returned_qty，且破损商品不回库存','⚠ 安全约束：accepted_qty + damaged_qty ≤ returned_qty，且破损商品不回库存')}
         </div>
         {(order.items || []).map((item, i) => <div key={item.id} style={{
         background: 'var(--bg-muted)',
@@ -641,7 +644,7 @@ function InspectionDrawer({
           color: 'var(--text-secondary)',
           marginBottom: 10
         }}>
-              申请退货数量：{item.returned_qty} {item.grade_code && `| 等级：${item.grade_code}`}
+              {t('ui.申请退货数量：','申请退货数量：')}{item.returned_qty} {item.grade_code && `| ${t('ui.等级：','等级：')}${item.grade_code}`}
             </div>
             <div style={{
           display: 'grid',
@@ -653,7 +656,7 @@ function InspectionDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 4
-            }}>合格数量 (回库)</div>
+            }}>{t('ui.合格数量 (回库)','合格数量 (回库)')}</div>
                 <input type="number" min={0} value={results[i]?.acceptedQty ?? 0} onChange={e => update(i, 'acceptedQty', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
@@ -668,7 +671,7 @@ function InspectionDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 4
-            }}>破损数量 (损耗)</div>
+            }}>{t('ui.破损数量 (损耗)','破损数量 (损耗)')}</div>
                 <input type="number" min={0} value={results[i]?.damagedQty ?? 0} onChange={e => update(i, 'damagedQty', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
@@ -683,7 +686,7 @@ function InspectionDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 4
-            }}>备注</div>
+            }}>{t('ui.备注','备注')}</div>
                 <input value={results[i]?.remark ?? ''} onChange={e => setResults(p => p.map((r, idx) => idx === i ? {
               ...r,
               remark: e.target.value
@@ -702,8 +705,8 @@ function InspectionDrawer({
           fontSize: 12,
           color: results[i].acceptedQty + results[i].damagedQty > Number(item.returned_qty) ? 'var(--status-danger)' : 'var(--status-success)'
         }}>
-                已录入：{results[i].acceptedQty} 合格 + {results[i].damagedQty} 破损 / {item.returned_qty} 申请
-                {results[i].acceptedQty + results[i].damagedQty > Number(item.returned_qty) && ' ⚠ 超出申请数量！'}
+                {t('ui.已录入：','已录入：')}{results[i].acceptedQty} {t('ui.合格','合格')} + {results[i].damagedQty} {t('ui.破损','破损')} / {item.returned_qty} {t('ui.申请','申请')}
+                {results[i].acceptedQty + results[i].damagedQty > Number(item.returned_qty) && ` ${t('ui.⚠ 超出申请数量！','⚠ 超出申请数量！')}`}
               </div>}
           </div>)}
       </ModalV2>;
@@ -712,6 +715,7 @@ function InspectionDrawer({
 // ── 退货单列表标签 ────────────────────────────────────────────────────────────
 
 function ReturnOrdersTab() {
+  const { t } = useLanguage();
   // H1:对齐后端 sales-returns.controller 守卫——创建/提交 :C,审批/驳回/完成 :A,质检/入库 :E
   const { canCreate, canEdit, canApprove } = usePermission('MENU_SALES2_RETURN');
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
@@ -742,7 +746,7 @@ function ReturnOrdersTab() {
       setOrders(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '加载失败');
+      setError(e instanceof Error ? e.message : t('ui.加载失败','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -756,7 +760,7 @@ function ReturnOrdersTab() {
       await api('POST', `/api/v2/sales/returns/${id}/${action}`, body);
       load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : '操作失败');
+      toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
     } finally {
       setActionLoading('');
     }
@@ -766,7 +770,7 @@ function ReturnOrdersTab() {
       const d = await api<ReturnOrder>('GET', `/api/v2/sales/returns/${id}`);
       setDetail(d);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : '加载失败');
+      toast.error(e instanceof Error ? e.message : t('ui.加载失败','加载失败'));
     }
   };
   return <div>
@@ -786,7 +790,7 @@ function ReturnOrdersTab() {
         borderRadius: 8,
         fontSize: 14
       }}>
-          <option value="">全部状态</option>
+          <option value="">{t('ui.全部状态','全部状态')}</option>
           {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <select value={typeFilter} onChange={e => {
@@ -798,7 +802,7 @@ function ReturnOrdersTab() {
         borderRadius: 8,
         fontSize: 14
       }}>
-          <option value="">全部类型</option>
+          <option value="">{t('ui.全部类型','全部类型')}</option>
           {Object.entries(RETURN_TYPE_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <div className={u.flex1} />
@@ -811,7 +815,7 @@ function ReturnOrdersTab() {
         cursor: 'pointer',
         fontWeight: 600
       }}>
-          + 新建退货单
+          + {t('ui.新建退货单','新建退货单')}
         </button>}
       </div>
 
@@ -833,13 +837,13 @@ function ReturnOrdersTab() {
         <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
-              {['退货单号', '类型', '客户', '金额', '状态', '创建时间', '操作'].map(h => <th key={h}>{h}</th>)}
+              {[t('ui.退货单号','退货单号'), t('ui.类型','类型'), t('ui.客户','客户'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.创建时间','创建时间'), t('ui.操作','操作')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {loading ? <tr><td colSpan={7} style={{
               padding: '24px 0'
-            }}><LoadingSkeleton variant="table" rows={4} /></td></tr> : orders.length === 0 ? <tr><td colSpan={7}><EmptyState title="暂无退货单" compact /></td></tr> : orders.map(o => <tr key={o.id}>
+            }}><LoadingSkeleton variant="table" rows={4} /></td></tr> : orders.length === 0 ? <tr><td colSpan={7}><EmptyState title={t('ui.暂无退货单','暂无退货单')} compact /></td></tr> : orders.map(o => <tr key={o.id}>
                 <td>
                   <button onClick={() => openDetail(o.id)} style={{
                 background: 'none',
@@ -883,7 +887,7 @@ function ReturnOrdersTab() {
                   cursor: 'pointer',
                   fontSize: 12
                 }}>
-                        提交
+                        {t('ui.提交','提交')}
                       </button>}
                     {o.status === 'PENDING_APPROVAL' && canApprove && <>
                         <button onClick={() => doAction(o.id, 'approve')} disabled={!!actionLoading} style={{
@@ -895,7 +899,7 @@ function ReturnOrdersTab() {
                     cursor: 'pointer',
                     fontSize: 12
                   }}>
-                          批准
+                          {t('ui.批准','批准')}
                         </button>
                         <button onClick={() => doAction(o.id, 'reject', {
                     reason: '审批拒绝'
@@ -908,7 +912,7 @@ function ReturnOrdersTab() {
                     cursor: 'pointer',
                     fontSize: 12
                   }}>
-                          拒绝
+                          {t('ui.拒绝','拒绝')}
                         </button>
                       </>}
                     {o.status === 'INSPECTING' && canEdit && <button onClick={() => setInspectOrder(o)} disabled={!!actionLoading} style={{
@@ -920,7 +924,7 @@ function ReturnOrdersTab() {
                   cursor: 'pointer',
                   fontSize: 12
                 }}>
-                        质检录入
+                        {t('ui.质检录入','质检录入')}
                       </button>}
                     {o.status === 'RESTOCKING' && canEdit && <button onClick={() => doAction(o.id, 'complete-restock')} disabled={!!actionLoading} style={{
                   background: 'var(--color-accent)',
@@ -931,7 +935,7 @@ function ReturnOrdersTab() {
                   cursor: 'pointer',
                   fontSize: 12
                 }}>
-                        确认回库
+                        {t('ui.确认回库','确认回库')}
                       </button>}
                   </div>
                 </td>
@@ -950,7 +954,7 @@ function ReturnOrdersTab() {
         <span style={{
         fontSize: 14,
         color: 'var(--text-secondary)'
-      }}>共 {total} 条记录</span>
+      }}>{t('ui.共','共')} {total} {t('ui.条记录','条记录')}</span>
         <div style={{
         display: 'flex',
         gap: 8
@@ -961,20 +965,20 @@ function ReturnOrdersTab() {
           borderRadius: 6,
           cursor: page <= 1 ? 'default' : 'pointer',
           background: 'var(--bg-card)'
-        }}>上页</button>
+        }}>{t('ui.上页','上页')}</button>
           <span style={{
           padding: '6px 14px',
           background: 'var(--bg-muted)',
           borderRadius: 6,
           fontSize: 14
-        }}>第 {page} 页</span>
+        }}>{t('ui.第','第')} {page} {t('ui.页','页')}</span>
           <button disabled={page * 20 >= total} onClick={() => setPage(p => p + 1)} style={{
           padding: '6px 14px',
           border: '1px solid var(--border)',
           borderRadius: 6,
           cursor: page * 20 >= total ? 'default' : 'pointer',
           background: 'var(--bg-card)'
-        }}>下页</button>
+        }}>{t('ui.下页','下页')}</button>
         </div>
       </div>
 
@@ -995,28 +999,28 @@ function ReturnOrdersTab() {
           marginBottom: 20
         }}>
               {[{
-            label: '客户',
+            label: t('ui.客户','客户'),
             value: `${detail.customer_name ?? ''} ${detail.customer_code ? `(${detail.customer_code})` : ''}`
           }, {
-            label: '销售订单号',
+            label: t('ui.销售订单号','销售订单号'),
             value: detail.sales_order_no ?? '—'
           }, {
-            label: '公司',
+            label: t('ui.公司','公司'),
             value: detail.company_code
           }, {
-            label: '金额',
+            label: t('ui.金额','金额'),
             value: `${fmt(detail.subtotal)} ${detail.currency_code}`
           }, {
-            label: '申请时间',
+            label: t('ui.申请时间','申请时间'),
             value: fmtDate(detail.requested_at)
           }, {
-            label: '质检完成',
+            label: t('ui.质检完成','质检完成'),
             value: fmtDate(detail.inspected_at)
           }, {
-            label: '回库完成',
+            label: t('ui.回库完成','回库完成'),
             value: fmtDate(detail.restocked_at)
           }, {
-            label: '完成时间',
+            label: t('ui.完成时间','完成时间'),
             value: fmtDate(detail.completed_at)
           }].map(({
             label,
@@ -1047,7 +1051,7 @@ function ReturnOrdersTab() {
             color: 'var(--status-success)',
             fontWeight: 700
           }}>✓</span>
-                <span className={u.fs13}>应收红字发票已生成（ID: {detail.credit_note_id}）</span>
+                <span className={u.fs13}>{t('ui.应收红字发票已生成（ID:','应收红字发票已生成（ID:')} {detail.credit_note_id}）</span>
               </div>}
             {detail.remark && <div style={{
           background: 'var(--bg-muted)',
@@ -1059,14 +1063,14 @@ function ReturnOrdersTab() {
             fontSize: 11,
             color: 'var(--text-disabled)',
             marginBottom: 4
-          }}>备注</div>
+          }}>{t('ui.备注','备注')}</div>
                 <div className={u.fs14}>{detail.remark}</div>
               </div>}
             {/* 明细列表 */}
             <div style={{
           fontWeight: 600,
           marginBottom: 10
-        }}>退货明细</div>
+        }}>{t('ui.退货明细','退货明细')}</div>
             {(detail.items || []).map(item => <div key={item.id} style={{
           background: 'var(--bg-muted)',
           borderRadius: 8,
@@ -1110,14 +1114,14 @@ function ReturnOrdersTab() {
           }}>
                   <div><span style={{
                 color: 'var(--text-disabled)'
-              }}>申请: </span>{item.returned_qty}</div>
+              }}>{t('ui.申请: ','申请: ')}</span>{item.returned_qty}</div>
                   <div><span style={{
                 color: 'var(--status-success)'
-              }}>合格: </span>{item.accepted_qty}</div>
+              }}>{t('ui.合格: ','合格: ')}</span>{item.accepted_qty}</div>
                   <div><span style={{
                 color: 'var(--status-danger)'
-              }}>破损: </span>{item.damaged_qty}</div>
-                  <div><span className={u.muted}>金额: </span>{fmt(item.amount)}</div>
+              }}>{t('ui.破损: ','破损: ')}</span>{item.damaged_qty}</div>
+                  <div><span className={u.muted}>{t('ui.金额: ','金额: ')}</span>{fmt(item.amount)}</div>
                 </div>
               </div>)}
         </>}
@@ -1138,6 +1142,7 @@ function ReturnOrdersTab() {
 // ── 质检标签 ──────────────────────────────────────────────────────────────────
 
 function InspectionTab() {
+  const { t } = useLanguage();
   const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:质检 = complete-inspection :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1161,10 +1166,10 @@ function InspectionTab() {
       marginBottom: 16,
       fontSize: 16,
       fontWeight: 600
-    }}>待质检退货单</h3>
+    }}>{t('ui.待质检退货单','待质检退货单')}</h3>
       {loading ? <div style={{
       padding: 32
-    }}><LoadingSkeleton variant="line" rows={4} /></div> : orders.length === 0 ? <EmptyState title="暂无待质检退货单" description="所有退货单均已质检完成" compact /> : <div style={{
+    }}><LoadingSkeleton variant="line" rows={4} /></div> : orders.length === 0 ? <EmptyState title={t('ui.暂无待质检退货单','暂无待质检退货单')} description={t('ui.所有退货单均已质检完成','所有退货单均已质检完成')} compact /> : <div style={{
       display: 'grid',
       gap: 12
     }}>
@@ -1199,9 +1204,9 @@ function InspectionTab() {
           fontSize: 14,
           color: 'var(--text-secondary)'
         }}>
-                  <span>客户：{o.customer_name ?? o.customer_code ?? '—'}</span>
-                  <span>金额：{fmt(o.subtotal)} {o.currency_code}</span>
-                  <span>明细：{(o.items || []).length} 项</span>
+                  <span>{t('ui.客户：','客户：')}{o.customer_name ?? o.customer_code ?? '—'}</span>
+                  <span>{t('ui.金额：','金额：')}{fmt(o.subtotal)} {o.currency_code}</span>
+                  <span>{t('ui.明细：','明细：')}{(o.items || []).length} {t('ui.项','项')}</span>
                 </div>
                 <div style={{
           background: 'var(--bg-muted)',
@@ -1216,7 +1221,7 @@ function InspectionTab() {
             fontSize: 13
           }}>
                       <span>{item.product_code} {item.product_name && `— ${item.product_name}`}</span>
-                      <span>申请退货：{item.returned_qty} 件</span>
+                      <span>{t('ui.申请退货：','申请退货：')}{item.returned_qty} {t('ui.件','件')}</span>
                     </div>)}
                 </div>
                 {canEdit && <button onClick={() => setInspectOrder(o)} style={{
@@ -1228,7 +1233,7 @@ function InspectionTab() {
           cursor: 'pointer',
           fontWeight: 600
         }}>
-                  开始质检录入
+                  {t('ui.开始质检录入','开始质检录入')}
                 </button>}
               </div>)}
           </div>}
@@ -1242,6 +1247,7 @@ function InspectionTab() {
 // ── 回库标签 ──────────────────────────────────────────────────────────────────
 
 function RestockTab() {
+  const { t } = useLanguage();
   const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:完成回库 = complete-restock :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1266,7 +1272,7 @@ function RestockTab() {
       await api('POST', `/api/v2/sales/returns/${id}/complete-restock`);
       load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : '操作失败');
+      toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
     } finally {
       setActionLoading('');
     }
@@ -1276,10 +1282,10 @@ function RestockTab() {
       marginBottom: 16,
       fontSize: 16,
       fontWeight: 600
-    }}>待回库退货单</h3>
+    }}>{t('ui.待回库退货单','待回库退货单')}</h3>
       {loading ? <div style={{
       padding: 32
-    }}><LoadingSkeleton variant="line" rows={4} /></div> : orders.length === 0 ? <EmptyState title="暂无待回库退货单" description="所有退货单均已完成回库" compact /> : <div style={{
+    }}><LoadingSkeleton variant="line" rows={4} /></div> : orders.length === 0 ? <EmptyState title={t('ui.暂无待回库退货单','暂无待回库退货单')} description={t('ui.所有退货单均已完成回库','所有退货单均已完成回库')} compact /> : <div style={{
       display: 'grid',
       gap: 12
     }}>
@@ -1305,7 +1311,7 @@ function RestockTab() {
           color: 'var(--text-secondary)',
           marginBottom: 12
         }}>
-                  客户：{o.customer_name ?? '—'} | 金额：{fmt(o.subtotal)} {o.currency_code}
+                  {t('ui.客户：','客户：')}{o.customer_name ?? '—'} | {t('ui.金额：','金额：')}{fmt(o.subtotal)} {o.currency_code}
                 </div>
                 {/* 明细：展示质检结果 */}
                 <div style={{
@@ -1318,7 +1324,7 @@ function RestockTab() {
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 6
-          }}>质检结果：</div>
+          }}>{t('ui.质检结果：','质检结果：')}</div>
                   {(o.items || []).map(item => <div key={item.id} style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -1328,10 +1334,10 @@ function RestockTab() {
                       <span>{item.product_code}</span>
                       <span style={{
               color: 'var(--status-success)'
-            }}>合格回库：{item.accepted_qty}</span>
+            }}>{t('ui.合格回库：','合格回库：')}{item.accepted_qty}</span>
                       <span style={{
               color: 'var(--status-danger)'
-            }}>破损损耗：{item.damaged_qty}</span>
+            }}>{t('ui.破损损耗：','破损损耗：')}{item.damaged_qty}</span>
                       <Badge cfg={INSPECTION_CFG} code={item.inspection_result} />
                     </div>)}
                 </div>
@@ -1343,7 +1349,7 @@ function RestockTab() {
           fontSize: 13,
           color: 'var(--color-accent)'
         }}>
-                  📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成应收红字发票
+                  {t('ui.📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成应收红字发票','📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成应收红字发票')}
                 </div>
                 {canEdit && <button onClick={() => doRestock(o.id)} disabled={actionLoading === o.id} style={{
           background: 'var(--color-accent)',
@@ -1354,7 +1360,7 @@ function RestockTab() {
           cursor: 'pointer',
           fontWeight: 600
         }}>
-                  {actionLoading === o.id ? '处理中...' : '确认回库 & 生成 Credit Note'}
+                  {actionLoading === o.id ? t('ui.处理中...','处理中...') : t('ui.确认回库 & 生成 Credit Note','确认回库 & 生成 Credit Note')}
                 </button>}
               </div>)}
           </div>}
@@ -1364,6 +1370,7 @@ function RestockTab() {
 // ── 异常分析标签 ──────────────────────────────────────────────────────────────
 
 function AnalysisTab() {
+  const { t } = useLanguage();
   const [data, setData] = useState<ReturnAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1373,12 +1380,12 @@ function AnalysisTab() {
     color: 'var(--text-disabled)',
     textAlign: 'center',
     padding: 40
-  }}>加载中...</div>;
+  }}>{t('ui.加载中...','加载中...')}</div>;
   if (!data) return <div style={{
     color: 'var(--status-danger)',
     textAlign: 'center',
     padding: 40
-  }}>加载失败</div>;
+  }}>{t('ui.加载失败','加载失败')}</div>;
   const {
     summary,
     topCustomers,
@@ -1397,23 +1404,23 @@ function AnalysisTab() {
       gap: 12
     }}>
         {[{
-        label: '退货总单数',
+        label: t('ui.退货总单数','退货总单数'),
         value: summary.totalReturns,
         color: 'var(--text-secondary)'
       }, {
-        label: '退货总金额',
+        label: t('ui.退货总金额','退货总金额'),
         value: `${fmt(summary.totalAmount)}`,
         color: 'var(--color-accent)'
       }, {
-        label: '配送拒收',
+        label: t('ui.配送拒收','配送拒收'),
         value: summary.deliveryRejectCount,
         color: 'var(--status-warning)'
       }, {
-        label: '破损退货',
+        label: t('ui.破损退货','破损退货'),
         value: summary.damageCount,
         color: 'var(--status-danger)'
       }, {
-        label: '破损率(30天)',
+        label: t('ui.破损率(30天)','破损率(30天)'),
         value: summary.damageRate,
         color: 'var(--status-special)'
       }].map(({
@@ -1451,12 +1458,12 @@ function AnalysisTab() {
         margin: '0 0 16px',
         fontSize: 15,
         fontWeight: 700
-      }}>TOP 退货客户（近30天）</h3>
+      }}>{t('ui.TOP 退货客户（近30天）','TOP 退货客户（近30天）')}</h3>
         {topCustomers.length === 0 ? <div style={{
         color: 'var(--text-disabled)',
         textAlign: 'center',
         padding: 20
-      }}>暂无数据</div> : topCustomers.map((c, i) => <div key={c.customer_code} style={{
+      }}>{t('ui.暂无数据','暂无数据')}</div> : topCustomers.map((c, i) => <div key={c.customer_code} style={{
         display: 'flex',
         alignItems: 'center',
         gap: 12,
@@ -1499,7 +1506,7 @@ function AnalysisTab() {
           fontSize: 13,
           color: 'var(--text-secondary)',
           whiteSpace: 'nowrap'
-        }}>{c.return_count} 单</span>
+        }}>{c.return_count} {t('ui.单','单')}</span>
             <span style={{
           fontSize: 13,
           color: 'var(--status-danger)',
@@ -1519,12 +1526,12 @@ function AnalysisTab() {
         margin: '0 0 16px',
         fontSize: 15,
         fontWeight: 700
-      }}>TOP 退货产品（近30天）</h3>
+      }}>{t('ui.TOP 退货产品（近30天）','TOP 退货产品（近30天）')}</h3>
         {topProducts.length === 0 ? <div style={{
         color: 'var(--text-disabled)',
         textAlign: 'center',
         padding: 20
-      }}>暂无数据</div> : topProducts.map((p, i) => <div key={p.product_code} style={{
+      }}>{t('ui.暂无数据','暂无数据')}</div> : topProducts.map((p, i) => <div key={p.product_code} style={{
         display: 'flex',
         alignItems: 'center',
         gap: 12,
@@ -1555,10 +1562,10 @@ function AnalysisTab() {
             color: 'var(--text-disabled)',
             marginTop: 2
           }}>
-                <span>退货 {p.total_qty} 件</span>
+                <span>{t('ui.退货','退货')} {p.total_qty} {t('ui.件','件')}</span>
                 <span style={{
               color: 'var(--status-danger)'
-            }}>破损 {p.damaged_qty} 件</span>
+            }}>{t('ui.破损','破损')} {p.damaged_qty} {t('ui.件','件')}</span>
               </div>
               <div style={{
             height: 6,
@@ -1579,7 +1586,7 @@ function AnalysisTab() {
           fontSize: 13,
           color: 'var(--text-secondary)',
           whiteSpace: 'nowrap'
-        }}>{p.return_count} 次</span>
+        }}>{p.return_count} {t('ui.次','次')}</span>
           </div>)}
       </div>
     </div>;
@@ -1588,6 +1595,7 @@ function AnalysisTab() {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function SalesReturnsPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'orders' | 'inspection' | 'restock' | 'analysis'>('orders');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   useEffect(() => {
@@ -1599,19 +1607,19 @@ export default function SalesReturnsPage() {
     badge?: number;
   }> = [{
     key: 'orders',
-    label: '退货单',
+    label: t('ui.退货单','退货单'),
     badge: undefined
   }, {
     key: 'inspection',
-    label: '质检',
+    label: t('ui.质检','质检'),
     badge: stats?.pendingInspection
   }, {
     key: 'restock',
-    label: '回库',
+    label: t('ui.回库','回库'),
     badge: stats?.pendingRestock
   }, {
     key: 'analysis',
-    label: '异常分析',
+    label: t('ui.异常分析','异常分析'),
     badge: undefined
   }];
   return <div style={{
@@ -1619,7 +1627,7 @@ export default function SalesReturnsPage() {
     background: 'var(--bg-muted)',
     minHeight: '100vh'
   }}>
-      <PageHeader title="销售退货管理" breadcrumb={["销售管理", "退货管理"]} />
+      <PageHeader title={t('ui.销售退货管理','销售退货管理')} breadcrumb={[t('ui.销售管理','销售管理'), t('ui.退货管理','退货管理')]} />
 
       {/* Dashboard 统计 */}
       {stats && <div style={{
@@ -1627,23 +1635,23 @@ export default function SalesReturnsPage() {
       marginBottom: 24
     }}>
           {[{
-        label: '今日退货单',
+        label: t('ui.今日退货单','今日退货单'),
         value: stats.todayTotal,
         color: 'var(--text-secondary)'
       }, {
-        label: '待审批',
+        label: t('ui.待审批','待审批'),
         value: stats.pendingApproval,
         color: 'var(--status-warning)'
       }, {
-        label: '待质检',
+        label: t('ui.待质检','待质检'),
         value: stats.pendingInspection,
         color: 'var(--status-special)'
       }, {
-        label: '待回库',
+        label: t('ui.待回库','待回库'),
         value: stats.pendingRestock,
         color: 'var(--color-accent)'
       }, {
-        label: '今日 Credit Note',
+        label: t('ui.今日 Credit Note','今日 Credit Note'),
         value: `${fmt(stats.todayCreditNoteAmount)}`,
         color: 'var(--status-danger)'
       }].map(({

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { workflowApi, type WorkflowFormField, type WorkflowFormSchema } from "@/lib/workflow-api";
 
 type SourceOption = { label: string; value: string | number };
@@ -13,6 +14,7 @@ export function WorkflowDataView({
   data: Record<string, unknown>;
   schema?: WorkflowFormSchema | null;
 }) {
+  const { t } = useLanguage();
   const fields = useMemo(() => schema?.fields || [], [schema]);
   const fieldMap = useMemo(() => new Map(fields.map(field => [field.key, field])), [fields]);
   const [sourceOptions, setSourceOptions] = useState<Record<string, SourceOption[]>>({});
@@ -30,7 +32,7 @@ export function WorkflowDataView({
   }, [fields, sourceOptions]);
 
   const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>暂无表单数据。</div></div>;
+  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无表单数据。','暂无表单数据。')}</div></div>;
 
   return (
     <div className={s.infoGrid}>

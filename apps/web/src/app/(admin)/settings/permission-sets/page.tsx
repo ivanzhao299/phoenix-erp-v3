@@ -13,6 +13,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { Layers, Plus, Trash2, Edit2, Save, Users, Shield, X, AlertTriangle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SetRow {
   set_id: number; set_code: string; set_name_zh: string; description: string | null;
@@ -43,6 +44,7 @@ const jget = (p: string) => fetch(p, { headers: hdr() }).then(r => r.json());
 const jsend = (p: string, m: string, b?: unknown) => fetch(p, { method: m, headers: hdr(), body: b ? JSON.stringify(b) : undefined }).then(r => r.json());
 
 export default function PermissionSetsPage() {
+  const { t } = useLanguage();
   const toast = useToast();
   const [sets, setSets] = useState<SetRow[]>([]);
   const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
@@ -75,7 +77,7 @@ export default function PermissionSetsPage() {
       const rawUsers = uo.data?.items ?? uo.data ?? uo.items ?? [];
       setUserOpts(rawUsers.filter((u: any) => u.status === "ACTIVE").map((u: any) => ({ id: String(u.id), username: u.username, real_name_zh: u.real_name_zh })));
     } catch (e: any) {
-      setTimeout(() => toast.error("加载失败: " + (e.message || String(e))), 0);
+      setTimeout(() => toast.error(t('ui.加载失败: ','加载失败: ') + (e.message || String(e))), 0);
     } finally { setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -110,10 +112,10 @@ export default function PermissionSetsPage() {
 
   const handleSave = async () => {
     if (!editCode) {
-      if (!SET_CODE_RE.test(form.set_code)) { toast.error("编码格式：PSET_ + 大写字母/数字/下划线"); return; }
-      if (sets.some(x => x.set_code === form.set_code)) { toast.error("该能力集编码已存在"); return; }
+      if (!SET_CODE_RE.test(form.set_code)) { toast.error(t('ui.编码格式：PSET_ + 大写字母/数字/下划线','编码格式：PSET_ + 大写字母/数字/下划线')); return; }
+      if (sets.some(x => x.set_code === form.set_code)) { toast.error(t('ui.该能力集编码已存在','该能力集编码已存在')); return; }
     }
-    if (!form.set_name_zh.trim()) { toast.error("能力集名称必填"); return; }
+    if (!form.set_name_zh.trim()) { toast.error(t('ui.能力集名称必填','能力集名称必填')); return; }
     setLoading(true);
     try {
       const code = form.set_code;
@@ -121,32 +123,32 @@ export default function PermissionSetsPage() {
         await jsend(`/api/permission-sets/${encodeURIComponent(code)}`, "PATCH", { set_name_zh: form.set_name_zh, description: form.description || null });
       } else {
         const r = await jsend("/api/permission-sets", "POST", { set_code: code, set_name_zh: form.set_name_zh, description: form.description || null });
-        if (r.code && r.code !== 200) throw new Error(r.message || r.msg || "创建失败");
+        if (r.code && r.code !== 200) throw new Error(r.message || r.msg || t('ui.创建失败','创建失败'));
       }
       const items = Object.entries(perms).filter(([, set]) => set.size > 0).map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(",") }));
       const ri = await jsend(`/api/permission-sets/${encodeURIComponent(code)}/items`, "PUT", { items });
-      if (ri.code && ri.code !== 200) throw new Error(ri.message || "明细保存失败");
-      toast.success(editCode ? "能力集已更新" : "能力集已创建");
+      if (ri.code && ri.code !== 200) throw new Error(ri.message || t('ui.明细保存失败','明细保存失败'));
+      toast.success(editCode ? t('ui.能力集已更新','能力集已更新') : t('ui.能力集已创建','能力集已创建'));
       setShowDrawer(false); loadAll();
-    } catch (e: any) { toast.error(e.message || "保存失败"); } finally { setLoading(false); }
+    } catch (e: any) { toast.error(e.message || t('ui.保存失败','保存失败')); } finally { setLoading(false); }
   };
 
   // 绑定角色/用户：即时调 API
   const toggleRole = async (rc: string) => {
-    if (!editCode) { toast.error("请先保存能力集再绑定角色"); return; }
+    if (!editCode) { toast.error(t('ui.请先保存能力集再绑定角色','请先保存能力集再绑定角色')); return; }
     const has = boundRoles.includes(rc);
     try {
       await jsend(`/api/permission-sets/${encodeURIComponent(editCode)}/roles/${encodeURIComponent(rc)}`, has ? "DELETE" : "POST");
       setBoundRoles(prev => has ? prev.filter(x => x !== rc) : [...prev, rc]);
-    } catch (e: any) { toast.error(e.message || "操作失败"); }
+    } catch (e: any) { toast.error(e.message || t('ui.操作失败','操作失败')); }
   };
   const toggleUser = async (uid: string) => {
-    if (!editCode) { toast.error("请先保存能力集再绑定用户"); return; }
+    if (!editCode) { toast.error(t('ui.请先保存能力集再绑定用户','请先保存能力集再绑定用户')); return; }
     const has = boundUsers.includes(uid);
     try {
       await jsend(`/api/permission-sets/${encodeURIComponent(editCode)}/users/${uid}`, has ? "DELETE" : "POST");
       setBoundUsers(prev => has ? prev.filter(x => x !== uid) : [...prev, uid]);
-    } catch (e: any) { toast.error(e.message || "操作失败"); }
+    } catch (e: any) { toast.error(e.message || t('ui.操作失败','操作失败')); }
   };
 
   const handleDelete = async () => {
@@ -154,18 +156,18 @@ export default function PermissionSetsPage() {
     try {
       const r = await jsend(`/api/permission-sets/${encodeURIComponent(confirmDel.set_code)}`, "DELETE");
       if (r.code && r.code !== 200) throw new Error(r.msg);
-      toast.success("已删除"); setConfirmDel(null); loadAll();
-    } catch (e: any) { toast.error("删除失败: " + e.message); }
+      toast.success(t('ui.已删除','已删除')); setConfirmDel(null); loadAll();
+    } catch (e: any) { toast.error(t('ui.删除失败: ','删除失败: ') + e.message); }
   };
 
   const permCount = Object.keys(perms).length;
 
   return <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-    <PageHeader title="权限集（能力集）" subtitle="PBAC 第 2 层 · 可复用的 菜单×操作 捆绑；角色/用户由能力集组合（运行时与角色直绑权限并集）" breadcrumb={["系统设置", "权限集"]}
-      actions={<button type="button" className={s.btnPrimaryGrad} onClick={openNew}><Plus size={14} /> 新建能力集</button>} />
+    <PageHeader title={t('ui.权限集（能力集）','权限集（能力集）')} subtitle={t('ui.PBAC 第 2 层 · 可复用的 菜单×操作 捆绑；角色/用户由能力集组合（运行时与角色直绑权限并集）','PBAC 第 2 层 · 可复用的 菜单×操作 捆绑；角色/用户由能力集组合（运行时与角色直绑权限并集）')} breadcrumb={[t('ui.系统设置','系统设置'), t('ui.权限集','权限集')]}
+      actions={<button type="button" className={s.btnPrimaryGrad} onClick={openNew}><Plus size={14} /> {t('ui.新建能力集','新建能力集')}</button>} />
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
-      {sets.length === 0 && !loading && <div style={{ color: "var(--text-secondary)", fontSize: 13, padding: 12 }}>暂无能力集，点「新建能力集」创建。</div>}
+      {sets.length === 0 && !loading && <div style={{ color: "var(--text-secondary)", fontSize: 13, padding: 12 }}>{t('ui.暂无能力集，点「新建能力集」创建。','暂无能力集，点「新建能力集」创建。')}</div>}
       {sets.map(row => <div key={row.set_code} className={s.card} style={{ display: "flex", flexDirection: "column", borderLeft: "3px solid var(--status-special)" }}>
         <div style={{ padding: "12px 14px 6px", display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -176,42 +178,42 @@ export default function PermissionSetsPage() {
             <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--text-secondary)", marginTop: 2 }}>{row.set_code}</div>
           </div>
           <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-            <button type="button" className={s.btnIcon} title="编辑" onClick={() => openEdit(row)}><Edit2 size={12} /></button>
-            <button type="button" className={s.btnIcon} title="删除" onClick={() => setConfirmDel(row)} style={{ color: "var(--color-danger)" }}><Trash2 size={12} /></button>
+            <button type="button" className={s.btnIcon} title={t('ui.编辑','编辑')} onClick={() => openEdit(row)}><Edit2 size={12} /></button>
+            <button type="button" className={s.btnIcon} title={t('ui.删除','删除')} onClick={() => setConfirmDel(row)} style={{ color: "var(--color-danger)" }}><Trash2 size={12} /></button>
           </div>
         </div>
         {row.description && <div style={{ padding: "0 14px 8px", fontSize: 11, lineHeight: 1.6, color: "var(--text-secondary)", fontStyle: "italic", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.description}</div>}
         <div style={{ padding: "6px 14px", borderTop: "1px solid var(--border)", fontSize: 11, display: "flex", gap: 12, color: "var(--text-secondary)" }}>
-          <span>{row.item_count} 项明细</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Shield size={10} /> {row.role_count} 角色</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Users size={10} /> {row.user_count} 用户</span>
+          <span>{row.item_count} {t('ui.项明细','项明细')}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Shield size={10} /> {row.role_count} {t('ui.角色','角色')}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Users size={10} /> {row.user_count} {t('ui.用户','用户')}</span>
         </div>
       </div>)}
     </div>
 
-    <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : "新建能力集"} width="640px">
+    <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : t('ui.新建能力集','新建能力集')} width="640px">
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className={s.field}>
-          <label className={s.lbl}>能力集编码 *</label>
+          <label className={s.lbl}>{t('ui.能力集编码 *','能力集编码 *')}</label>
           <input className={s.inp} disabled={!!editCode} value={form.set_code} placeholder="PSET_SHAREHOLDER_READONLY"
-            onChange={e => { const v = e.target.value.toUpperCase(); setForm({ ...form, set_code: v }); setCodeErr(!editCode && v !== "PSET_" && !SET_CODE_RE.test(v) ? "格式：PSET_ + 大写字母/数字/下划线" : ""); }}
+            onChange={e => { const v = e.target.value.toUpperCase(); setForm({ ...form, set_code: v }); setCodeErr(!editCode && v !== "PSET_" && !SET_CODE_RE.test(v) ? t('ui.格式：PSET_ + 大写字母/数字/下划线','格式：PSET_ + 大写字母/数字/下划线') : ""); }}
             style={{ fontFamily: "monospace", fontWeight: 700, borderColor: codeErr ? "var(--color-danger)" : undefined }} />
           {codeErr && <div style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={10} /> {codeErr}</div>}
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>名称 *</label>
-          <input className={s.inp} value={form.set_name_zh} onChange={e => setForm({ ...form, set_name_zh: e.target.value })} placeholder="如：股东权益只读" />
+          <label className={s.lbl}>{t('ui.名称 *','名称 *')}</label>
+          <input className={s.inp} value={form.set_name_zh} onChange={e => setForm({ ...form, set_name_zh: e.target.value })} placeholder={t('ui.如：股东权益只读','如：股东权益只读')} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>说明</label>
-          <textarea className={s.textarea} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="描述这个能力集的用途边界" style={{ lineHeight: 1.7 }} />
+          <label className={s.lbl}>{t('ui.说明','说明')}</label>
+          <textarea className={s.textarea} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder={t('ui.描述这个能力集的用途边界','描述这个能力集的用途边界')} style={{ lineHeight: 1.7 }} />
         </div>
 
         {/* 明细：菜单 × 操作 */}
         <div className={s.field}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <label className={s.lbl} style={{ margin: 0 }}>菜单 × 操作明细</label>
-            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--status-special-bg-medium)", color: "var(--color-primary)", fontWeight: 600 }}>已配 {permCount} / {allMenus.length}</span>
+            <label className={s.lbl} style={{ margin: 0 }}>{t('ui.菜单 × 操作明细','菜单 × 操作明细')}</label>
+            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--status-special-bg-medium)", color: "var(--color-primary)", fontWeight: 600 }}>{t('ui.已配','已配')} {permCount} / {allMenus.length}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {menuGroups.map(group => <div key={group.domain} style={{ border: `1px solid ${group.domain_color}33`, borderRadius: 8, overflow: "hidden" }}>
@@ -233,29 +235,29 @@ export default function PermissionSetsPage() {
 
         {/* 绑定角色 / 用户（需先保存） */}
         <div className={s.field}>
-          <label className={s.lbl}>绑定角色（持此角色者继承本能力集）</label>
-          {!editCode && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>保存能力集后可绑定。</div>}
+          <label className={s.lbl}>{t('ui.绑定角色（持此角色者继承本能力集）','绑定角色（持此角色者继承本能力集）')}</label>
+          {!editCode && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>{t('ui.保存能力集后可绑定。','保存能力集后可绑定。')}</div>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflow: "auto" }}>
             {roleOpts.map(r => { const on = boundRoles.includes(r.role_code); return <button type="button" key={r.role_code} disabled={!editCode} onClick={() => toggleRole(r.role_code)} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, cursor: editCode ? "pointer" : "not-allowed", border: `1px solid ${on ? "var(--status-special)" : "var(--border)"}`, background: on ? "var(--status-special)" : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)", opacity: editCode ? 1 : 0.5 }}>{r.role_name_zh}</button>; })}
           </div>
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>绑定用户（直接授予指定人，用于例外）</label>
-          {!editCode && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>保存能力集后可绑定。</div>}
+          <label className={s.lbl}>{t('ui.绑定用户（直接授予指定人，用于例外）','绑定用户（直接授予指定人，用于例外）')}</label>
+          {!editCode && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>{t('ui.保存能力集后可绑定。','保存能力集后可绑定。')}</div>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflow: "auto" }}>
             {userOpts.map(u => { const on = boundUsers.includes(u.id); return <button type="button" key={u.id} disabled={!editCode} onClick={() => toggleUser(u.id)} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, cursor: editCode ? "pointer" : "not-allowed", border: `1px solid ${on ? "var(--color-accent)" : "var(--border)"}`, background: on ? "var(--color-accent)" : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)", opacity: editCode ? 1 : 0.5 }}>{u.real_name_zh || u.username}</button>; })}
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button type="button" onClick={() => setShowDrawer(false)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
-          <button type="button" onClick={handleSave} disabled={loading || !!codeErr} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}><Save size={14} /> {loading ? "保存中…" : "保存"}</button>
+          <button type="button" onClick={() => setShowDrawer(false)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('ui.取消','取消')}</button>
+          <button type="button" onClick={handleSave} disabled={loading || !!codeErr} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}><Save size={14} /> {loading ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}</button>
         </div>
       </div>
     </RightDrawer>
 
     <ConfirmDialog open={!!confirmDel} title={`删除能力集：${confirmDel?.set_name_zh || ""}`}
       message={confirmDel ? `${confirmDel.role_count + confirmDel.user_count > 0 ? `⚠️ 该能力集已绑定 ${confirmDel.role_count} 角色 + ${confirmDel.user_count} 用户，删除后将解绑并失去相应权限。\n\n` : ""}确认删除 [${confirmDel.set_code}]?` : ""}
-      confirmLabel="确认删除" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} danger />
+      confirmLabel={t('ui.确认删除','确认删除')} onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} danger />
   </div>;
 }

@@ -176,9 +176,9 @@ export default function UserDetailPage() {
   // ── 影子登录 ────────────────────────────────────────────────────────────────────
   const doImpersonate = async () => {
     if (!user) return;
-    const reason = window.prompt("请输入影子登录原因（不少于 6 个字符，用于审计）", "排障查看用户真实权限与页面");
+    const reason = window.prompt(t("ui.请输入影子登录原因（不少于 6 个字符，用于审计）", "请输入影子登录原因（不少于 6 个字符，用于审计）"), t("ui.排障查看用户真实权限与页面", "排障查看用户真实权限与页面"));
     if (!reason || reason.trim().length < 6) {
-      toast.error("影子登录必须填写不少于 6 个字符的审计原因");
+      toast.error(t("ui.影子登录必须填写不少于 6 个字符的审计原因", "影子登录必须填写不少于 6 个字符的审计原因"));
       return;
     }
     setShowImpersonateConfirm(false);
@@ -254,7 +254,7 @@ export default function UserDetailPage() {
         <div className={s.field}>
           <label className={s.lbl}>{t("ui.姓名", "姓名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
           <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} disabled={!editable}
-            placeholder="如 张三" className={s.inp} style={{ opacity: editable ? 1 : 0.6 }}/>
+            placeholder={t("ui.如 张三", "如 张三")} className={s.inp} style={{ opacity: editable ? 1 : 0.6 }}/>
         </div>
         <div className={s.field}>
           <label className={s.lbl}>{t("ui.账号类型", "账号类型")}</label>
@@ -321,13 +321,13 @@ export default function UserDetailPage() {
         <SelectField
           value={form.store_code || ""}
           onChange={v => f("store_code", v)}
-          options={[{ value: "ALL", label: "全部门店（ALL）" }, ...storeOpts]}
+          options={[{ value: "ALL", label: t("ui.全部门店（ALL）", "全部门店（ALL）") }, ...storeOpts]}
           allowEmpty
-          emptyLabel="非门店用户（留空）"
+          emptyLabel={t("ui.非门店用户（留空）", "非门店用户（留空）")}
           disabled={!editable}
         />
         <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
-          ⚠️ 门店代码仅用于 POS 门店行级隔离，<b>不再决定公司数据范围</b>（范围看「组织与数据范围」页）。门店来自组织架构 STORE 类型组织。
+          ⚠️ {t("ui.门店代码仅用于 POS 门店行级隔离，", "门店代码仅用于 POS 门店行级隔离，")}<b>{t("ui.不再决定公司数据范围", "不再决定公司数据范围")}</b>{t("ui.（范围看「组织与数据范围」页）。门店来自组织架构 STORE 类型组织。", "（范围看「组织与数据范围」页）。门店来自组织架构 STORE 类型组织。")}
         </div>
       </div>
     </Panel>
@@ -398,18 +398,18 @@ export default function UserDetailPage() {
 
       <ConfirmDialogV2
         open={showSodConfirm}
-        title="岗位分离风险"
-        message={<>该用户的角色组合存在岗位分离风险（WARN）：{sodConflicts.map((c, i) => <div key={i}>· {c.reason_zh}</div>)}<br/>仍要保存吗？</>}
-        confirmLabel="仍要保存"
+        title={t("ui.岗位分离风险", "岗位分离风险")}
+        message={<>{t("ui.该用户的角色组合存在岗位分离风险（WARN）：", "该用户的角色组合存在岗位分离风险（WARN）：")}{sodConflicts.map((c, i) => <div key={i}>· {c.reason_zh}</div>)}<br/>{t("ui.仍要保存吗？", "仍要保存吗？")}</>}
+        confirmLabel={t("ui.仍要保存", "仍要保存")}
         onConfirm={() => { setShowSodConfirm(false); doSave(); }}
         onCancel={() => setShowSodConfirm(false)}
       />
 
       <ConfirmDialogV2
         open={showImpersonateConfirm}
-        title="影子登录"
-        message={`确认以「${user?.real_name_zh || user?.username}」身份查看？将切换到影子模式，可随时退出。`}
-        confirmLabel="确认切换"
+        title={t("ui.影子登录", "影子登录")}
+        message={`${t("ui.确认以「", "确认以「")}${user?.real_name_zh || user?.username}${t("ui.」身份查看？将切换到影子模式，可随时退出。", "」身份查看？将切换到影子模式，可随时退出。")}`}
+        confirmLabel={t("ui.确认切换", "确认切换")}
         onConfirm={doImpersonate}
         onCancel={() => setShowImpersonateConfirm(false)}
       />

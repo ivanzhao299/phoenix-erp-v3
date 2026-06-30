@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 
@@ -101,6 +101,10 @@ export class ProductMasterService {
   }
 
   async createGrade(dto: ProductGrade): Promise<ProductGrade> {
+    // 必填校验前置：空 body 直插会触 grade_code NOT NULL → 500；应返 400
+    if (!dto?.grade_code || !dto?.grade_name) {
+      throw new BadRequestException('grade_code / grade_name 必填');
+    }
     const exists = await this.em.query(
       `SELECT 1 FROM product_grades WHERE grade_code = $1`,
       [dto.grade_code],

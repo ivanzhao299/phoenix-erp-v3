@@ -22,10 +22,13 @@ import { EntityManager } from 'typeorm';
  */
 export interface OrgScope {
   isGlobal: boolean;
-  farmCode: string | null;   // LPH_ 开头才赋值（遗留单 storeCode；保留向后兼容场长写入）
-  siteCode: string | null;   // SITE- 开头才赋值
-  // G98：公司维度（取代旧 storeCode 单 token 隔离）。农场归属公司——在公司有股/有岗者按公司看其农场每日数据。
-  //   来自 DataScopeGuard 写入 CLS 的 allowedCompanyCodes（brd_daily_logs/brd_flocks 已回填 company_code）。
+  farmCode: string | null;   // 首个 farm（遗留单 storeCode 兼容；优先用 farmCodes 全集）
+  siteCode: string | null;   // 首个 site
+  // G125：多维全集（取代旧 storeCode 单 token 隔离）。
+  //   农场/场区/公司均来自 DataScopeGuard 解析的真实数据范围（allowedFarmCodes/SiteCodes/CompanyCodes），
+  //   ∪ 遗留单 storeCode（向后兼容单场场长）。全局用户 isGlobal=true，三者皆空 = 不加过滤。
+  farmCodes?: string[];
+  siteCodes?: string[];
   companyCodes?: string[];
 }
 
@@ -39,29 +42,63 @@ export interface OrgScope {
 export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
   if (scope.isGlobal) return '';
   const ors: string[] = [];
-  if (scope.farmCode) { params.push(scope.farmCode); ors.push(`${alias}farm_code = $${params.length}`); }
-  if (scope.siteCode) { params.push(scope.siteCode); ors.push(`${alias}site_code = $${params.length}`); }
+  // G125：农场/场区支持多场（farmCodes/siteCodes 全集），向后兼容单值 farmCode/siteCode。
+  const farms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
+  const sites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
   const companies = (scope.companyCodes ?? []).filter(Boolean);
+  if (farms.length)     { params.push(farms);     ors.push(`${alias}farm_code = ANY($${params.length})`); }
+  if (sites.length)     { params.push(sites);     ors.push(`${alias}site_code = ANY($${params.length})`); }
   if (companies.length) { params.push(companies); ors.push(`${alias}company_code = ANY($${params.length})`); }
   return ors.length ? `(${ors.join(' OR ')})` : '';
 }
 
-/** 从 req.user 派生 OrgScope — farm/farm-feed 等 controller 共用 */
+/**
+ * 从 req 派生 OrgScope — farm/farm-feed/farm-egg 等 controller 共用。
+ *
+ * G125 修复（根治「集团/超管/CEO 手机端只看一个场」）：
+ *   过去仅看遗留单 token req.user.storeCode + 粗糙 isGlobal 判定（仅 username==='admin' /
+ *   权限含 '*' / storeCode 含 ORG-GROUP）——导致 storeCode 被默认绑成单场（如孟赛）的
+ *   ROLE_ADMIN/CEO/集团角色被降级为单场场长，看不到全部养殖场。
+ *   现以 DataScopeGuard 解析并挂到 req.dataScope 的**真实数据范围**为权威：
+ *     · isGlobal（ROLE_ADMIN / GROUP / GROUP 级绑定）→ 看全部；
+ *     · allowedFarmCodes / allowedSiteCodes / allowedCompanyCodes → 多场聚合；
+ *   再 ∪ 遗留单 storeCode（向后兼容单场场长——其 storeCode=本场而无 farmScope 行）。
+ *   req.dataScope 缺失时（无 @RequireMenu 的路由）回退到旧 storeCode 启发式。
+ */
 export function deriveOrgScope(req: any): OrgScope {
   const storeCode: string | undefined = req.user?.storeCode;
-  const isGlobal =
+  const isFarm = !!storeCode && (storeCode.startsWith('LPH_') || storeCode.startsWith('LPH-'));
+  const isSite = !!storeCode && storeCode.startsWith('SITE-');
+  const legacyGlobal =
     !storeCode ||
     storeCode === 'ALL' ||
     storeCode.startsWith('ORG-GROUP') ||
     (req.user?.permissions || []).includes('*') ||
     req.user?.username === 'admin';
-  if (isGlobal) return { isGlobal: true, farmCode: null, siteCode: null };
-  const isFarm = storeCode!.startsWith('LPH_') || storeCode!.startsWith('LPH-');
-  const isSite = storeCode!.startsWith('SITE-');
+
+  const ds = req?.dataScope as
+    | { isGlobal?: boolean; allowedCompanyCodes?: string[]; allowedFarmCodes?: string[]; allowedSiteCodes?: string[] }
+    | undefined;
+
+  // 全局：真实 DataScope 判全局 或 遗留判全局 → 不加任何过滤
+  if (legacyGlobal || ds?.isGlobal) {
+    return { isGlobal: true, farmCode: null, siteCode: null, farmCodes: [], siteCodes: [], companyCodes: [] };
+  }
+
+  // 非全局：合并真实多场范围 ∪ 遗留单场
+  const farmCodes = [...(ds?.allowedFarmCodes ?? [])];
+  const siteCodes = [...(ds?.allowedSiteCodes ?? [])];
+  const companyCodes = [...(ds?.allowedCompanyCodes ?? [])];
+  if (isFarm && !farmCodes.includes(storeCode!)) farmCodes.push(storeCode!);
+  if (isSite && !siteCodes.includes(storeCode!)) siteCodes.push(storeCode!);
+
   return {
     isGlobal: false,
-    farmCode: isFarm ? storeCode! : null,
-    siteCode: isSite ? storeCode! : null,
+    farmCode: farmCodes[0] ?? null,
+    siteCode: siteCodes[0] ?? null,
+    farmCodes,
+    siteCodes,
+    companyCodes,
   };
 }
 

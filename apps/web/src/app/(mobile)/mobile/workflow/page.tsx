@@ -11,15 +11,18 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { approvalApi, type WorkflowTask, type WorkflowTaskPage, type InstanceDetail, type ApprovalReassignCandidate } from '@/lib/mobile-api';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
-const BIZ_TYPE_LABEL: Record<string, string> = {
-  PURCHASE_REQUEST: '采购申请',
-  PURCHASE_ORDER: '采购订单',
-  PAYMENT: '付款申请',
-  SHAREHOLDER_FUND: '股东资金'
-};
+type TFn = (key: string, fallback: string) => string;
+const buildBizTypeLabel = (tr: TFn): Record<string, string> => ({
+  PURCHASE_REQUEST: tr('mob.sys.biz_purchase_request', '采购申请'),
+  PURCHASE_ORDER: tr('mob.sys.biz_purchase_order', '采购订单'),
+  PAYMENT: tr('mob.sys.biz_payment', '付款申请'),
+  SHAREHOLDER_FUND: tr('mob.sys.biz_shareholder_fund', '股东资金')
+});
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'var(--status-warning)',
   APPROVED: 'var(--status-success)',
@@ -55,8 +58,8 @@ function MobileSheetPortal({ children }: { children: React.ReactNode }) {
 }
 
 // ── 安全摘要：股东资金不暴露金额/银行字段 ─────────────────────────────────────
-function safeSubject(task: WorkflowTask): string {
-  if (task.bizType === 'SHAREHOLDER_FUND') return '股东资金审批待处理';
+function safeSubject(task: WorkflowTask, tr: TFn): string {
+  if (task.bizType === 'SHAREHOLDER_FUND') return tr('mob.sys.shareholder_fund_pending', '股东资金审批待处理');
   return task.subject ?? task.bizNo ?? task.bizType ?? '—';
 }
 function safeAmount(task: WorkflowTask): string | null {
@@ -84,11 +87,14 @@ function TaskCard({
     t,
     isDark
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const [expanded, setExpanded] = useState(false);
-  const bizLabel = BIZ_TYPE_LABEL[task.bizType ?? ''] ?? task.bizType ?? '工作流';
+  const bizLabel = buildBizTypeLabel(tr)[task.bizType ?? ''] ?? task.bizType ?? tr('mob.sys.workflow', '工作流');
   const amountStr = safeAmount(task);
-  const subjectStr = safeSubject(task);
-  const stepLabel = task.totalSteps ? `第 ${task.stepNo ?? task.currentStepNo ?? 1} / ${task.totalSteps} 步` : null;
+  const subjectStr = safeSubject(task, tr);
+  const stepLabel = task.totalSteps ? `${tr('mob.sys.step_prefix', '第')} ${task.stepNo ?? task.currentStepNo ?? 1} / ${task.totalSteps} ${tr('mob.sys.step_suffix', '步')}` : null;
   return <div style={{
     background: t.cardBg,
     borderRadius: 16,
@@ -121,7 +127,7 @@ function TaskCard({
             background: task.taskSource === 'APPROVAL_ENGINE' ? '#7c3aed22' : '#0891b222',
             color: task.taskSource === 'APPROVAL_ENGINE' ? 'var(--color-purple-600)' : 'var(--status-info)'
           }}>
-              {task.taskSource === 'APPROVAL_ENGINE' ? '审批引擎' : '工作流'}
+              {task.taskSource === 'APPROVAL_ENGINE' ? tr('mob.sys.approval_engine', '审批引擎') : tr('mob.sys.workflow', '工作流')}
             </span>
             <span style={{
             fontSize: 10,
@@ -142,7 +148,7 @@ function TaskCard({
             background: 'var(--status-danger-bg-faint)',
             color: 'var(--status-danger)',
             border: '1px solid var(--status-danger-bg-light)'
-          }}>⏰ 已超期</span>}
+          }}>⏰ {tr('mob.sys.overdue', '已超期')}</span>}
             {(task.escalationLevel ?? 0) > 0 && <span style={{
             fontSize: 10,
             fontWeight: 700,
@@ -151,7 +157,7 @@ function TaskCard({
             background: 'var(--status-warning-bg-page)',
             color: 'var(--status-warning)',
             border: '1px solid var(--status-warning-bg-medium)'
-          }}>🔺 已升级</span>}
+          }}>🔺 {tr('mob.sys.escalated', '已升级')}</span>}
           </div>
           <span style={{
           fontSize: 11,
@@ -242,7 +248,7 @@ function TaskCard({
             alignItems: 'center',
             gap: 4
           }}>
-                ⏰ 已超期 {hOver >= 24 ? `${Math.floor(hOver / 24)}天` : `${hOver}小时`}
+                ⏰ {tr('mob.sys.overdue', '已超期')} {hOver >= 24 ? `${Math.floor(hOver / 24)}${tr('mob.sys.days_unit', '天')}` : `${hOver}${tr('mob.sys.hours_unit', '小时')}`}
               </div>;
         }
         if (hLeft < 24) {
@@ -254,7 +260,7 @@ function TaskCard({
             alignItems: 'center',
             gap: 4
           }}>
-                ⚡ 剩余 {hLeft}小时截止
+                ⚡ {tr('mob.sys.remaining', '剩余')} {hLeft}{tr('mob.sys.hours_until_due', '小时截止')}
               </div>;
         }
         const dLeft = Math.floor(hLeft / 24);
@@ -266,7 +272,7 @@ function TaskCard({
           alignItems: 'center',
           gap: 4
         }}>
-              ⏱ 剩余 {dLeft}天
+              ⏱ {tr('mob.sys.remaining', '剩余')} {dLeft}{tr('mob.sys.days_unit', '天')}
             </div>;
       })()}
       </div>
@@ -298,7 +304,7 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <ChevronDown size={14} /> 详情
+            <ChevronDown size={14} /> {tr('mob.sys.detail', '详情')}
           </button>
           <button onClick={e => {
         e.stopPropagation();
@@ -319,7 +325,7 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <CheckCircle size={14} /> 同意
+            <CheckCircle size={14} /> {tr('mob.sys.approve', '同意')}
           </button>
           <button onClick={e => {
         e.stopPropagation();
@@ -340,7 +346,7 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <Forward size={14} /> 转交
+            <Forward size={14} /> {tr('mob.sys.transfer', '转交')}
           </button>
           <button onClick={e => {
         e.stopPropagation();
@@ -361,7 +367,7 @@ function TaskCard({
         justifyContent: 'center',
         gap: 4
       }}>
-            <XCircle size={14} /> 不同意
+            <XCircle size={14} /> {tr('mob.sys.reject', '不同意')}
           </button>
         </div>}
     </div>;
@@ -384,6 +390,9 @@ function ActionSheet({
     t,
     isDark
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const toast = useToast();
   const [selectedMode, setSelectedMode] = useState<ApprovalActionMode>(mode);
   const [comment, setComment] = useState('');
@@ -413,7 +422,7 @@ function ActionSheet({
         }
       })
       .catch((e: unknown) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : '加载转交候选人失败');
+        if (!cancelled) setErr(e instanceof Error ? e.message : tr('mob.sys.load_candidates_failed', '加载转交候选人失败'));
       })
       .finally(() => {
         if (!cancelled) setCandidateLoading(false);
@@ -425,11 +434,11 @@ function ActionSheet({
 
   async function submit() {
     if (selectedMode === 'reject' && !comment.trim()) {
-      setErr('不同意原因不能为空');
+      setErr(tr('mob.sys.reject_reason_required', '不同意原因不能为空'));
       return;
     }
     if (selectedMode === 'transfer' && !selectedUserId) {
-      setErr('请选择转交审批人');
+      setErr(tr('mob.sys.select_transfer_approver', '请选择转交审批人'));
       return;
     }
     setSubmitting(true);
@@ -438,21 +447,21 @@ function ActionSheet({
       if (selectedMode === 'approve') {
         await approvalApi.approveInstance(task.instanceId, comment.trim() || undefined);
         haptic('success');
-        toast.success('审批已通过');
+        toast.success(tr('mob.sys.approved_ok', '审批已通过'));
       } else if (selectedMode === 'reject') {
         await approvalApi.rejectInstance(task.instanceId, comment.trim());
         haptic('success');
-        toast.success('已标记为不同意');
+        toast.success(tr('mob.sys.marked_rejected', '已标记为不同意'));
       } else {
         await approvalApi.reassignInstance(task.instanceId, selectedUserId);
         haptic('success');
         const picked = candidates.find(c => c.userId === selectedUserId);
-        toast.success(picked ? `已转交给 ${picked.displayName}` : '已转交审批');
+        toast.success(picked ? `${tr('mob.sys.transferred_to', '已转交给')} ${picked.displayName}` : tr('mob.sys.transferred', '已转交审批'));
       }
       onDone();
     } catch (e: unknown) {
       haptic('error');
-      const msg = e instanceof Error ? e.message : '操作失败，请重试';
+      const msg = e instanceof Error ? e.message : tr('mob.sys.op_failed_retry', '操作失败，请重试');
       setErr(msg);
       toast.error(msg);
     } finally {
@@ -460,9 +469,9 @@ function ActionSheet({
     }
   }
   const accentColor = selectedMode === 'approve' ? 'var(--status-success)' : selectedMode === 'reject' ? 'var(--status-danger)' : 'var(--status-info)';
-  const submitText = selectedMode === 'approve' ? '提交同意' : selectedMode === 'reject' ? '提交不同意' : '确认转交审批';
-  const commentLabel = selectedMode === 'approve' ? '审批意见（可选）' : selectedMode === 'reject' ? '不同意原因 *' : '转交说明（可选）';
-  const commentPlaceholder = selectedMode === 'approve' ? '填写审批意见（可不填）' : selectedMode === 'reject' ? '请填写不同意原因…' : '填写转交说明，便于接收人理解背景（可不填）';
+  const submitText = selectedMode === 'approve' ? tr('mob.sys.submit_approve', '提交同意') : selectedMode === 'reject' ? tr('mob.sys.submit_reject', '提交不同意') : tr('mob.sys.confirm_transfer', '确认转交审批');
+  const commentLabel = selectedMode === 'approve' ? tr('mob.sys.approve_comment_optional', '审批意见（可选）') : selectedMode === 'reject' ? tr('mob.sys.reject_reason_label', '不同意原因 *') : tr('mob.sys.transfer_note_optional', '转交说明（可选）');
+  const commentPlaceholder = selectedMode === 'approve' ? tr('mob.sys.approve_comment_ph', '填写审批意见（可不填）') : selectedMode === 'reject' ? tr('mob.sys.reject_reason_ph', '请填写不同意原因…') : tr('mob.sys.transfer_note_ph', '填写转交说明，便于接收人理解背景（可不填）');
   return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
@@ -493,14 +502,14 @@ function ActionSheet({
             fontSize: 16,
             color: accentColor
           }}>
-              审批处理
+              {tr('mob.sys.approval_action', '审批处理')}
             </div>
             <div style={{
             fontSize: 12,
             color: t.textSub,
             marginTop: 2
           }}>
-              {safeSubject(task)}
+              {safeSubject(task, tr)}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -521,9 +530,9 @@ function ActionSheet({
         marginBottom: 14
       }}>
           {([
-          ['approve', '同意', CheckCircle, 'var(--status-success)'],
-          ['reject', '不同意', XCircle, 'var(--status-danger)'],
-          ['transfer', '转交审批', Forward, 'var(--status-info)']
+          ['approve', tr('mob.sys.approve', '同意'), CheckCircle, 'var(--status-success)'],
+          ['reject', tr('mob.sys.reject', '不同意'), XCircle, 'var(--status-danger)'],
+          ['transfer', tr('mob.sys.transfer_approval', '转交审批'), Forward, 'var(--status-info)']
         ] as const).map(([key, label, Icon, color]) => {
           const active = selectedMode === key;
           return <button key={key} type="button" onClick={() => {
@@ -557,7 +566,7 @@ function ActionSheet({
           display: 'block',
           marginBottom: 6
         }}>
-              转交审批人 *
+              {tr('mob.sys.transfer_approver_label', '转交审批人 *')}
             </label>
             <select value={selectedUserId} onChange={e => {
           setSelectedUserId(e.target.value);
@@ -573,8 +582,8 @@ function ActionSheet({
           fontSize: 14,
           outline: 'none'
         }}>
-              {candidateLoading && <option value="">候选人加载中…</option>}
-              {!candidateLoading && candidates.length === 0 && <option value="">暂无可转交审批人</option>}
+              {candidateLoading && <option value="">{tr('mob.sys.candidates_loading', '候选人加载中…')}</option>}
+              {!candidateLoading && candidates.length === 0 && <option value="">{tr('mob.sys.no_transfer_approver', '暂无可转交审批人')}</option>}
               {!candidateLoading && candidates.map(c => <option key={c.userId} value={c.userId}>
                   {c.displayName}{c.roleNameZh ? ` · ${c.roleNameZh}` : ''}
                 </option>)}
@@ -585,7 +594,7 @@ function ActionSheet({
           marginTop: 5,
           lineHeight: 1.5
         }}>
-              候选人由后端按角色权限和数据域过滤，不能手工指定越权人员。
+              {tr('mob.sys.candidate_filter_note', '候选人由后端按角色权限和数据域过滤，不能手工指定越权人员。')}
             </div>
           </div>}
 
@@ -639,7 +648,7 @@ function ActionSheet({
         fontSize: 15,
         cursor: submitting || (selectedMode === 'transfer' && (candidateLoading || candidates.length === 0)) ? 'not-allowed' : 'pointer'
       }}>
-          {submitting ? '提交中…' : submitText}
+          {submitting ? tr('mob.sys.submitting', '提交中…') : submitText}
         </button>
       </div>
     </div></MobileSheetPortal>;
@@ -664,6 +673,9 @@ function DetailSheet({
     t,
     isDark
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const [detail, setDetail] = useState<InstanceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -681,7 +693,7 @@ function DetailSheet({
     };
   }, [task.instanceId]);
   const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : 'var(--slate-400)';
-  const stepStatusLabel = (s: string) => s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s === 'PENDING' ? '待审批' : s;
+  const stepStatusLabel = (s: string) => s === 'APPROVED' ? tr('mob.sys.step_approved', '已通过') : s === 'REJECTED' ? tr('mob.sys.step_rejected', '已拒绝') : s === 'PENDING' ? tr('mob.sys.step_pending', '待审批') : s;
   return <MobileSheetPortal><div style={{
     position: 'fixed',
     inset: 0,
@@ -711,7 +723,7 @@ function DetailSheet({
           fontWeight: 700,
           fontSize: 16,
           color: t.text
-        }}>审批详情</span>
+        }}>{tr('mob.sys.approval_detail', '审批详情')}</span>
           <button onClick={onClose} style={{
           background: 'none',
           border: 'none',
@@ -736,25 +748,25 @@ function DetailSheet({
           color: t.text,
           marginBottom: 8
         }}>
-            {safeSubject(task)}
+            {safeSubject(task, tr)}
           </div>
           {[{
-          label: '单据编号',
+          label: tr('mob.sys.doc_no', '单据编号'),
           value: task.bizNo ?? task.instanceNo
         }, {
-          label: '业务类型',
-          value: BIZ_TYPE_LABEL[task.bizType ?? ''] ?? task.bizType
+          label: tr('mob.sys.biz_type', '业务类型'),
+          value: buildBizTypeLabel(tr)[task.bizType ?? ''] ?? task.bizType
         }, {
-          label: '金额',
+          label: tr('mob.sys.amount', '金额'),
           value: safeAmount(task)
         }, {
-          label: '公司',
+          label: tr('mob.sys.company', '公司'),
           value: task.companyName
         }, {
-          label: '项目',
+          label: tr('mob.sys.project', '项目'),
           value: task.projectName
         }, {
-          label: '当前步骤',
+          label: tr('mob.sys.current_step', '当前步骤'),
           value: task.totalSteps ? `${task.stepNo ?? 1} / ${task.totalSteps}` : null
         }].filter(r => r.value).map(r => <div key={r.label} style={{
           display: 'flex',
@@ -782,13 +794,13 @@ function DetailSheet({
           fontWeight: 700,
           color: t.textSub,
           marginBottom: 10
-        }}>审批流程</div>
+        }}>{tr('mob.sys.approval_flow', '审批流程')}</div>
           {loading && <div style={{
           color: t.textFaint,
           fontSize: 13,
           textAlign: 'center',
           padding: '20px 0'
-        }}>加载中…</div>}
+        }}>{tr('mob.sys.loading', '加载中…')}</div>}
           {err && <div style={{
           color: 'var(--status-danger)',
           fontSize: 13,
@@ -838,7 +850,7 @@ function DetailSheet({
                 fontWeight: 600,
                 color: t.text
               }}>
-                    {step.approverName ?? step.approverRole ?? `步骤 ${step.stepNo}`}
+                    {step.approverName ?? step.approverRole ?? `${tr('mob.sys.step', '步骤')} ${step.stepNo}`}
                   </span>
                   <span style={{
                 fontSize: 11,
@@ -878,7 +890,7 @@ function DetailSheet({
           color: t.textFaint,
           textAlign: 'center',
           padding: '10px 0'
-        }}>暂无步骤记录</div>}
+        }}>{tr('mob.sys.no_step_records', '暂无步骤记录')}</div>}
         </div>
 
         {/* Phase I: 关联表单数据（只读展示） */}
@@ -889,7 +901,7 @@ function DetailSheet({
           color: t.textSub,
           marginBottom: 10
         }}>
-              表单数据
+              {tr('mob.sys.form_data', '表单数据')}
               <span style={{
             marginLeft: 8,
             fontSize: 10,
@@ -917,7 +929,7 @@ function DetailSheet({
           marginTop: 4,
           textAlign: 'right'
         }}>
-              提交编号：{detail.formSubmission.submissionNo}
+              {tr('mob.sys.submission_no', '提交编号')}：{detail.formSubmission.submissionNo}
             </div>
           </div>}
 
@@ -942,7 +954,7 @@ function DetailSheet({
           fontSize: 15,
           cursor: 'pointer'
         }}>
-            ✓ 同意
+            ✓ {tr('mob.sys.approve', '同意')}
           </button>
           <button onClick={() => {
           onClose();
@@ -959,7 +971,7 @@ function DetailSheet({
           fontSize: 15,
           cursor: 'pointer'
         }}>
-            ↪ 转交审批
+            ↪ {tr('mob.sys.transfer_approval', '转交审批')}
           </button>
           <button onClick={() => {
           onClose();
@@ -976,7 +988,7 @@ function DetailSheet({
           fontSize: 15,
           cursor: 'pointer'
         }}>
-            ✗ 不同意
+            ✗ {tr('mob.sys.reject', '不同意')}
           </button>
         </div>
       </div>
@@ -993,8 +1005,11 @@ function HistoryCard({
   const {
     t
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const statusColor = STATUS_COLOR[task.status] ?? 'var(--slate-400)';
-  const statusLabel = task.status === 'APPROVED' ? '已通过' : task.status === 'REJECTED' ? '已拒绝' : task.status;
+  const statusLabel = task.status === 'APPROVED' ? tr('mob.sys.step_approved', '已通过') : task.status === 'REJECTED' ? tr('mob.sys.step_rejected', '已拒绝') : task.status;
   return <div style={{
     background: t.cardBg,
     borderRadius: 14,
@@ -1027,7 +1042,7 @@ function HistoryCard({
           color: t.text,
           lineHeight: 1.4
         }}>
-            {safeSubject(task)}
+            {safeSubject(task, tr)}
           </div>
           {task.companyName && <div style={{
           fontSize: 12,
@@ -1060,7 +1075,11 @@ export default function WorkflowPage() {
     toggle,
     t
   } = useMobileTheme();
+  const {
+    t: tr
+  } = useLanguage();
   const toast = useToast();
+  const { allowed, loading: permLoading } = useMobilePermission('workflow');  // F10 加固：页面级门禁
   const [tab, setTab] = useState<Tab>('todos');
   const [todos, setTodos] = useState<WorkflowTask[]>([]);
   const [history, setHistory] = useState<WorkflowTask[]>([]);
@@ -1083,11 +1102,11 @@ export default function WorkflowPage() {
       setTodos(r.items);
       setTotal(r.total);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '加载失败');
+      setErr(e instanceof Error ? e.message : tr('mob.sys.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
   const loadHistory = useCallback(async () => {
     setLoading(true);
     setErr('');
@@ -1098,11 +1117,11 @@ export default function WorkflowPage() {
       });
       setHistory(r.items);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '加载失败');
+      setErr(e instanceof Error ? e.message : tr('mob.sys.load_failed', '加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
   useEffect(() => {
     if (tab === 'todos') loadTodos();else loadHistory();
   }, [tab, loadTodos, loadHistory]);
@@ -1123,6 +1142,7 @@ export default function WorkflowPage() {
     setDetailTask(null);
     loadTodos();
   }
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
   return <div style={{
     minHeight: '100svh',
     background: t.pageBg,
@@ -1151,7 +1171,7 @@ export default function WorkflowPage() {
         gap: 4
       }}>
           <ChevronLeft size={20} />
-          <span className={u.fs14}>返回</span>
+          <span className={u.fs14}>{tr('mob.sys.back', '返回')}</span>
         </button>
 
         <div className={u.flexRow8}>
@@ -1160,7 +1180,7 @@ export default function WorkflowPage() {
           fontWeight: 700,
           fontSize: 16,
           color: t.text
-        }}>审批中心</span>
+        }}>{tr('mob.sys.approval_center', '审批中心')}</span>
           {tab === 'todos' && total > 0 && <span style={{
           background: 'var(--status-danger)',
           color: 'var(--bg-card)',
@@ -1207,7 +1227,7 @@ export default function WorkflowPage() {
       borderRadius: 12,
       padding: 4
     }}>
-        {([['todos', '待办', todos.length], ['history', '已办', 0]] as const).map(([key, label, cnt]) => <button key={key} onClick={() => setTab(key)} style={{
+        {([['todos', tr('mob.sys.todo', '待办'), todos.length], ['history', tr('mob.sys.done', '已办'), 0]] as const).map(([key, label, cnt]) => <button key={key} onClick={() => setTab(key)} style={{
         flex: 1,
         padding: '9px 0',
         borderRadius: 10,
@@ -1252,8 +1272,8 @@ export default function WorkflowPage() {
       }}>
             {err}
           </div>}
-        {!loading && !err && tab === 'todos' && (todos.length === 0 ? <MobileEmptyState icon="✅" title="暂无待办审批" desc="当前没有需要您处理的审批任务" /> : todos.map(task => <TaskCard key={`${task.taskSource}-${task.taskId}`} task={task} onApprove={openApprove} onReject={openReject} onTransfer={openTransfer} onDetail={t => setDetailTask(t)} />))}
-        {!loading && !err && tab === 'history' && (history.length === 0 ? <MobileEmptyState icon="📋" title="暂无已办记录" desc="审批完成的任务会出现在这里" /> : history.map(task => <HistoryCard key={`${task.taskSource}-${task.taskId}`} task={task} />))}
+        {!loading && !err && tab === 'todos' && (todos.length === 0 ? <MobileEmptyState icon="✅" title={tr('mob.sys.no_todo_approval', '暂无待办审批')} desc={tr('mob.sys.no_todo_approval_desc', '当前没有需要您处理的审批任务')} /> : todos.map(task => <TaskCard key={`${task.taskSource}-${task.taskId}`} task={task} onApprove={openApprove} onReject={openReject} onTransfer={openTransfer} onDetail={t => setDetailTask(t)} />))}
+        {!loading && !err && tab === 'history' && (history.length === 0 ? <MobileEmptyState icon="📋" title={tr('mob.sys.no_done_records', '暂无已办记录')} desc={tr('mob.sys.no_done_records_desc', '审批完成的任务会出现在这里')} /> : history.map(task => <HistoryCard key={`${task.taskSource}-${task.taskId}`} task={task} />))}
       </div>
 
       {/* 操作底栏 */}

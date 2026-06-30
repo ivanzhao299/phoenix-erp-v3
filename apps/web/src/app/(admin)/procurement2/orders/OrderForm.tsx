@@ -17,6 +17,7 @@ import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector }
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
 import { AttachmentUploader, DocumentAutofillPanel, type DocumentAutofillSuggestion } from "@/components/design-system"; // G4-B 合同附件
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // G134：合同附件支持多文件——contractUrl 列改存 JSON 数组字符串；兼容历史单 url 值。
 function parseContractUrls(raw?: string): string[] {
@@ -118,6 +119,7 @@ interface ContractLineItemSuggestion {
 export default function OrderForm({ orderId }: { orderId?: string }) {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useLanguage();
   const editing = !!orderId;
 
   const [loading, setLoading] = useState(editing);
@@ -189,7 +191,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       setFRemark(row.remark ?? "");
       setFormItems(row.items?.length ? row.items.map(i => ({ ...i })) : [emptyItem()]);
     } catch {
-      toast.error("加载采购订单失败");
+      toast.error(t('prc2.load_order_failed', '加载采购订单失败'));
     } finally {
       setLoading(false);
     }
@@ -218,25 +220,25 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
 
   async function handleSave() {
     if (!fSubject.trim()) {
-      toast.error("请填写采购主题");
+      toast.error(t('prc2.please_fill_subject', '请填写采购主题'));
       return;
     }
     if (!fCompanyCode.trim()) {
-      toast.error("请填写公司代码");
+      toast.error(t('prc2.please_fill_company_code', '请填写公司代码'));
       return;
     }
     if (!fSupplierCode.trim()) {
-      toast.error("请填写供应商代码");
+      toast.error(t('prc2.please_fill_supplier_code', '请填写供应商代码'));
       return;
     }
     // G95-D：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
     const filledItems = formItems.filter(it => it.itemName.trim());
     if (filledItems.length === 0) {
-      toast.error("请至少填写一行物料明细");
+      toast.error(t('prc2.please_fill_one_item', '请至少填写一行物料明细'));
       return;
     }
     if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("已填物料的数量必须大于 0");
+      toast.error(t('prc2.qty_must_positive', '已填物料的数量必须大于 0'));
       return;
     }
     setSaving(true);
@@ -282,14 +284,14 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "保存失败");
+        throw new Error(e.message ?? t('prc2.save_failed', '保存失败'));
       }
       // G95-D：记住本次公司/项目/供应商，下次新建默认带出
       writeLastScope({ companyCode: fCompanyCode.trim(), companyName: fCompanyName.trim(), projectCode: fProjectCode.trim(), projectName: fProjectName.trim(), supplierCode: fSupplierCode.trim(), supplierName: fSupplierName.trim() });
-      toast.success(editing ? "保存成功" : "采购订单已创建");
+      toast.success(editing ? t('prc2.save_success', '保存成功') : t('prc2.order_created', '采购订单已创建'));
       router.push("/procurement2/orders");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
+      toast.error(e instanceof Error ? e.message : t('prc2.save_failed', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -331,7 +333,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         applied += 1;
       }
     }
-    toast.success(applied ? `已回填 ${applied} 项合同信息` : "当前建议未覆盖可回填字段");
+    toast.success(applied ? `${t('prc2.autofilled_prefix', '已回填')} ${applied} ${t('prc2.autofilled_suffix', '项合同信息')}` : t('prc2.no_autofill_fields', '当前建议未覆盖可回填字段'));
   }
 
   function parseLineItemSuggestions(value: string): OrderItem[] {
@@ -369,29 +371,29 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
     });
   }
 
-  if (loading) return <div className={u.emptyCenter}>加载中…</div>;
+  if (loading) return <div className={u.emptyCenter}>{t('prc2.loading', '加载中…')}</div>;
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: 88 }}>
-      <div className={s.formSection}>基础信息</div>
+      <div className={s.formSection}>{t('prc2.basic_info', '基础信息')}</div>
       <div className={s.fieldRow}>
         <div className={s.field} style={{
           gridColumn: "1 / -1"
         }}>
-          <label className={s.lbl}>采购主题 *</label>
-          <input className={s.inp} value={fSubject} onChange={e => setFSubject(e.target.value)} placeholder="采购主题" />
+          <label className={s.lbl}>{t('prc2.purchase_subject', '采购主题')} *</label>
+          <input className={s.inp} value={fSubject} onChange={e => setFSubject(e.target.value)} placeholder={t('prc2.purchase_subject', '采购主题')} />
         </div>
       </div>
       {/* G95：公司/项目并排——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>公司 *</label>
+          <label className={s.lbl}>{t('prc2.company', '公司')} *</label>
           {/* G4-B：公司主数据，DataScope 自动过滤 */}
           {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
           <CompanySelector value={fCompanyCode} onChange={v => { setFCompanyCode(v); setFProjectCode(""); setFProjectName(""); }} onPick={o => setFCompanyName(o?.label ?? "")} disabled={editing} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>项目</label>
+          <label className={s.lbl}>{t('prc2.project', '项目')}</label>
           {/* G4-B：项目主数据；G95-B 按所属公司过滤（先选公司） */}
           <ProjectSelector value={fProjectCode} onChange={setFProjectCode} onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={fCompanyCode || undefined} />
         </div>
@@ -399,34 +401,34 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
 
       <div className={s.formSection} style={{
         marginTop: 12
-      }}>供应商 &amp; 采购属性</div>
+      }}>{t('prc2.supplier_and_attrs', '供应商 & 采购属性')}</div>
       {/* G166：紧凑化——供应商&采购属性改满 2 列 */}
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>供应商 *</label>
+          <label className={s.lbl}>{t('prc2.supplier', '供应商')} *</label>
           {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
           <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>采购类型</label>
+          <label className={s.lbl}>{t('prc2.purchase_type', '采购类型')}</label>
           {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
           <DictSelect dictType="PRC_PURCHASE_TYPE" value={fPurchaseType} onChange={setFPurchaseType} allowEmpty={false} />
         </div>
       </div>
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>货币</label>
+          <label className={s.lbl}>{t('prc2.currency', '货币')}</label>
           {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
           <DictSelect dictType="SYS_CURRENCY" value={fCurrencyCode} onChange={setFCurrencyCode} allowEmpty={false} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>期望到货日</label>
+          <label className={s.lbl}>{t('prc2.expected_arrival_date', '期望到货日')}</label>
           <input type="date" className={s.inp} value={fExpDate} onChange={e => setFExpDate(e.target.value)} />
         </div>
       </div>
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>付款截止日</label>
+          <label className={s.lbl}>{t('prc2.pay_deadline_date', '付款截止日')}</label>
           <input type="date" className={s.inp} value={fPayDeadline} onChange={e => setFPayDeadline(e.target.value)} />
         </div>
         <div className={s.field} />
@@ -434,7 +436,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
 
       <div className={s.formSection} style={{
         marginTop: 12
-      }}>物流信息（可选）</div>
+      }}>{t('prc2.logistics_info_optional', '物流信息（可选）')}</div>
       <div className={s.field}>
         <label style={{
           display: "flex",
@@ -444,53 +446,53 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           cursor: "pointer"
         }}>
           <input type="checkbox" checked={fCrossBorder} onChange={e => setFCrossBorder(e.target.checked)} />
-          跨境采购
+          {t('prc2.cross_border_purchase', '跨境采购')}
         </label>
       </div>
       {fCrossBorder && <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>来源国家</label>
+          <label className={s.lbl}>{t('prc2.origin_country', '来源国家')}</label>
           <DictSelect dictType="SYS_COUNTRY" value={fOrigin} onChange={setFOrigin} allowEmpty />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>目的国家</label>
+          <label className={s.lbl}>{t('prc2.dest_country', '目的国家')}</label>
           <DictSelect dictType="SYS_COUNTRY" value={fDest} onChange={setFDest} allowEmpty />
         </div>
       </div>}
 
       <div className={s.formSection} style={{
         marginTop: 12
-      }}>合同信息（可选）</div>
+      }}>{t('prc2.contract_info_optional', '合同信息（可选）')}</div>
       <div className={s.fieldRow} style={{ alignItems: "start" }}>
         <div className={s.field}>
-          <label className={s.lbl}>合同号</label>
+          <label className={s.lbl}>{t('prc2.contract_no', '合同号')}</label>
           <input className={s.inp} value={fContractNo} onChange={e => setFContractNo(e.target.value)} placeholder="CT2-..." />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>合同附件</label>
+          <label className={s.lbl}>{t('prc2.contract_attachment', '合同附件')}</label>
           {/* G4-B：禁止 URL 文本框，使用统一附件上传组件 */}
-          <AttachmentUploader value={fContractUrls} onChange={setFContractUrls} label="上传合同/付款申请等附件（可多个，PDF/图片 ≤15MB）" />
+          <AttachmentUploader value={fContractUrls} onChange={setFContractUrls} label={t('prc2.upload_contract_label', '上传合同/付款申请等附件（可多个，PDF/图片 ≤15MB）')} />
           <DocumentAutofillPanel
             fileRefs={fContractUrls}
             purpose="PROCUREMENT_CONTRACT"
             fields={["subject", "supplierName", "contractNo", "currencyCode", "totalAmount", "expectedDate", "payDeadline", "contractNote", "lineItems"]}
             onApply={applyContractAutofill}
-            title="识别合同信息"
-            helperText="先审核再回填到本页已有字段和采购明细；不新增文本框。"
-            reviewTitle="合同识别结果（请人工审核）"
-            applyButtonLabel="确认选中结果并回填到采购单"
+            title={t('prc2.recognize_contract', '识别合同信息')}
+            helperText={t('prc2.autofill_helper', '先审核再回填到本页已有字段和采购明细；不新增文本框。')}
+            reviewTitle={t('prc2.contract_recognize_result', '合同识别结果（请人工审核）')}
+            applyButtonLabel={t('prc2.confirm_autofill_to_order', '确认选中结果并回填到采购单')}
           />
         </div>
       </div>
       {/* G166：合同摘要 + 备注 并排两列 */}
       <div className={s.fieldRow}>
         <div className={s.field}>
-          <label className={s.lbl}>合同摘要</label>
-          <textarea className={s.textarea} rows={1} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
+          <label className={s.lbl}>{t('prc2.contract_summary', '合同摘要')}</label>
+          <textarea className={s.textarea} rows={1} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder={t('prc2.contract_summary_placeholder', '选填：合同关键条款摘要（金额/账期/交付等）')} />
         </div>
         <div className={s.field}>
-          <label className={s.lbl}>备注</label>
-          <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
+          <label className={s.lbl}>{t('prc2.remark', '备注')}</label>
+          <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder={t('prc2.remark_placeholder', '选填：补充说明')} />
         </div>
       </div>
 
@@ -504,7 +506,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       }}>
         <span className={s.formSection} style={{
           margin: 0
-        }}>采购明细（{formItems.length} 行）</span>
+        }}>{t('prc2.purchase_detail', '采购明细')}（{formItems.length} {t('prc2.rows_unit_line', '行')}）</span>
         <button type="button" className={s.btnSecondary} style={{
           padding: "3px 10px",
           fontSize: 12,
@@ -512,7 +514,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           alignItems: "center",
           gap: 4
         }} onClick={() => setFormItems(p => [...p, emptyItem()])}>
-          <Plus size={12} /> 添加行
+          <Plus size={12} /> {t('prc2.add_row', '添加行')}
         </button>
       </div>
       <div style={{
@@ -528,7 +530,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         fontSize: 12
       }}>
         <Search size={13} />
-        <span>物料名称支持快速搜索；未找到可直接新建，并自动带回规格、单位。</span>
+        <span>{t('prc2.material_search_hint', '物料名称支持快速搜索；未找到可直接新建，并自动带回规格、单位。')}</span>
       </div>
       {/* G136：单位建议项（含工程/服务类单位）——datalist 仅建议、仍可自由输入 */}
       <datalist id="po-unit-options">
@@ -544,16 +546,16 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
             <tr style={{
               background: "var(--bg-muted)"
             }}>
-              <th style={thStyle}>物料名称 *</th>
-              <th style={thStyle}>规格</th>
-              <th style={thStyle}>数量 *</th>
-              <th style={thStyle}>单位</th>
-              <th style={thStyle}>单价 *</th>
+              <th style={thStyle}>{t('prc2.item_name', '物料名称')} *</th>
+              <th style={thStyle}>{t('prc2.spec', '规格')}</th>
+              <th style={thStyle}>{t('prc2.qty', '数量')} *</th>
+              <th style={thStyle}>{t('prc2.unit', '单位')}</th>
+              <th style={thStyle}>{t('prc2.unit_price', '单价')} *</th>
               <th style={{
                 ...thStyle,
                 textAlign: "right"
-              }}>小计</th>
-              <th style={thStyle}>仓库</th>
+              }}>{t('prc2.subtotal', '小计')}</th>
+              <th style={thStyle}>{t('prc2.warehouse', '仓库')}</th>
               <th style={{
                 ...thStyle,
                 width: 28
@@ -570,7 +572,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
                   setItemField(idx, "itemCode", m?.material_code ?? "");
                   setItemField(idx, "spec", m?.spec ?? "");
                   setItemField(idx, "unit", m?.unit ?? "");
-                  if (m?.material_code) toast.success(`已选择物料：${m.material_name}`);
+                  if (m?.material_code) toast.success(`${t('prc2.material_selected_prefix', '已选择物料：')}${m.material_name}`);
                 }} style={{
                   minWidth: 200,
                   fontSize: 12,
@@ -581,7 +583,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
                 ...cellInp,
                 width: 80,
                 background: "var(--bg-muted)"
-              }} value={it.spec ?? ""} readOnly placeholder="由物料自动带出" /></td>
+              }} value={it.spec ?? ""} readOnly placeholder={t('prc2.spec_auto_filled', '由物料自动带出')} /></td>
               <td style={tdStyle}><input style={{
                 ...cellInp,
                 width: 70
@@ -589,7 +591,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
               <td style={tdStyle}><input list="po-unit-options" style={{
                 ...cellInp,
                 width: 50
-              }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="单位" /></td>
+              }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder={t('prc2.unit', '单位')} /></td>
               <td style={tdStyle}><input style={{
                 ...cellInp,
                 width: 90
@@ -633,7 +635,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                合计（{fCurrencyCode}）
+                {t('prc2.total_label', '合计')}（{fCurrencyCode}）
               </td>
               <td style={{
                 textAlign: "right",
@@ -656,10 +658,10 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         display: "flex", gap: 10, justifyContent: "flex-end",
       }}>
         <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => router.push("/procurement2/orders")}>
-          <ArrowLeft size={14} /> 返回
+          <ArrowLeft size={14} /> {t('prc2.back', '返回')}
         </button>
         <button type="button" className={`${s.btnPrimary} ${u.flexRow}`} onClick={handleSave} disabled={saving}>
-          <Save size={14} /> {saving ? "保存中…" : editing ? "保存" : "保存草稿"}
+          <Save size={14} /> {saving ? t('prc2.saving', '保存中…') : editing ? t('prc2.save', '保存') : t('prc2.save_draft', '保存草稿')}
         </button>
       </div>
     </div>

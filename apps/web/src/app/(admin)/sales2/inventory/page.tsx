@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader';
 import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -182,10 +183,11 @@ function SkuBadge({
 }: {
   skuCode?: string | null;
 }) {
+  const { t } = useLanguage();
   if (!skuCode) return <span style={{
     color: 'var(--gray-400)',
     fontSize: 11
-  }}>旧批次</span>;
+  }}>{t('ui.旧批次','旧批次')}</span>;
   return <span style={{
     fontFamily: 'monospace',
     fontSize: 11,
@@ -217,6 +219,7 @@ function StatCard({
 // ── Tab: 批次库存 ─────────────────────────────────────────────────────────────
 
 function BatchesTab() {
+  const { t } = useLanguage();
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -294,7 +297,7 @@ function BatchesTab() {
     // 数量必须为正整数（防止 -2 等负数/0 提交；后端亦校验，前端先拦更友好）
     const qtyNum = Number(form.qty);
     if (!Number.isFinite(qtyNum) || qtyNum <= 0 || !Number.isInteger(qtyNum)) {
-      setCreateErr('数量（枚）必须为大于 0 的整数');
+      setCreateErr(t('ui.数量（枚）必须为大于 0 的整数','数量（枚）必须为大于 0 的整数'));
       return;
     }
     setCreating(true);
@@ -340,23 +343,23 @@ function BatchesTab() {
         ...inputStyle,
         minWidth: 240
       }}>
-          <option value="">按商品组合(SKU)过滤...</option>
+          <option value="">{t('ui.按商品组合(SKU)过滤...','按商品组合(SKU)过滤...')}</option>
           {skus.filter(x => x.status === 'ACTIVE').map(x => (
             <option key={x.sku_code} value={x.sku_code}>
-              {x.sku_name ? `${x.sku_name}（${x.sku_code}）` : x.sku_code}
+              {x.sku_name ? `${x.sku_name}${t('ui.（','（')}${x.sku_code}${t('ui.）','）')}` : x.sku_code}
             </option>
           ))}
         </select>
         {!skuCodeFilter && <>
-            <input value={productCode} onChange={e => setProductCode(e.target.value)} placeholder="产品代码" style={inputStyle} />
+            <input value={productCode} onChange={e => setProductCode(e.target.value)} placeholder={t('ui.产品代码','产品代码')} style={inputStyle} />
             <select value={gradeCode} onChange={e => setGradeCode(e.target.value)} style={inputStyle}>
-              <option value="">所有等级</option>
+              <option value="">{t('ui.所有等级','所有等级')}</option>
               {productGrades.map(g => <option key={g.grade_code} value={g.grade_code}>{g.grade_name}</option>)}
             </select>
           </>}
-        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder="公司/农场代码" style={inputStyle} />
-        <button onClick={load} style={btnStyle('var(--color-accent)')}>查询</button>
-        <button onClick={() => setShowCreate(true)} style={btnStyle('var(--status-success)')}>+ 创建批次</button>
+        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder={t('ui.公司/农场代码','公司/农场代码')} style={inputStyle} />
+        <button onClick={load} style={btnStyle('var(--color-accent)')}>{t('ui.查询','查询')}</button>
+        <button onClick={() => setShowCreate(true)} style={btnStyle('var(--status-success)')}>+ {t('ui.创建批次','创建批次')}</button>
       </div>
 
       {error && <div style={{
@@ -375,7 +378,7 @@ function BatchesTab() {
           <h4 style={{
         margin: '0 0 12px',
         color: 'var(--status-success-dark)'
-      }}>创建生产批次</h4>
+      }}>{t('ui.创建生产批次','创建生产批次')}</h4>
 
           {/* Phase H4: SKU 快捷选择 */}
           <div className={u.mb14}>
@@ -384,11 +387,11 @@ function BatchesTab() {
           display: 'block',
           marginBottom: 4
         }}>
-              商品组合（SKU）<span style={{
+              {t('ui.商品组合（SKU）','商品组合（SKU）')}<span style={{
             fontSize: 11,
             color: 'var(--gray-500)',
             marginLeft: 6
-          }}>选择后自动填充产品/等级/规格</span>
+          }}>{t('ui.选择后自动填充产品/等级/规格','选择后自动填充产品/等级/规格')}</span>
             </label>
             {skus.length === 0 ? <div style={{
           fontSize: 12,
@@ -398,12 +401,12 @@ function BatchesTab() {
           borderRadius: 6,
           border: '1px solid var(--status-warning-bg-medium)'
         }}>
-                暂无 SKU 主数据，请先在主数据中心维护商品组合
+                {t('ui.暂无 SKU 主数据，请先在主数据中心维护商品组合','暂无 SKU 主数据，请先在主数据中心维护商品组合')}
               </div> : <select value={form.skuCode} onChange={e => handleSkuSelect(e.target.value)} style={{
           ...inputStyle,
           width: 280
         }}>
-                <option value="">— 不使用 SKU 选择器，手动填写 —</option>
+                <option value="">{t('ui.— 不使用 SKU 选择器，手动填写 —','— 不使用 SKU 选择器，手动填写 —')}</option>
                 {skus.filter(x => x.status === 'ACTIVE').map(x => <option key={x.sku_code} value={x.sku_code}>
                     {x.sku_code}{x.sku_name ? ` · ${x.sku_name}` : ''}
                   </option>)}
@@ -415,7 +418,7 @@ function BatchesTab() {
         gridTemplateColumns: 'repeat(3,1fr)',
         gap: 10
       }}>
-            {([['公司代码', 'companyCode', 'text'], ['产品代码', 'productCode', 'text'], ['生产日期', 'eggDate', 'date'], ['数量（枚）', 'qty', 'number'], ['保质天数', 'shelfDays', 'number'], ['来源单号', 'sourceNo', 'text'], ['包装规格', 'packagingSpec', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
+            {([[t('ui.公司代码','公司代码'), 'companyCode', 'text'], [t('ui.产品代码','产品代码'), 'productCode', 'text'], [t('ui.生产日期','生产日期'), 'eggDate', 'date'], [t('ui.数量（枚）','数量（枚）'), 'qty', 'number'], [t('ui.保质天数','保质天数'), 'shelfDays', 'number'], [t('ui.来源单号','来源单号'), 'sourceNo', 'text'], [t('ui.包装规格','包装规格'), 'packagingSpec', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 3,
@@ -439,7 +442,7 @@ function BatchesTab() {
           gap: 3,
           fontSize: 13
         }}>
-              质量等级
+              {t('ui.质量等级','质量等级')}
               <select value={form.qualityGrade} disabled={!!form.skuCode} onChange={e => setForm(p => ({
             ...p,
             qualityGrade: e.target.value
@@ -464,7 +467,7 @@ function BatchesTab() {
         marginTop: 12
       }}>
             <button onClick={handleCreate} disabled={creating} style={btnStyle('var(--status-success)')}>
-              {creating ? '创建中...' : '确认创建'}
+              {creating ? t('ui.创建中...','创建中...') : t('ui.确认创建','确认创建')}
             </button>
             <button onClick={() => {
           setShowCreate(false);
@@ -472,7 +475,7 @@ function BatchesTab() {
             ...f,
             skuCode: ''
           }));
-        }} style={btnStyle('var(--gray-500)')}>取消</button>
+        }} style={btnStyle('var(--gray-500)')}>{t('ui.取消','取消')}</button>
           </div>
         </div>}
 
@@ -481,11 +484,11 @@ function BatchesTab() {
       textAlign: 'center',
       color: 'var(--gray-400)',
       padding: 40
-    }}>加载中...</div> : <div className={u.scrollX}>
+    }}>{t('ui.加载中...','加载中...')}</div> : <div className={u.scrollX}>
           <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                {['批次号', '商品组合', '产品代码', '等级', '公司', '可用量', '总量', '状态', '生产日期', '到期日', '来源'].map(h => <th key={h}>{h}</th>)}
+                {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.总量','总量'), t('ui.状态','状态'), t('ui.生产日期','生产日期'), t('ui.到期日','到期日'), t('ui.来源','来源')].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -493,7 +496,7 @@ function BatchesTab() {
               textAlign: 'center',
               color: 'var(--gray-400)',
               padding: 40
-            }}>暂无数据</td></tr>}
+            }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
               {batches.map(b => <tr key={b.batch_no}>
                   <td><code className={u.fs11}>{b.batch_no}</code></td>
                   <td><SkuBadge skuCode={b.sku_code} /></td>
@@ -529,6 +532,7 @@ function BatchesTab() {
 // ── Tab: 临期库存 ─────────────────────────────────────────────────────────────
 
 function ExpiringTab() {
+  const { t } = useLanguage();
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -561,16 +565,16 @@ function ExpiringTab() {
       alignItems: 'center'
     }}>
         <label className={u.fs13}>
-          预警天数：
+          {t('ui.预警天数：','预警天数：')}
           <select value={days} onChange={e => setDays(Number(e.target.value))} style={{
           ...inputStyle,
           marginLeft: 6
         }}>
-            {[3, 5, 7, 10, 14].map(d => <option key={d} value={d}>{d} 天</option>)}
+            {[3, 5, 7, 10, 14].map(d => <option key={d} value={d}>{d} {t('ui.天','天')}</option>)}
           </select>
         </label>
-        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder="公司代码" style={inputStyle} />
-        <button onClick={load} style={btnStyle('var(--status-warning)')}>查询</button>
+        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder={t('ui.公司代码','公司代码')} style={inputStyle} />
+        <button onClick={load} style={btnStyle('var(--status-warning)')}>{t('ui.查询','查询')}</button>
       </div>
       {error && <div style={{
       color: 'var(--status-danger)',
@@ -581,11 +585,11 @@ function ExpiringTab() {
       textAlign: 'center',
       color: 'var(--gray-400)',
       padding: 40
-    }}>加载中...</div> : <div className={u.scrollX}>
+    }}>{t('ui.加载中...','加载中...')}</div> : <div className={u.scrollX}>
           <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                {['批次号', '商品组合', '产品', '等级', '公司', '可用量', '到期日', '剩余天数', '状态'].map(h => <th key={h}>{h}</th>)}
+                {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品','产品'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.到期日','到期日'), t('ui.剩余天数','剩余天数'), t('ui.状态','状态')].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -593,7 +597,7 @@ function ExpiringTab() {
               textAlign: 'center',
               color: 'var(--gray-400)',
               padding: 40
-            }}>无临期库存</td></tr>}
+            }}>{t('ui.无临期库存','无临期库存')}</td></tr>}
               {batches.map(b => {
             const daysLeft = (b as any).days_remaining ?? 0;
             const urgent = daysLeft <= 3;
@@ -618,7 +622,7 @@ function ExpiringTab() {
                 color: urgent ? 'var(--status-danger)' : 'var(--status-warning)',
                 fontWeight: 700
               }}>
-                      {daysLeft} 天 {urgent && '⚠ 紧急'}
+                      {daysLeft} {t('ui.天','天')} {urgent && t('ui.⚠ 紧急','⚠ 紧急')}
                     </td>
                     <td>{statusBadge(b.status)}</td>
                   </tr>;
@@ -632,6 +636,7 @@ function ExpiringTab() {
 // ── Tab: FIFO 出库 ────────────────────────────────────────────────────────────
 
 function FifoTab() {
+  const { t } = useLanguage();
   const [skus, setSkus] = useState<SkuItem[]>([]);
   const [form, setForm] = useState({
     productCode: 'EGG',
@@ -669,11 +674,11 @@ function FifoTab() {
   };
   const handleAllocate = async () => {
     if (!form.companyCode || !form.qty || !form.refNo) {
-      setError('请填写公司代码、数量和单号');
+      setError(t('ui.请填写公司代码、数量和单号','请填写公司代码、数量和单号'));
       return;
     }
     if (!form.skuCode && !form.productCode) {
-      setError('请选择商品组合或填写产品代码');
+      setError(t('ui.请选择商品组合或填写产品代码','请选择商品组合或填写产品代码'));
       return;
     }
     setLoading(true);
@@ -703,14 +708,14 @@ function FifoTab() {
       <h4 style={{
       marginTop: 0,
       color: 'var(--gray-700)'
-    }}>手动 FIFO 分配（测试 / 调整用）</h4>
+    }}>{t('ui.手动 FIFO 分配（测试 / 调整用）','手动 FIFO 分配（测试 / 调整用）')}</h4>
       <p style={{
       fontSize: 13,
       color: 'var(--gray-500)',
       marginBottom: 16
     }}>
-        系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。
-        支持按商品组合（SKU）精确分配。
+        {t('ui.系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。','系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。')}
+        {t('ui.支持按商品组合（SKU）精确分配。','支持按商品组合（SKU）精确分配。')}
       </p>
 
       {/* Phase H4: SKU 快捷选择 */}
@@ -720,13 +725,13 @@ function FifoTab() {
         display: 'block',
         marginBottom: 4
       }}>
-            商品组合（SKU）优先分配
+            {t('ui.商品组合（SKU）优先分配','商品组合（SKU）优先分配')}
           </label>
           <select value={form.skuCode} onChange={e => handleSkuSelect(e.target.value)} style={{
         ...inputStyle,
         width: '100%'
       }}>
-            <option value="">— 不使用 SKU 路径，手动填写产品代码 —</option>
+            <option value="">{t('ui.— 不使用 SKU 路径，手动填写产品代码 —','— 不使用 SKU 路径，手动填写产品代码 —')}</option>
             {skus.filter(x => x.status === 'ACTIVE').map(x => <option key={x.sku_code} value={x.sku_code}>{x.sku_code}</option>)}
           </select>
         </div>}
@@ -736,7 +741,7 @@ function FifoTab() {
       gridTemplateColumns: '1fr 1fr',
       gap: 12
     }}>
-        {([['产品代码', 'productCode', 'text'], ['公司代码', 'companyCode', 'text'], ['分配数量', 'qty', 'number'], ['参考单号', 'refNo', 'text'], ['备注', 'note', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
+        {([[t('ui.产品代码','产品代码'), 'productCode', 'text'], [t('ui.公司代码','公司代码'), 'companyCode', 'text'], [t('ui.分配数量','分配数量'), 'qty', 'number'], [t('ui.参考单号','参考单号'), 'refNo', 'text'], [t('ui.备注','备注'), 'note', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
         display: 'flex',
         flexDirection: 'column',
         gap: 3,
@@ -760,12 +765,12 @@ function FifoTab() {
         gap: 3,
         fontSize: 13
       }}>
-            质量等级（可选）
+            {t('ui.质量等级（可选）','质量等级（可选）')}
             <select value={form.gradeCode} onChange={e => setForm(p => ({
           ...p,
           gradeCode: e.target.value
         }))} style={inputStyle}>
-              <option value="">不限等级</option>
+              <option value="">{t('ui.不限等级','不限等级')}</option>
               {['AA', 'A', 'B'].map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </label>}
@@ -778,7 +783,7 @@ function FifoTab() {
       ...btnStyle('var(--color-accent)'),
       marginTop: 16
     }}>
-        {loading ? '分配中...' : '执行 FIFO 分配'}
+        {loading ? t('ui.分配中...','分配中...') : t('ui.执行 FIFO 分配','执行 FIFO 分配')}
       </button>
       {result && <div style={{
       marginTop: 16,
@@ -790,7 +795,7 @@ function FifoTab() {
     }}>
           <strong style={{
         color: 'var(--status-success-dark)'
-      }}>分配成功</strong>
+      }}>{t('ui.分配成功','分配成功')}</strong>
           <pre style={{
         margin: '8px 0 0',
         fontSize: 12,
@@ -805,6 +810,7 @@ function FifoTab() {
 // ── Tab: 损耗分析 ─────────────────────────────────────────────────────────────
 
 function LossTab() {
+  const { t } = useLanguage();
   const [data, setData] = useState<LossAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -826,9 +832,9 @@ function LossTab() {
     load();
   }, [load]);
   const changeTypeLabel: Record<string, string> = {
-    EXPIRE_WRITEOFF: '过期核销',
-    DAMAGE_WRITEOFF: '破损核销',
-    WRITE_OFF: '手动核销'
+    EXPIRE_WRITEOFF: t('ui.过期核销','过期核销'),
+    DAMAGE_WRITEOFF: t('ui.破损核销','破损核销'),
+    WRITE_OFF: t('ui.手动核销','手动核销')
   };
   return <div>
       <div style={{
@@ -837,8 +843,8 @@ function LossTab() {
       marginBottom: 20,
       alignItems: 'center'
     }}>
-        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder="公司代码（可选）" style={inputStyle} />
-        <button onClick={load} style={btnStyle('var(--color-purple-600)')}>刷新</button>
+        <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder={t('ui.公司代码（可选）','公司代码（可选）')} style={inputStyle} />
+        <button onClick={load} style={btnStyle('var(--color-purple-600)')}>{t('ui.刷新','刷新')}</button>
       </div>
       {error && <div style={{
       color: 'var(--status-danger)',
@@ -849,26 +855,26 @@ function LossTab() {
       textAlign: 'center',
       color: 'var(--gray-400)',
       padding: 40
-    }}>加载中...</div> : data && <div>
+    }}>{t('ui.加载中...','加载中...')}</div> : data && <div>
           <div style={{
         display: 'flex',
         gap: 12,
         marginBottom: 24,
         flexWrap: 'wrap'
       }}>
-            <StatCard label="30日过期损耗（枚）" value={fmt(data.summary.total_expire_loss)} color="var(--status-danger)" />
-            <StatCard label="30日破损损耗（枚）" value={fmt(data.summary.total_damage_loss)} color="var(--status-warning)" />
-            <StatCard label="30日合计损耗（枚）" value={fmt(data.summary.total_loss)} color="var(--color-purple-600)" />
+            <StatCard label={t('ui.30日过期损耗（枚）','30日过期损耗（枚）')} value={fmt(data.summary.total_expire_loss)} color="var(--status-danger)" />
+            <StatCard label={t('ui.30日破损损耗（枚）','30日破损损耗（枚）')} value={fmt(data.summary.total_damage_loss)} color="var(--status-warning)" />
+            <StatCard label={t('ui.30日合计损耗（枚）','30日合计损耗（枚）')} value={fmt(data.summary.total_loss)} color="var(--color-purple-600)" />
           </div>
 
           <h4 style={{
         color: 'var(--gray-700)',
         marginBottom: 8
-      }}>按损耗类型（近30天）</h4>
+      }}>{t('ui.按损耗类型（近30天）','按损耗类型（近30天）')}</h4>
           <table className={`${s.table} ${u.mb24}`} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                {['损耗类型', '批次数', '合计损耗（枚）'].map(h => <th key={h}>{h}</th>)}
+                {[t('ui.损耗类型','损耗类型'), t('ui.批次数','批次数'), t('ui.合计损耗（枚）','合计损耗（枚）')].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -884,18 +890,18 @@ function LossTab() {
               textAlign: 'center',
               color: 'var(--gray-400)',
               padding: 24
-            }}>近30天无损耗记录</td></tr>}
+            }}>{t('ui.近30天无损耗记录','近30天无损耗记录')}</td></tr>}
             </tbody>
           </table>
 
           <h4 style={{
         color: 'var(--gray-700)',
         marginBottom: 8
-      }}>按批次损耗排名（近30天）</h4>
+      }}>{t('ui.按批次损耗排名（近30天）','按批次损耗排名（近30天）')}</h4>
           <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                {['批次号', '商品组合', '产品代码', '合计损耗', '最后事件时间'].map(h => <th key={h}>{h}</th>)}
+                {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.合计损耗','合计损耗'), t('ui.最后事件时间','最后事件时间')].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -913,7 +919,7 @@ function LossTab() {
               textAlign: 'center',
               color: 'var(--gray-400)',
               padding: 24
-            }}>暂无数据</td></tr>}
+            }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
             </tbody>
           </table>
         </div>}
@@ -959,6 +965,7 @@ const TABS = [{
   label: '损耗分析'
 }];
 export default function InventoryPage() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<string>('batches');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   useEffect(() => {
@@ -969,7 +976,7 @@ export default function InventoryPage() {
     background: 'var(--gray-50)',
     minHeight: '100vh'
   }}>
-      <PageHeader title="库存管理" subtitle="先进先出 · SKU 精确分配 · 到期预警 · 损耗分析" breadcrumb={['销售系统', '库存管理']} />
+      <PageHeader title={t('ui.库存管理','库存管理')} subtitle={t('ui.先进先出 · SKU 精确分配 · 到期预警 · 损耗分析','先进先出 · SKU 精确分配 · 到期预警 · 损耗分析')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.库存管理','库存管理')]} />
 
       {/* 仪表盘统计 */}
       {stats && <div style={{
@@ -978,14 +985,14 @@ export default function InventoryPage() {
       marginBottom: 24,
       flexWrap: 'wrap'
     }}>
-          <StatCard label="活跃批次" value={stats.activeBatches} />
-          <StatCard label="总可用库存（枚）" value={fmt(stats.totalAvailable)} color="var(--color-accent)" />
-          <StatCard label="临期批次（≤7天）" value={stats.expiringBatches} color="var(--status-warning)" sub={`${fmt(stats.expiringQty)} 枚`} />
-          <StatCard label="已过期批次" value={stats.expiredBatches} color="var(--status-danger)" />
-          <StatCard label="退货待检批次" value={stats.returnedBatches} color="var(--color-purple-600)" />
-          {stats.skuLinkedBatches !== undefined && <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="var(--color-accent)" sub="SKU 批次" />}
-          <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="var(--status-danger)" />
-          <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="var(--status-warning-dark)" />
+          <StatCard label={t('ui.活跃批次','活跃批次')} value={stats.activeBatches} />
+          <StatCard label={t('ui.总可用库存（枚）','总可用库存（枚）')} value={fmt(stats.totalAvailable)} color="var(--color-accent)" />
+          <StatCard label={t('ui.临期批次（≤7天）','临期批次（≤7天）')} value={stats.expiringBatches} color="var(--status-warning)" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
+          <StatCard label={t('ui.已过期批次','已过期批次')} value={stats.expiredBatches} color="var(--status-danger)" />
+          <StatCard label={t('ui.退货待检批次','退货待检批次')} value={stats.returnedBatches} color="var(--color-purple-600)" />
+          {stats.skuLinkedBatches !== undefined && <StatCard label={t('ui.已接入 SKU 批次','已接入 SKU 批次')} value={stats.skuLinkedBatches} color="var(--color-accent)" sub={t('ui.SKU 批次','SKU 批次')} />}
+          <StatCard label={t('ui.今日过期损耗（枚）','今日过期损耗（枚）')} value={fmt(stats.todayExpireLoss)} color="var(--status-danger)" />
+          <StatCard label={t('ui.今日破损损耗（枚）','今日破损损耗（枚）')} value={fmt(stats.todayDamageLoss)} color="var(--status-warning-dark)" />
         </div>}
 
       {/* 标签页 */}

@@ -7,10 +7,12 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowMonitorTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 export default function WorkflowMonitorPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowMonitorTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [comment, setComment] = useState("请尽快处理该流程，如需补充资料请及时反馈。");
+  const [comment, setComment] = useState(t('ui.请尽快处理该流程，如需补充资料请及时反馈。','请尽快处理该流程，如需补充资料请及时反馈。'));
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -49,23 +51,23 @@ export default function WorkflowMonitorPage() {
     setError("");
     try {
       const res = await workflowApi.urgeInstance(selected.instance_id, comment.trim());
-      setNotice(`已催办 ${res.data.urgedTaskCount} 个待处理任务。`);
+      setNotice(`${t('ui.已催办','已催办')} ${res.data.urgedTaskCount} ${t('ui.个待处理任务。','个待处理任务。')}`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "催办失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.催办失败','催办失败'));
     } finally {
       setLoading(false);
     }
   }
   return <div>
-      <PageHeader title="流程督办" subtitle="查看正在流转的审批任务，识别超时与长期等待项，并对卡点流程发起催办" breadcrumb={["工作流", "流程督办"]} actions={<Link href="/workflow/instances?status=RUNNING" style={secondaryActionButton}>流转中实例</Link>} />
+      <PageHeader title={t('ui.流程督办','流程督办')} subtitle={t('ui.查看正在流转的审批任务，识别超时与长期等待项，并对卡点流程发起催办','查看正在流转的审批任务，识别超时与长期等待项，并对卡点流程发起催办')} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程督办','流程督办')]} actions={<Link href="/workflow/instances?status=RUNNING" style={secondaryActionButton}>{t('ui.流转中实例','流转中实例')}</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={metricGridStyle}>
-          <Metric label="流转任务" value={stats.total} />
-          <Metric label="已超时" value={stats.overdue} tone={stats.overdue ? "danger" : "ok"} />
-          <Metric label="超过 24 小时" value={stats.longWaiting} tone={stats.longWaiting ? "warn" : "ok"} />
-          <Metric label="已催办" value={stats.urged} />
+          <Metric label={t('ui.流转任务','流转任务')} value={stats.total} />
+          <Metric label={t('ui.已超时','已超时')} value={stats.overdue} tone={stats.overdue ? "danger" : "ok"} />
+          <Metric label={t('ui.超过 24 小时','超过 24 小时')} value={stats.longWaiting} tone={stats.longWaiting ? "warn" : "ok"} />
+          <Metric label={t('ui.已催办','已催办')} value={stats.urged} />
         </div>
       </section>
 
@@ -74,10 +76,10 @@ export default function WorkflowMonitorPage() {
           <div className={s.cardBody}>
             <div style={sectionHeaderStyle}>
               <div>
-                <h3 className={s.cardTitle}>当前卡点</h3>
-                <p className={`${s.modalDesc} ${u.mt4}`}>超时、临近超时和等待最久的任务优先展示。</p>
+                <h3 className={s.cardTitle}>{t('ui.当前卡点','当前卡点')}</h3>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.超时、临近超时和等待最久的任务优先展示。','超时、临近超时和等待最久的任务优先展示。')}</p>
               </div>
-              <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>刷新</button>
+              <button type="button" style={secondaryActionButton} onClick={load} disabled={loading}>{t('ui.刷新','刷新')}</button>
             </div>
 
             {rows.length ? <div style={listStyle}>
@@ -90,11 +92,11 @@ export default function WorkflowMonitorPage() {
                       <strong>{row.title || row.instance_no}</strong>
                       <span className={statusBadgeClass(row)}>{statusLabel(row)}</span>
                     </span>
-                    <span>{row.node_name || "审批"} · {assigneeText(row)}</span>
-                    <small>{row.definition_name || "工作流"} · 等待 {waitingText(row.waiting_hours)}</small>
+                    <span>{row.node_name || t('ui.审批','审批')} · {assigneeText(row)}</span>
+                    <small>{row.definition_name || t('ui.工作流','工作流')} · {t('ui.等待','等待')} {waitingText(row.waiting_hours)}</small>
                   </button>)}
               </div> : <div className={s.emptyState}>
-                <div className={s.emptyStateText}>当前没有需要督办的流转任务。</div>
+                <div className={s.emptyStateText}>{t('ui.当前没有需要督办的流转任务。','当前没有需要督办的流转任务。')}</div>
               </div>}
           </div>
         </section>
@@ -104,26 +106,26 @@ export default function WorkflowMonitorPage() {
               <div style={detailHeaderStyle}>
                 <div>
                   <h3 className={s.cardTitle}>{selected.title}</h3>
-                  <p className={`${s.modalDesc} ${u.mt4}`}>{selected.instance_no || "-"} · {selected.definition_name || "工作流"}</p>
+                  <p className={`${s.modalDesc} ${u.mt4}`}>{selected.instance_no || "-"} · {selected.definition_name || t('ui.工作流','工作流')}</p>
                 </div>
                 <span className={statusBadgeClass(selected)}>{statusLabel(selected)}</span>
               </div>
 
               <div className={`${s.infoGrid3} ${u.mb16}`}>
-                <Meta label="当前节点" value={selected.node_name || "-"} />
-                <Meta label="处理人" value={assigneeText(selected)} />
-                <Meta label="发起人" value={selected.starter_name || "-"} />
-                <Meta label="等待时长" value={waitingText(selected.waiting_hours)} />
-                <Meta label="截止时间" value={formatDate(selected.due_at) || "未设置"} />
-                <Meta label="催办记录" value={selected.urge_count ? `${selected.urge_count} 次，最近 ${formatDate(selected.last_urged_at)}` : "暂无催办"} />
+                <Meta label={t('ui.当前节点','当前节点')} value={selected.node_name || "-"} />
+                <Meta label={t('ui.处理人','处理人')} value={assigneeText(selected)} />
+                <Meta label={t('ui.发起人','发起人')} value={selected.starter_name || "-"} />
+                <Meta label={t('ui.等待时长','等待时长')} value={waitingText(selected.waiting_hours)} />
+                <Meta label={t('ui.截止时间','截止时间')} value={formatDate(selected.due_at) || t('ui.未设置','未设置')} />
+                <Meta label={t('ui.催办记录','催办记录')} value={selected.urge_count ? `${selected.urge_count} ${t('ui.次，最近','次，最近')} ${formatDate(selected.last_urged_at)}` : t('ui.暂无催办','暂无催办')} />
               </div>
 
               <div style={urgePanelStyle}>
                 <div>
                   <h4 className={s.cardTitle} style={{
                 margin: 0
-              }}>催办意见</h4>
-                  <p className={`${s.modalDesc} ${u.mt4}`}>催办会写入流程动作记录，后续可扩展消息通知。</p>
+              }}>{t('ui.催办意见','催办意见')}</h4>
+                  <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.催办会写入流程动作记录，后续可扩展消息通知。','催办会写入流程动作记录，后续可扩展消息通知。')}</p>
                 </div>
                 <textarea className={s.textarea} value={comment} onChange={e => setComment(e.target.value)} />
                 {notice ? <div className={s.successBanner}>{notice}</div> : null}
@@ -131,13 +133,13 @@ export default function WorkflowMonitorPage() {
               </div>
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看详情</Link>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>{t('ui.查看详情','查看详情')}</Link>
                 <button type="button" style={primaryActionButton} disabled={loading} onClick={urge}>
-                  {loading ? "催办中..." : "发送催办"}
+                  {loading ? t('ui.催办中...','催办中...') : t('ui.发送催办','发送催办')}
                 </button>
               </div>
             </div> : <div className={s.emptyState}>
-              <div className={s.emptyStateText}>选择一条任务后查看督办详情。</div>
+              <div className={s.emptyStateText}>{t('ui.选择一条任务后查看督办详情。','选择一条任务后查看督办详情。')}</div>
             </div>}
         </section>
       </div>

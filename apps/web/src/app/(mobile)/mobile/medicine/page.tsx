@@ -10,6 +10,7 @@ import {
 import { mobileApi, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -21,11 +22,6 @@ const WHOLE_FARM = '全场';
 
 type Tab = 'stock' | 'inbound' | 'outbound';
 
-const CHANGE_LABELS: Record<string, string> = {
-  MED_INBOUND:  '入库',
-  MED_OUTBOUND: '出库',
-};
-
 interface EntryRow {
   qty:        number;
   house_code: string;
@@ -36,7 +32,12 @@ export default function MedicinePage() {
   const router = useRouter();
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
+  const { t: tr } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
+  const CHANGE_LABELS_TR: Record<string, string> = {
+    MED_INBOUND:  tr('mob.brd.inbound', '入库'),
+    MED_OUTBOUND: tr('mob.brd.outbound', '出库'),
+  };
 
   const [tab, setTab]     = useState<Tab>('stock');
   const [search, setSearch] = useState('');
@@ -72,7 +73,7 @@ export default function MedicinePage() {
     try {
       setStock(await mobileApi.getMedStock());
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export default function MedicinePage() {
     try {
       setLedger(await mobileApi.getMedLedger(today, today));
     } catch (e: any) {
-      setError(e.message || '加载失败');
+      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -136,7 +137,7 @@ export default function MedicinePage() {
       setTimeout(() => setSaved(false), 3000);
       loadStock();
     } catch (e: any) {
-      setError(e.message || '保存失败');
+      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
@@ -156,7 +157,7 @@ export default function MedicinePage() {
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>💊 药品台账</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>💊 {tr('mob.brd.medicine_ledger', '药品台账')}</span>
         <button onClick={() => tab === 'stock' ? loadStock() : loadLedger()}
           style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
@@ -180,7 +181,7 @@ export default function MedicinePage() {
               cursor: hasChanges ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
             }}
           >
-            {saving ? '提交…' : saved ? '已保存' : '保存'}
+            {saving ? tr('mob.brd.submitting_short', '提交…') : saved ? tr('mob.brd.saved', '已保存') : tr('mob.brd.save', '保存')}
           </button>
         )}
       </div>
@@ -188,9 +189,9 @@ export default function MedicinePage() {
       {/* Tab */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', background: t.appBarBg, borderBottom: `1px solid ${t.barBorder}` }}>
         {([
-          { key: 'stock',    label: '库存', icon: <Package size={14} /> },
-          { key: 'inbound',  label: '入库', icon: <TrendingUp size={14} /> },
-          { key: 'outbound', label: '出库', icon: <TrendingDown size={14} /> },
+          { key: 'stock',    label: tr('mob.brd.stock', '库存'), icon: <Package size={14} /> },
+          { key: 'inbound',  label: tr('mob.brd.inbound', '入库'), icon: <TrendingUp size={14} /> },
+          { key: 'outbound', label: tr('mob.brd.outbound', '出库'), icon: <TrendingDown size={14} /> },
         ] as const).map(tab_ => (
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
@@ -216,7 +217,7 @@ export default function MedicinePage() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="搜索药品名称…"
+              placeholder={tr('mob.brd.search_medicine', '搜索药品名称…')}
               style={{ flex: 1, background: 'none', border: 'none', color: t.text, fontSize: 13, outline: 'none' }}
             />
           </div>
@@ -270,7 +271,7 @@ export default function MedicinePage() {
           <>
             {saved && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)', color: 'var(--status-success)', fontSize: 13 }}>
-                ✓ 已保存
+                ✓ {tr('mob.brd.saved', '已保存')}
               </div>
             )}
 
@@ -288,13 +289,13 @@ export default function MedicinePage() {
                       <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{m.medication_name}</div>
                       <div style={{ fontSize: 11, color: t.textFaint }}>{m.dosage}</div>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: 12, color: t.textFaint }}>库存 {m.qty} {m.unit}</div>
+                    <div style={{ textAlign: 'right', fontSize: 12, color: t.textFaint }}>{tr('mob.brd.stock', '库存')} {m.qty} {m.unit}</div>
                   </div>
 
                   {/* 数量 + 栋舍/备注 */}
                   <div style={{ padding: '0 14px 12px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ fontSize: 10, color: t.textFaint }}>数量</div>
+                      <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.qty', '数量')}</div>
                       <input
                         type="number" inputMode="numeric" min="0"
                         value={e.qty || ''}
@@ -312,7 +313,7 @@ export default function MedicinePage() {
 
                     {tab === 'outbound' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ fontSize: 10, color: t.textFaint }}>栋舍</div>
+                        <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.house', '栋舍')}</div>
                         <select
                           value={e.house_code}
                           onChange={ev => setEntry(m.medication_code, { house_code: ev.target.value })}
@@ -329,12 +330,12 @@ export default function MedicinePage() {
                     )}
 
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ fontSize: 10, color: t.textFaint }}>备注</div>
+                      <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.note', '备注')}</div>
                       <input
                         type="text"
                         value={e.note}
                         onChange={ev => setEntry(m.medication_code, { note: ev.target.value })}
-                        placeholder={tab === 'inbound' ? '供应商/批号…' : '用途/治疗项目…'}
+                        placeholder={tab === 'inbound' ? tr('mob.brd.supplier_batch', '供应商/批号…') : tr('mob.brd.usage_treatment', '用途/治疗项目…')}
                         style={{
                           height: 34, padding: '0 8px',
                           background: t.cardBg,
@@ -354,7 +355,7 @@ export default function MedicinePage() {
         {/* ── 出库 Tab 下方：今日流水 ── */}
         {tab === 'outbound' && ledger.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>今日流水</div>
+            <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>{tr('mob.brd.today_ledger', '今日流水')}</div>
             {ledger.map(e => (
               <div key={e.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -364,7 +365,7 @@ export default function MedicinePage() {
                 <div>
                   <div style={{ fontSize: 12, color: t.textSub }}>{e.medication_name}</div>
                   <div style={{ fontSize: 10, color: t.textFaint }}>
-                    {CHANGE_LABELS[e.change_type] ?? e.change_type}
+                    {CHANGE_LABELS_TR[e.change_type] ?? e.change_type}
                     {e.house_code ? ` · ${houseMap[e.house_code] || e.house_code}` : ''}
                     {e.note ? ` · ${e.note}` : ''}
                   </div>

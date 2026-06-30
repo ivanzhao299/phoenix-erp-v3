@@ -22,7 +22,7 @@ export class FarmSalesController {
   async getSales(@Query('date') date: string, @Req() req: any) {
     const today = new Date();
     const d = date || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    return { code: 200, data: await this.svc.getSales(d, req.user) };
+    return { code: 200, data: await this.svc.getSales(d, req.user, req.dataScope) };
   }
 
   /** POST /api/farm/sales */

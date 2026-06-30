@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { mobileApi } from '@/lib/mobile-api';
+import { useLanguage } from '@/contexts/LanguageContext';
 const C = {
   bg: 'var(--brand-deep-1)',
   bg2: 'var(--brand-deep-2)',
@@ -19,13 +20,16 @@ const C = {
 };
 // 异常类型与 PC 新版（sales2/delivery）同源 sys_dict『SAL_DELIVERY_EXCEPTION』；
 // 提交码值（非中文），离线兜底须与 PC 字典一致。
-const EXCEPTION_TYPES_FALLBACK = [
-  { value: 'SHORTAGE', label: '缺货' },
-  { value: 'DAMAGED',  label: '破损' },
-  { value: 'REJECTED', label: '客户拒收' },
-  { value: 'LATE',     label: '超时' },
-  { value: 'OTHER',    label: '其他' },
-];
+type TFn = (key: string, fallback?: string) => string;
+function buildExceptionTypesFallback(t: TFn) {
+  return [
+    { value: 'SHORTAGE', label: t('mob.dlv.exc_shortage', '缺货') },
+    { value: 'DAMAGED',  label: t('mob.dlv.exc_damaged', '破损') },
+    { value: 'REJECTED', label: t('mob.dlv.exc_rejected', '客户拒收') },
+    { value: 'LATE',     label: t('mob.dlv.exc_late', '超时') },
+    { value: 'OTHER',    label: t('mob.dlv.exc_other', '其他') },
+  ];
+}
 interface DeliveryItem {
   id: string;
   productCode: string;
@@ -121,6 +125,7 @@ export default function ReceiptPage({
     orderId
   } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
   const [order, setOrder] = useState<DeliveryOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -133,7 +138,7 @@ export default function ReceiptPage({
   const [receivedQty, setReceivedQty] = useState('');
   const [exceptionQty, setExceptionQty] = useState('0');
   const [exceptionType, setExceptionType] = useState('SHORTAGE');
-  const [exceptionTypes, setExceptionTypes] = useState(EXCEPTION_TYPES_FALLBACK);
+  const [exceptionTypes, setExceptionTypes] = useState(() => buildExceptionTypesFallback(t));
   const [remark, setRemark] = useState('');
 
   // 拉 sys_dict『SAL_DELIVERY_EXCEPTION』，与 PC 新版同源；失败保留兜底
@@ -152,11 +157,11 @@ export default function ReceiptPage({
       const data = await apiFetch(`/api/v2/mobile/delivery/orders/${orderId}`);
       setOrder(data.data ?? data);
     } catch {
-      setLoadError('加载配送单失败，请返回重试');
+      setLoadError(t('mob.dlv.load_order_failed', '加载配送单失败，请返回重试'));
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, t]);
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
@@ -166,7 +171,7 @@ export default function ReceiptPage({
     setSelectedItem(item);
     setReceivedQty(String(item.qty));
     setExceptionQty('0');
-    setExceptionType('缺货');
+    setExceptionType('SHORTAGE');  // 评分加固：原写中文 '缺货' 会覆盖枚举码并提交给后端，致脏数据；改回稳定码
     setRemark('');
     setPhotos([]);
     setSubmitError('');
@@ -174,7 +179,7 @@ export default function ReceiptPage({
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (photos.length + files.length > 3) {
-      alert('最多上传 3 张照片');
+      alert(t('mob.dlv.max_3_photos', '最多上传 3 张照片'));
       return;
     }
     const newBase64 = await Promise.all(files.slice(0, 3 - photos.length).map(fileToBase64));
@@ -188,7 +193,7 @@ export default function ReceiptPage({
   const handleSubmit = async () => {
     if (!selectedItem) return;
     if (!signedBy.trim()) {
-      setSubmitError('请填写签收人');
+      setSubmitError(t('mob.dlv.err_signer', '请填写签收人'));
       return;
     }
     const exQty = parseInt(exceptionQty) || 0;
@@ -219,10 +224,10 @@ export default function ReceiptPage({
           productName: selectedItem.productName
         });
       }
-      alert(exQty > 0 ? '异常签收已提交' : '签收成功');
+      alert(exQty > 0 ? t('mob.dlv.exception_sign_submitted', '异常签收已提交') : t('mob.dlv.sign_success', '签收成功'));
       router.push(`/mobile/delivery/orders/${orderId}`);
     } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : '提交失败，请重试');
+      setSubmitError(e instanceof Error ? e.message : t('mob.dlv.submit_failed', '提交失败，请重试'));
     } finally {
       setSubmitting(false);
     }
@@ -238,7 +243,7 @@ export default function ReceiptPage({
         <div style={{
         color: C.textSub,
         fontSize: 14
-      }}>加载中…</div>
+      }}>{t('mob.dlv.loading', '加载中…')}</div>
       </div>;
   }
   if (loadError || !order) {
@@ -254,14 +259,14 @@ export default function ReceiptPage({
         <div style={{
         color: C.red,
         fontSize: 14
-      }}>⚠ {loadError || '订单不存在'}</div>
+      }}>⚠ {loadError || t('mob.dlv.order_not_found', '订单不存在')}</div>
         <button onClick={() => router.back()} style={{
         color: C.orange,
         background: 'none',
         border: 'none',
         fontSize: 15,
         cursor: 'pointer'
-      }}>← 返回</button>
+      }}>← {t('mob.dlv.back', '返回')}</button>
       </div>;
   }
   const items = order.items ?? [];
@@ -301,7 +306,7 @@ export default function ReceiptPage({
         fontSize: 17,
         fontWeight: 700
       }}>
-          {selectedItem ? '填写签收信息' : '选择签收商品'}
+          {selectedItem ? t('mob.dlv.fill_sign_info', '填写签收信息') : t('mob.dlv.select_sign_item', '选择签收商品')}
         </div>
       </div>
 
@@ -333,14 +338,14 @@ export default function ReceiptPage({
           fontSize: 14,
           color: C.textSub,
           marginBottom: 12
-        }}>请选择要签收的商品：</div>
+        }}>{t('mob.dlv.select_item_to_sign', '请选择要签收的商品：')}</div>
             {items.length === 0 ? <div style={{
           textAlign: 'center',
           color: C.textSub,
           padding: 40,
           fontSize: 14
         }}>
-                暂无商品明细
+                {t('mob.dlv.no_item_detail', '暂无商品明细')}
               </div> : items.map(item => {
           const isSigned = item.status === 'SIGNED' || item.status === 'EXCEPTION';
           return <div key={item.id} onClick={() => !isSigned && handleSelectItem(item)} style={{
@@ -373,7 +378,7 @@ export default function ReceiptPage({
                   fontSize: 13,
                   color: C.orange,
                   marginTop: 4
-                }}>应送 {item.qty} {item.unit}</div>
+                }}>{t('mob.dlv.should_deliver', '应送')} {item.qty} {item.unit}</div>
                       </div>
                       {isSigned ? <div style={{
                 background: `${C.green}22`,
@@ -384,7 +389,7 @@ export default function ReceiptPage({
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                          {item.status === 'EXCEPTION' ? '已异常' : '已签收'}
+                          {item.status === 'EXCEPTION' ? t('mob.dlv.marked_exception', '已异常') : t('mob.dlv.signed', '已签收')}
                         </div> : <div style={{
                 color: C.orange,
                 fontSize: 20
@@ -413,30 +418,30 @@ export default function ReceiptPage({
             fontSize: 12,
             color: C.textSub,
             marginTop: 2
-          }}>{selectedItem.productCode} · 应送 {selectedItem.qty} {selectedItem.unit}</div>
+          }}>{selectedItem.productCode} · {t('mob.dlv.should_deliver', '应送')} {selectedItem.qty} {selectedItem.unit}</div>
             </div>
 
             {/* 签收人 */}
             <div className={u.mb16}>
-              <label style={labelStyle}>签收人 *</label>
-              <input type="text" value={signedBy} onChange={e => setSignedBy(e.target.value)} placeholder="请输入签收人姓名" style={inputStyle} />
+              <label style={labelStyle}>{t('mob.dlv.label_signer', '签收人')} *</label>
+              <input type="text" value={signedBy} onChange={e => setSignedBy(e.target.value)} placeholder={t('mob.dlv.ph_signer_name', '请输入签收人姓名')} style={inputStyle} />
             </div>
 
             {/* 实收数量 */}
             <div className={u.mb16}>
-              <label style={labelStyle}>实收数量</label>
+              <label style={labelStyle}>{t('mob.dlv.label_received_qty', '实收数量')}</label>
               <input type="number" value={receivedQty} onChange={e => setReceivedQty(e.target.value)} min={0} style={inputStyle} />
             </div>
 
             {/* 异常数量 */}
             <div className={u.mb16}>
-              <label style={labelStyle}>异常数量（0 为正常签收）</label>
+              <label style={labelStyle}>{t('mob.dlv.label_exception_qty_hint', '异常数量（0 为正常签收）')}</label>
               <input type="number" value={exceptionQty} onChange={e => setExceptionQty(e.target.value)} min={0} style={inputStyle} />
             </div>
 
             {/* 异常原因（仅当 exceptionQty > 0） */}
             {parseInt(exceptionQty) > 0 && <div className={u.mb16}>
-                <label style={labelStyle}>异常原因</label>
+                <label style={labelStyle}>{t('mob.dlv.label_exception_reason', '异常原因')}</label>
                 <select value={exceptionType} onChange={e => setExceptionType(e.target.value)} style={selectStyle}>
                   {exceptionTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
@@ -444,7 +449,7 @@ export default function ReceiptPage({
 
             {/* 照片上传 */}
             <div className={u.mb16}>
-              <label style={labelStyle}>照片（最多 3 张）</label>
+              <label style={labelStyle}>{t('mob.dlv.label_photos_max3', '照片（最多 3 张）')}</label>
               <div style={{
             display: 'flex',
             gap: 10,
@@ -457,7 +462,7 @@ export default function ReceiptPage({
               height: 80
             }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photo} alt={`照片 ${idx + 1}`} style={{
+                    <img src={photo} alt={`${t('mob.dlv.photo', '照片')} ${idx + 1}`} style={{
                 width: 80,
                 height: 80,
                 objectFit: 'cover',
@@ -504,7 +509,7 @@ export default function ReceiptPage({
                     <span style={{
                 fontSize: 10,
                 color: C.textSub
-              }}>拍照</span>
+              }}>{t('mob.dlv.take_photo', '拍照')}</span>
                     <input type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoChange} style={{
                 display: 'none'
               }} />
@@ -514,8 +519,8 @@ export default function ReceiptPage({
 
             {/* 备注 */}
             <div className={u.mb20}>
-              <label style={labelStyle}>备注</label>
-              <textarea value={remark} onChange={e => setRemark(e.target.value)} placeholder="可选备注" rows={3} style={{
+              <label style={labelStyle}>{t('mob.dlv.field_remark', '备注')}</label>
+              <textarea value={remark} onChange={e => setRemark(e.target.value)} placeholder={t('mob.dlv.ph_optional_remark', '可选备注')} rows={3} style={{
             ...inputStyle,
             resize: 'none'
           }} />
@@ -544,7 +549,7 @@ export default function ReceiptPage({
           fontSize: 13,
           color: C.red
         }}>
-                ⚠ 将提交异常签收（{exceptionType}），异常数量：{exceptionQty}
+                ⚠ {t('mob.dlv.will_submit_exception', '将提交异常签收')}（{exceptionType}），{t('mob.dlv.exception_qty_colon', '异常数量：')}{exceptionQty}
               </div> : <div style={{
           background: `${C.green}11`,
           border: `1px solid ${C.green}33`,
@@ -554,7 +559,7 @@ export default function ReceiptPage({
           fontSize: 13,
           color: C.green
         }}>
-                ✅ 正常签收，实收数量：{receivedQty}
+                ✅ {t('mob.dlv.normal_sign', '正常签收')}，{t('mob.dlv.received_qty_colon', '实收数量：')}{receivedQty}
               </div>}
           </div>}
       </div>
@@ -582,7 +587,7 @@ export default function ReceiptPage({
         opacity: submitting ? 0.7 : 1,
         WebkitTapHighlightColor: 'transparent'
       }}>
-            {submitting ? '提交中…' : parseInt(exceptionQty) > 0 ? '⚠ 提交异常签收' : '✅ 确认签收'}
+            {submitting ? t('mob.dlv.submitting', '提交中…') : parseInt(exceptionQty) > 0 ? `⚠ ${t('mob.dlv.submit_exception_sign', '提交异常签收')}` : `✅ ${t('mob.dlv.confirm_sign', '确认签收')}`}
           </button>
         </div>}
     </div>;

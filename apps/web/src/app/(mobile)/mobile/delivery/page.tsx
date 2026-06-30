@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -18,59 +20,64 @@ const C = {
   red: 'var(--status-danger)',
   gray: 'var(--slate-500)'
 };
-const STATUS_MAP: Record<string, {
+type TFn = (key: string, fallback?: string) => string;
+function buildStatusMap(t: TFn): Record<string, {
   label: string;
   color: string;
-}> = {
-  PLANNED: {
-    label: '待装车',
-    color: C.orange
-  },
-  LOADING: {
-    label: '装车中',
-    color: C.blue
-  },
-  LOADED: {
-    label: '已装车',
-    color: C.blue
-  },
-  DEPARTED: {
-    label: '配送中',
-    color: C.blue
-  },
-  ARRIVED: {
-    label: '已到达',
-    color: C.blue
-  },
-  SIGNING: {
-    label: '签收中',
-    color: C.orange
-  },
-  COMPLETED: {
-    label: '已完成',
-    color: C.green
-  },
-  EXCEPTION: {
-    label: '异常',
-    color: C.red
-  }
-};
-const TABS = [{
-  key: 'PLANNED',
-  label: '待装车'
-}, {
-  key: 'IN_PROGRESS',
-  label: '配送中'
-}, {
-  key: 'PENDING_SIGN',
-  label: '待签收'
-}, {
-  key: 'COMPLETED',
-  label: '已完成'
-}, {
-  key: 'EXCEPTION',
-  label: '异常'
-}];
+}> {
+  return {
+    PLANNED: {
+      label: t('mob.dlv.status_planned', '待装车'),
+      color: C.orange
+    },
+    LOADING: {
+      label: t('mob.dlv.status_loading', '装车中'),
+      color: C.blue
+    },
+    LOADED: {
+      label: t('mob.dlv.status_loaded', '已装车'),
+      color: C.blue
+    },
+    DEPARTED: {
+      label: t('mob.dlv.status_delivering', '配送中'),
+      color: C.blue
+    },
+    ARRIVED: {
+      label: t('mob.dlv.status_arrived', '已到达'),
+      color: C.blue
+    },
+    SIGNING: {
+      label: t('mob.dlv.status_signing', '签收中'),
+      color: C.orange
+    },
+    COMPLETED: {
+      label: t('mob.dlv.status_completed', '已完成'),
+      color: C.green
+    },
+    EXCEPTION: {
+      label: t('mob.dlv.status_exception', '异常'),
+      color: C.red
+    }
+  };
+}
+function buildTabs(t: TFn) {
+  return [{
+    key: 'PLANNED',
+    label: t('mob.dlv.status_planned', '待装车')
+  }, {
+    key: 'IN_PROGRESS',
+    label: t('mob.dlv.status_delivering', '配送中')
+  }, {
+    key: 'PENDING_SIGN',
+    label: t('mob.dlv.tab_pending_sign', '待签收')
+  }, {
+    key: 'COMPLETED',
+    label: t('mob.dlv.status_completed', '已完成')
+  }, {
+    key: 'EXCEPTION',
+    label: t('mob.dlv.status_exception', '异常')
+  }];
+}
 interface DashboardStats {
   totalToday: number;
   planned: number;
@@ -142,7 +149,8 @@ function OrderCard({
   order: DeliveryOrder;
   onClick: () => void;
 }) {
-  const statusInfo = STATUS_MAP[order.status] ?? {
+  const { t } = useLanguage();
+  const statusInfo = buildStatusMap(t)[order.status] ?? {
     label: order.status,
     color: C.gray
   };
@@ -207,7 +215,7 @@ function OrderCard({
       fontSize: 12,
       color: C.orange
     }}>
-        查看详情 →
+        {t('mob.dlv.view_detail', '查看详情')} →
       </div>
     </div>;
 }
@@ -230,6 +238,8 @@ function Skeleton() {
 // ── 主页面 ───────────────────────────────────────────────────────────────────
 export default function DeliveryPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { allowed, loading: permLoading } = useMobilePermission('delivery');  // F10 加固：页面级门禁
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [activeTab, setActiveTab] = useState('PLANNED');
@@ -251,12 +261,12 @@ export default function DeliveryPage() {
       const data = await apiFetch(`/api/v2/mobile/delivery/orders?status=${status}`);
       setOrders(data.data ?? data.list ?? data ?? []);
     } catch {
-      setError('加载失败，请下拉重试');
+      setError(t('mob.dlv.load_failed_pulldown', '加载失败，请下拉重试'));
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     loadStats();
   }, [loadStats]);
@@ -268,6 +278,7 @@ export default function DeliveryPage() {
     await Promise.all([loadStats(), loadOrders(activeTab)]);
     setRefreshing(false);
   };
+  if (permLoading || !allowed) return null;  // F10：无权限不渲染页面（后端亦有 @RequireMenu 兜底）
   return <div style={{
     minHeight: '100svh',
     background: C.bg,
@@ -297,7 +308,7 @@ export default function DeliveryPage() {
           <span style={{
           fontSize: 17,
           fontWeight: 700
-        }}>配送任务</span>
+        }}>{t('mob.dlv.delivery_tasks', '配送任务')}</span>
         </div>
         <button onClick={handleRefresh} disabled={refreshing} style={{
         background: 'transparent',
@@ -325,12 +336,12 @@ export default function DeliveryPage() {
         flexWrap: 'wrap',
         marginBottom: 20
       }}>
-            <StatCard label="今日总单" value={stats.totalToday ?? 0} color={C.text} />
-            <StatCard label="待装车" value={stats.planned ?? 0} color={C.orange} />
-            <StatCard label="配送中" value={stats.inProgress ?? 0} color={C.blue} />
-            <StatCard label="待签收" value={stats.pendingSign ?? 0} color={C.orange} />
-            <StatCard label="已完成" value={stats.completed ?? 0} color={C.green} />
-            <StatCard label="异常单" value={stats.exception ?? 0} color={C.red} />
+            <StatCard label={t('mob.dlv.stat_total_today', '今日总单')} value={stats.totalToday ?? 0} color={C.text} />
+            <StatCard label={t('mob.dlv.status_planned', '待装车')} value={stats.planned ?? 0} color={C.orange} />
+            <StatCard label={t('mob.dlv.status_delivering', '配送中')} value={stats.inProgress ?? 0} color={C.blue} />
+            <StatCard label={t('mob.dlv.tab_pending_sign', '待签收')} value={stats.pendingSign ?? 0} color={C.orange} />
+            <StatCard label={t('mob.dlv.status_completed', '已完成')} value={stats.completed ?? 0} color={C.green} />
+            <StatCard label={t('mob.dlv.stat_exception', '异常单')} value={stats.exception ?? 0} color={C.red} />
           </div>}
 
         {/* 快捷入口 3 宫格 */}
@@ -342,17 +353,17 @@ export default function DeliveryPage() {
       }}>
           {[{
           icon: '📋',
-          label: '我的配送',
+          label: t('mob.dlv.nav_my_delivery', '我的配送'),
           href: '/mobile/delivery/orders',
           color: C.blue
         }, {
           icon: '⚠️',
-          label: '异常记录',
+          label: t('mob.dlv.nav_exceptions', '异常记录'),
           href: '/mobile/delivery/exceptions',
           color: C.red
         }, {
           icon: '📊',
-          label: '我的表现',
+          label: t('mob.dlv.nav_my_performance', '我的表现'),
           href: '/mobile/delivery/performance',
           color: C.green
         }].map(nav => <button key={nav.href} onClick={() => router.push(nav.href)} style={{
@@ -385,7 +396,7 @@ export default function DeliveryPage() {
         marginBottom: 16,
         overflow: 'hidden'
       }}>
-          {TABS.map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+          {buildTabs(t).map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
           flex: 1,
           padding: '11px 4px',
           background: activeTab === tab.key ? C.orange : 'transparent',
@@ -414,7 +425,7 @@ export default function DeliveryPage() {
         padding: 60,
         fontSize: 14
       }}>
-            📦 暂无配送单
+            📦 {t('mob.dlv.no_orders', '暂无配送单')}
           </div> : orders.map(order => <OrderCard key={order.id} order={order} onClick={() => router.push(`/mobile/delivery/orders/${order.id}`)} />)}
       </div>
     </div>;

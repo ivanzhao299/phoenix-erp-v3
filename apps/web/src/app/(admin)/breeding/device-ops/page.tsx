@@ -332,7 +332,7 @@ export default function DeviceOpsPage() {
         icon: d.ok ? "✅" : "❌",
         type: d.ok ? "success" : "danger",
         title: d.ok ? t("ui.同步完成", "同步完成") : t("ui.同步失败", "同步失败"),
-        message: d.ok ? `已同步 ${d.synced ?? 0} 条第三方栏舍数据` : d.error || "第三方 API 返回错误，请检查认证配置",
+        message: d.ok ? `${t('ui.已同步', '已同步')} ${d.synced ?? 0} ${t('ui.条第三方栏舍数据', '条第三方栏舍数据')}` : d.error || t('ui.第三方 API 返回错误，请检查认证配置', '第三方 API 返回错误，请检查认证配置'),
         confirmLabel: t("common.ok", "好的")
       });
       if (d.ok) await loadAll();
@@ -579,8 +579,8 @@ export default function DeviceOpsPage() {
       }} /> : <WifiOff size={14} style={{
         color: "var(--status-warning)"
       }} />}
-          <span className={u.fw600}>第三方 IoT API：</span>
-          {authStatus.hasToken ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · Token 剩余 ${authStatus.remainMin} min` : t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}
+          <span className={u.fw600}>{t('ui.第三方 IoT API：', '第三方 IoT API：')}</span>
+          {authStatus.hasToken ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · ${t('ui.Token 剩余', 'Token 剩余')} ${authStatus.remainMin} min` : t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}
         </div>}
 
       {/* Tab 切换 */}
@@ -624,7 +624,7 @@ export default function DeviceOpsPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? <tr><td colSpan={11} className={u.emptyPad40}>{t("common.loading", "加载中...")}</td></tr> : filteredMappings.length === 0 ? <tr><td colSpan={11} className={u.emptyPad40}>暂无映射记录</td></tr> : filteredMappings.map(row => <tr key={row.id}>
+                {loading ? <tr><td colSpan={11} className={u.emptyPad40}>{t("common.loading", "加载中...")}</td></tr> : filteredMappings.length === 0 ? <tr><td colSpan={11} className={u.emptyPad40}>{t('ui.暂无映射记录', '暂无映射记录')}</td></tr> : filteredMappings.map(row => <tr key={row.id}>
                     <td><code className={u.fs12}>{row.erp_farm_code}</code></td>
                     <td><code className={u.fs12}>{row.erp_house_code}</code></td>
                     <td>{row.house_name || "—"}</td>
@@ -669,7 +669,7 @@ export default function DeviceOpsPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.length === 0 ? <tr><td colSpan={10} className={u.emptyPad40}>暂无日志</td></tr> : jobs.map(row => <tr key={row.id}>
+                {jobs.length === 0 ? <tr><td colSpan={10} className={u.emptyPad40}>{t('ui.暂无日志', '暂无日志')}</td></tr> : jobs.map(row => <tr key={row.id}>
                     <td><code className={u.fs11}>{row.job_no}</code></td>
                     <td className={u.fs12}>{row.job_type}</td>
                     <td className={u.fs12}>{row.triggered_by}</td>
@@ -713,7 +713,7 @@ export default function DeviceOpsPage() {
                 textAlign: "center",
                 padding: 40,
                 color: "var(--status-success)"
-              }}>✅ 暂无离线设备</td></tr> : offlineDevices.map(row => <tr key={row.id}>
+              }}>✅ {t('ui.暂无离线设备', '暂无离线设备')}</td></tr> : offlineDevices.map(row => <tr key={row.id}>
                     <td><code className={u.fs12}>{row.imei}</code></td>
                     <td>{row.device_name || "—"}</td>
                     <td className={u.muted12}>{row.device_type || "—"}</td>
@@ -725,7 +725,7 @@ export default function DeviceOpsPage() {
                   fontWeight: 700,
                   background: "color-mix(in srgb, var(--status-danger) 14%, transparent)",
                   color: "var(--status-danger)"
-                }}>{row.status || "离线"}</span></td>
+                }}>{row.status || t('ui.离线', '离线')}</span></td>
                     <td style={{
                 fontSize: 12,
                 color: "var(--text-secondary)",
@@ -751,7 +751,7 @@ export default function DeviceOpsPage() {
                 </tr>
               </thead>
               <tbody>
-                {propDict.length === 0 ? <tr><td colSpan={11} className={u.emptyPad40}>暂无属性</td></tr> : propDict.map(row => <tr key={row.id}>
+                {propDict.length === 0 ? <tr><td colSpan={11} className={u.emptyPad40}>{t('ui.暂无属性', '暂无属性')}</td></tr> : propDict.map(row => <tr key={row.id}>
                     <td><code style={{
                   fontSize: 12,
                   color: "var(--color-primary)"
@@ -765,7 +765,7 @@ export default function DeviceOpsPage() {
                     <td style={{
                 color: row.threshold_low != null ? "var(--color-accent)" : "var(--text-secondary)"
               }}>{row.threshold_low ?? "—"}</td>
-                    <td>{row.alert_min_duration_cycles ?? 3}次</td>
+                    <td>{row.alert_min_duration_cycles ?? 3}{t('ui.次', '次')}</td>
                     <td>{Math.round((row.alert_volatility_pct ?? 0.2) * 100)}%</td>
                     <td><span style={{
                   width: 10,
@@ -799,7 +799,7 @@ export default function DeviceOpsPage() {
               <ClipboardList size={15} style={{
             color: "var(--color-primary)"
           }} />
-              <span className={s.cardTitle}>{t("ui.运维操作审计日志", "运维操作审计日志")}（最近 100 条）</span>
+              <span className={s.cardTitle}>{t("ui.运维操作审计日志", "运维操作审计日志")}{t('ui.（最近 100 条）', '（最近 100 条）')}</span>
             </div>
             <button type="button" style={secondaryActionButton} onClick={loadOpsLog}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
           </div>
@@ -809,7 +809,7 @@ export default function DeviceOpsPage() {
         color: "var(--text-secondary)",
         fontSize: 13
       }}>
-              暂无操作记录。完成映射、阈值或告警配置操作后将在此显示。
+              {t('ui.暂无操作记录。完成映射、阈值或告警配置操作后将在此显示。', '暂无操作记录。完成映射、阈值或告警配置操作后将在此显示。')}
             </div> : <table className={s.table}>
               <thead>
                 <tr>
@@ -933,7 +933,7 @@ export default function DeviceOpsPage() {
         color: "var(--status-warning)",
         marginBottom: 16
       }}>
-            ⚠️ 层级约束：ERP 鸡舍必须属于所选 ERP 场区；第三方 House 必须属于所选第三方 Farm。系统将在保存时验证。
+            ⚠️ {t('ui.层级约束：ERP 鸡舍必须属于所选 ERP 场区；第三方 House 必须属于所选第三方 Farm。系统将在保存时验证。', '层级约束：ERP 鸡舍必须属于所选 ERP 场区；第三方 House 必须属于所选第三方 Farm。系统将在保存时验证。')}
           </div>
           <div style={{
         display: "flex",
@@ -1036,7 +1036,7 @@ export default function DeviceOpsPage() {
           marginBottom: 10,
           color: "var(--text-secondary)"
         }}>
-                ⚙️ {t("ui.告警阈值覆盖", "告警阈值覆盖")}（留空则使用全局字典值）
+                ⚙️ {t("ui.告警阈值覆盖", "告警阈值覆盖")}{t('ui.（留空则使用全局字典值）', '（留空则使用全局字典值）')}
               </div>
               {propDict.filter(d => d.alarm_enabled).map(d => <div key={d.property_code} style={{
           display: "grid",
@@ -1056,7 +1056,7 @@ export default function DeviceOpsPage() {
             }}>{d.property_code}</code>
                   </div>
                   <div>
-                    <Label>{t("ui.上限", "上限")} (全局: {d.threshold_high ?? "—"})</Label>
+                    <Label>{t("ui.上限", "上限")} ({t('ui.全局', '全局')}: {d.threshold_high ?? "—"})</Label>
                     <input type="number" step="any" style={inpSm} value={editForm.alert_config[d.property_code]?.threshold_high ?? ""} placeholder={String(d.threshold_high ?? "")} onChange={e => setEditForm(f => ({
               ...f,
               alert_config: {
@@ -1069,7 +1069,7 @@ export default function DeviceOpsPage() {
             }))} />
                   </div>
                   <div>
-                    <Label>{t("ui.下限", "下限")} (全局: {d.threshold_low ?? "—"})</Label>
+                    <Label>{t("ui.下限", "下限")} ({t('ui.全局', '全局')}: {d.threshold_low ?? "—"})</Label>
                     <input type="number" step="any" style={inpSm} value={editForm.alert_config[d.property_code]?.threshold_low ?? ""} placeholder={String(d.threshold_low ?? "")} onChange={e => setEditForm(f => ({
               ...f,
               alert_config: {

@@ -10,6 +10,7 @@ import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮�
 import { currencySymbol } from '@/lib/currency';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -116,6 +117,29 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   MANUAL: '手工',
   OPENING: '期初'
 };
+// i18n key maps (label values above are Chinese fallbacks)
+const ACCOUNT_TYPE_KEYS: Record<string, string> = {
+  BANK: 'fin2.cash.acct_type_bank',
+  CASH: 'fin2.cash.acct_type_cash',
+  EWALLET: 'fin2.cash.acct_type_ewallet',
+  VIRTUAL: 'fin2.cash.acct_type_virtual',
+  SHAREHOLDER: 'fin2.cash.acct_type_shareholder',
+  INTERNAL: 'fin2.cash.acct_type_internal',
+  PERSONAL_AGENT: 'fin2.cash.acct_type_personal_agent',
+};
+const STATUS_KEYS: Record<string, string> = {
+  ACTIVE: 'fin2.cash.status_active',
+  FROZEN: 'fin2.common.frozen',
+  CLOSED: 'fin2.cash.status_closed',
+};
+const SOURCE_TYPE_KEYS: Record<string, string> = {
+  AP_PAYMENT: 'fin2.cash.src_ap_payment',
+  AR_RECEIPT: 'fin2.cash.src_ar_receipt',
+  TRANSFER: 'fin2.cash.src_transfer',
+  SHAREHOLDER: 'fin2.common.shareholder_funds',
+  MANUAL: 'fin2.cash.src_manual',
+  OPENING: 'fin2.common.opening',
+};
 function fmt(n: number | string | null | undefined): string {
   if (n === null || n === undefined) return '0.00';
   return Number(n).toLocaleString('zh-CN', {
@@ -131,6 +155,7 @@ function TypeBadge({
 }: {
   type: string;
 }) {
+  const { t } = useLanguage();
   const color = ACCOUNT_TYPE_COLORS[type] ?? 'var(--gray-500)';
   return <span style={{
     display: 'inline-block',
@@ -141,7 +166,7 @@ function TypeBadge({
     background: color + '18',
     color
   }}>
-      {ACCOUNT_TYPE_LABELS[type] ?? type}
+      {ACCOUNT_TYPE_LABELS[type] ? t(ACCOUNT_TYPE_KEYS[type], ACCOUNT_TYPE_LABELS[type]) : type}
     </span>;
 }
 
@@ -154,6 +179,7 @@ function CreateAccountModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     accountCode: '',
     accountName: '',
@@ -174,15 +200,15 @@ function CreateAccountModal({
   }));
   async function submit() {
     if (!form.accountName.trim()) {
-      setErr('请填写账户名称');
+      setErr(t('fin2.cash.err_account_name','请填写账户名称'));
       return;
     }
     if (!form.companyCode.trim()) {
-      setErr('请填写公司编号');
+      setErr(t('fin2.cash.err_company_code','请填写公司编号'));
       return;
     }
     if (!form.currencyCode.trim()) {
-      setErr('请填写货币代码');
+      setErr(t('fin2.cash.err_currency_code','请填写货币代码'));
       return;
     }
     setSaving(true);
@@ -207,11 +233,11 @@ function CreateAccountModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '创建失败');
+        throw new Error(d.message ?? t('fin2.common.create_failed','创建失败'));
       }
       onCreated();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '创建失败');
+      setErr(e instanceof Error ? e.message : t('fin2.common.create_failed','创建失败'));
     } finally {
       setSaving(false);
     }
@@ -227,7 +253,7 @@ function CreateAccountModal({
           <div className="text-text" style={{
           fontWeight: 700,
           fontSize: 16
-        }}>新建资金账户</div>
+        }}>{t('fin2.cash.create_title','新建资金账户')}</div>
           <button onClick={onClose} style={{
           background: 'none',
           border: 'none',
@@ -249,7 +275,7 @@ function CreateAccountModal({
         marginBottom: 12
       }}>
           <div>
-            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>公司 *</div>
+            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{t('fin2.cash.company_required','公司 *')}</div>
             <CompanySelector
               value={form.companyCode}
               onChange={v => set('companyCode', v)}
@@ -257,11 +283,11 @@ function CreateAccountModal({
             />
           </div>
           <div>
-            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>公司名称</div>
+            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{t('fin2.cash.company_name','公司名称')}</div>
             <input
               value={form.companyName}
               readOnly
-              placeholder="选择公司后自动带出"
+              placeholder={t('fin2.cash.company_autofill','选择公司后自动带出')}
               className="px-3 py-1.5 rounded-lg text-sm border border-border text-text w-full"
               style={{ boxSizing: 'border-box', background: 'var(--bg-muted)', cursor: 'not-allowed' }}
             />
@@ -274,27 +300,27 @@ function CreateAccountModal({
         gap: 12
       }}>
           {[{
-          label: '账户编号（留空自动生成）',
+          label: t('fin2.cash.f_account_code','账户编号（留空自动生成）'),
           key: 'accountCode',
           placeholder: 'CA-202605-00001'
         }, {
-          label: '账户名称 *',
+          label: t('fin2.cash.f_account_name','账户名称 *'),
           key: 'accountName',
-          placeholder: '如：中行人民币基本户'
+          placeholder: t('fin2.cash.ph_account_name','如：中行人民币基本户')
         }, {
-          label: '货币代码 *',
+          label: t('fin2.cash.f_currency_code','货币代码 *'),
           key: 'currencyCode',
           placeholder: 'CNY'
         }, {
-          label: '期初余额',
+          label: t('fin2.common.opening_balance','期初余额'),
           key: 'openingBalance',
           placeholder: '0.00'
         }, {
-          label: '开户行',
+          label: t('fin2.cash.f_bank_name','开户行'),
           key: 'bankName',
-          placeholder: '中国银行某某支行'
+          placeholder: t('fin2.cash.ph_bank_name','中国银行某某支行')
         }, {
-          label: '银行账号',
+          label: t('fin2.cash.f_bank_account_no','银行账号'),
           key: 'bankAccountNo',
           placeholder: '1234 5678 9012 3456'
         }].map(f => <div key={f.key}>
@@ -306,7 +332,7 @@ function CreateAccountModal({
         </div>
 
         <div className={u.mt12}>
-          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>账户类型 *</div>
+          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{t('fin2.cash.account_type_required','账户类型 *')}</div>
           <div style={{
           display: 'flex',
           gap: 8,
@@ -322,14 +348,14 @@ function CreateAccountModal({
             background: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] + '18' : undefined,
             color: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : undefined
           }} className={form.accountType === k ? '' : 'bg-bg-page text-text-muted border-border'}>
-                {v}
+                {t(ACCOUNT_TYPE_KEYS[k], v)}
               </button>)}
           </div>
         </div>
 
         <div className={u.mt12}>
-          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>备注</div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
+          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{t('fin2.common.remark','备注')}</div>
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={t('fin2.common.optional','可选')} rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
           resize: 'none',
           fontFamily: 'inherit',
           boxSizing: 'border-box'
@@ -338,9 +364,9 @@ function CreateAccountModal({
 
         {/* g200a 模态底栏(2026-06-19):用 drawerFooter + secondaryActionButton/primaryActionButton token。*/}
         <div style={drawerFooter}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? '创建中…' : '创建账户'}
+            {saving ? t('fin2.cash.creating_ellipsis','创建中…') : t('fin2.cash.create_account','创建账户')}
           </button>
         </div>
       </div>
@@ -358,6 +384,7 @@ function EditAccountModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     accountName: account.account_name ?? '',
     bankName: account.bank_name ?? '',
@@ -370,9 +397,9 @@ function EditAccountModal({
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
   const openingChanged = String(account.opening_balance ?? '') !== form.openingBalance;
   async function submit() {
-    if (!form.accountName.trim()) { setErr('请填写账户名称'); return; }
+    if (!form.accountName.trim()) { setErr(t('fin2.cash.err_account_name','请填写账户名称')); return; }
     if (form.openingBalance !== '' && !Number.isFinite(Number(form.openingBalance))) {
-      setErr('期初余额必须为数字'); return;
+      setErr(t('fin2.cash.err_opening_number','期初余额必须为数字')); return;
     }
     setSaving(true);
     setErr('');
@@ -391,11 +418,11 @@ function EditAccountModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '保存失败');
+        throw new Error(d.message ?? t('fin2.cash.save_failed','保存失败'));
       }
       onSaved();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '保存失败');
+      setErr(e instanceof Error ? e.message : t('fin2.cash.save_failed','保存失败'));
     } finally {
       setSaving(false);
     }
@@ -403,7 +430,7 @@ function EditAccountModal({
   return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>编辑账户</div>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>{t('fin2.cash.edit_title','编辑账户')}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} className="text-text-dim" />
           </button>
@@ -415,10 +442,10 @@ function EditAccountModal({
         {err && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger ${u.mb14}`}>{err}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[{ label: '账户名称 *', key: 'accountName', placeholder: '账户名称' },
-            { label: '开户行', key: 'bankName', placeholder: '开户行' },
-            { label: '银行账号', key: 'bankAccountNo', placeholder: '银行账号' },
-            { label: '期初余额', key: 'openingBalance', placeholder: '0.00' }
+          {[{ label: t('fin2.cash.f_account_name','账户名称 *'), key: 'accountName', placeholder: t('fin2.cash.account_name_plain','账户名称') },
+            { label: t('fin2.cash.f_bank_name','开户行'), key: 'bankName', placeholder: t('fin2.cash.f_bank_name','开户行') },
+            { label: t('fin2.cash.f_bank_account_no','银行账号'), key: 'bankAccountNo', placeholder: t('fin2.cash.f_bank_account_no','银行账号') },
+            { label: t('fin2.common.opening_balance','期初余额'), key: 'openingBalance', placeholder: '0.00' }
           ].map(f => <div key={f.key}>
               <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{f.label}</div>
               <input value={(form as Record<string, string>)[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ boxSizing: 'border-box' }} />
@@ -426,19 +453,19 @@ function EditAccountModal({
         </div>
 
         {openingChanged && <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 text-xs text-amber-800 dark:text-amber-300" style={{ marginTop: 12 }}>
-          修改期初余额后，将按「期初 + 全部流水」自动重算当前余额并重建余额台账（balance_after 链）。
+          {t('fin2.cash.opening_recompute_hint','修改期初余额后，将按「期初 + 全部流水」自动重算当前余额并重建余额台账（balance_after 链）。')}
         </div>}
 
         <div className={u.mt12}>
-          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>备注</div>
-          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{t('fin2.common.remark','备注')}</div>
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={t('fin2.common.optional','可选')} rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
         </div>
 
         {/* g200a 模态底栏(2026-06-19):token 化(同 CreateAccountModal)。*/}
         <div style={drawerFooter}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('fin2.cash.saving_ellipsis','保存中…') : t('fin2.cash.save','保存')}
           </button>
         </div>
       </div>
@@ -464,6 +491,7 @@ function TransactionDrawer({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [reassignId, setReassignId] = useState<string | null>(null);   // 正在改挂的流水
@@ -482,7 +510,7 @@ function TransactionDrawer({
   }
   async function doEditTxn(txnId: string) {
     const amt = Number(editForm.amount);
-    if (!Number.isFinite(amt) || amt <= 0) { alert('金额必须为正数'); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { alert(t('fin2.cash.amount_positive','金额必须为正数')); return; }
     setSavingTxn(true);
     try {
       const r = await fetch(`${API}/transactions/${txnId}`, {
@@ -490,7 +518,7 @@ function TransactionDrawer({
         headers: authHeaders(),
         body: JSON.stringify({ direction: editForm.direction, amount: amt, txn_date: editForm.txn_date, remark: editForm.remark }),
       });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? '修改失败'); return; }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? t('fin2.cash.edit_failed','修改失败')); return; }
       setEditId(null);
       await loadTxns();
       onChanged();
@@ -504,7 +532,7 @@ function TransactionDrawer({
     setSavingTxn(true);
     try {
       const r = await fetch(`${API}/transactions/${pendingDeleteTxnId}`, { method: 'DELETE', headers: authHeaders() });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? '删除失败'); return; }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? t('fin2.cash.delete_failed','删除失败')); return; }
       await loadTxns();
       onChanged();
     } finally { setSavingTxn(false); setPendingDeleteTxnId(null); }
@@ -520,7 +548,7 @@ function TransactionDrawer({
   useEffect(() => { void loadTxns(); }, [loadTxns]);
   async function doBulkDelete() {
     if (selectedTxnIds.size === 0) return;
-    if (!confirm(`确认批量删除选中的 ${selectedTxnIds.size} 条流水？仅手工/期初/导入等无源单据流水会被删除；删后自动重算余额。此操作不可恢复。`)) return;
+    if (!confirm(`${t('fin2.cash.bulk_del_confirm_a','确认批量删除选中的 ')}${selectedTxnIds.size}${t('fin2.cash.bulk_del_confirm_b',' 条流水？仅手工/期初/导入等无源单据流水会被删除；删后自动重算余额。此操作不可恢复。')}`)) return;
     setBulkDeleting(true);
     try {
       const r = await fetch(`${API}/transactions/bulk-delete`, {
@@ -528,19 +556,19 @@ function TransactionDrawer({
         body: JSON.stringify({ ids: [...selectedTxnIds] }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { alert(d.message ?? '批量删除失败'); return; }
-      alert(`已删除 ${d.deleted ?? 0} 条流水，重算 ${d.accounts?.length ?? 0} 个账户余额`);
+      if (!r.ok) { alert(d.message ?? t('fin2.cash.bulk_del_failed','批量删除失败')); return; }
+      alert(`${t('fin2.cash.bulk_del_done_a','已删除 ')}${d.deleted ?? 0}${t('fin2.cash.bulk_del_done_b',' 条流水，重算 ')}${d.accounts?.length ?? 0}${t('fin2.cash.bulk_del_done_c',' 个账户余额')}`);
       setSelectedTxnIds(new Set());
       await loadTxns();
       onChanged();
-    } catch { alert('批量删除失败'); }
+    } catch { alert(t('fin2.cash.bulk_del_failed','批量删除失败')); }
     finally { setBulkDeleting(false); }
   }
   // 同币种、非本账户、未关闭 → 可作为改挂目标
   const reassignTargets = useMemo(() => accounts.filter(a =>
     a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED'), [accounts, account.id, account.currency_code]);
   async function doReassign(txnId: string) {
-    if (!reassignTarget) { alert('请选择目标账户'); return; }
+    if (!reassignTarget) { alert(t('fin2.cash.select_target_account','请选择目标账户')); return; }
     setReassigning(true);
     try {
       const r = await fetch(`${API}/transactions/${txnId}/reassign`, {
@@ -550,7 +578,7 @@ function TransactionDrawer({
       });
       if (!r.ok) {
         const d = await r.json();
-        alert(d.message ?? '改挂失败');
+        alert(d.message ?? t('fin2.cash.reassign_failed','改挂失败'));
         return;
       }
       setReassignId(null);
@@ -580,23 +608,23 @@ function TransactionDrawer({
         {/* g200a 余额块(2026-06-19):去渐变蓝,用 drawerHeroBox token(灰底克制) + moneyCell(lg)。*/}
         <div style={drawerHeroBox}>
           <div>
-            <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>当前余额</div>
+            <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{t('fin2.cash.current_balance','当前余额')}</div>
             <div style={{ ...moneyCell('default', 'lg'), fontSize: 24, letterSpacing: -0.5 }}>
               {currencySymbol(account.currency_code)}{fmt(account.current_balance)}
             </div>
           </div>
           <div className="text-text-muted" style={{ fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
-            期初 <span style={{ fontFamily: MONO_FONT }}>{fmt(account.opening_balance)}</span>
+            {t('fin2.common.opening','期初')} <span style={{ fontFamily: MONO_FONT }}>{fmt(account.opening_balance)}</span>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <span className="text-text-muted" style={{ fontWeight: 600, fontSize: 13 }}>
-            最近 50 条流水{canDeleteTxn && selectedTxnIds.size > 0 ? ` · 已选 ${selectedTxnIds.size}` : ''}
+            {t('fin2.cash.recent_50_txns','最近 50 条流水')}{canDeleteTxn && selectedTxnIds.size > 0 ? ` · ${t('fin2.cash.selected','已选')} ${selectedTxnIds.size}` : ''}
           </span>
           {canDeleteTxn && selectedTxnIds.size > 0 && (
             <button onClick={() => void doBulkDelete()} disabled={bulkDeleting} style={actionPill('danger', bulkDeleting)}>
-              <Trash2 size={11} /> {bulkDeleting ? '删除中…' : `批量删除 (${selectedTxnIds.size})`}
+              <Trash2 size={11} /> {bulkDeleting ? t('fin2.cash.deleting_ellipsis','删除中…') : `${t('fin2.cash.bulk_delete','批量删除')} (${selectedTxnIds.size})`}
             </button>
           )}
         </div>
@@ -605,91 +633,91 @@ function TransactionDrawer({
         textAlign: 'center',
         padding: 32,
         fontSize: 13
-      }}>加载中…</div> : txns.length === 0 ? <div className="text-text-muted" style={{
+      }}>{t('fin2.common.loading_ellipsis','加载中…')}</div> : txns.length === 0 ? <div className="text-text-muted" style={{
         textAlign: 'center',
         padding: 32,
         fontSize: 13
-      }}>暂无流水记录</div> : <div style={{
+      }}>{t('fin2.cash.no_txns','暂无流水记录')}</div> : <div style={{
         display: 'flex',
         flexDirection: 'column',
         gap: 8
       }}>
-            {txns.map(t => (
+            {txns.map(tx => (
               /* g200a 流水行(2026-06-19):去 Tailwind 浅绿/浅橙背景,用 txnRow(direction) — 白底 + 左 3px 色条标方向。
                  金额用 moneyCell(success/warning, md);余额尾巴 moneyCell(default, sm)。*/
-              <div key={t.id} style={txnRow(t.direction === 'IN' ? 'IN' : 'OUT')}>
+              <div key={tx.id} style={txnRow(tx.direction === 'IN' ? 'IN' : 'OUT')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%' }}>
-                  {canDeleteTxn && <input type="checkbox" checked={selectedTxnIds.has(t.id)} onChange={() => toggleTxnSel(t.id)} style={{ width: 15, height: 15, flexShrink: 0, cursor: 'pointer' }} />}
+                  {canDeleteTxn && <input type="checkbox" checked={selectedTxnIds.has(tx.id)} onChange={() => toggleTxnSel(tx.id)} style={{ width: 15, height: 15, flexShrink: 0, cursor: 'pointer' }} />}
                   <div className={u.flex1}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      {t.direction === 'IN'
+                      {tx.direction === 'IN'
                         ? <TrendingUp size={13} className="text-success" />
                         : <TrendingDown size={13} style={{ color: 'var(--status-warning)' }} />}
                       <span className="text-text-muted" style={{ fontSize: 12, fontWeight: 600 }}>
-                        {SOURCE_TYPE_LABELS[t.source_type ?? ''] ?? t.source_type ?? '-'}
+                        {SOURCE_TYPE_LABELS[tx.source_type ?? ''] ? t(SOURCE_TYPE_KEYS[tx.source_type ?? ''], SOURCE_TYPE_LABELS[tx.source_type ?? '']) : (tx.source_type ?? '-')}
                       </span>
-                      {t.source_no && <span className={`text-text-dim ${u.fs11}`}>{t.source_no}</span>}
+                      {tx.source_no && <span className={`text-text-dim ${u.fs11}`}>{tx.source_no}</span>}
                     </div>
                     <div className={`text-text-muted ${u.fs11}`}>
-                      {new Date(t.txn_date).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      {t.remark && ` · ${t.remark}`}
+                      {new Date(tx.txn_date).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {tx.remark && ` · ${tx.remark}`}
                     </div>
                   </div>
                   <div className={u.tar}>
-                    <div style={moneyCell(t.direction === 'IN' ? 'success' : 'warning', 'md')}>
-                      {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
+                    <div style={moneyCell(tx.direction === 'IN' ? 'success' : 'warning', 'md')}>
+                      {tx.direction === 'IN' ? '+' : '-'}{fmt(tx.amount)}
                     </div>
-                    <div style={{ ...moneyCell('default', 'sm'), color: 'var(--text-dim)', fontWeight: 400 }}>余 {fmt(t.balance_after)}</div>
+                    <div style={{ ...moneyCell('default', 'sm'), color: 'var(--text-dim)', fontWeight: 400 }}>{t('fin2.cash.balance_short','余')} {fmt(tx.balance_after)}</div>
                   </div>
                 </div>
 
                 {/* 流水修正操作区：改挂账户 / 修改 / 删除（手工流水） */}
-                {editId === t.id ? (
+                {editId === tx.id ? (
                   /* G103 修改手工流水（金额/方向/日期/摘要） */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', padding: '8px 0' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <select value={editForm.direction} onChange={e => setEditForm(f => ({ ...f, direction: e.target.value as 'IN' | 'OUT' }))} style={{ ...inputField, width: 80, fontSize: 12, padding: '5px 8px' }}>
-                        <option value="IN">收款</option>
-                        <option value="OUT">付款</option>
+                        <option value="IN">{t('fin2.cash.receive','收款')}</option>
+                        <option value="OUT">{t('fin2.cash.pay','付款')}</option>
                       </select>
-                      <input type="number" min="0" step="0.01" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} placeholder="金额" style={{ ...inputField, flex: 1, fontSize: 12, padding: '5px 8px' }} />
+                      <input type="number" min="0" step="0.01" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} placeholder={t('fin2.common.amount','金额')} style={{ ...inputField, flex: 1, fontSize: 12, padding: '5px 8px' }} />
                       <input type="date" value={editForm.txn_date} onChange={e => setEditForm(f => ({ ...f, txn_date: e.target.value }))} style={{ ...inputField, width: 130, fontSize: 12, padding: '5px 8px' }} />
                     </div>
-                    <input value={editForm.remark} onChange={e => setEditForm(f => ({ ...f, remark: e.target.value }))} placeholder="摘要 / 备注" style={{ ...inputField, fontSize: 12, padding: '5px 8px' }} />
+                    <input value={editForm.remark} onChange={e => setEditForm(f => ({ ...f, remark: e.target.value }))} placeholder={t('fin2.cash.summary_remark','摘要 / 备注')} style={{ ...inputField, fontSize: 12, padding: '5px 8px' }} />
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                      <button onClick={() => setEditId(null)} style={actionPill('default')}>取消</button>
-                      <button onClick={() => void doEditTxn(t.id)} disabled={savingTxn} style={actionPill('brand', savingTxn)}>
-                        {savingTxn ? '保存中…' : '保存修改'}
+                      <button onClick={() => setEditId(null)} style={actionPill('default')}>{t('fin2.common.cancel','取消')}</button>
+                      <button onClick={() => void doEditTxn(tx.id)} disabled={savingTxn} style={actionPill('brand', savingTxn)}>
+                        {savingTxn ? t('fin2.cash.saving_ellipsis','保存中…') : t('fin2.cash.save_edit','保存修改')}
                       </button>
                     </div>
                   </div>
-                ) : reassignId === t.id ? (
+                ) : reassignId === tx.id ? (
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
                     <select value={reassignTarget} onChange={e => setReassignTarget(e.target.value)} style={{ ...inputField, flex: 1, fontSize: 12, padding: '5px 8px' }}>
-                      <option value="">选择目标账户（同币种 {account.currency_code}）…</option>
+                      <option value="">{t('fin2.cash.select_target_same_currency_a','选择目标账户（同币种 ')}{account.currency_code}{t('fin2.cash.select_target_same_currency_b','）…')}</option>
                       {reassignTargets.map(a => <option key={a.id} value={a.id}>{a.account_code} · {a.account_name}</option>)}
                     </select>
-                    <button onClick={() => void doReassign(t.id)} disabled={reassigning || !reassignTarget} style={actionPill('brand', reassigning || !reassignTarget)}>
-                      {reassigning ? '改挂中…' : '确认'}
+                    <button onClick={() => void doReassign(tx.id)} disabled={reassigning || !reassignTarget} style={actionPill('brand', reassigning || !reassignTarget)}>
+                      {reassigning ? t('fin2.cash.reassigning_ellipsis','改挂中…') : t('fin2.cash.confirm','确认')}
                     </button>
-                    <button onClick={() => { setReassignId(null); setReassignTarget(''); }} style={actionPill('default')}>取消</button>
+                    <button onClick={() => { setReassignId(null); setReassignTarget(''); }} style={actionPill('default')}>{t('fin2.common.cancel','取消')}</button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {canEdit && (
-                      <button onClick={() => { setReassignId(t.id); setReassignTarget(''); }} style={actionPill('default')}>
-                        <ArrowLeftRight size={10} /> 改挂账户
+                      <button onClick={() => { setReassignId(tx.id); setReassignTarget(''); }} style={actionPill('default')}>
+                        <ArrowLeftRight size={10} /> {t('fin2.cash.reassign_account','改挂账户')}
                       </button>
                     )}
                     {/* 修改 / 删除：仅手工录入的流水（业务单据带出的流水须回源单据修正） */}
-                    {canEditTxn && t.source_type === 'MANUAL' && (
-                      <button onClick={() => { setEditId(t.id); setEditForm({ direction: t.direction === 'OUT' ? 'OUT' : 'IN', amount: String(t.amount ?? ''), txn_date: (t.txn_date ?? '').slice(0, 10), remark: t.remark ?? '' }); }} style={actionPill('info')}>
-                        <Pencil size={10} /> 修改
+                    {canEditTxn && tx.source_type === 'MANUAL' && (
+                      <button onClick={() => { setEditId(tx.id); setEditForm({ direction: tx.direction === 'OUT' ? 'OUT' : 'IN', amount: String(tx.amount ?? ''), txn_date: (tx.txn_date ?? '').slice(0, 10), remark: tx.remark ?? '' }); }} style={actionPill('info')}>
+                        <Pencil size={10} /> {t('fin2.cash.edit','修改')}
                       </button>
                     )}
-                    {canDeleteTxn && t.source_type === 'MANUAL' && (
-                      <button onClick={() => void doDeleteTxn(t.id)} disabled={savingTxn} style={actionPill('danger', savingTxn)}>
-                        <Trash2 size={10} /> 删除
+                    {canDeleteTxn && tx.source_type === 'MANUAL' && (
+                      <button onClick={() => void doDeleteTxn(tx.id)} disabled={savingTxn} style={actionPill('danger', savingTxn)}>
+                        <Trash2 size={10} /> {t('fin2.cash.delete','删除')}
                       </button>
                     )}
                   </div>
@@ -700,10 +728,10 @@ function TransactionDrawer({
       </div>
       <ConfirmDialogV2
         open={!!pendingDeleteTxnId}
-        title="删除流水"
-        message="确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。"
+        title={t('fin2.cash.delete_txn_title','删除流水')}
+        message={t('fin2.cash.delete_txn_msg','确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。')}
         danger
-        confirmLabel="删除"
+        confirmLabel={t('fin2.cash.delete','删除')}
         loading={savingTxn}
         onConfirm={confirmDeleteTxn}
         onCancel={() => setPendingDeleteTxnId(null)}
@@ -714,6 +742,7 @@ function TransactionDrawer({
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CashAccountsPage() {
+  const { t } = useLanguage();
   // G20-2：按钮按子 menu 分流（A1 欠债治理）
   //   新建账户 → MENU_FIN2_CASH_MASTER:C
   //   收/付款  → MENU_FIN2_CASH_TXN:C
@@ -773,7 +802,7 @@ export default function CashAccountsPage() {
       });
       if (!r.ok) {
         const d = await r.json();
-        alert(d.message ?? '操作失败');
+        alert(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
       await load();
@@ -790,21 +819,21 @@ export default function CashAccountsPage() {
       .join('  /  ');
   }, [summary]);
   return <div>
-      <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
+      <PageHeader title={t('fin2.cash.page_title','资金账户中心')} subtitle={t('fin2.cash.page_subtitle','资金账户管理 · 流水账本 · 转账审批')} breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.cash.breadcrumb','资金账户')]} actions={
         <div style={{ display: 'flex', gap: 8 }}>
           {canCreateTxn && (
             <button onClick={() => setTxnModal({ direction: 'IN' })} style={{ ...secondaryActionButton, color: 'var(--status-success)', borderColor: 'var(--status-success)' }}>
-              <Plus size={13} /> 收款
+              <Plus size={13} /> {t('fin2.cash.receive','收款')}
             </button>
           )}
           {canCreateTxn && (
             <button onClick={() => setTxnModal({ direction: 'OUT' })} style={{ ...secondaryActionButton, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
-              <Plus size={13} /> 付款
+              <Plus size={13} /> {t('fin2.cash.pay','付款')}
             </button>
           )}
           {canCreateAccount && (
             <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-              <Plus size={15} /> 新建账户
+              <Plus size={15} /> {t('fin2.cash.new_account','新建账户')}
             </button>
           )}
         </div>
@@ -819,10 +848,10 @@ export default function CashAccountsPage() {
         marginBottom: 24,
       }}>
         {([
-          { label: '账户总余额', value: totalBalanceDisplay,                icon: DollarSign, tone: 'info'    as const },
-          { label: '账户总数',   value: `${summary?.totalAccounts ?? 0} 个`, icon: Wallet,     tone: 'brand'   as const },
-          { label: '正常账户',   value: `${summary?.activeCount ?? 0} 个`,   icon: Activity,   tone: 'success' as const },
-          { label: '冻结账户',   value: `${summary?.frozenCount ?? 0} 个`,   icon: Lock,       tone: 'warning' as const },
+          { label: t('fin2.cash.kpi_total_balance','账户总余额'), value: totalBalanceDisplay,                icon: DollarSign, tone: 'info'    as const },
+          { label: t('fin2.cash.kpi_total_accounts','账户总数'),   value: `${summary?.totalAccounts ?? 0} ${t('fin2.common.unit_item','个')}`, icon: Wallet,     tone: 'brand'   as const },
+          { label: t('fin2.cash.kpi_active_accounts','正常账户'),   value: `${summary?.activeCount ?? 0} ${t('fin2.common.unit_item','个')}`,   icon: Activity,   tone: 'success' as const },
+          { label: t('fin2.cash.kpi_frozen_accounts','冻结账户'),   value: `${summary?.frozenCount ?? 0} ${t('fin2.common.unit_item','个')}`,   icon: Lock,       tone: 'warning' as const },
         ]).map(c => {
           const Icon = c.icon;
           return (
@@ -846,15 +875,15 @@ export default function CashAccountsPage() {
             transform: 'translateY(-50%)',
             pointerEvents: 'none',
           }} />
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索账户名称/编号…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
+          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t('fin2.cash.search_placeholder','搜索账户名称/编号…')} style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
         </div>
 
         {[{
           k: '',
-          v: '全部类型'
+          v: t('fin2.cash.all_types','全部类型')
         }, ...Object.entries(ACCOUNT_TYPE_LABELS).map(([k, v]) => ({
           k,
-          v
+          v: t(ACCOUNT_TYPE_KEYS[k], v)
         }))].map(({ k, v }) => (
           <button key={k} onClick={() => setTypeFilter(k)} style={toolbarFilterPill(typeFilter === k)}>
             {v}
@@ -865,16 +894,16 @@ export default function CashAccountsPage() {
 
         {[{
           k: '',
-          v: '全部状态'
+          v: t('fin2.cash.all_statuses','全部状态')
         }, {
           k: 'ACTIVE',
-          v: '正常'
+          v: t('fin2.cash.status_active','正常')
         }, {
           k: 'FROZEN',
-          v: '冻结'
+          v: t('fin2.common.frozen','冻结')
         }, {
           k: 'CLOSED',
-          v: '已关闭'
+          v: t('fin2.cash.status_closed','已关闭')
         }].map(({ k, v }) => (
           <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>
             {v}
@@ -891,7 +920,7 @@ export default function CashAccountsPage() {
       textAlign: 'center',
       padding: 48,
       fontSize: 14
-    }}>加载中…</div> : accounts.length === 0 ? <div className="text-text-muted" style={{
+    }}>{t('fin2.common.loading_ellipsis','加载中…')}</div> : accounts.length === 0 ? <div className="text-text-muted" style={{
       textAlign: 'center',
       padding: 48,
       fontSize: 14
@@ -901,7 +930,7 @@ export default function CashAccountsPage() {
         display: 'block',
         opacity: 0.4
       }} />
-          暂无资金账户，点击「新建账户」开始管理
+          {t('fin2.cash.empty_accounts','暂无资金账户，点击「新建账户」开始管理')}
         </div> : <div style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))',
@@ -938,7 +967,7 @@ export default function CashAccountsPage() {
             alignItems: 'flex-end',
             gap: 4
           }}>
-                  <StatusBadge status={acc.status} label={STATUS_LABELS[acc.status] ?? acc.status} />
+                  <StatusBadge status={acc.status} label={STATUS_LABELS[acc.status] ? t(STATUS_KEYS[acc.status], STATUS_LABELS[acc.status]) : acc.status} />
                   <TypeBadge type={acc.account_type} />
                 </div>
               </div>
@@ -955,7 +984,7 @@ export default function CashAccountsPage() {
                 alignItems: 'center',
               }}>
                 <div>
-                  <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 2 }}>当前余额</div>
+                  <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 2 }}>{t('fin2.cash.current_balance','当前余额')}</div>
                   <div style={moneyCell('default', 'lg')}>
                     {currencySymbol(acc.currency_code)}{fmt(acc.current_balance)}
                   </div>
@@ -977,34 +1006,34 @@ export default function CashAccountsPage() {
               <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {canEditAccount && acc.status !== 'CLOSED' && (
                   <button onClick={() => setEditAccount(acc)} style={actionPill('info')}>
-                    <Pencil size={11} /> 编辑/期初
+                    <Pencil size={11} /> {t('fin2.cash.edit_opening','编辑/期初')}
                   </button>
                 )}
                 {canEditAccount && (
                   <button
-                    onClick={() => { if (confirm(`重算账户「${acc.account_name}」余额？将按 期初 + 全部流水 重建余额台账。`)) { void doAction(acc.id, 'recompute'); } }}
+                    onClick={() => { if (confirm(`${t('fin2.cash.recompute_confirm_a','重算账户「')}${acc.account_name}${t('fin2.cash.recompute_confirm_b','」余额？将按 期初 + 全部流水 重建余额台账。')}`)) { void doAction(acc.id, 'recompute'); } }}
                     disabled={actionLoading === acc.id + 'recompute'}
                     style={actionPill('brand', actionLoading === acc.id + 'recompute')}
                   >
-                    <RefreshCw size={11} /> 重算余额
+                    <RefreshCw size={11} /> {t('fin2.cash.recompute_balance','重算余额')}
                   </button>
                 )}
                 {acc.status === 'ACTIVE' && (
                   <button onClick={() => doAction(acc.id, 'freeze')} disabled={actionLoading === acc.id + 'freeze'} style={actionPill('warning', actionLoading === acc.id + 'freeze')}>
-                    <Lock size={11} /> 冻结
+                    <Lock size={11} /> {t('fin2.common.frozen','冻结')}
                   </button>
                 )}
                 {acc.status === 'FROZEN' && (
                   <button onClick={() => doAction(acc.id, 'unfreeze')} disabled={actionLoading === acc.id + 'unfreeze'} style={actionPill('success', actionLoading === acc.id + 'unfreeze')}>
-                    <Unlock size={11} /> 解冻
+                    <Unlock size={11} /> {t('fin2.cash.unfreeze','解冻')}
                   </button>
                 )}
                 {acc.status !== 'CLOSED' && (
                   <button
-                    onClick={() => { if (confirm(`确认关闭账户「${acc.account_name}」？关闭后不可恢复，且余额必须为零。`)) { void doAction(acc.id, 'close'); } }}
+                    onClick={() => { if (confirm(`${t('fin2.cash.close_confirm_a','确认关闭账户「')}${acc.account_name}${t('fin2.cash.close_confirm_b','」？关闭后不可恢复，且余额必须为零。')}`)) { void doAction(acc.id, 'close'); } }}
                     style={actionPill('default')}
                   >
-                    <X size={11} /> 关闭
+                    <X size={11} /> {t('fin2.cash.close','关闭')}
                   </button>
                 )}
               </div>
@@ -1052,6 +1081,7 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const toast = _useToastSafe();
   const [accountCode, setAccountCode] = useState('');
   const [amount, setAmount] = useState('');
@@ -1067,13 +1097,13 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
     : activeAccounts, [activeAccounts, acctSearch]);
   const selectedAcct = useMemo(() => activeAccounts.find(a => a.account_code === accountCode), [activeAccounts, accountCode]);
 
-  const label = direction === 'IN' ? '收款' : '付款';
+  const label = direction === 'IN' ? t('fin2.cash.receive','收款') : t('fin2.cash.pay','付款');
   const color = direction === 'IN' ? 'var(--status-success)' : 'var(--status-danger)';
 
   const submit = async () => {
-    if (!accountCode) return toast.error('请选择资金账户');
+    if (!accountCode) return toast.error(t('fin2.cash.select_cash_account','请选择资金账户'));
     const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) return toast.error('金额必须为正数');
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error(t('fin2.cash.amount_positive','金额必须为正数'));
     setSaving(true);
     try {
       const res = await fetch(`${API}/transactions/manual`, {
@@ -1083,10 +1113,10 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
       });
       const json = await res.json();
       if (json.code === 200) {
-        toast.success(`${label}已入账：${json.data.txn_no}`);
+        toast.success(`${label}${t('fin2.cash.posted_suffix','已入账：')}${json.data.txn_no}`);
         onCreated();
-      } else toast.error(json.msg || '录入失败');
-    } catch { toast.error('网络错误'); }
+      } else toast.error(json.msg || t('fin2.cash.entry_failed','录入失败'));
+    } catch { toast.error(t('fin2.cash.network_error','网络错误')); }
     finally { setSaving(false); }
   };
 
@@ -1094,16 +1124,16 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
     <div onClick={onClose} style={modalMask}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...modalPanel(440), padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color }}>{label}录入</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color }}>{label}{t('fin2.cash.entry_suffix','录入')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={16} /></button>
         </div>
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ position: 'relative' }}>
-            <label style={formLabel}>资金账户 <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+            <label style={formLabel}>{t('fin2.cash.cash_account','资金账户')} <span style={{ color: 'var(--status-danger)' }}>*</span></label>
             <input
               style={inputField}
               value={acctOpen ? acctSearch : (selectedAcct ? `${selectedAcct.account_name}（${selectedAcct.account_code} · ${selectedAcct.currency_code}）` : '')}
-              placeholder="输入关键字筛选：账户名 / 编号 / 币种"
+              placeholder={t('fin2.cash.acct_search_placeholder','输入关键字筛选：账户名 / 编号 / 币种')}
               onFocus={() => { setAcctOpen(true); setAcctSearch(''); }}
               onChange={e => { setAcctSearch(e.target.value); setAcctOpen(true); }}
               onBlur={() => setTimeout(() => setAcctOpen(false), 150)}
@@ -1111,7 +1141,7 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
             {acctOpen && (
               <div style={{ position: 'absolute', zIndex: 30, top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 240, overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
                 {acctFiltered.length === 0 ? (
-                  <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-secondary)' }}>无匹配账户</div>
+                  <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-secondary)' }}>{t('fin2.cash.no_matching_account','无匹配账户')}</div>
                 ) : acctFiltered.map(a => (
                   <div
                     key={a.account_code}
@@ -1126,22 +1156,22 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
             )}
           </div>
           <div>
-            <label style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+            <label style={formLabel}>{t('fin2.common.amount','金额')} <span style={{ color: 'var(--status-danger)' }}>*</span></label>
             <input type="number" min="0" step="0.01" style={inputField} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" autoFocus />
           </div>
           <div>
-            <label style={formLabel}>日期</label>
+            <label style={formLabel}>{t('fin2.cash.date','日期')}</label>
             <input type="date" style={inputField} value={txnDate} onChange={e => setTxnDate(e.target.value)} />
           </div>
           <div>
-            <label style={formLabel}>摘要 / 备注</label>
-            <input style={inputField} value={remark} onChange={e => setRemark(e.target.value)} placeholder={`如：${direction === 'IN' ? '收直营店现金' : '付柴油款'}`} />
+            <label style={formLabel}>{t('fin2.cash.summary_remark','摘要 / 备注')}</label>
+            <input style={inputField} value={remark} onChange={e => setRemark(e.target.value)} placeholder={`${t('fin2.cash.eg_prefix','如：')}${direction === 'IN' ? t('fin2.cash.eg_receive_cash','收直营店现金') : t('fin2.cash.eg_pay_diesel','付柴油款')}`} />
           </div>
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, background: color, opacity: saving ? 0.6 : 1 }}>
-            {saving ? '保存中…' : `确认${label}`}
+            {saving ? t('fin2.cash.saving_ellipsis','保存中…') : `${t('fin2.cash.confirm','确认')}${label}`}
           </button>
         </div>
       </div>

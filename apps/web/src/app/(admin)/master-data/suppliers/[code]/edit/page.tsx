@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { LoadingSkeleton } from "@/components/design-system";
+import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { SUPPLIER_FIELDS } from "../../page";
 
@@ -13,6 +14,7 @@ const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
 
 export default function SupplierEditPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -43,14 +45,14 @@ export default function SupplierEditPage() {
   if (loading) return <div style={{ padding: 32 }}><LoadingSkeleton variant="card" rows={6} /></div>;
   if (notFound || !row) return (
     <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-      未找到编码 {code} 的供应商档案
+      {t('md.notfound_prefix','未找到编码')} {code} {t('md.notfound_suffix_supplier','的供应商档案')}
     </div>
   );
 
   return (
     <MasterDataFormPage
       type="supplier"
-      title="供应商"
+      title={t('md.entity_supplier','供应商')}
       codeKey="supplier_code"
       nameKey="supplier_name"
       fields={SUPPLIER_FIELDS}

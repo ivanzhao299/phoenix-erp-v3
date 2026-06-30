@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface TreeNode {
   id: string;
@@ -30,8 +31,10 @@ export interface TreePanelProps {
 
 export function TreePanel({
   nodes, selectedId, onSelect,
-  defaultExpanded = true, emptyText = '暂无节点', width = 280,
+  defaultExpanded = true, emptyText, width = 280,
 }: TreePanelProps) {
+  const { t } = useLanguage();
+  const emptyTextResolved = emptyText ?? t('ui.暂无节点', '暂无节点');
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
   const isOpen = (id: string) => openMap[id] ?? defaultExpanded;
   const toggle = (id: string) => setOpenMap(m => ({ ...m, [id]: !isOpen(id) }));
@@ -62,7 +65,7 @@ export function TreePanel({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); toggle(node.id); }}
-              aria-label={open ? '收起' : '展开'}
+              aria-label={open ? t('ui.收起', '收起') : t('ui.展开', '展开')}
               style={{
                 width: 18, height: 18, padding: 0, background: 'transparent', border: 'none',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -92,7 +95,7 @@ export function TreePanel({
     >
       {nodes.length === 0 ? (
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-          {emptyText}
+          {emptyTextResolved}
         </div>
       ) : (
         nodes.map(n => renderNode(n, 0))

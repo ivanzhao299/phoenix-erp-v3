@@ -49,8 +49,7 @@ jobs:
       - name: Web build
         run: pnpm --filter web build
 
-      - name: API basic tests deferred
-        run: |
-          echo "API Jest exists but is not enabled as a hard Phase 1 gate."
-          echo "Current local audit: procurement.service.spec.ts has an existing constructor arity mismatch."
-          echo "Phase 2 should restore pnpm --filter phoenix-erp-v3-nest test -- --runInBand after the test baseline is fixed."
+      # P4(评分补强)：原 arity 不匹配已不复现，本地 5 suites / 52 cases 全过。
+      #   把"deferred echo"换成真跑 jest，作为硬门禁恢复单测保护。
+      - name: API unit tests (jest)
+        run: pnpm --filter phoenix-erp-v3-nest test -- --runInBand

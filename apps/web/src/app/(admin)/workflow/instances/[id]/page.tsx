@@ -10,7 +10,9 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowInstance, type WorkflowTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 export default function WorkflowInstanceDetailPage() {
+  const { t } = useLanguage();
   const params = useParams<{
     id: string;
   }>();
@@ -26,10 +28,10 @@ export default function WorkflowInstanceDetailPage() {
     setCanceling(true);
     setError("");
     try {
-      await workflowApi.cancelInstance(id, "发起人取消");
+      await workflowApi.cancelInstance(id, t('ui.发起人取消','发起人取消'));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "取消失败");
+      setError(err instanceof Error ? err.message : t('ui.取消失败','取消失败'));
     } finally {
       setCanceling(false);
     }
@@ -38,30 +40,30 @@ export default function WorkflowInstanceDetailPage() {
   const runningTasks = useMemo(() => tasks.filter(task => String(task.status) === "TODO"), [tasks]);
   const insight = useMemo(() => data ? buildInstanceInsight(data, tasks) : null, [data, tasks]);
   return <div>
-      <PageHeader title="流程详情" subtitle={data?.title || ""} breadcrumb={["工作流", "流程详情"]} />
+      <PageHeader title={t('ui.流程详情','流程详情')} subtitle={data?.title || ""} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程详情','流程详情')]} />
       {data ? <div style={layoutStyle}>
           <section className={s.card}>
             <div className={s.cardBody}>
               <div style={headerStyle}>
                 <div>
                   <h3 className={s.cardTitle}>{data.title}</h3>
-                  <p className={`${s.modalDesc} ${u.mt4}`}>{data.instance_no} · {data.starter_name || "发起人"}</p>
+                  <p className={`${s.modalDesc} ${u.mt4}`}>{data.instance_no} · {data.starter_name || t('ui.发起人','发起人')}</p>
                 </div>
                 <span className={statusBadgeClass(data.status)}>{statusText(data.status)}</span>
               </div>
 
               <div style={actionBarStyle}>
-                <Link href="/workflow/start" style={secondaryActionButton}>继续发起</Link>
-                <Link href="/workflow/tasks/todo" style={secondaryActionButton}>我的待办</Link>
+                <Link href="/workflow/start" style={secondaryActionButton}>{t('ui.继续发起','继续发起')}</Link>
+                <Link href="/workflow/tasks/todo" style={secondaryActionButton}>{t('ui.我的待办','我的待办')}</Link>
                 {data.status === "RUNNING" ? <button type="button" style={actionPill('danger')} disabled={canceling} onClick={cancel}>
-                    {canceling ? "取消中..." : "取消流程"}
+                    {canceling ? t('ui.取消中...','取消中...') : t('ui.取消流程','取消流程')}
                   </button> : null}
               </div>
               {error ? <div className={s.errorBanner}>{error}</div> : null}
 
               {insight ? <div style={insightGridStyle}>
                   <div style={insightCardStyle}>
-                    <span className={s.badge}>流程进度</span>
+                    <span className={s.badge}>{t('ui.流程进度','流程进度')}</span>
                     <strong>{insight.progressText}</strong>
                     <div style={progressTrackStyle}><span style={{
                   ...progressBarStyle,
@@ -70,35 +72,35 @@ export default function WorkflowInstanceDetailPage() {
                     <span style={hintStyle}>{insight.nodeText}</span>
                   </div>
                   <div style={insightCardStyle}>
-                    <span className={s.badge}>当前责任</span>
+                    <span className={s.badge}>{t('ui.当前责任','当前责任')}</span>
                     <strong>{insight.ownerText}</strong>
                     <span style={hintStyle}>{insight.ownerHint}</span>
                   </div>
                   <div style={insightCardStyle}>
-                    <span className={s.badge}>耗时</span>
+                    <span className={s.badge}>{t('ui.耗时','耗时')}</span>
                     <strong>{insight.elapsedText}</strong>
                     <span style={hintStyle}>{insight.timeHint}</span>
                   </div>
                   <div style={insightCardStyle}>
-                    <span className={s.badge}>下一步</span>
+                    <span className={s.badge}>{t('ui.下一步','下一步')}</span>
                     <strong>{insight.nextTitle}</strong>
                     <span style={hintStyle}>{insight.nextHint}</span>
                   </div>
                 </div> : null}
 
               {runningTasks.length ? <div className={s.warnBanner}>
-                  <strong>当前待处理节点</strong>
+                  <strong>{t('ui.当前待处理节点','当前待处理节点')}</strong>
                   <span>
                     {runningTasks.map(task => `${String(task.node_name)}${task.assignee_role_code ? ` · ${String(task.assignee_role_code)}` : ""}`).join("、")}
                   </span>
                 </div> : null}
 
-              <h4 className={s.formSection}>申请内容</h4>
+              <h4 className={s.formSection}>{t('ui.申请内容','申请内容')}</h4>
               <WorkflowDataView data={data.form_data_json || {}} schema={data.form_schema_json} />
 
-              <h4 className={s.formSection}>审批任务</h4>
+              <h4 className={s.formSection}>{t('ui.审批任务','审批任务')}</h4>
               <table className={s.table}>
-                <thead><tr><th>节点</th><th>状态</th><th>结果</th><th>处理时间</th></tr></thead>
+                <thead><tr><th>{t('ui.节点','节点')}</th><th>{t('ui.状态','状态')}</th><th>{t('ui.结果','结果')}</th><th>{t('ui.处理时间','处理时间')}</th></tr></thead>
                 <tbody>{tasks.map((task, idx) => <tr key={idx}>
                     <td>{String(task.node_name || "-")}</td>
                     <td><span className={taskBadgeClass(String(task.status || ""))}>{taskStatusText(String(task.status || ""))}</span></td>
@@ -111,7 +113,7 @@ export default function WorkflowInstanceDetailPage() {
 
           <section className={s.card}>
             <div className={s.cardBody}>
-              <h3 className={`${s.cardTitle} ${u.mb12}`}>流程轨迹</h3>
+              <h3 className={`${s.cardTitle} ${u.mb12}`}>{t('ui.流程轨迹','流程轨迹')}</h3>
               <WorkflowTimeline actions={data.actions as Record<string, unknown>[] || []} />
             </div>
           </section>

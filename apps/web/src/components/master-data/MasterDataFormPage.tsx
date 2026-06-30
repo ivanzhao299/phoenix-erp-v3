@@ -9,7 +9,8 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
-import { renderMdFieldInput, type MdField } from "./MasterDataRuntimePanel";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { renderMdFieldInput, multilingualNameFields, type MdField } from "./MasterDataRuntimePanel";
 
 /**
  * g200p: MasterDataFormPage — 主数据"新建/编辑"全屏路由页(替代字段多于 8 的抽屉)。
@@ -35,18 +36,26 @@ export interface MasterDataFormPageProps {
 
 export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const { type, title, codeKey, nameKey, fields, listRoute, mode, initialRow } = props;
+  const { t } = useLanguage();
   const router = useRouter();
   const [form, setForm] = useState<Record<string, any>>(initialRow ?? {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  // task #25：多语言类型在末尾追加英文/老挝文名称字段（单独分组"多语言名称"成 Panel）；
+  //   已在页面 fields 里配过的语言键不重复注入（如 products 已有 product_name_lo）
+  const allFields = useMemo(() => {
+    const have = new Set(fields.map(f => f.key));
+    return [...fields, ...multilingualNameFields(type, nameKey).filter(f => !have.has(f.key))];
+  }, [fields, type, nameKey]);
+
   // 按 group 分组(无 group 字段归入"基本信息")
   const groups = useMemo(() => {
     const order: string[] = [];
     const buckets: Record<string, MdField[]> = {};
     const DEFAULT = "基本信息";
-    fields.forEach(f => {
+    allFields.forEach(f => {
       const g = f.group ?? DEFAULT;
       if (!buckets[g]) { buckets[g] = []; order.push(g); }
       buckets[g].push(f);
@@ -62,7 +71,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const onSave = async () => {
     setError("");
     for (const f of fields) {
-      if (f.required && !form[f.key]) { setError(`请填写:${f.label}`); return; }
+      if (f.required && !form[f.key]) { setError(`${t('ui.请填写:','请填写:')}${f.label}`); return; }
     }
     setSaving(true);
     try {
@@ -75,23 +84,23 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
           `/master-data/runtime/${type}/${initialRow?.[codeKey]}`,
           { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) },
         );
-        if (resp?.pendingChange) setNotice(resp.message || "关键字段变更已提交审批,通过后生效。");
+        if (resp?.pendingChange) setNotice(resp.message || t('ui.关键字段变更已提交审批,通过后生效。','关键字段变更已提交审批,通过后生效。'));
       }
       router.push(listRoute);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t('ui.保存失败','保存失败'));
     } finally { setSaving(false); }
   };
 
   return (
     <div style={{ paddingBottom: 56 /* sticky footer 留位 */ }}>
       <PageHeader
-        title={mode === "create" ? `新增${title}` : `编辑${title}`}
-        subtitle={mode === "create" ? "完整建档 · 编码自动生成" : `编辑 ${initialRow?.[codeKey] ?? ""}`}
-        breadcrumb={["主数据中心", `${title}中心`, mode === "create" ? "新增" : "编辑"]}
+        title={mode === "create" ? `${t('ui.新增','新增')}${title}` : `${t('ui.编辑','编辑')}${title}`}
+        subtitle={mode === "create" ? t('ui.完整建档 · 编码自动生成','完整建档 · 编码自动生成') : `${t('ui.编辑','编辑')} ${initialRow?.[codeKey] ?? ""}`}
+        breadcrumb={[t('ui.主数据中心','主数据中心'), `${title}${t('ui.中心','中心')}`, mode === "create" ? t('ui.新增','新增') : t('ui.编辑','编辑')]}
         actions={
           <button onClick={onCancel} style={{ ...secondaryActionButton, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <ArrowLeft size={14} /> 返回列表
+            <ArrowLeft size={14} /> {t('ui.返回列表','返回列表')}
           </button>
         }
       />
@@ -102,18 +111,18 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
         {mode === "edit" && initialRow ? (
           <div style={{ ...drawerHeroBox, marginBottom: 0, padding: "10px 14px" }}>
             <div>
-              <div style={drawerHeroLabel}>{title}编码</div>
+              <div style={drawerHeroLabel}>{title}{t('ui.编码','编码')}</div>
               <div style={drawerHeroCodeValue}>{initialRow[codeKey]}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={drawerHeroLabel}>名称</div>
+              <div style={drawerHeroLabel}>{t('ui.名称','名称')}</div>
               <div style={drawerHeroNameValue}>{String(initialRow[nameKey] ?? form[nameKey] ?? "—")}</div>
             </div>
           </div>
         ) : (
           <div style={{ ...inlineAlert("info"), padding: "6px 12px", fontSize: 12 }}>
-            <span style={{ fontWeight: 600 }}>提示</span>
-            <span style={{ marginLeft: 6 }}>编码将在保存时自动生成,无需手填</span>
+            <span style={{ fontWeight: 600 }}>{t('ui.提示','提示')}</span>
+            <span style={{ marginLeft: 6 }}>{t('ui.编码将在保存时自动生成,无需手填','编码将在保存时自动生成,无需手填')}</span>
           </div>
         )}
 
@@ -129,7 +138,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
                   <label style={{ ...formLabel, marginBottom: 4 }}>
                     {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                   </label>
-                  {renderMdFieldInput(f, form, setForm)}
+                  {renderMdFieldInput(f, form, setForm, t)}
                 </div>
               ))}
             </div>
@@ -144,9 +153,9 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
         padding: "10px 24px", display: "flex", justifyContent: "flex-end", gap: 10,
         zIndex: 100,
       }}>
-        <button onClick={onCancel} style={secondaryActionButton}>取消</button>
+        <button onClick={onCancel} style={secondaryActionButton}>{t('ui.取消','取消')}</button>
         <button onClick={onSave} disabled={saving} style={{ ...primaryActionButton, display: "inline-flex", alignItems: "center", gap: 6, opacity: saving ? 0.6 : 1 }}>
-          <Save size={14} /> {saving ? "保存中…" : "保存"}
+          <Save size={14} /> {saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
         </button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useParams, useRouter } from 'next/navigation';
 import { Send, CheckCircle, FileText, ArrowLeft, AlertCircle, Copy, PlayCircle } from 'lucide-react';
 import PageHeader from '@/components/PageHeader'; // G28：全局化 + 业务用户感受一致
+import { useLanguage } from "@/contexts/LanguageContext";
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
 
@@ -74,6 +75,7 @@ async function apiFetch<T>(url: string, opts: RequestInit = {}): Promise<T> {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function FormSubmitPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const formCode = (params?.formCode as string ?? '').toUpperCase();
@@ -108,7 +110,7 @@ export default function FormSubmitPage() {
         setFormData(defaults);
       }
     } catch (e: any) {
-      setLoadError(e.message ?? '加载失败');
+      setLoadError(e.message ?? t('ui.加载失败','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -135,9 +137,9 @@ export default function FormSubmitPage() {
     } catch (e: any) {
       if ((e as any).fieldErrors) {
         setFieldErrors((e as any).fieldErrors);
-        setSubmitError('请修正表单中的错误后重新提交');
+        setSubmitError(t('ui.请修正表单中的错误后重新提交','请修正表单中的错误后重新提交'));
       } else {
-        setSubmitError(e.message ?? '提交失败，请重试');
+        setSubmitError(e.message ?? t('ui.提交失败，请重试','提交失败，请重试'));
       }
     } finally {
       setSubmitting(false);
@@ -174,7 +176,7 @@ export default function FormSubmitPage() {
       });
       setApprovalResult(res);
     } catch (e: any) {
-      setApprovalError(e.message ?? '启动审批失败，请重试');
+      setApprovalError(e.message ?? t('ui.启动审批失败，请重试','启动审批失败，请重试'));
     } finally {
       setApproving(false);
     }
@@ -188,7 +190,7 @@ export default function FormSubmitPage() {
     textAlign: 'center',
     color: 'var(--text-disabled)'
   }}>
-      <div className={u.fs16}>加载表单中…</div>
+      <div className={u.fs16}>{t('ui.加载表单中…','加载表单中…')}</div>
     </div>;
 
   // 加载错误
@@ -214,7 +216,7 @@ export default function FormSubmitPage() {
           fontWeight: 700,
           color: 'var(--status-danger)',
           fontSize: 16
-        }}>加载失败</span>
+        }}>{t('ui.加载失败','加载失败')}</span>
         </div>
         <div style={{
         fontSize: 14,
@@ -233,7 +235,7 @@ export default function FormSubmitPage() {
         fontSize: 13,
         cursor: 'pointer'
       }}>
-          <ArrowLeft size={14} /> 返回
+          <ArrowLeft size={14} /> {t('ui.返回','返回')}
         </button>
       </div>
     </div>;
@@ -257,12 +259,12 @@ export default function FormSubmitPage() {
         fontWeight: 700,
         color: 'var(--status-warning)',
         marginBottom: 8
-      }}>表单暂无可用版本</div>
+      }}>{t('ui.表单暂无可用版本','表单暂无可用版本')}</div>
         <div style={{
         fontSize: 13,
         color: 'var(--text-secondary)',
         marginBottom: 16
-      }}>表单 "{formCode}" 尚未发布任何版本，无法提交</div>
+      }}>{t('ui.表单','表单')} "{formCode}" {t('ui.尚未发布任何版本，无法提交','尚未发布任何版本，无法提交')}</div>
         <button onClick={() => router.push('/workflow/forms/runtime')} style={{
         padding: '8px 18px',
         borderRadius: 8,
@@ -272,7 +274,7 @@ export default function FormSubmitPage() {
         fontSize: 13,
         fontWeight: 700,
         cursor: 'pointer'
-      }}>前往表单管理</button>
+      }}>{t('ui.前往表单管理','前往表单管理')}</button>
       </div>
     </div>;
   const {
@@ -310,13 +312,13 @@ export default function FormSubmitPage() {
         fontSize: 22,
         fontWeight: 800,
         color: 'var(--status-success)'
-      }}>提交成功</h2>
+      }}>{t('ui.提交成功','提交成功')}</h2>
         <p style={{
         margin: '0 0 24px',
         fontSize: 14,
         color: 'var(--status-success)'
       }}>
-          {form.name} 表单已成功提交
+          {form.name} {t('ui.表单已成功提交','表单已成功提交')}
         </p>
 
         {/* 提交编号 */}
@@ -339,7 +341,7 @@ export default function FormSubmitPage() {
             color: 'var(--text-secondary)',
             fontWeight: 600,
             marginBottom: 4
-          }}>提交编号</div>
+          }}>{t('ui.提交编号','提交编号')}</div>
             <div style={{
             fontSize: 18,
             fontWeight: 800,
@@ -364,7 +366,7 @@ export default function FormSubmitPage() {
           cursor: 'pointer',
           transition: 'all 0.2s'
         }}>
-            <Copy size={12} /> {copied ? '已复制' : '复制'}
+            <Copy size={12} /> {copied ? t('ui.已复制','已复制') : t('ui.复制','复制')}
           </button>
         </div>
 
@@ -377,9 +379,9 @@ export default function FormSubmitPage() {
         marginBottom: 24,
         textAlign: 'left'
       }}>
-          <span>表单版本：v{result.versionNo}</span>
-          <span>状态：{result.status}</span>
-          <span>表单代码：{result.formCode}</span>
+          <span>{t('ui.表单版本：','表单版本：')}v{result.versionNo}</span>
+          <span>{t('ui.状态：','状态：')}{result.status}</span>
+          <span>{t('ui.表单代码：','表单代码：')}{result.formCode}</span>
         </div>
 
         {/* 审批错误 */}
@@ -412,12 +414,12 @@ export default function FormSubmitPage() {
           color: 'var(--status-success)',
           fontWeight: 600
         }}>
-                ✓ 无需审批，已自动通过
+                ✓ {t('ui.无需审批，已自动通过','无需审批，已自动通过')}
               </span> : <span style={{
           color: 'var(--color-accent)',
           fontWeight: 600
         }}>
-                ✓ 审批流已启动
+                ✓ {t('ui.审批流已启动','审批流已启动')}
                 {approvalResult.instanceNo && <span style={{
             marginLeft: 8,
             fontFamily: 'monospace',
@@ -451,7 +453,7 @@ export default function FormSubmitPage() {
           gap: 7
         }}>
               <PlayCircle size={15} />
-              {approving ? '启动中…' : '启动审批流'}
+              {approving ? t('ui.启动中…','启动中…') : t('ui.启动审批流','启动审批流')}
             </button>}
           <button onClick={() => {
           setResult(null);
@@ -471,7 +473,7 @@ export default function FormSubmitPage() {
           fontWeight: 700,
           cursor: 'pointer'
         }}>
-            继续提交
+            {t('ui.继续提交','继续提交')}
           </button>
           <button onClick={() => router.push('/workflow/forms/runtime')} style={{
           flex: 1,
@@ -485,7 +487,7 @@ export default function FormSubmitPage() {
           fontWeight: 700,
           cursor: 'pointer'
         }}>
-            返回表单列表
+            {t('ui.返回表单列表','返回表单列表')}
           </button>
         </div>
       </div>
@@ -497,7 +499,7 @@ export default function FormSubmitPage() {
       <PageHeader
         title={form.name}
         subtitle={`${form.code} · v${currentVersion.version_no}${form.biz_type ? ` · ${form.biz_type}` : ''}`}
-        breadcrumb={['工作流', '表单列表', form.name]}
+        breadcrumb={[t('ui.工作流','工作流'), t('ui.表单列表','表单列表'), form.name]}
         actions={
           <button onClick={() => router.push('/workflow/forms/runtime')} style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -507,7 +509,7 @@ export default function FormSubmitPage() {
             color: 'var(--text-secondary)',
             fontSize: 13, cursor: 'pointer',
           }}>
-            <ArrowLeft size={13} /> 返回列表
+            <ArrowLeft size={13} /> {t('ui.返回列表','返回列表')}
           </button>
         }
       />
@@ -562,7 +564,7 @@ export default function FormSubmitPage() {
           fontWeight: 600,
           cursor: 'pointer'
         }}>
-            重置
+            {t('ui.重置','重置')}
           </button>
           <button onClick={handleSubmit} disabled={submitting} style={{
           flex: 1,
@@ -581,7 +583,7 @@ export default function FormSubmitPage() {
           transition: 'background 0.2s'
         }}>
             <Send size={16} />
-            {submitting ? '提交中…' : '提交表单'}
+            {submitting ? t('ui.提交中…','提交中…') : t('ui.提交表单','提交表单')}
           </button>
         </div>
       </div>
@@ -593,7 +595,7 @@ export default function FormSubmitPage() {
       color: 'var(--text-disabled)',
       textAlign: 'center'
     }}>
-        提交后数据将保存为快照（版本 v{currentVersion.version_no}），不受后续版本变更影响
+        {t('ui.提交后数据将保存为快照（版本','提交后数据将保存为快照（版本')} v{currentVersion.version_no}{t('ui.），不受后续版本变更影响','），不受后续版本变更影响')}
       </div>
       </div> {/* G28：关闭 maxWidth 容器 */}
     </div>;

@@ -10,6 +10,10 @@ import {
 import { Request, Response } from 'express';
 import { ThrottlerException } from '@nestjs/throttler';
 import { SysErrorLogsService } from '../../modules/system-monitor/services/sys-error-logs.service';
+import { SysAlertsService } from '../../modules/system-monitor/services/sys-alerts.service';
+
+// P1(评分补强)：webhook 外推节流 —— 同 path 60s 内最多推一次，防 500 风暴打爆告警群。
+const _alertWebhookLastSent = new Map<string, number>();
 
 // PostgreSQL 错误码 → 用户友好消息（不暴露表名/约束名）
 const PG_ERROR_MAP: Record<string, string> = {
@@ -27,6 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   constructor(
     @Optional() private readonly errorLogService?: SysErrorLogsService,
+    @Optional() private readonly alertsService?: SysAlertsService,  // P1：500 → sys_alerts + webhook
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
@@ -94,6 +99,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       stackTrace:   err?.stack,
       req,
     });
+    // P1：500 = 真故障 → 落 sys_alerts(CRITICAL) + 节流外推 webhook（叫醒值班）
+    this.raiseCriticalAlert(req, err?.message ?? 'Unknown error');
     return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       code: 500,
       msg: '服务器内部错误，请联系管理员',
@@ -143,5 +150,51 @@ export class AllExceptionsFilter implements ExceptionFilter {
       ipAddress:     ip ?? undefined,
       userAgent:     userAgent ?? undefined,
     }).catch(e => this.logger.error('[AllExceptionsFilter] writeLog failed:', e?.message));
+  }
+
+  /**
+   * P1(评分补强)：500 故障 → 持久化 sys_alerts(CRITICAL) + 节流外推到飞书/钉钉/Slack。
+   *   全程 fire-and-forget 且永不抛（避免死循环）。webhook 同 path 60s 节流防风暴。
+   *   运行时配置 ALERT_WEBHOOK_URL / ALERT_WEBHOOK_TYPE(feishu|dingtalk|slack)；未配则只落库。
+   */
+  private raiseCriticalAlert(req: Request, errorMessage: string) {
+    const path = `${req.method} ${req.url}`;
+    // 1) 落库（每条 500 都记，sys_alerts 是持久台账）
+    this.alertsService
+      ?.createAlert({
+        alertType: 'API_5XX',
+        severity: 'CRITICAL',
+        title: `API 500：${path}`,
+        detail: { errorMessage: String(errorMessage).slice(0, 500) },
+        relatedPath: req.url,
+      })
+      .catch(() => { /* 告警失败不影响主流程 */ });
+
+    // 2) 外推（节流）
+    const url = process.env.ALERT_WEBHOOK_URL;
+    if (!url) return;
+    const now = Date.now();
+    const last = _alertWebhookLastSent.get(req.url) ?? 0;
+    if (now - last < 60_000) return;           // 同 path 60s 内不重复推
+    _alertWebhookLastSent.set(req.url, now);
+    this.pushWebhook(url, `🚨 API 500 ${path}`, String(errorMessage).slice(0, 300))
+      .catch(() => { /* 静默 */ });
+  }
+
+  private async pushWebhook(url: string, title: string, msg: string): Promise<void> {
+    const type = (process.env.ALERT_WEBHOOK_TYPE || 'slack').toLowerCase();
+    let body: Record<string, unknown>;
+    if (type === 'feishu') {
+      body = { msg_type: 'text', content: { text: `${title}\n${msg}` } };
+    } else if (type === 'dingtalk') {
+      body = { msgtype: 'text', text: { content: `${title}\n${msg}` } };
+    } else {
+      body = { text: `*${title}*\n${msg}` };
+    }
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   }
 }

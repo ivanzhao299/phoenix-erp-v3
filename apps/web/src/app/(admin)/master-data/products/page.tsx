@@ -5,6 +5,7 @@ import { MasterDataRuntimePanel, type MdField } from "@/components/master-data/M
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { productConfig } from "@/components/master-data/detail-configs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * G5.5-C — 产品档案 Runtime（UIX-8 产品中心）
@@ -36,14 +37,15 @@ export const PRODUCT_FIELDS: MdField[] = [
 ];
 
 export default function ProductRuntimePage() {
+  const { t } = useLanguage();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title="产品中心" subtitle="产品 SPU 主档 · SKU 关联 · 上市状态 · 点击编码查看产品全景" breadcrumb={["主数据中心", "产品中心"]} />
+      <PageHeader title={t('md.productCenter', '产品中心')} subtitle={t('md.productCenterSub', '产品 SPU 主档 · SKU 关联 · 上市状态 · 点击编码查看产品全景')} breadcrumb={[t('md.center', '主数据中心'), t('md.productCenter', '产品中心')]} />
       <MasterDataCenterStrip type="product" />
       <MasterDataRuntimePanel
         type="product"
-        title="产品"
+        title={t('md.product', '产品')}
         codeKey="product_code"
         nameKey="product_name"
         mode="page"
@@ -51,11 +53,11 @@ export default function ProductRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={PRODUCT_FIELDS}
         columns={[
-          { key: "product_name_zh", label: "中文名" },
-          { key: "category_code", label: "品类" },
-          { key: "unit_zh", label: "单位" },
-          { key: "shelf_life_days", label: "保质期" },
-          { key: "price_retail", label: "零售价" },
+          { key: "product_name_zh", label: t('md.nameZh', '中文名') },
+          { key: "category_code", label: t('md.category', '品类') },
+          { key: "unit_zh", label: t('md.unit', '单位') },
+          { key: "shelf_life_days", label: t('md.shelfLife', '保质期') },
+          { key: "price_retail", label: t('md.priceRetail', '零售价') },
         ]}
       />
       <MasterDataDetailDrawer

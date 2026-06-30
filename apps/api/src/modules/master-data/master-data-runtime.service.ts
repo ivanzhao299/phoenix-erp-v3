@@ -80,14 +80,14 @@ const TYPES: Record<string, MdTypeConfig> = {
   customer: {
     table: 'sal_customers', codeCol: 'customer_no', nameCol: 'customer_name',
     prefix: 'CUS', objectType: 'CUSTOMER', companyCol: 'company_code',
-    writableCols: ['customer_name','customer_type','contact_name','contact_phone','region_code','channel_code','company_code','company_name','credit_limit','payment_terms','delivery_address','remark','effective_date','expire_date'],
+    writableCols: ['customer_name','customer_name_en','customer_name_lo','customer_type','contact_name','contact_phone','region_code','channel_code','company_code','company_name','credit_limit','payment_terms','delivery_address','remark','effective_date','expire_date'],
     // G92：法人/信用类 → 审批；关键字段=名称/类型/归属公司/信用额度/账期，扩展=联系人/电话/区域/渠道/地址/备注
     keyFields: ['customer_name','customer_type','company_code','credit_limit','payment_terms'],
   },
   supplier: {
     table: 'prc2_suppliers', codeCol: 'supplier_code', nameCol: 'supplier_name',
     prefix: 'SUP', objectType: 'SUPPLIER',
-    writableCols: ['supplier_name','supplier_name_en','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
+    writableCols: ['supplier_name','supplier_name_en','supplier_name_lo','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
     // G92：关键字段=名称/类型/税号/币种/账期/账期天数，扩展=联系人/邮箱/电话/地址/国家/备注
     keyFields: ['supplier_name','supplier_type','tax_no','default_currency','payment_terms','credit_days'],
   },
@@ -96,7 +96,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     //   prc2_projects 为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
     table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name', noValidityPeriod: true,  // G127：biz_projects 无生效期列
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
-    writableCols: ['project_name','project_short_name','company_code','project_type',
+    writableCols: ['project_name','project_name_en','project_name_lo','project_short_name','company_code','project_type',
                    'budget_amount','budget_currency','start_date','end_date','manager_name','remark'],
     // G92：关键字段=名称/归属公司/预算金额/预算币种，扩展=简称/类型/起止日期/负责人/备注
     keyFields: ['project_name','company_code','budget_amount','budget_currency'],
@@ -105,13 +105,13 @@ const TYPES: Record<string, MdTypeConfig> = {
     // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
     table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
     prefix: 'MAT', objectType: 'MATERIAL', noValidityPeriod: true,  // G127：mst_materials 无生效期列
-    writableCols: ['material_name','material_type','spec','unit','default_currency','remark'],
+    writableCols: ['material_name','material_name_en','material_name_lo','material_type','spec','unit','default_currency','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建（业务员选物料找不到可就地新增）
   },
   'cash-account': {
     table: 'fin_cash_accounts', codeCol: 'account_code', nameCol: 'account_name',
     prefix: 'CASH', objectType: 'CASH_ACCOUNT', companyCol: 'company_code',  // G5.5-C: 统一自动生成（CASH-00001）
-    writableCols: ['account_name','company_code','company_name','currency_code','account_type','bank_name','bank_account_no','bank_acc_code','holder_code','remark','effective_date','expire_date'],
+    writableCols: ['account_name','account_name_en','account_name_lo','company_code','company_name','currency_code','account_type','bank_name','bank_account_no','bank_acc_code','holder_code','remark','effective_date','expire_date'],
     // G92：资金账户 → 审批；关键字段=账户名/归属公司/币种/账户类型/银行账号/持有人，扩展=开户行名/备注
     keyFields: ['account_name','company_code','currency_code','account_type','bank_account_no','holder_code'],
   },
@@ -121,7 +121,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     // writableCols 按 mst_products 实际列校正（无 product_name_en/uom/default_grade/effective_date/expire_date/remark）
     table: 'mst_products', codeCol: 'product_code', nameCol: 'product_name',
     prefix: 'PRD', objectType: 'PRODUCT', noValidityPeriod: true,  // G127：mst_products 无生效期列（见上行 FIX 注释）
-    writableCols: ['product_name','product_name_zh','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
+    writableCols: ['product_name','product_name_zh','product_name_en','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
     // G92：产品含零售/批发价 → 审批；关键字段=名称/类目/价格/分级开关，扩展=多语名/单位/保质期/图片/规格
     keyFields: ['product_name','category_code','price_retail','price_wholesale','has_grade','has_spec'],
   },
@@ -129,27 +129,27 @@ const TYPES: Record<string, MdTypeConfig> = {
     table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',
     prefix: 'STR', objectType: 'STORE', companyCol: 'company_code',
     // G113：加 operation_type(经营类型,字典 STORE_OP_TYPE) + contact(联系人)
-    writableCols: ['store_name','address','phone','company_code','manager','contact','operation_type','effective_date','expire_date','remark'],
+    writableCols: ['store_name','store_name_en','store_name_lo','address','phone','company_code','manager','contact','operation_type','effective_date','expire_date','remark'],
     // G92：门店为经营实体 → 审批；关键字段=名称/归属公司/店长，扩展=地址/电话/备注
     keyFields: ['store_name','company_code','manager'],
   },
   'bank-account': {
     table: 'fin_bank_accounts', codeCol: 'bank_account_code', nameCol: 'bank_name',
     prefix: 'BANK', objectType: 'BANK_ACCOUNT', companyCol: 'company_code',
-    writableCols: ['bank_name','bank_name_en','branch_name','account_no','account_holder','currency_code','country_code','swift_code','iban','company_code','effective_date','expire_date','remark'],
+    writableCols: ['bank_name','bank_name_en','bank_name_lo','branch_name','account_no','account_holder','currency_code','country_code','swift_code','iban','company_code','effective_date','expire_date','remark'],
     // G92：银行账户最敏感 → 审批；关键字段=行名/账号/户名/币种/归属公司/SWIFT/IBAN，扩展=支行/国家/备注
     keyFields: ['bank_name','account_no','account_holder','currency_code','company_code','swift_code','iban'],
   },
   sku: {
     table: 'product_skus', codeCol: 'sku_code', nameCol: 'sku_name',
     prefix: 'SKU', objectType: 'SKU',
-    writableCols: ['sku_name','product_code','product_name','grade_code','spec_code','barcode','effective_date','expire_date','remark'],
+    writableCols: ['sku_name','sku_name_en','sku_name_lo','product_code','product_name','grade_code','spec_code','barcode','effective_date','expire_date','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   warehouse: {
     table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
     prefix: 'WH', objectType: 'WAREHOUSE', companyCol: 'company_code',
-    writableCols: ['warehouse_name','warehouse_name_zh','type','company_code','manager','effective_date','expire_date','remark'],
+    writableCols: ['warehouse_name','warehouse_name_zh','warehouse_name_en','warehouse_name_lo','type','company_code','manager','effective_date','expire_date','remark'],
     // G92：仓库为基础设施实体 → 审批；关键字段=名称/类型/归属公司/管理员，扩展=中文名/备注
     keyFields: ['warehouse_name','type','company_code','manager'],
   },
@@ -157,21 +157,21 @@ const TYPES: Record<string, MdTypeConfig> = {
     // FIX UAT-1 2026-06-04: 表实际列含 grade_name_lo/is_saleable/is_storable；effective_date 由迁移补
     table: 'product_grades', codeCol: 'grade_code', nameCol: 'grade_name',
     prefix: 'GRD', objectType: 'GRADE',
-    writableCols: ['grade_name','grade_name_lo','sort_order','is_saleable','is_storable','remark'],
+    writableCols: ['grade_name','grade_name_en','grade_name_lo','sort_order','is_saleable','is_storable','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   spec: {
     // FIX UAT-1 2026-06-04: 实际列为 qty_per_unit/base_unit/display_unit（不是 unit_count/pack_type）
     table: 'packaging_specs', codeCol: 'spec_code', nameCol: 'spec_name',
     prefix: 'SPEC', objectType: 'SPEC',
-    writableCols: ['spec_name','spec_name_lo','qty_per_unit','base_unit','display_unit','sort_order','remark'],
+    writableCols: ['spec_name','spec_name_en','spec_name_lo','qty_per_unit','base_unit','display_unit','sort_order','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   driver: {
     // FIX UAT-1 2026-06-04: PK 是 driver_code（不是 driver_name），且无 effective_date/expire_date 列
     table: 'sal_drivers', codeCol: 'driver_code', nameCol: 'driver_name',
     prefix: 'DRV', objectType: 'DRIVER', companyCol: 'company_code',
-    writableCols: ['driver_name','phone','license_no','company_code','remark'],
+    writableCols: ['driver_name','driver_name_en','driver_name_lo','phone','license_no','company_code','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   vehicle: {

@@ -14,9 +14,20 @@ env:
   DB_USER: phoenix_v3
   DB_PASSWORD: phoenix_v3_pass
   DB_NAME: phoenix_erp
+  # P3(评分补强)：全局导出 PG*，让所有步骤里的裸 psql 连到 phoenix_v3，
+  #   而非解析到 CI runner 的 OS 用户 root（致 role "root" does not exist）。
+  PGHOST: 127.0.0.1
+  PGPORT: 5432
+  PGUSER: phoenix_v3
+  PGPASSWORD: phoenix_v3_pass
+  PGDATABASE: phoenix_erp
   JWT_SECRET: ci_test_secret_minlen_32_characters_xx
   JWT_SECRET_PREV: ""
   NODE_ENV: test
+  # P3(评分补强)：镜像 deploy.yml 的 test job —— 回归套件用 admin/admin123 dev 快捷登录拿 token。
+  #   缺此变量时 auth.service 走真实密码校验 → admin 登录 "密码错误" → system 回归第一步即挂。
+  #   main.ts 仅在 NODE_ENV=production 时禁止本变量（fail-closed），CI(NODE_ENV=test)安全。
+  ENABLE_DEV_LOGIN: "true"
 
 jobs:
   regression:
@@ -70,6 +81,12 @@ jobs:
       - name: Build API
         working-directory: apps/api
         run: pnpm build
+
+      # P3(评分补强)：此前直接起 API 打空库 → sys_user/sys_dict 等基线表不存在，9 套回归全挂。
+      #   补播种：镜像 deploy.yml 的 ci 模式（ddl/*.sql + v3_schema_complete + 基线 SQL + TS 迁移）。
+      - name: Seed DB schema (ddl + baseline + TS migrations)
+        working-directory: apps/api
+        run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
       - name: Start API (background)
         working-directory: apps/api
@@ -130,6 +147,10 @@ jobs:
       - name: G5-C RBAC audit (admin + key endpoints)
         env:
           API_BASE: http://localhost:3100
+          # g5c-rbac-audit.sh 第 80 行 ${ADMIN_PASS:?} 强制要求该变量，缺则 set -u 秒退。
+          #   配合全局 ENABLE_DEV_LOGIN=true，admin/admin123 走 dev 快捷登录拿 token。
+          #   songmingguang 段未设 SONG_PASS 时脚本自跳过（line 130-132）。
+          ADMIN_PASS: admin123
         run: bash scripts/g5c-rbac-audit.sh "$API_BASE"
 
       - name: Dump API log on failure

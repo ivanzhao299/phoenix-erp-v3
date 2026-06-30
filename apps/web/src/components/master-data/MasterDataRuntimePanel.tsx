@@ -17,6 +17,7 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * MasterDataRuntimePanel — 通用核心主数据 Runtime 面板（G3-A）
@@ -80,7 +81,9 @@ export function renderMdFieldInput(
   f: MdField,
   form: Record<string, any>,
   setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+  t?: (key: string, fallback?: string) => string,
 ): React.ReactNode {
+  const tr = t ?? ((_k: string, fb?: string) => fb ?? _k);
   // G83：主数据选择器化 — 函数式 setForm 防 onChange→onPick 顺序污染
   const code = String(form[f.key] ?? "");
   const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
@@ -111,7 +114,7 @@ export function renderMdFieldInput(
     return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
   if (f.type === "select")
     return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
-      <option value="">请选择</option>
+      <option value="">{tr('ui.请选择','请选择')}</option>
       {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>;
   if (f.type === "readonly")
@@ -130,8 +133,31 @@ const TYPE_TO_MENU: Record<string, string> = {
   "cash-account": "MENU_MD_CASH_ACCOUNT", "bank-account": "MENU_MD_BANK_ACCOUNT", material: "MENU_MD_MATERIAL",
 };
 
+// task #25：名称支持多语言维护的类型（DB 已补 <nameKey>_en / <nameKey>_lo 列；见迁移
+//   AddMasterDataMultilingualNames + 服务 writableCols）。列表名称列按当前语言显示，
+//   新建/编辑表单额外暴露英文/老挝文名称输入。vehicle 的"名称"是车牌（语言中性）故不含。
+export const I18N_NAME_TYPES = new Set<string>([
+  "customer", "supplier", "project", "material", "cash-account", "product",
+  "store", "bank-account", "sku", "warehouse", "grade", "spec", "driver",
+]);
+
+/** task #25：为多语言类型追加「英文名称 / 老挝文名称」表单字段（抽屉与全屏页共用）。 */
+export function multilingualNameFields(type: string, nameKey: string): MdField[] {
+  if (!I18N_NAME_TYPES.has(type)) return [];
+  return [
+    { key: `${nameKey}_en`, label: "名称（English）", type: "text", group: "多语言名称" },
+    { key: `${nameKey}_lo`, label: "名称（ລາວ 老挝文）", type: "text", group: "多语言名称" },
+  ];
+}
+
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
+  const { tField, t } = useLanguage();  // task #25：列表名称列按当前语言显示
+  // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
+  const formFields = useMemo(() => {
+    const have = new Set(fields.map(f => f.key));
+    return [...fields, ...multilingualNameFields(type, nameKey).filter(f => !have.has(f.key))];
+  }, [fields, type, nameKey]);
   // g200o:聚合 fields 中所有 dictType,列表 cell 用 codeMap 转译,避免 DB enum 暴露
   const dictTypes = useMemo(() => Array.from(new Set(fields.filter(f => f.dictType).map(f => f.dictType!))), [fields]);
   const { codeMap: dictCodeMap } = useDictOptions(dictTypes.length > 0 ? dictTypes : "");
@@ -209,7 +235,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
   const save = async () => {
     for (const f of fields) {
-      if (f.required && !form[f.key]) { setError(`请填写：${f.label}`); return; }
+      if (f.required && !form[f.key]) { setError(`${t('ui.请填写：','请填写：')}${f.label}`); return; }
     }
     setSaving(true); setError(""); setNotice("");
     try {
@@ -223,7 +249,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) },
         );
         if (resp?.pendingChange) {
-          setNotice(resp.message || "关键字段变更已提交审批，通过后生效。");
+          setNotice(resp.message || t('ui.关键字段变更已提交审批，通过后生效。','关键字段变更已提交审批，通过后生效。'));
         }
       }
       setEditing(null); await load();
@@ -231,7 +257,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
       if (isNew && returnTo) {
         router.push(`${returnTo}${returnTo.includes("?") ? "&" : "?"}created=1`);
       }
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('ui.保存失败','保存失败')); }
     finally { setSaving(false); }
   };
 
@@ -241,16 +267,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
       });
       await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "操作失败"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('ui.操作失败','操作失败')); }
   };
 
   // 按状态决定可用动作（PENDING_APPROVAL 由「审批中心」走 Workflow，面板不直接审批，避免绕过治理）
   const actionsFor = (status: string) => {
     const a: { action: string; label: string; icon: any }[] = [];
-    if (status === "DRAFT" || status === "REJECTED") a.push({ action: "submit", label: "提交审批", icon: Send });
-    if (status === "ACTIVE") a.push({ action: "freeze", label: "冻结", icon: Snowflake });
-    if (status === "FROZEN" || status === "ARCHIVED") a.push({ action: "restore", label: "恢复", icon: RotateCcw });
-    if (status !== "ARCHIVED") a.push({ action: "archive", label: "归档", icon: Archive });
+    if (status === "DRAFT" || status === "REJECTED") a.push({ action: "submit", label: t('ui.提交审批','提交审批'), icon: Send });
+    if (status === "ACTIVE") a.push({ action: "freeze", label: t('ui.冻结','冻结'), icon: Snowflake });
+    if (status === "FROZEN" || status === "ARCHIVED") a.push({ action: "restore", label: t('ui.恢复','恢复'), icon: RotateCcw });
+    if (status !== "ARCHIVED") a.push({ action: "archive", label: t('ui.归档','归档'), icon: Archive });
     return a;
   };
 
@@ -262,18 +288,18 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             value={filterStatus}
             onChange={setFilterStatus}
             options={Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v.label }))}
-            emptyLabel="全部状态"
+            emptyLabel={t('ui.全部状态','全部状态')}
             allowEmpty
             filter
           />
         </div>
         <button onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted"
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> 刷新
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> {t('ui.刷新','刷新')}
         </button>
         {canCreate && (
           <button onClick={openNew} style={{ ...primaryActionButton, marginLeft: "auto" }}>
-            <Plus size={14} /> 新增{title}
+            <Plus size={14} /> {t('ui.新增','新增')}{title}
           </button>
         )}
       </div>
@@ -289,16 +315,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
       <div style={{ borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-card)" }}>
         {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
-          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`暂无${title}数据`} compact /></div>
+          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`${t('ui.暂无','暂无')}${title}${t('ui.数据','数据')}`} compact /></div>
           : (
             <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "auto" }}>
               <thead><tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
-                <th style={thStyle}>编码</th>
+                <th style={thStyle}>{t('ui.编码','编码')}</th>
                 {columns.map(c => <th key={c.key} style={thStyle}>{c.label}</th>)}
-                <th style={{ ...thStyle, textAlign: "center", width: 80 }}>状态</th>
-                <th style={{ ...thStyle, textAlign: "center", width: 60 }}>引用</th>
-                <th style={{ ...thStyle, textAlign: "right", width: 130 }}>操作</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 80 }}>{t('ui.状态','状态')}</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 60 }}>{t('ui.引用','引用')}</th>
+                <th style={{ ...thStyle, textAlign: "right", width: 130 }}>{t('ui.操作','操作')}</th>
               </tr></thead>
               <tbody>
                 {rows.map(r => {
@@ -322,8 +348,12 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                       {columns.map(c => {
                         const raw = r[c.key];
                         const dt  = fieldByKey[c.key]?.dictType;
+                        // task #25：名称列按当前语言取 <nameKey>_<lang>（缺则回退中文）；
+                        //   兼容部分页面把名称列配成 <nameKey>_zh（如 products/warehouses）
+                        const i18nName = I18N_NAME_TYPES.has(type) && (c.key === nameKey || c.key === `${nameKey}_zh`);
                         // g200o:dict 字段查 codeMap 转中文,fallback 原值
-                        const shown = dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
+                        const shown = i18nName ? tField(r, nameKey)
+                          : dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
                         return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
                       })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -335,13 +365,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           refCounts[r[codeKey]].loading ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>…</span> :
                           refCounts[r[codeKey]].total < 0 ? <span style={{ fontSize: 11, color: "var(--status-danger)" }}>err</span> :
                           refCounts[r[codeKey]].total === 0 ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>0</span> :
-                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, var(--status-warning))", fontWeight: 600 }} title={`被 ${refCounts[r[codeKey]].total} 处业务引用`}>
+                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, var(--status-warning))", fontWeight: 600 }} title={`${t('ui.被','被')} ${refCounts[r[codeKey]].total} ${t('ui.处业务引用','处业务引用')}`}>
                             <Link2 size={9} style={{ display: "inline", marginRight: 2 }} />{refCounts[r[codeKey]].total}
                           </span>
                         ) : (
                           <button onClick={() => fetchRefCount(r[codeKey])}
                             style={{ fontSize: 11, padding: "1px 8px", borderRadius: 4, background: "var(--bg-muted)", color: "var(--text-secondary)", border: "1px solid var(--border)", cursor: "pointer" }}>
-                            查询
+                            {t('ui.查询','查询')}
                           </button>
                         )}
                       </td>
@@ -369,7 +399,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         <div style={drawerMask} onClick={() => setEditing(null)}>
           <div style={drawerPanelFlex(480)} onClick={e => e.stopPropagation()}>
             <div style={drawerHeaderFlex}>
-              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
+              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `${t('ui.编辑','编辑')}${title}` : `${t('ui.新增','新增')}${title}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
             <div style={drawerBody}>
@@ -377,33 +407,33 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             {editing[codeKey] ? (
               <div style={drawerHeroBox}>
                 <div>
-                  <div style={drawerHeroLabel}>{title}编码</div>
+                  <div style={drawerHeroLabel}>{title}{t('ui.编码','编码')}</div>
                   <div style={drawerHeroCodeValue}>{editing[codeKey]}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={drawerHeroLabel}>名称</div>
+                  <div style={drawerHeroLabel}>{t('ui.名称','名称')}</div>
                   <div style={drawerHeroNameValue}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
                 </div>
               </div>
             ) : (
               <div style={{ ...inlineAlert("info"), marginBottom: 18 }}>
                 <Info size={14} />
-                <span>编码将在保存时自动生成,无需手填</span>
+                <span>{t('ui.编码将在保存时自动生成,无需手填','编码将在保存时自动生成,无需手填')}</span>
               </div>
             )}
-            {fields.map(f => (
+            {formFields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {renderMdFieldInput(f, form, setForm)}
+                {renderMdFieldInput(f, form, setForm, t)}
               </div>
             ))}
             </div>
             <div style={drawerFooterFlex}>
-              <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
+              <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('ui.取消','取消')}</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
-                {saving ? "保存中…" : "保存"}
+                {saving ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}
               </button>
             </div>
           </div>
@@ -447,6 +477,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
   transitions: { action: string; label: string; icon: any }[];
   onTransition: (action: string) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const archived = row.status === "ARCHIVED";
 
@@ -455,7 +486,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
   return (
     <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
       {!archived && (
-        <button onClick={onEdit} title="编辑" style={iconBtn}>
+        <button onClick={onEdit} title={t('ui.编辑','编辑')} style={iconBtn}>
           <Pencil size={13} />
         </button>
       )}
@@ -464,7 +495,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            title="更多操作"
+            title={t('ui.更多操作','更多操作')}
             style={iconBtn}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
           >

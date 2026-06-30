@@ -221,6 +221,7 @@ function CompactHouseCard({
   house: HouseData;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   const fresh = FRESH[house.dataFreshness] ?? FRESH.no_data;
 
   // Map system alarm counts by full code (e.g. "environment", "control")
@@ -329,7 +330,7 @@ function CompactHouseCard({
         fontSize: 10,
         color: "var(--text-secondary)",
         marginLeft: 4
-      }}>系统健康</span>
+      }}>{t('ui.系统健康','系统健康')}</span>
       </div>
 
       {/* Footer */}
@@ -354,7 +355,7 @@ function CompactHouseCard({
         color: "var(--color-primary)",
         fontWeight: 600
       }}>
-          进入鸡舍 →
+          {t('ui.进入鸡舍','进入鸡舍')} →
         </span>
       </div>
     </div>;
@@ -366,6 +367,7 @@ function AlarmRow({
   alarm: AlarmItem;
   now: Date;
 }) {
+  const { t } = useLanguage();
   const catKey = alarm.system_category || alarm.category || "";
   const catCfg = SYSTEM_CATEGORY_MAP[catKey];
   const isCritical = alarm.severity === "critical";
@@ -400,7 +402,7 @@ function AlarmRow({
         borderRadius: 8,
         border: "1px solid"
       }}>
-            📊 传感器
+            📊 {t('ui.传感器','传感器')}
           </span>}
       </div>
 
@@ -548,7 +550,7 @@ export default function DeviceAlertsPage() {
         house_code: String(a.erp_house_code ?? a.house_code ?? ""),
         erp_house_code: String(a.erp_house_code ?? a.house_code ?? ""),
         farm_code: String(a.farm_code ?? ""),
-        property_name: String(a.name_zh ?? a.property_name ?? "未知指标"),
+        property_name: String(a.name_zh ?? a.property_name ?? t('ui.未知指标', '未知指标')),
         property_code: String(a.property_code ?? ""),
         value: Number(a.current_val ?? a.value ?? 0),
         unit: String(a.unit ?? ""),
@@ -619,7 +621,7 @@ export default function DeviceAlertsPage() {
     if (filterMode !== "byHouse") return null;
     const groups: Record<string, AlarmItem[]> = {};
     for (const a of filteredAlarms) {
-      const key = a.erp_house_code || a.house_code || "未知";
+      const key = a.erp_house_code || a.house_code || t('ui.未知', '未知');
       if (!groups[key]) groups[key] = [];
       groups[key].push(a);
     }
@@ -631,10 +633,10 @@ export default function DeviceAlertsPage() {
 
   const freshCfg = FRESH[worstFreshness];
   const KPI_CARDS: { label: string; val: string; sub: string; tone: Tone }[] = [
-    { label: "活跃告警",   val: loading ? "—" : String(summary?.totalAlarms ?? alarms.length),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} 栋鸡舍受影响`,                                  tone: hasAlarm ? "danger" : "success" },
-    { label: "紧急 / 预警", val: loading ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: "按严重程度分类",                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
-    { label: "在线传感器", val: loading ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `共 ${summary?.totalSensorCnt ?? 0} 个监测点`,                                                    tone: "info" },
-    { label: "数据状态",   val: loading ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `更新于 ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
+    { label: t('ui.活跃告警', '活跃告警'),   val: loading ? "—" : String(summary?.totalAlarms ?? alarms.length),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} ${t('ui.栋鸡舍受影响', '栋鸡舍受影响')}`,                                  tone: hasAlarm ? "danger" : "success" },
+    { label: t('ui.紧急 / 预警', '紧急 / 预警'), val: loading ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: t('ui.按严重程度分类', '按严重程度分类'),                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
+    { label: t('ui.在线传感器', '在线传感器'), val: loading ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `${t('ui.共', '共')} ${summary?.totalSensorCnt ?? 0} ${t('ui.个监测点', '个监测点')}`,                                                    tone: "info" },
+    { label: t('ui.数据状态', '数据状态'),   val: loading ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `${t('ui.更新于', '更新于')} ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
   ];
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -674,7 +676,7 @@ export default function DeviceAlertsPage() {
       fontSize: 13
     }}>
           <WifiOff size={15} />
-          IoT 数据获取失败：{error}
+          {t('ui.IoT 数据获取失败：', 'IoT 数据获取失败：')}{error}
         </div>}
 
       {/* Zone B: Affected house grid */}
@@ -695,7 +697,7 @@ export default function DeviceAlertsPage() {
             <AlertTriangle size={12} style={{
           color: "var(--status-danger)"
         }} />
-            告警鸡舍 {!loading && `(${affectedHouses.length})`}
+            {t('ui.告警鸡舍', '告警鸡舍')} {!loading && `(${affectedHouses.length})`}
           </div>
 
           {loading ? <div style={{
@@ -735,10 +737,10 @@ export default function DeviceAlertsPage() {
         }}>
             {(["all", "critical", "warning", "byHouse"] as FilterMode[]).map(mode => {
             const labels: Record<FilterMode, string> = {
-              all: `全部 (${alarms.length})`,
-              critical: `紧急 (${criticalCount})`,
-              warning: `预警 (${warningCount})`,
-              byHouse: "按鸡舍"
+              all: `${t('ui.全部', '全部')} (${alarms.length})`,
+              critical: `${t('ui.紧急', '紧急')} (${criticalCount})`,
+              warning: `${t('ui.预警', '预警')} (${warningCount})`,
+              byHouse: t('ui.按鸡舍', '按鸡舍')
             };
             return <button key={mode} type="button" onClick={() => setFilterMode(mode)} style={toolbarFilterPill(filterMode === mode)}>
                   {labels[mode]}
@@ -751,9 +753,9 @@ export default function DeviceAlertsPage() {
           minWidth: 110,
           fontSize: 12
         }}>
-            <option value="severity">严重程度 ▼</option>
-            <option value="house">按鸡舍</option>
-            <option value="time">最新时间</option>
+            <option value="severity">{t('ui.严重程度 ▼', '严重程度 ▼')}</option>
+            <option value="house">{t('ui.按鸡舍', '按鸡舍')}</option>
+            <option value="time">{t('ui.最新时间', '最新时间')}</option>
           </select>
         </div>
 
@@ -788,7 +790,7 @@ export default function DeviceAlertsPage() {
           color: "var(--status-success)",
           fontWeight: 600
         }}>
-              {filterMode === "all" ? "✅ 当前所有鸡舍环境指标正常，无告警" : `当前筛选条件下无告警`}
+              {filterMode === "all" ? `✅ ${t('ui.当前所有鸡舍环境指标正常，无告警', '当前所有鸡舍环境指标正常，无告警')}` : t('ui.当前筛选条件下无告警', '当前筛选条件下无告警')}
             </div>
           </div> : groupedByHouse ?
       // Grouped by house

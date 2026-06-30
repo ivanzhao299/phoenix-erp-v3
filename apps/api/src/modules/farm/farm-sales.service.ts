@@ -48,20 +48,33 @@ export class FarmSalesService {
    *   杜绝跨公司/跨场站泄漏（ord_orders 旧表无 company_code，store_code 是唯一可用维度）。
    *   全局口径与 farm 模块 deriveOrgScope 一致：ALL/ORG-GROUP/admin/含'*' → 全量。
    */
-  async getSales(date: string, user?: any) {
+  async getSales(
+    date: string,
+    user?: any,
+    dataScope?: { isGlobal?: boolean; allowedFarmCodes?: string[]; allowedSiteCodes?: string[] },
+  ) {
     const storeCode: string | undefined = user?.storeCode;
-    const isGlobal =
+    const legacyGlobal =
       !storeCode ||
       storeCode === 'ALL' ||
       storeCode.startsWith('ORG-GROUP') ||
       user?.username === 'admin' ||
       (user?.permissions || []).includes('*');
+    // G125：以真实 DataScope 为权威——修「集团/超管/CEO 被默认绑单场后只看一个场」。
+    const isGlobal = legacyGlobal || !!dataScope?.isGlobal;
 
     const params: any[] = [date];
     let scopeSql = '';
     if (!isGlobal) {
-      params.push(storeCode);
-      scopeSql = ` AND o.store_code = $${params.length}`;
+      // 非全局：本场单值 ∪ 真实多场授权（farm/site），store_code = ANY 覆盖多场。
+      const codes = new Set<string>();
+      if (storeCode) codes.add(storeCode);
+      (dataScope?.allowedFarmCodes ?? []).forEach((c) => c && codes.add(c));
+      (dataScope?.allowedSiteCodes ?? []).forEach((c) => c && codes.add(c));
+      if (codes.size) {
+        params.push([...codes]);
+        scopeSql = ` AND o.store_code = ANY($${params.length})`;
+      }
     }
 
     return this.ds.query<any[]>(

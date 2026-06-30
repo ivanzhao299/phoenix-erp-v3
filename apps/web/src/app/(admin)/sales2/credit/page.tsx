@@ -10,6 +10,7 @@ import {
   actionPill, moneyCell, MONO_FONT,
   tableContainer, tableHeaderCell, tableBodyCell,
 } from "@/components/design-system/cockpit-styles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,7 @@ function CreditBar({ rate }: { rate: number }) {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function CustomerCreditPage() {
+  const { t } = useLanguage();
   const { canView } = usePermission("MENU_SALES2_CREDIT");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function CustomerCreditPage() {
       }
       setCustomers(list);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t('ui.加载失败','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -159,7 +161,7 @@ export default function CustomerCreditPage() {
   if (!canView) {
     return (
       <div className="flex items-center justify-center py-20 text-text-dim">
-        无权限查看信用管理
+        {t('ui.无权限查看信用管理','无权限查看信用管理')}
       </div>
     );
   }
@@ -179,12 +181,12 @@ export default function CustomerCreditPage() {
   return (
     <div>
       <PageHeader
-        title="信用管理"
-        subtitle="客户信用额度 · 冻结状态 · 逾期预警 · 信用台账"
+        title={t('ui.信用管理','信用管理')}
+        subtitle={t('ui.客户信用额度 · 冻结状态 · 逾期预警 · 信用台账','客户信用额度 · 冻结状态 · 逾期预警 · 信用台账')}
         actions={
           <button onClick={() => void load()} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            刷新
+            {t('ui.刷新','刷新')}
           </button>
         }
       />
@@ -200,7 +202,7 @@ export default function CustomerCreditPage() {
       {loading && !error && (
         <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
-          加载中…
+          {t('ui.加载中…','加载中…')}
         </div>
       )}
 
@@ -208,28 +210,28 @@ export default function CustomerCreditPage() {
         <>
           {/* 统计卡片 */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <StatCard icon={CheckCircle}   title="正常客户" value={normalCount} sub="信用使用率 ≤ 80%" tone="success" />
-            <StatCard icon={Lock}          title="冻结客户" value={frozenCount} sub="账户已冻结"      tone="danger"  />
-            <StatCard icon={AlertTriangle} title="信用预警" value={warnCount}   sub="信用使用率 > 80%" tone="warning" />
+            <StatCard icon={CheckCircle}   title={t('ui.正常客户','正常客户')} value={normalCount} sub={t('ui.信用使用率 ≤ 80%','信用使用率 ≤ 80%')} tone="success" />
+            <StatCard icon={Lock}          title={t('ui.冻结客户','冻结客户')} value={frozenCount} sub={t('ui.账户已冻结','账户已冻结')}      tone="danger"  />
+            <StatCard icon={AlertTriangle} title={t('ui.信用预警','信用预警')} value={warnCount}   sub={t('ui.信用使用率 > 80%','信用使用率 > 80%')} tone="warning" />
           </div>
 
           {/* 客户信用列表 — g200b:回归 tableContainer + tableHeaderCell + tableBodyCell token */}
           <div style={tableContainer}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-              客户信用列表 <span style={{ color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 6 }}>({customers.length})</span>
+              {t('ui.客户信用列表','客户信用列表')} <span style={{ color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 6 }}>({customers.length})</span>
             </div>
             {customers.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>暂无数据</div>
+              <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>{t('ui.暂无数据','暂无数据')}</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th style={tableHeaderCell}>客户名称</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>信用额度</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>已用额度</th>
-                      <th style={{ ...tableHeaderCell, width: 200 }}>使用率</th>
-                      <th style={tableHeaderCell}>状态</th>
+                      <th style={tableHeaderCell}>{t('ui.客户名称','客户名称')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('ui.信用额度','信用额度')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>{t('ui.已用额度','已用额度')}</th>
+                      <th style={{ ...tableHeaderCell, width: 200 }}>{t('ui.使用率','使用率')}</th>
+                      <th style={tableHeaderCell}>{t('ui.状态','状态')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -240,7 +242,7 @@ export default function CustomerCreditPage() {
                       return (
                         <tr key={c.id}>
                           <td style={{ ...tableBodyCell, fontWeight: 500 }}>
-                            {c.customer_name ?? c.name ?? `客户${c.id}`}
+                            {c.customer_name ?? c.name ?? `${t('ui.客户','客户')}${c.id}`}
                           </td>
                           <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT, color: 'var(--text-secondary)' }}>
                             {fmtMoney(c.credit_limit)}

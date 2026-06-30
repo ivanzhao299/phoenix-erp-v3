@@ -163,6 +163,7 @@ function HouseCard({
   freshLabel: string;
   noBatchLabel: string;
 }) {
+  const { t } = useLanguage();
   const fr = FRESH[house.dataFreshness] || FRESH.no_data;
   const hasAlarm = house.alarmCount > 0;
   return <div onClick={onClick} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'} style={{
@@ -299,15 +300,15 @@ function HouseCard({
           display: 'flex',
           gap: 10
         }}>
-              <span>耗料 <strong style={{
+              <span>{t('ui.耗料','耗料')} <strong style={{
               color: 'var(--text-primary)',
               fontSize: 11
             }}>{house.feedToday != null ? `${Number(house.feedToday).toFixed(0)}kg` : '—'}</strong></span>
-              <span>饮水 <strong style={{
+              <span>{t('ui.饮水','饮水')} <strong style={{
               color: 'var(--text-primary)',
               fontSize: 11
             }}>{house.waterToday != null ? `${Number(house.waterToday).toFixed(1)}T` : '—'}</strong></span>
-              <span>在线 <strong style={{
+              <span>{t('ui.在线','在线')} <strong style={{
               fontSize: 11,
               color: (house.onlineRate ?? 0) > 0.8 ? 'var(--status-success)' : (house.onlineRate ?? 0) > 0.5 ? 'var(--status-warning)' : 'var(--status-danger)'
             }}>{Math.round((house.onlineRate ?? 0) * 100)}%</strong></span>
@@ -319,7 +320,7 @@ function HouseCard({
           display: 'flex',
           alignItems: 'center',
           gap: 2
-        }}>进入总览 <ChevronRight size={11} /></span>
+        }}>{t('ui.进入总览','进入总览')} <ChevronRight size={11} /></span>
           </div>
         </> : <div style={{
       padding: 14,
@@ -333,7 +334,7 @@ function HouseCard({
       justifyContent: 'center',
       gap: 6
     }}>
-          <WifiOff size={13} /> 暂无采集数据
+          <WifiOff size={13} /> {t('ui.暂无采集数据','暂无采集数据')}
         </div>}
     </div>;
 }
@@ -399,14 +400,14 @@ export default function DeviceOverviewPage() {
       setLastSync(new Date().toLocaleTimeString('zh-CN'));
       await loadData();
       if (json.ok && (json.records ?? 0) > 0) {
-        toast.success(`采集完成：${json.success} 栋成功，写入 ${json.records} 条实时数据`);
+        toast.success(`${t('ui.采集完成：', '采集完成：')}${json.success} ${t('ui.栋成功，写入', '栋成功，写入')} ${json.records} ${t('ui.条实时数据', '条实时数据')}`);
       } else if (json.ok) {
-        toast.warning('采集完成，但未写入新数据，请检查第三方 API 连接状态');
+        toast.warning(t('ui.采集完成，但未写入新数据，请检查第三方 API 连接状态', '采集完成，但未写入新数据，请检查第三方 API 连接状态'));
       } else {
-        toast.error(`采集失败：${json.error || '未知错误'}`);
+        toast.error(`${t('ui.采集失败：', '采集失败：')}${json.error || t('ui.未知错误', '未知错误')}`);
       }
     } catch (e: any) {
-      toast.error('采集请求失败: ' + e.message);
+      toast.error(t('ui.采集请求失败: ', '采集请求失败: ') + e.message);
     } finally {
       setSyncing(false);
     }
@@ -515,7 +516,7 @@ export default function DeviceOverviewPage() {
         marginLeft: 8,
         fontSize: 11,
         color: 'var(--text-secondary)'
-      }}>🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行</span>
+      }}>{t('ui.🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行', '🌡环境 · 🎛控制 · 🌾饲喂 · 💧饮水 · ⚙️执行')}</span>
       </div>
 
       {/* 鸡舍卡片网格 */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Wallet, RefreshCw, AlertTriangle, CreditCard, CheckCircle, Clock, Ban } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -132,6 +133,7 @@ function PayModal({
   onClose: () => void;
   onPaid: () => void;
 }) {
+  const { t } = useLanguage();
   const [selectedAccount, setSelectedAccount] = useState('');
   const [selectedAccRaw, setSelectedAccRaw] = useState<CashAccount | null>(null);
   const [remark, setRemark] = useState('');
@@ -139,7 +141,7 @@ function PayModal({
   const [error, setError] = useState('');
   const pay = async () => {
     if (!selectedAccount) {
-      setError('请选择付款账户');
+      setError(t('fin2.reimburse.select_pay_account','请选择付款账户'));
       return;
     }
     setPaying(true);
@@ -154,7 +156,7 @@ function PayModal({
       });
       onPaid();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '付款失败');
+      setError(e instanceof Error ? e.message : t('fin2.reimburse.pay_failed','付款失败'));
     } finally {
       setPaying(false);
     }
@@ -166,11 +168,11 @@ function PayModal({
         fontWeight: 800,
         fontSize: 16,
         marginBottom: 6
-      }}>执行付款</div>
+      }}>{t('fin2.reimburse.execute_pay','执行付款')}</div>
         <div className="text-text-muted" style={{
         fontSize: 13,
         marginBottom: 20
-      }}>报销单号：{reimb.reimb_no}</div>
+      }}>{t('fin2.reimburse.reimb_no','报销单号')}：{reimb.reimb_no}</div>
 
         <div className="bg-warning/10 border border-warning/20" style={{
         borderRadius: 10,
@@ -189,7 +191,7 @@ function PayModal({
           marginTop: 2,
           fontVariantNumeric: 'tabular-nums'
         }}>
-            ¥{fmt(reimb.reimb_amount_base)}（基准货币）
+            ¥{fmt(reimb.reimb_amount_base)}（{t('fin2.reimburse.base_currency','基准货币')}）
           </div>
         </div>
 
@@ -197,11 +199,11 @@ function PayModal({
           <div className="text-text-muted" style={{
           fontSize: 12,
           marginBottom: 6
-        }}>付款账户 *</div>
+        }}>{t('fin2.reimburse.pay_account','付款账户')} *</div>
           {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；选中后自动带出余额并校验 */}
           <CashAccountSelector value={selectedAccount} valueField="id" onChange={setSelectedAccount} onPick={o => setSelectedAccRaw((o?.raw ?? null) as CashAccount | null)} />
           {selected && <div className={`text-xs font-semibold mt-1.5 ${Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? 'text-emerald-600 dark:text-emerald-400' : 'text-danger'}`}>
-              {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '✓ 余额充足' : '✗ 余额不足'}
+              {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? t('fin2.reimburse.balance_enough','✓ 余额充足') : t('fin2.reimburse.balance_insufficient','✗ 余额不足')}
             </div>}
         </div>
 
@@ -209,17 +211,17 @@ function PayModal({
           <div className="text-text-muted" style={{
           fontSize: 12,
           marginBottom: 6
-        }}>备注</div>
-          <input value={remark} onChange={e => setRemark(e.target.value)} placeholder="选填" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
+        }}>{t('fin2.common.remark','备注')}</div>
+          <input value={remark} onChange={e => setRemark(e.target.value)} placeholder={t('fin2.reimburse.optional_fill','选填')} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
           boxSizing: 'border-box'
         }} />
         </div>
 
         {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>{error}</div>}
         <div style={drawerFooter}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
           <button onClick={() => void pay()} disabled={paying || !selectedAccount} style={{ ...primaryActionButton, opacity: (paying || !selectedAccount) ? 0.5 : 1, cursor: (paying || !selectedAccount) ? 'not-allowed' : 'pointer' }}>
-            {paying ? '付款中...' : '确认付款'}
+            {paying ? t('fin2.reimburse.paying','付款中...') : t('fin2.reimburse.confirm_pay','确认付款')}
           </button>
         </div>
       </div>
@@ -229,6 +231,7 @@ function PayModal({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function ReimbursementsPage() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<Reimbursement[]>([]);
   const [summary, setSummary] = useState<ReimbSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -258,7 +261,7 @@ export default function ReimbursementsPage() {
       }
       if (sum.status === 'fulfilled') setSummary(sum.value);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '加载失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.load_failed','加载失败'));
     } finally {
       setLoading(false);
     }
@@ -275,14 +278,14 @@ export default function ReimbursementsPage() {
       });
       await load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '操作失败');
+      setError(e instanceof Error ? e.message : t('fin2.common.op_failed','操作失败'));
     } finally {
       setActingId(null);
     }
   };
   return <div>
-      <PageHeader title="报销管理" subtitle="报销台账 · 付款审批 · 资金账户联动" breadcrumb={['财务管理', '报销管理']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
-            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+      <PageHeader title={t('fin2.reimburse.page_title','报销管理')} subtitle={t('fin2.reimburse.page_subtitle','报销台账 · 付款审批 · 资金账户联动')} breadcrumb={[t('fin2.common.finance_mgmt','财务管理'), t('fin2.reimburse.page_title','报销管理')]} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {t('fin2.common.refresh','刷新')}
           </button>} />
 
       {/* g200a KPI 6 卡(2026-06-19):Tailwind 浅色背景 → kpiCardCompact token */}
@@ -293,12 +296,12 @@ export default function ReimbursementsPage() {
         marginBottom: 20,
       }}>
         {([
-          { label: '报销总数',      value: String(summary.totalReimb),                tone: 'brand'   as const },
-          { label: '待付款',        value: String(summary.pendingReimb),              tone: 'warning' as const },
-          { label: '已审批',        value: String(summary.approvedReimb),             tone: 'success' as const },
-          { label: '已付款',        value: String(summary.paidReimb),                 tone: 'brand'   as const },
-          { label: '今日付款笔数',  value: String(summary.paidToday) + ' 笔',         tone: 'success' as const },
-          { label: '今日付款金额',  value: `¥ ${fmt(summary.paidAmountToday)}`,       tone: 'success' as const },
+          { label: t('fin2.reimburse.kpi_total','报销总数'),      value: String(summary.totalReimb),                tone: 'brand'   as const },
+          { label: t('fin2.reimburse.status_pending','待付款'),        value: String(summary.pendingReimb),              tone: 'warning' as const },
+          { label: t('fin2.common.approved','已审批'),        value: String(summary.approvedReimb),             tone: 'success' as const },
+          { label: t('fin2.reimburse.status_paid','已付款'),        value: String(summary.paidReimb),                 tone: 'brand'   as const },
+          { label: t('fin2.reimburse.kpi_paid_today_count','今日付款笔数'),  value: String(summary.paidToday) + ' ' + t('fin2.common.count_unit','笔'),         tone: 'success' as const },
+          { label: t('fin2.reimburse.kpi_paid_today_amount','今日付款金额'),  value: `¥ ${fmt(summary.paidAmountToday)}`,       tone: 'success' as const },
         ]).map(c => (
           <div key={c.label} style={kpiCardCompact(c.tone)}>
             <div style={kpiCardCompactLabel}>{c.label}</div>
@@ -313,8 +316,8 @@ export default function ReimbursementsPage() {
         setStatusFilter(e.target.value);
         setPage(1);
       }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
-          <option value="">全部状态</option>
-          {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          <option value="">{t('fin2.reimburse.all_status','全部状态')}</option>
+          {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{t(`fin2.reimburse.status_cfg.${k}`, v.label)}</option>)}
         </select>
       </div>
 
@@ -327,7 +330,7 @@ export default function ReimbursementsPage() {
         {loading && <div className="text-text-muted" style={{
         padding: 32,
         textAlign: 'center'
-      }}>加载中...</div>}
+      }}>{t('fin2.reimburse.loading_dots','加载中...')}</div>}
         {!loading && items.length === 0 && <div className="text-text-muted" style={{
         padding: 40,
         textAlign: 'center'
@@ -336,7 +339,7 @@ export default function ReimbursementsPage() {
           marginBottom: 8,
           opacity: 0.4
         }} />
-            <div>暂无报销记录</div>
+            <div>{t('fin2.reimburse.empty','暂无报销记录')}</div>
           </div>}
         {!loading && items.map((item, i) => {
         const cfg = STATUS_CFG[item.status] ?? STATUS_CFG.PENDING;
@@ -381,7 +384,7 @@ export default function ReimbursementsPage() {
                 {item.cash_account_code && <div className="text-indigo-500 dark:text-indigo-400" style={{
               fontSize: 11,
               marginTop: 2
-            }}>付款账户：{item.cash_account_code}</div>}
+            }}>{t('fin2.reimburse.pay_account','付款账户')}：{item.cash_account_code}</div>}
               </div>
               <div style={{
             textAlign: 'right',
@@ -402,13 +405,13 @@ export default function ReimbursementsPage() {
             flexShrink: 0
           }}>
                 {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => setPayTarget(item)} disabled={isActing} style={primaryActionButton}>
-                    付款
+                    {t('fin2.common.payment','付款')}
                   </button>}
                 {item.status === 'PENDING' && <button onClick={() => void actionPost(item.id, 'approve-direct')} disabled={isActing} style={actionPill('success', isActing)}>
-                    直接审批
+                    {t('fin2.reimburse.approve_direct','直接审批')}
                   </button>}
                 {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => void actionPost(item.id, 'cancel')} disabled={isActing} style={actionPill('danger', isActing)}>
-                    取消
+                    {t('fin2.common.cancel','取消')}
                   </button>}
               </div>
             </div>;
@@ -424,14 +427,14 @@ export default function ReimbursementsPage() {
       alignItems: 'center'
     }}>
           {page > 1 && <button onClick={() => setPage(p => p - 1)} className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
-              上一页
+              {t('fin2.reimburse.prev_page','上一页')}
             </button>}
           <span className="text-text-muted" style={{
         fontSize: 13,
         padding: '6px 14px'
-      }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+      }}>{t('fin2.reimburse.page_label','第')} {page} {t('fin2.reimburse.page_unit','页')} / {t('fin2.common.total','共')} {Math.ceil(total / pageSize)} {t('fin2.reimburse.page_unit','页')}</span>
           {page * pageSize < total && <button onClick={() => setPage(p => p + 1)} className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
-              下一页
+              {t('fin2.reimburse.next_page','下一页')}
             </button>}
         </div>}
 

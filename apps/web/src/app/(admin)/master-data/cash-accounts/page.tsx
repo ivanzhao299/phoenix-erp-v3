@@ -5,6 +5,7 @@ import { MasterDataRuntimePanel, type MdField } from "@/components/master-data/M
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { cashAccountConfig } from "@/components/master-data/detail-configs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * G5.5-C — 资金账户档案（Runtime 化）
@@ -34,14 +35,15 @@ export const CASH_ACCOUNT_FIELDS: MdField[] = [
 ];
 
 export default function CashAccountRuntimePage() {
+  const { t } = useLanguage();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title="资金账户中心" subtitle="ERP 资金账户 · 流水态势 · 余额风险 · 点击编码查看账户全景" breadcrumb={["主数据中心", "资金账户中心"]} />
+      <PageHeader title={t('md.cashAccountCenter', '资金账户中心')} subtitle={t('md.cashAccountCenterSub', 'ERP 资金账户 · 流水态势 · 余额风险 · 点击编码查看账户全景')} breadcrumb={[t('md.center', '主数据中心'), t('md.cashAccountCenter', '资金账户中心')]} />
       <MasterDataCenterStrip type="cash-account" />
       <MasterDataRuntimePanel
         type="cash-account"
-        title="资金账户"
+        title={t('md.cashAccount', '资金账户')}
         codeKey="account_code"
         nameKey="account_name"
         mode="page"
@@ -49,11 +51,11 @@ export default function CashAccountRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={CASH_ACCOUNT_FIELDS}
         columns={[
-          { key: "account_name", label: "账户名称" },
-          { key: "company_code", label: "公司" },
-          { key: "currency_code", label: "币种" },
-          { key: "account_type", label: "类型" },
-          { key: "bank_name", label: "开户行" },
+          { key: "account_name", label: t('md.accountName', '账户名称') },
+          { key: "company_code", label: t('md.company', '公司') },
+          { key: "currency_code", label: t('md.currency', '币种') },
+          { key: "account_type", label: t('md.type', '类型') },
+          { key: "bank_name", label: t('md.bankName', '开户行') },
         ]}
       />
       <MasterDataDetailDrawer

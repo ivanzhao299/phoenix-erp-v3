@@ -1,6 +1,7 @@
 'use client';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
   pageKey: string;
@@ -18,6 +19,7 @@ interface Props {
 export default function MobilePermissionGate({ pageKey, children, renderChild }: Props) {
   const { allowed, readonly, loading } = useMobilePermission(pageKey);
   const { t } = useMobileTheme();
+  const { t: tr } = useLanguage();
 
   if (loading) {
     return (
@@ -26,7 +28,7 @@ export default function MobilePermissionGate({ pageKey, children, renderChild }:
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: t.textFaint, fontSize: 14,
       }}>
-        加载中…
+        {tr('ui.加载中…','加载中…')}
       </div>
     );
   }
@@ -41,10 +43,10 @@ export default function MobilePermissionGate({ pageKey, children, renderChild }:
       }}>
         <div style={{ fontSize: 48 }}>🔒</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: t.text, textAlign: 'center' }}>
-          无权访问此页面
+          {tr('ui.无权访问此页面','无权访问此页面')}
         </div>
         <div style={{ fontSize: 13, color: t.textFaint, textAlign: 'center' }}>
-          您的角色暂无此模块权限，请联系管理员
+          {tr('ui.您的角色暂无此模块权限，请联系管理员','您的角色暂无此模块权限，请联系管理员')}
         </div>
       </div>
     );

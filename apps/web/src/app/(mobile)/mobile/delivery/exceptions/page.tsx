@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const C = {
   bg:      'var(--brand-deep-1)',
@@ -58,6 +59,7 @@ function Skeleton() {
 
 export default function ExceptionsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<ExceptionOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,12 +72,12 @@ export default function ExceptionsPage() {
       const data = await apiFetch('/api/v2/mobile/delivery/exceptions?page=1&pageSize=30');
       setOrders(data.data ?? data.list ?? data ?? []);
     } catch {
-      setError('加载失败，请点击刷新重试');
+      setError(t('mob.dlv.load_failed_refresh', '加载失败，请点击刷新重试'));
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadExceptions(); }, [loadExceptions]);
 
@@ -112,7 +114,7 @@ export default function ExceptionsPage() {
         >
           ←
         </button>
-        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>异常记录</div>
+        <div style={{ flex: 1, fontSize: 17, fontWeight: 700 }}>{t('mob.dlv.nav_exceptions', '异常记录')}</div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -137,7 +139,7 @@ export default function ExceptionsPage() {
           </div>
         ) : orders.length === 0 ? (
           <div style={{ textAlign: 'center', color: C.textSub, padding: 60, fontSize: 14 }}>
-            ✅ 暂无异常记录
+            ✅ {t('mob.dlv.no_exceptions', '暂无异常记录')}
           </div>
         ) : (
           orders.map(order => (
@@ -161,10 +163,10 @@ export default function ExceptionsPage() {
                   <div style={{ fontSize: 13, color: C.textSub, marginTop: 4 }}>🏢 {order.customerName}</div>
                   <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📅 {order.waveDate}</div>
                   {order.exceptionType && (
-                    <div style={{ fontSize: 12, color: C.red, marginTop: 2 }}>原因：{order.exceptionType}</div>
+                    <div style={{ fontSize: 12, color: C.red, marginTop: 2 }}>{t('mob.dlv.reason_label', '原因：')}{order.exceptionType}</div>
                   )}
                   {order.remark && (
-                    <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>备注：{order.remark}</div>
+                    <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>{t('mob.dlv.remark_label', '备注：')}{order.remark}</div>
                   )}
                 </div>
                 <div style={{
@@ -178,11 +180,11 @@ export default function ExceptionsPage() {
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                 }}>
-                  ⚠ 异常
+                  ⚠ {t('mob.dlv.status_exception', '异常')}
                 </div>
               </div>
               <div style={{ textAlign: 'right', marginTop: 8, fontSize: 12, color: C.orange }}>
-                查看详情 →
+                {t('mob.dlv.view_detail', '查看详情')} →
               </div>
             </div>
           ))

@@ -29,6 +29,25 @@ TOKEN=$(curl -sf -X POST "$API/api/auth/login" -H 'Content-Type: application/jso
 [ -n "$TOKEN" ] || { red "Token 空"; exit 99; }
 green "  ✓ token=${TOKEN:0:30}..."
 
+# ──────────────────────────────────────────────────────────────────────────
+# R4.1 治理隔离：本套件 T1-T6 全部打 api/v3/pos 旧旁路（PosController/PosService
+#   已于 R4.1「删除旧 POS 旁路」从模块注销，见 store.module.ts:8-11）。端点现 404，
+#   store_losses/store_receiving 等表列名也已与现架构漂移。销售/退款现归
+#   StorePosController(api/v2/store-sales)，损耗/收货现归 WMS(inventory.controller)。
+#   → 探测旧端点；若 404 则整套 SKIP（非伪绿：CI 日志显式标 SKIP + 跟踪重写任务），
+#     避免对已删功能的死测试长期红灯掩盖真实回归信号。
+PROBE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/api/v3/pos/sales" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}')
+if [ "$PROBE" = "404" ]; then
+  yellow "⏭️  SKIP pos-store 回归：api/v3/pos 旁路已于 R4.1 删除（探测 POST /api/v3/pos/sales → 404）。"
+  yellow "    本套件整体针对该旧旁路，待按现架构重写："
+  yellow "      · 销售/退款/作废 → api/v2/store-sales (StorePosController)"
+  yellow "      · 损耗/收货审批 → WMS inventory.controller (approveLoss / confirmReceivingOrder)"
+  yellow "    跟踪：follow-up「重写 pos-store 回归对齐现架构（api/v2/store-sales + WMS）」。"
+  exit 0
+fi
+yellow "  ⚠ api/v3/pos 探测返回 $PROBE（非 404）→ 旧旁路疑似仍在，继续跑历史断言。"
+
 cyan ""
 cyan "▶ 1) Seed"
 BATCH_NO="POS-REGR-BAT-$(date +%s | tail -c 6)"

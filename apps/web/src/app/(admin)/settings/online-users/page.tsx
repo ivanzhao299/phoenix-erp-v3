@@ -10,6 +10,7 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import request from "@/lib/api-client";
 import usePermission from "@/hooks/usePermission";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface OnlineUser {
   userId: string;
@@ -36,6 +37,7 @@ function fmtDuration(sinceMs?: number) {
 }
 
 export default function OnlineUsersPage() {
+  const { t } = useLanguage();
   const toast = useToast();
   const onlineUsersPerm = usePermission("MENU_SETTINGS_ONLINE_USER");
   const [items, setItems] = useState<OnlineUser[]>([]);
@@ -59,7 +61,7 @@ export default function OnlineUsersPage() {
       shownErr.current = false;
     } catch {
       if (!silent && !shownErr.current) {
-        toast.error("加载失败（需管理员权限）");
+        toast.error(t('ui.加载失败（需管理员权限）','加载失败（需管理员权限）'));
         shownErr.current = true;
       }
       setErr('加载失败');
@@ -78,18 +80,18 @@ export default function OnlineUsersPage() {
   if (!onlineUsersPerm.canView) {
     return (
       <div className="animate-fade-in">
-        <PageHeader title="在线用户" subtitle="需要系统监控查看权限" breadcrumb={["系统设置", "在线用户"]} />
-        <div className={u.emptyCenter}>无权限访问在线用户</div>
+        <PageHeader title={t('ui.在线用户','在线用户')} subtitle={t('ui.需要系统监控查看权限','需要系统监控查看权限')} breadcrumb={[t('ui.系统设置','系统设置'), t('ui.在线用户','在线用户')]} />
+        <div className={u.emptyCenter}>{t('ui.无权限访问在线用户','无权限访问在线用户')}</div>
       </div>
     );
   }
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="在线用户" subtitle={`当前在线 ${total} 人 · 基于实时连接，每 20 秒刷新`} breadcrumb={["系统设置", "在线用户"]}
+      <PageHeader title={t('ui.在线用户','在线用户')} subtitle={`当前在线 ${total} 人 · 基于实时连接，每 20 秒刷新`} breadcrumb={[t('ui.系统设置','系统设置'), t('ui.在线用户','在线用户')]}
         actions={
           <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => load()} disabled={loading}>
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
+            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> {t('ui.刷新','刷新')}
           </button>
         } />
 
@@ -101,14 +103,14 @@ export default function OnlineUsersPage() {
           </colgroup>
           <thead>
             <tr>
-              <th>姓名</th><th>账号</th><th>角色</th><th>公司</th><th className={u.tac}>连接数</th><th>上次活跃</th>
+              <th>{t('ui.姓名','姓名')}</th><th>{t('ui.账号','账号')}</th><th>{t('ui.角色','角色')}</th><th>{t('ui.公司','公司')}</th><th className={u.tac}>{t('ui.连接数','连接数')}</th><th>{t('ui.上次活跃','上次活跃')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && items.length === 0 ? (
-              <tr><td colSpan={6} className={u.emptyCenter}>加载中…</td></tr>
+              <tr><td colSpan={6} className={u.emptyCenter}>{t('ui.加载中…','加载中…')}</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={6} className={u.emptyCenter}><Users size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />当前无在线用户</td></tr>
+              <tr><td colSpan={6} className={u.emptyCenter}><Users size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />{t('ui.当前无在线用户','当前无在线用户')}</td></tr>
             ) : items.map((it) => (
               <tr key={it.userId}>
                 <td style={{ wordBreak: "break-word" }}>

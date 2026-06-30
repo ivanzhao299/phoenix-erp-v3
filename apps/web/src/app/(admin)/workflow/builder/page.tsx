@@ -8,6 +8,7 @@ import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPi
 import { workflowApi, type WorkflowFormField } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 type RoleOption = {
   label: string;
   value: string;
@@ -81,6 +82,7 @@ const FIELD_PALETTE: WorkflowFormField[] = [{
   type: "textarea"
 }];
 export default function WorkflowBuilderPage() {
+  const { t } = useLanguage();
   const [stage, setStage] = useState<BuildStage>("scene");
   const [templateKey, setTemplateKey] = useState(WORKFLOW_TEMPLATES[0]?.key || "");
   const template = useMemo(() => WORKFLOW_TEMPLATES.find(item => item.key === templateKey) || WORKFLOW_TEMPLATES[0], [templateKey]);
@@ -149,7 +151,7 @@ export default function WorkflowBuilderPage() {
     if (!label) return;
     const key = toFieldKey(label);
     if (fields.some(item => item.key === key)) {
-      setError("这个字段已经存在，可以直接在字段清单里调整。");
+      setError(t('ui.这个字段已经存在，可以直接在字段清单里调整。','这个字段已经存在，可以直接在字段清单里调整。'));
       return;
     }
     setFields(current => [...current, {
@@ -182,19 +184,19 @@ export default function WorkflowBuilderPage() {
   }
   async function build() {
     if (!flowName.trim()) {
-      setError("请先填写流程名称。");
+      setError(t('ui.请先填写流程名称。','请先填写流程名称。'));
       return;
     }
     if (fields.length === 0) {
-      setError("至少保留一个表单字段。");
+      setError(t('ui.至少保留一个表单字段。','至少保留一个表单字段。'));
       return;
     }
     if (steps.length === 0) {
-      setError("至少保留一个审批步骤。");
+      setError(t('ui.至少保留一个审批步骤。','至少保留一个审批步骤。'));
       return;
     }
     if (steps.some(step => !step.role || UNSAFE_DEFAULT_APPROVER_ROLES.has(step.role))) {
-      setError("请为每一级审批选择明确的业务角色，不能默认流转给系统管理员。");
+      setError(t('ui.请为每一级审批选择明确的业务角色，不能默认流转给系统管理员。','请为每一级审批选择明确的业务角色，不能默认流转给系统管理员。'));
       return;
     }
     setBusy(true);
@@ -231,17 +233,17 @@ export default function WorkflowBuilderPage() {
       });
       setStage("finish");
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "流程生成失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t('ui.流程生成失败','流程生成失败'));
     } finally {
       setBusy(false);
     }
   }
   return <div>
-      <PageHeader title="流程搭建工作区" subtitle="按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码" breadcrumb={["工作流", "流程搭建工作区"]} actions={<Link href="/workflow/definitions" style={secondaryActionButton}>流程列表</Link>} />
+      <PageHeader title={t('ui.流程搭建工作区','流程搭建工作区')} subtitle={t('ui.按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码','按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码')} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程搭建工作区','流程搭建工作区')]} actions={<Link href="/workflow/definitions" style={secondaryActionButton}>{t('ui.流程列表','流程列表')}</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={stepsHeaderStyle}>
-          {[["scene", "1", "选场景"], ["form", "2", "配表单"], ["route", "3", "排审批"], ["finish", "4", "生成使用"]].map(([key, no, label]) => <button key={key} type="button" className={stage === key ? s.tabPillActive : s.tabPill} onClick={() => setStage(key as BuildStage)}>
+          {[["scene", "1", t('ui.选场景','选场景')], ["form", "2", t('ui.配表单','配表单')], ["route", "3", t('ui.排审批','排审批')], ["finish", "4", t('ui.生成使用','生成使用')]].map(([key, no, label]) => <button key={key} type="button" className={stage === key ? s.tabPillActive : s.tabPill} onClick={() => setStage(key as BuildStage)}>
               {no}. {label}
             </button>)}
         </div>
@@ -265,13 +267,14 @@ function SceneStep({
   template: WorkflowTemplate;
   onUseTemplate: (template: WorkflowTemplate) => void;
 }) {
+  const { t } = useLanguage();
   return <section>
       <div style={sceneGridStyle}>
         {WORKFLOW_TEMPLATES.map(item => <button key={item.key} type="button" style={item.key === template.key ? selectedSceneStyle : sceneStyle} onClick={() => onUseTemplate(item)}>
             <span className={s.badge}>{item.category}</span>
             <strong>{item.name}</strong>
             <span>{item.description}</span>
-            <small>{item.fields.length} 个表单字段 · {Math.max(1, item.approvals.length)} 个审批步骤</small>
+            <small>{item.fields.length} {t('ui.个表单字段','个表单字段')} · {Math.max(1, item.approvals.length)} {t('ui.个审批步骤','个审批步骤')}</small>
           </button>)}
       </div>
     </section>;
@@ -297,34 +300,35 @@ function FormStep(props: {
   onAddCustomField: () => void;
   onNext: () => void;
 }) {
+  const { t } = useLanguage();
   return <div style={workbenchStyle}>
       <section className={s.card}>
         <div className={s.cardBody}>
-          <h3 className={s.cardTitle} style={titleStyle}>流程基本信息</h3>
+          <h3 className={s.cardTitle} style={titleStyle}>{t('ui.流程基本信息','流程基本信息')}</h3>
           <div style={formGridStyle}>
-            <label style={labelStyle}>流程名称<input className={s.inp} value={props.flowName} onChange={e => props.onFlowName(e.target.value)} /></label>
-            <label style={labelStyle}>业务分类<input className={s.inp} value={props.category} onChange={e => props.onCategory(e.target.value)} /></label>
+            <label style={labelStyle}>{t('ui.流程名称','流程名称')}<input className={s.inp} value={props.flowName} onChange={e => props.onFlowName(e.target.value)} /></label>
+            <label style={labelStyle}>{t('ui.业务分类','业务分类')}<input className={s.inp} value={props.category} onChange={e => props.onCategory(e.target.value)} /></label>
             <label style={{
             ...labelStyle,
             gridColumn: "1 / -1"
-          }}>说明<textarea className={s.textarea} value={props.description} onChange={e => props.onDescription(e.target.value)} /></label>
+          }}>{t('ui.说明','说明')}<textarea className={s.textarea} value={props.description} onChange={e => props.onDescription(e.target.value)} /></label>
           </div>
 
           <h3 className={s.cardTitle} style={{
           ...titleStyle,
           marginTop: 18
-        }}>常用字段，一点就加</h3>
+        }}>{t('ui.常用字段，一点就加','常用字段，一点就加')}</h3>
           <div style={chipGridStyle}>
             {FIELD_PALETTE.map(field => {
             const active = props.fields.some(item => item.key === field.key);
             return <button key={field.key} type="button" className={active ? s.tabPillActive : s.tabPill} onClick={() => props.onToggleField(field)}>
-                  {active ? "已加入 " : "+ "}{field.label}
+                  {active ? t('ui.已加入 ','已加入 ') : "+ "}{field.label}
                 </button>;
           })}
           </div>
 
           <div style={customFieldStyle}>
-            <input className={s.inp} placeholder="新增字段名称，如：合同编号" value={props.customField.label} onChange={e => props.onCustomField({
+            <input className={s.inp} placeholder={t('ui.新增字段名称，如：合同编号','新增字段名称，如：合同编号')} value={props.customField.label} onChange={e => props.onCustomField({
             ...props.customField,
             label: e.target.value
           })} />
@@ -332,14 +336,14 @@ function FormStep(props: {
             ...props.customField,
             type: e.target.value
           })}>
-              <option value="text">单行文本</option>
-              <option value="textarea">多行说明</option>
-              <option value="number">数字</option>
-              <option value="amount">金额</option>
-              <option value="date">日期</option>
-              <option value="datetime">日期时间</option>
+              <option value="text">{t('ui.单行文本','单行文本')}</option>
+              <option value="textarea">{t('ui.多行说明','多行说明')}</option>
+              <option value="number">{t('ui.数字','数字')}</option>
+              <option value="amount">{t('ui.金额','金额')}</option>
+              <option value="date">{t('ui.日期','日期')}</option>
+              <option value="datetime">{t('ui.日期时间','日期时间')}</option>
             </select>
-            <button type="button" style={secondaryActionButton} onClick={props.onAddCustomField}>加入字段</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddCustomField}>{t('ui.加入字段','加入字段')}</button>
           </div>
         </div>
       </section>
@@ -348,25 +352,25 @@ function FormStep(props: {
         <div className={s.cardBody}>
           <div style={sectionHeaderStyle}>
             <div>
-              <h3 className={s.cardTitle}>表单预览</h3>
-              <p className={`${s.modalDesc} ${u.mt4}`}>字段会按这个顺序出现在发起申请页面。</p>
+              <h3 className={s.cardTitle}>{t('ui.表单预览','表单预览')}</h3>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.字段会按这个顺序出现在发起申请页面。','字段会按这个顺序出现在发起申请页面。')}</p>
             </div>
-            <button type="button" style={primaryActionButton} onClick={props.onNext}>下一步：排审批</button>
+            <button type="button" style={primaryActionButton} onClick={props.onNext}>{t('ui.下一步：排审批','下一步：排审批')}</button>
           </div>
           <div style={fieldListStyle}>
             {props.fields.map(field => <div key={field.key} style={fieldItemStyle}>
                 <div>
                   <strong>{field.label}</strong>
-                  <small>{fieldTypeText(field)} · {field.required ? "必填" : "选填"}</small>
+                  <small>{fieldTypeText(field)} · {field.required ? t('ui.必填','必填') : t('ui.选填','选填')}</small>
                 </div>
                 <div style={fieldActionsStyle}>
                   <label style={checkStyle}><input type="checkbox" checked={Boolean(field.required)} onChange={e => props.onUpdateField(field.key, {
                   required: e.target.checked
-                })} /> 必填</label>
-                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => props.onToggleField(field)}>移除</button>
+                })} /> {t('ui.必填','必填')}</label>
+                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => props.onToggleField(field)}>{t('ui.移除','移除')}</button>
                 </div>
               </div>)}
-            {props.fields.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>请选择至少一个字段。</div></div> : null}
+            {props.fields.length === 0 ? <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.请选择至少一个字段。','请选择至少一个字段。')}</div></div> : null}
           </div>
         </div>
       </section>
@@ -384,15 +388,16 @@ function RouteStep(props: {
   onCcRole: (value: string) => void;
   onBuild: () => void;
 }) {
+  const { t } = useLanguage();
   return <div style={routeLayoutStyle}>
       <section className={s.card}>
         <div className={s.cardBody}>
           <div style={sectionHeaderStyle}>
             <div>
-              <h3 className={s.cardTitle}>审批路线</h3>
-              <p className={`${s.modalDesc} ${u.mt4}`}>像排队一样排审批步骤，从上到下依次流转。</p>
+              <h3 className={s.cardTitle}>{t('ui.审批路线','审批路线')}</h3>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.像排队一样排审批步骤，从上到下依次流转。','像排队一样排审批步骤，从上到下依次流转。')}</p>
             </div>
-            <button type="button" style={secondaryActionButton} onClick={props.onAddStep}>添加一级审批</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddStep}>{t('ui.添加一级审批','添加一级审批')}</button>
           </div>
 
           <div style={approvalListStyle}>
@@ -404,19 +409,19 @@ function RouteStep(props: {
                 <select className={s.inp} value={step.role} onChange={e => props.onUpdateStep(step.id, {
               role: e.target.value
             })}>
-                  <option value="">请选择审批角色</option>
+                  <option value="">{t('ui.请选择审批角色','请选择审批角色')}</option>
                   {props.roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
-                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} disabled={props.steps.length <= 1} onClick={() => props.onRemoveStep(step.id)}>移除</button>
+                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} disabled={props.steps.length <= 1} onClick={() => props.onRemoveStep(step.id)}>{t('ui.移除','移除')}</button>
               </div>)}
           </div>
 
           <h3 className={s.cardTitle} style={{
           ...titleStyle,
           marginTop: 18
-        }}>抄送备案</h3>
+        }}>{t('ui.抄送备案','抄送备案')}</h3>
           <select className={s.inp} value={props.ccRole} onChange={e => props.onCcRole(e.target.value)}>
-            <option value="">不设置抄送</option>
+            <option value="">{t('ui.不设置抄送','不设置抄送')}</option>
             {props.roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
         </div>
@@ -424,15 +429,15 @@ function RouteStep(props: {
 
       <section className={s.card}>
         <div className={s.cardBody}>
-          <h3 className={s.cardTitle} style={titleStyle}>所见即所得路线图</h3>
+          <h3 className={s.cardTitle} style={titleStyle}>{t('ui.所见即所得路线图','所见即所得路线图')}</h3>
           <div style={timelineStyle}>
-            <RouteNode label="发起申请" desc={props.flowName || "填写表单并提交"} tone="start" />
+            <RouteNode label={t('ui.发起申请','发起申请')} desc={props.flowName || t('ui.填写表单并提交','填写表单并提交')} tone="start" />
             {props.steps.map(step => <RouteNode key={step.id} label={step.name} desc={roleLabel(props.roles, step.role)} />)}
-            {props.ccRole ? <RouteNode label="抄送备案" desc={roleLabel(props.roles, props.ccRole)} tone="cc" /> : null}
-            <RouteNode label="流程完成" desc="自动归档，可在实例中追踪" tone="end" />
+            {props.ccRole ? <RouteNode label={t('ui.抄送备案','抄送备案')} desc={roleLabel(props.roles, props.ccRole)} tone="cc" /> : null}
+            <RouteNode label={t('ui.流程完成','流程完成')} desc={t('ui.自动归档，可在实例中追踪','自动归档，可在实例中追踪')} tone="end" />
           </div>
           <button type="button" disabled={props.busy} onClick={props.onBuild} style={{ ...primaryActionButton, width: "100%", marginTop: 16, justifyContent: "center" }}>
-            {props.busy ? "正在生成..." : "一键生成并发布"}
+            {props.busy ? t('ui.正在生成...','正在生成...') : t('ui.一键生成并发布','一键生成并发布')}
           </button>
         </div>
       </section>
@@ -447,9 +452,10 @@ function RouteNode({
   desc: string;
   tone?: "start" | "cc" | "end";
 }) {
+  const { t } = useLanguage();
   const badge = tone === "start" ? s.badgeSuccess : tone === "end" ? s.badgeNeutral : tone === "cc" ? s.badgeWarning : s.badgeInfo;
   return <div style={routeNodeStyle}>
-      <span className={`${s.badge} ${badge}`}>{tone === "start" ? "开始" : tone === "end" ? "结束" : tone === "cc" ? "抄送" : "审批"}</span>
+      <span className={`${s.badge} ${badge}`}>{tone === "start" ? t('ui.开始','开始') : tone === "end" ? t('ui.结束','结束') : tone === "cc" ? t('ui.抄送','抄送') : t('ui.审批','审批')}</span>
       <strong>{label}</strong>
       <small>{desc}</small>
     </div>;
@@ -463,22 +469,23 @@ function FinishStep({
     code: string;
   } | null;
 }) {
+  const { t } = useLanguage();
   return <section className={s.card}>
       <div className={s.cardBody} style={finishStyle}>
-        <span className={`${s.badge} ${s.badgeSuccess}`}>已生成</span>
-        <h3 style={finishTitleStyle}>流程已经可以使用</h3>
+        <span className={`${s.badge} ${s.badgeSuccess}`}>{t('ui.已生成','已生成')}</span>
+        <h3 style={finishTitleStyle}>{t('ui.流程已经可以使用','流程已经可以使用')}</h3>
         <p className={s.modalDesc} style={{
         margin: 0
-      }}>系统已经自动创建表单、发布流程版本，并把编码生成好了。后续可以继续去高级设计器微调。</p>
+      }}>{t('ui.系统已经自动创建表单、发布流程版本，并把编码生成好了。后续可以继续去高级设计器微调。','系统已经自动创建表单、发布流程版本，并把编码生成好了。后续可以继续去高级设计器微调。')}</p>
         {result ? <div className={`${s.infoGrid3} ${u.w100}`}>
-            <Info label="流程编码" value={result.code} />
-            <Info label="流程 ID" value={String(result.definitionId)} />
-            <Info label="表单 ID" value={String(result.formId)} />
+            <Info label={t('ui.流程编码','流程编码')} value={result.code} />
+            <Info label={t('ui.流程 ID','流程 ID')} value={String(result.definitionId)} />
+            <Info label={t('ui.表单 ID','表单 ID')} value={String(result.formId)} />
           </div> : null}
         <div style={finishActionsStyle}>
-          {result ? <Link href={`/workflow/start?code=${result.code}`} style={primaryActionButton}>马上发起试用</Link> : null}
-          {result ? <Link href={`/workflow/designer/${result.definitionId}`} style={secondaryActionButton}>高级微调</Link> : null}
-          <Link href="/workflow/definitions" style={secondaryActionButton}>回到流程列表</Link>
+          {result ? <Link href={`/workflow/start?code=${result.code}`} style={primaryActionButton}>{t('ui.马上发起试用','马上发起试用')}</Link> : null}
+          {result ? <Link href={`/workflow/designer/${result.definitionId}`} style={secondaryActionButton}>{t('ui.高级微调','高级微调')}</Link> : null}
+          <Link href="/workflow/definitions" style={secondaryActionButton}>{t('ui.回到流程列表','回到流程列表')}</Link>
         </div>
       </div>
     </section>;

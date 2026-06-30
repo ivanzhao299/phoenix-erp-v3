@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial, EQUITY_STATUS_LABEL, PAID_IN_SOURCE_LABEL, lbl } from '@/lib/shareholder-api';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { SummaryBar, sum, yuan } from '../SummaryBar';
 import PageHeader from '@/components/PageHeader';
 const th: React.CSSProperties = {
@@ -23,6 +24,7 @@ const money = (v?: string | null) => v == null ? '—' : Number(v).toLocaleStrin
   minimumFractionDigits: 2
 });
 export default function EquityPage() {
+  const { t } = useLanguage();
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [sel, setSel] = useState('');
   const [view, setView] = useState<'legal' | 'beneficial'>('legal');
@@ -56,14 +58,14 @@ export default function EquityPage() {
     cursor: 'pointer'
   });
   return <div className={u.p24}>
-      <PageHeader title="股权结构 / 实益出资结构" />
+      <PageHeader title={t('ui.股权结构 / 实益出资结构','股权结构 / 实益出资结构')} />
       <div style={{
       display: 'flex',
       gap: 12,
       alignItems: 'center',
       marginBottom: 12
     }}>
-        <label className={u.fs14}>项目：</label>
+        <label className={u.fs14}>{t('ui.项目：','项目：')}</label>
         <select value={sel} onChange={e => setSel(e.target.value)} style={{
         padding: '6px 10px',
         borderRadius: 6,
@@ -76,8 +78,8 @@ export default function EquityPage() {
         display: 'flex',
         gap: 8
       }}>
-          <button style={tabBtn(view === 'legal')} onClick={() => setView('legal')}>法定股东结构</button>
-          <button style={tabBtn(view === 'beneficial')} onClick={() => setView('beneficial')}>实益出资结构{bene.length > 0 ? `（${bene.length}）` : ''}</button>
+          <button style={tabBtn(view === 'legal')} onClick={() => setView('legal')}>{t('ui.法定股东结构','法定股东结构')}</button>
+          <button style={tabBtn(view === 'beneficial')} onClick={() => setView('beneficial')}>{t('ui.实益出资结构','实益出资结构')}{bene.length > 0 ? `（${bene.length}）` : ''}</button>
         </div>
       </div>
 
@@ -90,7 +92,7 @@ export default function EquityPage() {
       marginBottom: 12,
       fontSize: 12.5
     }}>
-        法定股东结构用于股权管理；实益出资结构用于内部投资分析；二者可能存在差异；实益结构不代表工商登记股权结构。
+        {t('ui.法定股东结构用于股权管理；实益出资结构用于内部投资分析；二者可能存在差异；实益结构不代表工商登记股权结构。','法定股东结构用于股权管理；实益出资结构用于内部投资分析；二者可能存在差异；实益结构不代表工商登记股权结构。')}
       </div>
       {isProvisional && view === 'legal' && <div style={{
       background: 'color-mix(in srgb, var(--status-warning) 14%, transparent)',
@@ -101,7 +103,7 @@ export default function EquityPage() {
       marginBottom: 14,
       fontSize: 13.5
     }}>
-          ⚠ <b>股权比例为暂定</b>，仅供参考，最终股权比例以最终确认结果为准。「股权比例」与「实缴资本比例」为两套口径，请勿混淆。
+          ⚠ <b>{t('ui.股权比例为暂定','股权比例为暂定')}</b>{t('ui.，仅供参考，最终股权比例以最终确认结果为准。「股权比例」与「实缴资本比例」为两套口径，请勿混淆。','，仅供参考，最终股权比例以最终确认结果为准。「股权比例」与「实缴资本比例」为两套口径，请勿混淆。')}
         </div>}
       {err && <div style={{
       color: 'var(--status-danger)',
@@ -109,27 +111,27 @@ export default function EquityPage() {
     }}>{err}</div>}
 
       {view === 'legal' ? <SummaryBar items={[{
-      label: '项目总实缴资本',
+      label: t('ui.项目总实缴资本','项目总实缴资本'),
       value: yuan(curProject?.totalPaidInCapital ?? sum(rows, r => Number(r.paidInCapital || 0))),
       accent: true
     }, {
-      label: '法定实缴合计',
+      label: t('ui.法定实缴合计','法定实缴合计'),
       value: yuan(sum(rows, r => Number(r.paidInCapital || 0)))
     }, {
-      label: '股权比例合计',
+      label: t('ui.股权比例合计','股权比例合计'),
       value: sum(rows, r => Number(r.equityRatio || 0)).toFixed(2) + '%'
     }, {
-      label: '实缴占比合计',
+      label: t('ui.实缴占比合计','实缴占比合计'),
       value: sum(rows, r => Number(r.capitalRatio || 0)).toFixed(2) + '%'
     }, {
-      label: '股东人数',
+      label: t('ui.股东人数','股东人数'),
       value: String(rows.length)
     }]} /> : <SummaryBar items={[{
-      label: '实益出资合计',
+      label: t('ui.实益出资合计','实益出资合计'),
       value: yuan(sum(bene, b => Number(b.amount || 0))),
       accent: true
     }, {
-      label: '代持记录数',
+      label: t('ui.代持记录数','代持记录数'),
       value: String(bene.length)
     }]} />}
 
@@ -142,38 +144,38 @@ export default function EquityPage() {
     }}>
           <thead>
             <tr>
-              <th style={th} rowSpan={2}>股东</th>
+              <th style={th} rowSpan={2}>{t('ui.股东','股东')}</th>
               <th style={{
             ...th,
             background: 'var(--text-secondary)'
-          }} colSpan={2}>法定股权结构</th>
+          }} colSpan={2}>{t('ui.法定股权结构','法定股权结构')}</th>
               <th style={{
             ...th,
             background: 'var(--color-primary)'
-          }} colSpan={3}>法定实缴资本结构（实缴口径）</th>
-              <th style={th} rowSpan={2}>表决权</th>
+          }} colSpan={3}>{t('ui.法定实缴资本结构（实缴口径）','法定实缴资本结构（实缴口径）')}</th>
+              <th style={th} rowSpan={2}>{t('ui.表决权','表决权')}</th>
             </tr>
             <tr>
               <th style={{
             ...th,
             background: 'var(--text-secondary)'
-          }}>股权比例%</th>
+          }}>{t('ui.股权比例%','股权比例%')}</th>
               <th style={{
             ...th,
             background: 'var(--text-secondary)'
-          }}>状态</th>
+          }}>{t('ui.状态','状态')}</th>
               <th style={{
             ...th,
             background: 'var(--color-primary)'
-          }}>法定实缴</th>
+          }}>{t('ui.法定实缴','法定实缴')}</th>
               <th style={{
             ...th,
             background: 'var(--color-primary)'
-          }}>实缴占比%</th>
+          }}>{t('ui.实缴占比%','实缴占比%')}</th>
               <th style={{
             ...th,
             background: 'var(--color-primary)'
-          }}>来源</th>
+          }}>{t('ui.来源','来源')}</th>
             </tr>
           </thead>
           <tbody>
@@ -206,9 +208,9 @@ export default function EquityPage() {
             fontSize: 12,
             color: 'var(--text-secondary)'
           }}>{lbl(PAID_IN_SOURCE_LABEL, e.paidInSource)}</td>
-                <td style={td}>{e.isVotingShareholder ? '是' : '否'}</td>
+                <td style={td}>{e.isVotingShareholder ? t('ui.是','是') : t('ui.否','否')}</td>
               </tr>)}
-            {rows.length === 0 && <tr><td style={td} colSpan={7}>暂无股权数据</td></tr>}
+            {rows.length === 0 && <tr><td style={td} colSpan={7}>{t('ui.暂无股权数据','暂无股权数据')}</td></tr>}
           </tbody>
         </table> : <table style={{
       width: '100%',
@@ -218,8 +220,8 @@ export default function EquityPage() {
       overflow: 'hidden'
     }}>
           <thead><tr>
-            <th style={th}>登记股东（名义）</th><th style={th}>实际出资人（实益）</th>
-            <th style={th}>出资金额</th><th style={th}>占该名义持股%</th><th style={th}>备注</th>
+            <th style={th}>{t('ui.登记股东（名义）','登记股东（名义）')}</th><th style={th}>{t('ui.实际出资人（实益）','实际出资人（实益）')}</th>
+            <th style={th}>{t('ui.出资金额','出资金额')}</th><th style={th}>{t('ui.占该名义持股%','占该名义持股%')}</th><th style={th}>{t('ui.备注','备注')}</th>
           </tr></thead>
           <tbody>
             {bene.map(b => <tr key={b.id}>
@@ -240,7 +242,7 @@ export default function EquityPage() {
             color: 'var(--text-secondary)'
           }}>{b.remark || '—'}</td>
               </tr>)}
-            {bene.length === 0 && <tr><td style={td} colSpan={5}>该项目暂无实益出资（代持）记录</td></tr>}
+            {bene.length === 0 && <tr><td style={td} colSpan={5}>{t('ui.该项目暂无实益出资（代持）记录','该项目暂无实益出资（代持）记录')}</td></tr>}
           </tbody>
         </table>}
       <p style={{
@@ -248,7 +250,7 @@ export default function EquityPage() {
       fontSize: 12,
       marginTop: 12
     }}>
-        注：「法定股权比例」为约定股比；「法定实缴」= 股东直接实缴 ÷ 项目总实缴资本；「实益出资」记录代持关系（名义股东 vs 实际出资人）。本阶段 不显示应缴/未缴/差额。
+        {t('ui.注：「法定股权比例」为约定股比；「法定实缴」= 股东直接实缴 ÷ 项目总实缴资本；「实益出资」记录代持关系（名义股东 vs 实际出资人）。本阶段 不显示应缴/未缴/差额。','注：「法定股权比例」为约定股比；「法定实缴」= 股东直接实缴 ÷ 项目总实缴资本；「实益出资」记录代持关系（名义股东 vs 实际出资人）。本阶段 不显示应缴/未缴/差额。')}
       </p>
     </div>;
 }

@@ -13,6 +13,7 @@ import request from "@/lib/api-client";
  */
 import u from "@/styles/uix-utils.module.css";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B
+import { useLanguage } from "@/contexts/LanguageContext";
 const ENTRIES = [{
   key: "batch",
   label: "库存批次",
@@ -132,6 +133,8 @@ function Table({
     </table>;
 }
 export default function TraceabilityPage() {
+  const { t } = useLanguage();
+  const tFn = t;
   const {
     canView
   } = usePermission("MENU_TRACEABILITY_VIEW");
@@ -148,14 +151,14 @@ export default function TraceabilityPage() {
     try {
       const r = await request<any>(`/traceability/${entry.path}/${encodeURIComponent(value.trim())}`);
       setData(r);
-      if (r && r.found === false) setError(r.denied ? r.reason || "无权查看" : "未找到追溯记录");
+      if (r && r.found === false) setError(r.denied ? r.reason || t('ui.无权查看','无权查看') : t('ui.未找到追溯记录','未找到追溯记录'));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "查询失败");
+      setError(e instanceof Error ? e.message : t('ui.查询失败','查询失败'));
     } finally {
       setLoading(false);
     }
   };
-  if (!canView) return <div className={u.emptyPad40}>无权限访问全链追溯</div>;
+  if (!canView) return <div className={u.emptyPad40}>{t('ui.无权限访问全链追溯','无权限访问全链追溯')}</div>;
 
   // 渲染一棵 batch 追溯树
   const renderTree = (t: any) => {
@@ -166,7 +169,7 @@ export default function TraceabilityPage() {
       sa = t.sales || {},
       fi = t.finance || {};
     return <div>
-        <Section icon={<Factory size={14} />} title="生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）">
+        <Section icon={<Factory size={14} />} title={tFn('ui.生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）','生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）')}>
           <KV k="场站" v={p.site} /><KV k="产线" v={p.line} /><KV k="生产日期" v={p.productionDate} />
           <div style={{
           marginTop: 6
@@ -223,7 +226,7 @@ export default function TraceabilityPage() {
             label: "收蛋"
           }]} /></div>
         </Section>
-        {pk && <Section icon={<Package size={14} />} title="包装域（包装批次 / 分级 / 班次 / 人员）">
+        {pk && <Section icon={<Package size={14} />} title={tFn('ui.包装域（包装批次 / 分级 / 班次 / 人员）','包装域（包装批次 / 分级 / 班次 / 人员）')}>
             <KV k="包装批次" v={pk.packingCode} /><KV k="分级码" v={pk.gradingCode} /><KV k="总箱数" v={pk.totalBoxes} /><KV k="总枚数" v={pk.totalEggs} />
             <KV k="班次" v={pk.shiftCode} /><KV k="包装人员" v={pk.operator} /><KV k="班组长" v={pk.supervisor} />
             <div style={{
@@ -251,7 +254,7 @@ export default function TraceabilityPage() {
           label: "打印时间"
         }]} />
         </Section>
-        <Section icon={<Warehouse size={14} />} title="库存域（批次 / SKU / 规格 / 流水）">
+        <Section icon={<Warehouse size={14} />} title={tFn('ui.库存域（批次 / SKU / 规格 / 流水）','库存域（批次 / SKU / 规格 / 流水）')}>
           <KV k="库存批次" v={inv.batchNo} /><KV k="SKU" v={inv.skuCode} /><KV k="产品" v={inv.productCode} />
           <KV k="等级" v={inv.grade} /><KV k="规格" v={inv.specCode} /><KV k="数量/可用" v={`${inv.qty ?? "-"} / ${inv.qtyAvailable ?? "-"}`} />
           <KV k="生产日期" v={inv.eggDate} /><KV k="到期日" v={inv.expireDate} /><KV k="来源" v={inv.sourceType} /><KV k="公司" v={inv.companyCode} />
@@ -271,12 +274,12 @@ export default function TraceabilityPage() {
             label: "时间"
           }]} /></div>
         </Section>
-        <Section icon={<ShoppingCart size={14} />} title="销售域（销售订单 / 门店 POS）">
+        <Section icon={<ShoppingCart size={14} />} title={tFn('ui.销售域（销售订单 / 门店 POS）','销售域（销售订单 / 门店 POS）')}>
           <div className={u.mb8}><div style={{
             fontSize: 11,
             color: "var(--text-disabled)",
             marginBottom: 3
-          }}>销售订单</div>
+          }}>{tFn('ui.销售订单','销售订单')}</div>
             <Table rows={sa.salesOrders} cols={[{
             k: "order_no",
             label: "订单"
@@ -297,7 +300,7 @@ export default function TraceabilityPage() {
             fontSize: 11,
             color: "var(--text-disabled)",
             marginBottom: 3
-          }}>门店 POS</div>
+          }}>{tFn('ui.门店 POS','门店 POS')}</div>
             <Table rows={sa.storeSales} cols={[{
             k: "sale_no",
             label: "POS单"
@@ -315,7 +318,7 @@ export default function TraceabilityPage() {
             label: "时间"
           }]} /></div>
         </Section>
-        <Section icon={<Banknote size={14} />} title="财务域（应收 / 现金）">
+        <Section icon={<Banknote size={14} />} title={tFn('ui.财务域（应收 / 现金）','财务域（应收 / 现金）')}>
           <div className={u.mb8}><Table rows={fi.ar} cols={[{
             k: "source_no",
             label: "来源单"
@@ -343,7 +346,7 @@ export default function TraceabilityPage() {
           label: "时间"
         }]} />
         </Section>
-        {t.returns && t.returns.length > 0 && <Section icon={<RotateCcw size={14} />} title="退货 / 报损">
+        {t.returns && t.returns.length > 0 && <Section icon={<RotateCcw size={14} />} title={tFn('ui.退货 / 报损','退货 / 报损')}>
             <Table rows={t.returns} cols={[{
           k: "change_type",
           label: "类型"
@@ -364,7 +367,7 @@ export default function TraceabilityPage() {
     padding: "24px 32px",
     maxWidth: 1100
   }}>
-      <PageHeader title="全链追溯" subtitle="鸡舍 → 集蛋 → 包装 → 库存 → 销售/POS → 客户 → 财务 正反向追溯" breadcrumb={["全链追溯"]} />
+      <PageHeader title={t('ui.全链追溯','全链追溯')} subtitle={t('ui.鸡舍 → 集蛋 → 包装 → 库存 → 销售/POS → 客户 → 财务 正反向追溯','鸡舍 → 集蛋 → 包装 → 库存 → 销售/POS → 客户 → 财务 正反向追溯')} breadcrumb={[t('ui.全链追溯','全链追溯')]} />
 
       {/* 查询条 */}
       <div style={{
@@ -414,7 +417,7 @@ export default function TraceabilityPage() {
         fontWeight: 600,
         cursor: "pointer"
       }}>
-          <Search size={14} /> {loading ? "追溯中..." : "追溯"}
+          <Search size={14} /> {loading ? t('ui.追溯中...','追溯中...') : t('ui.追溯','追溯')}
         </button>
       </div>
 
@@ -431,49 +434,49 @@ export default function TraceabilityPage() {
       {data && data.found !== false && <div>
           {data.entry === "batch" && renderTree(data)}
           {(data.entry === "packaging" || data.entry === "sales-order") && <>
-              {data.entry === "packaging" && <Section icon={<Package size={14} />} title="包装批次"><KV k="包装码" v={data.key} /><KV k="生产日期" v={data.packaging?.production_date} /><KV k="总枚数" v={data.packaging?.total_eggs} /></Section>}
-              {data.entry === "sales-order" && <Section icon={<ShoppingCart size={14} />} title="销售订单"><KV k="订单" v={data.order?.order_no} /><KV k="客户" v={data.order?.customer_name} /><KV k="状态" v={data.order?.status} /><KV k="金额" v={data.order?.total_amount} /></Section>}
+              {data.entry === "packaging" && <Section icon={<Package size={14} />} title={t('ui.包装批次','包装批次')}><KV k={t('ui.包装码','包装码')} v={data.key} /><KV k={t('ui.生产日期','生产日期')} v={data.packaging?.production_date} /><KV k={t('ui.总枚数','总枚数')} v={data.packaging?.total_eggs} /></Section>}
+              {data.entry === "sales-order" && <Section icon={<ShoppingCart size={14} />} title={t('ui.销售订单','销售订单')}><KV k={t('ui.订单','订单')} v={data.order?.order_no} /><KV k={t('ui.客户','客户')} v={data.order?.customer_name} /><KV k={t('ui.状态','状态')} v={data.order?.status} /><KV k={t('ui.金额','金额')} v={data.order?.total_amount} /></Section>}
               {(data.traces || []).map((t: any, i: number) => <div key={i} style={{
           marginTop: 8
         }}>{renderTree(t)}</div>)}
               {(!data.traces || data.traces.length === 0) && <div style={{
           color: "var(--text-disabled)",
           fontSize: 13
-        }}>暂无关联库存批次（可能尚未分配/出库）</div>}
+        }}>{t('ui.暂无关联库存批次（可能尚未分配/出库）','暂无关联库存批次（可能尚未分配/出库）')}</div>}
             </>}
-          {data.entry === "label" && <>{<Section icon={<Tag size={14} />} title="标签"><KV k="标签号" v={data.label?.label_no} /><KV k="库存批次" v={data.label?.batch_no} /><KV k="打印时间" v={data.label?.printed_at} /></Section>}{renderTree(data.trace)}</>}
+          {data.entry === "label" && <>{<Section icon={<Tag size={14} />} title={t('ui.标签','标签')}><KV k={t('ui.标签号','标签号')} v={data.label?.label_no} /><KV k={t('ui.库存批次','库存批次')} v={data.label?.batch_no} /><KV k={t('ui.打印时间','打印时间')} v={data.label?.printed_at} /></Section>}{renderTree(data.trace)}</>}
           {data.entry === "customer" && <>
-              <Section icon={<Users size={14} />} title={`客户 ${data.key} · 历史订单`}>
+              <Section icon={<Users size={14} />} title={`${t('ui.客户','客户')} ${data.key} · ${t('ui.历史订单','历史订单')}`}>
                 <Table rows={data.orders} cols={[{
             k: "order_no",
-            label: "订单"
+            label: t('ui.订单','订单')
           }, {
             k: "company_code",
-            label: "公司"
+            label: t('ui.公司','公司')
           }, {
             k: "status",
-            label: "状态"
+            label: t('ui.状态','状态')
           }, {
             k: "total_amount",
-            label: "金额"
+            label: t('ui.金额','金额')
           }, {
             k: "created_at",
-            label: "时间"
+            label: t('ui.时间','时间')
           }]} />
               </Section>
-              <Section icon={<Egg size={14} />} title="历史购买批次（门店 POS）">
+              <Section icon={<Egg size={14} />} title={t('ui.历史购买批次（门店 POS）','历史购买批次（门店 POS）')}>
                 <Table rows={data.storeBatches} cols={[{
             k: "batch_no",
-            label: "库存批次"
+            label: t('ui.库存批次','库存批次')
           }, {
             k: "sku_code",
             label: "SKU"
           }, {
             k: "sale_no",
-            label: "POS单"
+            label: t('ui.POS单','POS单')
           }, {
             k: "completed_at",
-            label: "时间"
+            label: t('ui.时间','时间')
           }]} />
               </Section>
             </>}

@@ -9,6 +9,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 type NodeType = "start" | "approval" | "condition" | "cc" | "end";
 type WorkflowNode = {
   id: string;
@@ -164,6 +165,7 @@ const presetMeta: Record<RoutePresetKind, {
   }
 };
 export default function WorkflowDesignerPage() {
+  const { t } = useLanguage();
   const params = useParams<{
     id: string;
   }>();
@@ -322,8 +324,8 @@ export default function WorkflowDesignerPage() {
   function applyRoutePreset(kind: RoutePresetKind) {
     const advice = routePresetAdvice.find(item => item.kind === kind);
     if (advice && !advice.enabled) {
-      setError(`${advice.label}不适合当前表单：${advice.reason}`);
-      setMsg("请先切换到含金额/数字字段的表单，或选择系统推荐的路线。");
+      setError(`${advice.label}${t('ui.不适合当前表单：','不适合当前表单：')}${advice.reason}`);
+      setMsg(t('ui.请先切换到含金额/数字字段的表单，或选择系统推荐的路线。','请先切换到含金额/数字字段的表单，或选择系统推荐的路线。'));
       return;
     }
     const financeRole = pickRole(roleOptions, ["财务"], "ROLE_FIN_ACCT");
@@ -518,7 +520,7 @@ export default function WorkflowDesignerPage() {
     setEdges(nextEdges);
     setSelectedNode(1);
     setSelectedEdge(0);
-    setMsg(`已套用${advice?.label || "路线模板"}，${advice?.reason || "可以继续微调审批人和条件。"}`);
+    setMsg(`${t('ui.已套用','已套用')}${advice?.label || t('ui.路线模板','路线模板')}，${advice?.reason || t('ui.可以继续微调审批人和条件。','可以继续微调审批人和条件。')}`);
     setError("");
   }
   function applyRecommendedRoute() {
@@ -543,7 +545,7 @@ export default function WorkflowDesignerPage() {
       };
     });
     setNodes(nextNodes);
-    setMsg("已整理路线图位置。");
+    setMsg(t('ui.已整理路线图位置。','已整理路线图位置。'));
   }
   function autoCompleteForPublish() {
     const defaultRole = pickRole(roleOptions, ["负责人", "主管", "经理", "财务"], "");
@@ -628,7 +630,7 @@ export default function WorkflowDesignerPage() {
     setEdges([...nextEdges, ...conditionFallbacks]);
     setSelectedNode(Math.min(1, nextNodes.length - 1));
     setSelectedEdge(0);
-    setMsg("已按发布要求补齐表单、审批人、路线和条件兜底，请再彩排确认。");
+    setMsg(t('ui.已按发布要求补齐表单、审批人、路线和条件兜底，请再彩排确认。','已按发布要求补齐表单、审批人、路线和条件兜底，请再彩排确认。'));
     setError("");
   }
   function applyFieldToCurrentRule(fieldKey: string) {
@@ -642,7 +644,7 @@ export default function WorkflowDesignerPage() {
         field: fieldKey
       }
     });
-    setMsg("已把字段加入当前规则，可以继续设置判断条件。");
+    setMsg(t('ui.已把字段加入当前规则，可以继续设置判断条件。','已把字段加入当前规则，可以继续设置判断条件。'));
   }
   function selectFormVersion(value: string) {
     setFormVersionId(value);
@@ -661,7 +663,7 @@ export default function WorkflowDesignerPage() {
       graph_json: graph,
       form_version_id: formVersionId ? Number(formVersionId) : undefined
     });
-    setMsg("发布成功，业务人员现在可以按这个流程发起申请。");
+    setMsg(t('ui.发布成功，业务人员现在可以按这个流程发起申请。','发布成功，业务人员现在可以按这个流程发起申请。'));
   }
   function openJson() {
     setJsonDraft(JSON.stringify(graph, null, 2));
@@ -679,32 +681,32 @@ export default function WorkflowDesignerPage() {
     setJsonOpen(false);
   }
   return <div>
-      <PageHeader title="流程搭建器" subtitle={String(data?.name || "")} breadcrumb={["工作流", "流程设计器"]} />
+      <PageHeader title={t('ui.流程搭建器','流程搭建器')} subtitle={String(data?.name || "")} breadcrumb={[t('ui.工作流','工作流'), t('ui.流程设计器','流程设计器')]} />
       <div className={s.infoBanner}>
-        当前阶段已加入本地彩排：不写入数据库、不产生真实审批任务，只根据表单测试数据模拟流程走向。
+        {t('ui.当前阶段已加入本地彩排：不写入数据库、不产生真实审批任务，只根据表单测试数据模拟流程走向。','当前阶段已加入本地彩排：不写入数据库、不产生真实审批任务，只根据表单测试数据模拟流程走向。')}
       </div>
       <div style={layoutStyle}>
         <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
             <div>
-              <strong className={s.cardTitle}>流程步骤</strong>
-              <p className={`${s.modalDesc} ${u.mt4}`}>按业务发生顺序搭建，系统会自动保存为流程图。</p>
+              <strong className={s.cardTitle}>{t('ui.流程步骤','流程步骤')}</strong>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.按业务发生顺序搭建，系统会自动保存为流程图。','按业务发生顺序搭建，系统会自动保存为流程图。')}</p>
             </div>
           </div>
           <div style={addBarStyle}>
-            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("approval")}>添加审批</button>
-            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>添加条件</button>
-            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>添加抄送</button>
-            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={tidyLayout}>整理路线</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("approval")}>{t('ui.添加审批','添加审批')}</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>{t('ui.添加条件','添加条件')}</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>{t('ui.添加抄送','添加抄送')}</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={tidyLayout}>{t('ui.整理路线','整理路线')}</button>
           </div>
           <div style={directoryHintStyle}>
-            <strong>已接入组织数据</strong>
-            <span>{roleOptions.length} 个角色 · {userOptions.length} 个用户会自动从系统数据源读取</span>
+            <strong>{t('ui.已接入组织数据','已接入组织数据')}</strong>
+            <span>{roleOptions.length} {t('ui.个角色','个角色')} · {userOptions.length} {t('ui.个用户会自动从系统数据源读取','个用户会自动从系统数据源读取')}</span>
           </div>
           <div style={presetBoxStyle}>
             <div style={presetHeaderStyle}>
-              <strong>路线模板</strong>
-              <span>{selectedForm ? `已按「${selectedForm.name}」推荐` : "绑定表单后会自动推荐"}</span>
+              <strong>{t('ui.路线模板','路线模板')}</strong>
+              <span>{selectedForm ? `${t('ui.已按「','已按「')}${selectedForm.name}${t('ui.」推荐','」推荐')}` : t('ui.绑定表单后会自动推荐','绑定表单后会自动推荐')}</span>
             </div>
             <div style={presetGridStyle}>
               {routePresetAdvice.map(preset => <button key={preset.kind} type="button" style={{
@@ -714,7 +716,7 @@ export default function WorkflowDesignerPage() {
               cursor: preset.enabled ? "pointer" : "not-allowed"
             }} disabled={!preset.enabled} title={preset.reason} onClick={() => applyRoutePreset(preset.kind)}>
                   <span className={`${s.badge} ${preset.recommended ? s.badgeSuccess : preset.enabled ? s.badgeInfo : s.badgeWarning}`}>
-                    {preset.recommended ? "推荐" : preset.enabled ? "可用" : "不适合"}
+                    {preset.recommended ? t('ui.推荐','推荐') : preset.enabled ? t('ui.可用','可用') : t('ui.不适合','不适合')}
                   </span>
                   <strong>{preset.label}</strong>
                   <small>{preset.description}</small>
@@ -723,11 +725,11 @@ export default function WorkflowDesignerPage() {
             </div>
           </div>
           <div style={assistantBoxStyle}>
-            <strong>智能整理</strong>
-            <span>自动补齐缺失表单、审批人、无效连线和条件默认路线。</span>
+            <strong>{t('ui.智能整理','智能整理')}</strong>
+            <span>{t('ui.自动补齐缺失表单、审批人、无效连线和条件默认路线。','自动补齐缺失表单、审批人、无效连线和条件默认路线。')}</span>
             <div style={assistantActionStyle}>
-              <button type="button" className={`${s.btnPrimary} ${s.btnSm}`} onClick={applyRecommendedRoute}>按表单推荐路线</button>
-              <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={autoCompleteForPublish}>一键补齐发布条件</button>
+              <button type="button" className={`${s.btnPrimary} ${s.btnSm}`} onClick={applyRecommendedRoute}>{t('ui.按表单推荐路线','按表单推荐路线')}</button>
+              <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={autoCompleteForPublish}>{t('ui.一键补齐发布条件','一键补齐发布条件')}</button>
             </div>
           </div>
           <div style={stepListStyle}>
@@ -748,12 +750,12 @@ export default function WorkflowDesignerPage() {
         <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
             <div>
-              <strong className={s.cardTitle}>所见即所得预览</strong>
-              <p className={`${s.modalDesc} ${u.mt4}`}>发布前先看一遍业务人员会经历什么。</p>
+              <strong className={s.cardTitle}>{t('ui.所见即所得预览','所见即所得预览')}</strong>
+              <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.发布前先看一遍业务人员会经历什么。','发布前先看一遍业务人员会经历什么。')}</p>
             </div>
             <div style={toolbarActionsStyle}>
-              <button type="button" style={secondaryActionButton} onClick={openJson}>高级 JSON</button>
-              <button type="button" style={primaryActionButton} onClick={publish}>发布流程</button>
+              <button type="button" style={secondaryActionButton} onClick={openJson}>{t('ui.高级 JSON','高级 JSON')}</button>
+              <button type="button" style={primaryActionButton} onClick={publish}>{t('ui.发布流程','发布流程')}</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -762,16 +764,16 @@ export default function WorkflowDesignerPage() {
           <div style={checkPanelStyle}>
             <div style={edgeHeaderStyle}>
               <div>
-                <strong className={s.cardTitle}>上线检查</strong>
-                <p className={`${s.modalDesc} ${u.mt4}`}>发布前自动检查表单、审批人、分支和路线完整性。</p>
+                <strong className={s.cardTitle}>{t('ui.上线检查','上线检查')}</strong>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.发布前自动检查表单、审批人、分支和路线完整性。','发布前自动检查表单、审批人、分支和路线完整性。')}</p>
               </div>
               <span className={`${s.badge} ${blockingProblems.length ? s.badgeDanger : s.badgeSuccess}`}>
-                {blockingProblems.length ? `${blockingProblems.length} 项需处理` : "可以发布"}
+                {blockingProblems.length ? `${blockingProblems.length} ${t('ui.项需处理','项需处理')}` : t('ui.可以发布','可以发布')}
               </span>
             </div>
             <div style={checkGridStyle}>
               {designerChecks.map(item => <div key={item.label} style={checkItemStyle}>
-                  <span className={`${s.badge} ${checkBadgeClass(item)}`}>{item.ok ? "通过" : item.level === "warn" ? "建议" : "必改"}</span>
+                  <span className={`${s.badge} ${checkBadgeClass(item)}`}>{item.ok ? t('ui.通过','通过') : item.level === "warn" ? t('ui.建议','建议') : t('ui.必改','必改')}</span>
                   <strong>{item.label}</strong>
                   <small>{item.detail}</small>
                 </div>)}
@@ -793,7 +795,7 @@ export default function WorkflowDesignerPage() {
           </div>
 
           <div className={s.card} style={previewSummaryStyle}>
-            <strong className={s.cardTitle}>流程说明</strong>
+            <strong className={s.cardTitle}>{t('ui.流程说明','流程说明')}</strong>
             <ol style={summaryListStyle}>
               {previewLines.map(line => <li key={line}>{line}</li>)}
             </ol>
@@ -802,11 +804,11 @@ export default function WorkflowDesignerPage() {
           <div className={s.card} style={previewSummaryStyle}>
             <div style={edgeHeaderStyle}>
               <div>
-                <strong className={s.cardTitle}>流程彩排</strong>
-                <p className={`${s.modalDesc} ${u.mt4}`}>输入一组测试数据，系统会模拟会走到哪些步骤。</p>
+                <strong className={s.cardTitle}>{t('ui.流程彩排','流程彩排')}</strong>
+                <p className={`${s.modalDesc} ${u.mt4}`}>{t('ui.输入一组测试数据，系统会模拟会走到哪些步骤。','输入一组测试数据，系统会模拟会走到哪些步骤。')}</p>
               </div>
               <span className={`${s.badge} ${rehearsal.warnings.length ? s.badgeWarning : s.badgeSuccess}`}>
-                {rehearsal.warnings.length ? "需要检查" : "彩排通过"}
+                {rehearsal.warnings.length ? t('ui.需要检查','需要检查') : t('ui.彩排通过','彩排通过')}
               </span>
             </div>
             {fieldOptions.length ? <div style={rehearsalGridStyle}>
@@ -817,9 +819,9 @@ export default function WorkflowDesignerPage() {
                     <input className={s.inp} value={rehearsalData[field.key] || ""} onChange={e => setRehearsalData(prev => ({
                 ...prev,
                 [field.key]: e.target.value
-              }))} placeholder={field.required ? "必填测试值" : "测试值"} />
+              }))} placeholder={field.required ? t('ui.必填测试值','必填测试值') : t('ui.测试值','测试值')} />
                   </label>)}
-              </div> : <div className={s.warnBanner}>当前流程没有可读取的表单字段；绑定并发布表单后可按字段彩排条件分支。</div>}
+              </div> : <div className={s.warnBanner}>{t('ui.当前流程没有可读取的表单字段；绑定并发布表单后可按字段彩排条件分支。','当前流程没有可读取的表单字段；绑定并发布表单后可按字段彩排条件分支。')}</div>}
             {rehearsal.warnings.length ? <div className={`${s.warnBanner} ${u.mt12}`}>
                 {rehearsal.warnings.join("；")}
               </div> : null}
@@ -833,8 +835,8 @@ export default function WorkflowDesignerPage() {
           </div>
 
           <div style={edgeHeaderStyle}>
-            <strong className={s.cardTitle}>分支/连线规则</strong>
-            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={addEdge}>添加规则</button>
+            <strong className={s.cardTitle}>{t('ui.分支/连线规则','分支/连线规则')}</strong>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={addEdge}>{t('ui.添加规则','添加规则')}</button>
           </div>
           <div style={edgeListStyle}>
             {edges.map((edge, index) => <button key={`${edge.from}-${edge.to}-${index}`} type="button" style={{
@@ -844,7 +846,7 @@ export default function WorkflowDesignerPage() {
                 <span>{nodeName(edge.from, nodes)}</span>
                 <span>→</span>
                 <span>{nodeName(edge.to, nodes)}</span>
-                <em>{edge.condition ? conditionText(edge.condition, fieldOptions) : "无条件"}</em>
+                <em>{edge.condition ? conditionText(edge.condition, fieldOptions) : t('ui.无条件','无条件')}</em>
               </button>)}
           </div>
         </section>
@@ -853,24 +855,24 @@ export default function WorkflowDesignerPage() {
           <strong className={s.cardTitle} style={{
           display: "block",
           marginBottom: 12
-        }}>当前设置</strong>
-          <label className={s.lbl}>绑定业务表单</label>
+        }}>{t('ui.当前设置','当前设置')}</strong>
+          <label className={s.lbl}>{t('ui.绑定业务表单','绑定业务表单')}</label>
           <select className={s.inp} value={formVersionId} onChange={e => selectFormVersion(e.target.value)}>
-            <option value="">不绑定表单</option>
+            <option value="">{t('ui.不绑定表单','不绑定表单')}</option>
             {publishableForms.map(form => <option key={form.id} value={String(form.current_version_id)}>
                 {form.name} · {categoryText(form.category)} · V{form.current_version_id}
               </option>)}
           </select>
           {selectedForm ? <div style={formHintStyle}>
               <strong>{selectedForm.name}</strong>
-              <span>{selectedForm.description || "用户发起时会按此表单填写申请内容。"}</span>
-              <Link href={`/workflow/form-designer/${selectedForm.id}`}>查看/调整表单</Link>
+              <span>{selectedForm.description || t('ui.用户发起时会按此表单填写申请内容。','用户发起时会按此表单填写申请内容。')}</span>
+              <Link href={`/workflow/form-designer/${selectedForm.id}`}>{t('ui.查看/调整表单','查看/调整表单')}</Link>
             </div> : <div className={s.warnBanner} style={{
           marginTop: 10
-        }}>未绑定表单时，用户只能填写通用说明。</div>}
+        }}>{t('ui.未绑定表单时，用户只能填写通用说明。','未绑定表单时，用户只能填写通用说明。')}</div>}
           {fieldOptions.length ? <div style={fieldPoolStyle}>
-              <strong>表单字段池</strong>
-              <span>点击字段可直接作为当前规则的判断条件。</span>
+              <strong>{t('ui.表单字段池','表单字段池')}</strong>
+              <span>{t('ui.点击字段可直接作为当前规则的判断条件。','点击字段可直接作为当前规则的判断条件。')}</span>
               <div style={fieldChipGridStyle}>
                 {fieldOptions.map(field => <button key={field.key} type="button" className={s.tabPill} onClick={() => applyFieldToCurrentRule(field.key)}>
                     {field.label}
@@ -883,18 +885,18 @@ export default function WorkflowDesignerPage() {
           display: "grid",
           gap: 10
         }}>
-              <strong className={s.cardTitle}>{stepTypeText(currentNode.type)}设置</strong>
+              <strong className={s.cardTitle}>{stepTypeText(currentNode.type)}{t('ui.设置','设置')}</strong>
               <label className={s.field}>
-                <span className={s.lbl}>步骤名称</span>
+                <span className={s.lbl}>{t('ui.步骤名称','步骤名称')}</span>
                 <input className={s.inp} value={currentNode.name} onChange={e => patchNode(selectedNode, {
               name: e.target.value
             })} />
               </label>
               {currentNode.type === "approval" || currentNode.type === "cc" ? <AssigneeEditor node={currentNode} roles={roleOptions} users={userOptions} onChange={patch => patchNodeConfig(selectedNode, patch)} /> : null}
               {currentNode.type !== "start" && currentNode.type !== "end" ? <div style={smallButtonGridStyle}>
-                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, -1)}>上移</button>
-                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, 1)}>下移</button>
-                  <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeStep(selectedNode)}>删除</button>
+                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, -1)}>{t('ui.上移','上移')}</button>
+                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, 1)}>{t('ui.下移','下移')}</button>
+                  <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeStep(selectedNode)}>{t('ui.删除','删除')}</button>
                 </div> : null}
             </div> : null}
 
@@ -902,7 +904,7 @@ export default function WorkflowDesignerPage() {
           <strong className={s.cardTitle} style={{
           display: "block",
           marginBottom: 10
-        }}>规则设置</strong>
+        }}>{t('ui.规则设置','规则设置')}</strong>
           {currentEdge ? <div style={{
           display: "grid",
           gap: 10
@@ -910,17 +912,17 @@ export default function WorkflowDesignerPage() {
               <select className={s.inp} value={currentEdge.from} onChange={e => patchEdge(selectedEdge, {
             from: e.target.value
           })}>
-                {nodes.map(node => <option key={node.id} value={node.id}>从：{node.name}</option>)}
+                {nodes.map(node => <option key={node.id} value={node.id}>{t('ui.从：','从：')}{node.name}</option>)}
               </select>
               <select className={s.inp} value={currentEdge.to} onChange={e => patchEdge(selectedEdge, {
             to: e.target.value
           })}>
-                {nodes.map(node => <option key={node.id} value={node.id}>到：{node.name}</option>)}
+                {nodes.map(node => <option key={node.id} value={node.id}>{t('ui.到：','到：')}{node.name}</option>)}
               </select>
               <label className={s.field} style={{
             marginBottom: 0
           }}>
-                <span className={s.lbl}>满足条件时才走这条规则</span>
+                <span className={s.lbl}>{t('ui.满足条件时才走这条规则','满足条件时才走这条规则')}</span>
                 <select className={s.inp} value={currentEdge.condition?.field || ""} onChange={e => patchEdge(selectedEdge, {
               condition: e.target.value ? {
                 ...(currentEdge.condition || {
@@ -930,7 +932,7 @@ export default function WorkflowDesignerPage() {
                 field: e.target.value
               } : undefined
             })}>
-                  <option value="">无条件，直接流转</option>
+                  <option value="">{t('ui.无条件，直接流转','无条件，直接流转')}</option>
                   {fieldOptions.map(field => <option key={field.key} value={field.key}>{field.label}</option>)}
                 </select>
               </label>
@@ -948,15 +950,15 @@ export default function WorkflowDesignerPage() {
                 ...currentEdge.condition!,
                 value: e.target.value
               }
-            })} placeholder="判断值，如 10000" />
+            })} placeholder={t('ui.判断值，如 10000','判断值，如 10000')} />
                 </> : null}
-              <button type="button" style={actionPill('danger')} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
-            </div> : <div className={s.emptyState}><div className={s.emptyStateText}>暂无规则。</div></div>}
+              <button type="button" style={actionPill('danger')} onClick={() => removeEdge(selectedEdge)}>{t('ui.删除规则','删除规则')}</button>
+            </div> : <div className={s.emptyState}><div className={s.emptyStateText}>{t('ui.暂无规则。','暂无规则。')}</div></div>}
         </section>
       </div>
 
-      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
-        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>应用 JSON</button>}>
+      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title={t('ui.高级 JSON 编辑','高级 JSON 编辑')} width={900}
+        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>{t('ui.应用 JSON','应用 JSON')}</button>}>
         <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
       </ModalV2>
     </div>;
@@ -972,47 +974,48 @@ function AssigneeEditor({
   users: DirectoryOption[];
   onChange: (patch: WorkflowNode["config"]) => void;
 }) {
+  const { t } = useLanguage();
   const config = node.config || {};
   const assigneeType = config.assigneeType || "ROLE";
   const selectedUser = config.users?.[0] ? String(config.users[0]) : "";
   return <>
       <label className={s.field}>
-        <span className={s.lbl}>{node.type === "cc" ? "抄送给" : "审批人"}</span>
+        <span className={s.lbl}>{node.type === "cc" ? t('ui.抄送给','抄送给') : t('ui.审批人','审批人')}</span>
         <select className={s.inp} value={assigneeType} onChange={e => onChange({
         assigneeType: e.target.value as "ROLE" | "USER" | "STARTER"
       })}>
-          <option value="ROLE">按角色</option>
-          <option value="USER">指定用户 ID</option>
-          <option value="STARTER">发起人本人</option>
+          <option value="ROLE">{t('ui.按角色','按角色')}</option>
+          <option value="USER">{t('ui.指定用户 ID','指定用户 ID')}</option>
+          <option value="STARTER">{t('ui.发起人本人','发起人本人')}</option>
         </select>
       </label>
       {assigneeType === "ROLE" ? <label className={s.field}>
-          <span className={s.lbl}>选择角色</span>
+          <span className={s.lbl}>{t('ui.选择角色','选择角色')}</span>
           <select className={s.inp} value={config.roles?.[0] || ""} onChange={e => onChange({
         roles: [e.target.value]
       })}>
-            <option value="">请选择业务审批角色</option>
+            <option value="">{t('ui.请选择业务审批角色','请选择业务审批角色')}</option>
             {roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
-          <small style={fieldHelpStyle}>角色来自系统角色数据源，新增角色后会自动出现在这里。</small>
+          <small style={fieldHelpStyle}>{t('ui.角色来自系统角色数据源，新增角色后会自动出现在这里。','角色来自系统角色数据源，新增角色后会自动出现在这里。')}</small>
         </label> : null}
       {assigneeType === "USER" ? <label className={s.field}>
-          <span className={s.lbl}>指定用户</span>
+          <span className={s.lbl}>{t('ui.指定用户','指定用户')}</span>
           {users.length ? <select className={s.inp} value={selectedUser} onChange={e => onChange({
         users: e.target.value ? [Number(e.target.value)] : []
       })}>
-              <option value="">请选择用户</option>
+              <option value="">{t('ui.请选择用户','请选择用户')}</option>
               {users.map(user => <option key={user.value} value={user.value}>{user.label}</option>)}
             </select> : <input className={s.inp} value={(config.users || []).join(",")} onChange={e => onChange({
         users: e.target.value.split(",").map(v => Number(v.trim())).filter(Boolean)
-      })} placeholder="用户 ID，如 1001" />}
-          <small style={fieldHelpStyle}>用户来自系统用户数据源；如果数据源不可用，可临时填写用户 ID。</small>
+      })} placeholder={t('ui.用户 ID，如 1001','用户 ID，如 1001')} />}
+          <small style={fieldHelpStyle}>{t('ui.用户来自系统用户数据源；如果数据源不可用，可临时填写用户 ID。','用户来自系统用户数据源；如果数据源不可用，可临时填写用户 ID。')}</small>
         </label> : null}
       <label className={s.field}>
-        <span className={s.lbl}>超时时间（小时）</span>
+        <span className={s.lbl}>{t('ui.超时时间（小时）','超时时间（小时）')}</span>
         <input className={s.inp} value={config.timeoutHours ?? ""} onChange={e => onChange({
         timeoutHours: e.target.value ? Number(e.target.value) : undefined
-      })} placeholder="不填表示不限制" />
+      })} placeholder={t('ui.不填表示不限制','不填表示不限制')} />
       </label>
     </>;
 }

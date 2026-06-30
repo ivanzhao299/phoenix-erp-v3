@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { Printer, RefreshCw, History, AlertTriangle } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import {
   primaryActionButton, inputField,
@@ -42,6 +43,7 @@ function fmtTime(iso: string) {
   }).replace(/\//g, "-");
 }
 export default function PrintLogsPage() {
+  const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -60,7 +62,7 @@ export default function PrintLogsPage() {
       });
       setRows(res.data ?? []);
     } catch (e: unknown) {
-      setErr((e as Error).message || "加载失败");
+      setErr((e as Error).message || t('pkg.loadFailed', '加载失败'));
     } finally {
       setLoading(false);
     }
@@ -75,28 +77,28 @@ export default function PrintLogsPage() {
     padding: "24px",
     maxWidth: 1100
   }}>
-      <PageHeader title="补打日志" subtitle="查看正常打印及补打记录，补打含操作人和原因" breadcrumb={["分级包装", "补打日志"]} />
+      <PageHeader title={t('pkg.title', '补打日志')} subtitle={t('pkg.subtitle', '查看正常打印及补打记录，补打含操作人和原因')} breadcrumb={[t('pkg.gradePackaging', '分级包装'), t('pkg.title', '补打日志')]} />
 
       {/* g200f 筛选栏 — actionGroupBox(非 KPI 风格) */}
       <div style={{ ...actionGroupBox, background: "var(--bg-card)", marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{t('pkg.startDate', '开始日期')}</div>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ ...inputField, width: 150 }} />
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{t('pkg.endDate', '结束日期')}</div>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ ...inputField, width: 150 }} />
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>打印类型</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{t('pkg.printType', '打印类型')}</div>
             <select value={type} onChange={e => setType(e.target.value)} style={{ ...inputField, width: 130 }}>
-              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(`pkg.typeOpt.${o.value}`, o.label)}</option>)}
             </select>
           </div>
           <button onClick={load} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.5 : 1 }}>
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            {loading ? "查询中..." : "查询"}
+            {loading ? t('pkg.querying', '查询中...') : t('pkg.query', '查询')}
           </button>
         </div>
       </div>
@@ -104,9 +106,9 @@ export default function PrintLogsPage() {
       {/* g200f KPI 3 卡 — kpiCardCompact(tone) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 20 }}>
         {([
-          { label: "打印总次数", value: totalCount,   tone: "brand"   as Tone, Icon: Printer },
-          { label: "正常打印",   value: normalCount,  tone: "success" as Tone, Icon: Printer },
-          { label: "补打次数",   value: reprintCount, tone: "warning" as Tone, Icon: History },
+          { label: t('pkg.totalPrints', '打印总次数'), value: totalCount,   tone: "brand"   as Tone, Icon: Printer },
+          { label: t('pkg.normalPrints', '正常打印'),   value: normalCount,  tone: "success" as Tone, Icon: Printer },
+          { label: t('pkg.reprints', '补打次数'),   value: reprintCount, tone: "warning" as Tone, Icon: History },
         ]).map(c => {
           const Icon = c.Icon;
           return (
@@ -121,7 +123,7 @@ export default function PrintLogsPage() {
       {/* g200f 表格容器 — detailInfoBox */}
       <div style={{ ...detailInfoBox, background: "var(--bg-card)", padding: 0 }}>
         <div className={s.cardHeader}>
-          <span className={s.cardTitle}>打印记录</span>
+          <span className={s.cardTitle}>{t('pkg.printRecords', '打印记录')}</span>
           <span className={u.muted12}>
             {startDate === endDate ? startDate : `${startDate} — ${endDate}`}
           </span>
@@ -134,17 +136,17 @@ export default function PrintLogsPage() {
           color: "var(--text-secondary)",
           fontSize: 13
         }}>
-              所选日期范围内暂无打印记录
+              {t('pkg.noRecords', '所选日期范围内暂无打印记录')}
             </div>}
           {rows.length > 0 && <table className={s.table}>
               <thead>
                 <tr>
-                  <th>打印时间</th>
-                  <th>箱码</th>
-                  <th>包装批次</th>
-                  <th>类型</th>
-                  <th>补打原因</th>
-                  <th>操作人</th>
+                  <th>{t('pkg.printTime', '打印时间')}</th>
+                  <th>{t('pkg.boxCode', '箱码')}</th>
+                  <th>{t('pkg.packagingBatch', '包装批次')}</th>
+                  <th>{t('pkg.type', '类型')}</th>
+                  <th>{t('pkg.reprintReason', '补打原因')}</th>
+                  <th>{t('pkg.operator', '操作人')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -178,7 +180,7 @@ export default function PrintLogsPage() {
                   fontSize: 12,
                   fontWeight: 600
                 }}>
-                          补打
+                          {t('pkg.reprintTag', '补打')}
                         </span> : <span style={{
                   background: "rgba(22,163,74,0.10)",
                   color: "var(--status-success)",
@@ -187,13 +189,13 @@ export default function PrintLogsPage() {
                   fontSize: 12,
                   fontWeight: 600
                 }}>
-                          正常
+                          {t('pkg.normalTag', '正常')}
                         </span>}
                     </td>
                     <td style={{
                 color: r.reprint_reason ? "var(--text-primary)" : "var(--text-secondary)"
               }}>
-                      {fmtReason(r.reprint_reason)}
+                      {r.reprint_reason ? t(`pkg.reason.${r.reprint_reason}`, fmtReason(r.reprint_reason)) : fmtReason(r.reprint_reason)}
                     </td>
                     <td>{r.printed_by || "—"}</td>
                   </tr>)}
