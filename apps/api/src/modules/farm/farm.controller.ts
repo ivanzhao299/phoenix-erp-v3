@@ -20,14 +20,9 @@ export class FarmController {
    *   公司维度取自 DataScopeGuard 已写入 CLS 的 allowedCompanyCodes —— 在公司有股/有岗者按公司看其农场每日数据。
    */
   private getScope(req: any): OrgScope {
-    const base = deriveOrgScope(req); // { isGlobal, farmCode, siteCode }
-    const ds = this.cls.get('dataScope') as { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
-    return {
-      isGlobal: base.isGlobal || !!ds?.isGlobal,
-      farmCode: base.farmCode,
-      siteCode: base.siteCode,
-      companyCodes: ds?.allowedCompanyCodes ?? [],
-    };
+    // G125：deriveOrgScope 已统一合并 DataScopeGuard 写入 req.dataScope 的真实数据范围
+    //   （isGlobal/allowedFarmCodes/allowedSiteCodes/allowedCompanyCodes）∪ 遗留单场 storeCode。
+    return deriveOrgScope(req);
   }
 
   // 2026-06-06 调整：日报录入应归 MENU_FARM_DAILY（业务字面对齐），不归

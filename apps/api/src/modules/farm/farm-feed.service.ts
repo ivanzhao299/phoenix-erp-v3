@@ -124,17 +124,14 @@ export class FarmFeedService {
 
   // ── 获取栋舍列表（从 brd_houses 表读取，按农场隔离） ────────────────────────
   // G16-2：支持按 farm_code 或 site_code 过滤
-  async getHouses(farmCode?: string, siteCode?: string) {
+  async getHouses(farmCodes?: string[], siteCodes?: string[]) {
     const params: any[] = [];
     let where = `WHERE status = 'ACTIVE'`;
-    if (farmCode) {
-      params.push(farmCode);
-      where += ` AND farm_code = $${params.length}`;
-    }
-    if (siteCode) {
-      params.push(siteCode);
-      where += ` AND site_code = $${params.length}`;
-    }
+    // G125：支持多场（全局用户不传 → 看全部；多场用户传全集 → ANY 并集）。
+    const ors: string[] = [];
+    if (farmCodes?.length) { params.push(farmCodes); ors.push(`farm_code = ANY($${params.length})`); }
+    if (siteCodes?.length) { params.push(siteCodes); ors.push(`site_code = ANY($${params.length})`); }
+    if (ors.length) where += ` AND (${ors.join(' OR ')})`;
     // G109：返回 house_code + 中文 house_name（手机端显示中文名、以 code 为数据键）。
     //   去掉 DEFAULT_HOUSES 硬编码兜底——无数据即返回空(提示去建鸡舍)，杜绝第三套漂移名。
     const rows = await this.em.query(

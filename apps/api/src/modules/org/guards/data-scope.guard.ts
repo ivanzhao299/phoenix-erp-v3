@@ -36,6 +36,9 @@ export class DataScopeGuard implements CanActivate {
       const userId = String(user['userId'] ?? user['id'] ?? '');
       const scope = await this.dataScopeService.resolve(userId, roles, requirement.menu);
       this.cls.set('dataScope', scope);
+      // G125：同时挂到 req，供 farm 模块的纯函数 deriveOrgScope(req) 读取真实数据范围。
+      const req = context.switchToHttp().getRequest();
+      if (req) req.dataScope = scope;
     } catch (e: any) {
       // 解析失败不抛异常，Service 层降级兜底
       console.warn('[DataScopeGuard] resolve failed, fallback to storeCode:', e?.message);

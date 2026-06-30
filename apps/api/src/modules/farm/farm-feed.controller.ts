@@ -44,7 +44,7 @@ export class FarmFeedController {
   async getHouses(@Req() req: any) {
     const scope = deriveOrgScope(req);
     if (scope.isGlobal) return this.feedService.getHouses();
-    return this.feedService.getHouses(scope.farmCode || undefined, scope.siteCode || undefined);
+    return this.feedService.getHouses(scope.farmCodes, scope.siteCodes);
   }
 
   /**
