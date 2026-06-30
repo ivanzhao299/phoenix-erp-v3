@@ -1,0 +1,41 @@
+name: CI Web Unit Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'w5/**']
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-web-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  web-tests:
+    name: Vitest (apps/web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Web unit tests (vitest)
+        run: pnpm --filter web test
