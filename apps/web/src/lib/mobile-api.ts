@@ -540,7 +540,13 @@ export interface ApprovalReassignCandidate {
 
 type ApprovalHistoryResponse = WorkflowTaskPage | {
   list?: Array<Record<string, unknown>>;
-  data?: Array<Record<string, unknown>>;
+  data?: Array<Record<string, unknown>> | {
+    list?: Array<Record<string, unknown>>;
+    items?: Array<Record<string, unknown>>;
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  };
   items?: Array<Record<string, unknown>>;
   total?: number;
   page?: number;
@@ -550,9 +556,16 @@ type ApprovalHistoryResponse = WorkflowTaskPage | {
 function normalizeApprovalHistory(raw: ApprovalHistoryResponse): WorkflowTaskPage {
   if (Array.isArray((raw as WorkflowTaskPage).items)) return raw as WorkflowTaskPage;
   const history = raw as Exclude<ApprovalHistoryResponse, WorkflowTaskPage>;
-  const page = Number(history.page ?? 1);
-  const pageSize = Number(history.pageSize ?? 20);
-  const rows: Array<Record<string, unknown>> = history.list ?? history.data ?? history.items ?? [];
+  const nested = history.data && !Array.isArray(history.data) ? history.data : undefined;
+  const page = Number(history.page ?? nested?.page ?? 1);
+  const pageSize = Number(history.pageSize ?? nested?.pageSize ?? 20);
+  const rows: Array<Record<string, unknown>> =
+    history.list ??
+    (Array.isArray(history.data) ? history.data : undefined) ??
+    history.items ??
+    nested?.list ??
+    nested?.items ??
+    [];
   const items = rows.map((row): WorkflowTask => {
     const id = String(row.id ?? row.instanceId ?? row.instance_id ?? '');
     const status = String(row.status ?? 'DONE');
@@ -586,7 +599,7 @@ function normalizeApprovalHistory(raw: ApprovalHistoryResponse): WorkflowTaskPag
 
   return {
     items,
-    total: Number(history.total ?? items.length),
+    total: Number(history.total ?? nested?.total ?? items.length),
     page,
     pageSize,
   };

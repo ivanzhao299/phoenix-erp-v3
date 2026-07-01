@@ -373,7 +373,7 @@ function TaskCard({
     </div>;
 }
 
-// ── 审批处理底栏（同意 / 不同意 / 转交） ──────────────────────────────────────
+// ── 审批处理弹窗（同意 / 不同意 / 转交） ──────────────────────────────────────
 
 function ActionSheet({
   task,
@@ -478,17 +478,22 @@ function ActionSheet({
     zIndex: 300,
     background: 'var(--overlay-black-50)',
     display: 'flex',
-    alignItems: 'flex-end'
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 'calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))'
   }} onClick={e => {
     if (e.target === e.currentTarget) onClose();
   }}>
       <div style={{
       width: '100%',
-      maxHeight: '86svh',
+      maxWidth: 440,
+      maxHeight: 'calc(100svh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
       overflowY: 'auto',
       background: isDark ? 'var(--gray-900)' : 'var(--bg-card)',
-      borderRadius: '20px 20px 0 0',
-      padding: '24px 16px calc(24px + env(safe-area-inset-bottom))'
+      borderRadius: 18,
+      border: `1px solid ${t.cardBorder}`,
+      boxShadow: '0 18px 60px var(--overlay-black-35)',
+      padding: 16
     }}>
         <div style={{
         display: 'flex',
@@ -1322,7 +1327,7 @@ export default function WorkflowPage() {
         {!loading && !err && tab === 'history' && (history.length === 0 ? <MobileEmptyState icon="📋" title={tr('mob.sys.no_done_records', '暂无已办记录')} desc={tr('mob.sys.no_done_records_desc', '审批完成的任务会出现在这里')} /> : history.map(task => <HistoryCard key={`${task.taskSource}-${task.taskId}`} task={task} />))}
       </div>
 
-      {/* 操作底栏 */}
+      {/* 操作弹窗 */}
       {actionTask && <ActionSheet task={actionTask} mode={actionMode} onClose={() => setActionTask(null)} onDone={handleActionDone} />}
 
       {/* 详情底栏 */}
