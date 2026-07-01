@@ -6,6 +6,7 @@ const files = {
   sidebar: 'apps/web/src/components/layout/Sidebar.tsx',
   adminLayout: 'apps/web/src/app/(admin)/layout.tsx',
   home: 'apps/web/src/app/(admin)/home/page.tsx',
+  terminalHome: 'apps/web/src/app/(terminal)/terminal/home/page.tsx',
   mobileRoles: 'apps/web/src/lib/mobile-roles.ts',
   usePermission: 'apps/web/src/hooks/usePermission.ts',
 };
@@ -62,6 +63,11 @@ const checks = [
     name: 'usePermission hasAccess means V visibility, not any action bit',
     pass: /hasAccess:\s+check\(['"]V['"]\)/.test(content.usePermission)
       && !/hasAccess:\s+hasMenuPerm\(perms,\s*menuCode\)/.test(content.usePermission),
+  },
+  {
+    name: 'terminal home tiles require V permission for visibility',
+    pass: /hasPermission\(tile\.perm,\s*['"]V['"]\)/.test(content.terminalHome)
+      && !/hasPermission\(tile\.perm\)/.test(content.terminalHome),
   },
 ];
 

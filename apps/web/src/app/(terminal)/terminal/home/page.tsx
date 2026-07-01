@@ -29,9 +29,7 @@ export default function TerminalHomePage() {
   const { user, hasPermission } = useAuth();
   const { t } = useLanguage();
 
-  const visible = TILES.filter(tile =>
-    hasPermission('*') || hasPermission(tile.perm),
-  );
+  const visible = TILES.filter(tile => hasPermission(tile.perm, 'V'));
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.BG, overflow: 'hidden' }}>
