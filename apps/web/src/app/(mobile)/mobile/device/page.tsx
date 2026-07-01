@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Sun, Moon, RefreshCw, Thermometer, Droplets, Wind, AlertTriangle, Activity, MonitorOff } from 'lucide-react';
+import { ChevronLeft, Sun, Moon, RefreshCw, Thermometer, Droplets, Wind, AlertTriangle, Activity, MonitorOff, Clipboard } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getMobileToken } from '@/lib/mobile-auth-token';
 
 // ── 设备监控总览数据结构（对齐 /api/v3/iot/devices/all-summary） ──────────────
 interface IotHouse {
@@ -55,18 +56,17 @@ interface IotDiagnostic {
   };
   queryErrors?: string[];
 }
+interface EndpointStatus {
+  status?: number;
+  ok?: boolean;
+  elapsedMs?: number;
+  error?: string;
+  checkedAt?: number;
+}
 
 const API = '/api/v3/iot/devices/all-summary';
-// 与 mobile-api.ts 一致的取 token 链：sessionStorage → localStorage → auth_user.token
-const tok = () => {
-  if (typeof window === 'undefined') return '';
-  try {
-    return sessionStorage.getItem('phoenix_token')
-      || localStorage.getItem('phoenix_token')
-      || JSON.parse(localStorage.getItem('auth_user') || '{}').token
-      || '';
-  } catch { return ''; }
-};
+const DIAG_API = '/api/v3/iot/devices/sync-health';
+const REQUEST_TIMEOUT_MS = 10_000;
 
 // 数据新鲜度 → 文案/颜色
 type TFn = (key: string, fallback: string) => string;
@@ -92,6 +92,19 @@ function ago(ts: string | number | undefined, tr: TFn): string {
   return `${Math.floor(diff / 86_400_000)} ${tr('mob.sys.days_ago', '天前')}`;
 }
 
+async function fetchTextWithTimeout(url: string, headers: HeadersInit, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    const raw = await res.text();
+    return { res, raw, elapsedMs: Date.now() - startedAt };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function DeviceMonitorMobilePage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
@@ -107,19 +120,26 @@ export default function DeviceMonitorMobilePage() {
   const [error, setError] = useState('');
   const [diag, setDiag] = useState<IotDiagnostic | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState<EndpointStatus | null>(null);
+  const [diagStatus, setDiagStatus] = useState<EndpointStatus | null>(null);
+  const [copiedDiag, setCopiedDiag] = useState(false);
 
   // 自诊断：为什么没有数据（调后端 sync-health，定位链路断点）。
   // 始终给出确定结论：成功→中文原因；异常→带 HTTP 状态/错误，便于定位（不再出现"点了没反应"）。
   const runDiag = useCallback(async () => {
-    setDiagLoading(true); setDiag(null);
-    const fail = (msg: string) => setDiag({ code: 'ERR', reason: `${tr('mob.sys.diag_failed', '诊断失败')}：${msg}` });
+    setDiagLoading(true); setDiag(null); setCopiedDiag(false);
+    const fail = (msg: string, status?: EndpointStatus) => {
+      setDiagStatus(status ?? { ok: false, error: msg, checkedAt: Date.now() });
+      setDiag({ code: 'ERR', reason: `${tr('mob.sys.diag_failed', '诊断失败')}：${msg}` });
+    };
     try {
-      if (!tok()) {
+      const token = getMobileToken();
+      if (!token) {
         fail(tr('mob.sys.diag_no_token', '登录态缺失或已过期，请重新登录后再查看设备数据。'));
         return;
       }
-      const res = await fetch('/api/v3/iot/devices/sync-health', { headers: { Authorization: `Bearer ${tok()}` } });
-      const raw = await res.text();
+      const { res, raw, elapsedMs } = await fetchTextWithTimeout(DIAG_API, { Authorization: `Bearer ${token}` });
+      setDiagStatus({ status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
       let json: any = null;
       try { json = raw ? JSON.parse(raw) : null; } catch { /* 非 JSON */ }
       if (json?.ok && json?.data?.reason) {
@@ -131,12 +151,15 @@ export default function DeviceMonitorMobilePage() {
           queryErrors: Array.isArray(json.data.queryErrors) ? json.data.queryErrors : undefined,
         });
       } else if (json?.error) {
-        fail(`${String(json.error).slice(0, 140)}`);
+        fail(`${String(json.error).slice(0, 140)}`, { status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
       } else {
-        fail(`HTTP ${res.status}${raw ? ' · ' + raw.slice(0, 100) : ''}`);
+        fail(`HTTP ${res.status}${raw ? ' · ' + raw.slice(0, 100) : ''}`, { status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
       }
     } catch (e: any) {
-      fail(e?.message || 'network');
+      const msg = e?.name === 'AbortError'
+        ? tr('mob.sys.diag_timeout', '诊断接口超过 10 秒未返回，请检查服务或网关链路。')
+        : (e?.message || 'network');
+      fail(msg, { ok: false, error: msg, checkedAt: Date.now() });
     } finally { setDiagLoading(false); }
   }, [tr]);
 
@@ -158,10 +181,19 @@ export default function DeviceMonitorMobilePage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    setCopiedDiag(false);
     try {
-      const res = await fetch(API, { headers: { Authorization: `Bearer ${tok()}` } });
+      const token = getMobileToken();
+      if (!token) {
+        setApiStatus({ ok: false, error: 'NO_TOKEN', checkedAt: Date.now() });
+        setError(tr('mob.sys.diag_no_token', '登录态缺失或已过期，请重新登录后再查看设备数据。'));
+        return;
+      }
+      const { res, raw, elapsedMs } = await fetchTextWithTimeout(API, { Authorization: `Bearer ${token}` });
+      setApiStatus({ status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
       if (!res.ok) { setError(res.status === 403 ? tr('mob.sys.no_device_perm', '无设备监控权限') : `${tr('mob.sys.load_failed', '加载失败')}（${res.status}）`); return; }
-      const json = await res.json();
+      let json: any = null;
+      try { json = raw ? JSON.parse(raw) : null; } catch { /* 非 JSON */ }
       if (!json?.ok || !json?.data) { setError(json?.error || tr('mob.sys.no_device_data', '暂无设备数据')); return; }
       setSummary(json.data.summary ?? {});
       setHouses(Array.isArray(json.data.houses) ? json.data.houses : []);
@@ -174,8 +206,12 @@ export default function DeviceMonitorMobilePage() {
           queryErrors: Array.isArray(json.data._diagnostic.queryErrors) ? json.data._diagnostic.queryErrors : undefined,
         });
       }
-    } catch {
-      setError(tr('mob.sys.network_error', '网络错误，请重试'));
+    } catch (e: any) {
+      const msg = e?.name === 'AbortError'
+        ? tr('mob.sys.load_timeout', '设备数据接口超过 10 秒未返回，请稍后重试或联系管理员。')
+        : tr('mob.sys.network_error', '网络错误，请重试');
+      setApiStatus({ ok: false, error: e?.message || 'network', checkedAt: Date.now() });
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -189,6 +225,32 @@ export default function DeviceMonitorMobilePage() {
     </div>
   );
 
+  const statusLine = (label: string, status: EndpointStatus | null) => {
+    const ok = status?.ok;
+    const color = ok === true ? 'var(--status-success)' : ok === false ? 'var(--status-danger)' : t.textFaint;
+    const text = status
+      ? `${status.status ? `HTTP ${status.status}` : status.error ? status.error : '—'}${status.elapsedMs != null ? ` · ${status.elapsedMs}ms` : ''}`
+      : tr('mob.sys.not_checked', '未检测');
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11, color: t.textMuted }}>
+        <span>{label}</span>
+        <span style={{ color, fontWeight: 700, textAlign: 'right' }}>{text}</span>
+      </div>
+    );
+  };
+
+  const diagnosticSnapshot = () => JSON.stringify({
+    page: '/mobile/device',
+    allSummary: apiStatus,
+    syncHealth: diagStatus,
+    summary,
+    houses: houses.length,
+    alarms: alarms.length,
+    error,
+    diagnostic: diag,
+    checkedAt: new Date().toISOString(),
+  }, null, 2);
+
   const DiagnosticPanel = ({ title }: { title?: string }) => (
     <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-warning) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-warning) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-warning)' }}>
@@ -199,12 +261,21 @@ export default function DeviceMonitorMobilePage() {
           <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>
             {diag.code ? `[${diag.code}] ` : ''}{diag.reason}
           </div>
+          <div style={{ padding: 8, borderRadius: 10, background: t.cardBg, border: `1px solid ${t.cardBorder}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {statusLine('all-summary', apiStatus)}
+            {statusLine('sync-health', diagStatus)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11, color: t.textMuted }}>
+              <span>{tr('mob.sys.sensor_count', '传感器')}</span>
+              <span style={{ fontWeight: 700, color: t.textSub }}>{summary.onlineSensorCnt ?? 0}/{summary.totalSensorCnt ?? 0}</span>
+            </div>
+          </div>
           {diag.summary && (
             <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.6 }}>
               {tr('mob.sys.diag_summary', '诊断摘要')}：
               {tr('mob.sys.diag_houses', '鸡舍')} {diag.summary.totalHouses ?? 0}，
               {tr('mob.sys.diag_mapped', '已绑定')} {diag.summary.mappedActive ?? 0}，
               {tr('mob.sys.diag_snapshots', '快照')} {diag.summary.totalSnapshots ?? 0}
+              {diag.summary.lastCollectAt ? `，${tr('mob.sys.last_collect', '最近采集')} ${ago(diag.summary.lastCollectAt, tr)}` : ''}
             </div>
           )}
           {diag.vendor && (
@@ -221,9 +292,19 @@ export default function DeviceMonitorMobilePage() {
       ) : (
         <div style={{ fontSize: 12, color: t.textMuted }}>{tr('mob.sys.diag_hint', '数据来自现场 IoT 网关同步，点下方按钮可定位原因。')}</div>
       )}
-      <button onClick={() => void runDiag()} disabled={diagLoading} style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 600, color: 'var(--status-warning)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)`, borderRadius: 8, padding: '6px 12px', cursor: diagLoading ? 'default' : 'pointer' }}>
-        {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => void runDiag()} disabled={diagLoading} style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-warning)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)`, borderRadius: 8, padding: '6px 12px', cursor: diagLoading ? 'default' : 'pointer' }}>
+          {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
+        </button>
+        <button
+          onClick={() => {
+            void navigator.clipboard?.writeText(diagnosticSnapshot()).then(() => setCopiedDiag(true)).catch(() => setCopiedDiag(false));
+          }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: t.textSub, background: 'transparent', border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '6px 12px' }}
+        >
+          <Clipboard size={13} /> {copiedDiag ? tr('mob.sys.copied', '已复制') : tr('mob.sys.copy_diag', '复制诊断')}
+        </button>
+      </div>
     </div>
   );
 
