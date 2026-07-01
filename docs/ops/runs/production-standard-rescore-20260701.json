@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-07-01T12:58:00+08:00",
+  "head": "6af407d7",
+  "overall_score": 77,
+  "overall_rating": "B-",
+  "dimensions": [
+    {
+      "name": "Security / RBAC / DataScope",
+      "previous_score": 78,
+      "current_score": 84,
+      "rating": "B+",
+      "blocking_findings": [
+        "role_permission_matrix_coarse_parent_grants=56"
+      ]
+    },
+    {
+      "name": "Data layer / Migration / Consistency",
+      "previous_score": 68,
+      "current_score": 82,
+      "rating": "B",
+      "blocking_findings": [],
+      "conditions": [
+        "migration_dml_exemptions=22",
+        "legacy_master_data_reference_hits_present"
+      ]
+    },
+    {
+      "name": "Frontend / Performance / i18n",
+      "previous_score": 68,
+      "current_score": 76,
+      "rating": "B-",
+      "conditions": [
+        "i18n_key_parity_passes_but_semantic_coverage_needs_audit",
+        "visual_regression_not_yet_automated"
+      ]
+    },
+    {
+      "name": "Observability / Operations",
+      "previous_score": 62,
+      "current_score": 69,
+      "rating": "C+",
+      "conditions": [
+        "no_proven_alert_to_human_delivery",
+        "restore_drill_not_executed"
+      ]
+    },
+    {
+      "name": "Testing / CI/CD",
+      "previous_score": 58,
+      "current_score": 74,
+      "rating": "B-",
+      "conditions": [
+        "api_jest_52_pass",
+        "web_vitest_65_pass",
+        "runtime_smoke_workflow_placeholder"
+      ]
+    }
+  ],
+  "verification": {
+    "w5_closeout": "PASS",
+    "i18n_keys": "PASS",
+    "nullable_unique": "PASS",
+    "ts_migration_down": "PASS",
+    "ts_migration_no_data_dml": "PASS_WITH_EXEMPTIONS",
+    "entity_drift": "PASS_0_DRIFT",
+    "api_typecheck": "PASS",
+    "web_typecheck": "PASS",
+    "api_jest": "PASS_52",
+    "web_vitest": "PASS_65",
+    "role_permission_matrix_audit": "HIGH_56_FINDINGS",
+    "sys_dict_exact_duplicates": "PASS_0_GROUPS"
+  },
+  "next_priority": [
+    "P0-1 DB-first role permission matrix cleanup",
+    "P0-2 Runtime smoke automation",
+    "P0-3 Alert-to-human loop",
+    "P0-4 Restore drill",
+    "P1-1 Master-data legacy reference cleanup"
+  ]
+}

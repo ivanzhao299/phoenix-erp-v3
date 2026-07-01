@@ -1,13 +1,13 @@
 # Sys Dict Duplicate Audit and Dedup Report
 
-Generated at: 2026-07-01T03:31:11.331Z
+Generated at: 2026-07-01T04:52:42.084Z
 
 ## Scope
 
 - Target table: `sys_dict`
 - Database: `phoenix_erp`
-- DB user: `phoenix_v3`
-- Mode: `apply`
+- DB user: `mac`
+- Mode: `dry-run`
 - JSON evidence: `docs/ops/runs/sys-dict-dedupe-latest.json`
 
 ## Policy
@@ -21,11 +21,11 @@ Generated at: 2026-07-01T03:31:11.331Z
 
 | Metric | Value |
 | --- | ---: |
-| total rows | 427 |
-| dict types | 75 |
+| total rows | 247 |
+| dict types | 47 |
 | exact duplicate groups | 0 |
 | exact duplicate rows to remove | 0 |
-| active label duplicate groups | 8 |
+| active label duplicate groups | 2 |
 | active value duplicate groups | 0 |
 
 ## Dedup Execution
@@ -41,11 +41,11 @@ Generated at: 2026-07-01T03:31:11.331Z
 
 | Metric | Value |
 | --- | ---: |
-| total rows | 427 |
-| dict types | 75 |
+| total rows | 247 |
+| dict types | 47 |
 | exact duplicate groups | 0 |
 | exact duplicate rows remaining | 0 |
-| active label duplicate groups | 8 |
+| active label duplicate groups | 2 |
 | active value duplicate groups | 0 |
 
 ## Exact Duplicate Groups
@@ -56,14 +56,8 @@ No exact duplicate groups found.
 
 | dict_type | label | cnt | ids | codes |
 | --- | --- | --- | --- | --- |
-| BRD_HOUSE_TYPE | 育成舍 | 2 | 408, 547 | PULLET, GROWER |
+| BRD_HOUSE_TYPE | 育成舍 | 2 | 74, 124 | PULLET, GROWER |
 | BRD_HOUSE_TYPE | 蛋鸡舍 | 2 | 14, 15 | LAYER, LAYING |
-| BRD_VACCINATE_METHOD | 滴鼻点眼 | 2 | 208, 745 | BRD_VACCINATE_METHOD_1, EYE_NOSE |
-| BRD_VACCINATE_METHOD | 皮下注射 | 2 | 210, 741 | BRD_VACCINATE_METHOD_3, INJECT_SC |
-| BRD_VACCINATE_METHOD | 肌肉注射 | 2 | 211, 749 | BRD_VACCINATE_METHOD_4, INJECT_IM |
-| BRD_VACCINATE_METHOD | 饮水 | 2 | 209, 780 | BRD_VACCINATE_METHOD_2, DRINK |
-| BRD_VACCINE_TYPE | 传染性喉气管炎 | 2 | 218, 761 | BRD_VACCINE_TYPE_6, ILT |
-| BRD_VACCINE_TYPE | 传染性支气管炎 | 2 | 214, 758 | BRD_VACCINE_TYPE_2, IB |
 
 ## Active Value Duplicate Groups for Manual Review
 

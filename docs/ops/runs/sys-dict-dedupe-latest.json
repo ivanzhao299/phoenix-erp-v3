@@ -1,34 +1,20 @@
 {
-  "mode": "apply",
-  "dry_run": false,
+  "mode": "dry-run",
+  "dry_run": true,
   "before": {
-    "mode": "apply",
-    "db_user": "phoenix_v3",
+    "mode": "dry-run",
+    "db_user": "mac",
     "database": "phoenix_erp",
-    "checked_at": "2026-07-01T03:30:38.588868+00:00",
-    "dict_types": 75,
-    "total_rows": 427,
+    "checked_at": "2026-07-01T12:52:42.046457+08:00",
+    "dict_types": 47,
+    "total_rows": 247,
     "type_summary": [
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "APR_MODULE_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
       {
         "total": 7,
         "active": 7,
         "dict_type": "BRD_BREED",
         "distinct_codes": 7,
         "distinct_labels": 7
-      },
-      {
-        "total": 10,
-        "active": 10,
-        "dict_type": "BRD_BREED_TYPE",
-        "distinct_codes": 10,
-        "distinct_labels": 10
       },
       {
         "total": 5,
@@ -66,67 +52,18 @@
         "distinct_labels": 2
       },
       {
-        "total": 12,
-        "active": 12,
+        "total": 7,
+        "active": 7,
         "dict_type": "BRD_VACCINATE_METHOD",
-        "distinct_codes": 12,
-        "distinct_labels": 8
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
-        "total": 15,
-        "active": 15,
+        "total": 9,
+        "active": 9,
         "dict_type": "BRD_VACCINE_TYPE",
-        "distinct_codes": 15,
-        "distinct_labels": 13
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "BS_CUSTOMER_LEVEL",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "BS_PAYMENT_TERM",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "CRM_ACTIVITY_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "CRM_COUPON_LEVEL",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_COUPON_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_MEMBER_LEVEL",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_TARGET_GROUP",
-        "distinct_codes": 5,
-        "distinct_labels": 5
+        "distinct_codes": 9,
+        "distinct_labels": 9
       },
       {
         "total": 5,
@@ -213,25 +150,11 @@
         "distinct_labels": 4
       },
       {
-        "total": 14,
-        "active": 14,
-        "dict_type": "IOT_ALERT_TYPE",
-        "distinct_codes": 14,
-        "distinct_labels": 14
-      },
-      {
-        "total": 20,
-        "active": 20,
+        "total": 7,
+        "active": 7,
         "dict_type": "PKG_ANOMALY_REASON",
-        "distinct_codes": 20,
-        "distinct_labels": 20
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "PKG_CUSTOM_LABEL",
-        "distinct_codes": 6,
-        "distinct_labels": 6
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
         "total": 5,
@@ -241,11 +164,11 @@
         "distinct_labels": 5
       },
       {
-        "total": 4,
-        "active": 4,
-        "dict_type": "PKG_EGG_DEFECT",
-        "distinct_codes": 4,
-        "distinct_labels": 4
+        "total": 7,
+        "active": 0,
+        "dict_type": "PKG_EGG_GRADE",
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
         "total": 6,
@@ -264,27 +187,6 @@
       {
         "total": 3,
         "active": 3,
-        "dict_type": "PKG_PACK_SPEC",
-        "distinct_codes": 3,
-        "distinct_labels": 3
-      },
-      {
-        "total": 1,
-        "active": 1,
-        "dict_type": "PKG_PRESORT_STANDARD",
-        "distinct_codes": 1,
-        "distinct_labels": 1
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "PKG_QC_RESULT",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 3,
-        "active": 3,
         "dict_type": "PKG_SHIFT",
         "distinct_codes": 3,
         "distinct_labels": 3
@@ -298,7 +200,7 @@
       },
       {
         "total": 4,
-        "active": 0,
+        "active": 4,
         "dict_type": "PRC_PAYER_TYPE",
         "distinct_codes": 4,
         "distinct_labels": 4
@@ -325,60 +227,11 @@
         "distinct_labels": 3
       },
       {
-        "total": 5,
-        "active": 5,
+        "total": 4,
+        "active": 4,
         "dict_type": "PRC_URGENCY",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 3,
-        "active": 3,
-        "dict_type": "PRD_PRODUCT_GRADE",
-        "distinct_codes": 3,
-        "distinct_labels": 3
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "PRD_PRODUCT_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "QC_INSPECT_CATEGORY",
         "distinct_codes": 4,
         "distinct_labels": 4
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "QC_INSPECT_TYPE",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "QC_NC_SOURCE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 7,
-        "active": 7,
-        "dict_type": "QC_PRODUCT_CATEGORY",
-        "distinct_codes": 7,
-        "distinct_labels": 7
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "QC_TRACE_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
       },
       {
         "total": 5,
@@ -430,13 +283,6 @@
         "distinct_labels": 5
       },
       {
-        "total": 9,
-        "active": 9,
-        "dict_type": "SAL_REGION",
-        "distinct_codes": 9,
-        "distinct_labels": 9
-      },
-      {
         "total": 7,
         "active": 7,
         "dict_type": "SAL_RETURN_REASON",
@@ -479,20 +325,6 @@
         "distinct_labels": 10
       },
       {
-        "total": 6,
-        "active": 6,
-        "dict_type": "TRP_EXCEPTION_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "TRP_RECEIPT_STATUS",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
         "total": 5,
         "active": 5,
         "dict_type": "VET_USAGE",
@@ -500,39 +332,11 @@
         "distinct_labels": 5
       },
       {
-        "total": 5,
-        "active": 5,
-        "dict_type": "WMS_INBOUND_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
         "total": 4,
-        "active": 0,
+        "active": 4,
         "dict_type": "WMS_OUTBOUND_DESTINATION",
         "distinct_codes": 4,
         "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "WMS_OUTBOUND_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 6,
-        "active": 0,
-        "dict_type": "WMS_STATUS",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 10,
-        "active": 5,
-        "dict_type": "WMS_ZONE_TYPE",
-        "distinct_codes": 10,
-        "distinct_labels": 9
       }
     ],
     "exact_duplicates": [],
@@ -541,8 +345,8 @@
       {
         "cnt": 2,
         "ids": [
-          408,
-          547
+          74,
+          124
         ],
         "codes": [
           "PULLET",
@@ -563,119 +367,27 @@
         ],
         "label": "蛋鸡舍",
         "dict_type": "BRD_HOUSE_TYPE"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          208,
-          745
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_1",
-          "EYE_NOSE"
-        ],
-        "label": "滴鼻点眼",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          210,
-          741
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_3",
-          "INJECT_SC"
-        ],
-        "label": "皮下注射",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          211,
-          749
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_4",
-          "INJECT_IM"
-        ],
-        "label": "肌肉注射",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          209,
-          780
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_2",
-          "DRINK"
-        ],
-        "label": "饮水",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          218,
-          761
-        ],
-        "codes": [
-          "BRD_VACCINE_TYPE_6",
-          "ILT"
-        ],
-        "label": "传染性喉气管炎",
-        "dict_type": "BRD_VACCINE_TYPE"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          214,
-          758
-        ],
-        "codes": [
-          "BRD_VACCINE_TYPE_2",
-          "IB"
-        ],
-        "label": "传染性支气管炎",
-        "dict_type": "BRD_VACCINE_TYPE"
       }
     ],
     "active_value_duplicates": [],
-    "active_label_duplicate_groups": 8,
+    "active_label_duplicate_groups": 2,
     "active_value_duplicate_groups": 0,
     "exact_duplicate_rows_to_remove": 0
   },
   "after": {
-    "mode": "apply",
-    "db_user": "phoenix_v3",
+    "mode": "dry-run",
+    "db_user": "mac",
     "database": "phoenix_erp",
-    "checked_at": "2026-07-01T03:31:11.134281+00:00",
-    "dict_types": 75,
-    "total_rows": 427,
+    "checked_at": "2026-07-01T12:52:42.07853+08:00",
+    "dict_types": 47,
+    "total_rows": 247,
     "type_summary": [
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "APR_MODULE_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
       {
         "total": 7,
         "active": 7,
         "dict_type": "BRD_BREED",
         "distinct_codes": 7,
         "distinct_labels": 7
-      },
-      {
-        "total": 10,
-        "active": 10,
-        "dict_type": "BRD_BREED_TYPE",
-        "distinct_codes": 10,
-        "distinct_labels": 10
       },
       {
         "total": 5,
@@ -713,67 +425,18 @@
         "distinct_labels": 2
       },
       {
-        "total": 12,
-        "active": 12,
+        "total": 7,
+        "active": 7,
         "dict_type": "BRD_VACCINATE_METHOD",
-        "distinct_codes": 12,
-        "distinct_labels": 8
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
-        "total": 15,
-        "active": 15,
+        "total": 9,
+        "active": 9,
         "dict_type": "BRD_VACCINE_TYPE",
-        "distinct_codes": 15,
-        "distinct_labels": 13
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "BS_CUSTOMER_LEVEL",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "BS_PAYMENT_TERM",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "CRM_ACTIVITY_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "CRM_COUPON_LEVEL",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_COUPON_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_MEMBER_LEVEL",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "CRM_TARGET_GROUP",
-        "distinct_codes": 5,
-        "distinct_labels": 5
+        "distinct_codes": 9,
+        "distinct_labels": 9
       },
       {
         "total": 5,
@@ -860,25 +523,11 @@
         "distinct_labels": 4
       },
       {
-        "total": 14,
-        "active": 14,
-        "dict_type": "IOT_ALERT_TYPE",
-        "distinct_codes": 14,
-        "distinct_labels": 14
-      },
-      {
-        "total": 20,
-        "active": 20,
+        "total": 7,
+        "active": 7,
         "dict_type": "PKG_ANOMALY_REASON",
-        "distinct_codes": 20,
-        "distinct_labels": 20
-      },
-      {
-        "total": 6,
-        "active": 6,
-        "dict_type": "PKG_CUSTOM_LABEL",
-        "distinct_codes": 6,
-        "distinct_labels": 6
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
         "total": 5,
@@ -888,11 +537,11 @@
         "distinct_labels": 5
       },
       {
-        "total": 4,
-        "active": 4,
-        "dict_type": "PKG_EGG_DEFECT",
-        "distinct_codes": 4,
-        "distinct_labels": 4
+        "total": 7,
+        "active": 0,
+        "dict_type": "PKG_EGG_GRADE",
+        "distinct_codes": 7,
+        "distinct_labels": 7
       },
       {
         "total": 6,
@@ -911,27 +560,6 @@
       {
         "total": 3,
         "active": 3,
-        "dict_type": "PKG_PACK_SPEC",
-        "distinct_codes": 3,
-        "distinct_labels": 3
-      },
-      {
-        "total": 1,
-        "active": 1,
-        "dict_type": "PKG_PRESORT_STANDARD",
-        "distinct_codes": 1,
-        "distinct_labels": 1
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "PKG_QC_RESULT",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 3,
-        "active": 3,
         "dict_type": "PKG_SHIFT",
         "distinct_codes": 3,
         "distinct_labels": 3
@@ -945,7 +573,7 @@
       },
       {
         "total": 4,
-        "active": 0,
+        "active": 4,
         "dict_type": "PRC_PAYER_TYPE",
         "distinct_codes": 4,
         "distinct_labels": 4
@@ -972,60 +600,11 @@
         "distinct_labels": 3
       },
       {
-        "total": 5,
-        "active": 5,
+        "total": 4,
+        "active": 4,
         "dict_type": "PRC_URGENCY",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 3,
-        "active": 3,
-        "dict_type": "PRD_PRODUCT_GRADE",
-        "distinct_codes": 3,
-        "distinct_labels": 3
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "PRD_PRODUCT_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "QC_INSPECT_CATEGORY",
         "distinct_codes": 4,
         "distinct_labels": 4
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "QC_INSPECT_TYPE",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "QC_NC_SOURCE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 7,
-        "active": 7,
-        "dict_type": "QC_PRODUCT_CATEGORY",
-        "distinct_codes": 7,
-        "distinct_labels": 7
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "QC_TRACE_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
       },
       {
         "total": 5,
@@ -1077,13 +656,6 @@
         "distinct_labels": 5
       },
       {
-        "total": 9,
-        "active": 9,
-        "dict_type": "SAL_REGION",
-        "distinct_codes": 9,
-        "distinct_labels": 9
-      },
-      {
         "total": 7,
         "active": 7,
         "dict_type": "SAL_RETURN_REASON",
@@ -1126,20 +698,6 @@
         "distinct_labels": 10
       },
       {
-        "total": 6,
-        "active": 6,
-        "dict_type": "TRP_EXCEPTION_TYPE",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 4,
-        "active": 4,
-        "dict_type": "TRP_RECEIPT_STATUS",
-        "distinct_codes": 4,
-        "distinct_labels": 4
-      },
-      {
         "total": 5,
         "active": 5,
         "dict_type": "VET_USAGE",
@@ -1147,39 +705,11 @@
         "distinct_labels": 5
       },
       {
-        "total": 5,
-        "active": 5,
-        "dict_type": "WMS_INBOUND_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
         "total": 4,
-        "active": 0,
+        "active": 4,
         "dict_type": "WMS_OUTBOUND_DESTINATION",
         "distinct_codes": 4,
         "distinct_labels": 4
-      },
-      {
-        "total": 5,
-        "active": 5,
-        "dict_type": "WMS_OUTBOUND_TYPE",
-        "distinct_codes": 5,
-        "distinct_labels": 5
-      },
-      {
-        "total": 6,
-        "active": 0,
-        "dict_type": "WMS_STATUS",
-        "distinct_codes": 6,
-        "distinct_labels": 6
-      },
-      {
-        "total": 10,
-        "active": 5,
-        "dict_type": "WMS_ZONE_TYPE",
-        "distinct_codes": 10,
-        "distinct_labels": 9
       }
     ],
     "exact_duplicates": [],
@@ -1188,8 +718,8 @@
       {
         "cnt": 2,
         "ids": [
-          408,
-          547
+          74,
+          124
         ],
         "codes": [
           "PULLET",
@@ -1210,88 +740,10 @@
         ],
         "label": "蛋鸡舍",
         "dict_type": "BRD_HOUSE_TYPE"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          208,
-          745
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_1",
-          "EYE_NOSE"
-        ],
-        "label": "滴鼻点眼",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          210,
-          741
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_3",
-          "INJECT_SC"
-        ],
-        "label": "皮下注射",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          211,
-          749
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_4",
-          "INJECT_IM"
-        ],
-        "label": "肌肉注射",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          209,
-          780
-        ],
-        "codes": [
-          "BRD_VACCINATE_METHOD_2",
-          "DRINK"
-        ],
-        "label": "饮水",
-        "dict_type": "BRD_VACCINATE_METHOD"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          218,
-          761
-        ],
-        "codes": [
-          "BRD_VACCINE_TYPE_6",
-          "ILT"
-        ],
-        "label": "传染性喉气管炎",
-        "dict_type": "BRD_VACCINE_TYPE"
-      },
-      {
-        "cnt": 2,
-        "ids": [
-          214,
-          758
-        ],
-        "codes": [
-          "BRD_VACCINE_TYPE_2",
-          "IB"
-        ],
-        "label": "传染性支气管炎",
-        "dict_type": "BRD_VACCINE_TYPE"
       }
     ],
     "active_value_duplicates": [],
-    "active_label_duplicate_groups": 8,
+    "active_label_duplicate_groups": 2,
     "active_value_duplicate_groups": 0,
     "exact_duplicate_rows_to_remove": 0
   },
