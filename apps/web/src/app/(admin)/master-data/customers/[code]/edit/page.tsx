@@ -5,7 +5,7 @@ import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage"
 import { LoadingSkeleton } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
-import { CUSTOMER_FIELDS } from "../../page";
+import { CUSTOMER_FIELDS } from "../../_fields";
 
 /**
  * g200p:编辑客户全屏页 — 从 runtime/customer 取行,然后渲染 FormPage(mode="edit")

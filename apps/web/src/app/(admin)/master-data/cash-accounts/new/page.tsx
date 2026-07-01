@@ -1,7 +1,7 @@
 "use client";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CASH_ACCOUNT_FIELDS } from "../page";
+import { CASH_ACCOUNT_FIELDS } from "../_fields";
 
 export default function CashAccountNewPage() {
   const { t } = useLanguage();

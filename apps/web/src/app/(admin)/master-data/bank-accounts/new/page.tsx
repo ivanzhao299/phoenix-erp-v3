@@ -1,7 +1,7 @@
 "use client";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { BANK_ACCOUNT_FIELDS } from "../page";
+import { BANK_ACCOUNT_FIELDS } from "../_fields";
 
 export default function BankAccountNewPage() {
   const { t } = useLanguage();

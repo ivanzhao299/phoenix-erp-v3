@@ -5,7 +5,7 @@ import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage"
 import { LoadingSkeleton } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
-import { BANK_ACCOUNT_FIELDS } from "../../page";
+import { BANK_ACCOUNT_FIELDS } from "../../_fields";
 
 const toArr = (v: any): any[] =>
   Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);

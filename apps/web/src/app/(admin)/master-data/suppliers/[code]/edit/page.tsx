@@ -5,7 +5,7 @@ import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage"
 import { LoadingSkeleton } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
-import { SUPPLIER_FIELDS } from "../../page";
+import { SUPPLIER_FIELDS } from "../../_fields";
 
 /**
  * g200p-2:编辑供应商全屏页

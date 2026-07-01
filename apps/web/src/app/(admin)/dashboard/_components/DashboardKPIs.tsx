@@ -8,32 +8,27 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import u from "@/styles/uix-utils.module.css";
 const CARD_THEMES = [{
   accent: 'var(--status-info)',
-  bg: 'rgba(14,165,233,0.08)',
-  glow: 'rgba(14,165,233,0.18)'
+  bg: 'rgba(14,165,233,0.08)'
 },
 // 蓝：产蛋
 {
   accent: 'var(--status-success)',
-  bg: 'var(--status-success-bg-medium)',
-  glow: 'var(--status-success-bg-deep)'
+  bg: 'var(--status-success-bg-medium)'
 },
 // 绿：库存
 {
   accent: 'var(--status-warning)',
-  bg: 'var(--status-warning-bg-faint)',
-  glow: 'var(--status-warning-bg-deep)'
+  bg: 'var(--status-warning-bg-faint)'
 },
 // 琥珀：POS
 {
   accent: 'var(--status-danger)',
-  bg: 'var(--status-danger-bg-faint)',
-  glow: 'var(--status-danger-bg-deep)'
+  bg: 'var(--status-danger-bg-faint)'
 },
 // 红：预警
 {
   accent: 'var(--color-purple-500)',
-  bg: 'rgba(139,92,246,0.08)',
-  glow: 'rgba(139,92,246,0.18)'
+  bg: 'rgba(139,92,246,0.08)'
 } // 紫：农场直销
 ];
 function StatCard({
@@ -42,6 +37,7 @@ function StatCard({
   unit,
   icon,
   trend,
+  hint,
   alert: isAlert,
   loading,
   themeIdx = 0
@@ -51,6 +47,7 @@ function StatCard({
   unit?: string;
   icon: React.ReactNode;
   trend?: string;
+  hint?: string;
   alert?: boolean;
   loading?: boolean;
   themeIdx?: number;
@@ -59,78 +56,30 @@ function StatCard({
   return <div className={styles.statCard} style={{
     borderTop: `3px solid ${theme.accent}`
   }}>
-      <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start'
-    }}>
-        <div style={{
-        padding: 10,
-        borderRadius: 12,
+      <div className={styles.statCardTop}>
+        <div className={styles.statIcon} style={{
         background: theme.bg,
-        color: theme.accent,
-        display: 'flex',
-        alignItems: 'center'
+        color: theme.accent
       }}>
           {icon}
         </div>
-        {trend && <span style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        color: 'var(--status-success)',
-        fontSize: 13,
-        fontWeight: 700,
-        background: 'var(--status-success-bg-medium)',
-        padding: '3px 8px',
-        borderRadius: 20
-      }}>
+        {trend && <span className={styles.trendBadge}>
             <ArrowUpRight size={13} />+{trend}%
           </span>}
       </div>
       <div>
-        <h3 style={{
-        color: 'var(--text-secondary)',
-        fontSize: 13,
-        fontWeight: 500,
-        marginBottom: 6
-      }}>{title}</h3>
-        <div style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: 6
-      }}>
+        <h3 className={styles.statTitle}>{title}</h3>
+        <div className={styles.statValueRow}>
           {loading ? <div className={styles.skeleton} style={{
           height: 36,
           width: 110
-        }} /> : <span style={{
-          fontSize: 34,
-          fontWeight: 800,
-          letterSpacing: '-1px',
-          background: `linear-gradient(135deg,${theme.accent},${theme.accent}cc)`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>
+        }} /> : <span className={styles.statValue} style={{ color: theme.accent }}>
               {value ?? '–'}
             </span>}
-          <span style={{
-          fontSize: 13,
-          color: 'var(--text-secondary)',
-          fontWeight: 500
-        }}>{unit}</span>
+          {unit && <span className={styles.statUnit}>{unit}</span>}
         </div>
+        {hint && <div className={styles.statHint}>{hint}</div>}
       </div>
-      {/* decorative glow orb */}
-      <div style={{
-      position: 'absolute',
-      right: -24,
-      bottom: -24,
-      width: 110,
-      height: 110,
-      borderRadius: '50%',
-      background: `radial-gradient(circle,${theme.glow} 0%,transparent 70%)`,
-      pointerEvents: 'none'
-    }} />
     </div>;
 }
 interface KpiData {
@@ -309,11 +258,11 @@ export default function DashboardKPIs({
       gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
       gap: 20
     }}>
-        <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} />
-        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} />
-        <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} />
-        <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} />
-        <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} alert />
+        <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={t('dash.eggsTodayHint', '今日产蛋，按当前场区/数据域统计')} />
+        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={t('dash.totalStockHint', '当前可用库存汇总')} />
+        <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={t('dash.todayPosHint', '今日门店 POS 实收金额')} />
+        <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} hint={t('dash.todayFarmSalesHint', '今日农场直销订单金额')} />
+        <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} hint={t('dash.pendingAlertsHint', '未处理业务预警与设备告警合计')} alert />
       </div>
 
       {/* Integrity score */}

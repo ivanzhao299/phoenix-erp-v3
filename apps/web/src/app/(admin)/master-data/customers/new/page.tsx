@@ -1,7 +1,7 @@
 "use client";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CUSTOMER_FIELDS } from "../page";
+import { CUSTOMER_FIELDS } from "../_fields";
 
 /**
  * g200p:新增客户全屏页(替代 12 字段塞抽屉)

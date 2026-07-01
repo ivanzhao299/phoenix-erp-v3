@@ -34,6 +34,24 @@ interface ErrorStat {
   count: number;
   last_seen: string;
 }
+
+function formatMs(ms?: number) {
+  if (typeof ms !== "number" || Number.isNaN(ms)) return "—";
+  if (ms >= 60_000) return `${Math.round(ms / 1000).toLocaleString()} s`;
+  return `${ms.toLocaleString()} ms`;
+}
+
+function getHealthReasons(summary: HealthSummary | null): string[] {
+  if (!summary) return ["监控接口暂未返回数据"];
+  const reasons: string[] = [];
+  if (!summary.database.connected) reasons.push("数据库连接不可用");
+  if (summary.memory.usedPct >= 90) reasons.push(`堆内存占用 ${summary.memory.usedPct}% 超过 90% 阈值`);
+  if (summary.recentErrors > 0) reasons.push(`近 1 小时存在 ${summary.recentErrors} 条系统错误，需查看错误分布`);
+  if (summary.openAlerts > 0) reasons.push(`存在 ${summary.openAlerts} 条未处理告警`);
+  if (reasons.length === 0) reasons.push("核心探针正常，未发现阻断项");
+  return reasons;
+}
+
 function StatusBadge({
   status
 }: {
@@ -91,7 +109,9 @@ function MetricCard({
       <div style={{
       fontSize: 28,
       fontWeight: 800,
-      color: "var(--text-primary)"
+      color: "var(--text-primary)",
+      lineHeight: 1.1,
+      fontVariantNumeric: "tabular-nums"
     }}>
         {value}
         {unit && <span style={{
@@ -145,7 +165,10 @@ export default function SystemHealthPage() {
     return () => clearInterval(timer);
   }, [fetchData]);
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
-  const overallColor = overall === "HEALTHY" ? "var(--status-success)" : overall === "DEGRADED" ? "var(--status-warning)" : "var(--gray-400)";
+  const healthReasons = getHealthReasons(summary);
+  const cpuTotal = typeof summary?.cpu.userMs === "number" && typeof summary?.cpu.systemMs === "number"
+    ? summary.cpu.userMs + summary.cpu.systemMs
+    : undefined;
   return <div>
       <PageHeader
         title={t('ui.系统监控','系统监控')}
@@ -159,15 +182,22 @@ export default function SystemHealthPage() {
       />
 
       {/* g200l 整体状态横幅 — inlineAlert(tone) 替代 hex+15/40 自写 */}
-      <div style={{ ...inlineAlert(overall === "HEALTHY" ? "success" : overall === "DEGRADED" ? "warning" : "info"), marginBottom: 24, padding: "14px 20px" }}>
+      <div style={{ ...inlineAlert(overall === "HEALTHY" ? "success" : overall === "DEGRADED" ? "warning" : "info"), marginBottom: 24, padding: "14px 20px", alignItems: "flex-start" }}>
         {overall === "HEALTHY" ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{t('ui.系统整体状态：','系统整体状态：')}</span>
-        <StatusBadge status={overall} />
-        {summary && (
-          <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: "auto" }}>
-            {t('ui.最后检测：','最后检测：')}{new Date(summary.timestamp).toLocaleString("zh-CN")}
-          </span>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>{t('ui.系统整体状态：','系统整体状态：')}</span>
+            <StatusBadge status={overall} />
+            {summary && (
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: "auto" }}>
+                {t('ui.最后检测：','最后检测：')}{new Date(summary.timestamp).toLocaleString("zh-CN")}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            {healthReasons.join("；")}
+          </div>
+        </div>
       </div>
 
       {/* 核心指标卡片 */}
@@ -182,7 +212,7 @@ export default function SystemHealthPage() {
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
         <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.未处理告警','未处理告警')} value={summary?.openAlerts ?? "—"} borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={t('ui.点击告警页面处理','点击告警页面处理')} />
-        <MetricCard icon={<Activity size={16} />} title={t('ui.CPU 用户态','CPU 用户态')} value={summary?.cpu.userMs ?? "—"} unit="ms" borderColor="var(--status-info)" sub={`系统态: ${summary?.cpu.systemMs ?? "—"} ms`} />
+        <MetricCard icon={<Activity size={16} />} title={t('ui.进程累计 CPU 时间','进程累计 CPU 时间')} value={formatMs(cpuTotal)} borderColor="var(--status-info)" sub={`用户态 ${formatMs(summary?.cpu.userMs)} / 系统态 ${formatMs(summary?.cpu.systemMs)}`} />
       </div>
 
       {/* 24h 错误类型分布 */}

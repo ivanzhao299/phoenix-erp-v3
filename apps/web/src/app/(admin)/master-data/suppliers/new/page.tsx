@@ -1,7 +1,7 @@
 "use client";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { SUPPLIER_FIELDS } from "../page";
+import { SUPPLIER_FIELDS } from "../_fields";
 
 /**
  * g200p-2:新增供应商全屏页

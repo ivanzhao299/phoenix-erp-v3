@@ -1,7 +1,7 @@
 "use client";
 import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PRODUCT_FIELDS } from "../page";
+import { PRODUCT_FIELDS } from "../_fields";
 
 export default function ProductNewPage() {
   const { t } = useLanguage();
