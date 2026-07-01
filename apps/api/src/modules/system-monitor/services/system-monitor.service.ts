@@ -11,6 +11,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { getHeapStatistics } from 'v8';
 
 export interface RequestStat {
   method: string;
@@ -39,7 +40,7 @@ export class SystemMonitorService {
     ]);
 
     return {
-      status:     dbOk && mem.usedPct < 90 ? 'HEALTHY' : 'DEGRADED',
+      status:     dbOk && !mem.pressure ? 'HEALTHY' : 'DEGRADED',
       timestamp:  new Date().toISOString(),
       database: {
         connected: dbOk,
@@ -168,15 +169,23 @@ export class SystemMonitorService {
   }
 
   private getMemoryUsage() {
-    const mem     = process.memoryUsage();
-    const totalMB = Math.round(mem.heapTotal / 1024 / 1024);
-    const usedMB  = Math.round(mem.heapUsed  / 1024 / 1024);
-    const rssMB   = Math.round(mem.rss        / 1024 / 1024);
+    const mem         = process.memoryUsage();
+    const heapStats   = getHeapStatistics();
+    const totalMB     = Math.round(mem.heapTotal / 1024 / 1024);
+    const usedMB      = Math.round(mem.heapUsed  / 1024 / 1024);
+    const rssMB       = Math.round(mem.rss       / 1024 / 1024);
+    const heapLimitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const heapLimitUsedPct = heapLimitMB > 0 ? Math.round((usedMB / heapLimitMB) * 100) : 0;
+    const heapAllocatedPct = totalMB > 0 ? Math.round((usedMB / totalMB) * 100) : 0;
+    const pressure = rssMB >= 1024 || usedMB >= 512 || heapLimitUsedPct >= 80;
     return {
       heapTotalMB: totalMB,
       heapUsedMB:  usedMB,
       rssMB,
-      usedPct: totalMB > 0 ? Math.round((usedMB / totalMB) * 100) : 0,
+      heapLimitMB,
+      heapAllocatedPct,
+      usedPct: heapLimitUsedPct,
+      pressure,
     };
   }
 

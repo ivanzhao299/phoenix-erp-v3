@@ -19,6 +19,9 @@ interface HealthSummary {
     heapUsedMB: number;
     heapTotalMB: number;
     rssMB: number;
+    heapLimitMB?: number;
+    heapAllocatedPct?: number;
+    pressure?: boolean;
     usedPct: number;
   };
   cpu: {
@@ -43,7 +46,10 @@ function formatMs(ms?: number) {
 
 function hasMemoryPressure(memory?: HealthSummary["memory"]) {
   if (!memory) return false;
-  return memory.rssMB >= 1024 || memory.heapUsedMB >= 512 || (memory.usedPct >= 95 && memory.heapUsedMB >= 256);
+  return Boolean(memory.pressure)
+    || memory.rssMB >= 1024
+    || memory.heapUsedMB >= 512
+    || (memory.usedPct >= 95 && memory.heapUsedMB >= 256);
 }
 
 function getHealthReasons(summary: HealthSummary | null): string[] {
@@ -216,7 +222,7 @@ export default function SystemHealthPage() {
       marginBottom: 24
     }}>
         <MetricCard icon={<Database size={16} />} title={t('ui.数据库连接','数据库连接')} value={summary?.database.connected ? t('ui.在线','在线') : t('ui.离线','离线')} borderColor={summary?.database.connected ? "var(--status-success)" : "var(--status-danger)"} sub={`连接池 total: ${summary?.database.pool?.total ?? "—"} / idle: ${summary?.database.pool?.idle ?? "—"}`} />
-        <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={memoryPressure ? "var(--status-warning)" : "var(--status-success)"} sub={`V8 heap ${summary?.memory.usedPct ?? "—"}%，上限动态扩容；RSS ${summary?.memory.rssMB ?? "—"} MB`} />
+        <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={memoryPressure ? "var(--status-warning)" : "var(--status-success)"} sub={`V8 上限占用 ${summary?.memory.usedPct ?? "—"}%；已分配堆 ${summary?.memory.heapAllocatedPct ?? "—"}%；RSS ${summary?.memory.rssMB ?? "—"} MB`} />
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
         <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.未处理告警','未处理告警')} value={summary?.openAlerts ?? "—"} borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={t('ui.点击告警页面处理','点击告警页面处理')} />
