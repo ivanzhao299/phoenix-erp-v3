@@ -41,11 +41,18 @@ function formatMs(ms?: number) {
   return `${ms.toLocaleString()} ms`;
 }
 
+function hasMemoryPressure(memory?: HealthSummary["memory"]) {
+  if (!memory) return false;
+  return memory.rssMB >= 1024 || memory.heapUsedMB >= 512 || (memory.usedPct >= 95 && memory.heapUsedMB >= 256);
+}
+
 function getHealthReasons(summary: HealthSummary | null): string[] {
   if (!summary) return ["监控接口暂未返回数据"];
   const reasons: string[] = [];
   if (!summary.database.connected) reasons.push("数据库连接不可用");
-  if (summary.memory.usedPct >= 90) reasons.push(`堆内存占用 ${summary.memory.usedPct}% 超过 90% 阈值`);
+  if (hasMemoryPressure(summary.memory)) {
+    reasons.push(`进程内存压力偏高：heap ${summary.memory.heapUsedMB}MB / RSS ${summary.memory.rssMB}MB`);
+  }
   if (summary.recentErrors > 0) reasons.push(`近 1 小时存在 ${summary.recentErrors} 条系统错误，需查看错误分布`);
   if (summary.openAlerts > 0) reasons.push(`存在 ${summary.openAlerts} 条未处理告警`);
   if (reasons.length === 0) reasons.push("核心探针正常，未发现阻断项");
@@ -169,6 +176,7 @@ export default function SystemHealthPage() {
   const cpuTotal = typeof summary?.cpu.userMs === "number" && typeof summary?.cpu.systemMs === "number"
     ? summary.cpu.userMs + summary.cpu.systemMs
     : undefined;
+  const memoryPressure = hasMemoryPressure(summary?.memory);
   return <div>
       <PageHeader
         title={t('ui.系统监控','系统监控')}
@@ -208,7 +216,7 @@ export default function SystemHealthPage() {
       marginBottom: 24
     }}>
         <MetricCard icon={<Database size={16} />} title={t('ui.数据库连接','数据库连接')} value={summary?.database.connected ? t('ui.在线','在线') : t('ui.离线','离线')} borderColor={summary?.database.connected ? "var(--status-success)" : "var(--status-danger)"} sub={`连接池 total: ${summary?.database.pool?.total ?? "—"} / idle: ${summary?.database.pool?.idle ?? "—"}`} />
-        <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={(summary?.memory.usedPct ?? 0) > 85 ? "var(--status-danger)" : (summary?.memory.usedPct ?? 0) > 70 ? "var(--status-warning)" : "var(--color-accent)"} sub={`已用 ${summary?.memory.usedPct ?? "—"}%，共 ${summary?.memory.heapTotalMB ?? "—"} MB`} />
+        <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={memoryPressure ? "var(--status-warning)" : "var(--status-success)"} sub={`V8 heap ${summary?.memory.usedPct ?? "—"}%，上限动态扩容；RSS ${summary?.memory.rssMB ?? "—"} MB`} />
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
         <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.未处理告警','未处理告警')} value={summary?.openAlerts ?? "—"} borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={t('ui.点击告警页面处理','点击告警页面处理')} />
