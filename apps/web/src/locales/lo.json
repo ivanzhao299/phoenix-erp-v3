@@ -11065,5 +11065,15 @@
   "mob.sys.no_live_data": "ບໍ່ມີຂໍ້ມູນສົດ",
   "mob.sys.diag_hint": "ຂໍ້ມູນມາຈາກການຊິ້ງຄ໌ IoT ໜ້າງານ; ກົດປຸ່ມລຸ່ມເພື່ອຊອກຫາສາເຫດ",
   "mob.sys.diagnosing": "ກຳລັງວິນິໄສ…",
-  "mob.sys.diagnose_why": "ວິນິໄສ: ເປັນຫຍັງບໍ່ມີຂໍ້ມູນ?"
+  "mob.sys.diagnose_why": "ວິນິໄສ: ເປັນຫຍັງບໍ່ມີຂໍ້ມູນ?",
+  "mob.sys.diag_no_token": "ເຊສຊັນເຂົ້າລະບົບຫາຍໄປ ຫຼື ໝົດອາຍຸ. ກະລຸນາເຂົ້າລະບົບໃໝ່.",
+  "mob.sys.diag_summary": "ສະຫຼຸບການວິນິໄສ",
+  "mob.sys.diag_houses": "ເລົ້າ",
+  "mob.sys.diag_mapped": "ຜູກແລ້ວ",
+  "mob.sys.diag_snapshots": "ສະແນັບຊັອດ",
+  "mob.sys.diag_vendor": "gateway",
+  "mob.sys.diag_query_error": "ຂໍ້ຜິດພາດການຄົ້ນຂໍ້ມູນ",
+  "mob.sys.no_device_perm_hint": "ບັນຊີນີ້ບໍ່ມີສິດເມນູຕິດຕາມອຸປະກອນ. ກະລຸນາຂໍໃຫ້ admin ເປີດສິດ MENU_DEVICE_MONITOR.",
+  "mob.sys.back_home": "ກັບໜ້າຫຼັກ",
+  "mob.sys.device_data_unavailable": "ຂໍ້ມູນອຸປະກອນບໍ່ພ້ອມໃຊ້"
 }

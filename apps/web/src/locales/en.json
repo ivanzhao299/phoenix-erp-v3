@@ -11065,5 +11065,15 @@
   "mob.sys.no_live_data": "No live data",
   "mob.sys.diag_hint": "Data comes from on-site IoT gateway sync; tap below to find the cause.",
   "mob.sys.diagnosing": "Diagnosing…",
-  "mob.sys.diagnose_why": "Diagnose: why no data?"
+  "mob.sys.diagnose_why": "Diagnose: why no data?",
+  "mob.sys.diag_no_token": "Login session is missing or expired. Please sign in again before viewing device data.",
+  "mob.sys.diag_summary": "Diagnosis summary",
+  "mob.sys.diag_houses": "Houses",
+  "mob.sys.diag_mapped": "Mapped",
+  "mob.sys.diag_snapshots": "Snapshots",
+  "mob.sys.diag_vendor": "Gateway",
+  "mob.sys.diag_query_error": "Data query error",
+  "mob.sys.no_device_perm_hint": "This account does not have the device monitoring menu permission. Ask an administrator to grant MENU_DEVICE_MONITOR view access.",
+  "mob.sys.back_home": "Back home",
+  "mob.sys.device_data_unavailable": "Device data unavailable"
 }

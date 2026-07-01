@@ -11065,5 +11065,15 @@
   "mob.sys.no_live_data": "当前无实时数据",
   "mob.sys.diag_hint": "数据来自现场 IoT 网关同步，点下方按钮可定位原因。",
   "mob.sys.diagnosing": "诊断中…",
-  "mob.sys.diagnose_why": "诊断：为什么没有数据？"
+  "mob.sys.diagnose_why": "诊断：为什么没有数据？",
+  "mob.sys.diag_no_token": "登录态缺失或已过期，请重新登录后再查看设备数据。",
+  "mob.sys.diag_summary": "诊断摘要",
+  "mob.sys.diag_houses": "鸡舍",
+  "mob.sys.diag_mapped": "已绑定",
+  "mob.sys.diag_snapshots": "快照",
+  "mob.sys.diag_vendor": "网关",
+  "mob.sys.diag_query_error": "数据查询错误",
+  "mob.sys.no_device_perm_hint": "当前账号未获得设备监控菜单权限，请联系管理员开通 MENU_DEVICE_MONITOR 查看权限。",
+  "mob.sys.back_home": "返回首页",
+  "mob.sys.device_data_unavailable": "设备数据不可用"
 }

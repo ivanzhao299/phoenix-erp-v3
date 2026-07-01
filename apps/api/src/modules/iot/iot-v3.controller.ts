@@ -26,37 +26,46 @@ export class IotV3Controller {
   async getAllSummary() {
     try {
       const em = (this.monDeviceService as any).entityManager;
+      const queryErrors: string[] = [];
+      const safeQuery = async (label: string, sql: string) => {
+        try {
+          return await em.query(sql);
+        } catch (e: any) {
+          queryErrors.push(`${label}: ${e?.message || String(e)}`.slice(0, 220));
+          return [];
+        }
+      };
 
       // 1. 鸡舍映射列表
-      const mappings = await em.query(`
+      const mappings = await safeQuery('mon_house_device_mapping', `
         SELECT erp_house_code, house_name, vendor_house_id, status
         FROM mon_house_device_mapping
         ORDER BY erp_house_code
-      `).catch(() => []);
+      `);
 
       // 2. 实时快照（最近一条）
-      const snapshots = await em.query(`
+      const snapshots = await safeQuery('mon_device_realtime_snapshot', `
         SELECT erp_house_code, property_code, value, is_alarm, collect_time,
                name_zh, unit, system_category
         FROM mon_device_realtime_snapshot
-      `).catch(() => []);
+      `);
 
       // 3. 未处理告警数
-      const alarmRows = await em.query(`
+      const alarmRows = await safeQuery('mon_device_alert_event.count', `
         SELECT erp_house_code, COUNT(*) as cnt
         FROM mon_device_alert_event
         WHERE status = 'OPEN'
         GROUP BY erp_house_code
-      `).catch(() => []);
+      `);
       const alarmMap = new Map(alarmRows.map((r: any) => [r.erp_house_code, Number(r.cnt)]));
 
       // 4. 最近告警列表（10条）
-      const recentAlarms = await em.query(`
+      const recentAlarms = await safeQuery('mon_device_alert_event.recent', `
         SELECT id, erp_house_code, property_name AS name_zh, current_val, unit, triggered_at
         FROM mon_device_alert_event
         WHERE status = 'OPEN'
         ORDER BY created_at DESC LIMIT 10
-      `).catch(() => []);
+      `);
 
       // 按鸡舍聚合快照
       const snapshotMap = new Map<string, any[]>();
@@ -145,6 +154,35 @@ export class IotV3Controller {
       const allProps      = snapshots;
       const onlineSensor  = allProps.filter(isOnline).length;  // 仅计最近未陈旧的传感器
       const totalSensor   = allProps.length;
+      const mappedActive = mappings.filter((m: any) => m.vendor_house_id && m.status === 'ACTIVE').length;
+      const diagnosticSummary = {
+        totalHouses: houses.length,
+        mappedActive,
+        housesWithData: activeHouses,
+        totalSnapshots: totalSensor,
+        lastCollectAt: snapshots.reduce((mx: number, r: any) => {
+          const v = r.collect_time == null ? 0 : (Number(r.collect_time) > 1e12 ? Number(r.collect_time) : new Date(r.collect_time).getTime());
+          return isNaN(v) ? mx : Math.max(mx, v);
+        }, 0) || null,
+      };
+      let diagnosticCode = 'OK';
+      let diagnosticReason = '设备数据链路正常';
+      if (queryErrors.length > 0) {
+        diagnosticCode = 'DB_QUERY_FAILED';
+        diagnosticReason = `设备监控数据查询失败：${queryErrors[0]}`;
+      } else if (houses.length === 0) {
+        diagnosticCode = 'NO_MAPPING';
+        diagnosticReason = '未配置任何鸡舍设备映射，请到设备运维中心新建映射。';
+      } else if (mappedActive === 0) {
+        diagnosticCode = 'NO_VENDOR_BINDING';
+        diagnosticReason = '鸡舍已建但未绑定第三方设备或映射未启用。';
+      } else if (totalSensor === 0) {
+        diagnosticCode = 'NO_SNAPSHOT';
+        diagnosticReason = '已绑定设备但暂无实时快照，请检查 IoT 同步任务、第三方凭据或现场网关。';
+      } else if (onlineSensor === 0) {
+        diagnosticCode = 'STALE_OR_OFFLINE';
+        diagnosticReason = '存在历史快照，但最近 30 分钟没有在线传感器数据。';
+      }
 
       return {
         ok: true,
@@ -158,9 +196,17 @@ export class IotV3Controller {
             totalSensorCnt:  totalSensor,
             onlineDeviceCnt: activeHouses,
             totalDeviceCnt:  houses.length,
+            diagnosticCode,
+            diagnosticReason,
           },
           houses,
           recentAlarms,
+          _diagnostic: {
+            code: diagnosticCode,
+            reason: diagnosticReason,
+            summary: diagnosticSummary,
+            queryErrors,
+          },
         },
       };
     } catch (e: any) {
@@ -177,24 +223,34 @@ export class IotV3Controller {
   async getSyncHealth() {
     try {
       const em = (this.monDeviceService as any).entityManager;
+      const queryErrors: string[] = [];
+      const safeQuery = async (label: string, sql: string) => {
+        try {
+          return await em.query(sql);
+        } catch (e: any) {
+          queryErrors.push(`${label}: ${e?.message || String(e)}`.slice(0, 220));
+          return [];
+        }
+      };
 
-      const mappings = await em.query(`
+      const mappings = await safeQuery('mon_house_device_mapping', `
         SELECT erp_house_code, house_name, vendor_house_id, status
         FROM mon_house_device_mapping ORDER BY erp_house_code
-      `).catch(() => []);
+      `);
 
-      const snapAgg = await em.query(`
+      const snapAgg = await safeQuery('mon_device_realtime_snapshot', `
         SELECT erp_house_code, COUNT(*)::int AS cnt, MAX(collect_time) AS last_ct
         FROM mon_device_realtime_snapshot GROUP BY erp_house_code
-      `).catch(() => []);
+      `);
       const snapMap = new Map<string, { cnt: number; last_ct: any }>(
         snapAgg.map((r: any) => [r.erp_house_code, { cnt: Number(r.cnt), last_ct: r.last_ct }]),
       );
 
-      const hbRows = await em.query(
+      const hbRows = await safeQuery(
+        'sys_cron_heartbeat',
         `SELECT job_name, last_status, last_success_at, last_failure_at, fail_count, last_detail, updated_at
          FROM sys_cron_heartbeat WHERE job_name = 'iot_sync' LIMIT 1`,
-      ).catch(() => []);
+      );
       const heartbeat = hbRows[0] ?? null;
 
       const totalHouses    = mappings.length;
@@ -212,7 +268,9 @@ export class IotV3Controller {
       // 判定原因（优先级从根因到表象）
       let code = 'OK';
       let reason = '链路正常';
-      if (totalHouses === 0) {
+      if (queryErrors.length > 0) {
+        code = 'DB_QUERY_FAILED'; reason = `设备监控数据查询失败：${queryErrors[0]}`;
+      } else if (totalHouses === 0) {
         code = 'NO_MAPPING'; reason = '未配置任何鸡舍设备映射，请到「设备运维中心」新建映射';
       } else if (mappedActive === 0) {
         code = 'NO_VENDOR_BINDING'; reason = '鸡舍已建但未绑定第三方设备（vendor_house_id 为空或映射未启用），请在「设备运维中心 → 栏舍映射」绑定并启用';
@@ -233,6 +291,7 @@ export class IotV3Controller {
           reason,
           vendor: { ok: vendor.ok, base: vendor.base, appId: vendor.appId, error: vendor.error ?? null },
           summary: { totalHouses, mappedActive, housesWithData, totalSnapshots, lastCollectAt: lastCollectMs || null },
+          queryErrors,
           heartbeat,
           houses: mappings.map((m: any) => ({
             erpHouseCode: m.erp_house_code,

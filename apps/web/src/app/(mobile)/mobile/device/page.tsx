@@ -34,6 +34,26 @@ interface IotSummary {
   alarmHouses?: number;
   onlineSensorCnt?: number;
   totalSensorCnt?: number;
+  diagnosticCode?: string;
+  diagnosticReason?: string;
+}
+interface IotDiagnostic {
+  code: string;
+  reason: string;
+  summary?: {
+    totalHouses?: number;
+    mappedActive?: number;
+    housesWithData?: number;
+    totalSnapshots?: number;
+    lastCollectAt?: number | null;
+  };
+  vendor?: {
+    ok?: boolean;
+    base?: string;
+    appId?: string;
+    error?: string | null;
+  };
+  queryErrors?: string[];
 }
 
 const API = '/api/v3/iot/devices/all-summary';
@@ -85,7 +105,7 @@ export default function DeviceMonitorMobilePage() {
   const [alarms, setAlarms] = useState<IotAlarm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [diag, setDiag] = useState<{ code: string; reason: string } | null>(null);
+  const [diag, setDiag] = useState<IotDiagnostic | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
 
   // 自诊断：为什么没有数据（调后端 sync-health，定位链路断点）。
@@ -94,12 +114,22 @@ export default function DeviceMonitorMobilePage() {
     setDiagLoading(true); setDiag(null);
     const fail = (msg: string) => setDiag({ code: 'ERR', reason: `${tr('mob.sys.diag_failed', '诊断失败')}：${msg}` });
     try {
+      if (!tok()) {
+        fail(tr('mob.sys.diag_no_token', '登录态缺失或已过期，请重新登录后再查看设备数据。'));
+        return;
+      }
       const res = await fetch('/api/v3/iot/devices/sync-health', { headers: { Authorization: `Bearer ${tok()}` } });
       const raw = await res.text();
       let json: any = null;
       try { json = raw ? JSON.parse(raw) : null; } catch { /* 非 JSON */ }
       if (json?.ok && json?.data?.reason) {
-        setDiag({ code: String(json.data.code ?? ''), reason: String(json.data.reason) });
+        setDiag({
+          code: String(json.data.code ?? ''),
+          reason: String(json.data.reason),
+          summary: json.data.summary,
+          vendor: json.data.vendor,
+          queryErrors: Array.isArray(json.data.queryErrors) ? json.data.queryErrors : undefined,
+        });
       } else if (json?.error) {
         fail(`${String(json.error).slice(0, 140)}`);
       } else {
@@ -110,12 +140,20 @@ export default function DeviceMonitorMobilePage() {
     } finally { setDiagLoading(false); }
   }, [tr]);
 
-  // 无实时数据时自动跑一次诊断（用户无需手动点；可再点按钮重试）
+  const noLiveData = !loading && allowed && !permLoading && (
+    Boolean(error)
+    || houses.length === 0
+    || (summary.onlineSensorCnt ?? 0) === 0
+    || (summary.totalSensorCnt ?? 0) === 0
+    || (summary.diagnosticCode && summary.diagnosticCode !== 'OK')
+  );
+
+  // 无实时数据 / 错误态时自动跑一次诊断（用户无需手动点；可再点按钮重试）
   useEffect(() => {
-    if (!loading && !error && (summary.totalSensorCnt ?? 0) === 0 && allowed && !diag && !diagLoading) {
+    if (noLiveData && !diag && !diagLoading) {
       void runDiag();
     }
-  }, [loading, error, summary.totalSensorCnt, allowed, diag, diagLoading, runDiag]);
+  }, [noLiveData, diag, diagLoading, runDiag]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,6 +166,14 @@ export default function DeviceMonitorMobilePage() {
       setSummary(json.data.summary ?? {});
       setHouses(Array.isArray(json.data.houses) ? json.data.houses : []);
       setAlarms(Array.isArray(json.data.recentAlarms) ? json.data.recentAlarms : []);
+      if (json.data._diagnostic?.reason) {
+        setDiag({
+          code: String(json.data._diagnostic.code ?? ''),
+          reason: String(json.data._diagnostic.reason),
+          summary: json.data._diagnostic.summary,
+          queryErrors: Array.isArray(json.data._diagnostic.queryErrors) ? json.data._diagnostic.queryErrors : undefined,
+        });
+      }
     } catch {
       setError(tr('mob.sys.network_error', '网络错误，请重试'));
     } finally {
@@ -136,16 +182,68 @@ export default function DeviceMonitorMobilePage() {
   }, [tr]);
   useEffect(() => { if (allowed) void load(); }, [allowed, load]);
 
-  if (permLoading || !allowed) {
-    return <div style={{ minHeight: '100svh', background: t.pageBg }} />;
-  }
-
   const kpi = (label: string, value: string, tone?: string): React.ReactNode => (
     <div style={{ flex: 1, padding: '12px 10px', borderRadius: 12, background: t.sectionBg, border: `1px solid ${t.cardBorder}`, textAlign: 'center' }}>
       <div style={{ fontSize: 20, fontWeight: 800, color: tone ?? t.text, lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>{label}</div>
     </div>
   );
+
+  const DiagnosticPanel = ({ title }: { title?: string }) => (
+    <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-warning) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-warning) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-warning)' }}>
+        ⚠️ {title ?? tr('mob.sys.no_live_data', '当前无实时数据')}
+      </div>
+      {diag ? (
+        <>
+          <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>
+            {diag.code ? `[${diag.code}] ` : ''}{diag.reason}
+          </div>
+          {diag.summary && (
+            <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.6 }}>
+              {tr('mob.sys.diag_summary', '诊断摘要')}：
+              {tr('mob.sys.diag_houses', '鸡舍')} {diag.summary.totalHouses ?? 0}，
+              {tr('mob.sys.diag_mapped', '已绑定')} {diag.summary.mappedActive ?? 0}，
+              {tr('mob.sys.diag_snapshots', '快照')} {diag.summary.totalSnapshots ?? 0}
+            </div>
+          )}
+          {diag.vendor && (
+            <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.6 }}>
+              {tr('mob.sys.diag_vendor', '网关')}：{diag.vendor.ok ? 'OK' : (diag.vendor.error || 'FAIL')}
+            </div>
+          )}
+          {Array.isArray(diag.queryErrors) && diag.queryErrors.length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--status-danger)', lineHeight: 1.6 }}>
+              {tr('mob.sys.diag_query_error', '数据查询错误')}：{diag.queryErrors.slice(0, 2).join('；')}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 12, color: t.textMuted }}>{tr('mob.sys.diag_hint', '数据来自现场 IoT 网关同步，点下方按钮可定位原因。')}</div>
+      )}
+      <button onClick={() => void runDiag()} disabled={diagLoading} style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 600, color: 'var(--status-warning)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)`, borderRadius: 8, padding: '6px 12px', cursor: diagLoading ? 'default' : 'pointer' }}>
+        {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
+      </button>
+    </div>
+  );
+
+  if (permLoading) {
+    return <div style={{ minHeight: '100svh', background: t.pageBg }} />;
+  }
+
+  if (!allowed) {
+    return (
+      <div style={{ minHeight: '100svh', background: t.pageBg, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '100%', maxWidth: 420, padding: 18, borderRadius: 16, background: t.sectionBg, border: `1px solid ${t.cardBorder}`, color: t.text }}>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>{tr('mob.sys.no_device_perm', '无设备监控权限')}</div>
+          <div style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.6 }}>{tr('mob.sys.no_device_perm_hint', '当前账号未获得设备监控菜单权限，请联系管理员开通 MENU_DEVICE_MONITOR 查看权限。')}</div>
+          <button onClick={() => router.replace('/mobile/home')} style={{ marginTop: 14, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: '8px 12px', background: t.cardBg, color: t.text, fontWeight: 700 }}>
+            {tr('mob.sys.back_home', '返回首页')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
@@ -177,20 +275,8 @@ export default function DeviceMonitorMobilePage() {
         </div>
 
         {/* 无数据自诊断：实时传感器为 0 时给出"为什么没有数据"的明确原因 */}
-        {!loading && !error && (summary.totalSensorCnt ?? 0) === 0 && (
-          <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-warning) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-warning) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-warning)' }}>
-              ⚠️ {tr('mob.sys.no_live_data', '当前无实时数据')}
-            </div>
-            {diag ? (
-              <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>{diag.reason}</div>
-            ) : (
-              <div style={{ fontSize: 12, color: t.textMuted }}>{tr('mob.sys.diag_hint', '数据来自现场 IoT 网关同步，点下方按钮可定位原因。')}</div>
-            )}
-            <button onClick={() => void runDiag()} disabled={diagLoading} style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 600, color: 'var(--status-warning)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)`, borderRadius: 8, padding: '6px 12px', cursor: diagLoading ? 'default' : 'pointer' }}>
-              {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
-            </button>
-          </div>
+        {noLiveData && (
+          <DiagnosticPanel title={error ? tr('mob.sys.device_data_unavailable', '设备数据不可用') : undefined} />
         )}
 
         {/* 最近告警 */}
@@ -218,6 +304,9 @@ export default function DeviceMonitorMobilePage() {
         ) : error ? (
           <div style={{ textAlign: 'center', padding: 40, fontSize: 13, color: 'var(--status-danger)' }}>
             <MonitorOff size={32} style={{ opacity: 0.5 }} /><div style={{ marginTop: 8 }}>{error}</div>
+            <button onClick={() => void runDiag()} disabled={diagLoading} style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', background: 'transparent', border: `1px solid color-mix(in srgb, var(--status-danger) 35%, transparent)`, borderRadius: 8, padding: '6px 12px' }}>
+              {diagLoading ? tr('mob.sys.diagnosing', '诊断中…') : tr('mob.sys.diagnose_why', '诊断：为什么没有数据？')}
+            </button>
           </div>
         ) : houses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, fontSize: 13, color: t.textFaint }}>
