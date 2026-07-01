@@ -1,6 +1,6 @@
 # Runtime Smoke Check
 
-Generated at: 2026-07-01T14:09:20.343Z
+Generated at: 2026-07-01T14:37:24.028Z
 Base URL: https://erp.eggslao.com
 API URL: https://erp.eggslao.com
 Decision: GO
