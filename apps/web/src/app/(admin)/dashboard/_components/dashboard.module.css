@@ -4,11 +4,12 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-height: 156px;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 168px;
   transition: transform 0.18s, box-shadow 0.18s;
 }
 .statCard:hover {
@@ -48,34 +49,43 @@
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
 .statValueRow {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 7px;
   min-width: 0;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .statValue {
   color: var(--text-primary);
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: 34px;
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statValueCompact {
+  font-size: 28px;
 }
 
 .statUnit {
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.35;
-  max-width: 100%;
+  line-height: 1.5;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .statHint {
@@ -83,6 +93,7 @@
   color: var(--text-tertiary);
   font-size: 12px;
   line-height: 1.4;
+  min-height: 34px;
 }
 
 .skeleton {

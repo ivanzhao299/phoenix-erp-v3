@@ -31,6 +31,19 @@ const CARD_THEMES = [{
   bg: 'rgba(139,92,246,0.08)'
 } // 紫：农场直销
 ];
+
+function normalizeMetric(value?: string, unit?: string) {
+  const normalizedValue = value == null || String(value).trim() === '' ? '—' : String(value).trim();
+  const rawUnit = unit == null ? '' : String(unit).trim();
+  const normalizedUnit = rawUnit
+    .replace(/\s*\([^)]*\)\s*/g, '')
+    .replace(/\s*·.*$/g, '')
+    .replace(/^条.*$/, '条')
+    .trim();
+  const isLongValue = normalizedValue.length >= 9;
+  return { value: normalizedValue, unit: normalizedUnit, isLongValue };
+}
+
 function StatCard({
   title,
   value,
@@ -53,6 +66,7 @@ function StatCard({
   themeIdx?: number;
 }) {
   const theme = isAlert ? CARD_THEMES[3] : CARD_THEMES[themeIdx % CARD_THEMES.length];
+  const metric = normalizeMetric(value, unit);
   return <div className={styles.statCard} style={{
     borderTop: `3px solid ${theme.accent}`
   }}>
@@ -69,14 +83,14 @@ function StatCard({
       </div>
       <div>
         <h3 className={styles.statTitle}>{title}</h3>
-        <div className={styles.statValueRow}>
+        <div className={styles.statValueRow} title={`${title}: ${metric.value}${metric.unit ? ` ${metric.unit}` : ''}`}>
           {loading ? <div className={styles.skeleton} style={{
           height: 36,
           width: 110
-        }} /> : <span className={styles.statValue} style={{ color: theme.accent }}>
-              {value ?? '–'}
+        }} /> : <span className={`${styles.statValue} ${metric.isLongValue ? styles.statValueCompact : ''}`} style={{ color: theme.accent }}>
+              {metric.value}
             </span>}
-          {unit && <span className={styles.statUnit}>{unit}</span>}
+          {metric.unit && <span className={styles.statUnit}>{metric.unit}</span>}
         </div>
         {hint && <div className={styles.statHint}>{hint}</div>}
       </div>
