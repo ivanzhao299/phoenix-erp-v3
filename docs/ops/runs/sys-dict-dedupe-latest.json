@@ -5,7 +5,7 @@
     "mode": "dry-run",
     "db_user": "mac",
     "database": "phoenix_erp",
-    "checked_at": "2026-07-01T12:52:42.046457+08:00",
+    "checked_at": "2026-07-01T17:35:45.725836+08:00",
     "dict_types": 47,
     "total_rows": 247,
     "type_summary": [
@@ -339,7 +339,12 @@
         "distinct_labels": 4
       }
     ],
+    "unique_index": {
+      "indexdef": "CREATE UNIQUE INDEX uq_sys_dict_type_code ON public.sys_dict USING btree (dict_type, dict_code)",
+      "indexname": "uq_sys_dict_type_code"
+    },
     "exact_duplicates": [],
+    "unique_index_present": true,
     "exact_duplicate_groups": 0,
     "active_label_duplicates": [
       {
@@ -378,7 +383,7 @@
     "mode": "dry-run",
     "db_user": "mac",
     "database": "phoenix_erp",
-    "checked_at": "2026-07-01T12:52:42.07853+08:00",
+    "checked_at": "2026-07-01T17:35:45.757107+08:00",
     "dict_types": 47,
     "total_rows": 247,
     "type_summary": [
@@ -712,7 +717,12 @@
         "distinct_labels": 4
       }
     ],
+    "unique_index": {
+      "indexdef": "CREATE UNIQUE INDEX uq_sys_dict_type_code ON public.sys_dict USING btree (dict_type, dict_code)",
+      "indexname": "uq_sys_dict_type_code"
+    },
     "exact_duplicates": [],
+    "unique_index_present": true,
     "exact_duplicate_groups": 0,
     "active_label_duplicates": [
       {
@@ -752,6 +762,7 @@
   "conclusion": "GO",
   "notes": [
     "Only exact duplicate (dict_type, dict_code) rows are auto-deduped.",
-    "Same label/value under different dict_code is reported for manual review and not auto-deleted."
+    "Same label/value under different dict_code is reported for manual review and not auto-deleted.",
+    "A unique index on (dict_type, dict_code) is required to prevent future duplicate seed drift."
   ]
 }

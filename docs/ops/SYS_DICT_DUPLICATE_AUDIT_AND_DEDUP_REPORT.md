@@ -1,6 +1,6 @@
 # Sys Dict Duplicate Audit and Dedup Report
 
-Generated at: 2026-07-01T04:52:42.084Z
+Generated at: 2026-07-01T09:35:45.762Z
 
 ## Scope
 
@@ -47,6 +47,15 @@ Generated at: 2026-07-01T04:52:42.084Z
 | exact duplicate rows remaining | 0 |
 | active label duplicate groups | 2 |
 | active value duplicate groups | 0 |
+| unique index present | yes |
+
+## Preventive Unique Index
+
+PASS. `uq_sys_dict_type_code` exists.
+
+```sql
+CREATE UNIQUE INDEX uq_sys_dict_type_code ON public.sys_dict USING btree (dict_type, dict_code)
+```
 
 ## Exact Duplicate Groups
 
@@ -65,10 +74,10 @@ No active dict-value duplicate groups found.
 
 ## Conclusion
 
-GO. Exact sys_dict duplicate rows are cleared or were already absent.
+GO. Exact sys_dict duplicate rows are cleared or were already absent, and the preventive unique index is present.
 
 ## Next Controls
 
-1. Add or verify a DB unique index for `sys_dict(dict_type, dict_code)` in a dedicated migration gate if not already present.
+1. Keep verifying the DB unique index for `sys_dict(dict_type, dict_code)` in this audit before closing dictionary dedupe tasks.
 2. Keep dictionary seed migrations idempotent with `ON CONFLICT` or `WHERE NOT EXISTS`.
 3. Review label/value duplicates separately with business owners before changing codes.

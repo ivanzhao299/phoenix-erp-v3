@@ -81,6 +81,17 @@ type_summary AS (
          COUNT(DISTINCT COALESCE(NULLIF(TRIM(dict_label_zh), ''), NULLIF(TRIM(name), ''), NULLIF(TRIM(dict_value), ''), dict_code)) AS distinct_labels
   FROM sys_dict
   GROUP BY dict_type
+),
+unique_index AS (
+  SELECT indexname, indexdef
+  FROM pg_indexes
+  WHERE schemaname = 'public'
+    AND tablename = 'sys_dict'
+    AND indexdef ILIKE '%UNIQUE%'
+    AND indexdef ILIKE '%dict_type%'
+    AND indexdef ILIKE '%dict_code%'
+  ORDER BY indexname
+  LIMIT 1
 )
 SELECT jsonb_build_object(
   'database', current_database(),
@@ -96,6 +107,8 @@ SELECT jsonb_build_object(
   'exact_duplicates', COALESCE((SELECT jsonb_agg(jsonb_build_object('dict_type', dict_type, 'dict_code', dict_code, 'cnt', cnt, 'keep_id', keep_id, 'ids', ids) ORDER BY cnt DESC, dict_type, dict_code) FROM exact_dup_groups), '[]'::jsonb),
   'active_label_duplicates', COALESCE((SELECT jsonb_agg(jsonb_build_object('dict_type', dict_type, 'label', label, 'cnt', cnt, 'ids', ids, 'codes', codes) ORDER BY cnt DESC, dict_type, label) FROM active_label_dup), '[]'::jsonb),
   'active_value_duplicates', COALESCE((SELECT jsonb_agg(jsonb_build_object('dict_type', dict_type, 'dict_value', dict_value, 'cnt', cnt, 'ids', ids, 'codes', codes) ORDER BY cnt DESC, dict_type, dict_value) FROM active_value_dup), '[]'::jsonb),
+  'unique_index_present', EXISTS(SELECT 1 FROM unique_index),
+  'unique_index', COALESCE((SELECT jsonb_build_object('indexname', indexname, 'indexdef', indexdef) FROM unique_index), 'null'::jsonb),
   'type_summary', COALESCE((SELECT jsonb_agg(jsonb_build_object('dict_type', dict_type, 'total', total, 'active', active, 'distinct_codes', distinct_codes, 'distinct_labels', distinct_labels) ORDER BY dict_type) FROM type_summary), '[]'::jsonb)
 )::text;
 `;
@@ -150,10 +163,11 @@ const result = {
   after,
   deleted_rows: deletedRows,
   backup_table: appliedBackupTable,
-  conclusion: after.exact_duplicate_groups === 0 ? 'GO' : 'HOLD',
+  conclusion: after.exact_duplicate_groups === 0 && after.unique_index_present ? 'GO' : 'HOLD',
   notes: [
     'Only exact duplicate (dict_type, dict_code) rows are auto-deduped.',
     'Same label/value under different dict_code is reported for manual review and not auto-deleted.',
+    'A unique index on (dict_type, dict_code) is required to prevent future duplicate seed drift.',
   ],
 };
 
@@ -223,6 +237,13 @@ Generated at: ${new Date().toISOString()}
 | exact duplicate rows remaining | ${r.after.exact_duplicate_rows_to_remove} |
 | active label duplicate groups | ${r.after.active_label_duplicate_groups} |
 | active value duplicate groups | ${r.after.active_value_duplicate_groups} |
+| unique index present | ${r.after.unique_index_present ? 'yes' : 'no'} |
+
+## Preventive Unique Index
+
+${r.after.unique_index_present
+  ? `PASS. \`${r.after.unique_index.indexname}\` exists.\n\n\`\`\`sql\n${r.after.unique_index.indexdef}\n\`\`\``
+  : 'HOLD. No unique index covering `sys_dict(dict_type, dict_code)` was found. Future seed reruns can recreate duplicates.'}
 
 ## Exact Duplicate Groups
 
@@ -239,12 +260,12 @@ ${valueRows.length ? table(valueRows, ['dict_type', 'dict_value', 'cnt', 'ids', 
 ## Conclusion
 
 ${r.conclusion === 'GO'
-  ? 'GO. Exact sys_dict duplicate rows are cleared or were already absent.'
-  : 'HOLD. Exact sys_dict duplicates remain and require review.'}
+  ? 'GO. Exact sys_dict duplicate rows are cleared or were already absent, and the preventive unique index is present.'
+  : 'HOLD. Exact sys_dict duplicates remain or the preventive unique index is missing.'}
 
 ## Next Controls
 
-1. Add or verify a DB unique index for \`sys_dict(dict_type, dict_code)\` in a dedicated migration gate if not already present.
+1. Keep verifying the DB unique index for \`sys_dict(dict_type, dict_code)\` in this audit before closing dictionary dedupe tasks.
 2. Keep dictionary seed migrations idempotent with \`ON CONFLICT\` or \`WHERE NOT EXISTS\`.
 3. Review label/value duplicates separately with business owners before changing codes.
 `;
