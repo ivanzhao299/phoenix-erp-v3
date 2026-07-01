@@ -11075,5 +11075,6 @@
   "mob.sys.diag_query_error": "Data query error",
   "mob.sys.no_device_perm_hint": "This account does not have the device monitoring menu permission. Ask an administrator to grant MENU_DEVICE_MONITOR view access.",
   "mob.sys.back_home": "Back home",
-  "mob.sys.device_data_unavailable": "Device data unavailable"
+  "mob.sys.device_data_unavailable": "Device data unavailable",
+  "ui.UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限": "UAT data is temporarily unavailable. Refresh later or ask an administrator to check API permissions."
 }

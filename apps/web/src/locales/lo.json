@@ -11075,5 +11075,6 @@
   "mob.sys.diag_query_error": "ຂໍ້ຜິດພາດການຄົ້ນຂໍ້ມູນ",
   "mob.sys.no_device_perm_hint": "ບັນຊີນີ້ບໍ່ມີສິດເມນູຕິດຕາມອຸປະກອນ. ກະລຸນາຂໍໃຫ້ admin ເປີດສິດ MENU_DEVICE_MONITOR.",
   "mob.sys.back_home": "ກັບໜ້າຫຼັກ",
-  "mob.sys.device_data_unavailable": "ຂໍ້ມູນອຸປະກອນບໍ່ພ້ອມໃຊ້"
+  "mob.sys.device_data_unavailable": "ຂໍ້ມູນອຸປະກອນບໍ່ພ້ອມໃຊ້",
+  "ui.UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限": "ຂໍ້ມູນ UAT ຍັງບໍ່ພ້ອມໃຊ້. ກະລຸນາຣີເຟຣດພາຍຫຼັງ ຫຼື ຂໍໃຫ້ admin ກວດສອບສິດ API."
 }
