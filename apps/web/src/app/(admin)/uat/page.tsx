@@ -26,6 +26,45 @@ const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${tok()}`
 });
+async function safeJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const res = await fetch(path, { headers: authHeaders() });
+    if (!res.ok) return fallback;
+    const json = await res.json().catch(() => null);
+    return (json?.data ?? json ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
+}
+function normalizeReadiness(input: unknown): Readiness | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Partial<Readiness>;
+  const score = Number(raw.score);
+  const dimensions = Array.isArray(raw.dimensions) ? raw.dimensions : [];
+  return {
+    score: Number.isFinite(score) ? score : 0,
+    status: String(raw.status || ""),
+    hasCriticalIssues: Boolean(raw.hasCriticalIssues),
+    dimensions: dimensions.map((d, index) => {
+      const row = (d || {}) as Partial<ReadinessDimension>;
+      const weight = Number(row.weight);
+      const passed = Number(row.passed);
+      const total = Number(row.total);
+      const rowScore = Number(row.score);
+      const weighted = Number(row.weighted);
+      return {
+        key: row.key || `dimension-${index}`,
+        dimensionName: row.dimensionName || row.label || row.key || "未命名维度",
+        label: row.label,
+        weight: Number.isFinite(weight) ? weight : 0,
+        passed: Number.isFinite(passed) ? passed : 0,
+        total: Number.isFinite(total) ? total : 0,
+        score: Number.isFinite(rowScore) ? rowScore : 0,
+        weighted: Number.isFinite(weighted) ? weighted : undefined,
+      };
+    }),
+  };
+}
 const MODULE_LABELS: Record<string, string> = {
   PROCUREMENT: "采购管理",
   FINANCE: "财务管理",
@@ -228,25 +267,23 @@ export default function UATPage() {
   const [trainingSummary, setTrainingSummary] = useState<TrainingSummary | null>(null);
   const [checklistProgress, setChecklistProgress] = useState<ChecklistProgress[]>([]);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [dashboardError, setDashboardError] = useState("");
   const loadDashboard = useCallback(async () => {
-    try {
-      const [fs, ts, cp, rd] = await Promise.all([fetch("/api/uat/feedbacks/summary", {
-        headers: authHeaders()
-      }).then(r => r.json()), fetch("/api/uat/trainings/summary", {
-        headers: authHeaders()
-      }).then(r => r.json()), fetch("/api/uat/checklists/progress", {
-        headers: authHeaders()
-      }).then(r => r.json()), fetch("/api/uat/readiness", {
-        headers: authHeaders()
-      }).then(r => r.json())]);
-      setFeedbackSummary(fs?.data ?? fs ?? null);
-      setTrainingSummary(ts?.data ?? ts ?? null);
-      setChecklistProgress(cp?.data ?? cp ?? []);
-      setReadiness(rd?.data ?? rd ?? null);
-    } catch {
-      // fail silently — dashboard shows dashes
+    setDashboardError("");
+    const [fs, ts, cp, rd] = await Promise.all([
+      safeJson<FeedbackSummary | null>("/api/uat/feedbacks/summary", null),
+      safeJson<TrainingSummary | null>("/api/uat/trainings/summary", null),
+      safeJson<ChecklistProgress[]>("/api/uat/checklists/progress", []),
+      safeJson<unknown>("/api/uat/readiness", null),
+    ]);
+    setFeedbackSummary(fs);
+    setTrainingSummary(ts);
+    setChecklistProgress(Array.isArray(cp) ? cp : []);
+    setReadiness(normalizeReadiness(rd));
+    if (!fs && !ts && (!Array.isArray(cp) || cp.length === 0) && !rd) {
+      setDashboardError(t('ui.UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限','UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限'));
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
@@ -261,6 +298,18 @@ export default function UATPage() {
     margin: "0 auto"
   }}>
       <PageHeaderV2 title={t('ui.UAT & 试运行','UAT & 试运行')} subtitle={t('ui.用户验收测试、培训记录、验收清单与上线准备度管理','用户验收测试、培训记录、验收清单与上线准备度管理')} />
+
+      {dashboardError && <div style={{
+      marginBottom: 16,
+      padding: "10px 14px",
+      border: "1px solid var(--status-warning)",
+      borderRadius: 8,
+      background: "var(--status-warning-bg-faint)",
+      color: "var(--text-primary)",
+      fontSize: 13
+    }}>
+        {dashboardError}
+      </div>}
 
       {/* ── Dashboard ── */}
       <div style={{
