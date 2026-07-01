@@ -159,6 +159,13 @@ interface KpiData {
   /** D2：false=后端已按用户 store/farm 数据域收口（场区/门店视图，非集团口径） */
   isGroupView?: boolean;
   scopeCode?: string | null;
+  meta?: {
+    today?: string;
+    todayLayRate?: number | null;
+    posTxnCount?: number;
+    stockAvailableTotal?: number;
+    farmSalesAmount?: number;
+  };
 }
 const EMPTY_STATS: NonNullable<KpiData['stats']> = {
   eggs: {
@@ -224,7 +231,24 @@ export default function DashboardKPIs({
   usePolling(fetchKpi, 60_000);
   const stats = kpi.stats ?? EMPTY_STATS;
   const chartData = kpi.chartData ?? [];
-  const maxVal = chartData.length ? Math.max(...chartData.map(d => Math.max(d.prod, d.sales, d.farmSales ?? 0)), 1) : 1;
+  const maxProd = chartData.length ? Math.max(...chartData.map(d => d.prod), 1) : 1;
+  const maxPos = chartData.length ? Math.max(...chartData.map(d => d.sales), 1) : 1;
+  const maxFarm = chartData.length ? Math.max(...chartData.map(d => d.farmSales ?? 0), 1) : 1;
+  const metricIsZero = (value?: string) => Number(String(value ?? '').replace(/,/g, '')) === 0;
+  const eggsHint = metricIsZero(stats.eggs.value)
+    ? t('dash.eggsNoDataHint', '今日暂无产蛋日报；有日报后自动汇总')
+    : kpi.meta?.todayLayRate != null
+      ? `${t('dash.eggsTodayHint', '今日产蛋，按当前场区/数据域统计')} · ${t('dash.layRate', '产蛋率')} ${kpi.meta.todayLayRate}%`
+      : t('dash.eggsTodayHint', '今日产蛋，按当前场区/数据域统计');
+  const stockHint = metricIsZero(stats.stock.value)
+    ? t('dash.stockNoDataHint', '暂无可用库存或当前数据域无库存')
+    : t('dash.totalStockHint', '当前可用库存汇总');
+  const posHint = metricIsZero((stats.salesPos ?? stats.sales)?.value)
+    ? t('dash.todayPosNoDataHint', '今日暂无 POS 收银记录')
+    : `${t('dash.todayPosHint', '今日门店 POS 实收金额')} · ${kpi.meta?.posTxnCount ?? 0} ${t('dash.txns', '笔')}`;
+  const farmHint = metricIsZero(stats.salesFarm?.value)
+    ? t('dash.todayFarmSalesNoDataHint', '今日暂无农场直销订单')
+    : t('dash.todayFarmSalesHint', '今日农场直销订单金额');
   return <div style={{
     display: 'flex',
     flexDirection: 'column',
@@ -272,10 +296,10 @@ export default function DashboardKPIs({
       gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
       gap: 20
     }}>
-        <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={t('dash.eggsTodayHint', '今日产蛋，按当前场区/数据域统计')} />
-        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={t('dash.totalStockHint', '当前可用库存汇总')} />
-        <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={t('dash.todayPosHint', '今日门店 POS 实收金额')} />
-        <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} hint={t('dash.todayFarmSalesHint', '今日农场直销订单金额')} />
+        <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={eggsHint} />
+        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
+        <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={posHint} />
+        <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} hint={farmHint} />
         <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} hint={t('dash.pendingAlertsHint', '未处理业务预警与设备告警合计')} alert />
       </div>
 
@@ -483,7 +507,7 @@ export default function DashboardKPIs({
                 top: -8,
                 fontSize: 11,
                 color: 'var(--text-secondary)'
-              }}>{Math.round(maxVal * pct / 100)}k</span>
+              }}>{pct}%</span>
                 </div>)}
             </div>
             <div style={{
@@ -512,11 +536,11 @@ export default function DashboardKPIs({
                 width: '100%',
                 justifyContent: 'center'
               }}>
-                    <div title={`${t('dash.barEggs', '产蛋')} ${d.prod}k`} style={{
+                    <div title={`${t('dash.barEggs', '产蛋')} ${d.prod}k ${t('dash.thousandEggs', '千枚')}`} style={{
                   width: 11,
                   background: 'var(--color-primary)',
                   borderRadius: '4px 4px 0 0',
-                  height: `${d.prod / maxVal * 100}%`,
+                  height: `${d.prod / maxProd * 100}%`,
                   transition: 'height 0.8s ease-out',
                   boxShadow: '0 0 8px rgba(14,165,233,0.3)'
                 }} />
@@ -524,14 +548,14 @@ export default function DashboardKPIs({
                   width: 11,
                   background: 'linear-gradient(180deg,var(--status-warning),var(--status-warning))',
                   borderRadius: '4px 4px 0 0',
-                  height: `${d.sales / maxVal * 100}%`,
+                  height: `${d.sales / maxPos * 100}%`,
                   transition: 'height 0.8s ease-out 0.15s'
                 }} />
                     <div title={`${t('dash.barFarm', '农场直销')} ${(d.farmSales ?? 0).toLocaleString()} LAK`} style={{
                   width: 11,
                   background: 'linear-gradient(180deg,var(--color-purple-500),var(--color-purple-400))',
                   borderRadius: '4px 4px 0 0',
-                  height: `${(d.farmSales ?? 0) / maxVal * 100}%`,
+                  height: `${(d.farmSales ?? 0) / maxFarm * 100}%`,
                   transition: 'height 0.8s ease-out 0.3s'
                 }} />
                   </div>

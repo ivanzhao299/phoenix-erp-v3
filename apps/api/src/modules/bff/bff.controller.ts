@@ -218,15 +218,31 @@ export class DashboardBffController {
       const d = new Date(); d.setDate(d.getDate() - (6 - i));
       return d.toISOString().slice(0, 10);
     });
+    const eggChartRows: any[] = await safe(
+      this.em.query(
+        farmKpiCode
+          ? `SELECT log_date::text AS day, COALESCE(SUM(eggs_produced),0)::int AS eggs
+               FROM brd_daily_logs
+              WHERE log_date >= (CURRENT_DATE - INTERVAL '6 days') AND farm_code = $1
+              GROUP BY day ORDER BY day`
+          : `SELECT log_date::text AS day, COALESCE(SUM(eggs_produced),0)::int AS eggs
+               FROM brd_daily_logs
+              WHERE log_date >= (CURRENT_DATE - INTERVAL '6 days')
+              GROUP BY day ORDER BY day`,
+        farmKpiCode ? [farmKpiCode] : [],
+      ),
+      [],
+    );
     const mergedChart = last7.map(dateStr => {
       const dow  = new Date(dateStr).getDay();
       const posR  = chartRows.find((r: any) => Number(r.dow) === dow);
       const farmR = farmChartRows.find((f: any) => Number(f.dow) === dow);
+      const eggR = eggChartRows.find((e: any) => String(e.day).slice(0, 10) === dateStr);
       return {
         day:       `周${days[dow]}`,
         sales:     posR  ? Number(posR.sales)  : 0,
         farmSales: farmR ? Number(farmR.sales) : 0,
-        prod:      posR  ? Number(posR.txns) * 15 : 0,
+        prod:      eggR  ? Math.round(Number(eggR.eggs) / 1000) : 0,
       };
     });
 
@@ -234,11 +250,11 @@ export class DashboardBffController {
       code: 200,
       data: {
         stats: {
-          eggs:      { value: todayEggs.toLocaleString(), unit: eggsUnit, trend: null },
-          stock:     { value: Number(stockRow?.total || 0).toLocaleString(), unit: '托 (可用库存)', trend: '1.8' },
-          salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK · POS 收银' },
-          salesFarm: { value: Number(todayFarmSales?.total || 0).toFixed(0), unit: 'LAK · 农场直销' },
-          alerts:    { value: String(totalAlerts + deviceStats.activeAlerts), unit: '条未处理预警', alert: (totalAlerts + deviceStats.activeAlerts) > 0 },
+          eggs:      { value: todayEggs.toLocaleString(), unit: '枚', trend: null },
+          stock:     { value: Number(stockRow?.total || 0).toLocaleString(), unit: '托', trend: null },
+          salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK' },
+          salesFarm: { value: Number(todayFarmSales?.total || 0).toFixed(0), unit: 'LAK' },
+          alerts:    { value: String(totalAlerts + deviceStats.activeAlerts), unit: '条', alert: (totalAlerts + deviceStats.activeAlerts) > 0 },
         },
         chartData: mergedChart,
         alertList,
@@ -246,7 +262,16 @@ export class DashboardBffController {
         // D2：标识本次返回是否集团口径（false=已按用户 store/farm 收口），供前端切换标题
         isGroupView: isGlobalKpi,
         scopeCode: scopeStore,
-        meta: { today, layingTotal, todayEggs, todayLayRate },
+        meta: {
+          today,
+          layingTotal,
+          todayEggs,
+          todayLayRate,
+          scopeStore,
+          posTxnCount: Number(todaySales?.txns) || 0,
+          stockAvailableTotal: Number(stockRow?.total || 0),
+          farmSalesAmount: Number(todayFarmSales?.total || 0),
+        },
       },
     };
   }
