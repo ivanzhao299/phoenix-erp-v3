@@ -65,6 +65,40 @@ function normalizeReadiness(input: unknown): Readiness | null {
     }),
   };
 }
+function normalizeChecklistItem(input: unknown): ChecklistItem {
+  const row = (input || {}) as Record<string, unknown>;
+  const id = Number(row.id);
+  const itemName = String(row.itemName ?? row.item_name ?? row.name ?? "未命名验收项");
+  return {
+    id: Number.isSafeInteger(id) ? id : 0,
+    itemCode: String(row.itemCode ?? row.item_code ?? row.code ?? ""),
+    itemName,
+    itemDescription: String(row.itemDescription ?? row.item_description ?? ""),
+    status: String(row.status ?? "NOT_STARTED"),
+    remark: row.remark == null ? undefined : String(row.remark),
+    priority: String(row.priority ?? ""),
+    testerName: row.testerName == null && row.tester_name == null ? undefined : String(row.testerName ?? row.tester_name),
+    testedAt: row.testedAt == null && row.tested_at == null ? undefined : String(row.testedAt ?? row.tested_at),
+  };
+}
+function normalizeChecklistGroups(input: unknown): ChecklistGroup[] {
+  if (!Array.isArray(input)) return [];
+  return input.map((g, index) => {
+    const row = (g || {}) as Record<string, unknown>;
+    const moduleCode = String(row.moduleCode ?? row.module_code ?? `MODULE_${index + 1}`);
+    const items = Array.isArray(row.items) ? row.items.map(normalizeChecklistItem).filter(i => i.id > 0) : [];
+    return {
+      moduleCode,
+      items,
+      total: Number(row.total ?? items.length),
+      passed: Number(row.passed ?? items.filter(i => i.status === "PASSED").length),
+      failed: Number(row.failed ?? items.filter(i => i.status === "FAILED").length),
+      blocked: Number(row.blocked ?? items.filter(i => i.status === "BLOCKED").length),
+      notStarted: Number(row.notStarted ?? row.not_started ?? items.filter(i => i.status === "NOT_STARTED").length),
+      passPct: Number(row.passPct ?? row.pass_pct ?? 0),
+    };
+  });
+}
 const MODULE_LABELS: Record<string, string> = {
   PROCUREMENT: "采购管理",
   FINANCE: "财务管理",
@@ -184,13 +218,22 @@ interface ChecklistItem {
   id: number;
   itemCode: string;
   itemName: string;
+  itemDescription?: string;
   status: string;
   remark?: string;
   priority: string;
+  testerName?: string;
+  testedAt?: string;
 }
 interface ChecklistGroup {
   moduleCode: string;
   items: ChecklistItem[];
+  total?: number;
+  passed?: number;
+  failed?: number;
+  blocked?: number;
+  notStarted?: number;
+  passPct?: number;
 }
 interface ChecklistProgress {
   moduleCode: string;
@@ -1122,7 +1165,7 @@ function ChecklistsTab({
         headers: authHeaders()
       });
       const json = await res.json();
-      setGroups(json?.data ?? json ?? []);
+      setGroups(normalizeChecklistGroups(json?.data ?? json ?? []));
     } catch {
       setGroups([]);
     }
@@ -1272,13 +1315,14 @@ function ChecklistsTab({
               color: "var(--text-disabled)",
               marginTop: 2
             }}>
-                      {item.itemCode} ·{" "}
+                      {(item.itemCode || item.itemDescription || "验收项")}{' · '}
                       <span style={{
                 color: ITEM_STATUS_COLOR[item.status] ?? "var(--text-secondary)",
                 fontWeight: 600
               }}>
                         {item.status}
                       </span>
+                      {item.testerName ? ` · ${item.testerName}` : ""}
                     </div>
                   </div>
                   <input style={{
@@ -1760,10 +1804,14 @@ function ReadinessTab({
                       {(weightValue * 100).toFixed(0)}%
                     </td>
                     <td>
-                      <span className={u.fw600}>{d.passed}</span>
-                      <span style={{
+                      {d.total > 0 ? <>
+                        <span className={u.fw600}>{d.passed}</span>
+                        <span style={{
                   color: "var(--text-disabled)"
                 }}> / {d.total}</span>
+                      </> : <span style={{
+                        color: "var(--text-disabled)"
+                      }}>{d.key === "STABILITY" ? "运行指标" : "未配置清单"}</span>}
                     </td>
                     <td>
                       <span style={{

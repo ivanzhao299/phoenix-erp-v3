@@ -98,9 +98,14 @@ export class UatChecklistService {
 
   /** 更新单项验收结果 */
   async update(id: number, dto: UpdateChecklistDto) {
+    const checklistId = Number(id);
+    if (!Number.isSafeInteger(checklistId) || checklistId <= 0) {
+      throw new BadRequestException(`无效验收项 ID: ${id}`);
+    }
+
     const rows = await this.ds.query<any[]>(
-      `SELECT id FROM uat_checklists WHERE id = $1`,
-      [id],
+      `SELECT id FROM uat_checklists WHERE id = $1::bigint`,
+      [checklistId],
     );
     if (!rows.length) throw new NotFoundException(`验收项 ${id} 不存在`);
 
@@ -109,30 +114,26 @@ export class UatChecklistService {
       throw new BadRequestException(`无效状态: ${dto.status}`);
     }
 
+    const testerId = Number(dto.testerId);
+    const safeTesterId = Number.isSafeInteger(testerId) && testerId > 0 ? testerId : null;
+    const testerName = String(dto.testerName ?? '').trim() || null;
+    const remark = String(dto.remark ?? '').trim() || null;
+
     await this.ds.query(
-      `WITH payload AS (
-         SELECT
-           $1::bigint AS checklist_id,
-           $2::text   AS next_status,
-           $3::bigint AS next_tester_id,
-           $4::text   AS next_tester_name,
-           $5::text   AS next_remark
-       )
-       UPDATE uat_checklists AS c
-       SET status      = payload.next_status::varchar,
-           tester_id   = payload.next_tester_id,
-           tester_name = payload.next_tester_name::varchar,
+      `UPDATE uat_checklists AS c
+       SET status      = $2::varchar,
+           tester_id   = $3::bigint,
+           tester_name = $4::varchar,
            tested_at   = CASE
-             WHEN payload.next_status IN ('PASSED','FAILED','BLOCKED') THEN NOW()
-             WHEN payload.next_status = 'NOT_STARTED' THEN NULL
+             WHEN $2::varchar = ANY (ARRAY['PASSED','FAILED','BLOCKED']::varchar[]) THEN NOW()
+             WHEN $2::varchar = 'NOT_STARTED' THEN NULL
              ELSE c.tested_at
            END,
-           remark      = payload.next_remark
-       FROM payload
-       WHERE c.id = payload.checklist_id`,
-      [id, dto.status, dto.testerId ?? null, dto.testerName ?? null, dto.remark ?? null],
+           remark      = $5::text
+       WHERE c.id = $1::bigint`,
+      [checklistId, dto.status, safeTesterId, testerName, remark],
     );
-    return this.ds.query<any[]>(`SELECT * FROM uat_checklists WHERE id = $1`, [id]).then(r => r[0]);
+    return this.ds.query<any[]>(`SELECT * FROM uat_checklists WHERE id = $1::bigint`, [checklistId]).then(r => r[0]);
   }
 
   /** 整体验收进度统计（按模块） */
