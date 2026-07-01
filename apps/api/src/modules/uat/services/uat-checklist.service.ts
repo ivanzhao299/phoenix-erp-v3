@@ -111,11 +111,11 @@ export class UatChecklistService {
 
     await this.ds.query(
       `UPDATE uat_checklists
-       SET status = $2,
-           tester_id   = $3,
-           tester_name = $4,
-           tested_at   = CASE WHEN $2 IN ('PASSED','FAILED','BLOCKED') THEN NOW() ELSE tested_at END,
-           remark      = $5
+       SET status      = $2::varchar,
+           tester_id   = $3::integer,
+           tester_name = $4::varchar,
+           tested_at   = CASE WHEN $2::varchar IN ('PASSED','FAILED','BLOCKED') THEN NOW() ELSE tested_at END,
+           remark      = $5::text
        WHERE id = $1`,
       [id, dto.status, dto.testerId ?? null, dto.testerName ?? null, dto.remark ?? null],
     );

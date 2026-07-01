@@ -1082,7 +1082,7 @@ function ChecklistsTab({
   const handleStatus = async (id: number, status: string) => {
     const remark = remarksInput[id] ?? "";
     try {
-      await fetch(`/api/uat/checklists/${id}`, {
+      const res = await fetch(`/api/uat/checklists/${id}`, {
         method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify({
@@ -1090,10 +1090,21 @@ function ChecklistsTab({
           remark
         })
       });
+      if (!res.ok) {
+        let message = t('ui.保存失败请重试', '保存失败，请重试');
+        try {
+          const err = await res.json();
+          message = err?.message || err?.error || message;
+        } catch {
+          // ignore malformed error body
+        }
+        alert(message);
+        return;
+      }
       load();
       onProgressRefresh();
-    } catch {
-      /* ignore */
+    } catch (e: any) {
+      alert(e?.message || t('ui.保存失败请重试', '保存失败，请重试'));
     }
   };
   const ITEM_STATUS_COLOR: Record<string, string> = {
