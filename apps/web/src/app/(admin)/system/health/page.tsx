@@ -27,6 +27,9 @@ interface HealthSummary {
   cpu: {
     userMs: number;
     systemMs: number;
+    totalMs?: number;
+    uptimeSec?: number;
+    avgCpuPct?: number;
   };
   recentErrors: number;
   openAlerts: number;
@@ -42,6 +45,15 @@ function formatMs(ms?: number) {
   if (typeof ms !== "number" || Number.isNaN(ms)) return "—";
   if (ms >= 60_000) return `${Math.round(ms / 1000).toLocaleString()} s`;
   return `${ms.toLocaleString()} ms`;
+}
+
+function formatDuration(sec?: number) {
+  if (typeof sec !== "number" || Number.isNaN(sec)) return "—";
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h}h ${m}m`;
 }
 
 function hasMemoryPressure(memory?: HealthSummary["memory"]) {
@@ -179,9 +191,11 @@ export default function SystemHealthPage() {
   }, [fetchData]);
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
   const healthReasons = getHealthReasons(summary);
-  const cpuTotal = typeof summary?.cpu.userMs === "number" && typeof summary?.cpu.systemMs === "number"
-    ? summary.cpu.userMs + summary.cpu.systemMs
-    : undefined;
+  const cpuTotal = typeof summary?.cpu.totalMs === "number"
+    ? summary.cpu.totalMs
+    : typeof summary?.cpu.userMs === "number" && typeof summary?.cpu.systemMs === "number"
+      ? summary.cpu.userMs + summary.cpu.systemMs
+      : undefined;
   const memoryPressure = hasMemoryPressure(summary?.memory);
   return <div>
       <PageHeader
@@ -226,7 +240,16 @@ export default function SystemHealthPage() {
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
         <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.未处理告警','未处理告警')} value={summary?.openAlerts ?? "—"} borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={t('ui.点击告警页面处理','点击告警页面处理')} />
-        <MetricCard icon={<Activity size={16} />} title={t('ui.进程累计 CPU 时间','进程累计 CPU 时间')} value={formatMs(cpuTotal)} borderColor="var(--status-info)" sub={`用户态 ${formatMs(summary?.cpu.userMs)} / 系统态 ${formatMs(summary?.cpu.systemMs)}`} />
+        <MetricCard icon={<Activity size={16} />} title={t('ui.CPU 平均占用','CPU 平均占用')} value={summary?.cpu.avgCpuPct != null ? `${summary.cpu.avgCpuPct}%` : "—"} borderColor="var(--status-info)" sub={`启动 ${formatDuration(summary?.cpu.uptimeSec)}；累计 ${formatMs(cpuTotal)}（用户态 ${formatMs(summary?.cpu.userMs)} / 系统态 ${formatMs(summary?.cpu.systemMs)}）`} />
+      </div>
+
+      <div style={{ ...inlineAlert("info"), marginBottom: 24, padding: "12px 16px", alignItems: "flex-start" }}>
+        <Clock size={16} />
+        <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--text-primary)" }}>页面价值：</strong>
+          这里用于值班人员判断生产 API 是否可用、数据库是否在线、进程内存是否异常、近 1 小时是否有 500/PG 错误，以及是否有未处理系统告警。
+          CPU 展示为进程启动以来平均占用，累计时间只是排障参考，不代表当前请求延迟。
+        </div>
       </div>
 
       {/* 24h 错误类型分布 */}

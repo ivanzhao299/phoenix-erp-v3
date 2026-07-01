@@ -33,6 +33,10 @@ export interface ReadinessResult {
   label:             string;
   hasCriticalIssues: boolean;
   criticalCount:     number;
+  configuredChecklistCount: number;
+  emptyDimensions:   string[];
+  blockers:          string[];
+  nextActions:       string[];
   dimensions:        ReadinessDimension[];
   checkedAt:         string;
 }
@@ -124,6 +128,25 @@ export class UatReadinessService {
 
     // 5. 加权总分
     let weightedScore = dimensions.reduce((acc, d) => acc + d.score * d.weight, 0);
+    const configuredChecklistCount = dimensions
+      .filter(d => d.key !== 'STABILITY')
+      .reduce((sum, d) => sum + d.total, 0);
+    const emptyDimensions = dimensions
+      .filter(d => d.key !== 'STABILITY' && d.total === 0)
+      .map(d => d.label);
+    const blockers: string[] = [];
+    const nextActions: string[] = [];
+    if (configuredChecklistCount === 0) {
+      blockers.push('尚未配置 UAT 验收清单，准备度评分只能作为系统稳定性参考。');
+      nextActions.push('先为销售、配送、库存、财务、审批、采购配置最小验收清单。');
+    }
+    if (emptyDimensions.length > 0) {
+      nextActions.push(`补齐未配置清单维度：${emptyDimensions.join('、')}。`);
+    }
+    if (criticalCount > 0) {
+      blockers.push(`存在 ${criticalCount} 条 CRITICAL 未解决问题。`);
+      nextActions.push('先关闭或降级所有 CRITICAL UAT 问题，再申请上线 Gate。');
+    }
 
     // CRITICAL 未解决时上限 70
     if (criticalCount > 0) {
@@ -143,6 +166,10 @@ export class UatReadinessService {
       label,
       hasCriticalIssues: criticalCount > 0,
       criticalCount,
+      configuredChecklistCount,
+      emptyDimensions,
+      blockers,
+      nextActions,
       dimensions,
       checkedAt: new Date().toISOString(),
     };

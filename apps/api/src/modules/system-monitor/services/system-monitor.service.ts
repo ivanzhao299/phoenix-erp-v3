@@ -191,9 +191,17 @@ export class SystemMonitorService {
 
   private getCpuUsage() {
     const usage = process.cpuUsage();
+    const userMs = Math.round(usage.user / 1000);
+    const systemMs = Math.round(usage.system / 1000);
+    const totalMs = userMs + systemMs;
+    const uptimeSec = Math.round(process.uptime());
+    const uptimeMs = Math.max(1, uptimeSec * 1000);
     return {
-      userMs:   Math.round(usage.user   / 1000),
-      systemMs: Math.round(usage.system / 1000),
+      userMs,
+      systemMs,
+      totalMs,
+      uptimeSec,
+      avgCpuPct: Math.round((totalMs / uptimeMs) * 1000) / 10,
     };
   }
 

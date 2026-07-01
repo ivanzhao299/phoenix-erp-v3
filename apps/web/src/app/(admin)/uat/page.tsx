@@ -45,6 +45,11 @@ function normalizeReadiness(input: unknown): Readiness | null {
     score: Number.isFinite(score) ? score : 0,
     status: String(raw.status || ""),
     hasCriticalIssues: Boolean(raw.hasCriticalIssues),
+    configuredChecklistCount: Number((raw as any).configuredChecklistCount ?? 0),
+    emptyDimensions: Array.isArray((raw as any).emptyDimensions) ? (raw as any).emptyDimensions.map(String) : [],
+    blockers: Array.isArray((raw as any).blockers) ? (raw as any).blockers.map(String) : [],
+    nextActions: Array.isArray((raw as any).nextActions) ? (raw as any).nextActions.map(String) : [],
+    checkedAt: typeof (raw as any).checkedAt === "string" ? (raw as any).checkedAt : undefined,
     dimensions: dimensions.map((d, index) => {
       const row = (d || {}) as Partial<ReadinessDimension>;
       const weight = Number(row.weight);
@@ -275,6 +280,11 @@ interface Readiness {
   score: number;
   status: string;
   hasCriticalIssues: boolean;
+  configuredChecklistCount?: number;
+  emptyDimensions?: string[];
+  blockers?: string[];
+  nextActions?: string[];
+  checkedAt?: string;
   dimensions: ReadinessDimension[];
 }
 
@@ -1711,7 +1721,49 @@ function ReadinessTab({
   const score = readiness?.score ?? null;
   const scoreColor = score === null ? "var(--text-secondary)" : score >= 80 ? "var(--status-success)" : score >= 60 ? "var(--status-warning)" : "var(--status-danger)";
   const statusLabel = score === null ? "—" : score >= 80 ? t('ui.可以上线','可以上线') : score >= 60 ? t('ui.需要改进','需要改进') : t('ui.不建议上线','不建议上线');
+  const hasChecklist = (readiness?.configuredChecklistCount ?? 0) > 0;
   return <div>
+      <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+      gap: 14,
+      marginBottom: 22
+    }}>
+        <div style={{
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        padding: 16,
+        background: "var(--bg-card)"
+      }}>
+          <div style={{ fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
+            {t('ui.这个页面的价值','这个页面的价值')}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            {t('ui.上线准备度不是单纯分数页，它把 UAT 问题、培训、验收清单和系统稳定性汇总成上线 Gate 判断。','上线准备度不是单纯分数页，它把 UAT 问题、培训、验收清单和系统稳定性汇总成上线 Gate 判断。')}
+          </div>
+          {readiness?.checkedAt && <div style={{ marginTop: 10, fontSize: 12, color: "var(--text-disabled)" }}>
+            {t('ui.最近计算','最近计算')}：{new Date(readiness.checkedAt).toLocaleString("zh-CN")}
+          </div>}
+        </div>
+        <div style={{
+        border: `1px solid ${hasChecklist ? "var(--border)" : "var(--status-warning)"}`,
+        borderRadius: 12,
+        padding: 16,
+        background: hasChecklist ? "var(--bg-card)" : "var(--status-warning-bg-faint)"
+      }}>
+          <div style={{ fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
+            {hasChecklist ? t('ui.当前准备度结论','当前准备度结论') : t('ui.当前缺少验收清单配置','当前缺少验收清单配置')}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            {hasChecklist
+              ? t('ui.分数可用于上线 Gate 评估，低分维度需要先关闭阻断项。','分数可用于上线 Gate 评估，低分维度需要先关闭阻断项。')
+              : t('ui.当前分数主要来自系统稳定性或零配置维度，不能作为真实上线批准依据。请先配置各模块 UAT 验收清单。','当前分数主要来自系统稳定性或零配置维度，不能作为真实上线批准依据。请先配置各模块 UAT 验收清单。')}
+          </div>
+          {readiness?.nextActions && readiness.nextActions.length > 0 && <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.7 }}>
+            {readiness.nextActions.slice(0, 4).map((item, i) => <li key={i}>{item}</li>)}
+          </ul>}
+        </div>
+      </div>
       {/* Score display */}
       <div style={{
       display: "flex",
@@ -1756,6 +1808,19 @@ function ReadinessTab({
           fontSize: 13
         }}>
               {t('ui.存在严重级别未解决问题,强烈建议上线前处理','存在严重级别未解决问题,强烈建议上线前处理')}
+            </div>}
+          {readiness?.blockers && readiness.blockers.length > 0 && <div style={{
+          background: "var(--status-warning-bg-faint)",
+          border: "1px solid var(--status-warning)",
+          borderRadius: 8,
+          padding: "10px 16px",
+          marginBottom: 12,
+          color: "var(--text-primary)",
+          fontWeight: 600,
+          fontSize: 13,
+          lineHeight: 1.6
+        }}>
+              {readiness.blockers.map((b, i) => <div key={i}>• {b}</div>)}
             </div>}
           <button onClick={onRefresh} style={{
           padding: "8px 20px",
