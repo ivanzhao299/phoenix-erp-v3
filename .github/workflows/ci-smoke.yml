@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: local, staging, or documented-only'
+        description: 'Smoke target: documented-only or production'
         required: false
         default: documented-only
   pull_request:
@@ -15,20 +15,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke-placeholder:
-    name: Smoke Placeholder
+  runtime-smoke:
+    name: Runtime Smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v5
 
+      - name: Validate runtime smoke checker
+        run: node --check scripts/ops/runtime-smoke-check.mjs
+
       - name: Document smoke entrypoints
         run: |
-          echo "Phase 1 keeps runtime smoke as manual/documented-only."
+          echo "Pull requests validate the smoke checker without touching production."
           echo "Existing command: bash scripts/smoke-test.sh"
+          echo "Runtime smoke command: node scripts/ops/runtime-smoke-check.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
-          echo "TODO Phase 2: auth-smoke, notification-smoke, chanjet-smoke with controlled test services."
 
-      - name: Validate smoke script exists
+      - name: Validate legacy smoke script exists
         run: test -f scripts/smoke-test.sh
+
+      - name: Run production runtime smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
+        run: |
+          node scripts/ops/runtime-smoke-check.mjs \
+            --base-url=https://erp.eggslao.com \
+            --api-url=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs \
+            --strict

@@ -1,0 +1,163 @@
+{
+  "generated_at": "2026-07-01T05:45:17.933Z",
+  "base_url": "https://erp.eggslao.com",
+  "api_url": "https://erp.eggslao.com",
+  "strict": false,
+  "summary": {
+    "pass": 27,
+    "warn": 0,
+    "fail": 0,
+    "decision": "GO"
+  },
+  "checks": [
+    {
+      "name": "static:/uat",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/uat/page.tsx"
+    },
+    {
+      "name": "static:/system/health",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx"
+    },
+    {
+      "name": "static:/system/alerts",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx"
+    },
+    {
+      "name": "static:/dashboard",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/dashboard/page.tsx"
+    },
+    {
+      "name": "static:/mobile/device",
+      "status": "PASS",
+      "file": "apps/web/src/app/(mobile)/mobile/device/page.tsx"
+    },
+    {
+      "name": "static:/procurement2/payments/new",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/procurement2/payments/new/page.tsx,apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx"
+    },
+    {
+      "name": "static:/workflow/monitor",
+      "status": "PASS",
+      "file": "apps/web/src/app/(admin)/workflow/monitor/page.tsx"
+    },
+    {
+      "name": "static-attachment:apps/web/src/app/(admin)/store-payment/page.tsx",
+      "status": "PASS"
+    },
+    {
+      "name": "static-attachment:apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+      "status": "PASS"
+    },
+    {
+      "name": "static-attachment:apps/web/src/app/(admin)/procurement2/requests/page.tsx",
+      "status": "PASS"
+    },
+    {
+      "name": "static-attachment:apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx",
+      "status": "PASS"
+    },
+    {
+      "name": "static-attachment:apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
+      "status": "PASS"
+    },
+    {
+      "name": "http-page:/uat",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/uat",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/system/health",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/system/health",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/system/alerts",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/system/alerts",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/dashboard",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/dashboard",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/mobile/device",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/mobile/device",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/procurement2/payments/new",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/procurement2/payments/new",
+      "http_status": 307
+    },
+    {
+      "name": "http-page:/workflow/monitor",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/workflow/monitor",
+      "http_status": 307
+    },
+    {
+      "name": "api:/api/health",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/health",
+      "http_status": 200
+    },
+    {
+      "name": "api:/api/v2/sales/health",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/v2/sales/health",
+      "http_status": 200
+    },
+    {
+      "name": "api:/api/system/monitor/health",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/system/monitor/health",
+      "http_status": 401
+    },
+    {
+      "name": "api:/api/system/alerts",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/system/alerts",
+      "http_status": 401
+    },
+    {
+      "name": "api:/api/uat/readiness",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/uat/readiness",
+      "http_status": 401
+    },
+    {
+      "name": "api:/api/workflow/my-tasks",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/workflow/my-tasks",
+      "http_status": 401
+    },
+    {
+      "name": "api:/api/v3/iot/devices/sync-health",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/api/v3/iot/devices/sync-health",
+      "http_status": 401
+    },
+    {
+      "name": "api:/uploads/contracts/__phoenix_runtime_smoke_probe__",
+      "status": "PASS",
+      "url": "https://erp.eggslao.com/uploads/contracts/__phoenix_runtime_smoke_probe__",
+      "http_status": 404
+    }
+  ],
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}

@@ -250,7 +250,7 @@ export default function SystemAlertsPage() {
         <div>
           <div style={{ fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>这个页面的用途</div>
           <div style={{ color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.6 }}>
-            集中查看需要人工确认的系统异常。它不是普通通知列表，不能删除，只能标记处理，保留故障审计链路。
+            集中查看需要人工确认的系统异常。它不是普通通知列表，遵循 append-only 安全约束：不能删除，只能标记处理，保留故障审计链路。
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
