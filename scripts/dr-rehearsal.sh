@@ -79,13 +79,13 @@ psqlc()  { psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$@"; }
 # ── 横幅 ─────────────────────────────────────────────────────────────────────
 step "Phoenix ERP V3 · 灾备演练（DR Rehearsal）"
 if [ "$EXECUTE" = "yes" ]; then
-  log "模式：🔴 EXECUTE — 将真建 scratch 库 [$SCRATCH_DB]、恢复、跑迁移、删库（不碰生产）"
+  log "模式：🔴 EXECUTE — 将真建 scratch 库 [${SCRATCH_DB}]、恢复、跑迁移、删库（不碰生产）"
 else
   log "模式：🟢 DRY-RUN（默认）— 只做只读校验 + 打印计划。加 --execute 才真跑。"
 fi
 log "目标 PG：${DB_USER}@${DB_HOST}:${DB_PORT}"
 log "备份文件：${RESTORE_FILE:-<未设置>}"
-log "Scratch 库：$SCRATCH_DB（演练专用，跑完删除）"
+log "Scratch 库：${SCRATCH_DB}（演练专用，跑完删除）"
 
 # ── 工具 & 生产护栏 ──────────────────────────────────────────────────────────
 command -v pg_restore >/dev/null 2>&1 || die "pg_restore 不在 PATH"
@@ -94,7 +94,7 @@ command -v psql       >/dev/null 2>&1 || die "psql 不在 PATH"
 
 IFS=',' read -ra _PN <<< "$PROD_DB_NAMES"
 for n in "${_PN[@]}"; do
-  [ "$SCRATCH_DB" = "$n" ] && die "scratch 库名 '$SCRATCH_DB' 命中生产库名，拒绝（防误恢复到生产）"
+  [ "${SCRATCH_DB}" = "$n" ] && die "scratch 库名 '${SCRATCH_DB}' 命中生产库名，拒绝（防误恢复到生产）"
 done
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -120,26 +120,26 @@ RPO_INFO=$(psqlc -d postgres -tAc \
 # ════════════════════════════════════════════════════════════════════════════
 # 步骤 2：恢复到 scratch 库
 # ════════════════════════════════════════════════════════════════════════════
-step "步骤 2/4 · 恢复到 scratch 库 [$SCRATCH_DB]"
+step "步骤 2/4 · 恢复到 scratch 库 [${SCRATCH_DB}]"
 RESTORED_TABLES="(未执行)"
 if [ "$EXECUTE" != "yes" ]; then
-  plan "psql -d postgres -c 'CREATE DATABASE \"$SCRATCH_DB\"'"
-  plan "pg_restore -d $SCRATCH_DB --no-owner --no-privileges \"$RESTORE_FILE\""
+  plan "psql -d postgres -c 'CREATE DATABASE \"${SCRATCH_DB}\"'"
+  plan "pg_restore -d ${SCRATCH_DB} --no-owner --no-privileges \"$RESTORE_FILE\""
   log "DRY-RUN：跳过建库/恢复。"
 else
-  log "建 scratch 库 $SCRATCH_DB …"
-  psqlc -d postgres -c "CREATE DATABASE \"$SCRATCH_DB\"" >/dev/null
+  log "建 scratch 库 ${SCRATCH_DB} …"
+  psqlc -d postgres -c "CREATE DATABASE \"${SCRATCH_DB}\"" >/dev/null
   # 跑完无论成败都删 scratch 库（trap 兜底）
   cleanup() {
-    log "清理：DROP DATABASE $SCRATCH_DB"
-    psqlc -d postgres -c "DROP DATABASE IF EXISTS \"$SCRATCH_DB\"" >/dev/null 2>&1 || \
-      log "⚠️ 删 scratch 库失败，请手动 DROP DATABASE \"$SCRATCH_DB\""
+    log "清理：DROP DATABASE ${SCRATCH_DB}"
+    psqlc -d postgres -c "DROP DATABASE IF EXISTS \"${SCRATCH_DB}\"" >/dev/null 2>&1 || \
+      log "⚠️ 删 scratch 库失败，请手动 DROP DATABASE \"${SCRATCH_DB}\""
   }
   trap cleanup EXIT
-  log "pg_restore → $SCRATCH_DB（--no-owner --no-privileges）…"
-  if pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$SCRATCH_DB" \
+  log "pg_restore → ${SCRATCH_DB}（--no-owner --no-privileges）…"
+  if pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "${SCRATCH_DB}" \
        --no-owner --no-privileges "$RESTORE_FILE" 2>/tmp/_dr_restore.err; then
-    RESTORED_TABLES=$(psqlc -d "$SCRATCH_DB" -tAc \
+    RESTORED_TABLES=$(psqlc -d "${SCRATCH_DB}" -tAc \
       "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
     log "✅ 恢复成功：scratch 库含 ${RESTORED_TABLES} 张表"
   else
@@ -155,13 +155,13 @@ step "步骤 3/4 · 对 scratch 库跑迁移"
 if [ "$RUN_MIGRATIONS" != "yes" ]; then
   log "RUN_MIGRATIONS=no → 跳过迁移步骤。"
 elif [ "$EXECUTE" != "yes" ]; then
-  plan "PGDATABASE=$SCRATCH_DB MIG_MODE=ci MIG_DIR=$MIG_DIR bash $REPO_ROOT/scripts/db-migrate.sh"
+  plan "PGDATABASE=${SCRATCH_DB} MIG_MODE=ci MIG_DIR=$MIG_DIR bash $REPO_ROOT/scripts/db-migrate.sh"
   plan "（若 dist/database/data-source.js + typeorm CLI 就绪，db-migrate.sh 末尾会跑 TS 迁移）"
   log "DRY-RUN：跳过迁移执行。"
 else
   log "用 scripts/db-migrate.sh（MIG_MODE=ci 直连 scratch 库）跑裸 SQL + TS 迁移链 …"
   if PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" \
-     PGPASSWORD="${DB_PASSWORD:-}" PGDATABASE="$SCRATCH_DB" \
+     PGPASSWORD="${DB_PASSWORD:-}" PGDATABASE="${SCRATCH_DB}" \
      MIG_MODE=ci MIG_DIR="$MIG_DIR" \
      bash "$REPO_ROOT/scripts/db-migrate.sh"; then
     log "✅ 迁移链在 scratch 库上跑通（恢复出的库可被前滚到最新 schema）"
@@ -177,11 +177,11 @@ fi
 step "步骤 4/4 · 冒烟查询 + 报告"
 SMOKE="(未执行)"
 if [ "$EXECUTE" != "yes" ]; then
-  plan "psql -d $SCRATCH_DB -c 'SELECT count(*) FROM sys_user'（核心表存在性冒烟）"
+  plan "psql -d ${SCRATCH_DB} -c 'SELECT count(*) FROM sys_user'（核心表存在性冒烟）"
   log "DRY-RUN：跳过冒烟查询。"
 else
   log "冒烟：核心表 sys_user 可查？"
-  if SMOKE=$(psqlc -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM sys_user" 2>/dev/null); then
+  if SMOKE=$(psqlc -d "${SCRATCH_DB}" -tAc "SELECT count(*) FROM sys_user" 2>/dev/null); then
     log "✅ 冒烟通过：sys_user 行数 = ${SMOKE}"
   else
     SMOKE="FAIL(sys_user 不可查)"

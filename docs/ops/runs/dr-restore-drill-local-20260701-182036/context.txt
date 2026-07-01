@@ -1,0 +1,2 @@
+dump=/tmp/phoenix_erp_dr_20260701-182036.dump
+pg_bin=/Applications/Postgres.app/Contents/Versions/latest/bin

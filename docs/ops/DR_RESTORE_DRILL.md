@@ -33,7 +33,7 @@ scripts/ops/restore-runner.sh
 ## 4. 演练记录（每次填，作为 P1-007 关闭证据）
 | 日期 | 备份文件 | 模式 | 恢复表数 | 耗时(RTO) | RPO | 结论 | 执行人 |
 |---|---|---|---|---|---|---|---|
-|  |  | 演练校验 |  |  |  | PASS/FAIL |  |
+| 2026-07-01 | `/tmp/phoenix_erp_dr_20260701-182206.dump`（本地演练临时文件，演练后删除） | 本地隔离 scratch 恢复演练 | 247 | 2s | n/a（本地库未启用 `sys_backup_records`） | PASS | Codex-Orchestrator |
 
 ## 5. 待办（本脚本未覆盖）
 - 把"演练校验"接入月度 cron + 失败走 P1 告警 webhook（与 sys_alerts 打通）。
