@@ -21,6 +21,7 @@ export interface ReadinessDimension {
   label:     string;
   weight:    number;
   score:     number;
+  weighted:  number;
   passed:    number;
   total:     number;
   passPct:   number;
@@ -101,6 +102,7 @@ export class UatReadinessService {
           label:   dim.label,
           weight:  dim.weight,
           score:   stabilityScore,
+          weighted: stabilityScore * dim.weight,
           passed:  0,
           total:   0,
           passPct: stabilityScore,
@@ -113,6 +115,7 @@ export class UatReadinessService {
         label:   dim.label,
         weight:  dim.weight,
         score:   passPct,
+        weighted: passPct * dim.weight,
         passed:  m.passed,
         total:   m.total,
         passPct,

@@ -181,11 +181,13 @@ interface PilotRunSummary {
 }
 interface ReadinessDimension {
   dimensionName: string;
+  key?: string;
+  label?: string;
   weight: number;
   passed: number;
   total: number;
   score: number;
-  weighted: number;
+  weighted?: number;
 }
 interface Readiness {
   score: number;
@@ -1697,12 +1699,16 @@ function ReadinessTab({
                 </tr>
               </thead>
               <tbody>
-                {readiness.dimensions.map((d, i) => <tr key={i}>
+                {readiness.dimensions.map((d, i) => {
+                  const scoreValue = Number.isFinite(Number(d.score)) ? Number(d.score) : 0;
+                  const weightValue = Number.isFinite(Number(d.weight)) ? Number(d.weight) : 0;
+                  const weightedValue = Number.isFinite(Number(d.weighted)) ? Number(d.weighted) : scoreValue * weightValue;
+                  return <tr key={d.key ?? d.dimensionName ?? i}>
                     <td>
-                      {d.dimensionName}
+                      {d.dimensionName || d.label || d.key || "—"}
                     </td>
                     <td className={u.muted}>
-                      {(d.weight * 100).toFixed(0)}%
+                      {(weightValue * 100).toFixed(0)}%
                     </td>
                     <td>
                       <span className={u.fw600}>{d.passed}</span>
@@ -1713,17 +1719,18 @@ function ReadinessTab({
                     <td>
                       <span style={{
                   fontWeight: 700,
-                  color: d.score >= 80 ? "var(--status-success)" : d.score >= 60 ? "var(--status-warning)" : "var(--status-danger)"
+                  color: scoreValue >= 80 ? "var(--status-success)" : scoreValue >= 60 ? "var(--status-warning)" : "var(--status-danger)"
                 }}>
-                        {d.score.toFixed(1)}
+                        {scoreValue.toFixed(1)}
                       </span>
                     </td>
                     <td style={{
                 color: "var(--text-primary)"
               }}>
-                      {d.weighted.toFixed(2)}
+                      {weightedValue.toFixed(2)}
                     </td>
-                  </tr>)}
+                  </tr>;
+                })}
                 <tr style={{
               background: "var(--bg-muted)",
               borderTop: "2px solid var(--border)"
