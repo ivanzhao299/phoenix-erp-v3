@@ -7,6 +7,7 @@ const files = {
   adminLayout: 'apps/web/src/app/(admin)/layout.tsx',
   home: 'apps/web/src/app/(admin)/home/page.tsx',
   mobileRoles: 'apps/web/src/lib/mobile-roles.ts',
+  usePermission: 'apps/web/src/hooks/usePermission.ts',
 };
 
 const content = Object.fromEntries(
@@ -56,6 +57,11 @@ const checks = [
     pass: /const canView = hasAnyMenuPermission\([^;]+,\s*\['V'\]\);/.test(content.mobileRoles)
       && /if \(!canView\) return 'none';/.test(content.mobileRoles)
       && /if \(!codes\.includes\('V'\)\) return 'none';/.test(content.mobileRoles),
+  },
+  {
+    name: 'usePermission hasAccess means V visibility, not any action bit',
+    pass: /hasAccess:\s+check\(['"]V['"]\)/.test(content.usePermission)
+      && !/hasAccess:\s+hasMenuPerm\(perms,\s*menuCode\)/.test(content.usePermission),
   },
 ];
 

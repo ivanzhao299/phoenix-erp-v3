@@ -33,6 +33,7 @@ Frontend gate audit:
 
 Changed files:
 
+- `apps/web/src/hooks/usePermission.ts`
 - `apps/web/src/lib/mobile-roles.ts`
 - `apps/web/src/__tests__/mobile-roles.test.ts`
 - `scripts/ci/check-frontend-menu-gates.mjs`
@@ -42,10 +43,12 @@ Behavior changes:
 - Mobile JWT menu permissions now require `V` before a page is visible.
 - Mobile write-level access now requires `V` plus at least one write action bit (`C`, `E`, or `A`).
 - Legacy `MOBILE_<PAGEKEY>` entries also require `V`; write-only legacy entries fail closed.
+- Shared `usePermission(menuCode).hasAccess` now means `MENU_*:V`, not any action bit.
 - CI frontend menu gate now asserts:
   - sidebar visibility defaults to `V`;
   - home navigation cards require `V`;
   - mobile JWT visibility requires `V` before write/read.
+  - `usePermission.hasAccess` remains aligned with `V` visibility.
 
 ## Why
 

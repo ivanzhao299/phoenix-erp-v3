@@ -40,7 +40,7 @@ export type PermResult = {
   canApprove: boolean;
   /** 是否可导出 */
   canExport: boolean;
-  /** 是否拥有该菜单的任意权限（即菜单条目可见） */
+  /** 是否拥有该菜单查看权限（即菜单/卡片/页面入口可见） */
   hasAccess: boolean;
   /** 是否超管 */
   isSuper: boolean;
@@ -112,7 +112,7 @@ export function usePermission(menuCode?: string | null): PermResult {
       canDelete:  check('D'),
       canApprove: check('A'),
       canExport:  check('X'),
-      hasAccess:  hasMenuPerm(perms, menuCode),
+      hasAccess:  check('V'),
       isSuper:    false,
       check, can, hasPerm,
       user: safeUser, role: safeUser.role ?? '', roles: userRoles,
