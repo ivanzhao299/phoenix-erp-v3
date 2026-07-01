@@ -132,7 +132,9 @@ export class FarmDeviceController {
   // ─── 运维中心 Ops Center ──────────────────────────────────────────────────
   @Get('auth/status')
   async getAuthStatus() {
-    return { hasToken: true, appId: 'PHX-ERP-V3-IOT', remainMin: 120 };
+    // 真实探测第三方网关鉴权（此前是硬编码桩，永远"已认证"，会误导排障）
+    const p = await this.iotSyncService.probeVendorAuth();
+    return { hasToken: p.ok, appId: p.appId, remainMin: p.remainMin ?? 0, base: p.base, error: p.error };
   }
 
   @Get('mappings')

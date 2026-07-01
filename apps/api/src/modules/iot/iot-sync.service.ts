@@ -101,6 +101,21 @@ export class IotSyncService implements OnModuleInit {
   }
 
   /**
+   * 诊断：实时探测第三方网关（znmc）鉴权是否可用——真连一次，返回明确成败与原因。
+   * 用于"为什么没有数据"根因定位：ok=false 基本等于生产连不上网关 / 账号密钥失效。
+   */
+  async probeVendorAuth(): Promise<{ ok: boolean; appId: string; base: string; remainMin: number | null; error?: string }> {
+    try {
+      await this.getToken();
+      const now = Math.floor(Date.now() / 1000);
+      const remainMin = this.expireTime > now ? Math.round((this.expireTime - now) / 60) : null;
+      return { ok: true, appId: this.APP_ID, base: this.API_BASE, remainMin };
+    } catch (e: any) {
+      return { ok: false, appId: this.APP_ID, base: this.API_BASE, remainMin: null, error: e?.message || String(e) };
+    }
+  }
+
+  /**
    * 封装带 Token 的请求
    */
   private async request(urlPath: string, payload: any): Promise<any> {

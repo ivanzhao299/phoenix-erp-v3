@@ -206,6 +206,9 @@ export class IotV3Controller {
         return isNaN(v) ? mx : Math.max(mx, v);
       }, 0);
 
+      // 实时探测第三方网关鉴权（真连一次 znmc）——定位"生产是否连得上网关"
+      const vendor = await this.iotSyncService.probeVendorAuth().catch((e: any) => ({ ok: false, appId: '', base: '', remainMin: null, error: e?.message || String(e) }));
+
       // 判定原因（优先级从根因到表象）
       let code = 'OK';
       let reason = '链路正常';
@@ -213,6 +216,8 @@ export class IotV3Controller {
         code = 'NO_MAPPING'; reason = '未配置任何鸡舍设备映射，请到「设备运维中心」新建映射';
       } else if (mappedActive === 0) {
         code = 'NO_VENDOR_BINDING'; reason = '鸡舍已建但未绑定第三方设备（vendor_house_id 为空或映射未启用），请在「设备运维中心 → 栏舍映射」绑定并启用';
+      } else if (!vendor.ok) {
+        code = 'VENDOR_UNREACHABLE'; reason = `生产无法连接第三方 IoT 网关(${vendor.base || 'data.znmc.co'})：${(vendor.error || '未知错误').slice(0, 160)}。请放行生产出网到该网关(HTTP 80)或核实账号密钥`;
       } else if (heartbeat && heartbeat.last_status === 'FAILED') {
         code = 'SYNC_FAILED'; reason = `实时同步任务最近失败：${(heartbeat.last_detail || '').slice(0, 160)}`;
       } else if (totalSnapshots === 0) {
@@ -226,6 +231,7 @@ export class IotV3Controller {
         data: {
           code,
           reason,
+          vendor: { ok: vendor.ok, base: vendor.base, appId: vendor.appId, error: vendor.error ?? null },
           summary: { totalHouses, mappedActive, housesWithData, totalSnapshots, lastCollectAt: lastCollectMs || null },
           heartbeat,
           houses: mappings.map((m: any) => ({
