@@ -249,7 +249,7 @@ function buildPlan(state) {
       menu_code, menu_name_zh, domain, parent_code, sort_order, icon, route,
     }));
 
-  const grantUpserts = [];
+  const grantUpsertsByRoleMenu = new Map();
   const coarseDeletes = [];
 
   for (const grant of state.grants) {
@@ -261,18 +261,29 @@ function buildPlan(state) {
       if (!nextPerms.length) continue;
       const existing = grantsByRoleMenu.get(`${grant.role_id}:${targetMenu}`);
       const finalPerms = unionPerms(existing?.perm_codes || '', nextPerms.join(','));
-      grantUpserts.push({
+      const upsertKey = `${grant.role_code}:${targetMenu}`;
+      const previous = grantUpsertsByRoleMenu.get(upsertKey);
+      grantUpsertsByRoleMenu.set(upsertKey, {
         role_id: grant.role_id,
         role_code: grant.role_code,
         role_name: grant.role_name,
-        source_menu: grant.menu_code,
+        source_menu: previous?.source_menu
+          ? [...new Set([...previous.source_menu.split(' + '), grant.menu_code])].join(' + ')
+          : grant.menu_code,
         target_menu: targetMenu,
-        source_perm_codes: grant.perm_codes,
-        final_perm_codes: finalPerms,
+        source_perm_codes: previous?.source_perm_codes
+          ? [...new Set([...previous.source_perm_codes.split(' + '), grant.perm_codes])].join(' + ')
+          : grant.perm_codes,
+        final_perm_codes: unionPerms(previous?.final_perm_codes || '', finalPerms),
         existing_perm_codes: existing?.perm_codes || '',
       });
     }
   }
+
+  const grantUpserts = [...grantUpsertsByRoleMenu.values()].sort((left, right) => (
+    left.role_code.localeCompare(right.role_code)
+    || left.target_menu.localeCompare(right.target_menu)
+  ));
 
   return {
     menu_inserts: menuInserts,
