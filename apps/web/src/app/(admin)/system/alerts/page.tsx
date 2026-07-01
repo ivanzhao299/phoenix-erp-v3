@@ -37,6 +37,12 @@ interface QualityAlert {
   severity: "LOW" | "MEDIUM" | "HIGH";
   message: string;
 }
+interface DeliveryHealth {
+  monitorRecipients: number;
+  alertNotificationsLast24h: number;
+  deliveryMode: string;
+  failClosed: boolean;
+}
 
 const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
   CRITICAL: { bg: "var(--status-danger-bg-faint)", color: "var(--status-danger)" },
@@ -102,6 +108,7 @@ export default function SystemAlertsPage() {
   const [health,    setHealth]    = useState<HealthSummary | null>(null);
   const [errorStats,setErrorStats]= useState<ErrorStat[]>([]);
   const [qualityAlerts, setQualityAlerts] = useState<QualityAlert[]>([]);
+  const [deliveryHealth, setDeliveryHealth] = useState<DeliveryHealth | null>(null);
   const [loadError, setLoadError] = useState("");
   const [loading,   setLoading]   = useState(false);
   const [resolving, setResolving] = useState<number | null>(null);
@@ -115,11 +122,12 @@ export default function SystemAlertsPage() {
     try {
       const params = filterResolved !== "" ? `?resolved=${filterResolved}` : "";
       const headers = { Authorization: `Bearer ${tok()}` };
-      const [alertsRes, healthRes, errorsRes, qualityRes] = await Promise.allSettled([
+      const [alertsRes, healthRes, errorsRes, qualityRes, deliveryRes] = await Promise.allSettled([
         fetch(`/api/system/alerts${params}`, { headers }),
         fetch("/api/system/monitor/health", { headers }),
         fetch("/api/system/monitor/errors", { headers }),
         fetch("/api/data-quality/alerts", { headers }),
+        fetch("/api/system/alerts/delivery-health", { headers }),
       ]);
       if (alertsRes.status === "fulfilled" && alertsRes.value.ok) {
         const d = await alertsRes.value.json();
@@ -147,6 +155,11 @@ export default function SystemAlertsPage() {
       } else {
         setQualityAlerts([]);
       }
+      if (deliveryRes.status === "fulfilled" && deliveryRes.value.ok) {
+        setDeliveryHealth(await deliveryRes.value.json());
+      } else {
+        setDeliveryHealth(null);
+      }
     } finally { setLoading(false); }
   }, [filterResolved]);
 
@@ -171,6 +184,7 @@ export default function SystemAlertsPage() {
   const recentErrorCount = health?.recentErrors ?? errorStats.reduce((sum, row) => sum + Number(row.count || 0), 0);
   const highQualityCount = qualityAlerts.filter(a => a.severity === "HIGH").length;
   const healthTone = health?.status === "HEALTHY" ? "success" : health?.status === "DEGRADED" ? "warning" : "info";
+  const deliveryTone = !deliveryHealth ? "info" : deliveryHealth.monitorRecipients > 0 ? "success" : "danger";
 
   return (
     <div>
@@ -240,6 +254,13 @@ export default function SystemAlertsPage() {
           hint={health?.database?.connected === false ? "数据库连接不可用" : health?.timestamp ? `最后检测 ${new Date(health.timestamp).toLocaleTimeString("zh-CN")}` : "等待监控接口返回"}
           tone={healthTone}
         />
+        <SummaryCard
+          icon={<ShieldAlert size={16} />}
+          label="值班触达"
+          value={deliveryHealth ? `${deliveryHealth.monitorRecipients} 人` : "—"}
+          hint={deliveryHealth ? `站内通知；24h 已投递 ${deliveryHealth.alertNotificationsLast24h} 条` : "等待触达自检接口返回"}
+          tone={deliveryTone}
+        />
       </div>
 
       <div style={{
@@ -257,7 +278,7 @@ export default function SystemAlertsPage() {
         <div>
           <div style={{ fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>这个页面的用途</div>
           <div style={{ color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.6 }}>
-            集中查看需要人工确认的系统异常。它不是普通通知列表，遵循 append-only 安全约束：不能删除，只能标记处理，保留故障审计链路。
+            集中查看需要人工确认的系统异常。它不是普通通知列表：CRITICAL/WARNING 告警会写入值班人员站内通知，台账遵循 append-only 安全约束，不能删除，只能标记处理。
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

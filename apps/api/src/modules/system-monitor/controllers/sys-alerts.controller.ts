@@ -54,6 +54,13 @@ export class SysAlertsController {
     });
   }
 
+  /** 告警触达链自检：系统告警必须能触达到系统监控值班用户 */
+  @Get('delivery-health')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  async deliveryHealth() {
+    return this.alertsService.getDeliveryHealth();
+  }
+
   /** 处理告警（单向操作，无法撤销） */
   @Patch(':id/resolve')
   @RequireMenu('MENU_SYS_MONITOR', 'A')
