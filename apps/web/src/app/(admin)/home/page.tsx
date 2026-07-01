@@ -51,12 +51,12 @@ const SHORTCUTS: Shortcut[] = [
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
 // 优先：每日工作台（高频用户专用）→ 待办 → 角色专属页面
 function hasAnyPerm(hasPermission: PermissionChecker, menuCodes: string[]) {
-  return menuCodes.some(code => hasPermission(code));
+  return menuCodes.some(code => hasPermission(code, "V"));
 }
 
 function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker, t: (k: string, f?: string) => string): { label: string; href: string; icon: any } {
   // 高频作业角色：直接送到每日工作台（一站式录入入口）
-  if (hasPermission('MENU_DASHBOARD') && role && (
+  if (hasPermission('MENU_DASHBOARD', 'V') && role && (
     role.includes('PRODUCTION_DATA_SUPERVISOR') ||
     role.includes('FARM') ||
     role.includes('PKG') ||
@@ -66,8 +66,8 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
   )) {
     return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
   }
-  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
-  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: t('home.enterCashCenter', '进入资金账户中心'), href: '/finance2/cash-accounts', icon: Wallet };
+  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO', 'V')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
+  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW', 'V')) return { label: t('home.enterCashCenter', '进入资金账户中心'), href: '/finance2/cash-accounts', icon: Wallet };
   if (role?.includes('FIN')) {
     const financePath = getFirstAccessiblePath(hasPermission, 'finance');
     if (financePath) return { label: t('home.enterFinance', '进入财务中心'), href: financePath, icon: Wallet };
@@ -86,8 +86,8 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
   }
   const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
   if (masterPath) return { label: t('home.enterMasterData', '进入主数据中心'), href: masterPath, icon: Sparkles };
-  if (hasPermission('MENU_MD_QUALITY')) return { label: t('home.enterDataQuality', '进入数据质量驾驶舱'), href: '/data-quality', icon: ShieldAlert };
-  if (hasPermission('MENU_DASHBOARD')) return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
+  if (hasPermission('MENU_MD_QUALITY', 'V')) return { label: t('home.enterDataQuality', '进入数据质量驾驶舱'), href: '/data-quality', icon: ShieldAlert };
+  if (hasPermission('MENU_DASHBOARD', 'V')) return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
   const firstPath = getFirstAccessiblePath(hasPermission);
   return { label: firstPath ? t('home.enterWorkspace', '进入我的工作区') : t('home.viewMyTodos', '查看我的待办'), href: firstPath || '/workflow/todos', icon: Inbox };
 }
@@ -103,8 +103,8 @@ export default function HomePage() {
   const { t } = useLanguage();
   const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
   // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
-  const hasQualityPerm = hasPermission('MENU_MD_QUALITY');
-  const hasCentersPerm = hasPermission('MENU_MD_CENTER');
+  const hasQualityPerm = hasPermission('MENU_MD_QUALITY', 'V');
+  const hasCentersPerm = hasPermission('MENU_MD_CENTER', 'V');
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
@@ -137,7 +137,7 @@ export default function HomePage() {
     });
 
     // G19-E：拼养殖 KPI（hasPermission('MENU_FARM_DATA') 则拉）
-    if (hasPermission('MENU_FARM_DATA')) {
+    if (hasPermission('MENU_FARM_DATA', 'V')) {
       const today = new Date().toISOString().slice(0, 10);
       Promise.all([
         request<any>(`/v3/farm/daily-hen-report?date=${today}`).catch(() => null),
@@ -204,7 +204,7 @@ export default function HomePage() {
       />
 
       {/* g200m(2026-06-20):养殖 KPI 6 卡 emoji→lucide,自写卡 → kpiCardCompact(tone) */}
-      {hasPermission('MENU_FARM_DATA') && farmKpi && (
+      {hasPermission('MENU_FARM_DATA', 'V') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {([
             { label: t('home.kpiTotalStock', '当前总存栏'), value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: t('home.unitBird', '羽'), tone: 'info' as const, Icon: Bird },
@@ -472,7 +472,7 @@ function BusinessOverview({ hasPermission }: { hasPermission: PermissionChecker 
     { label: t('home.bizAr', '应收'), icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: t('home.bizArSub', '发票 · 账龄'),  perm: 'MENU_FIN2_AR' },
     { label: t('home.bizAp', '应付'), icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: t('home.bizApSub', '账期 · 付款'),  perm: 'MENU_FIN2_AP' },
   ];
-  const cards = allCards.filter(c => hasPermission(c.perm) || (c.altPerms?.some(p => hasPermission(p)) ?? false));
+  const cards = allCards.filter(c => hasPermission(c.perm, "V") || (c.altPerms?.some(p => hasPermission(p, "V")) ?? false));
   if (cards.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
@@ -638,7 +638,7 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) 
   // G11：按权限过滤业务中心 — 无权访问的不显示
   const visible = SHORTCUTS.filter(s => {
     const href = s.groupId ? getFirstAccessiblePath(hasPermission, s.groupId) : s.href;
-    return Boolean(href) && (hasPermission(s.perm) || (s.altPerms?.some(p => hasPermission(p)) ?? false));
+    return Boolean(href) && (hasPermission(s.perm, "V") || (s.altPerms?.some(p => hasPermission(p, "V")) ?? false));
   });
   if (visible.length === 0) return null;
   return (

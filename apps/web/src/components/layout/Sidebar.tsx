@@ -298,9 +298,10 @@ export type PermissionChecker = (menuCode?: string | null, permCode?: string) =>
 
 export function canAccessMenuItem(item: MenuItem, hasPermission: PermissionChecker): boolean {
   if (!item.perm) return true;
-  if (hasPermission(item.perm, item.requiredPerm)) return true;
-  if (item.superPerm && hasPermission(item.superPerm)) return true;
-  return item.altPerms?.some(code => hasPermission(code, item.requiredPerm)) ?? false;
+  const requiredPerm = item.requiredPerm ?? "V";
+  if (hasPermission(item.perm, requiredPerm)) return true;
+  if (item.superPerm && hasPermission(item.superPerm, requiredPerm)) return true;
+  return item.altPerms?.some(code => hasPermission(code, requiredPerm)) ?? false;
 }
 
 export function getVisibleMenu(hasPermission: PermissionChecker): MenuItem[] {
