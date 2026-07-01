@@ -1,8 +1,9 @@
 import {
   Injectable, NotFoundException, ConflictException, BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, SelectQueryBuilder } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -20,6 +21,7 @@ import { Prc2ReceiptItemEntity }        from '../entities/prc2-receipt-item.enti
 
 import { QueryInitBatchDto }            from '../dto/query-init-batch.dto';
 import { INIT_BATCH_TYPES, InitBatchType } from '../dto/upload-init-file.dto';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 // ── 并发安全编号生成 ─────────────────────────────────────────────────────────
 async function genNo(
@@ -159,6 +161,32 @@ export class InitService {
     return u?.name ?? u?.username ?? 'system';
   }
 
+  private dataScope(): DataScopeContext | undefined {
+    return this.cls.get<DataScopeContext | undefined>('dataScope');
+  }
+
+  private isGlobalScope(): boolean {
+    const scope = this.dataScope();
+    return !scope || scope.isGlobal;
+  }
+
+  /**
+   * prc2_init_batches is an import-control table without company/project columns.
+   * Until a schema-gated scoped owner field is added, non-global users may only
+   * read or mutate their own import batches; GROUP/admin users keep full audit view.
+   */
+  private applyBatchReadScope(qb: SelectQueryBuilder<Prc2InitBatchEntity>) {
+    if (this.isGlobalScope()) return qb;
+    return qb.andWhere('b.createdBy = :initBatchUserId', { initBatchUserId: this.userId() });
+  }
+
+  private assertBatchAccess(batch: Prc2InitBatchEntity, label: string) {
+    if (this.isGlobalScope()) return;
+    if (String(batch.createdBy ?? '') !== this.userId()) {
+      throw new ForbiddenException(`无权访问该${label}`);
+    }
+  }
+
   // ── 模板下载 ────────────────────────────────────────────────────────────────
   downloadTemplate(batchType: string): Buffer {
     // 支持 slug（historical-po）和枚举值（HISTORICAL_PO）两种形式
@@ -186,7 +214,9 @@ export class InitService {
     const page     = Math.max(1, parseInt(q.page     ?? '1',  10));
     const pageSize = Math.max(1, parseInt(q.pageSize ?? '20', 10));
 
-    const qb = this.batchRepo.createQueryBuilder('b').orderBy('b.id', 'DESC');
+    const qb = this.applyBatchReadScope(
+      this.batchRepo.createQueryBuilder('b').orderBy('b.id', 'DESC'),
+    );
     if (q.batchType) qb.andWhere('b.batchType = :bt', { bt: q.batchType });
     if (q.status)    qb.andWhere('b.status = :s',     { s:  q.status    });
     if (q.keyword)   qb.andWhere(
@@ -202,6 +232,7 @@ export class InitService {
   async findById(id: string) {
     const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+    this.assertBatchAccess(batch, '初始化批次');
     const rows = await this.rowRepo.find({ where: { batchId: id }, order: { rowNo: 'ASC' } });
     return { ...batch, rows };
   }
@@ -210,6 +241,7 @@ export class InitService {
   async getErrorRows(id: string) {
     const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+    this.assertBatchAccess(batch, '初始化批次');
     return this.rowRepo.find({
       where: [
         { batchId: id, status: 'INVALID' },
@@ -223,6 +255,7 @@ export class InitService {
   async cancelBatch(id: string) {
     const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+    this.assertBatchAccess(batch, '初始化批次');
     if (!['DRAFT', 'VALIDATED', 'FAILED'].includes(batch.status))
       throw new ConflictException(`当前状态 ${batch.status} 不允许取消`);
     batch.status = 'CANCELLED';
@@ -288,6 +321,7 @@ export class InitService {
   async importBatch(id: string) {
     const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+    this.assertBatchAccess(batch, '初始化批次');
 
     if (batch.status === 'IMPORTED')
       throw new ConflictException('该批次已导入完成，不允许重复导入');

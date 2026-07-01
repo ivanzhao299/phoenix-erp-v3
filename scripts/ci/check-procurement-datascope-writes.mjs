@@ -57,6 +57,14 @@ const required = [
       ['股东资金 create/submit/cancel must enforce writable ownership', /assertWritableOwnership\([\s\S]*?股东资金/g, 3],
     ],
   },
+  {
+    file: 'apps/api/src/modules/procurement-v2/services/init.service.ts',
+    checks: [
+      ['采购初始化批次 list must apply creator scope for non-global users', /applyBatchReadScope\([\s\S]*?createQueryBuilder\('b'\)/, 1],
+      ['采购初始化批次 detail/error/cancel/import must enforce creator access', /assertBatchAccess\(batch,\s*'初始化批次'\)/g, 4],
+      ['采购初始化批次 must remain global-readable only for GROUP/admin scope', /isGlobalScope\(\)[\s\S]*?scope\.isGlobal/, 1],
+    ],
+  },
 ];
 
 const findings = [];
