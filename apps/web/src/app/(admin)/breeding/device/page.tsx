@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
-import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home, Wifi } from 'lucide-react';
+import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home, Wifi, Clipboard } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
@@ -57,12 +57,45 @@ interface IotSummary {
   summary: Record<string, number>;
   houses: IotHouse[];
   recentAlarms: IotAlarm[];
+  _diagnostic?: IotDiagnostic;
+}
+interface IotDiagnostic {
+  code?: string;
+  reason?: string;
+  summary?: {
+    totalHouses?: number;
+    mappedActive?: number;
+    housesWithData?: number;
+    totalSnapshots?: number;
+    lastCollectAt?: number | string | null;
+  };
+  vendor?: { ok?: boolean; error?: string };
+  queryErrors?: string[];
+}
+interface EndpointStatus {
+  status?: number;
+  ok: boolean;
+  elapsedMs?: number;
+  error?: string;
+  checkedAt: number;
 }
 const API = '/api/v3/iot/devices';
 const tok = () => typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '';
 const hdr = () => ({
   Authorization: `Bearer ${tok()}`
 });
+async function fetchTextWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 10_000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const started = Date.now();
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    const raw = await res.text();
+    return { res, raw, elapsedMs: Date.now() - started };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ── 系统状态点配置 ──────────────────────────────────────────────────────
 const STATUS_DOT: Record<string, {
@@ -349,6 +382,12 @@ export default function DeviceOverviewPage() {
   const [data, setData] = useState<IotSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
+  const [diag, setDiag] = useState<IotDiagnostic | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState<EndpointStatus | null>(null);
+  const [diagStatus, setDiagStatus] = useState<EndpointStatus | null>(null);
+  const [copiedDiag, setCopiedDiag] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(() => typeof window !== 'undefined' && localStorage.getItem('phx_device_autoRefresh') === 'true');
   const [lastSync, setLastSync] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -365,15 +404,72 @@ export default function DeviceOverviewPage() {
     stale: t('ui.陈旧', '陈旧'),
     no_data: t('ui.无数据', '无数据')
   };
+  const runDiag = useCallback(async () => {
+    setDiagLoading(true);
+    setCopiedDiag(false);
+    const fail = (msg: string, status?: EndpointStatus) => {
+      setDiagStatus(status ?? { ok: false, error: msg, checkedAt: Date.now() });
+      setDiag({ code: 'ERR', reason: `诊断失败：${msg}` });
+    };
+    try {
+      const token = tok();
+      if (!token) {
+        fail('登录态缺失或已过期，请重新登录后再查看设备数据。');
+        return;
+      }
+      const { res, raw, elapsedMs } = await fetchTextWithTimeout(`${API}/sync-health`, { headers: hdr() });
+      setDiagStatus({ status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
+      let json: any = null;
+      try { json = raw ? JSON.parse(raw) : null; } catch { /* ignore non-json */ }
+      if (json?.ok && json?.data?.reason) {
+        setDiag({
+          code: String(json.data.code ?? ''),
+          reason: String(json.data.reason),
+          summary: json.data.summary,
+          vendor: json.data.vendor,
+          queryErrors: Array.isArray(json.data.queryErrors) ? json.data.queryErrors : undefined,
+        });
+      } else {
+        fail(json?.error || `HTTP ${res.status}${raw ? ` · ${raw.slice(0, 100)}` : ''}`, { status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
+      }
+    } catch (e: any) {
+      const msg = e?.name === 'AbortError' ? '诊断接口超过 10 秒未返回，请检查服务或现场网关链路。' : (e?.message || 'network');
+      fail(msg, { ok: false, error: msg, checkedAt: Date.now() });
+    } finally {
+      setDiagLoading(false);
+    }
+  }, []);
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError('');
+    setCopiedDiag(false);
     try {
-      const res = await fetch(`${API}/all-summary`, {
-        headers: hdr()
-      });
-      const json = await res.json();
-      if (json.ok) setData(json.data);
-    } catch {} finally {
+      const { res, raw, elapsedMs } = await fetchTextWithTimeout(`${API}/all-summary`, { headers: hdr() });
+      setApiStatus({ status: res.status, ok: res.ok, elapsedMs, checkedAt: Date.now() });
+      let json: any = null;
+      try { json = raw ? JSON.parse(raw) : null; } catch { /* ignore non-json */ }
+      if (!res.ok) {
+        setError(`设备汇总接口加载失败（HTTP ${res.status}）`);
+        return;
+      }
+      if (json?.ok && json?.data) {
+        setData(json.data);
+        if (json.data._diagnostic?.reason) {
+          setDiag({
+            code: String(json.data._diagnostic.code ?? ''),
+            reason: String(json.data._diagnostic.reason),
+            summary: json.data._diagnostic.summary,
+            queryErrors: Array.isArray(json.data._diagnostic.queryErrors) ? json.data._diagnostic.queryErrors : undefined,
+          });
+        }
+      } else {
+        setError(json?.error || '设备汇总接口返回异常');
+      }
+    } catch (e: any) {
+      const msg = e?.name === 'AbortError' ? '设备汇总接口超过 10 秒未返回，请稍后重试。' : (e?.message || '网络错误');
+      setApiStatus({ ok: false, error: msg, checkedAt: Date.now() });
+      setError(msg);
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -416,14 +512,84 @@ export default function DeviceOverviewPage() {
   const houses = data?.houses || [];
   const alarms = data?.recentAlarms || [];
   const hasAlarm = (sum.totalAlarms || 0) > 0;
+  const noLiveData = !loading && (
+    Boolean(error)
+    || houses.length === 0
+    || (sum.onlineSensorCnt || 0) === 0
+    || (sum.totalSensorCnt || 0) === 0
+    || Boolean(sum.diagnosticCode && String(sum.diagnosticCode) !== 'OK')
+  );
+  useEffect(() => {
+    if (noLiveData && !diagStatus && !diagLoading) void runDiag();
+  }, [noLiveData, diagStatus, diagLoading, runDiag]);
+  const statusLine = (label: string, status: EndpointStatus | null) => {
+    const color = status?.ok === true ? 'var(--status-success)' : status?.ok === false ? 'var(--status-danger)' : 'var(--text-secondary)';
+    const text = status ? `${status.status ? `HTTP ${status.status}` : status.error || '—'}${status.elapsedMs != null ? ` · ${status.elapsedMs}ms` : ''}` : '未检测';
+    return <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
+      <span>{label}</span><span style={{ color, fontWeight: 800, textAlign: 'right' }}>{text}</span>
+    </div>;
+  };
+  const diagnosticSnapshot = () => JSON.stringify({
+    page: '/breeding/device',
+    allSummary: apiStatus,
+    syncHealth: diagStatus,
+    summary: sum,
+    houses: houses.length,
+    alarms: alarms.length,
+    error,
+    diagnostic: diag,
+    checkedAt: new Date().toISOString(),
+  }, null, 2);
+  const DiagnosticPanel = () => <div style={{
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid color-mix(in srgb,var(--status-warning) 35%,transparent)',
+    background: 'color-mix(in srgb,var(--status-warning) 8%,var(--bg-card))',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0,1fr) auto',
+    gap: 12,
+    alignItems: 'start'
+  }}>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800, color: 'var(--status-warning)', marginBottom: 8 }}>
+        <AlertTriangle size={15} /> 当前没有实时采集数据
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>
+        {diag?.reason || error || '系统已接入鸡舍映射，但最近没有可用实时快照。'}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 10 }}>
+        <div style={{ padding: 10, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+          {statusLine('all-summary', apiStatus)}
+          {statusLine('sync-health', diagStatus)}
+        </div>
+        <div style={{ padding: 10, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-card)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          鸡舍：{diag?.summary?.totalHouses ?? sum.totalHouses ?? 0}；
+          已绑定：{diag?.summary?.mappedActive ?? '—'}；
+          快照：{diag?.summary?.totalSnapshots ?? sum.totalSensorCnt ?? 0}
+        </div>
+      </div>
+      {Array.isArray(diag?.queryErrors) && diag.queryErrors.length > 0 && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--status-danger)', lineHeight: 1.6 }}>
+        查询错误：{diag.queryErrors.slice(0, 2).join('；')}
+      </div>}
+    </div>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <button type="button" onClick={() => void runDiag()} disabled={diagLoading} className={s.btnGhost} style={{ fontSize: 12, opacity: diagLoading ? 0.6 : 1 }}>
+        {diagLoading ? '诊断中…' : '重新诊断'}
+      </button>
+      <button type="button" onClick={() => void navigator.clipboard?.writeText(diagnosticSnapshot()).then(() => setCopiedDiag(true)).catch(() => setCopiedDiag(false))} className={s.btnGhost} style={{ fontSize: 12 }}>
+        <Clipboard size={13} /> {copiedDiag ? '已复制' : '复制诊断'}
+      </button>
+    </div>
+  </div>;
   const kpiCards: { label: string; value: string; sub: string; Icon: typeof Home; tone: Tone }[] = [
-    { label: t('ui.接入鸡舍',   '接入鸡舍'),   value: `${sum.activeHouses     || 0}`, sub: `共 ${sum.totalHouses   || 0} 栋已接入`,    Icon: Home,          tone: 'brand' },
+    { label: t('ui.在线鸡舍',   '在线鸡舍'),   value: `${sum.activeHouses     || 0}/${sum.totalHouses || 0}`, sub: `已映射 ${sum.totalHouses   || 0} 栋；在线按实时采集判定`,    Icon: Home,          tone: 'brand' },
     { label: t('ui.当前告警',   '当前告警'),   value: `${sum.totalAlarms      || 0}`, sub: `${sum.alarmHouses      || 0} 栋鸡舍受影响`, Icon: AlertTriangle, tone: hasAlarm ? 'danger' : 'success' },
     { label: t('ui.在线传感器', '在线传感器'), value: `${sum.onlineSensorCnt  || 0}`, sub: `共 ${sum.totalSensorCnt || 0} 个监测点`,    Icon: Wifi,          tone: 'info'  },
     { label: t('ui.运行中设备', '运行中设备'), value: `${sum.onlineDeviceCnt  || 0}`, sub: `共 ${sum.totalDeviceCnt || 0} 台（风机/加热）`, Icon: Activity,     tone: 'success' },
   ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${sum.activeHouses || 0} 栋已接入 · ${sum.totalAlarms || 0} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]} actions={<div className={u.flexRow8}>
+      <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${sum.activeHouses || 0}/${sum.totalHouses || 0} 栋在线 · ${sum.totalAlarms || 0} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]} actions={<div className={u.flexRow8}>
             {/* 自动刷新开关：label 只做布局，s.toggle 只包裹 input+track */}
             <label style={{
         display: 'flex',
@@ -453,6 +619,8 @@ export default function DeviceOverviewPage() {
               <RefreshCw size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />{syncing ? t('ui.采集中', '采集中...') : t('ui.手动采集', '手动采集')}
             </button>
           </div>} />
+
+      {noLiveData && <DiagnosticPanel />}
 
       {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 16 }}>

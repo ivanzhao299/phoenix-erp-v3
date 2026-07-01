@@ -28,7 +28,7 @@ export class ShareholderController {
 
   private get user() {
     const u = this.cls.get('user') as any;
-    return { userId: String(u?.userId ?? ''), roles: (u?.roles ?? []) as string[] };
+    return { userId: String(u?.userId ?? ''), roles: (u?.roles ?? (u?.role ? [u.role] : [])) as string[] };
   }
 
   // ── 项目 ──
@@ -63,11 +63,11 @@ export class ShareholderController {
   @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(this.user); }
   @Get('capital')                  @RequireMenu(CAPITAL, 'V') listFlows(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string, @Query('status') st?: string) { return this.svc.listFlows({ projectCode: p, shareholderCode: s, status: st }, this.user); }
   @Get('capital/:id')              @RequireMenu(CAPITAL, 'V') getFlow(@Param('id') id: string) { return this.svc.getFlow(id, this.user); }
-  @Post('capital')                 @RequireMenu(CAPITAL, 'C') createFlow(@Body() dto: any) { return this.svc.createFlow(dto, this.user.userId); }
+  @Post('capital')                 @RequireMenu(CAPITAL, 'C') createFlow(@Body() dto: any) { return this.svc.createFlow(dto, this.user); }
   @Patch('capital/:id/attachments') @RequireMenu(CAPITAL, 'E') updateFlowAttachments(@Param('id') id: string, @Body() body: { attachmentUrls?: string[] }) { return this.svc.updateFlowAttachments(id, body?.attachmentUrls ?? [], this.user); }
-  @Post('capital/:id/submit')      @RequireMenu(CAPITAL, 'E') submitFlow(@Param('id') id: string) { return this.svc.submitFlow(id); }
-  @Post('capital/:id/confirm')     @RequireMenu(CAPITAL, 'E') confirmFlow(@Param('id') id: string) { return this.svc.confirmFlow(id, this.user.userId); }
-  @Post('capital/:id/reverse')     @RequireMenu(CAPITAL, 'E') reverseFlow(@Param('id') id: string, @Body() body: { reason?: string }) { return this.svc.reverseFlow(id, this.user.userId, body?.reason); }
+  @Post('capital/:id/submit')      @RequireMenu(CAPITAL, 'E') submitFlow(@Param('id') id: string) { return this.svc.submitFlow(id, this.user); }
+  @Post('capital/:id/confirm')     @RequireMenu(CAPITAL, 'E') confirmFlow(@Param('id') id: string) { return this.svc.confirmFlow(id, this.user); }
+  @Post('capital/:id/reverse')     @RequireMenu(CAPITAL, 'E') reverseFlow(@Param('id') id: string, @Body() body: { reason?: string }) { return this.svc.reverseFlow(id, this.user, body?.reason); }
   @Get('dashboard/:projectCode')   @RequireMenu(DASH, 'V') dashboardProject(@Param('projectCode') c: string) { return this.svc.dashboardProject(c, this.user); }
 
   // ── 股东档案（根路径，置于最后避免吞 static 段）──

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
 import PageHeader from '@/components/PageHeader';
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from '@/hooks/usePermission';
 import u from "@/styles/uix-utils.module.css";
 const th: React.CSSProperties = {
   textAlign: 'left',
@@ -39,6 +40,21 @@ export default function CapitalImportPage() {
   const {
     t
   } = useLanguage();
+  const shareholderPerm = usePermission('MENU_SHAREHOLDER_CAPITAL');
+  const financeWriteRoles = new Set([
+    'ROLE_ADMIN',
+    'ROLE_FIN_CFO',
+    'ROLE_FIN_ACCT',
+    'ROLE_FIN_COST',
+    'ROLE_GROUP_FINANCE',
+    'ROLE_HQ_FINANCE',
+    'ROLE_FACTORY_ACCOUNTANT',
+    'ROLE_CASHIER',
+    'ROLE_CASH',
+    'ROLE_TREASURY_MANAGER',
+    'ROLE_MENGSAI_DONGPENG_TREASURER',
+  ]);
+  const isFinanceOperator = shareholderPerm.isSuper || shareholderPerm.roles.some(role => financeWriteRoles.has(role));
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [holders, setHolders] = useState<ShrShareholder[]>([]);
   const [rows, setRows] = useState<ParsedRow[]>([]);
@@ -142,6 +158,26 @@ export default function CapitalImportPage() {
     XLSX.utils.book_append_sheet(wb, ws, '资本流');
     XLSX.writeFile(wb, '资本流导入模板.xlsx');
   };
+  if (!isFinanceOperator) {
+    return <div className={u.p24}>
+      <Link href="/shareholders/capital" style={{
+      color: 'var(--color-primary)',
+      fontSize: 13
+    }}>{t('ui.← 返回资本流列表', '← 返回资本流列表')}</Link>
+      <div style={{ marginTop: 10 }}><PageHeader title={t('ui.导入资本流（Excel / CSV）', '导入资本流（Excel / CSV）')} /></div>
+      <div style={{
+      marginTop: 16,
+      padding: 18,
+      borderRadius: 'var(--radius-md)',
+      border: '1px solid color-mix(in srgb,var(--status-warning) 35%,transparent)',
+      background: 'color-mix(in srgb,var(--status-warning) 8%,var(--bg-card))',
+      color: 'var(--text-secondary)',
+      lineHeight: 1.7
+    }}>
+        {t('ui.当前账号仅可查看授权范围内资本流；批量导入、金额录入、确认到账、冲销等资金动作仅限财务角色或管理员操作。', '当前账号仅可查看授权范围内资本流；批量导入、金额录入、确认到账、冲销等资金动作仅限财务角色或管理员操作。')}
+      </div>
+    </div>;
+  }
   return <div className={u.p24}>
       <Link href="/shareholders/capital" style={{
       color: 'var(--color-primary)',

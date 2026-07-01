@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -85,6 +86,23 @@ const GRADE_COLORS: Record<string, string> = {
   C: "var(--status-danger)",
 };
 
+const pageStyle: CSSProperties = {
+  padding: "24px 32px 40px",
+  maxWidth: 1440,
+  margin: "0 auto",
+};
+
+const cardStyle: CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-sm)",
+};
+
+const mutedText: CSSProperties = {
+  color: "var(--text-secondary)",
+};
+
 // ── 统计卡片 ──────────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -101,18 +119,28 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-bg-card border-border p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-text-muted">{title}</span>
+    <div style={{ ...cardStyle, padding: 18, minHeight: 126, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ ...mutedText, fontSize: 13, fontWeight: 700, lineHeight: 1.4 }}>{title}</span>
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: `${color}18` }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `${color}18`,
+            flex: "0 0 auto",
+          }}
         >
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div className="text-2xl font-bold text-text">{value}</div>
-      {sub && <div className="text-xs text-text-dim mt-1">{sub}</div>}
+      <div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: "var(--text-primary)", letterSpacing: 0, lineHeight: 1.15 }}>{value}</div>
+        {sub && <div style={{ ...mutedText, fontSize: 12, marginTop: 4 }}>{sub}</div>}
+      </div>
     </div>
   );
 }
@@ -134,7 +162,7 @@ export default function InventoryAnalyticsPage() {
   const { activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } = data ?? EMPTY_SUMMARY;
 
   return (
-    <div>
+    <div style={pageStyle}>
       <PageHeader
         title={t("analytics.inventory_title", "库存周转分析")}
         subtitle={t("analytics.inventory_subtitle", "批次库存概览 · 等级分布 · 临期预警")}
@@ -142,7 +170,20 @@ export default function InventoryAnalyticsPage() {
           <button
             onClick={() => reload()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-card)",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             {t("analytics.refresh", "刷新")}
@@ -152,7 +193,7 @@ export default function InventoryAnalyticsPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: "var(--radius-md)", border: "1px solid color-mix(in srgb,var(--status-danger) 25%,transparent)", background: "color-mix(in srgb,var(--status-danger) 10%,var(--bg-card))", color: "var(--status-danger)", fontSize: 13 }}>
           <AlertCircle size={16} />
           {error}
         </div>
@@ -160,8 +201,8 @@ export default function InventoryAnalyticsPage() {
 
       {/* 加载中 */}
       {loading && !error && (
-        <div className="flex items-center justify-center py-20 text-text-dim">
-          <RefreshCw size={20} className="animate-spin mr-2" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "72px 0", color: "var(--text-secondary)", fontSize: 14 }}>
+          <RefreshCw size={20} style={{ animation: "spin 1s linear infinite", marginRight: 8 }} />
           {t("analytics.loading", "加载中…")}
         </div>
       )}
@@ -169,7 +210,7 @@ export default function InventoryAnalyticsPage() {
       {!loading && !error && (
         <>
           {/* 统计卡片 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16, marginBottom: 18 }}>
             <StatCard
               icon={Layers}
               title={t("analytics.inventory_active_batches", "活跃批次数")}
@@ -194,52 +235,60 @@ export default function InventoryAnalyticsPage() {
           </div>
 
           {/* 等级分布 */}
-          <div className="rounded-2xl border bg-bg-card border-border shadow-sm mb-6 p-5">
-            <div className="font-semibold text-sm text-text-muted mb-4">
+          <div style={{ ...cardStyle, marginBottom: 18, padding: 18 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 14 }}>
               {t("analytics.inventory_grade_dist", "等级分布")}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
               {(["AA", "A", "B", "C"] as const).map((g) => (
                 <div
                   key={g}
-                  className="rounded-xl p-4 text-center"
-                  style={{ background: `${GRADE_COLORS[g]}12`, border: `1px solid ${GRADE_COLORS[g]}30` }}
+                  style={{
+                    minHeight: 86,
+                    borderRadius: "var(--radius-md)",
+                    padding: 14,
+                    textAlign: "center",
+                    background: `${GRADE_COLORS[g]}12`,
+                    border: `1px solid ${GRADE_COLORS[g]}30`,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                  }}
                 >
                   <div
-                    className="text-2xl font-bold mb-1"
-                    style={{ color: GRADE_COLORS[g] }}
+                    style={{ color: GRADE_COLORS[g], fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}
                   >
                     {gradeBuckets[g]}
                   </div>
-                  <div className="text-xs font-semibold" style={{ color: GRADE_COLORS[g] }}>
+                  <div style={{ color: GRADE_COLORS[g], fontSize: 13, fontWeight: 800, marginTop: 6 }}>
                     {g} {t("analytics.grade_suffix", "级")}
                   </div>
-                  <div className="text-xs text-text-dim mt-0.5">{t("analytics.unit_batches", "批次")}</div>
+                  <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>{t("analytics.unit_batches", "批次")}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* 最近批次记录 */}
-          <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <span className="font-semibold text-sm text-text-muted">
+          <div style={{ ...cardStyle, overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)" }}>
                 {t("analytics.inventory_recent_batches", "最近批次记录")}
               </span>
             </div>
             {recent.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">{t("analytics.no_data", "暂无数据")}</div>
+              <div style={{ padding: "48px 16px", textAlign: "center", fontSize: 13, color: "var(--text-secondary)" }}>{t("analytics.no_data", "暂无数据")}</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
                   <thead>
-                    <tr className="text-xs text-text-muted border-b border-border">
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_batch_no", "批次号")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_grade", "等级")}</th>
-                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_stock_qty_kg", "库存量（kg）")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_inbound_date", "入库日期")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_source_house", "来源鸡舍")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_status", "状态")}</th>
+                    <tr style={{ color: "var(--text-secondary)", background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+                      <th style={{ textAlign: "left", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_batch_no", "批次号")}</th>
+                      <th style={{ textAlign: "left", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_grade", "等级")}</th>
+                      <th style={{ textAlign: "right", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_stock_qty_kg", "库存量（kg）")}</th>
+                      <th style={{ textAlign: "left", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_inbound_date", "入库日期")}</th>
+                      <th style={{ textAlign: "left", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_source_house", "来源鸡舍")}</th>
+                      <th style={{ textAlign: "left", padding: "12px 18px", fontWeight: 800 }}>{t("analytics.col_status", "状态")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -248,38 +297,45 @@ export default function InventoryAnalyticsPage() {
                       return (
                         <tr
                           key={b.id}
-                          className="border-b border-border/50 hover:bg-bg-muted/30 transition-colors"
+                          style={{ borderBottom: "1px solid var(--border)" }}
                         >
-                          <td className="px-5 py-3 font-mono text-text-muted">
+                          <td style={{ padding: "11px 18px", fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                             {b.batch_no}
                           </td>
-                          <td className="px-5 py-3">
+                          <td style={{ padding: "11px 18px" }}>
                             <span
-                              className="text-xs font-semibold px-2 py-0.5 rounded-full"
                               style={{
                                 background: `${GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "var(--slate-400)"}18`,
                                 color: GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "var(--slate-400)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                minWidth: 36,
+                                justifyContent: "center",
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 800,
                               }}
                             >
                               {b.grade ?? b.sku_code ?? "—"}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right text-text-muted">
+                          <td style={{ padding: "11px 18px", textAlign: "right", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                             {fmtNum(b.quantity_kg ?? b.qty)}
                           </td>
-                          <td className="px-5 py-3 text-text-muted">
+                          <td style={{ padding: "11px 18px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                             {fmtDate(b.grading_date)}
                           </td>
-                          <td className="px-5 py-3 text-text-muted">
+                          <td style={{ padding: "11px 18px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                             {b.house_code ?? "—"}
                           </td>
-                          <td className="px-5 py-3">
+                          <td style={{ padding: "11px 18px", whiteSpace: "nowrap" }}>
                             {days !== null && days < 7 ? (
-                              <span className="text-xs font-semibold text-red-500 bg-danger/10 px-2 py-0.5 rounded-full">
+                              <span style={{ display: "inline-flex", padding: "3px 8px", borderRadius: 999, fontSize: 12, fontWeight: 800, color: "var(--status-danger)", background: "color-mix(in srgb,var(--status-danger) 10%,transparent)" }}>
                                 {t("analytics.inventory_expiring_label", "临期")} ({days}{t("analytics.unit_day", "天")})
                               </span>
                             ) : (
-                              <span className="text-xs text-text-muted">{b.status ?? "—"}</span>
+                              <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{b.status ?? "—"}</span>
                             )}
                           </td>
                         </tr>

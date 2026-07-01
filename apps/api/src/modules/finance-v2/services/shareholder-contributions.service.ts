@@ -37,6 +37,27 @@ export class ShareholderContributionsService {
     return u?.username ?? u?.userId ?? null;
   }
 
+  private readonly financeWriteRoles = new Set([
+    'ROLE_ADMIN',
+    'ROLE_FIN_CFO',
+    'ROLE_FIN_ACCT',
+    'ROLE_FIN_COST',
+    'ROLE_GROUP_FINANCE',
+    'ROLE_HQ_FINANCE',
+    'ROLE_FACTORY_ACCOUNTANT',
+    'ROLE_CASHIER',
+    'ROLE_CASH',
+    'ROLE_TREASURY_MANAGER',
+    'ROLE_MENGSAI_DONGPENG_TREASURER',
+  ]);
+
+  private assertFinanceOperator(user: any, action: string) {
+    const roles: string[] = Array.isArray(user?.roles) ? user.roles.map((role: unknown) => String(role)) : (user?.role ? [String(user.role)] : []);
+    if (!roles.some(role => this.financeWriteRoles.has(role))) {
+      throw new ForbiddenException(`仅财务角色或管理员可${action}股东出资记录；股东本人仅允许查看授权范围内记录`);
+    }
+  }
+
   private assertOwnership(companyCode: string, user: any) {
     if (user?.dataScope?.scopeAll) return;
     const codes: string[] = user?.dataScope?.companyCodes ?? [];
@@ -253,6 +274,7 @@ export class ShareholderContributionsService {
   // ── 手工创建 ─────────────────────────────────────────────────────────────
 
   async createManual(dto: CreateShareholderContributionDto, user: any): Promise<FinShareholderContributionEntity> {
+    this.assertFinanceOperator(user, '新增');
     this.assertOwnership(dto.companyCode, user);
 
     return this.ds.transaction(async mgr => {
@@ -308,6 +330,7 @@ export class ShareholderContributionsService {
   // ── 编辑（仅 DRAFT） ──────────────────────────────────────────────────────
 
   async update(id: string, dto: UpdateShareholderContributionDto, user: any): Promise<FinShareholderContributionEntity> {
+    this.assertFinanceOperator(user, '编辑');
     return this.ds.transaction(async mgr => {
       const qr = mgr.queryRunner!;
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
@@ -376,6 +399,7 @@ export class ShareholderContributionsService {
   // ── 提交审批（DRAFT→PENDING_CONFIRM） ─────────────────────────────────────
 
   async submitConfirm(id: string, user: any, pickedApproverId?: string): Promise<FinShareholderContributionEntity> {
+    this.assertFinanceOperator(user, '提交审批');
     return this.ds.transaction(async mgr => {
       const qr = mgr.queryRunner!;
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
@@ -423,6 +447,7 @@ export class ShareholderContributionsService {
   // ── 直接确认（不走审批） ─────────────────────────────────────────────────
 
   async confirmDirect(id: string, dto: ConfirmShareholderContributionDto, user: any): Promise<FinShareholderContributionEntity> {
+    this.assertFinanceOperator(user, '确认');
     return this.ds.transaction(async mgr => {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
@@ -448,6 +473,7 @@ export class ShareholderContributionsService {
   // ── 取消 ─────────────────────────────────────────────────────────────────
 
   async cancel(id: string, dto: CancelShareholderContributionDto, user: any): Promise<void> {
+    this.assertFinanceOperator(user, '取消');
     return this.ds.transaction(async mgr => {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
@@ -470,6 +496,7 @@ export class ShareholderContributionsService {
   // ── 从 prc2 幂等导入 ──────────────────────────────────────────────────────
 
   async importFromPrc2(user: any): Promise<{ imported: number; skipped: number }> {
+    this.assertFinanceOperator(user, '导入');
     const rows = await this.ds.query(`
       SELECT id, fund_no, shareholder_id, shareholder_name,
              company_code, company_name, project_code, project_name,

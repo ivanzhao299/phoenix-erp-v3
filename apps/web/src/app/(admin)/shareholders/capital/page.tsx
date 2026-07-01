@@ -8,6 +8,7 @@ import { PageHeaderV2, KpiCard, StatStripV2, DataTableV3, StatusBadge, DrawerV2,
 import { KPI_GRID } from '@/lib/design-tokens';
 import { Wallet, TrendingUp, Clock, CheckCircle2, CalendarPlus, CalendarClock } from 'lucide-react';
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from '@/hooks/usePermission';
 import u from "@/styles/uix-utils.module.css";
 const money = (v?: string | number | null) => v == null || v === '' ? '—' : Number(v).toLocaleString('zh-CN', {
   minimumFractionDigits: 2
@@ -21,6 +22,21 @@ export default function CapitalFlowPage() {
     t
   } = useLanguage();
   const router = useRouter();
+  const shareholderPerm = usePermission('MENU_SHAREHOLDER_CAPITAL');
+  const financeWriteRoles = new Set([
+    'ROLE_ADMIN',
+    'ROLE_FIN_CFO',
+    'ROLE_FIN_ACCT',
+    'ROLE_FIN_COST',
+    'ROLE_GROUP_FINANCE',
+    'ROLE_HQ_FINANCE',
+    'ROLE_FACTORY_ACCOUNTANT',
+    'ROLE_CASHIER',
+    'ROLE_CASH',
+    'ROLE_TREASURY_MANAGER',
+    'ROLE_MENGSAI_DONGPENG_TREASURER',
+  ]);
+  const isFinanceOperator = shareholderPerm.isSuper || shareholderPerm.roles.some(role => financeWriteRoles.has(role));
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [holders, setHolders] = useState<ShrShareholder[]>([]);
   const [rows, setRows] = useState<ShrContribution[]>([]);
@@ -192,9 +208,9 @@ export default function CapitalFlowPage() {
         color: 'var(--color-primary)',
         fontSize: 12.5
       }}>{t('ui.查看', '查看')}</Link>
-          {f.status === 'DRAFT' && <Btn tone="info" onClick={() => act(() => shareholderApi.submitFlow(f.id), t('ui.已提交审批', '已提交审批'))}>{t('ui.提交审批', '提交审批')}</Btn>}
-          {f.status === 'APPROVED' && <Btn tone="success" onClick={() => act(() => shareholderApi.confirmFlow(f.id), t('ui.已确认到账，实缴已汇总', '已确认到账，实缴已汇总'))}>{t('ui.确认到账', '确认到账')}</Btn>}
-          {f.status === 'CONFIRMED' && <Btn tone="danger" onClick={() => {
+          {isFinanceOperator && f.status === 'DRAFT' && <Btn tone="info" onClick={() => act(() => shareholderApi.submitFlow(f.id), t('ui.已提交审批', '已提交审批'))}>{t('ui.提交审批', '提交审批')}</Btn>}
+          {isFinanceOperator && f.status === 'APPROVED' && <Btn tone="success" onClick={() => act(() => shareholderApi.confirmFlow(f.id), t('ui.已确认到账，实缴已汇总', '已确认到账，实缴已汇总'))}>{t('ui.确认到账', '确认到账')}</Btn>}
+          {isFinanceOperator && f.status === 'CONFIRMED' && <Btn tone="danger" onClick={() => {
         setReverseReason('');
         setReverseTarget(f.id);
       }}>{t('ui.冲销', '冲销')}</Btn>}
@@ -205,10 +221,10 @@ export default function CapitalFlowPage() {
       label: t('ui.股东权益中心', '股东权益中心')
     }, {
       label: t('ui.资本流管理', '资本流管理')
-    }]} actions={<>
+    }]} actions={isFinanceOperator ? <>
             <Btn tone="outline" onClick={() => router.push('/shareholders/capital/import')}>{t('ui.导入资本流', '导入资本流')}</Btn>
             <Btn tone="primary" onClick={() => setShowNew(true)}>{t('ui.+ 新增资本流', '+ 新增资本流')}</Btn>
-          </>} />
+          </> : undefined} />
 
       {/* KPI 区 */}
       <div style={{
@@ -228,6 +244,18 @@ export default function CapitalFlowPage() {
       fontSize: 12.5,
       marginBottom: 12
     }}>{t('ui.资本变化来自业务流+审批流，仅「已确认到账」参与实缴汇总；不可直接修改余额。流程：草稿 → 提交审批 → 审批通过 → 确认到账（自动汇总）。', '资本变化来自业务流+审批流，仅「已确认到账」参与实缴汇总；不可直接修改余额。流程：草稿 → 提交审批 → 审批通过 → 确认到账（自动汇总）。')}</p>
+      {!isFinanceOperator && <div style={{
+      padding: '10px 12px',
+      borderRadius: 'var(--radius-md)',
+      border: '1px solid color-mix(in srgb,var(--status-warning) 35%,transparent)',
+      background: 'color-mix(in srgb,var(--status-warning) 8%,var(--bg-card))',
+      color: 'var(--text-secondary)',
+      fontSize: 12.5,
+      lineHeight: 1.6,
+      marginBottom: 12
+    }}>
+        {t('ui.当前账号仅可查看授权范围内资本流；新增、金额编辑、确认到账、冲销等资金动作仅限财务角色或管理员操作。', '当前账号仅可查看授权范围内资本流；新增、金额编辑、确认到账、冲销等资金动作仅限财务角色或管理员操作。')}
+      </div>}
       {msg && <div style={{
       color: 'var(--status-success)',
       marginBottom: 10

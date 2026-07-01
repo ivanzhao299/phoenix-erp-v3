@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { format } from 'date-fns';
@@ -34,6 +34,28 @@ export class ShareholderService {
   ) {}
 
   // ════════════════ 资本流引擎（Phase 3）════════════════
+  private readonly financeWriteRoles = new Set([
+    'ROLE_ADMIN',
+    'ROLE_FIN_CFO',
+    'ROLE_FIN_ACCT',
+    'ROLE_FIN_COST',
+    'ROLE_GROUP_FINANCE',
+    'ROLE_HQ_FINANCE',
+    'ROLE_FACTORY_ACCOUNTANT',
+    'ROLE_CASHIER',
+    'ROLE_CASH',
+    'ROLE_TREASURY_MANAGER',
+    'ROLE_MENGSAI_DONGPENG_TREASURER',
+  ]);
+
+  private assertFinanceCapitalOperator(user: { userId?: string; roles?: string[] } | undefined, action: string) {
+    const roles = Array.isArray(user?.roles) ? user.roles.map(String) : [];
+    const allowed = roles.some(role => this.financeWriteRoles.has(role));
+    if (!allowed) {
+      throw new ForbiddenException(`仅财务角色或管理员可${action}资本流；股东本人仅允许查看授权范围内记录`);
+    }
+  }
+
   /** UX Enhancement：解析用户可见项目集合 → SQL/repo 过滤条件。'ALL'→null(不限)；[]→空集合(看不到)。 */
   private async scopeProjectIn(user?: { userId: string; roles: string[] }): Promise<string[] | null> {
     if (!user || !user.userId) return null; // 无用户上下文(内部调用)不收窄
@@ -70,6 +92,7 @@ export class ShareholderService {
 
   /** 草稿期更新附件（attachment_urls + attachment_count 同步；仅 DRAFT 可改） */
   async updateFlowAttachments(id: string, urls: string[], user?: { userId: string; roles: string[] }) {
+    this.assertFinanceCapitalOperator(user, '维护');
     const f = await this.getFlow(id, user);
     if (f.status !== 'DRAFT') throw new ConflictException(`仅草稿状态可修改附件，当前: ${f.status}`);
     f.attachmentUrls = Array.isArray(urls) ? urls : [];
@@ -78,7 +101,8 @@ export class ShareholderService {
   }
 
   /** 新增资本流（草稿） */
-  async createFlow(dto: any, userId?: string) {
+  async createFlow(dto: any, user?: { userId: string; roles: string[] }) {
+    this.assertFinanceCapitalOperator(user, '新增');
     return this.ds.transaction(async (mgr) => {
       const no = await this.genCapitalFlowNo(mgr);
       const row = mgr.create(ShrCapitalContributionEntity, {
@@ -95,14 +119,15 @@ export class ShareholderService {
         attachmentCount: Array.isArray(dto.attachmentUrls) ? dto.attachmentUrls.length : (dto.attachmentCount ?? 0),
         remark: dto.remark ?? null,
         status: 'DRAFT',
-        createdBy: userId,
+        createdBy: user?.userId,
       } as any);
       return mgr.save(row);
     });
   }
 
   /** 提交审批：DRAFT → SUBMITTED + 发起 Workflow（分档审批） */
-  async submitFlow(id: string) {
+  async submitFlow(id: string, user?: { userId: string; roles: string[] }) {
+    this.assertFinanceCapitalOperator(user, '提交审批');
     return this.ds.transaction(async (mgr) => {
       const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
       if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
@@ -119,13 +144,14 @@ export class ShareholderService {
   }
 
   /** 确认到账：APPROVED → CONFIRMED + 自动汇总（+amount） */
-  async confirmFlow(id: string, userId?: string) {
+  async confirmFlow(id: string, user?: { userId: string; roles: string[] }) {
+    this.assertFinanceCapitalOperator(user, '确认到账');
     return this.ds.transaction(async (mgr) => {
       const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
       if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
       if (f.status !== 'APPROVED') throw new ConflictException(`仅审批通过(APPROVED)可确认到账，当前: ${f.status}`);
       f.status = 'CONFIRMED';
-      f.confirmedBy = userId as any;
+      f.confirmedBy = user?.userId as any;
       f.confirmedAt = new Date();
       await mgr.save(f);
       await this.aggregation.applyConfirmed(f.projectCode, f.shareholderCode, Number(f.amount), mgr);
@@ -134,7 +160,8 @@ export class ShareholderService {
   }
 
   /** 冲销：CONFIRMED → REVERSED + 自动反向汇总（-amount）+ 保留审计轨迹 */
-  async reverseFlow(id: string, userId?: string, reason?: string) {
+  async reverseFlow(id: string, user?: { userId: string; roles: string[] }, reason?: string) {
+    this.assertFinanceCapitalOperator(user, '冲销');
     return this.ds.transaction(async (mgr) => {
       const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
       if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
@@ -149,7 +176,7 @@ export class ShareholderService {
       await mgr.save(mgr.create(ShrCapitalContributionEntity, {
         capitalFlowNo: rno, contributionNo: rno, projectCode: f.projectCode, shareholderCode: f.shareholderCode,
         amount: f.amount, currency: f.currency, sourceType: 'REVERSAL', status: 'REVERSED',
-        reversalOfId: String(f.id), remark: `冲销 ${f.capitalFlowNo ?? f.contributionNo}: ${reason ?? ''}`, createdBy: userId,
+        reversalOfId: String(f.id), remark: `冲销 ${f.capitalFlowNo ?? f.contributionNo}: ${reason ?? ''}`, createdBy: user?.userId,
       } as any));
       return mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
     });

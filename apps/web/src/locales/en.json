@@ -11098,5 +11098,7 @@
   "mob.sys.no_device_perm_hint": "This account does not have the device monitoring menu permission. Ask an administrator to grant MENU_DEVICE_MONITOR view access.",
   "mob.sys.back_home": "Back home",
   "mob.sys.device_data_unavailable": "Device data unavailable",
-  "ui.UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限": "UAT data is temporarily unavailable. Refresh later or ask an administrator to check API permissions."
+  "ui.UAT 数据暂不可用，请稍后刷新或联系管理员检查接口权限": "UAT data is temporarily unavailable. Refresh later or ask an administrator to check API permissions.",
+  "ui.当前账号仅可查看授权范围内资本流；新增、金额编辑、确认到账、冲销等资金动作仅限财务角色或管理员操作。": "This account can only view authorized capital flows. Create, amount editing, payment confirmation, and reversal actions are limited to finance roles or administrators.",
+  "ui.当前账号仅可查看授权范围内资本流；批量导入、金额录入、确认到账、冲销等资金动作仅限财务角色或管理员操作。": "This account can only view authorized capital flows. Batch import, amount entry, payment confirmation, and reversal actions are limited to finance roles or administrators."
 }
