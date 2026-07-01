@@ -44,6 +44,13 @@ const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
   INFO:     { bg: "var(--status-info-bg)", color: "var(--color-accent)" },
 };
 
+const MONITORED_SOURCES = [
+  { label: "API 500 / PG 错误", desc: "后端异常过滤器写入 sys_alerts，并保留错误日志" },
+  { label: "定时任务失败", desc: "Cron 失败写入 CRON_FAILURE 告警" },
+  { label: "IoT 同步异常", desc: "设备离线、同步失败进入系统告警或环境预警" },
+  { label: "数据质量风险", desc: "主数据、字典、权限、库存等问题进入数据质量中心" },
+];
+
 function toneColor(tone: "success" | "warning" | "danger" | "info") {
   if (tone === "success") return "var(--status-success)";
   if (tone === "warning") return "var(--status-warning)";
@@ -169,7 +176,7 @@ export default function SystemAlertsPage() {
     <div>
       <PageHeader
         title={t('ui.异常告警','异常告警')}
-        subtitle={`系统异常台账 · API 500 / 定时任务失败 / IoT 同步异常会进入此处 · 共 ${total} 条`}
+        subtitle={`生产值班台账 · 只展示需要人工确认的异常 · 0 条代表当前筛选下无待处理系统故障 · 共 ${total} 条`}
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select
@@ -281,8 +288,28 @@ export default function SystemAlertsPage() {
                 <CheckCircle size={28} />
                 <p style={{ margin: "8px 0 0", fontWeight: 700 }}>{filterResolved === "true" ? "当前没有已处理告警记录" : "当前没有需要处理的系统告警"}</p>
                 <p style={{ margin: "8px auto 0", maxWidth: 720, color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 }}>
-                  这表示 sys_alerts 台账当前为空或筛选条件下无记录。系统仍在监听 API 500、数据库/PG 错误、定时任务失败和 IoT 同步异常；数据质量类问题请在“数据质量中心”查看。
+                  这不是空白页：它表示 sys_alerts 台账当前为空或筛选条件下无记录。系统仍在持续监听以下风险源，出现需人工处理的问题后会自动进入此表。
                 </p>
+                <div style={{
+                  margin: "20px auto 0",
+                  maxWidth: 900,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+                  gap: 10,
+                  textAlign: "left",
+                }}>
+                  {MONITORED_SOURCES.map(src => (
+                    <div key={src.label} style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--bg-page)",
+                      padding: "10px 12px",
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", marginBottom: 4 }}>{src.label}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>{src.desc}</div>
+                    </div>
+                  ))}
+                </div>
               </td></tr>
             ) : alerts.map((a, i) => {
               const sty = SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.INFO;
