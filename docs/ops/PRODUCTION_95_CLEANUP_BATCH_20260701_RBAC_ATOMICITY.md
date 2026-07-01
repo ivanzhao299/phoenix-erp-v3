@@ -82,17 +82,55 @@ Connection to 47.236.122.224 port 22 timed out
 
 This is a transport-level SSH stability issue, not a SQL failure. Production DB parity remains `PENDING_REMOTE_EVIDENCE` until a stable SSH window or CI/CD deploy evidence confirms the migration state and coarse-grant count.
 
+Follow-up read-only evidence succeeded after the CI/CD deploy SSH window recovered:
+
+```text
+RepairRolePermissionMatrixAtomicity1782052418112|1
+```
+
+The remaining production residue was:
+
+```text
+ROLE_CEO|集团总裁|MENU_MASTER|V
+```
+
+Because the migration had already been recorded, it would not re-run automatically. A controlled single-transaction DB repair was executed only for this residue:
+
+- derived `ROLE_CEO` `MENU_MASTER` view permission into six atomic master-data permissions;
+- deleted the one non-admin `MENU_MASTER` parent grant;
+- no schema change;
+- no migration execution;
+- no deploy command;
+- no cleanup/reset;
+- no production push from the server.
+
+Execution result:
+
+```text
+BEGIN
+6|1
+COMMIT
+```
+
+Final production read-only verification:
+
+```text
+RepairRolePermissionMatrixAtomicity1782052418112|0
+```
+
+Production RBAC atomicity parity is now `PASS`.
+
 ## Current Score Impact
 
 | Dimension | Before | Batch-local evidence | Production status |
 |---|---:|---|---|
-| Security / RBAC / DataScope | 84 | coarse parent grants: 56 -> 0 locally | pending remote evidence |
+| Security / RBAC / DataScope | 84 | coarse parent grants: 56 -> 0 locally | production coarse parent grants: 1 -> 0 |
 | Data layer / Migration / Consistency | 82 | unchanged | unchanged |
 | Frontend / Performance / i18n | 76 | unchanged | unchanged |
 | Observability / Operations | 69 | SSH instability reconfirmed | still needs alert/restore drills |
 | Testing / CI/CD | 74 | pending this batch validation | pending |
 
-Conservative overall readiness remains below 95 until production evidence, runtime smoke automation, alert-to-human, restore drill, and remaining legacy master-data references are closed.
+Conservative overall readiness is improved, but remains below 95 until runtime smoke automation, alert-to-human, restore drill, and remaining legacy master-data references are closed.
 
 ## Local Self-Test
 
@@ -110,9 +148,9 @@ Conservative overall readiness remains below 95 until production evidence, runti
 ## Next Cleanup Order
 
 1. **P0-2 Production parity for RBAC atomicity**
-   - Confirm production `RepairRolePermissionMatrixAtomicity1782052418112` migration state.
-   - Confirm production non-admin coarse grants are `0`.
-   - If still pending, run the approved migration/deploy path and re-audit.
+   - Status: `DONE`.
+   - Production `RepairRolePermissionMatrixAtomicity1782052418112` migration state confirmed.
+   - Production non-admin coarse grants confirmed `0`.
 
 2. **P0-3 Runtime smoke automation**
    - Make `/uat`, `/system-monitor`, alert center, dashboard cards, mobile device monitor, approval center, procurement payment project selector, and upload flows part of repeatable smoke checks.
@@ -131,4 +169,4 @@ Conservative overall readiness remains below 95 until production evidence, runti
 
 `GO_WITH_CONDITIONS`
 
-Local RBAC atomicity cleanup is complete and audited. Production parity is still pending because remote SSH is intermittently failing during banner exchange.
+Local and production RBAC atomicity cleanup is complete and audited.
