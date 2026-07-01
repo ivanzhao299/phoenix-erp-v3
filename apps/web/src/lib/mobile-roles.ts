@@ -426,14 +426,16 @@ export function getMobileAccessFromJWT(
   const legacyEntry = permissions.find(p => p.startsWith(`MOBILE_${pageKey.toUpperCase()}:`));
   if (legacyEntry) {
     const codes = legacyEntry.split(':')[1] ?? '';
+    if (!codes.includes('V')) return 'none';
     return (codes.includes('C') || codes.includes('E') || codes.includes('A')) ? 'write' : 'read';
   }
 
   const menuPerm = PAGE_MENU_PERMS[pageKey];
   if (!menuPerm) return 'none';
+  const canView = hasAnyMenuPermission(permissions, [...menuPerm.read, ...menuPerm.write], ['V']);
+  if (!canView) return 'none';
   if (hasAnyMenuPermission(permissions, menuPerm.write, ['C', 'E', 'A'])) return 'write';
-  if (hasAnyMenuPermission(permissions, [...menuPerm.read, ...menuPerm.write], ['V', 'C', 'E', 'A', 'X'])) return 'read';
-  return 'none';
+  return 'read';
 }
 
 /** 多角色矩阵访问级别：取用户所有角色（含别名展开）中的最高级别 */

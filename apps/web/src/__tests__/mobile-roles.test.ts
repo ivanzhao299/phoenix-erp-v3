@@ -98,9 +98,13 @@ describe('getMobileAccessFromJWT (atomic menu permissions)', () => {
     expect(getMobileAccessFromJWT(['*'], 'feed')).toBe('write');
   });
 
-  it('grants write when a menu code carries a write action (C/E/A)', () => {
-    // feed.write menu MENU_FARM_DAILY with E action
-    expect(getMobileAccessFromJWT(['MENU_FARM_DAILY:E'], 'feed')).toBe('write');
+  it('grants write only when a menu code carries view plus a write action (V + C/E/A)', () => {
+    // feed.write menu MENU_FARM_DAILY with V+E action
+    expect(getMobileAccessFromJWT(['MENU_FARM_DAILY:V,E'], 'feed')).toBe('write');
+  });
+
+  it('fail-closed: write actions without V do not make a mobile page visible', () => {
+    expect(getMobileAccessFromJWT(['MENU_FARM_DAILY:E'], 'feed')).toBe('none');
   });
 
   it('grants read when only a view (V) action is present', () => {
@@ -109,7 +113,8 @@ describe('getMobileAccessFromJWT (atomic menu permissions)', () => {
 
   it('honors legacy MOBILE_<PAGEKEY> entries', () => {
     expect(getMobileAccessFromJWT(['MOBILE_FEED:V'], 'feed')).toBe('read');
-    expect(getMobileAccessFromJWT(['MOBILE_FEED:E'], 'feed')).toBe('write');
+    expect(getMobileAccessFromJWT(['MOBILE_FEED:V,E'], 'feed')).toBe('write');
+    expect(getMobileAccessFromJWT(['MOBILE_FEED:E'], 'feed')).toBe('none');
   });
 
   it('fail-closed: none for empty / missing permissions', () => {
@@ -127,6 +132,9 @@ describe('getMobileAccessLevel (unified gate: JWT first, then role matrix)', () 
   it('JWT permission takes priority over role matrix', () => {
     expect(
       getMobileAccessLevel('feed', { permissions: ['MENU_FARM_DAILY:E'], role: R.DRIVER }),
+    ).toBe('none');
+    expect(
+      getMobileAccessLevel('feed', { permissions: ['MENU_FARM_DAILY:V,E'], role: R.DRIVER }),
     ).toBe('write');
   });
 

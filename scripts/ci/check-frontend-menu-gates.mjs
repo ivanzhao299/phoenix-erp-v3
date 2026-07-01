@@ -6,6 +6,7 @@ const files = {
   sidebar: 'apps/web/src/components/layout/Sidebar.tsx',
   adminLayout: 'apps/web/src/app/(admin)/layout.tsx',
   home: 'apps/web/src/app/(admin)/home/page.tsx',
+  mobileRoles: 'apps/web/src/lib/mobile-roles.ts',
 };
 
 const content = Object.fromEntries(
@@ -35,6 +36,26 @@ const checks = [
   {
     name: 'home workflow shortcut does not point to workflow root',
     pass: !/label:\s*'审批工作台'[\s\S]*?href:\s*'\/workflow'[\s,}]/.test(content.home),
+  },
+  {
+    name: 'sidebar navigation visibility defaults to V permission',
+    pass: /const requiredPerm = item\.requiredPerm \?\? ["']V["'];/.test(content.sidebar)
+      && /hasPermission\(item\.perm,\s*requiredPerm\)/.test(content.sidebar)
+      && /hasPermission\(item\.superPerm,\s*requiredPerm\)/.test(content.sidebar)
+      && /hasPermission\(code,\s*requiredPerm\)/.test(content.sidebar),
+  },
+  {
+    name: 'home navigation cards require V permission for visibility',
+    pass: /hasPermission\(c\.perm,\s*["']V["']\)/.test(content.home)
+      && /hasPermission\(s\.perm,\s*["']V["']\)/.test(content.home)
+      && !/hasPermission\(c\.perm\)/.test(content.home)
+      && !/hasPermission\(s\.perm\)/.test(content.home),
+  },
+  {
+    name: 'mobile JWT menu permissions require V before write/read visibility',
+    pass: /const canView = hasAnyMenuPermission\([^;]+,\s*\['V'\]\);/.test(content.mobileRoles)
+      && /if \(!canView\) return 'none';/.test(content.mobileRoles)
+      && /if \(!codes\.includes\('V'\)\) return 'none';/.test(content.mobileRoles),
   },
 ];
 

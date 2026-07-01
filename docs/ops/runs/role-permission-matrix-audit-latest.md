@@ -1,6 +1,6 @@
 # Role Permission Matrix Atomicity Audit
 
-Generated at: 2026-07-01T05:19:40.333Z
+Generated at: 2026-07-01T14:15:20.239Z
 
 Mode: dry-run
 Database: phoenix_erp
