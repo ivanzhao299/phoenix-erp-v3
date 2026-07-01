@@ -69,6 +69,31 @@ GO WITH CONDITIONS.
 
 The UAT checklist update 500 and readiness/checklist display mismatch have been fixed locally and are ready for push/deploy. After deployment, run production runtime smoke and verify `/uat` loads plus unauthenticated API endpoints remain protected.
 
+## Stabilization Follow-up - 2026-07-01
+
+Production screenshot evidence still showed `PATCH /api/uat/checklists/51` returning HTTP 500 with PostgreSQL error `inconsistent types deduced for parameter $2`.
+
+Follow-up root cause:
+
+- The previous SQL still reused the raw status placeholder in multiple expressions.
+- Runtime execution could still ask PostgreSQL to infer the same parameter across assignment and conditional expressions.
+
+Follow-up fix:
+
+- `UatChecklistService.update()` now defines all request parameters once in a typed `payload` CTE.
+- The `UPDATE` statement references only typed payload columns:
+  - `p.next_status`
+  - `p.tester_id`
+  - `p.tester_name`
+  - `p.remark`
+- The status transition condition now uses `p.next_status IN (...)`, so the raw `$2` placeholder is no longer reused across SQL expression contexts.
+
+Expected result:
+
+- Checklist status updates no longer hit PostgreSQL parameter inference ambiguity.
+- The `/uat` page can mark checklist items without HTTP 500.
+- No migration, seed, destructive DB operation, or production configuration change is required.
+
 ## Next Cleanup Candidate
 
 Continue production debt cleanup with the next P0/P1 item after this deploy:
