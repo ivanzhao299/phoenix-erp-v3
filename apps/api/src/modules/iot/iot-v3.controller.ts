@@ -45,7 +45,7 @@ export class IotV3Controller {
 
       // 2. 实时快照（最近一条）
       const snapshots = await safeQuery('mon_device_realtime_snapshot', `
-        SELECT erp_house_code, property_code, value, is_alarm, collect_time,
+        SELECT erp_house_code, property_code, value, is_alarm, collect_time, updated_at,
                name_zh, unit, system_category
         FROM mon_device_realtime_snapshot
       `);
@@ -77,13 +77,24 @@ export class IotV3Controller {
       const STALE_MS = 30 * 60 * 1000; // 30 分钟无数据视为陈旧
       const now = Date.now();
 
-      // collect_time 兼容 epoch ms / 时间戳字符串（与下方 dataFreshness 同口径）
-      const toMs = (ct: any): number => (Number(ct) > 1e12 ? Number(ct) : new Date(ct).getTime());
+      // 快照表按 (house, property) upsert 保留最新记录。生产上 collect_time 可能来自第三方，
+      // updated_at 才是本系统最近写入时间；移动端在线/诊断必须和 PC 监控服务保持同一口径。
+      const toMs = (value: any): number => {
+        if (value == null) return NaN;
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric > 1e12) return numeric;
+        const parsed = new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : NaN;
+      };
+      const snapshotMs = (row: any): number => {
+        const updated = toMs(row.updated_at);
+        return Number.isNaN(updated) ? toMs(row.collect_time) : updated;
+      };
       // "在线" = 有值且最近一次采集未陈旧；快照按 (house,property) upsert 永久保留，
       //   仅判 value != null 会把早已掉线的传感器仍计为在线 → 在线数/在线率虚高。
       const isOnline = (p: any): boolean => {
         if (p.value == null) return false;
-        const ms = toMs(p.collect_time);
+        const ms = snapshotMs(p);
         return !isNaN(ms) && now - ms < STALE_MS;
       };
 
@@ -103,10 +114,8 @@ export class IotV3Controller {
         let dataFreshness = 'no_data';
         if (hasData) {
           const latest = props.reduce((max: any, p: any) =>
-            Number(p.collect_time) > Number(max.collect_time) ? p : max, props[0]);
-          const latestMs = Number(latest.collect_time) > 1e12
-            ? Number(latest.collect_time)
-            : new Date(latest.collect_time).getTime();
+            snapshotMs(p) > snapshotMs(max) ? p : max, props[0]);
+          const latestMs = snapshotMs(latest);
           const age = now - latestMs;
           dataFreshness = age < 10 * 60 * 1000 ? 'normal' : age < STALE_MS ? 'delayed' : 'stale';
         }
@@ -161,7 +170,7 @@ export class IotV3Controller {
         housesWithData: activeHouses,
         totalSnapshots: totalSensor,
         lastCollectAt: snapshots.reduce((mx: number, r: any) => {
-          const v = r.collect_time == null ? 0 : (Number(r.collect_time) > 1e12 ? Number(r.collect_time) : new Date(r.collect_time).getTime());
+          const v = snapshotMs(r);
           return isNaN(v) ? mx : Math.max(mx, v);
         }, 0) || null,
       };
@@ -181,7 +190,7 @@ export class IotV3Controller {
         diagnosticReason = '已绑定设备但暂无实时快照，请检查 IoT 同步任务、第三方凭据或现场网关。';
       } else if (onlineSensor === 0) {
         diagnosticCode = 'STALE_OR_OFFLINE';
-        diagnosticReason = '存在历史快照，但最近 30 分钟没有在线传感器数据。';
+        diagnosticReason = '存在历史快照，但最近 30 分钟没有在线传感器数据；请检查现场网关、同步任务或第三方数据源。';
       }
 
       return {
@@ -239,11 +248,14 @@ export class IotV3Controller {
       `);
 
       const snapAgg = await safeQuery('mon_device_realtime_snapshot', `
-        SELECT erp_house_code, COUNT(*)::int AS cnt, MAX(collect_time) AS last_ct
+        SELECT erp_house_code, COUNT(*)::int AS cnt, MAX(collect_time) AS last_ct, MAX(updated_at) AS last_updated_at
         FROM mon_device_realtime_snapshot GROUP BY erp_house_code
       `);
-      const snapMap = new Map<string, { cnt: number; last_ct: any }>(
-        snapAgg.map((r: any) => [r.erp_house_code, { cnt: Number(r.cnt), last_ct: r.last_ct }]),
+      const snapMap = new Map<string, { cnt: number; last_ct: any; last_updated_at: any }>(
+        snapAgg.map((r: any) => [
+          r.erp_house_code,
+          { cnt: Number(r.cnt), last_ct: r.last_ct, last_updated_at: r.last_updated_at },
+        ]),
       );
 
       const hbRows = await safeQuery(
@@ -257,8 +269,16 @@ export class IotV3Controller {
       const mappedActive   = mappings.filter((m: any) => m.vendor_house_id && m.status === 'ACTIVE').length;
       const housesWithData = mappings.filter((m: any) => (snapMap.get(m.erp_house_code)?.cnt ?? 0) > 0).length;
       const totalSnapshots = snapAgg.reduce((s: number, r: any) => s + Number(r.cnt), 0);
+      const toMs = (value: any): number => {
+        if (value == null) return NaN;
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric > 1e12) return numeric;
+        const parsed = new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : NaN;
+      };
       const lastCollectMs  = snapAgg.reduce((mx: number, r: any) => {
-        const v = r.last_ct == null ? 0 : (Number(r.last_ct) > 1e12 ? Number(r.last_ct) : new Date(r.last_ct).getTime());
+        const updated = toMs(r.last_updated_at);
+        const v = Number.isNaN(updated) ? toMs(r.last_ct) : updated;
         return isNaN(v) ? mx : Math.max(mx, v);
       }, 0);
 
