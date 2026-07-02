@@ -248,8 +248,8 @@ export class WorkflowService implements OnModuleInit {
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT * FROM wf_definition
-       WHERE ($1::text IS NULL OR status = $1)
-         AND ($2::text IS NULL OR category = $2)
+       WHERE ($1::text IS NULL OR status = $1::text)
+         AND ($2::text IS NULL OR category = $2::text)
        ORDER BY updated_at DESC, id DESC LIMIT $3 OFFSET $4`,
       [query.status || null, query.category || null, limit, offset],
     );
@@ -488,8 +488,8 @@ export class WorkflowService implements OnModuleInit {
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT * FROM wf_form_definition
-       WHERE ($1::text IS NULL OR status = $1)
-         AND ($2::text IS NULL OR category = $2)
+       WHERE ($1::text IS NULL OR status = $1::text)
+         AND ($2::text IS NULL OR category = $2::text)
        ORDER BY updated_at DESC, id DESC LIMIT $3 OFFSET $4`,
       [query.status || null, query.category || null, limit, offset],
     );
@@ -691,11 +691,11 @@ export class WorkflowService implements OnModuleInit {
     const isAdmin = this.isAdmin(user);
     const rows = await this.em.query(
       `SELECT * FROM wf_instance
-       WHERE ($1::text IS NULL OR status=$1)
-         AND ($2::boolean OR starter_id=$3 OR EXISTS (
+       WHERE ($1::text IS NULL OR status=$1::text)
+         AND ($2::boolean OR starter_id=$3::int OR EXISTS (
            SELECT 1 FROM wf_task t
            WHERE t.instance_id=wf_instance.id
-             AND (t.assignee_user_id=$3 OR t.assignee_role_code = ANY($4::text[]))
+             AND (t.assignee_user_id=$3::int OR t.assignee_role_code = ANY($4::text[]))
          ))
        ORDER BY created_at DESC, id DESC LIMIT $5 OFFSET $6`,
       [query.status || null, isAdmin, user.userId || 0, this.userRoles(user), limit, offset],
@@ -883,10 +883,10 @@ export class WorkflowService implements OnModuleInit {
          GROUP BY instance_id
        ) a ON a.instance_id=i.id
        WHERE t.status='TODO'
-         AND ($1::boolean OR i.starter_id=$2 OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]) OR EXISTS (
+         AND ($1::boolean OR i.starter_id=$2::int OR t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]) OR EXISTS (
            SELECT 1 FROM wf_cc_task c
            WHERE c.instance_id=i.id
-             AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+             AND (c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[]))
          ))
        ORDER BY (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) DESC,
                 t.due_at ASC NULLS LAST,
@@ -911,7 +911,7 @@ export class WorkflowService implements OnModuleInit {
        LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
        LEFT JOIN sys_user u ON u.user_id=c.receiver_user_id
        LEFT JOIN sys_role r ON r.role_code=c.receiver_role_code
-       WHERE $1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[])
+       WHERE $1::boolean OR c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[])
        ORDER BY COALESCE(c.read_at, TIMESTAMP '1970-01-01') ASC, c.created_at DESC, c.id DESC
        LIMIT $4 OFFSET $5`,
       [this.isAdmin(user), user.userId || 0, roles, limit, offset],
@@ -927,14 +927,14 @@ export class WorkflowService implements OnModuleInit {
         `SELECT COUNT(*)::int AS count
          FROM wf_task t
          WHERE t.status='TODO'
-           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
+           AND ($1::boolean OR t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))`,
         [isAdmin, user.userId || 0, roles],
       ),
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM wf_cc_task c
          WHERE c.read_at IS NULL
-           AND ($1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))`,
+           AND ($1::boolean OR c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[]))`,
         [isAdmin, user.userId || 0, roles],
       ),
       this.em.query(
@@ -943,21 +943,21 @@ export class WorkflowService implements OnModuleInit {
          WHERE t.status='TODO'
            AND t.due_at IS NOT NULL
            AND t.due_at < CURRENT_TIMESTAMP
-           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
+           AND ($1::boolean OR t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))`,
         [isAdmin, user.userId || 0, roles],
       ),
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM wf_instance i
          WHERE i.status='RUNNING'
-           AND ($1::boolean OR i.starter_id=$2 OR EXISTS (
+           AND ($1::boolean OR i.starter_id=$2::int OR EXISTS (
              SELECT 1 FROM wf_task t
              WHERE t.instance_id=i.id
-               AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
+               AND (t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))
            ) OR EXISTS (
              SELECT 1 FROM wf_cc_task c
              WHERE c.instance_id=i.id
-               AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+               AND (c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[]))
            ))`,
         [isAdmin, user.userId || 0, roles],
       ),
@@ -1086,7 +1086,7 @@ export class WorkflowService implements OnModuleInit {
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT * FROM wf_data_source
-       WHERE ($1::text IS NULL OR status=$1)
+       WHERE ($1::text IS NULL OR status=$1::text)
        ORDER BY id DESC LIMIT $2 OFFSET $3`,
       [query.status || null, limit, offset],
     );
@@ -1335,7 +1335,7 @@ export class WorkflowService implements OnModuleInit {
        LEFT JOIN wf_definition d ON d.id=i.definition_id
        LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
        WHERE t.status=$1
-         AND ($2::boolean OR t.assignee_user_id=$3 OR t.assignee_role_code = ANY($4::text[]))
+          AND ($2::boolean OR t.assignee_user_id=$3::int OR t.assignee_role_code = ANY($4::text[]))
        ORDER BY t.created_at DESC, t.id DESC LIMIT $5 OFFSET $6`,
       [status, this.isAdmin(user), user.userId || 0, this.userRoles(user), limit, offset],
     );
@@ -1672,15 +1672,15 @@ export class WorkflowService implements OnModuleInit {
     if (this.isAdmin(user)) return;
     const rows = await this.em.query(
       `SELECT 1 FROM wf_instance i
-       WHERE i.id=$1 AND (i.starter_id=$2 OR EXISTS (
-         SELECT 1 FROM wf_task t
-         WHERE t.instance_id=i.id
-           AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
-       ) OR EXISTS (
-         SELECT 1 FROM wf_cc_task c
-         WHERE c.instance_id=i.id
-           AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
-       ))`,
+        WHERE i.id=$1 AND (i.starter_id=$2::int OR EXISTS (
+          SELECT 1 FROM wf_task t
+          WHERE t.instance_id=i.id
+            AND (t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))
+        ) OR EXISTS (
+          SELECT 1 FROM wf_cc_task c
+          WHERE c.instance_id=i.id
+            AND (c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[]))
+        ))`,
       [instanceId, user.userId || 0, this.userRoles(user)],
     );
     if (!rows[0]) throw new ForbiddenException('workflow instance not visible');

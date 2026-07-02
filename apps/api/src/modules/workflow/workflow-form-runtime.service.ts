@@ -115,9 +115,9 @@ export class WorkflowFormRuntimeService {
         SELECT id, code, name, biz_type, module_code, category, remark,
                status, current_version_id, created_at, updated_at
           FROM wf_form_definition
-         WHERE ($1::text IS NULL OR status = $1)
-           AND ($2::text IS NULL OR biz_type = $2)
-           AND ($3::text IS NULL OR name ILIKE '%' || $3 || '%' OR code ILIKE '%' || $3 || '%')
+         WHERE ($1::text IS NULL OR status = $1::text)
+           AND ($2::text IS NULL OR biz_type = $2::text)
+           AND ($3::text IS NULL OR name ILIKE '%' || $3::text || '%' OR code ILIKE '%' || $3::text || '%')
          ORDER BY updated_at DESC, id DESC
          LIMIT $4 OFFSET $5
       `, [query.status ?? null, query.bizType ?? null, query.keyword ?? null, pageSize, offset]),
@@ -125,9 +125,9 @@ export class WorkflowFormRuntimeService {
       this.ds.query<[{ cnt: string }]>(`
         SELECT COUNT(*) AS cnt
           FROM wf_form_definition
-         WHERE ($1::text IS NULL OR status = $1)
-           AND ($2::text IS NULL OR biz_type = $2)
-           AND ($3::text IS NULL OR name ILIKE '%' || $3 || '%' OR code ILIKE '%' || $3 || '%')
+         WHERE ($1::text IS NULL OR status = $1::text)
+           AND ($2::text IS NULL OR biz_type = $2::text)
+           AND ($3::text IS NULL OR name ILIKE '%' || $3::text || '%' OR code ILIKE '%' || $3::text || '%')
       `, [query.status ?? null, query.bizType ?? null, query.keyword ?? null]),
     ]);
 
@@ -414,9 +414,9 @@ export class WorkflowFormRuntimeService {
           FROM wf_form_submission s
           JOIN wf_form_version    fv ON fv.id = s.form_version_id
           JOIN wf_form_definition fd ON fd.id = fv.form_id
-         WHERE ($1::text IS NULL OR s.form_code = $1)
-           AND ($2::text IS NULL OR s.status    = $2)
-           AND ($3::int  IS NULL OR s.submitted_by = $3)
+         WHERE ($1::text IS NULL OR s.form_code = $1::text)
+           AND ($2::text IS NULL OR s.status    = $2::text)
+           AND ($3::int  IS NULL OR s.submitted_by = $3::int)
          ORDER BY s.created_at DESC, s.id DESC
          LIMIT $4 OFFSET $5
       `, [query.formCode ?? null, query.status ?? null, query.submittedBy ?? null, pageSize, offset]),
@@ -424,9 +424,9 @@ export class WorkflowFormRuntimeService {
       this.ds.query<[{ cnt: string }]>(`
         SELECT COUNT(*) AS cnt
           FROM wf_form_submission
-         WHERE ($1::text IS NULL OR form_code    = $1)
-           AND ($2::text IS NULL OR status       = $2)
-           AND ($3::int  IS NULL OR submitted_by = $3)
+         WHERE ($1::text IS NULL OR form_code    = $1::text)
+           AND ($2::text IS NULL OR status       = $2::text)
+           AND ($3::int  IS NULL OR submitted_by = $3::int)
       `, [query.formCode ?? null, query.status ?? null, query.submittedBy ?? null]),
     ]);
 

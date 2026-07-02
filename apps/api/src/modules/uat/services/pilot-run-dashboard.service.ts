@@ -130,7 +130,7 @@ export class PilotRunDashboardService {
            COUNT(*) FILTER (WHERE status IN ('RESOLVED','CLOSED')
                             AND updated_at >= CURRENT_DATE)         AS resolved_today
          FROM uat_feedbacks
-         WHERE ($1::bigint IS NULL OR pilot_run_id = $1)`,
+         WHERE ($1::bigint IS NULL OR pilot_run_id = $1::bigint)`,
         [pilotRunId],
       ),
       // 待审批

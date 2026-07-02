@@ -83,6 +83,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         req,
         stackTrace:    err?.stack,
       });
+      this.raisePgAlert(req, pgCode, err?.message ?? msg);
       return res.status(400).json({ code: 400, msg });
     }
 
@@ -179,6 +180,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
     _alertWebhookLastSent.set(req.url, now);
     this.pushWebhook(url, `🚨 API 500 ${path}`, String(errorMessage).slice(0, 300))
       .catch(() => { /* 静默 */ });
+  }
+
+  /** PG 约束/字段/类型错误也进入告警中心，便于值班用户从同一入口看到真实 DB 故障源。 */
+  private raisePgAlert(req: Request, pgCode: string, errorMessage: string) {
+    const path = `${req.method} ${req.url}`;
+    this.alertsService
+      ?.createAlert({
+        alertType: 'PG_ERROR',
+        severity: ['42703', '22P02'].includes(pgCode) ? 'CRITICAL' : 'WARNING',
+        title: `PG${pgCode}：${path}`,
+        detail: {
+          pgCode,
+          errorMessage: String(errorMessage).slice(0, 500),
+        },
+        relatedPath: req.url,
+      })
+      .catch(() => { /* 告警失败不影响主流程 */ });
   }
 
   private async pushWebhook(url: string, title: string, msg: string): Promise<void> {

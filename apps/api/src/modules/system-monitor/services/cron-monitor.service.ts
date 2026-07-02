@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { SysAlertsService } from './sys-alerts.service';
 
 /**
  * G126 · Cron 心跳自监控（评分补强 P6）
@@ -16,7 +17,10 @@ import { DataSource } from 'typeorm';
 export class CronMonitorService implements OnModuleInit {
   private readonly logger = new Logger(CronMonitorService.name);
 
-  constructor(@InjectDataSource() private readonly ds: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly ds: DataSource,
+    private readonly alerts: SysAlertsService,
+  ) {}
 
   /** 幂等建心跳表（本模块自持，不依赖 generic-crud bootstrap） */
   async onModuleInit(): Promise<void> {
@@ -48,12 +52,14 @@ export class CronMonitorService implements OnModuleInit {
     await this.upsert(jobName, 'FAILED', detail).catch((e) =>
       this.logger.warn(`[cron-monitor] heartbeat fail 写入失败 ${jobName}: ${e?.message}`),
     );
-    await this.ds
-      .query(
-        `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path, created_at)
-         VALUES ('CRON_FAILURE', 'CRITICAL', $1, $2, $3, NOW())`,
-        [`定时任务失败：${jobName}`, (detail || '').slice(0, 2000), `cron:${jobName}`],
-      )
+    await this.alerts
+      .createAlert({
+        alertType: 'CRON_FAILURE',
+        severity: 'CRITICAL',
+        title: `定时任务失败：${jobName}`,
+        detail: { jobName, errorMessage: (detail || '').slice(0, 2000) },
+        relatedPath: `cron:${jobName}`,
+      })
       .catch((e) => this.logger.warn(`[cron-monitor] 告警写入失败 ${jobName}: ${e?.message}`));
   }
 

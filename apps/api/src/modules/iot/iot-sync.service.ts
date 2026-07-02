@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EntityManager } from 'typeorm';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
+import { SysAlertsService } from '../system-monitor/services/sys-alerts.service';
 
 @Injectable()
 export class IotSyncService implements OnModuleInit {
@@ -23,6 +24,7 @@ export class IotSyncService implements OnModuleInit {
   constructor(
     private readonly entityManager: EntityManager,
     private readonly cronMon: CronMonitorService,
+    private readonly alerts: SysAlertsService,
   ) {}
 
   /** 每 5 分钟自动同步全场实时数据（与 V2 版本保持一致）*/
@@ -490,6 +492,21 @@ export class IotSyncService implements OnModuleInit {
                     alertType, s.value, thresholdVal, s.unit || '',
                     alertNo, Date.now(),
                   ]).catch(() => {});
+                  await this.alerts.createAlert({
+                    alertType: 'IOT_DEVICE_ALERT',
+                    severity: 'WARNING',
+                    title: `设备预警：${s.erp_house_code} ${s.name_zh || s.property_code}`,
+                    detail: {
+                      houseCode: s.erp_house_code,
+                      propertyCode: s.property_code,
+                      alertType,
+                      currentValue: s.value,
+                      thresholdValue: thresholdVal,
+                      unit: s.unit || '',
+                      alertNo,
+                    },
+                    relatedPath: `/breeding/device-alerts?house=${encodeURIComponent(s.erp_house_code)}`,
+                  }).catch((e) => this.logger.warn(`IoT sys_alert write failed: ${e?.message ?? e}`));
                 } else {
                   await this.entityManager.query(`
                     UPDATE mon_device_alert_event
@@ -512,6 +529,16 @@ export class IotSyncService implements OnModuleInit {
           }
         } catch (innerErr: any) {
           this.logger.error(`Sync realtime failed for house ${map.erp_house_code}: ${innerErr.message}`);
+          await this.alerts.createAlert({
+            alertType: 'IOT_SYNC_FAILURE',
+            severity: 'WARNING',
+            title: `IoT 单舍同步失败：${map.erp_house_code}`,
+            detail: {
+              houseCode: map.erp_house_code,
+              errorMessage: String(innerErr?.message ?? innerErr).slice(0, 500),
+            },
+            relatedPath: `/breeding/device?house=${encodeURIComponent(map.erp_house_code)}`,
+          }).catch((e) => this.logger.warn(`IoT sync failure alert write failed: ${e?.message ?? e}`));
         }
         // 限速由 fetchRealtimeProxy 内的 _lastCallTs 统一管理，无需在此额外等待
       }

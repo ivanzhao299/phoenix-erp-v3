@@ -5,8 +5,10 @@ import { MonDeviceController } from './mon-device.controller';
 import { IotV3Controller } from './iot-v3.controller';
 import { MonDeviceService } from './mon-device.service';
 import { IotSyncService } from './iot-sync.service';
+import { SystemMonitorModule } from '../system-monitor/system-monitor.module';
 
 @Module({
+  imports: [SystemMonitorModule],
   controllers: [
     FarmDeviceController,
     FarmCabinController,

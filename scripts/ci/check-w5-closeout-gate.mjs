@@ -68,6 +68,10 @@ const checks = [
     pass: run('node', ['scripts/ci/check-frontend-menu-gates.mjs']),
   },
   {
+    name: 'PG parameter cast consistency gate passes',
+    pass: run('node', ['scripts/ci/check-pg-parameter-cast-consistency.mjs']),
+  },
+  {
     name: 'procurement DataScope write gate passes',
     pass: run('node', ['scripts/ci/check-procurement-datascope-writes.mjs']),
   },
