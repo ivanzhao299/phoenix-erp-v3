@@ -48,6 +48,12 @@ jobs:
         if: always()
         run: node scripts/check-i18n-keys.js
 
+      - name: Install web dependencies for i18n AST gate
+        if: always()
+        run: |
+          corepack enable
+          pnpm install --filter web --frozen-lockfile
+
       - name: Check i18n hardcoded UI literal coverage
         if: always()
         run: node scripts/ci/check-i18n-hardcoded-literals.mjs --fail-on-uncovered
