@@ -24,7 +24,7 @@ export interface MasterDataHealthReport {
 /**
  * G5 — 主数据健康
  *
- * 监控 11 张主表：customer_master / supplier / shr_projects / shareholders / product_skus /
+ * 监控 11 张主表：customer_master / supplier / biz_projects / shareholders / product_skus /
  *                brd_farms / brd_houses / brd_flocks / wms_warehouses / fin_cash_accounts / bank_accounts
  *
  * 检查：重复编码 / 重复名称 / 缺联系字段 / 长期未使用 / 冻结但被引用 / 归档但被引用
@@ -49,7 +49,7 @@ export class MasterDataHealthService {
     const tables = [
       { tbl: 'customer_master', codeField: 'customer_code', nameField: 'customer_name', extra: ['contact_phone'] },
       { tbl: 'supplier',        codeField: 'supplier_code', nameField: 'supplier_name', extra: ['contact_phone','tax_no'] },
-      { tbl: 'shr_projects',    codeField: 'project_code',  nameField: 'project_name',  extra: [] },
+      { tbl: 'biz_projects',    codeField: 'project_code',  nameField: 'project_name',  extra: [] },
       { tbl: 'shareholders',    codeField: 'shareholder_code', nameField: 'shareholder_name', extra: [] },
       { tbl: 'product_skus',    codeField: 'sku_code',      nameField: 'sku_name',      extra: [] },
       { tbl: 'brd_farms',       codeField: 'farm_code',     nameField: 'farm_name',     extra: ['manager'] },

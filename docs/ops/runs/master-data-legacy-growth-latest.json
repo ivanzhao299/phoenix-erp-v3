@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T05:50:20.275Z",
+  "generatedAt": "2026-07-02T05:51:12.291Z",
   "baselineId": "MASTER_DATA_LEGACY_REFERENCE_BASELINE_20260702",
   "scannedFiles": 424,
   "decision": "PASS",
@@ -32,9 +32,9 @@
     {
       "table": "shr_projects",
       "status": "PASS",
-      "current": 5,
+      "current": 2,
       "baseline": 6,
-      "modules": 2,
+      "modules": 1,
       "moduleBaseline": 3
     }
   ]

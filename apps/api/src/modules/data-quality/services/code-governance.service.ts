@@ -37,7 +37,7 @@ export class CodeGovernanceService {
     const RULES = [
       { domain: 'CUS', table: 'customer_master', field: 'customer_code', pattern: '^(CUS|CUST|C)[-_]?\\w+$' },
       { domain: 'SUP', table: 'supplier',        field: 'supplier_code', pattern: '^(SUP|SUPP|S)[-_]?\\w+$' },
-      { domain: 'PRJ', table: 'shr_projects',    field: 'project_code',  pattern: '^[A-Z][A-Z0-9_-]+$' },
+      { domain: 'PRJ', table: 'biz_projects',    field: 'project_code',  pattern: '^[A-Z][A-Z0-9_-]+$' },
       { domain: 'SHR', table: 'shareholders',    field: 'shareholder_code', pattern: '^(SH|SHR|SHAREH)[-_]?\\w+$' },
       { domain: 'SKU', table: 'product_skus',    field: 'sku_code',      pattern: '^[A-Z][A-Z0-9_-]+$' },
       { domain: 'INV', table: 'wms_inbound',     field: 'inbound_no',    pattern: '^WI[-_]?[A-Z0-9]+$' },
