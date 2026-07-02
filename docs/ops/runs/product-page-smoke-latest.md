@@ -1,6 +1,6 @@
 # Product Page Smoke
 
-Generated at: 2026-07-02T05:43:17.001Z
+Generated at: 2026-07-02T05:51:31.085Z
 Base URL: https://erp.eggslao.com
 Decision: GO
 
