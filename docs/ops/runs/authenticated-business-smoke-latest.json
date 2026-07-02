@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-07-02T05:42:13.896Z",
+  "profile": "generic-authenticated-user",
+  "base_url": "https://erp.eggslao.com",
+  "api_url": "https://erp.eggslao.com",
+  "username": null,
+  "user_role": null,
+  "strict": false,
+  "summary": {
+    "pass": 0,
+    "warn": 0,
+    "fail": 0,
+    "skip": 1,
+    "decision": "SKIP_CREDENTIALS"
+  },
+  "checks": [
+    {
+      "status": "SKIP",
+      "name": "credentials",
+      "reason": "SMOKE_USER/SMOKE_PASS or PHOENIX_SMOKE_USER/PHOENIX_SMOKE_PASS not provided"
+    }
+  ],
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}

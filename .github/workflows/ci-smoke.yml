@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only or production'
+        description: 'Smoke target: documented-only, production, product-pages, authenticated-production'
         required: false
         default: documented-only
   pull_request:
@@ -24,13 +24,18 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Validate runtime smoke checker
-        run: node --check scripts/ops/runtime-smoke-check.mjs
+        run: |
+          node --check scripts/ops/runtime-smoke-check.mjs
+          node --check scripts/ops/product-page-smoke.mjs
+          node --check scripts/ops/authenticated-business-smoke.mjs
 
       - name: Document smoke entrypoints
         run: |
           echo "Pull requests validate the smoke checker without touching production."
           echo "Existing command: bash scripts/smoke-test.sh"
           echo "Runtime smoke command: node scripts/ops/runtime-smoke-check.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
+          echo "Product page smoke command: node scripts/ops/product-page-smoke.mjs --base-url=https://erp.eggslao.com --strict"
+          echo "Authenticated smoke command: SMOKE_USER=... SMOKE_PASS=... node scripts/ops/authenticated-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
 
       - name: Validate legacy smoke script exists
@@ -40,6 +45,26 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
         run: |
           node scripts/ops/runtime-smoke-check.mjs \
+            --base-url=https://erp.eggslao.com \
+            --api-url=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs \
+            --strict
+
+      - name: Run production product page smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'product-pages'
+        run: |
+          node scripts/ops/product-page-smoke.mjs \
+            --base-url=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs \
+            --strict
+
+      - name: Run authenticated production smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'authenticated-production'
+        env:
+          SMOKE_USER: ${{ secrets.PHOENIX_SMOKE_USER }}
+          SMOKE_PASS: ${{ secrets.PHOENIX_SMOKE_PASS }}
+        run: |
+          node scripts/ops/authenticated-business-smoke.mjs \
             --base-url=https://erp.eggslao.com \
             --api-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
