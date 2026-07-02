@@ -1,0 +1,61 @@
+{
+  "generatedAt": "2026-07-02T08:40:12.608Z",
+  "decision": "PASS",
+  "checks": [
+    {
+      "id": "API_5XX_SOURCE",
+      "description": "Unhandled API 5xx errors create sys_alerts.",
+      "file": "apps/api/src/common/filters/all-exceptions.filter.ts",
+      "pass": true
+    },
+    {
+      "id": "PG_ERROR_SOURCE",
+      "description": "PostgreSQL errors create sys_alerts.",
+      "file": "apps/api/src/common/filters/all-exceptions.filter.ts",
+      "pass": true
+    },
+    {
+      "id": "CRON_FAILURE_SOURCE",
+      "description": "Cron failures create sys_alerts.",
+      "file": "apps/api/src/modules/system-monitor/services/cron-monitor.service.ts",
+      "pass": true
+    },
+    {
+      "id": "IOT_DEVICE_ALERT_SOURCE",
+      "description": "IoT threshold device alerts create sys_alerts.",
+      "file": "apps/api/src/modules/iot/iot-sync.service.ts",
+      "pass": true
+    },
+    {
+      "id": "IOT_SYNC_FAILURE_SOURCE",
+      "description": "IoT per-house sync failures create sys_alerts.",
+      "file": "apps/api/src/modules/iot/iot-sync.service.ts",
+      "pass": true
+    },
+    {
+      "id": "IOT_SYNC_DOWN_SOURCE",
+      "description": "IoT cloud-wide sync outage creates sys_alerts even when using direct SQL fallback.",
+      "file": "apps/api/src/modules/iot/iot-sync.service.ts",
+      "pass": true
+    },
+    {
+      "id": "ALERT_DELIVERY_HEALTH",
+      "description": "System alerts expose delivery health and station notification evidence.",
+      "file": "apps/api/src/modules/system-monitor/services/sys-alerts.service.ts",
+      "pass": true
+    },
+    {
+      "id": "ALERT_APPEND_ONLY",
+      "description": "Alert center remains append-only: no DELETE endpoint; resolve is one-way.",
+      "file": "apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts",
+      "pass": true
+    },
+    {
+      "id": "ALERT_MENU_GUARD",
+      "description": "Alert center is guarded by MENU_SYS_MONITOR view/action permissions.",
+      "file": "apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts",
+      "pass": true
+    }
+  ],
+  "failures": []
+}

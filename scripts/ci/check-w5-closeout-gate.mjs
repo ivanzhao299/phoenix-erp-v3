@@ -83,6 +83,10 @@ const checks = [
     name: 'master-data legacy reference growth gate passes',
     pass: run('node', ['scripts/ci/check-master-data-legacy-growth.mjs']),
   },
+  {
+    name: 'sys_alert source coverage gate passes',
+    pass: run('node', ['scripts/ci/check-sys-alert-source-coverage.mjs']),
+  },
 ];
 
 let failed = 0;
