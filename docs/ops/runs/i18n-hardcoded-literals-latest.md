@@ -1,6 +1,6 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-02T14:31:39.139Z
+Generated: 2026-07-02T14:45:06.235Z
 
 Total findings: 2654
 Auto-translatable by runtime bridge: 2654

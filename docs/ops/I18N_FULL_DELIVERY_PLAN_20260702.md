@@ -46,18 +46,24 @@ Status: Done
 
 ### Phase 4: Manual Componentization Backlog
 
-Status: Next
+Status: Started
 
 Runtime coverage is now complete, but long-term maintainability still requires replacing high-frequency files with explicit `t()` calls.
 
-Priority files:
+Executed in this follow-up:
 
-1. `apps/web/src/components/layout/Sidebar.tsx`
-2. `apps/web/src/components/master-data/detail-configs.tsx`
-3. `apps/web/src/lib/workflow-templates.ts`
-4. `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx`
-5. `apps/web/src/lib/dict-type-labels.ts`
-6. Procurement, finance, approval, inventory, and master-data high-frequency pages.
+1. Sidebar menu keys are now explicit for every registered menu item.
+2. `menu.<id>` keys were added for all 155 sidebar menu ids in zh/en/lo.
+3. Core navigation labels, tooltips, and aria labels no longer depend on Chinese fallback text.
+4. CI security workflow now runs the hardcoded UI literal coverage gate with `--fail-on-uncovered`.
+
+Remaining priority files:
+
+1. `apps/web/src/components/master-data/detail-configs.tsx`
+2. `apps/web/src/lib/workflow-templates.ts`
+3. `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx`
+4. `apps/web/src/lib/dict-type-labels.ts`
+5. Procurement, finance, approval, inventory, and master-data high-frequency pages.
 
 ## Current Execution Result
 
@@ -68,6 +74,8 @@ Priority files:
 - Manual uncovered findings: 0
 - Generated fallback text count: 0
 - Locale key counts: zh/en/lo aligned
+- Sidebar menu explicit key coverage: 155/155
+- CI hardcoded literal coverage gate: enabled
 
 ## Boundaries
 

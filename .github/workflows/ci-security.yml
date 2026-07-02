@@ -48,6 +48,10 @@ jobs:
         if: always()
         run: node scripts/check-i18n-keys.js
 
+      - name: Check i18n hardcoded UI literal coverage
+        if: always()
+        run: node scripts/ci/check-i18n-hardcoded-literals.mjs --fail-on-uncovered
+
       - name: W5 closeout static gate
         if: always()
         env:
