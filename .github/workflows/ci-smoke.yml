@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, authenticated-production, role-business-production'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, authenticated-production, role-business-production'
         required: false
         default: documented-only
   pull_request:
@@ -27,6 +27,7 @@ jobs:
         run: |
           node --check scripts/ops/runtime-smoke-check.mjs
           node --check scripts/ops/product-page-smoke.mjs
+          node --check scripts/ops/browser-visual-smoke.mjs
           node --check scripts/ops/authenticated-business-smoke.mjs
           node --check scripts/ops/role-business-smoke.mjs
 
@@ -36,6 +37,7 @@ jobs:
           echo "Existing command: bash scripts/smoke-test.sh"
           echo "Runtime smoke command: node scripts/ops/runtime-smoke-check.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "Product page smoke command: node scripts/ops/product-page-smoke.mjs --base-url=https://erp.eggslao.com --strict"
+          echo "Browser visual smoke command: node scripts/ops/browser-visual-smoke.mjs --base-url=https://erp.eggslao.com --strict"
           echo "Authenticated smoke command: SMOKE_USER=... SMOKE_PASS=... node scripts/ops/authenticated-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "Role business smoke command: ROLE_SMOKE_CREDENTIALS_JSON=... node scripts/ops/role-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
@@ -58,6 +60,15 @@ jobs:
           node scripts/ops/product-page-smoke.mjs \
             --base-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
+            --strict
+
+      - name: Run production browser visual smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'browser-visual-production'
+        run: |
+          node scripts/ops/browser-visual-smoke.mjs \
+            --base-url=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs \
+            --screenshots-dir=output/playwright/product-pages \
             --strict
 
       - name: Run authenticated production smoke

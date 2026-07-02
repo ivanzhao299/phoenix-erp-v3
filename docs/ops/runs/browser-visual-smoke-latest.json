@@ -1,0 +1,139 @@
+{
+  "generated_at": "2026-07-02T12:55:28.328Z",
+  "base_url": "https://erp.eggslao.com",
+  "screenshots_dir": "docs/ops/runs/browser-visual-screenshots",
+  "strict": false,
+  "summary": {
+    "pass": 0,
+    "warn": 12,
+    "fail": 0,
+    "skip": 0,
+    "decision": "GO_WITH_WARNINGS"
+  },
+  "pages": [
+    {
+      "name": "dashboard",
+      "route": "/dashboard",
+      "url": "https://erp.eggslao.com/dashboard",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/dashboard.png",
+      "http_status": 307,
+      "text_length": 26,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "system-health",
+      "route": "/system/health",
+      "url": "https://erp.eggslao.com/system/health",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/system-health.png",
+      "http_status": 307,
+      "text_length": 32,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "system-alerts",
+      "route": "/system/alerts",
+      "url": "https://erp.eggslao.com/system/alerts",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/system-alerts.png",
+      "http_status": 307,
+      "text_length": 32,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "uat-readiness",
+      "route": "/uat",
+      "url": "https://erp.eggslao.com/uat",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/uat-readiness.png",
+      "http_status": 307,
+      "text_length": 20,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "inventory-turnover",
+      "route": "/analytics/inventory",
+      "url": "https://erp.eggslao.com/analytics/inventory",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/inventory-turnover.png",
+      "http_status": 307,
+      "text_length": 38,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "device-monitor",
+      "route": "/breeding/device",
+      "url": "https://erp.eggslao.com/breeding/device",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/device-monitor.png",
+      "http_status": 307,
+      "text_length": 34,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "procurement-payment-new",
+      "route": "/procurement2/payments/new",
+      "url": "https://erp.eggslao.com/procurement2/payments/new",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/procurement-payment-new.png",
+      "http_status": 307,
+      "text_length": 46,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "procurement-orders-new",
+      "route": "/procurement2/orders/new",
+      "url": "https://erp.eggslao.com/procurement2/orders/new",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/procurement-orders-new.png",
+      "http_status": 307,
+      "text_length": 44,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "approval-todo",
+      "route": "/workflow/tasks/todo",
+      "url": "https://erp.eggslao.com/workflow/tasks/todo",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/approval-todo.png",
+      "http_status": 307,
+      "text_length": 40,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "shareholder-capital",
+      "route": "/shareholders/capital",
+      "url": "https://erp.eggslao.com/shareholders/capital",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/shareholder-capital.png",
+      "http_status": 200,
+      "text_length": 15323,
+      "status": "WARN",
+      "reason": "expected page signal missing in server response"
+    },
+    {
+      "name": "mobile-device",
+      "route": "/mobile/device",
+      "url": "https://erp.eggslao.com/mobile/device",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/mobile-device.png",
+      "http_status": 307,
+      "text_length": 39,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    },
+    {
+      "name": "mobile-expenses",
+      "route": "/mobile/expenses",
+      "url": "https://erp.eggslao.com/mobile/expenses",
+      "screenshot": "docs/ops/runs/browser-visual-screenshots/mobile-expenses.png",
+      "http_status": 307,
+      "text_length": 41,
+      "status": "WARN",
+      "reason": "auth required; screenshot captured but product page content not visible"
+    }
+  ],
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}
