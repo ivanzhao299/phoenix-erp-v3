@@ -79,6 +79,10 @@ const checks = [
     name: 'WMS DataScope write gate passes',
     pass: run('node', ['scripts/ci/check-wms-datascope-writes.mjs']),
   },
+  {
+    name: 'master-data legacy reference growth gate passes',
+    pass: run('node', ['scripts/ci/check-master-data-legacy-growth.mjs']),
+  },
 ];
 
 let failed = 0;

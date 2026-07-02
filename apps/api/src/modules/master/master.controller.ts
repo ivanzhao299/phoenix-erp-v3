@@ -27,18 +27,11 @@ export class MasterController {
   async getStores() {
     try {
       const rows = await this.entityManager.query(
-        `SELECT * FROM sys_store WHERE status=1 ORDER BY store_code`
+        `SELECT * FROM mst_stores WHERE status='ACTIVE' ORDER BY store_code`
       );
       return { code: 200, data: rows };
     } catch (e) {
-      try {
-         const rows = await this.entityManager.query(
-          `SELECT * FROM mst_stores WHERE status='ACTIVE' ORDER BY store_code`
-         );
-         return { code: 200, data: rows };
-      } catch (e2) {
-         throw new InternalServerErrorException((e2 as Error).message);
-      }
+      throw new InternalServerErrorException((e as Error).message);
     }
   }
 
@@ -129,4 +122,3 @@ export class SystemController implements OnModuleInit {
     }
   }
 }
-

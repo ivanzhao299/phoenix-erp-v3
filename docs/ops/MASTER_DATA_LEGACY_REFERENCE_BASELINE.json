@@ -1,0 +1,46 @@
+{
+  "baseline_id": "MASTER_DATA_LEGACY_REFERENCE_BASELINE_20260702",
+  "generated_at": "2026-07-02T05:46:10.661Z",
+  "purpose": "Freeze current known white-list-excluded legacy master-data references so new debt cannot be introduced silently.",
+  "source_command": "node scripts/check-master-data-references.mjs --json",
+  "policy": {
+    "growth_allowed": false,
+    "reduction_allowed": true,
+    "failure_condition": "Any legacy source with total hits or module count greater than this baseline must fail the CI/W5 gate.",
+    "note": "This baseline does not approve the legacy references as target architecture. It only prevents new references while staged remediation replaces them safely."
+  },
+  "legacy_drift": [
+    {
+      "table": "brd_farms",
+      "baseline_total": 30,
+      "baseline_module_count": 6,
+      "reason": "养殖场旧主表;新写入应走 sys_organizations(SITE, FARM)",
+      "current_owner": "master-data-governance",
+      "remediation_priority": "P1"
+    },
+    {
+      "table": "sys_store",
+      "baseline_total": 3,
+      "baseline_module_count": 2,
+      "reason": "门店 V2 老表;已规划退役,新代码应走 mst_stores / sys_organizations store scope",
+      "current_owner": "master-data-governance",
+      "remediation_priority": "P0"
+    },
+    {
+      "table": "prc2_projects",
+      "baseline_total": 10,
+      "baseline_module_count": 3,
+      "reason": "项目旧主表;新代码应走 biz_projects,采购兼容路径需分阶段替换",
+      "current_owner": "procurement-master-data-governance",
+      "remediation_priority": "P0"
+    },
+    {
+      "table": "shr_projects",
+      "baseline_total": 6,
+      "baseline_module_count": 3,
+      "reason": "股东项目历史表;canonical 方向是 biz_projects + shareholder equity relation",
+      "current_owner": "shareholder-master-data-governance",
+      "remediation_priority": "P1"
+    }
+  ]
+}

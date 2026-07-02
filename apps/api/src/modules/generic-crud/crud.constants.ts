@@ -5,7 +5,7 @@ export const ALLOWED_TABLES = [
   // sys_orgs 已废弃 — 组织管理已迁移至 sys_organizations，由 /api/org/* 统一提供 CRUD
   // V3 RBAC 真实表（与 ddl/01_create_rbac_tables.sql 一致，单数）
   'sys_role', 'sys_user', 'sys_menu', 'sys_user_role', 'sys_role_menu_permission', 'sys_role_conflict',
-  'sys_approval_log', 'sys_audit_log', 'sys_store', 'sys_approval_rule', 'sys_settings',
+  'sys_approval_log', 'sys_audit_log', 'sys_approval_rule', 'sys_settings',
   'mst_stores', 'mst_products',
   'product_grades', 'packaging_specs', 'product_skus',
   'inv_batches', 'inv_ledger',
@@ -34,4 +34,3 @@ export const ALLOWED_TABLES = [
   // 注意：biz_purchase_order / biz_sales_order / fin_invoices 已从 ALLOWED_TABLES 移除。
   // 对应数据库表仍然保留，如需历史数据可通过 DBA 直接查询。
 ];
-

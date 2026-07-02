@@ -403,7 +403,6 @@ function getPkColumn(table: string): string {
     sys_role:         'role_code',
     sys_menu:         'menu_code',
     sys_user:         'user_id',
-    sys_store:        'store_code',
   };
   return PK_MAP[table] ?? 'id';
 }

@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-07-02T05:48:04.830Z",
+  "baselineId": "MASTER_DATA_LEGACY_REFERENCE_BASELINE_20260702",
+  "scannedFiles": 424,
+  "decision": "PASS",
+  "findings": [],
+  "rows": [
+    {
+      "table": "brd_farms",
+      "status": "PASS",
+      "current": 30,
+      "baseline": 30,
+      "modules": 6,
+      "moduleBaseline": 6
+    },
+    {
+      "table": "sys_store",
+      "status": "PASS",
+      "current": 0,
+      "baseline": 3,
+      "modules": 0,
+      "moduleBaseline": 2
+    },
+    {
+      "table": "prc2_projects",
+      "status": "PASS",
+      "current": 10,
+      "baseline": 10,
+      "modules": 3,
+      "moduleBaseline": 3
+    },
+    {
+      "table": "shr_projects",
+      "status": "PASS",
+      "current": 6,
+      "baseline": 6,
+      "modules": 3,
+      "moduleBaseline": 3
+    }
+  ]
+}
