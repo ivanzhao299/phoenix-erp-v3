@@ -17,6 +17,7 @@ type LanguageContextValue = {
   setAppLanguage: (lang: string) => void;
   toggleLanguage: () => void;
   t: (key: string, fallback?: string) => string;
+  translateLiteral: (text: string) => string;
   tField: (obj: Record<string, unknown>, fieldBase: string) => string;
 };
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -57,6 +58,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   // 首屏只加载当前语言（不再 Promise.all 全部语言）
   React.useEffect(() => {
     ensureLocale(lang);
+    if (lang !== 'zh') ensureLocale('zh');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -64,6 +66,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     setLang(newLang);
     if (typeof window !== 'undefined') localStorage.setItem('phoenix_lang', newLang);
     ensureLocale(newLang); // 切换时才按需加载目标语言
+    if (newLang !== 'zh') ensureLocale('zh'); // 非中文 UI 需要 zh 作为硬编码文案反查源
   }, [ensureLocale]);
 
   /**
@@ -76,6 +79,35 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     const dict = translationsRef.current[lang] || {};
     return dict[key] || fallback || key;
   }, [lang, translationsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const literalTranslationMap = useMemo(() => {
+    if (lang === 'zh') return new Map<string, string>();
+    const zhDict = translationsRef.current.zh || {};
+    const targetDict = translationsRef.current[lang] || {};
+    const map = new Map<string, string>();
+    const allowedPrefixes = [
+      'common.', 'ui.', 'menu.', 'status.', 'workflow.', 'approval.', 'settings.',
+      'md.', 'finance.', 'procurement.', 'sales.', 'warehouse.', 'breeding.',
+      'quality.', 'dashboard.', 'system.', 'store.', 'mobile.', 'trace.', 'pos.',
+    ];
+    for (const key of Object.keys(zhDict)) {
+      if (!allowedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
+      const source = String(zhDict[key] || '').replace(/\s+/g, ' ').trim();
+      const target = String(targetDict[key] || '').replace(/\s+/g, ' ').trim();
+      if (!source || !target || source === target || !/[\u4e00-\u9fff]/.test(source)) continue;
+      if (!map.has(source)) map.set(source, target);
+    }
+    return map;
+  }, [lang, translationsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const translateLiteral = useCallback((text: string): string => {
+    if (!text || lang === 'zh') return text;
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (!normalized || !/[\u4e00-\u9fff]/.test(normalized)) return text;
+    const translated = literalTranslationMap.get(normalized) || '';
+    if (!translated || translated === normalized) return text;
+    return text.replace(normalized, translated);
+  }, [lang, literalTranslationMap]);
 
   const tField = useCallback((obj: Record<string, unknown>, fieldBase: string): string => {
     if (!obj) return '';
@@ -92,16 +124,98 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   // value 记忆化：仅在 lang / t / tField 等真变化时换引用，
   // 避免 Provider 任意重渲染就让 ~148 个 useLanguage 消费者全部重渲染。
   const value = useMemo(
-    () => ({ lang, setAppLanguage, toggleLanguage, t, tField }),
-    [lang, setAppLanguage, toggleLanguage, t, tField],
+    () => ({ lang, setAppLanguage, toggleLanguage, t, translateLiteral, tField }),
+    [lang, setAppLanguage, toggleLanguage, t, translateLiteral, tField],
   );
 
   return (
     <LanguageContext.Provider value={value}>
+      <HardcodedChineseHydrator />
       {children}
     </LanguageContext.Provider>
   );
 };
+
+const TEXT_NODE = 3;
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE', 'NOSCRIPT']);
+const ATTRS = ['placeholder', 'title', 'aria-label'];
+
+function HardcodedChineseHydrator() {
+  const ctx = React.useContext(LanguageContext);
+  const textOriginals = useRef<WeakMap<Text, string>>(new WeakMap());
+  const attrOriginals = useRef<WeakMap<Element, Record<string, string>>>(new WeakMap());
+
+  React.useEffect(() => {
+    if (!ctx || typeof document === 'undefined') return undefined;
+    const translateNode = (node: Node) => {
+      if (node.nodeType === TEXT_NODE) {
+        const textNode = node as Text;
+        const parent = textNode.parentElement;
+        if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest('[data-i18n-skip="true"]')) return;
+        const current = textNode.nodeValue || '';
+        if (/[\u4e00-\u9fff]/.test(current) && !textOriginals.current.has(textNode)) {
+          textOriginals.current.set(textNode, current);
+        }
+        const original = textOriginals.current.get(textNode);
+        if (!original) return;
+        const next = ctx.lang === 'zh' ? original : ctx.translateLiteral(original);
+        if (next !== current) textNode.nodeValue = next;
+        return;
+      }
+
+      if (!(node instanceof Element)) return;
+      if (SKIP_TAGS.has(node.tagName) || node.closest('[data-i18n-skip="true"]')) return;
+
+      const originals = attrOriginals.current.get(node) || {};
+      let touched = false;
+      for (const attr of ATTRS) {
+        const current = node.getAttribute(attr);
+        if (!current || !/[\u4e00-\u9fff]/.test(current)) continue;
+        if (!originals[attr]) {
+          originals[attr] = current;
+          touched = true;
+        }
+      }
+      if (touched) attrOriginals.current.set(node, originals);
+      const stored = attrOriginals.current.get(node);
+      if (stored) {
+        for (const [attr, original] of Object.entries(stored)) {
+          const next = ctx.lang === 'zh' ? original : ctx.translateLiteral(original);
+          if (node.getAttribute(attr) !== next) node.setAttribute(attr, next);
+        }
+      }
+    };
+
+    const walk = (root: Node) => {
+      translateNode(root);
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+      let current = walker.nextNode();
+      while (current) {
+        translateNode(current);
+        current = walker.nextNode();
+      }
+    };
+
+    walk(document.body);
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of Array.from(mutation.addedNodes)) walk(node);
+        if (mutation.type === 'characterData') translateNode(mutation.target);
+        if (mutation.type === 'attributes') translateNode(mutation.target);
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ATTRS,
+    });
+    return () => observer.disconnect();
+  }, [ctx]);
+
+  return null;
+}
 
 export const useLanguage = (): LanguageContextValue => {
   const ctx = useContext(LanguageContext);
