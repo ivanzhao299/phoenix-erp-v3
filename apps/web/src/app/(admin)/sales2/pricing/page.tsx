@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { BookOpen, List, Zap, AlertTriangle, Plus, RefreshCw, Search, X, Info, Layers } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -54,6 +54,30 @@ const LEGACY_GRADE_NAMES: Record<string, string> = {
   "5": "5号蛋",
   "DIRTY": "脏蛋",
   "BROKEN": "破损蛋"
+};
+
+const PRICE_BOOK_PRIORITY_OPTIONS = [
+  { value: 10, label: "最高优先", tone: "danger", helper: "特批价 / 临时重点客户，最先匹配" },
+  { value: 50, label: "优先", tone: "warning", helper: "客户专属价 / 渠道专属价，优先匹配" },
+  { value: 100, label: "默认", tone: "info", helper: "日常价格册，推荐默认使用" },
+  { value: 200, label: "备用", tone: "neutral", helper: "兜底或待启用价格，最后匹配" }
+] as const;
+
+function priceBookPriorityMeta(priority: unknown) {
+  const n = Number(priority ?? 100);
+  const exact = PRICE_BOOK_PRIORITY_OPTIONS.find(opt => opt.value === n);
+  if (exact) return exact;
+  if (n < 50) return { value: n, label: "高优先", tone: "danger", helper: `自定义排序 ${n}` };
+  if (n < 100) return { value: n, label: "优先", tone: "warning", helper: `自定义排序 ${n}` };
+  if (n <= 150) return { value: n, label: "默认", tone: "info", helper: `自定义排序 ${n}` };
+  return { value: n, label: "备用", tone: "neutral", helper: `自定义排序 ${n}` };
+}
+
+const priorityChipStyle: Record<string, CSSProperties> = {
+  danger: { color: "#b42318", background: "#fff1f0", borderColor: "#ffccc7" },
+  warning: { color: "#ad6800", background: "#fff7e6", borderColor: "#ffd591" },
+  info: { color: "#1d4ed8", background: "#eff6ff", borderColor: "#bfdbfe" },
+  neutral: { color: "#475467", background: "#f2f4f7", borderColor: "#d0d5dd" }
 };
 type Tab = "books" | "items" | "current" | "anomaly";
 
@@ -305,8 +329,13 @@ function PriceBooksTab() {
     placeholder: t('ui.留空=非专属','留空=非专属')
   }, {
     key: "priority",
-    label: t('ui.优先级（数字越小越优先）','优先级（数字越小越优先）'),
-    type: "number"
+    label: t('ui.价格匹配规则','价格匹配规则'),
+    type: "select",
+    defaultValue: 100,
+    options: PRICE_BOOK_PRIORITY_OPTIONS.map(opt => ({
+      value: opt.value,
+      label: `${opt.label} - ${opt.helper}`
+    }))
   }, {
     key: "effectiveFrom",
     label: t('ui.生效日期','生效日期'),
@@ -438,7 +467,25 @@ function PriceBooksTab() {
                   <td>{row.price_book_name}</td>
                   <td className={u.muted}>{row.channel_code ?? "—"}</td>
                   <td className={u.muted}>{row.customer_code ?? "—"}</td>
-                  <td className={u.tac}>{row.priority}</td>
+                  <td className={u.tac}>
+                    {(() => {
+                    const meta = priceBookPriorityMeta(row.priority);
+                    return <span title={meta.helper} style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 74,
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      border: "1px solid",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      ...(priorityChipStyle[meta.tone] ?? priorityChipStyle.neutral)
+                    }}>
+                        {meta.label} <span style={{ fontWeight: 500, opacity: 0.72, marginLeft: 4 }}>({meta.value})</span>
+                      </span>;
+                  })()}
+                  </td>
                   {/* g200c(2026-06-19):ISO 字符串 → 本地日期(yyyy-MM-dd) */}
                   <td className={u.fs11}>{row.effective_from ? new Date(row.effective_from).toLocaleDateString("zh-CN") : "—"}</td>
                   <td className={u.fs11}>{row.effective_to   ? new Date(row.effective_to).toLocaleDateString("zh-CN")   : "—"}</td>
