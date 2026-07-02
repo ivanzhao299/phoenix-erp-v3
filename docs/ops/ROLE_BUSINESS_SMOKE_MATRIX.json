@@ -1,0 +1,95 @@
+{
+  "matrix_id": "ROLE_BUSINESS_SMOKE_MATRIX_V1",
+  "generated_at": "2026-07-02T16:50:00+08:00",
+  "purpose": "Define role-specific authenticated smoke expectations for menus, high-risk endpoints, and fail-closed boundaries.",
+  "credential_sources": [
+    "ROLE_SMOKE_CREDENTIALS_JSON",
+    "--credentials <local-untracked-json>"
+  ],
+  "credential_file_example": {
+    "profiles": [
+      {
+        "profile": "procurement",
+        "username": "smoke_procurement",
+        "password": "do-not-commit"
+      }
+    ]
+  },
+  "profiles": [
+    {
+      "profile": "procurement",
+      "description": "采购高频业务：采购订单/付款/物料快建只读 smoke。",
+      "required_menus": ["MENU_PRC2_REQUEST", "MENU_MD_MATERIAL"],
+      "forbidden_menus": ["MENU_FIN2_SHAREHOLDER", "MENU_SYS_MONITOR"],
+      "probes": [
+        { "name": "procurement:orders", "path": "/api/v2/procurement/orders?limit=1", "allowed_status": [200, 403] },
+        { "name": "procurement:payments", "path": "/api/v2/procurement/payments?limit=1", "allowed_status": [200, 403] },
+        { "name": "lookup:materials", "path": "/api/lookup/materials", "allowed_status": [200, 403] },
+        { "name": "lookup:projects", "path": "/api/lookup/projects", "allowed_status": [200, 403] }
+      ]
+    },
+    {
+      "profile": "finance",
+      "description": "财务人员：资金、报销、股东资金和报表只读 smoke。",
+      "required_menus": ["MENU_FIN2_DASHBOARD", "MENU_FIN2_CASH_VIEW", "MENU_FIN2_REIMBURSE"],
+      "forbidden_menus": ["MENU_SYS_MONITOR"],
+      "probes": [
+        { "name": "finance:dashboard", "path": "/api/v2/finance/dashboard", "allowed_status": [200, 403] },
+        { "name": "finance:cash-accounts", "path": "/api/v2/finance/cash/accounts", "allowed_status": [200, 403] },
+        { "name": "finance:shareholder-summary", "path": "/api/v2/finance/shareholder/contributions/summary", "allowed_status": [200, 403, 404] },
+        { "name": "workflow:my-tasks", "path": "/api/workflow/my-tasks", "allowed_status": [200, 403] }
+      ]
+    },
+    {
+      "profile": "shareholder",
+      "description": "股东本人：只读股东权益范围，不应具备财务冲销/系统监控权限。",
+      "required_menus": ["MENU_SHAREHOLDER_VIEW"],
+      "forbidden_menus": ["MENU_FIN2_SHAREHOLDER", "MENU_SYS_MONITOR", "MENU_FIN2_CASH_TRANSFER"],
+      "probes": [
+        { "name": "shareholder:capital-page-data", "path": "/api/v2/finance/shareholder/contributions/summary", "allowed_status": [200, 403, 404] },
+        { "name": "workflow:my-tasks", "path": "/api/workflow/my-tasks", "allowed_status": [200, 403] }
+      ]
+    },
+    {
+      "profile": "production-device",
+      "description": "生产/设备监控角色：设备监控和移动设备页面只读 smoke。",
+      "required_menus": ["MENU_DEVICE_MONITOR"],
+      "forbidden_menus": ["MENU_FIN2_SHAREHOLDER", "MENU_SYS_MONITOR"],
+      "probes": [
+        { "name": "iot:all-summary", "path": "/api/v3/iot/devices/all-summary", "allowed_status": [200, 403] },
+        { "name": "iot:alerts-stats", "path": "/api/farm/devices/alerts/stats", "allowed_status": [200, 403, 404] }
+      ]
+    },
+    {
+      "profile": "warehouse",
+      "description": "仓库角色：库存查询/出入库入口只读 smoke。",
+      "required_menus": ["MENU_WMS_VIEW"],
+      "forbidden_menus": ["MENU_FIN2_SHAREHOLDER", "MENU_SYS_MONITOR"],
+      "probes": [
+        { "name": "warehouse:query", "path": "/api/crud/inv_batches?limit=1", "allowed_status": [200, 403] },
+        { "name": "warehouse:inbound", "path": "/api/crud/wms_inbound?limit=1", "allowed_status": [200, 403] }
+      ]
+    },
+    {
+      "profile": "system-monitor",
+      "description": "系统值班/管理员：系统健康、告警中心和错误日志只读 smoke。",
+      "required_menus": ["MENU_SYS_MONITOR"],
+      "forbidden_menus": [],
+      "probes": [
+        { "name": "system:health", "path": "/api/system/monitor/health", "allowed_status": [200, 403] },
+        { "name": "system:alerts", "path": "/api/system/alerts?limit=1", "allowed_status": [200, 403] },
+        { "name": "system:alerts-delivery", "path": "/api/system/alerts/delivery-health", "allowed_status": [200, 403] }
+      ]
+    },
+    {
+      "profile": "store-payment-pilot",
+      "description": "Store Payment 试点角色：统一收款账户/记录和受控附件状态 smoke。",
+      "required_menus": ["MENU_STORE_PAYMENT"],
+      "forbidden_menus": ["MENU_SYS_MONITOR"],
+      "probes": [
+        { "name": "store-payment:accounts", "path": "/api/store-payment/accounts", "allowed_status": [200, 403, 404] },
+        { "name": "store-payment:records", "path": "/api/store-payment/records", "allowed_status": [200, 403, 404] }
+      ]
+    }
+  ]
+}

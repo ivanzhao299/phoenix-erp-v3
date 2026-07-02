@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-07-02T12:36:25.395Z",
+  "matrix_id": "ROLE_BUSINESS_SMOKE_MATRIX_V1",
+  "base_url": "https://erp.eggslao.com",
+  "api_url": "https://erp.eggslao.com",
+  "selected_profile": null,
+  "strict": false,
+  "summary": {
+    "pass": 0,
+    "warn": 0,
+    "fail": 0,
+    "skip": 8,
+    "decision": "SKIP_CREDENTIALS"
+  },
+  "checks": [
+    {
+      "status": "SKIP",
+      "name": "credentials",
+      "reason": "ROLE_SMOKE_CREDENTIALS_JSON or --credentials is not provided"
+    },
+    {
+      "status": "SKIP",
+      "name": "procurement:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "finance:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "shareholder:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "production-device:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "warehouse:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "system-monitor:profile",
+      "reason": "missing credentials"
+    },
+    {
+      "status": "SKIP",
+      "name": "store-payment-pilot:profile",
+      "reason": "missing credentials"
+    }
+  ],
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}

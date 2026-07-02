@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, authenticated-production'
+        description: 'Smoke target: documented-only, production, product-pages, authenticated-production, role-business-production'
         required: false
         default: documented-only
   pull_request:
@@ -28,6 +28,7 @@ jobs:
           node --check scripts/ops/runtime-smoke-check.mjs
           node --check scripts/ops/product-page-smoke.mjs
           node --check scripts/ops/authenticated-business-smoke.mjs
+          node --check scripts/ops/role-business-smoke.mjs
 
       - name: Document smoke entrypoints
         run: |
@@ -36,6 +37,7 @@ jobs:
           echo "Runtime smoke command: node scripts/ops/runtime-smoke-check.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "Product page smoke command: node scripts/ops/product-page-smoke.mjs --base-url=https://erp.eggslao.com --strict"
           echo "Authenticated smoke command: SMOKE_USER=... SMOKE_PASS=... node scripts/ops/authenticated-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
+          echo "Role business smoke command: ROLE_SMOKE_CREDENTIALS_JSON=... node scripts/ops/role-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
 
       - name: Validate legacy smoke script exists
@@ -65,6 +67,17 @@ jobs:
           SMOKE_PASS: ${{ secrets.PHOENIX_SMOKE_PASS }}
         run: |
           node scripts/ops/authenticated-business-smoke.mjs \
+            --base-url=https://erp.eggslao.com \
+            --api-url=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs \
+            --strict
+
+      - name: Run role business production smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'role-business-production'
+        env:
+          ROLE_SMOKE_CREDENTIALS_JSON: ${{ secrets.PHOENIX_ROLE_SMOKE_CREDENTIALS_JSON }}
+        run: |
+          node scripts/ops/role-business-smoke.mjs \
             --base-url=https://erp.eggslao.com \
             --api-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
