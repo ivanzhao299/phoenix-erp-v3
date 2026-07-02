@@ -2,10 +2,10 @@
 
 ## Summary
 
-- Findings count: 35
+- Findings count: 32
 - Highest severity: HIGH
 - Routing findings: 8
-- Baseline findings: 8
+- Baseline findings: 5
 - Report schema findings: 4
 - Codex CLI executed: No
 - Database written: No
@@ -40,11 +40,8 @@
 - OBS-0025 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0026 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0027 [MEDIUM] report-schema / A2-Security-Regression-Gate: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
-- OBS-0028 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json;  M docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/GUARDRAILS.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json;  M docs/ops/runtime-memory/STORE_PAYMENT_STATE.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_POLICY.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md; ?? docs/ops/runs/remediation-r3-high-throughput-batch1-20260624-124012/
-- OBS-0029 [MEDIUM] baseline / A1-CI-Runtime-Gate: A1-CI-Runtime-Gate worktree HEAD 9f2a346e is behind main 001d5e21.
-- OBS-0030 [MEDIUM] baseline / A2-Security-Regression-Gate: A2-Security-Regression-Gate worktree HEAD eb88e4d1 is behind main 001d5e21.
-- OBS-0031 [MEDIUM] baseline / A3-Backend-Critical-Path: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 001d5e21.
-- OBS-0032 [MEDIUM] baseline / A4-Frontend-UAT-Smoke: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 001d5e21.
-- OBS-0033 [MEDIUM] baseline / A5-Data-Readiness: A5-Data-Readiness worktree HEAD f3b7d954 is behind main 001d5e21.
-- OBS-0034 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 001d5e21.
-- OBS-0035 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 001d5e21.
+- OBS-0028 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/runs/role-permission-matrix-audit-latest.json;  M docs/ops/runs/role-permission-matrix-audit-latest.md;  M docs/ops/runs/runtime-smoke-check-latest.json;  M docs/ops/runs/runtime-smoke-check-latest.md
+- OBS-0029 [MEDIUM] baseline / A3-Backend-Critical-Path: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 9d683b03.
+- OBS-0030 [MEDIUM] baseline / A4-Frontend-UAT-Smoke: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 9d683b03.
+- OBS-0031 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 9d683b03.
+- OBS-0032 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 9d683b03.

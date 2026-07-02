@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-06-24T04:54:26.251Z |
-| Run files inspected | 699 |
+| Generated at | 2026-07-02T05:32:47.230Z |
+| Run files inspected | 956 |
 | Task count | 55 |
-| Findings count | 35 |
+| Findings count | 32 |
 | Highest severity | HIGH |
 | Routing findings | 8 |
-| Baseline findings | 8 |
+| Baseline findings | 5 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -262,7 +262,7 @@
 ### OBS-0028 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json;  M docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/GUARDRAILS.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json;  M docs/ops/runtime-memory/STORE_PAYMENT_STATE.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md; ?? docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_POLICY.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md; ?? docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md; ?? docs/ops/runs/remediation-r3-high-throughput-batch1-20260624-124012/
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/runs/role-permission-matrix-audit-latest.json;  M docs/ops/runs/role-permission-matrix-audit-latest.md;  M docs/ops/runs/runtime-smoke-check-latest.json;  M docs/ops/runs/runtime-smoke-check-latest.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -270,62 +270,35 @@
 
 ### OBS-0029 - MEDIUM - baseline
 
-- Affected Agent: A1-CI-Runtime-Gate
-- Evidence: A1-CI-Runtime-Gate worktree HEAD 9f2a346e is behind main 001d5e21.
-- Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Rebase A1-CI-Runtime-Gate with baseline autopilot.
-
-### OBS-0030 - MEDIUM - baseline
-
-- Affected Agent: A2-Security-Regression-Gate
-- Evidence: A2-Security-Regression-Gate worktree HEAD eb88e4d1 is behind main 001d5e21.
-- Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Rebase A2-Security-Regression-Gate with baseline autopilot.
-
-### OBS-0031 - MEDIUM - baseline
-
 - Affected Agent: A3-Backend-Critical-Path
-- Evidence: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 001d5e21.
+- Evidence: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 9d683b03.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A3-Backend-Critical-Path with baseline autopilot.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: A4-Frontend-UAT-Smoke
-- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 001d5e21.
+- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 9d683b03.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A4-Frontend-UAT-Smoke with baseline autopilot.
 
-### OBS-0033 - MEDIUM - baseline
-
-- Affected Agent: A5-Data-Readiness
-- Evidence: A5-Data-Readiness worktree HEAD f3b7d954 is behind main 001d5e21.
-- Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Rebase A5-Data-Readiness with baseline autopilot.
-
-### OBS-0034 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
-- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 001d5e21.
+- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 9d683b03.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0035 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
-- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 001d5e21.
+- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 9d683b03.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
