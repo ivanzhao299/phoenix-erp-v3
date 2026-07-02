@@ -20,7 +20,7 @@ This queue turns the remaining production-readiness debt into executable, eviden
 |---|---|---|---|---|---|
 | P0 | PROD95-BROWSER-VISUAL-SMOKE | Browser screenshot smoke for high-value pages | Codex-Orchestrator | `scripts/ops/browser-visual-smoke.mjs` + latest run report | in_progress |
 | P0 | PROD95-AUTH-ROLE-SMOKE | Execute role-specific smoke with approved credentials | A1/A2 | `docs/ops/runs/role-business-smoke-latest.*` | blocked_on_credentials |
-| P0 | PROD95-ALERT-TO-HUMAN | Prove alert sink reaches a human/operator channel | A1/A6 | alert delivery evidence | pending |
+| P0 | PROD95-ALERT-TO-HUMAN | Prove alert sink reaches a human/operator channel | A1/A6 | alert delivery evidence | done_with_conditions |
 | P0 | PROD95-RESTORE-DRILL | Run non-production backup restore drill | A1/A6 | restore drill report | pending |
 | P1 | PROD95-LEGACY-MASTER-DATA-REFERENCES | Continue reducing `brd_farms`, `prc2_projects`, `shr_projects` references | A3/A5 | legacy reference delta report | pending |
 | P1 | PROD95-UI-PRODUCT-POLISH | Browser-driven UI cleanup for dashboard, health, alerts, UAT, inventory, IoT | A4/A1 | screenshot before/after evidence | pending |
@@ -41,3 +41,13 @@ node scripts/ops/browser-visual-smoke.mjs --base-url=https://erp.eggslao.com --o
 ```
 
 If the run finds failures, fix the local page/API cause before any deploy. If the run is blocked by credentials, keep the task in HOLD and proceed to the next non-credential cleanup item.
+
+## Completed Follow-up
+
+`PROD95-ALERT-TO-HUMAN`
+
+The alert human reachability smoke is now available at `scripts/ops/alert-human-reachability-smoke.mjs`.
+
+- Static source reachability: PASS.
+- Runtime delivery-health proof: WARN until `PHOENIX_SMOKE_TOKEN` is provided.
+- CI manual target: `alert-human-production`.

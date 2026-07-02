@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-07-02T13:00:48.228Z",
+  "base_url": "https://erp.eggslao.com",
+  "strict": false,
+  "token_provided": false,
+  "summary": {
+    "pass": 8,
+    "warn": 1,
+    "fail": 0,
+    "decision": "GO_WITH_WARNINGS"
+  },
+  "checks": [
+    {
+      "status": "PASS",
+      "name": "static:notify watchers hook",
+      "signal": "notifySystemMonitorWatchers"
+    },
+    {
+      "status": "PASS",
+      "name": "static:station notification type",
+      "signal": "SYSTEM_ALERT"
+    },
+    {
+      "status": "PASS",
+      "name": "static:notification table write",
+      "signal": "sys_notifications"
+    },
+    {
+      "status": "PASS",
+      "name": "static:monitor menu recipient query",
+      "signal": "MENU_SYS_MONITOR"
+    },
+    {
+      "status": "PASS",
+      "name": "static:view permission recipient filter",
+      "signal": "'V' = ANY"
+    },
+    {
+      "status": "PASS",
+      "name": "static:delivery health service",
+      "signal": "getDeliveryHealth"
+    },
+    {
+      "status": "PASS",
+      "name": "static:delivery health endpoint"
+    },
+    {
+      "status": "PASS",
+      "name": "static:delivery health RBAC"
+    },
+    {
+      "status": "WARN",
+      "name": "runtime:delivery-health",
+      "reason": "missing PHOENIX_SMOKE_TOKEN/SMOKE_TOKEN; static reachability checked only"
+    }
+  ],
+  "writes_executed": false,
+  "migration_executed": false,
+  "deploy_executed": false,
+  "push_executed": false
+}
