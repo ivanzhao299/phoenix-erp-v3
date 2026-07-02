@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-02T13:15:04.293Z",
+  "generated_at": "2026-07-02T13:43:33.255Z",
   "base_url": "https://erp.eggslao.com",
-  "strict": false,
+  "strict": true,
   "pages": [
     {
       "name": "dashboard",
@@ -39,6 +39,11 @@
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx"
     },
     {
+      "name": "device-ops",
+      "route": "/breeding/device-ops",
+      "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx"
+    },
+    {
       "name": "procurement-payment-new",
       "route": "/procurement2/payments/new",
       "file": "apps/web/src/app/(admin)/procurement2/payments/new/page.tsx"
@@ -65,7 +70,7 @@
     }
   ],
   "summary": {
-    "pass": 24,
+    "pass": 26,
     "warn": 0,
     "fail": 0,
     "decision": "GO"
@@ -112,6 +117,12 @@
       "name": "static:device-monitor",
       "route": "/breeding/device",
       "files": "apps/web/src/app/(admin)/breeding/device/page.tsx"
+    },
+    {
+      "status": "PASS",
+      "name": "static:device-ops",
+      "route": "/breeding/device-ops",
+      "files": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx"
     },
     {
       "status": "PASS",
@@ -183,6 +194,12 @@
       "status": "PASS",
       "name": "http:device-monitor",
       "route": "/breeding/device",
+      "http_status": 307
+    },
+    {
+      "status": "PASS",
+      "name": "http:device-ops",
+      "route": "/breeding/device-ops",
       "http_status": 307
     },
     {
