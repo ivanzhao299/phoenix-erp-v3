@@ -105,7 +105,7 @@ const REFERENCE_MAP: Record<string, Array<{
   ],
   COMPANY: [
     { refTable: 'sys_organizations',  refDocType: '子组织',     fkColumn: 'parent_code',  noField: 'org_code',          linkPattern: '/master-data/organizations?keyword=:code' },
-    { refTable: 'prc2_projects',      refDocType: '项目',       fkColumn: 'company_code', noField: 'project_code',      linkPattern: '/master-data/projects?keyword=:code' },
+    { refTable: 'biz_projects',       refDocType: '项目',       fkColumn: 'company_code', noField: 'project_code',      linkPattern: '/master-data/projects?keyword=:code' },
     { refTable: 'wms_warehouses',     refDocType: '仓库',       fkColumn: 'company_code', noField: 'warehouse_code',    linkPattern: '/master-data/warehouses?keyword=:code' },
     { refTable: 'mst_stores',         refDocType: '门店',       fkColumn: 'company_code', noField: 'store_code',        linkPattern: '/master-data/stores?keyword=:code' },
     { refTable: 'fin_cash_accounts',  refDocType: '资金账户',   fkColumn: 'company_code', noField: 'account_code',      linkPattern: '/master-data/cash-accounts?keyword=:code' },

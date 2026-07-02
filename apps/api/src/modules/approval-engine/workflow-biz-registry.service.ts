@@ -255,11 +255,11 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       onRejected: mdAuditHook('SUPPLIER', 'prc2_suppliers', 'supplier_code', 'REJECT'),
     });
     this.register('MD_PROJECT_CREATE', {
-      // FIX UAT-P0-Phase1 2026-06-04: 实际表名 prc2_projects（shr_projects 不存在）
-      moduleCode: 'MENU_MD_PROJECT', tableName: 'prc2_projects',
+      // G86/G127: 项目主数据 canonical 已切到 biz_projects；历史采购项目表仅保留下拉兼容 fallback。
+      moduleCode: 'MENU_MD_PROJECT', tableName: 'biz_projects',
       approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
-      onApproved: mdAuditHook('PROJECT', 'prc2_projects', 'project_code', 'APPROVE_ACTIVE'),
-      onRejected: mdAuditHook('PROJECT', 'prc2_projects', 'project_code', 'REJECT'),
+      onApproved: mdAuditHook('PROJECT', 'biz_projects', 'project_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('PROJECT', 'biz_projects', 'project_code', 'REJECT'),
     });
     this.register('MD_CASH_ACCOUNT_CREATE', {
       moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'fin_cash_accounts',

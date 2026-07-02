@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T05:48:04.830Z",
+  "generatedAt": "2026-07-02T05:50:20.275Z",
   "baselineId": "MASTER_DATA_LEGACY_REFERENCE_BASELINE_20260702",
   "scannedFiles": 424,
   "decision": "PASS",
@@ -24,17 +24,17 @@
     {
       "table": "prc2_projects",
       "status": "PASS",
-      "current": 10,
+      "current": 3,
       "baseline": 10,
-      "modules": 3,
+      "modules": 1,
       "moduleBaseline": 3
     },
     {
       "table": "shr_projects",
       "status": "PASS",
-      "current": 6,
+      "current": 5,
       "baseline": 6,
-      "modules": 3,
+      "modules": 2,
       "moduleBaseline": 3
     }
   ]

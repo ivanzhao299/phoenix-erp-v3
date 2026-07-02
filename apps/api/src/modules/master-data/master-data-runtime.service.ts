@@ -93,7 +93,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   },
   project: {
     // G86 2026-06-12：切换到统一项目主表 biz_projects（MDM-1 已于 06-05 在生产建表；
-    //   prc2_projects 为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
+    //   历史采购项目表为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
     table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name', noValidityPeriod: true,  // G127：biz_projects 无生效期列
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
     writableCols: ['project_name','project_name_en','project_name_lo','project_short_name','company_code','project_type',

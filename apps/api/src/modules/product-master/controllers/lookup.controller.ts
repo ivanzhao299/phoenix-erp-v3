@@ -180,7 +180,7 @@ export class LookupController {
       if (primaryRows.length > 0) return primaryRows;
 
       // 生产兼容：MDM-1 统一项目主表上线前，部分历史采购项目仍保存在
-      // prc2_projects。业务单据只需要引用 ACTIVE 项目，不应因数据尚未完全
+      // 旧采购项目表。业务单据只需要引用 ACTIVE 项目，不应因数据尚未完全
       // 迁入 biz_projects 而出现“项目无可选项”。
       if (!(await this.tableExists('prc2_projects'))) return [];
       const { params, conds } = buildScopedFilter();
