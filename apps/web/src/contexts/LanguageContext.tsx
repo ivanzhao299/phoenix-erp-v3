@@ -89,6 +89,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
       'common.', 'ui.', 'menu.', 'status.', 'workflow.', 'approval.', 'settings.',
       'md.', 'finance.', 'procurement.', 'sales.', 'warehouse.', 'breeding.',
       'quality.', 'dashboard.', 'system.', 'store.', 'mobile.', 'trace.', 'pos.',
+      'auto.literal.',
     ];
     for (const key of Object.keys(zhDict)) {
       if (!allowedPrefixes.some((prefix) => key.startsWith(prefix))) continue;

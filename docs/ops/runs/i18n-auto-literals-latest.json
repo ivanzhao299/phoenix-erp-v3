@@ -1,0 +1,262 @@
+{
+  "generated_at": "2026-07-02T14:29:06.975Z",
+  "apply": true,
+  "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
+  "unique_hardcoded_literals": 1626,
+  "created_keys": 1626,
+  "updated_keys": 0,
+  "locale_counts_before": {
+    "zh": 11126,
+    "en": 11126,
+    "lo": 11126
+  },
+  "locale_counts_after": {
+    "zh": 12752,
+    "en": 12752,
+    "lo": 12752
+  },
+  "unresolved_english_chinese_count": 0,
+  "unresolved_lao_chinese_count": 0,
+  "sample_created": [
+    {
+      "key": "auto.literal.b246458f20c8",
+      "text": "暂无数据",
+      "en": "No data",
+      "lo": "ບໍ່ມີຂໍ້ມູນ"
+    },
+    {
+      "key": "auto.literal.895a8d490063",
+      "text": "暂无明细",
+      "en": "No items",
+      "lo": "ບໍ່ມີລາຍການ"
+    },
+    {
+      "key": "auto.literal.a54db40b5076",
+      "text": "生产报表",
+      "en": "Production Report",
+      "lo": "ລາຍງານການຜະລິດ"
+    },
+    {
+      "key": "auto.literal.c1722f1af92a",
+      "text": "库存周转",
+      "en": "Inventory Turnover",
+      "lo": "ຈຳນວນຮອບສາງ"
+    },
+    {
+      "key": "auto.literal.726ca8009d88",
+      "text": "价格复盘",
+      "en": "Price review",
+      "lo": "Price review"
+    },
+    {
+      "key": "auto.literal.80b159b1185d",
+      "text": "饲料用量",
+      "en": "Feed usage",
+      "lo": "Feed usage"
+    },
+    {
+      "key": "auto.literal.2657d0f413a2",
+      "text": "早班",
+      "en": "Morning Shift",
+      "lo": "ຜ່ອນຕອນເຊົ້າ"
+    },
+    {
+      "key": "auto.literal.c6ba4e7aeaec",
+      "text": "晚班",
+      "en": "Evening Shift",
+      "lo": "ກ່ຽວແລງ"
+    },
+    {
+      "key": "auto.literal.3e0b61fa71a9",
+      "text": "夜班",
+      "en": "Night Shift",
+      "lo": "ກ່ຽງກາງຄືນ"
+    },
+    {
+      "key": "auto.literal.79b62069f535",
+      "text": "全天",
+      "en": "All day",
+      "lo": "All day"
+    },
+    {
+      "key": "auto.literal.05e70cf8098c",
+      "text": "舍内温度",
+      "en": "House temperature",
+      "lo": "House temperature"
+    },
+    {
+      "key": "auto.literal.a4843645889d",
+      "text": "相对湿度",
+      "en": "Relative humidity",
+      "lo": "Relative humidity"
+    },
+    {
+      "key": "auto.literal.3816ab2bfce8",
+      "text": "CO₂浓度",
+      "en": "CO₂ Level",
+      "lo": "ລະດັບ CO₂"
+    },
+    {
+      "key": "auto.literal.eacc1dc364e9",
+      "text": "氨气浓度",
+      "en": "NH₃ Level",
+      "lo": "NH₃"
+    },
+    {
+      "key": "auto.literal.d3bea9efb1b9",
+      "text": "温度",
+      "en": "Temperature",
+      "lo": "ອຸນຫະພູມ"
+    },
+    {
+      "key": "auto.literal.dee19da50fba",
+      "text": "湿度",
+      "en": "Humidity",
+      "lo": "ຄວາມຊຸ່ມ"
+    },
+    {
+      "key": "auto.literal.5ad3e5443e76",
+      "text": "氨气",
+      "en": "Ammonia",
+      "lo": "ແອມໂມເນຍ"
+    },
+    {
+      "key": "auto.literal.60d1a171eed8",
+      "text": "设备汇总接口返回异常",
+      "en": "Device summary API returned an error",
+      "lo": "Device summary API returned an error"
+    },
+    {
+      "key": "auto.literal.4675321ec2a7",
+      "text": "网络错误",
+      "en": "Network Error",
+      "lo": "ຂໍ້ຜິດພາດເຄືອຂ່າຍ"
+    },
+    {
+      "key": "auto.literal.90b74980e435",
+      "text": "未检测",
+      "en": "Not checked",
+      "lo": "ຍັງບໍ່ກວດ"
+    },
+    {
+      "key": "auto.literal.3d5c03610012",
+      "text": "当前没有实时采集数据",
+      "en": "No real-time collection data currently",
+      "lo": "No real-time collection data currently"
+    },
+    {
+      "key": "auto.literal.732729befaca",
+      "text": "鸡舍：",
+      "en": "Henhouse:",
+      "lo": "ເລົ້າໄກ່:"
+    },
+    {
+      "key": "auto.literal.898aabd1bd4f",
+      "text": "； 已绑定：",
+      "en": "; Mapped:",
+      "lo": "; ຜູກແລ້ວ:"
+    },
+    {
+      "key": "auto.literal.3bb782736bc4",
+      "text": "； 快照：",
+      "en": "; Snapshots:",
+      "lo": "; ສະແນັບຊັອດ:"
+    },
+    {
+      "key": "auto.literal.cc56227e66c5",
+      "text": "查询错误：",
+      "en": "SearchError:",
+      "lo": "Searchຂໍ້ຜິດພາດ:"
+    },
+    {
+      "key": "auto.literal.625c4db7c0c3",
+      "text": "诊断中…",
+      "en": "Diagnosing…",
+      "lo": "ກຳລັງວິນິໄສ…"
+    },
+    {
+      "key": "auto.literal.59afcf7824d9",
+      "text": "重新诊断",
+      "en": "Run diagnosis again",
+      "lo": "Run diagnosis again"
+    },
+    {
+      "key": "auto.literal.e381a5763d5f",
+      "text": "已复制",
+      "en": "Copied",
+      "lo": "ສຳເນົາແລ້ວ"
+    },
+    {
+      "key": "auto.literal.6dfb2feb93e2",
+      "text": "复制诊断",
+      "en": "Copy diagnostics",
+      "lo": "ສຳເນົາການວິນິໄສ"
+    },
+    {
+      "key": "auto.literal.bd1ab15a74f2",
+      "text": "实时",
+      "en": "Live",
+      "lo": "ສົດ"
+    },
+    {
+      "key": "auto.literal.e9f092148039",
+      "text": "延迟",
+      "en": "Delayed",
+      "lo": "ລ່າຊ້າ"
+    },
+    {
+      "key": "auto.literal.ed4331644ead",
+      "text": "陈旧",
+      "en": "Stale",
+      "lo": "ເກົ່າ"
+    },
+    {
+      "key": "auto.literal.6ffa7e6d3530",
+      "text": "无数据",
+      "en": "No data",
+      "lo": "ບໍ່ມີຂໍ້ມູນ"
+    },
+    {
+      "key": "auto.literal.aa3833ea2a46",
+      "text": "环境",
+      "en": "Environment",
+      "lo": "Environment"
+    },
+    {
+      "key": "auto.literal.22382630ef61",
+      "text": "控制",
+      "en": "Control",
+      "lo": "Control"
+    },
+    {
+      "key": "auto.literal.1e9d6e61c188",
+      "text": "饲喂",
+      "en": "Feeding",
+      "lo": "Feeding"
+    },
+    {
+      "key": "auto.literal.147afaa1af09",
+      "text": "饮水",
+      "en": "drink water",
+      "lo": "ດື່ມນ້ໍາ"
+    },
+    {
+      "key": "auto.literal.8263f1aee2af",
+      "text": "执行器",
+      "en": "Actuator",
+      "lo": "Actuator"
+    },
+    {
+      "key": "auto.literal.9e636642d6d4",
+      "text": "刚刚",
+      "en": "Just now",
+      "lo": "ຫາກໍ່"
+    },
+    {
+      "key": "auto.literal.5f85a94fb3e6",
+      "text": "超出阈值",
+      "en": "ExceedsThreshold",
+      "lo": "ເກີນຄ່າຂີດຈໍາກັດ"
+    }
+  ]
+}

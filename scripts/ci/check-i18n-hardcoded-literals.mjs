@@ -15,6 +15,7 @@ const LOCALE_DIR = path.join(SRC, 'locales');
 const args = new Set(process.argv.slice(2));
 const writeReport = args.has('--write-report');
 const failOnFindings = args.has('--fail-on-findings');
+const failOnUncovered = args.has('--fail-on-uncovered');
 
 const includeDirs = [
   path.join(SRC, 'app'),
@@ -37,6 +38,7 @@ const localePrefixes = [
   'common.', 'ui.', 'menu.', 'status.', 'workflow.', 'approval.', 'settings.',
   'md.', 'finance.', 'procurement.', 'sales.', 'warehouse.', 'breeding.',
   'quality.', 'dashboard.', 'system.', 'store.', 'mobile.', 'trace.', 'pos.',
+  'auto.literal.',
 ];
 
 function loadJson(file, fallback = {}) {
@@ -104,6 +106,7 @@ function isI18nCallArg(node) {
 function shouldRecord(text) {
   const value = text.replace(/\s+/g, ' ').trim();
   if (!value || !/[\u4e00-\u9fff]/.test(value)) return false;
+  if (/^(auto\.literal|common|ui|menu|status|workflow|approval|settings|md|finance|procurement|sales|warehouse|breeding|quality|dashboard|system|store|mobile|trace|pos|prc2|mob|terminal)\./.test(value)) return false;
   if (/^[A-Z0-9_:/.\-\s]+$/.test(value)) return false;
   if (ignoreChinese.some((re) => re.test(value))) return false;
   return true;
@@ -157,6 +160,10 @@ const report = {
   manual_componentization_findings: findingsWithCoverage.filter((item) => !item.auto_translatable).length,
   affected_files: sortedFiles.length,
   top_files: sortedFiles.slice(0, 50),
+  findings: findingsWithCoverage.map((item) => ({
+    ...item,
+    file: path.relative(ROOT, item.file),
+  })),
   note: 'This detects remaining hardcoded Chinese literals. Existing key parity gate only proves referenced t() keys exist; it does not prove full UI i18n coverage.',
 };
 
@@ -187,4 +194,5 @@ if (writeReport) {
 
 console.log(`i18n-hardcoded-literals: ${allFindings.length} findings in ${sortedFiles.length} files`);
 if (writeReport) console.log(`reports: ${path.relative(ROOT, REPORT_JSON)}, ${path.relative(ROOT, REPORT_MD)}`);
+if (failOnUncovered && report.manual_componentization_findings > 0) process.exit(1);
 if (failOnFindings && findingsWithCoverage.length > 0) process.exit(1);
