@@ -48,11 +48,9 @@ jobs:
         if: always()
         run: node scripts/check-i18n-keys.js
 
-      - name: Install web dependencies for i18n AST gate
+      - name: Install TypeScript for i18n AST gate
         if: always()
-        run: |
-          corepack enable
-          pnpm install --filter web --frozen-lockfile
+        run: npm install --no-save --ignore-scripts typescript@5
 
       - name: Check i18n hardcoded UI literal coverage
         if: always()

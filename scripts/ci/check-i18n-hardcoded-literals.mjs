@@ -5,7 +5,21 @@ import { createRequire } from 'node:module';
 
 const ROOT = process.cwd();
 const require = createRequire(import.meta.url);
-const ts = require(path.join(ROOT, 'apps/web/node_modules/typescript'));
+const ts = (() => {
+  const candidates = [
+    'typescript',
+    path.join(ROOT, 'node_modules/typescript'),
+    path.join(ROOT, 'apps/web/node_modules/typescript'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch {
+      // Try the next known install location.
+    }
+  }
+  throw new Error('Cannot find TypeScript. Install it with `npm install --no-save --ignore-scripts typescript@5` or `pnpm install --filter web --frozen-lockfile`.');
+})();
 const SRC = path.join(ROOT, 'apps/web/src');
 const RUNS = path.join(ROOT, 'docs/ops/runs');
 const REPORT_JSON = path.join(RUNS, 'i18n-hardcoded-literals-latest.json');
