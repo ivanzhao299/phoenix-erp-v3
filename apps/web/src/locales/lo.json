@@ -4047,6 +4047,7 @@
   "menu.brd-medicine": "ບັນທຶກການໃຊ້ຢາ",
   "menu.brd-device": "ຕິດຕາມອຸປະກອນ",
   "menu.brd-alerts": "ການເຕືອນສະພາບ",
+  "menu.brd-device-ops": "ບຳລຸງຮັກສາອຸປະກອນ",
   "menu.pkg-op": "ຄຸ້ມຄອງການຫຸ້ມຫໍ່",
   "menu.pkg-inbound": "ນຳເຂົ້າໄຂ່",
   "menu.pkg-batch": "ຄຸ້ມຄອງຊຸດ",

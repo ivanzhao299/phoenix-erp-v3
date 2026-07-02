@@ -30,6 +30,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/breeding/medicine":            "menu.brd-medicine",
   "/breeding/device":              "menu.brd-device",
   "/breeding/device-alerts":       "menu.brd-alerts",
+  "/breeding/device-ops":          "menu.brd-device-ops",
   "/packaging":                    "menu.pkg-op",
   "/packaging/grading":            "menu.pkg-op",
   "/packaging/packing":            "menu.pkg-op",

@@ -1095,6 +1095,7 @@ export default function DeviceOpsPage() {
 
       {/* ── Modal: 编辑属性字典 ───────────────────────────────────────────── */}
       <ModalV2 open={!!dictEditRow} onClose={() => setDictEditRow(null)} title={`${t("ui.编辑属性", "编辑属性")}: ${dictEditRow?.name_zh ?? ""} (${dictEditRow?.property_code ?? ""})`} width={540}>
+        {dictEditRow ? <>
           <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -1103,7 +1104,7 @@ export default function DeviceOpsPage() {
       }}>
             {([["threshold_high", t("ui.上限", "高告警阈值")] as const, ["threshold_low", t("ui.下限", "低告警阈值")] as const, ["alert_min_duration_cycles", t("ui.消抖次数", "消抖次数（触发几次才告警）")] as const, ["alert_volatility_pct", t("ui.波动", "波动阈值 (0.2 = 20%)")] as const] as [keyof PropDict, string][]).map(([field, label]) => <div key={field}>
                 <Label>{label}</Label>
-                <input type="number" step="any" style={inp} value={(dictEditRow as any)[field] ?? ""} onChange={e => setDictEditRow(r => r ? {
+                <input type="number" step="any" style={inp} value={dictEditRow[field] ?? ""} onChange={e => setDictEditRow(r => r ? {
             ...r,
             [field]: e.target.value
           } : r)} />
@@ -1121,7 +1122,7 @@ export default function DeviceOpsPage() {
           fontSize: 13,
           cursor: "pointer"
         }}>
-                <input type="checkbox" checked={!!(dictEditRow as any)[field]} onChange={e => setDictEditRow(r => r ? {
+                <input type="checkbox" checked={Boolean(dictEditRow[field])} onChange={e => setDictEditRow(r => r ? {
             ...r,
             [field]: e.target.checked ? 1 : 0
           } : r)} />
@@ -1136,6 +1137,7 @@ export default function DeviceOpsPage() {
             <button type="button" style={secondaryActionButton} onClick={() => setDictEditRow(null)}>{t("common.cancel", "取消")}</button>
             <button type="button" style={primaryActionButton} disabled={saving} onClick={handleSaveDictEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
           </div>
+        </> : null}
       </ModalV2>
     </div>;
 }

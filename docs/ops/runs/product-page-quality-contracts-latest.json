@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T13:15:04.256Z",
+  "generatedAt": "2026-07-02T13:32:49.030Z",
   "contractId": "PRODUCT_PAGE_QUALITY_CONTRACTS_V1",
   "decision": "PASS",
   "pages": [
@@ -70,6 +70,17 @@
       "forbiddenSignalCount": 3
     },
     {
+      "name": "device-ops",
+      "route": "/breeding/device-ops",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/breeding/device-ops/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
       "name": "procurement-payment-new",
       "route": "/procurement2/payments/new",
       "status": "PASS",
@@ -114,6 +125,17 @@
       "failures": [],
       "requiredSignalCount": 5,
       "forbiddenSignalCount": 4
+    },
+    {
+      "name": "master-data-companies",
+      "route": "/master-data/companies",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/master-data/companies/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
     },
     {
       "name": "mobile-reimbursement",

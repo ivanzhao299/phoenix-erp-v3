@@ -87,6 +87,14 @@ const PRODUCT_PAGES = [
     forbidden: [],
   },
   {
+    name: 'device-ops',
+    route: '/breeding/device-ops',
+    file: 'apps/web/src/app/(admin)/breeding/device-ops/page.tsx',
+    valueSignals: ['设备运维中心', 'const API = "/api/farm-device"', '属性字典'],
+    qualitySignals: ['栏舍映射', '采集日志', '运维审计'],
+    forbidden: ['(dictEditRow as any)[field]', '当前页面加载失败', 'Application error', 'Unhandled Runtime Error'],
+  },
+  {
     name: 'procurement-payment-new',
     route: '/procurement2/payments/new',
     file: 'apps/web/src/app/(admin)/procurement2/payments/new/page.tsx',

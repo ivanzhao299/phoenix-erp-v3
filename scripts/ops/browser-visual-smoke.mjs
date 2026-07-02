@@ -29,6 +29,7 @@ const pages = [
   { name: 'inventory-turnover', route: '/analytics/inventory', mustContain: ['库存周转分析'], authOk: true },
   { name: 'sales-inventory-management', route: '/sales2/inventory', mustContain: ['库存管理'], authOk: true },
   { name: 'device-monitor', route: '/breeding/device', mustContain: ['设备监控总览'], authOk: true },
+  { name: 'device-ops', route: '/breeding/device-ops', mustContain: ['设备运维中心'], authOk: true },
   { name: 'procurement-payment-new', route: '/procurement2/payments/new', mustContain: ['新建付款单'], authOk: true },
   { name: 'procurement-orders-new', route: '/procurement2/orders/new', mustContain: ['采购'], authOk: true },
   { name: 'approval-todo', route: '/workflow/tasks/todo', mustContain: ['审批'], authOk: true },

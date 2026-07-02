@@ -52,6 +52,13 @@
       "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
     },
     {
+      "name": "device-ops",
+      "route": "/breeding/device-ops",
+      "files": ["apps/web/src/app/(admin)/breeding/device-ops/page.tsx"],
+      "must_include": ["设备运维中心", "/api/farm-device", "栏舍映射", "属性字典", "运维审计"],
+      "must_not_include": ["(dictEditRow as any)[field]", "当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
       "name": "procurement-payment-new",
       "route": "/procurement2/payments/new",
       "files": [

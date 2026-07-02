@@ -4047,6 +4047,7 @@
   "menu.brd-medicine": "Medication Records",
   "menu.brd-device": "Device Monitoring",
   "menu.brd-alerts": "Environment Alerts",
+  "menu.brd-device-ops": "Device Operations",
   "menu.pkg-op": "Packaging Management",
   "menu.pkg-inbound": "Egg Collection Inbound",
   "menu.pkg-batch": "Batch Management",

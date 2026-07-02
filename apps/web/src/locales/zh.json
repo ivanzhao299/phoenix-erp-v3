@@ -4047,6 +4047,7 @@
   "menu.brd-medicine": "用药记录",
   "menu.brd-device": "设备监控",
   "menu.brd-alerts": "环境预警",
+  "menu.brd-device-ops": "设备运维",
   "menu.pkg-op": "包装管理",
   "menu.pkg-inbound": "集蛋入库",
   "menu.pkg-batch": "批次管理",
