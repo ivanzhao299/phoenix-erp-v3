@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
-import { Building, Search, RefreshCw, ExternalLink } from "lucide-react";
+import { Building, Search, RefreshCw, ExternalLink, Pencil, Save } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
@@ -12,6 +12,7 @@ import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenter
 import { primaryActionButton, secondaryActionButton, inputField, inlineBadge } from "@/components/design-system/cockpit-styles";
 import { companyConfig } from "@/components/master-data/detail-configs";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 
 /**
  * 主数据中心 — 公司档案
@@ -30,9 +31,46 @@ interface OrgItem {
   orgName?: string;
   orgType?: string;
   parentName?: string;
+  parentCode?: string;
+  companyCode?: string;
+  orgShortName?: string;
+  managerName?: string;
   description?: string;
+  remark?: string;
   status?: string;
 }
+
+interface CompanyEditForm {
+  orgName: string;
+  orgShortName: string;
+  companyCode: string;
+  managerName: string;
+  remark: string;
+}
+
+const companyFieldGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 14
+};
+
+const companyFieldFull: React.CSSProperties = { gridColumn: "1 / -1" };
+
+const fieldLabel: React.CSSProperties = {
+  display: "block",
+  marginBottom: 6,
+  fontSize: 12,
+  fontWeight: 700,
+  color: "var(--text-secondary)"
+};
+
+const helperText: React.CSSProperties = {
+  marginTop: 6,
+  fontSize: 12,
+  lineHeight: 1.6,
+  color: "var(--text-secondary)"
+};
+
 export default function MdCompaniesPage() {
   const { t } = useLanguage();
   const {
@@ -44,6 +82,15 @@ export default function MdCompaniesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [detailCode, setDetailCode] = useState<string | null>(null);
+  const [editing, setEditing] = useState<OrgItem | null>(null);
+  const [editForm, setEditForm] = useState<CompanyEditForm>({
+    orgName: "",
+    orgShortName: "",
+    companyCode: "",
+    managerName: "",
+    remark: ""
+  });
+  const [saving, setSaving] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -66,6 +113,51 @@ export default function MdCompaniesPage() {
   useEffect(() => {
     if (canView) load();
   }, [canView, load]);
+
+  const openEdit = (row: OrgItem) => {
+    setEditing(row);
+    setEditForm({
+      orgName: row.orgName ?? "",
+      orgShortName: row.orgShortName ?? "",
+      companyCode: row.companyCode ?? row.orgCode ?? "",
+      managerName: row.managerName ?? "",
+      remark: row.remark ?? row.description ?? ""
+    });
+  };
+
+  const saveCompanyProfile = async () => {
+    if (!editing?.orgCode) return;
+    if (!editForm.orgName.trim()) {
+      setError(t('md.companyNameRequired', '公司名称不能为空'));
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/organizations/${encodeURIComponent(editing.orgCode)}`, {
+        method: "PATCH",
+        headers: hdr(),
+        body: JSON.stringify({
+          orgName: editForm.orgName.trim(),
+          orgShortName: editForm.orgShortName.trim() || undefined,
+          companyCode: editForm.companyCode.trim() || editing.orgCode,
+          managerName: editForm.managerName.trim() || undefined,
+          remark: editForm.remark.trim() || undefined
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message ?? `HTTP ${res.status}`);
+      }
+      setEditing(null);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('md.saveFailed', '保存失败'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!canView) return <div className="text-text-muted" style={{
     padding: 40,
     textAlign: "center"
@@ -88,6 +180,9 @@ export default function MdCompaniesPage() {
       color: "var(--color-accent)"
     }}>
         💡 {t('md.companySourceFromOrg', '公司档案来源于组织架构（Org Runtime）')}
+        <span style={{ color: "var(--text-secondary)", marginLeft: 8 }}>
+          {t('md.companyProfilePurpose', '本页用于查看和维护公司基础档案；法人证照、税号、注册地址、开户信息需后续建立公司扩展档案。')}
+        </span>
         {orgPerm.canCreate || orgPerm.canEdit ? <>{t('md.companyAddHint', '，如需添加公司请前往 ')}<Link href="/master-data/organizations" style={{
         color: "var(--color-accent)"
       }}>{t('md.orgManage', '组织架构管理')}</Link></> : "。"}
@@ -146,9 +241,27 @@ export default function MdCompaniesPage() {
               <button type="button" onClick={() => setDetailCode(o.orgCode ?? null)} style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}>{o.orgCode}</button>
             ) : "-" },
             { key: "orgName", title: t('md.companyName', '公司名称'), render: (o) => o.orgName ?? "-" },
+            { key: "orgShortName", title: t('md.companyShortName', '简称'), render: (o) => o.orgShortName ?? "-" },
             { key: "orgType", title: t('md.type', '类型'), render: (o) => <span style={inlineBadge('default')}>{o.orgType === "GROUP" ? t('md.group', '集团') : t('md.companyShort', '公司')}</span> },
             { key: "parentName", title: t('md.parent', '上级'), render: (o) => o.parentName ?? "-" },
-            { key: "description", title: t('md.description', '描述'), render: (o) => <span style={{ display: "block", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>{o.description ?? "-"}</span> },
+            { key: "managerName", title: t('md.manager', '负责人'), render: (o) => o.managerName ?? "-" },
+            { key: "status", title: t('md.status', '状态'), render: (o) => <span style={inlineBadge(o.status === "ACTIVE" ? 'success' : 'default')}>{o.status ?? "-"}</span> },
+            { key: "description", title: t('md.profileCompleteness', '档案完整度'), render: (o) => {
+              const filled = [o.orgName, o.orgShortName, o.companyCode ?? o.orgCode, o.managerName, o.remark ?? o.description].filter(Boolean).length;
+              return <span style={inlineBadge(filled >= 4 ? 'success' : 'warning')}>{filled}/5</span>;
+            } },
+            { key: "actions", title: t('md.actions', '操作'), render: (o) => (
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button type="button" onClick={() => setDetailCode(o.orgCode ?? null)} style={{ ...secondaryActionButton, padding: "5px 9px", fontSize: 12 }}>
+                  {t('md.viewProfile', '查看')}
+                </button>
+                {orgPerm.canEdit && (
+                  <button type="button" onClick={() => openEdit(o)} style={{ ...secondaryActionButton, padding: "5px 9px", fontSize: 12 }}>
+                    <Pencil size={12} /> {t('md.editProfile', '编辑档案')}
+                  </button>
+                )}
+              </div>
+            ) },
           ]}
         />
       )}
@@ -158,5 +271,87 @@ export default function MdCompaniesPage() {
         config={companyConfig}
         onClose={() => setDetailCode(null)}
       />
+      <RightDrawer
+        open={editing !== null}
+        title={t('md.editCompanyProfile', '编辑公司基础档案')}
+        width={620}
+        onClose={() => setEditing(null)}
+        footer={
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button type="button" onClick={() => setEditing(null)} style={secondaryActionButton} disabled={saving}>
+              {t('common.cancel', '取消')}
+            </button>
+            <button type="button" onClick={saveCompanyProfile} style={primaryActionButton} disabled={saving}>
+              <Save size={14} /> {saving ? t('ui.保存中', '保存中...') : t('common.save', '保存')}
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{
+            padding: 12,
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "var(--bg-muted)",
+            fontSize: 12,
+            lineHeight: 1.7,
+            color: "var(--text-secondary)"
+          }}>
+            {t('md.companyProfileEditScope', '当前可维护公司基础档案：名称、简称、关联公司编码、负责人、备注。税号、注册地址、证照、开户信息属于公司扩展档案，需后续单独建表后维护。')}
+          </div>
+          <div style={companyFieldGrid}>
+            <label>
+              <span style={fieldLabel}>{t('md.companyName', '公司名称')} *</span>
+              <input
+                value={editForm.orgName}
+                onChange={e => setEditForm(f => ({ ...f, orgName: e.target.value }))}
+                style={{ ...inputField, width: "100%" }}
+              />
+            </label>
+            <label>
+              <span style={fieldLabel}>{t('md.companyShortName', '简称')}</span>
+              <input
+                value={editForm.orgShortName}
+                onChange={e => setEditForm(f => ({ ...f, orgShortName: e.target.value }))}
+                style={{ ...inputField, width: "100%" }}
+                placeholder={t('md.companyShortNamePlaceholder', '例如：老挝农业')}
+              />
+            </label>
+            <label>
+              <span style={fieldLabel}>{t('md.companyCode', '公司编码')}</span>
+              <input value={editing?.orgCode ?? ""} readOnly style={{ ...inputField, width: "100%", background: "var(--bg-muted)", cursor: "not-allowed" }} />
+              <div style={helperText}>{t('md.companyCodeReadonlyHint', '编码是系统主键，不在档案编辑中修改。')}</div>
+            </label>
+            <label>
+              <span style={fieldLabel}>{t('md.linkedCompanyCode', '关联公司编码')}</span>
+              <input
+                value={editForm.companyCode}
+                onChange={e => setEditForm(f => ({ ...f, companyCode: e.target.value }))}
+                style={{ ...inputField, width: "100%" }}
+                placeholder={editing?.orgCode ?? ""}
+              />
+              <div style={helperText}>{t('md.companyCodeDataScopeHint', '用于 DataScope 公司域，通常与公司编码保持一致。')}</div>
+            </label>
+            <label>
+              <span style={fieldLabel}>{t('md.manager', '负责人')}</span>
+              <input
+                value={editForm.managerName}
+                onChange={e => setEditForm(f => ({ ...f, managerName: e.target.value }))}
+                style={{ ...inputField, width: "100%" }}
+                placeholder={t('md.managerPlaceholder', '负责人姓名')}
+              />
+            </label>
+            <label style={companyFieldFull}>
+              <span style={fieldLabel}>{t('md.remark', '备注')}</span>
+              <textarea
+                value={editForm.remark}
+                onChange={e => setEditForm(f => ({ ...f, remark: e.target.value }))}
+                style={{ ...inputField, width: "100%", minHeight: 92, resize: "vertical" }}
+                placeholder={t('md.companyRemarkPlaceholder', '经营范围、法人主体说明、档案待补事项等')}
+              />
+            </label>
+          </div>
+        </div>
+      </RightDrawer>
     </div>;
 }
