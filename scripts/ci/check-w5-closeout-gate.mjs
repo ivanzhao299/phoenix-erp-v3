@@ -87,6 +87,10 @@ const checks = [
     name: 'sys_alert source coverage gate passes',
     pass: run('node', ['scripts/ci/check-sys-alert-source-coverage.mjs']),
   },
+  {
+    name: 'product page quality contracts pass',
+    pass: run('node', ['scripts/ci/check-product-page-quality-contracts.mjs']),
+  },
 ];
 
 let failed = 0;

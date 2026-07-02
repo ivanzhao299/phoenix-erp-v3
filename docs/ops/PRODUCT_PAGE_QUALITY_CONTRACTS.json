@@ -1,0 +1,89 @@
+{
+  "contract_id": "PRODUCT_PAGE_QUALITY_CONTRACTS_V1",
+  "generated_at": "2026-07-02T17:10:00+08:00",
+  "purpose": "Prevent high-frequency Phoenix ERP pages from regressing into unclear, empty, unsafe, or non-actionable screens.",
+  "rules": {
+    "value_signals": "Every page must explain its business value or contain stable domain-specific signals.",
+    "quality_signals": "Every page must include refresh, error, empty-state, action, or operational guidance signals appropriate to the page.",
+    "forbidden_signals": "Pages must not expose raw upload paths, storage paths, known runtime error text, or placeholder-only content.",
+    "scope": "Static source contract. It complements product-page-smoke HTTP checks and role-business-smoke authenticated checks."
+  },
+  "pages": [
+    {
+      "name": "system-health",
+      "route": "/system/health",
+      "files": ["apps/web/src/app/(admin)/system/health/page.tsx"],
+      "must_include": ["系统监控", "系统整体状态", "数据库连接", "页面价值", "刷新"],
+      "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
+      "name": "system-alerts",
+      "route": "/system/alerts",
+      "files": ["apps/web/src/app/(admin)/system/alerts/page.tsx"],
+      "must_include": ["异常告警", "生产值班台账", "只展示需要人工确认的异常", "值班触达", "append-only"],
+      "must_not_include": ["@Delete", "当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
+      "name": "uat-readiness",
+      "route": "/uat",
+      "files": ["apps/web/src/app/(admin)/uat/page.tsx"],
+      "must_include": ["上线准备度", "/api/uat/readiness", "UAT", "刷新", "authHeaders"],
+      "must_not_include": ["inconsistent types deduced for parameter", "当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
+      "name": "inventory-turnover",
+      "route": "/analytics/inventory",
+      "files": ["apps/web/src/app/(admin)/analytics/inventory/page.tsx"],
+      "must_include": ["库存周转分析", "批次库存概览", "等级分布", "最近批次记录", "刷新"],
+      "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
+      "name": "device-monitor",
+      "route": "/breeding/device",
+      "files": ["apps/web/src/app/(admin)/breeding/device/page.tsx"],
+      "must_include": ["设备监控总览", "/api/v3/iot/devices", "暂无采集数据", "手动采集", "诊断"],
+      "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
+      "name": "procurement-payment-new",
+      "route": "/procurement2/payments/new",
+      "files": [
+        "apps/web/src/app/(admin)/procurement2/payments/new/page.tsx",
+        "apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx"
+      ],
+      "must_include": ["新建付款单", "ProjectSelector", "ManagedAttachmentUploader", "保存草稿", "付款凭证"],
+      "must_not_include": ["/uploads", "storage_path", "storagePath", "当前页面加载失败"]
+    },
+    {
+      "name": "procurement-order-new",
+      "route": "/procurement2/orders/new",
+      "files": [
+        "apps/web/src/app/(admin)/procurement2/orders/new/page.tsx",
+        "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx"
+      ],
+      "must_include": ["采购", "MaterialPicker", "DocumentAutofillPanel", "采购明细", "合同"],
+      "must_not_include": ["/uploads", "storage_path", "storagePath", "当前页面加载失败"]
+    },
+    {
+      "name": "approval-todo",
+      "route": "/workflow/tasks/todo",
+      "files": ["apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx"],
+      "must_include": ["审批", "同意", "不同意", "转交", "意见"],
+      "must_not_include": ["inconsistent types deduced for parameter", "当前页面加载失败", "Application error"]
+    },
+    {
+      "name": "shareholder-capital",
+      "route": "/shareholders/capital",
+      "files": ["apps/web/src/app/(admin)/shareholders/capital/page.tsx"],
+      "must_include": ["资本流管理", "冲销", "新增资本流", "不可直接修改余额", "已确认到账"],
+      "must_not_include": ["/uploads", "storage_path", "storagePath", "当前页面加载失败"]
+    },
+    {
+      "name": "mobile-reimbursement",
+      "route": "/mobile/expenses",
+      "files": ["apps/web/src/app/(mobile)/mobile/expenses/page.tsx"],
+      "must_include": ["报销", "上传", "凭证", "提交"],
+      "must_not_include": ["/uploads", "storage_path", "storagePath", "当前页面加载失败"]
+    }
+  ]
+}

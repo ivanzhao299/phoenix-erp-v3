@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-07-02T12:44:28.726Z",
+  "contractId": "PRODUCT_PAGE_QUALITY_CONTRACTS_V1",
+  "decision": "PASS",
+  "pages": [
+    {
+      "name": "system-health",
+      "route": "/system/health",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/system/health/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
+    },
+    {
+      "name": "system-alerts",
+      "route": "/system/alerts",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/system/alerts/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
+      "name": "uat-readiness",
+      "route": "/uat",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/uat/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
+      "name": "inventory-turnover",
+      "route": "/analytics/inventory",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/analytics/inventory/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
+    },
+    {
+      "name": "device-monitor",
+      "route": "/breeding/device",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/breeding/device/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
+    },
+    {
+      "name": "procurement-payment-new",
+      "route": "/procurement2/payments/new",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/procurement2/payments/new/page.tsx",
+        "apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
+      "name": "procurement-order-new",
+      "route": "/procurement2/orders/new",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/procurement2/orders/new/page.tsx",
+        "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
+      "name": "approval-todo",
+      "route": "/workflow/tasks/todo",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
+    },
+    {
+      "name": "shareholder-capital",
+      "route": "/shareholders/capital",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/shareholders/capital/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 4
+    },
+    {
+      "name": "mobile-reimbursement",
+      "route": "/mobile/expenses",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(mobile)/mobile/expenses/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 4,
+      "forbiddenSignalCount": 4
+    }
+  ],
+  "failures": []
+}
