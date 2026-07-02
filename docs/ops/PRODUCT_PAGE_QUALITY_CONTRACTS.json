@@ -86,6 +86,13 @@
       "must_not_include": ["/uploads", "storage_path", "storagePath", "当前页面加载失败"]
     },
     {
+      "name": "master-data-companies",
+      "route": "/master-data/companies",
+      "files": ["apps/web/src/app/(admin)/master-data/companies/page.tsx"],
+      "must_include": ["公司档案", "编辑基础档案", "档案完整度", "扩展档案", "税号"],
+      "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
       "name": "mobile-reimbursement",
       "route": "/mobile/expenses",
       "files": ["apps/web/src/app/(mobile)/mobile/expenses/page.tsx"],

@@ -7,10 +7,8 @@ import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { DataTableV3 } from "@/components/design-system";
-import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { primaryActionButton, secondaryActionButton, inputField, inlineBadge } from "@/components/design-system/cockpit-styles";
-import { companyConfig } from "@/components/master-data/detail-configs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 
@@ -71,6 +69,35 @@ const helperText: React.CSSProperties = {
   color: "var(--text-secondary)"
 };
 
+function valueOrPending(value?: string | number | null) {
+  const s = String(value ?? "").trim();
+  return s || "待补充";
+}
+
+function companyProfileScore(o: OrgItem) {
+  return [o.orgName, o.orgShortName, o.companyCode ?? o.orgCode, o.managerName, o.remark ?? o.description].filter(Boolean).length;
+}
+
+function DetailRow({ label, value, mono = false }: { label: string; value?: string | number | null; mono?: boolean }) {
+  const pending = !String(value ?? "").trim();
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{label}</div>
+      <div style={{
+        fontSize: 14,
+        fontWeight: pending ? 500 : 700,
+        color: pending ? "var(--text-tertiary)" : "var(--text-primary)",
+        fontFamily: mono && !pending ? "monospace" : undefined,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }}>
+        {valueOrPending(value)}
+      </div>
+    </div>
+  );
+}
+
 export default function MdCompaniesPage() {
   const { t } = useLanguage();
   const {
@@ -81,7 +108,7 @@ export default function MdCompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [detailCode, setDetailCode] = useState<string | null>(null);
+  const [detailCompany, setDetailCompany] = useState<OrgItem | null>(null);
   const [editing, setEditing] = useState<OrgItem | null>(null);
   const [editForm, setEditForm] = useState<CompanyEditForm>({
     orgName: "",
@@ -115,6 +142,7 @@ export default function MdCompaniesPage() {
   }, [canView, load]);
 
   const openEdit = (row: OrgItem) => {
+    setDetailCompany(null);
     setEditing(row);
     setEditForm({
       orgName: row.orgName ?? "",
@@ -238,7 +266,7 @@ export default function MdCompaniesPage() {
           emptyText={t('md.companyEmpty', '暂无公司数据（请前往组织架构管理添加）')}
           columns={[
             { key: "orgCode", title: t('md.companyCode', '公司编码'), render: (o) => o.orgCode ? (
-              <button type="button" onClick={() => setDetailCode(o.orgCode ?? null)} style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}>{o.orgCode}</button>
+              <button type="button" onClick={() => setDetailCompany(o)} style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}>{o.orgCode}</button>
             ) : "-" },
             { key: "orgName", title: t('md.companyName', '公司名称'), render: (o) => o.orgName ?? "-" },
             { key: "orgShortName", title: t('md.companyShortName', '简称'), render: (o) => o.orgShortName ?? "-" },
@@ -247,12 +275,12 @@ export default function MdCompaniesPage() {
             { key: "managerName", title: t('md.manager', '负责人'), render: (o) => o.managerName ?? "-" },
             { key: "status", title: t('md.status', '状态'), render: (o) => <span style={inlineBadge(o.status === "ACTIVE" ? 'success' : 'default')}>{o.status ?? "-"}</span> },
             { key: "description", title: t('md.profileCompleteness', '档案完整度'), render: (o) => {
-              const filled = [o.orgName, o.orgShortName, o.companyCode ?? o.orgCode, o.managerName, o.remark ?? o.description].filter(Boolean).length;
+              const filled = companyProfileScore(o);
               return <span style={inlineBadge(filled >= 4 ? 'success' : 'warning')}>{filled}/5</span>;
             } },
             { key: "actions", title: t('md.actions', '操作'), render: (o) => (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setDetailCode(o.orgCode ?? null)} style={{ ...secondaryActionButton, padding: "5px 9px", fontSize: 12 }}>
+                <button type="button" onClick={() => setDetailCompany(o)} style={{ ...secondaryActionButton, padding: "5px 9px", fontSize: 12 }}>
                   {t('md.viewProfile', '查看')}
                 </button>
                 {orgPerm.canEdit && (
@@ -265,12 +293,84 @@ export default function MdCompaniesPage() {
           ]}
         />
       )}
-      <MasterDataDetailDrawer
-        open={detailCode !== null}
-        code={detailCode}
-        config={companyConfig}
-        onClose={() => setDetailCode(null)}
-      />
+      <RightDrawer
+        open={detailCompany !== null}
+        title={t('md.companyProfile', '公司档案')}
+        width={560}
+        onClose={() => setDetailCompany(null)}
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+            <Link href="/master-data/organizations" style={{ ...secondaryActionButton, textDecoration: "none" }}>
+              <ExternalLink size={14} /> {t('md.orgManage', '组织架构管理')}
+            </Link>
+            {detailCompany && orgPerm.canEdit && (
+              <button type="button" onClick={() => openEdit(detailCompany)} style={primaryActionButton}>
+                <Pencil size={14} /> {t('md.editProfile', '编辑基础档案')}
+              </button>
+            )}
+          </div>
+        }
+      >
+        {detailCompany && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <section style={{
+              padding: 16,
+              borderRadius: 10,
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+              color: "var(--text-on-dark)",
+              boxShadow: "var(--shadow-sm)"
+            }}>
+              <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 8 }}>{detailCompany.orgType === "GROUP" ? t('md.group', '集团') : t('md.companyShort', '公司')}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.25 }}>{detailCompany.orgName ?? detailCompany.orgCode}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, alignItems: "center" }}>
+                <code style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.16)", color: "inherit" }}>{detailCompany.orgCode}</code>
+                <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.16)", fontSize: 12 }}>{detailCompany.status === "ACTIVE" ? t('md.active', '运行中') : detailCompany.status ?? "—"}</span>
+                <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.16)", fontSize: 12 }}>{t('md.profileCompleteness', '档案完整度')} {companyProfileScore(detailCompany)}/5</span>
+              </div>
+            </section>
+
+            <section>
+              <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>{t('md.basicProfile', '基础档案')}</h3>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                padding: 14,
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: "var(--bg-card)"
+              }}>
+                <DetailRow label={t('md.companyCode', '公司编码')} value={detailCompany.orgCode} mono />
+                <DetailRow label={t('md.companyShortName', '简称')} value={detailCompany.orgShortName} />
+                <DetailRow label={t('md.linkedCompanyCode', '关联公司编码')} value={detailCompany.companyCode ?? detailCompany.orgCode} mono />
+                <DetailRow label={t('md.parent', '上级')} value={detailCompany.parentName ?? detailCompany.parentCode} />
+                <DetailRow label={t('md.manager', '负责人')} value={detailCompany.managerName} />
+                <DetailRow label={t('md.status', '状态')} value={detailCompany.status} />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <DetailRow label={t('md.remark', '备注')} value={detailCompany.remark ?? detailCompany.description} />
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>{t('md.extendedProfile', '扩展档案')}</h3>
+              <div style={{
+                padding: 14,
+                borderRadius: 10,
+                border: "1px dashed var(--border)",
+                background: "var(--bg-muted)",
+                color: "var(--text-secondary)",
+                fontSize: 13,
+                lineHeight: 1.8
+              }}>
+                <div style={{ fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>{t('md.extendedProfilePending', '以下信息尚未建立结构化字段，不能在当前页伪造维护：')}</div>
+                <div>{t('md.companyExtendedFields', '统一社会信用代码/税号、注册地址、法人代表、经营范围、证照附件、默认开票信息、默认银行账户。')}</div>
+                <div style={{ marginTop: 8 }}>{t('md.companyExtendedPlan', '建议下一步建设“公司扩展档案”表和审批流，再开放这些字段的编辑。')}</div>
+              </div>
+            </section>
+          </div>
+        )}
+      </RightDrawer>
       <RightDrawer
         open={editing !== null}
         title={t('md.editCompanyProfile', '编辑公司基础档案')}
