@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T12:44:28.726Z",
+  "generatedAt": "2026-07-02T13:15:04.256Z",
   "contractId": "PRODUCT_PAGE_QUALITY_CONTRACTS_V1",
   "decision": "PASS",
   "pages": [
@@ -42,6 +42,17 @@
       "status": "PASS",
       "files": [
         "apps/web/src/app/(admin)/analytics/inventory/page.tsx"
+      ],
+      "failures": [],
+      "requiredSignalCount": 5,
+      "forbiddenSignalCount": 3
+    },
+    {
+      "name": "sales-inventory-management",
+      "route": "/sales2/inventory",
+      "status": "PASS",
+      "files": [
+        "apps/web/src/app/(admin)/sales2/inventory/page.tsx"
       ],
       "failures": [],
       "requiredSignalCount": 5,

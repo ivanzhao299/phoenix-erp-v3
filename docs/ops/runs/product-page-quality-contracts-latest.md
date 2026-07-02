@@ -1,6 +1,6 @@
 # Product Page Quality Contracts
 
-- Generated At: 2026-07-02T12:44:28.726Z
+- Generated At: 2026-07-02T13:15:04.256Z
 - Contract: PRODUCT_PAGE_QUALITY_CONTRACTS_V1
 - Decision: PASS
 
@@ -10,6 +10,7 @@
 | system-alerts | /system/alerts | PASS | 5 | 4 |
 | uat-readiness | /uat | PASS | 5 | 4 |
 | inventory-turnover | /analytics/inventory | PASS | 5 | 3 |
+| sales-inventory-management | /sales2/inventory | PASS | 5 | 3 |
 | device-monitor | /breeding/device | PASS | 5 | 3 |
 | procurement-payment-new | /procurement2/payments/new | PASS | 5 | 4 |
 | procurement-order-new | /procurement2/orders/new | PASS | 5 | 4 |

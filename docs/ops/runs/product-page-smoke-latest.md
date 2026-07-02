@@ -1,12 +1,12 @@
 # Product Page Smoke
 
-Generated at: 2026-07-02T12:57:57.896Z
+Generated at: 2026-07-02T13:15:04.293Z
 Base URL: https://erp.eggslao.com
 Decision: GO
 
 ## Summary
 
-- PASS: 22
+- PASS: 24
 - WARN: 0
 - FAIL: 0
 
@@ -19,6 +19,7 @@ Decision: GO
 | PASS | static:system-alerts | route=/system/alerts; files=apps/web/src/app/(admin)/system/alerts/page.tsx |
 | PASS | static:uat-readiness | route=/uat; files=apps/web/src/app/(admin)/uat/page.tsx |
 | PASS | static:inventory-turnover | route=/analytics/inventory; files=apps/web/src/app/(admin)/analytics/inventory/page.tsx |
+| PASS | static:sales-inventory-management | route=/sales2/inventory; files=apps/web/src/app/(admin)/sales2/inventory/page.tsx |
 | PASS | static:device-monitor | route=/breeding/device; files=apps/web/src/app/(admin)/breeding/device/page.tsx |
 | PASS | static:procurement-payment-new | route=/procurement2/payments/new; files=apps/web/src/app/(admin)/procurement2/payments/new/page.tsx,apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx |
 | PASS | static:procurement-orders | route=/procurement2/orders/new; files=apps/web/src/app/(admin)/procurement2/orders/new/page.tsx,apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx |
@@ -30,6 +31,7 @@ Decision: GO
 | PASS | http:system-alerts | route=/system/alerts; http_status=307 |
 | PASS | http:uat-readiness | route=/uat; http_status=307 |
 | PASS | http:inventory-turnover | route=/analytics/inventory; http_status=307 |
+| PASS | http:sales-inventory-management | route=/sales2/inventory; http_status=307 |
 | PASS | http:device-monitor | route=/breeding/device; http_status=307 |
 | PASS | http:procurement-payment-new | route=/procurement2/payments/new; http_status=307 |
 | PASS | http:procurement-orders | route=/procurement2/orders/new; http_status=307 |

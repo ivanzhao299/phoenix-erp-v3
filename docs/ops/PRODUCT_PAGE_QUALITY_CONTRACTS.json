@@ -38,6 +38,13 @@
       "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
     },
     {
+      "name": "sales-inventory-management",
+      "route": "/sales2/inventory",
+      "files": ["apps/web/src/app/(admin)/sales2/inventory/page.tsx"],
+      "must_include": ["库存管理", "StatCard", "gridTemplateColumns", "fmtDate", "批次库存"],
+      "must_not_include": ["当前页面加载失败", "Application error", "Unhandled Runtime Error"]
+    },
+    {
       "name": "device-monitor",
       "route": "/breeding/device",
       "files": ["apps/web/src/app/(admin)/breeding/device/page.tsx"],

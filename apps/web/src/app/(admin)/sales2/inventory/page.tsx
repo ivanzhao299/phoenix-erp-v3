@@ -5,8 +5,6 @@ import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import PageHeader from '@/components/PageHeader';
 import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
-import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
-import { hexToAccent } from "@/lib/design-tokens";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
 
@@ -125,6 +123,16 @@ function fmt(n: number | null | undefined, dec = 0): string {
     maximumFractionDigits: dec
   });
 }
+function fmtDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
 function gradeColor(grade: string | null): string {
   const map: Record<string, string> = {
     AA: 'var(--color-accent)',
@@ -207,14 +215,71 @@ function StatCard({
   label,
   value,
   sub,
-  color
+  tone = 'neutral'
 }: {
   label: string;
   value: string | number;
   sub?: string;
-  color?: string;
+  tone?: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'neutral';
 }) {
-  return <GlobalKpiCard label={label} value={value} subValue={sub} accentColor={hexToAccent(color)} />;
+  const toneMap: Record<string, { border: string; bg: string; fg: string; icon: string }> = {
+    blue: { border: '#2563eb', bg: '#eff6ff', fg: '#1d4ed8', icon: '库存' },
+    green: { border: '#16a34a', bg: '#f0fdf4', fg: '#15803d', icon: '可用' },
+    amber: { border: '#f59e0b', bg: '#fffbeb', fg: '#b45309', icon: '预警' },
+    red: { border: '#dc2626', bg: '#fef2f2', fg: '#b91c1c', icon: '风险' },
+    purple: { border: '#7c3aed', bg: '#f5f3ff', fg: '#6d28d9', icon: 'SKU' },
+    neutral: { border: '#64748b', bg: '#f8fafc', fg: '#334155', icon: '批次' },
+  };
+  const cfg = toneMap[tone] ?? toneMap.neutral;
+  return (
+    <div style={{
+      minWidth: 168,
+      minHeight: 104,
+      padding: '16px 18px',
+      borderRadius: 8,
+      background: 'linear-gradient(180deg, #fff 0%, #fbfdff 100%)',
+      border: '1px solid var(--gray-200)',
+      borderLeft: `4px solid ${cfg.border}`,
+      boxShadow: '0 8px 22px rgba(15, 23, 42, 0.06)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: 8,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{
+          color: 'var(--gray-600)',
+          fontSize: 13,
+          fontWeight: 700,
+          lineHeight: 1.35,
+        }}>{label}</div>
+        <span style={{
+          flex: '0 0 auto',
+          padding: '3px 7px',
+          borderRadius: 999,
+          background: cfg.bg,
+          color: cfg.fg,
+          fontSize: 11,
+          fontWeight: 700,
+        }}>{cfg.icon}</span>
+      </div>
+      <div>
+        <div style={{
+          color: 'var(--gray-900)',
+          fontSize: 26,
+          fontWeight: 800,
+          lineHeight: 1.08,
+          letterSpacing: 0,
+        }}>{value}</div>
+        {sub && <div style={{
+          marginTop: 6,
+          color: 'var(--gray-500)',
+          fontSize: 12,
+          fontWeight: 600,
+        }}>{sub}</div>}
+      </div>
+    </div>
+  );
 }
 
 // ── Tab: 批次库存 ─────────────────────────────────────────────────────────────
@@ -482,7 +547,20 @@ function BatchesTab() {
 
       {/* 批次表格 */}
       {loading ? <LoadingSkeleton variant="table" rows={10} cols={11} /> : <div className={u.scrollX}>
-          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
+          <table className={s.table} style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
+            <colgroup>
+              <col style={{ width: 180 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 76 }} />
+              <col style={{ width: 132 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 92 }} />
+              <col style={{ width: 112 }} />
+              <col style={{ width: 112 }} />
+              <col style={{ width: 160 }} />
+            </colgroup>
             <thead>
               <tr>
                 {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.总量','总量'), t('ui.状态','状态'), t('ui.生产日期','生产日期'), t('ui.到期日','到期日'), t('ui.来源','来源')].map(h => <th key={h}>{h}</th>)}
@@ -495,10 +573,10 @@ function BatchesTab() {
               padding: 40
             }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
               {batches.map(b => <tr key={b.batch_no}>
-                  <td><code className={u.fs11}>{b.batch_no}</code></td>
+                  <td><code style={batchCodeCellStyle}>{b.batch_no}</code></td>
                   <td><SkuBadge skuCode={b.sku_code} /></td>
-                  <td>{b.product_code}</td>
-                  <td>
+                  <td style={compactCellStyle}>{b.product_code}</td>
+                  <td style={compactCellStyle}>
                     <span style={{
                 color: gradeColor(b.quality_grade),
                 fontWeight: 600
@@ -506,18 +584,20 @@ function BatchesTab() {
                       {b.quality_grade ?? '—'}
                     </span>
                   </td>
-                  <td>{b.company_code}</td>
+                  <td style={compactCellStyle}>{b.company_code}</td>
                   <td style={{
               fontWeight: 700,
-              color: 'var(--color-accent)'
+              color: 'var(--color-accent)',
+              whiteSpace: 'nowrap'
             }}>{fmt(b.qty_available)}</td>
-                  <td>{fmt(b.qty)}</td>
-                  <td>{statusBadge(b.status)}</td>
-                  <td>{b.egg_date ?? '—'}</td>
+                  <td style={compactCellStyle}>{fmt(b.qty)}</td>
+                  <td style={compactCellStyle}>{statusBadge(b.status)}</td>
+                  <td style={compactCellStyle}>{fmtDate(b.egg_date)}</td>
                   <td style={{
               color: b.expire_date && new Date(b.expire_date) < new Date() ? 'var(--status-danger)' : undefined,
-              fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : undefined
-            }}>{b.expire_date ?? '—'}</td>
+              fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : undefined,
+              whiteSpace: 'nowrap'
+            }}>{fmtDate(b.expire_date)}</td>
                   <td>{b.source_no ?? '—'}</td>
                 </tr>)}
             </tbody>
@@ -846,14 +926,14 @@ function LossTab() {
 
       {loading ? <LoadingSkeleton variant="table" rows={10} cols={5} /> : data && <div>
           <div style={{
-        display: 'flex',
-        gap: 12,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 14,
         marginBottom: 24,
-        flexWrap: 'wrap'
       }}>
-            <StatCard label={t('ui.30日过期损耗（枚）','30日过期损耗（枚）')} value={fmt(data.summary.total_expire_loss)} color="var(--status-danger)" />
-            <StatCard label={t('ui.30日破损损耗（枚）','30日破损损耗（枚）')} value={fmt(data.summary.total_damage_loss)} color="var(--status-warning)" />
-            <StatCard label={t('ui.30日合计损耗（枚）','30日合计损耗（枚）')} value={fmt(data.summary.total_loss)} color="var(--color-purple-600)" />
+            <StatCard label={t('ui.30日过期损耗（枚）','30日过期损耗（枚）')} value={fmt(data.summary.total_expire_loss)} tone="red" />
+            <StatCard label={t('ui.30日破损损耗（枚）','30日破损损耗（枚）')} value={fmt(data.summary.total_damage_loss)} tone="amber" />
+            <StatCard label={t('ui.30日合计损耗（枚）','30日合计损耗（枚）')} value={fmt(data.summary.total_loss)} tone="purple" />
           </div>
 
           <h4 style={{
@@ -925,6 +1005,18 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
   background: 'var(--bg-card)'
 };
+const batchCodeCellStyle: React.CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  fontSize: 12,
+  fontWeight: 700,
+  color: 'var(--gray-700)',
+  lineHeight: 1.45,
+  wordBreak: 'normal',
+  overflowWrap: 'anywhere',
+};
+const compactCellStyle: React.CSSProperties = {
+  whiteSpace: 'nowrap',
+};
 function btnStyle(bg: string): React.CSSProperties {
   return {
     padding: '6px 14px',
@@ -969,19 +1061,20 @@ export default function InventoryPage() {
 
       {/* 仪表盘统计 */}
       {stats && <div style={{
-      display: 'flex',
-      gap: 12,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+      gap: 14,
       marginBottom: 24,
-      flexWrap: 'wrap'
+      alignItems: 'stretch'
     }}>
-          <StatCard label={t('ui.活跃批次','活跃批次')} value={stats.activeBatches} />
-          <StatCard label={t('ui.总可用库存（枚）','总可用库存（枚）')} value={fmt(stats.totalAvailable)} color="var(--color-accent)" />
-          <StatCard label={t('ui.临期批次（≤7天）','临期批次（≤7天）')} value={stats.expiringBatches} color="var(--status-warning)" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
-          <StatCard label={t('ui.已过期批次','已过期批次')} value={stats.expiredBatches} color="var(--status-danger)" />
-          <StatCard label={t('ui.退货待检批次','退货待检批次')} value={stats.returnedBatches} color="var(--color-purple-600)" />
-          {stats.skuLinkedBatches !== undefined && <StatCard label={t('ui.已接入 SKU 批次','已接入 SKU 批次')} value={stats.skuLinkedBatches} color="var(--color-accent)" sub={t('ui.SKU 批次','SKU 批次')} />}
-          <StatCard label={t('ui.今日过期损耗（枚）','今日过期损耗（枚）')} value={fmt(stats.todayExpireLoss)} color="var(--status-danger)" />
-          <StatCard label={t('ui.今日破损损耗（枚）','今日破损损耗（枚）')} value={fmt(stats.todayDamageLoss)} color="var(--status-warning-dark)" />
+          <StatCard label={t('ui.活跃批次','活跃批次')} value={stats.activeBatches} tone="blue" />
+          <StatCard label={t('ui.总可用库存（枚）','总可用库存（枚）')} value={fmt(stats.totalAvailable)} tone="green" />
+          <StatCard label={t('ui.临期批次（≤7天）','临期批次（≤7天）')} value={stats.expiringBatches} tone="amber" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
+          <StatCard label={t('ui.已过期批次','已过期批次')} value={stats.expiredBatches} tone="red" />
+          <StatCard label={t('ui.退货待检批次','退货待检批次')} value={stats.returnedBatches} tone="purple" />
+          {stats.skuLinkedBatches !== undefined && <StatCard label={t('ui.已接入 SKU 批次','已接入 SKU 批次')} value={stats.skuLinkedBatches} tone="blue" sub={t('ui.SKU 批次','SKU 批次')} />}
+          <StatCard label={t('ui.今日过期损耗（枚）','今日过期损耗（枚）')} value={fmt(stats.todayExpireLoss)} tone="red" />
+          <StatCard label={t('ui.今日破损损耗（枚）','今日破损损耗（枚）')} value={fmt(stats.todayDamageLoss)} tone="amber" />
         </div>}
 
       {/* 标签页 */}

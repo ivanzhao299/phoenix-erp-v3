@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-02T12:57:57.896Z",
+  "generated_at": "2026-07-02T13:15:04.293Z",
   "base_url": "https://erp.eggslao.com",
   "strict": false,
   "pages": [
@@ -27,6 +27,11 @@
       "name": "inventory-turnover",
       "route": "/analytics/inventory",
       "file": "apps/web/src/app/(admin)/analytics/inventory/page.tsx"
+    },
+    {
+      "name": "sales-inventory-management",
+      "route": "/sales2/inventory",
+      "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx"
     },
     {
       "name": "device-monitor",
@@ -60,7 +65,7 @@
     }
   ],
   "summary": {
-    "pass": 22,
+    "pass": 24,
     "warn": 0,
     "fail": 0,
     "decision": "GO"
@@ -95,6 +100,12 @@
       "name": "static:inventory-turnover",
       "route": "/analytics/inventory",
       "files": "apps/web/src/app/(admin)/analytics/inventory/page.tsx"
+    },
+    {
+      "status": "PASS",
+      "name": "static:sales-inventory-management",
+      "route": "/sales2/inventory",
+      "files": "apps/web/src/app/(admin)/sales2/inventory/page.tsx"
     },
     {
       "status": "PASS",
@@ -160,6 +171,12 @@
       "status": "PASS",
       "name": "http:inventory-turnover",
       "route": "/analytics/inventory",
+      "http_status": 307
+    },
+    {
+      "status": "PASS",
+      "name": "http:sales-inventory-management",
+      "route": "/sales2/inventory",
       "http_status": 307
     },
     {

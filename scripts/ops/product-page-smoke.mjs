@@ -71,6 +71,14 @@ const PRODUCT_PAGES = [
     forbidden: [],
   },
   {
+    name: 'sales-inventory-management',
+    route: '/sales2/inventory',
+    file: 'apps/web/src/app/(admin)/sales2/inventory/page.tsx',
+    valueSignals: ['库存管理', 'StatCard', 'fmtDate'],
+    qualitySignals: ['gridTemplateColumns', '批次库存', '损耗分析'],
+    forbidden: ['当前页面加载失败', 'Application error', 'Unhandled Runtime Error'],
+  },
+  {
     name: 'device-monitor',
     route: '/breeding/device',
     file: 'apps/web/src/app/(admin)/breeding/device/page.tsx',
