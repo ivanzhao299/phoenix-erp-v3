@@ -466,30 +466,35 @@ export class UsersBffController {
               WHERE uo.user_id = u.user_id AND uo.is_primary = true LIMIT 1) AS org_id,
            COALESCE(u.note, 'REAL') AS user_type,
            COALESCE(
-             (SELECT r.role_code FROM sys_user_role ur
-              JOIN sys_role r ON ur.role_id = r.role_id
-              WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
-             (SELECT r.role_code FROM sys_user_role ur
-              JOIN sys_role r ON ur.role_id = r.role_id
-              WHERE ur.user_id = u.user_id LIMIT 1)
-           ) AS role,
-           COALESCE(
-             (SELECT r.role_name_zh FROM sys_user_role ur
-              JOIN sys_role r ON ur.role_id = r.role_id
-              WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
-             (SELECT r.role_name_zh FROM sys_user_role ur
-              JOIN sys_role r ON ur.role_id = r.role_id
-              WHERE ur.user_id = u.user_id LIMIT 1)
-           ) AS role_name_zh,
-           COALESCE(
-             (SELECT json_agg(json_build_object(
-               'role_code', r.role_code,
-               'role_name_zh', r.role_name_zh,
-               'approval_level', r.approval_level,
-               'is_primary', ur.is_primary
-             ) ORDER BY r.approval_level DESC, r.role_code)
-              FROM sys_user_role ur JOIN sys_role r ON ur.role_id = r.role_id
-              WHERE ur.user_id = u.user_id),
+	             (SELECT r.role_code FROM sys_user_role ur
+	              JOIN sys_role r ON ur.role_id = r.role_id
+	              WHERE ur.user_id = u.user_id AND ur.is_primary = true
+	                AND COALESCE(ur.is_visible, true) = true LIMIT 1),
+	             (SELECT r.role_code FROM sys_user_role ur
+	              JOIN sys_role r ON ur.role_id = r.role_id
+	              WHERE ur.user_id = u.user_id
+	                AND COALESCE(ur.is_visible, true) = true LIMIT 1)
+	           ) AS role,
+	           COALESCE(
+	             (SELECT r.role_name_zh FROM sys_user_role ur
+	              JOIN sys_role r ON ur.role_id = r.role_id
+	              WHERE ur.user_id = u.user_id AND ur.is_primary = true
+	                AND COALESCE(ur.is_visible, true) = true LIMIT 1),
+	             (SELECT r.role_name_zh FROM sys_user_role ur
+	              JOIN sys_role r ON ur.role_id = r.role_id
+	              WHERE ur.user_id = u.user_id
+	                AND COALESCE(ur.is_visible, true) = true LIMIT 1)
+	           ) AS role_name_zh,
+	           COALESCE(
+	             (SELECT json_agg(json_build_object(
+	               'role_code', r.role_code,
+	               'role_name_zh', r.role_name_zh,
+	               'approval_level', r.approval_level,
+	               'is_primary', ur.is_primary,
+	               'is_visible', COALESCE(ur.is_visible, true)
+	             ) ORDER BY r.approval_level DESC, r.role_code)
+	              FROM sys_user_role ur JOIN sys_role r ON ur.role_id = r.role_id
+	              WHERE ur.user_id = u.user_id),
              '[]'::json
            ) AS roles_detail
          FROM sys_user u
@@ -656,21 +661,54 @@ export class UsersBffController {
         await mgr.query(`DELETE FROM sys_user_role WHERE user_id=$1`, [id]);
         for (const r of resolved) {
           await mgr.query(
-            `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at) VALUES ($1, $2, $3, now())`,
-            [id, r.role_id, r.is_primary],
-          );
-        }
+	            `INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at) VALUES ($1, $2, $3, true, now())`,
+	            [id, r.role_id, r.is_primary],
+	          );
+	        }
         // 触发权限刷新
         await mgr.query(
           `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
           [id],
         );
       });
-      return { code: 200, msg: '角色已更新', data: { count: resolved.length } };
-    } catch (e: any) { return { code: 500, msg: e?.message }; }
-  }
+	      return { code: 200, msg: '角色已更新', data: { count: resolved.length } };
+	    } catch (e: any) { return { code: 500, msg: e?.message }; }
+	  }
 
-  /** PUT /api/users/:id/password — 重置密码 */
+	  /**
+	   * PUT /api/users/:id/role-visibility
+	   * 历史字段名保留。当前语义：is_visible=false 代表该用户角色授权停用，
+	   * 不再参与登录 token、权限计算和前端展示；is_visible=true 恢复该角色授权。
+	   */
+	  @Put(':id/role-visibility')
+	  @RequireMenu('MENU_SETTINGS_USER', 'E')
+	  async updateRoleVisibility(@Param('id') id: string, @Body() body: any) {
+	    const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
+	    if (!Array.isArray(items)) return { code: 400, msg: 'items 必须是数组' };
+	    try {
+	      await this.em.transaction(async (mgr) => {
+	        for (const it of items) {
+	          if (typeof it?.role_code !== 'string' || typeof it?.is_visible !== 'boolean') continue;
+	          await mgr.query(
+	            `UPDATE sys_user_role ur
+	                SET is_visible = $1
+	               FROM sys_role r
+	              WHERE ur.role_id = r.role_id
+	                AND ur.user_id = $2
+	                AND r.role_code = $3`,
+	            [it.is_visible, id, it.role_code],
+	          );
+	        }
+	        await mgr.query(
+	          `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
+	          [id],
+	        );
+	      });
+	      return { code: 200, msg: '角色授权状态已更新', data: { id, updated: items.length } };
+	    } catch (e: any) { return { code: 500, msg: e?.message }; }
+	  }
+
+	  /** PUT /api/users/:id/password — 重置密码 */
   @Put(':id/password')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
   async resetPassword(@Param('id') id: string, @Body() body: any) {

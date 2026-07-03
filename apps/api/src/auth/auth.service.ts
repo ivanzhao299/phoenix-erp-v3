@@ -168,22 +168,21 @@ export class AuthService {
     }
 
 
-    // 取出主角色（兼容 V2 的单角色机制）
-    // roles_info 已按 is_primary DESC, approval_level DESC 排序，[0] 即最高优先角色
+    // 取出有效角色（兼容 V2 的单角色机制）
+    // 约定：sys_user_role.is_visible=false 是“停用该用户角色授权”，不再参与登录态、权限计算和前台角色展示。
+    // 历史 UI 曾把它描述为“仅隐藏显示”，这会导致管理员以为已移除冲突角色，但重新登录后角色/权限又回来。
     const rolesInfo = user.roles_info || [];
-    // 用于前台显示文案：仅 is_visible=true 的角色（不影响权限计算）
-    const visibleRoles = rolesInfo.filter((r: any) => r.is_visible !== false);
-    // 优先取 is_primary=true 且可见的角色；其次取首个可见；再 fallback 全量首个
+    const effectiveRoles = rolesInfo.filter((r: any) => r.is_visible !== false);
+    const inactiveRoles = rolesInfo.filter((r: any) => r.is_visible === false);
+    // 优先取 is_primary=true 且有效的角色；其次取首个有效角色。没有有效角色则进入 ROLE_NONE，只能登录但无菜单权限。
     const primaryRoleInfo =
-      visibleRoles.find((r: any) => r.is_primary) ??
-      visibleRoles[0] ??
-      rolesInfo.find((r: any) => r.is_primary) ??
-      rolesInfo[0];
-    const primaryRole = primaryRoleInfo?.role_code ?? 'ROLE_ADMIN';
-    const roleNameZh  = primaryRoleInfo?.role_name_zh ?? '管理员';
+      effectiveRoles.find((r: any) => r.is_primary) ??
+      effectiveRoles[0];
+    const primaryRole = primaryRoleInfo?.role_code ?? 'ROLE_NONE';
+    const roleNameZh  = primaryRoleInfo?.role_name_zh ?? '无有效角色';
 
-    // 是否含超管角色（无论多少个角色，只要有 ROLE_ADMIN 就视为超管）
-    const isAdminUser = rolesInfo.some((r: any) => r.role_code === 'ROLE_ADMIN') || username === 'admin';
+    // 是否含有效超管角色。被停用/隐藏的 ROLE_ADMIN 不得继续赋予通配权限。
+    const isAdminUser = effectiveRoles.some((r: any) => r.role_code === 'ROLE_ADMIN') || username === 'admin';
 
     // ── V3 RBAC 完整方案：三路权限源合并（按优先级冲突解决）─────────────────
     // 来源 1：sys_user_role → sys_role → sys_role_menu_permission  （角色直绑权限）
@@ -208,6 +207,7 @@ export class AuthService {
           JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
           JOIN sys_menu m                  ON m.menu_id = rmp.menu_id
           WHERE ur.user_id = $1
+            AND COALESCE(ur.is_visible, true) = true
 
           UNION ALL
 
@@ -223,6 +223,7 @@ export class AuthService {
           JOIN sys_permission_set_item psi      ON psi.set_id = rps.set_id
           JOIN sys_menu m                       ON m.menu_id = psi.menu_id
           WHERE ur.user_id = $1
+            AND COALESCE(ur.is_visible, true) = true
 
           UNION ALL
 
@@ -248,8 +249,7 @@ export class AuthService {
     }
 
     // 构建 JWT payload（完全兼容 V2.0 格式，并新增 V3.0 字段）
-    // 注意：roles 数组用 rolesInfo（全量），权限计算依然按全部已绑角色；
-    //       仅 role/roleNameZh（前台显示用）走 visibleRoles 过滤。
+    // 注意：roles 数组只暴露 effectiveRoles。历史隐藏/停用角色仅放 inactiveRoles 供排障，不参与鉴权。
     // 判定用户类型：用于前端区分"绑定生产站点"vs"绑定门店"等文案
     // 优先级：visibleRoles[0].role_type → 全量 rolesInfo[0].role_type
     const primaryRoleType: string = primaryRoleInfo?.role_type ?? '';
@@ -272,9 +272,11 @@ export class AuthService {
       storeCode: user.store_code,
       permissions,
       // V3.0 新增字段（向后兼容）
-      roles: rolesInfo.map((r: any) => r.role_code),
-      // 可见角色列表（前台显示用，权限不变）
-      visibleRoles: visibleRoles.map((r: any) => ({
+      roles: effectiveRoles.map((r: any) => r.role_code),
+      visibleRoles: effectiveRoles.map((r: any) => ({
+        role_code: r.role_code, role_name_zh: r.role_name_zh, role_type: r.role_type, is_primary: r.is_primary,
+      })),
+      inactiveRoles: inactiveRoles.map((r: any) => ({
         role_code: r.role_code, role_name_zh: r.role_name_zh, role_type: r.role_type, is_primary: r.is_primary,
       })),
       store_code: user.store_code,
@@ -332,7 +334,8 @@ export class AuthService {
          FROM sys_user u
          JOIN sys_user_role ur ON ur.user_id = u.user_id
          JOIN sys_role r ON r.role_id = ur.role_id
-        WHERE u.username = $1 AND u.status = 1`,
+        WHERE u.username = $1 AND u.status = 1
+          AND COALESCE(ur.is_visible, true) = true`,
       [target],
     );
     if (targetRoles.some((row: any) => row.role_code === 'ROLE_ADMIN')) {

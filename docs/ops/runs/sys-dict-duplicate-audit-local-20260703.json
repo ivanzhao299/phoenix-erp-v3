@@ -1,0 +1,33 @@
+{
+  "as_of": "2026-07-03T11:02:04.273891+08:00",
+  "summary": {
+    "duplicate_code_groups": 0,
+    "duplicate_label_groups": 2,
+    "active_entries": 240,
+    "dict_types": 47
+  },
+  "duplicate_codes": [],
+  "duplicate_labels": [
+    {
+      "dict_type": "BRD_HOUSE_TYPE",
+      "normalized_label": "育成舍",
+      "duplicate_count": 2,
+      "suggested_keep_id": 74,
+      "all_ids": "{74,124}"
+    },
+    {
+      "dict_type": "BRD_HOUSE_TYPE",
+      "normalized_label": "蛋鸡舍",
+      "duplicate_count": 2,
+      "suggested_keep_id": 14,
+      "all_ids": "{14,15}"
+    }
+  ],
+  "high_risk_types": [
+    {
+      "dict_type": "PKG_EGG_GRADE",
+      "total_count": 7,
+      "active_count": 0
+    }
+  ]
+}

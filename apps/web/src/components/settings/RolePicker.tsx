@@ -25,7 +25,7 @@ export interface UserRole {
   role_name_zh: string;
   approval_level: number;
   is_primary: boolean;
-  is_visible?: boolean;  // 前台是否显示该角色名（默认 true）
+  is_visible?: boolean;  // false = 停用该用户的此角色授权（默认 true）
 }
 export interface RoleOption {
   role_code: string;
@@ -101,7 +101,7 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
     onChange(selected.map(r => ({ ...r, is_primary: r.role_code === code })));
   };
 
-  // 切换该角色"是否在前台显示角色名"（is_visible，纯显示，不影响权限）
+  // 切换该用户此角色授权是否生效。字段沿用 is_visible，但语义已收紧为“有效/停用授权”。
   const toggleVisible = (code: string) => {
     onChange(selected.map(r =>
       r.role_code === code ? { ...r, is_visible: r.is_visible === false ? true : false } : r
@@ -125,11 +125,10 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
                 {r.is_primary && <Star size={10} style={{ fill: col }}/>}
                 {r.role_name_zh}
                 <LevelBadge level={r.approval_level}/>
-                {/* 👁 toggle 前台显示开关（不影响权限）*/}
                 <button type="button" onClick={() => toggleVisible(r.role_code)}
                   title={r.is_visible === false
-                    ? t("ui.前台已隐藏点击恢复显示", "前台已隐藏，点击恢复显示")
-                    : t("ui.前台已显示点击隐藏不影响权限", "前台已显示，点击隐藏（不影响权限）")}
+                    ? t("ui.该角色授权已停用点击恢复", "该角色授权已停用，点击恢复")
+                    : t("ui.点击停用该用户此角色授权", "点击停用该用户此角色授权")}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",
                     color: col, opacity: 0.7, display: "inline-flex", alignItems: "center" }}>
                   {r.is_visible === false ? <EyeOff size={11}/> : <Eye size={11}/>}

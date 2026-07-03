@@ -61,6 +61,16 @@ export default function UserDetailPage() {
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  const roleSignature = (roles: UserRole[]) => JSON.stringify(
+    roles
+      .map(r => ({
+        role_code: r.role_code,
+        is_primary: !!r.is_primary,
+        is_visible: r.is_visible !== false,
+      }))
+      .sort((a, b) => a.role_code.localeCompare(b.role_code)),
+  );
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -107,20 +117,22 @@ export default function UserDetailPage() {
       });
       if (res.code !== 200) { toast.error(res.msg || t("ui.操作失败", "操作失败")); return; }
 
-      // 更新角色列表（多角色）
-      if (selectedRoles.length > 0) {
+      const rolesChanged = roleSignature(selectedRoles) !== roleSignature(user.roles_detail || []);
+
+      // 更新角色列表（多角色）。仅当角色真的变化时提交，避免“只改密码”被角色冲突/角色保存副作用牵连。
+      if (rolesChanged && selectedRoles.length > 0) {
         const rolesRes = await API(`/${user.id}/roles`, {
           method: "PUT",
           body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
         });
         if (rolesRes.code !== 200) toast.error(rolesRes.msg || t("ui.角色更新失败", "角色更新失败"));
-      } else {
+      } else if (rolesChanged) {
         // 清除所有角色（传空数组）
         await API(`/${user.id}/roles`, { method: "PUT", body: JSON.stringify({ roles: [] }) });
       }
 
-      // 同步角色显示开关（is_visible，纯前台显示控制，不影响权限）
-      if (selectedRoles.length > 0) {
+      // 同步角色授权开关（is_visible=false 代表该用户角色授权停用，不参与权限计算）
+      if (rolesChanged && selectedRoles.length > 0) {
         const visItems = selectedRoles.map(r => ({
           role_code: r.role_code,
           is_visible: r.is_visible !== false,
@@ -149,8 +161,10 @@ export default function UserDetailPage() {
     if (user.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
     if (!form.real_name_zh) { toast.error(t("ui.姓名为必填项", "姓名为必填项")); return; }
 
-    // G119 SoD 授权前拦截：多角色组合若触发岗位分离红线则 BLOCK 阻止 / WARN 二次确认
-    if (selectedRoles.length > 0) {
+    const rolesChanged = roleSignature(selectedRoles) !== roleSignature(user.roles_detail || []);
+
+    // G119 SoD 授权前拦截：仅角色变更时拦截。密码重置/基础信息更新不应被既有角色冲突误拦。
+    if (rolesChanged && selectedRoles.length > 0) {
       try {
         const sod = await fetch("/api/permissions/check-role-combo", {
           method: "POST", headers: hdr(),
@@ -298,7 +312,7 @@ export default function UserDetailPage() {
         maxHeight={560}
       />
       <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 8 }}>
-        {t("ui.可为用户分配多个角色权限取各角色并集主角色用于显示", "可为用户分配多个角色，权限取各角色并集。主角色（★）用于显示")}
+        {t("ui.可为用户分配多个角色权限取各有效角色并集主角色用于显示", "可为用户分配多个角色，权限取各有效角色并集。主角色（★）用于显示；划线角色为已停用授权，不参与登录权限。")}
       </div>
     </Panel>
   );
