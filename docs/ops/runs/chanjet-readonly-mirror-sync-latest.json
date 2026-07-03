@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-07-03T11:34:15.862Z",
+  "decision": "HOLD",
+  "plan": {
+    "requestedScope": [],
+    "bookId": "",
+    "period": "",
+    "apiBase": "http://127.0.0.1:3100",
+    "tokenPresent": false,
+    "chanjetEnv": {
+      "CHANJET_APP_KEY": false,
+      "CHANJET_APP_SECRET": false,
+      "CHANJET_CERT": false,
+      "CHANJET_ACCESS_TOKEN": false,
+      "CHANJET_ORG_ID": false,
+      "CHANJET_ORG_IDS": false,
+      "CHANJET_MSG_SECRET": false
+    },
+    "db": {
+      "host": "127.0.0.1",
+      "port": "5432",
+      "user": "mac",
+      "name": "phoenix_erp",
+      "passwordPresent": false
+    }
+  },
+  "prechecks": {
+    "dbReachable": {
+      "status": "PASS",
+      "identity": "phoenix_erp|mac"
+    },
+    "mirrorTables": {
+      "status": "PASS",
+      "presentTables": [
+        "chanjet_read_snapshots",
+        "chanjet_entity_snapshots",
+        "chanjet_erp_field_mapping"
+      ]
+    },
+    "apiHealth": {
+      "status": "HOLD",
+      "httpStatus": 0
+    },
+    "authToken": {
+      "status": "HOLD"
+    },
+    "chanjetEnv": {
+      "status": "HOLD",
+      "envPresence": {
+        "CHANJET_APP_KEY": false,
+        "CHANJET_APP_SECRET": false,
+        "CHANJET_CERT": false,
+        "CHANJET_ACCESS_TOKEN": false,
+        "CHANJET_ORG_ID": false,
+        "CHANJET_ORG_IDS": false,
+        "CHANJET_MSG_SECRET": false
+      }
+    }
+  },
+  "blockers": [
+    "API health is not OK at http://127.0.0.1:3100/api/health (status=0).",
+    "No PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN provided for protected mirror API.",
+    "Chanjet configuration/token chain is not visible to this runner."
+  ],
+  "execution": {
+    "executed": false,
+    "summary": {
+      "dryRun": true,
+      "message": "dry-run only; no mirror sync executed"
+    }
+  },
+  "boundaries": {
+    "writeChanjet": false,
+    "deleteChanjet": false,
+    "modifyChanjet": false,
+    "voucherPush": false,
+    "deploy": false,
+    "push": false
+  },
+  "outputs": {
+    "outputJson": "docs/ops/runs/chanjet-readonly-mirror-sync-latest.json",
+    "outputMd": "docs/ops/runs/chanjet-readonly-mirror-sync-latest.md"
+  }
+}

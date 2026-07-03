@@ -20,6 +20,32 @@ Last updated: 2026-07-03
 3. `CHANJET_ENTITY_MAPPING_PHASE2` — 对客户、供应商、科目、项目、部门、账户、应收应付、凭证查询做分页/增量同步增强。
 4. `CHANJET_WRITE_BACK_HOLD` — 未经单独批准，继续禁止向好业财写入、删除、修改或推送凭证。
 
+## 2026-07-03 好业财只读镜像真实同步 Gate
+
+当前状态: `CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_HOLD`。
+
+已完成:
+
+1. 新增 `scripts/ops/chanjet-readonly-mirror-sync.mjs`，用于受控执行好业财只读镜像 Gate。
+2. 本地 ERP DB 已创建只读镜像中间层表。
+3. dry-run 报告已生成:
+   - `docs/ops/runs/chanjet-readonly-mirror-sync-latest.json`
+   - `docs/ops/runs/chanjet-readonly-mirror-sync-latest.md`
+4. 审计报告已生成:
+   - `docs/ops/CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_REPORT_20260703.md`
+
+HOLD 原因:
+
+1. 当前本地 API `http://127.0.0.1:3100/api/health` 不可访问。
+2. 当前环境没有 `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN`。
+3. 当前 worktree 未发现可见好业财鉴权链。
+
+下一步:
+
+1. `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN` — 在具备有效 API token 和好业财 token 链的运行环境执行只读镜像同步。
+2. `CHANJET_FIELD_GAP_REVIEW_GATE` — 同步完成后审查字段差异。
+3. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
+
 ## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
 
 用户授权下,已对 `main` 做一次 **full 生产部署**(run 28277134665, sha 6eba2829, **全绿**)。

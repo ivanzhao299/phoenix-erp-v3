@@ -24,6 +24,29 @@ Next actions:
 2. `CHANJET_FIELD_GAP_REVIEW_GATE`
 3. `CHANJET_ENTITY_MAPPING_PHASE2`
 
+## 2026-07-03 - Chanjet Readonly Mirror Real Token Sync Gate
+
+Decision: HOLD.
+
+Rationale:
+
+- The reviewed ERP middle-layer mirror tables were created locally using only the single create-only migration SQL from `1782742000000-CreateChanjetReadonlyMirror.ts`.
+- A dedicated fail-closed runner was added at `scripts/ops/chanjet-readonly-mirror-sync.mjs`.
+- The runner generated JSON/Markdown dry-run outputs under `docs/ops/runs`.
+- Real mirror sync was not executed because the local API was not reachable, no `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN` was available, and no local Chanjet runtime auth chain was visible.
+- No Chanjet write, delete, update, voucher push, deployment, push, seed, cleanup, or production DB write was executed.
+
+Conditions:
+
+- Execute real mirror sync only in an environment with a healthy API, valid protected API token, and valid Chanjet `appTicket / certificate / openToken` chain.
+- Continue to keep Chanjet write-back and voucher push on HOLD.
+
+Next actions:
+
+1. `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN`
+2. `CHANJET_FIELD_GAP_REVIEW_GATE`
+3. `CHANJET_ENTITY_MAPPING_PHASE2`
+
 ## 2026-06-23 - Production Server Remediation R1 Store Payment Schema Drift Reconciliation
 
 Decision: READY_FOR_SCHEMA_REPAIR_EXECUTION_APPROVAL, with the practical next Gate set to `FILE_METADATA_MIGRATION_EXECUTION_GATE`.

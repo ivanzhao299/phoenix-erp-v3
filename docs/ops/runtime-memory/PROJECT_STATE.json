@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-03",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_READONLY_MIRROR_PHASE1_READY",
-  "active_decision": "GO_WITH_CONDITIONS_READONLY_ONLY",
-  "next_gate": "CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE",
+  "current_stage": "CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_HOLD",
+  "active_decision": "HOLD_FOR_RUNTIME_TOKEN_AND_API",
+  "next_gate": "CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,8 +25,8 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_READONLY_MIRROR_PHASE1_READY",
-    "active_decision": "GO_WITH_CONDITIONS",
+    "current_stage": "CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_HOLD",
+    "active_decision": "HOLD_FOR_RUNTIME_TOKEN_AND_API",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
     "modify_chanjet_allowed": false,
@@ -57,8 +57,11 @@
       "CASH_FLOW"
     ],
     "field_gap_analysis": "implemented_candidate_generation",
-    "next_action": "run_readonly_mirror_with_valid_chanjet_token_then_review_field_gaps",
-    "last_report": "docs/ops/CHANJET_READONLY_MIRROR_PHASE1_IMPLEMENTATION_REPORT_20260703.md"
+    "local_mirror_tables_ready": true,
+    "real_mirror_sync_executed": false,
+    "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
+    "next_action": "run_readonly_mirror_in_runtime_with_valid_api_token",
+    "last_report": "docs/ops/CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_REPORT_20260703.md"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
