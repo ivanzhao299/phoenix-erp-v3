@@ -132,6 +132,18 @@ export class ChanjetCallbackController {
     return true;
   }
 
+  private hasPlaintextCredential(body: Record<string, unknown>): boolean {
+    const visit = (value: unknown): boolean => {
+      if (!value || typeof value !== 'object') return false;
+      if (Array.isArray(value)) return value.some((item) => visit(item));
+      return Object.entries(value as Record<string, unknown>).some(([key, item]) => (
+        /certificate|authCode|appTicket|openToken|accessToken/i.test(key)
+        || visit(item)
+      ));
+    };
+    return visit(body);
+  }
+
   /**
    * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
    * GET 只用于平台地址验证。证书 / 授权码等敏感字段必须走带签名的 POST callback。
@@ -162,6 +174,10 @@ export class ChanjetCallbackController {
     const isEncryptMsg = !!body.encryptMsg;
     const content = (body.encryptMsg ?? body.content) as string | undefined;
     const hasEncryptedContent = typeof content === 'string' && content.length > 0;
+    if (!hasEncryptedContent && !this.hasPlaintextCredential(body)) {
+      this.log.log(`Chanjet callback validation ping accepted keys=[${Object.keys(body ?? {}).join(',') || 'none'}]`);
+      return { result: 'success' };
+    }
     const signatureVerified = this.verifyCallbackSignatureIfPresent(headers, body, hasEncryptedContent);
     this.log.log(`★ 收到畅捷通推送 keys=[${Object.keys(body).join(',')}] body=${JSON.stringify(this.maskSensitive(body)).slice(0, 800)}`);
 
