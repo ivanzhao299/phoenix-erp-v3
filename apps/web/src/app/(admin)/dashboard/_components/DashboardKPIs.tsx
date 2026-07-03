@@ -164,6 +164,8 @@ interface KpiData {
     todayLayRate?: number | null;
     posTxnCount?: number;
     stockAvailableTotal?: number;
+    stockAvailableBatchCount?: number;
+    stockMetricSource?: string;
     farmSalesAmount?: number;
   };
 }
@@ -242,7 +244,7 @@ export default function DashboardKPIs({
       : t('dash.eggsTodayHint', '今日产蛋，按当前场区/数据域统计');
   const stockHint = metricIsZero(stats.stock.value)
     ? t('dash.stockNoDataHint', '暂无可用库存或当前数据域无库存')
-    : t('dash.totalStockHint', '当前可用库存汇总');
+    : `${t('dash.totalStockHint', '当前可用库存汇总')} · ${t('dash.stockSourceHint', '来源 inv_batches.qty_available')} · ${kpi.meta?.stockAvailableBatchCount ?? 0} ${t('dash.availableBatches', '个可用批次')}`;
   const posHint = metricIsZero((stats.salesPos ?? stats.sales)?.value)
     ? t('dash.todayPosNoDataHint', '今日暂无 POS 收银记录')
     : `${t('dash.todayPosHint', '今日门店 POS 实收金额')} · ${kpi.meta?.posTxnCount ?? 0} ${t('dash.txns', '笔')}`;
@@ -297,7 +299,7 @@ export default function DashboardKPIs({
       gap: 20
     }}>
         <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={eggsHint} />
-        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '库存总量')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
+        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '可用库存')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
         <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={posHint} />
         <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} hint={farmHint} />
         <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} hint={t('dash.pendingAlertsHint', '未处理业务预警与设备告警合计')} alert />

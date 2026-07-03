@@ -40,11 +40,17 @@ export class DashboardBffController {
     const [stockRow] = await safe(
       this.em.query(
         scopeStore
-          ? `SELECT COALESCE(SUM(qty_available),0)::float8 AS total FROM inv_batches WHERE status='AVAILABLE' AND store_code = $1`
-          : `SELECT COALESCE(SUM(qty_available),0)::float8 AS total FROM inv_batches WHERE status='AVAILABLE'`,
+          ? `SELECT COALESCE(SUM(qty_available),0)::float8 AS total,
+                    COUNT(*) FILTER (WHERE COALESCE(qty_available,0) > 0)::int AS batch_count
+               FROM inv_batches
+              WHERE status='AVAILABLE' AND store_code = $1`
+          : `SELECT COALESCE(SUM(qty_available),0)::float8 AS total,
+                    COUNT(*) FILTER (WHERE COALESCE(qty_available,0) > 0)::int AS batch_count
+               FROM inv_batches
+              WHERE status='AVAILABLE'`,
         scopeStore ? [scopeStore] : [],
       ),
-      [{ total: 0 }],
+      [{ total: 0, batch_count: 0 }],
     );
     const warnRows = await safe(
       this.em.query(
@@ -251,7 +257,11 @@ export class DashboardBffController {
       data: {
         stats: {
           eggs:      { value: todayEggs.toLocaleString(), unit: '枚', trend: null },
-          stock:     { value: Number(stockRow?.total || 0).toLocaleString(), unit: '托', trend: null },
+          stock:     {
+            value: Number(stockRow?.total || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
+            unit: '基础单位',
+            trend: null,
+          },
           salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK' },
           salesFarm: { value: Number(todayFarmSales?.total || 0).toFixed(0), unit: 'LAK' },
           alerts:    { value: String(totalAlerts + deviceStats.activeAlerts), unit: '条', alert: (totalAlerts + deviceStats.activeAlerts) > 0 },
@@ -270,6 +280,8 @@ export class DashboardBffController {
           scopeStore,
           posTxnCount: Number(todaySales?.txns) || 0,
           stockAvailableTotal: Number(stockRow?.total || 0),
+          stockAvailableBatchCount: Number(stockRow?.batch_count) || 0,
+          stockMetricSource: 'inv_batches.status=AVAILABLE SUM(qty_available)',
           farmSalesAmount: Number(todayFarmSales?.total || 0),
         },
       },
