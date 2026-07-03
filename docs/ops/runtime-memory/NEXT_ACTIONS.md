@@ -22,7 +22,7 @@ Last updated: 2026-07-03
 
 ## 2026-07-03 好业财只读镜像真实同步 Gate
 
-当前状态: `CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_HOLD`。
+当前状态: `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN_DONE`，结论 `GO_WITH_CONDITIONS`。
 
 已完成:
 
@@ -33,19 +33,23 @@ Last updated: 2026-07-03
    - `docs/ops/runs/chanjet-readonly-mirror-sync-latest.md`
 4. 审计报告已生成:
    - `docs/ops/CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_REPORT_20260703.md`
+5. 已在生产服务器端使用短时 ERP admin Bearer token 调用受保护只读镜像同步 API。
+6. 本次同步写入 ERP 中间层，不写好业财、不删除好业财数据、不修改好业财数据、不推送凭证。
+7. 生产同步报告:
+   - `docs/ops/CHANJET_READONLY_MIRROR_PRODUCTION_SYNC_REPORT_20260703.md`
 
-HOLD 原因:
+同步结果:
 
-1. 生产 API `https://erp.eggslao.com/api/health` 已可访问，latest dry-run 为 PASS。
-2. ERP 只读镜像中间层表已存在。
-3. 当前执行环境没有 `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN`。
-4. 当前 worktree 未发现可见好业财鉴权链。
-5. `/api/chanjet/integration/mirror/sync` 是受保护接口，必须通过有效 ERP Bearer token 执行，不允许绕过后端鉴权直接调用好业财。
+1. 原始快照: 46。
+2. 原始行数: 1956。
+3. 实体镜像行数: 1846。
+4. 字段差异候选: 1677。
+5. HIGH 风险字段候选: 1518。
 
 下一步:
 
-1. `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN` — 在具备有效 ERP API token 和好业财 token 链的运行环境执行只读镜像同步。
-2. `CHANJET_FIELD_GAP_REVIEW_GATE` — 同步完成后审查字段差异。
+1. `CHANJET_FIELD_GAP_REVIEW_GATE` — 审查 1677 个字段差异候选，按 endpoint / risk / ERP domain 聚合。
+2. `CHANJET_ERP_SCHEMA_ADAPTATION_PLAN` — 只生成 ERP 端字段适配计划，不直接改 schema。
 3. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
 
 ## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
