@@ -48,9 +48,14 @@ Last updated: 2026-07-03
 
 下一步:
 
-1. `CHANJET_FIELD_GAP_REVIEW_GATE` — 审查 1677 个字段差异候选，按 endpoint / risk / ERP domain 聚合。
-2. `CHANJET_ERP_SCHEMA_ADAPTATION_PLAN` — 只生成 ERP 端字段适配计划，不直接改 schema。
-3. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
+1. `CHANJET_FIELD_GAP_REVIEW_GATE` — 已完成第一轮复核，报告见 `docs/ops/CHANJET_FIELD_GAP_REVIEW_REPORT_20260703.md`。
+2. `CHANJET_FIELD_GAP_P0_REPAIR` — 先修字段分析器和实体归一化质量:
+   - 剥离好业财 API envelope 字段，不作为 ERP 业务字段候选。
+   - 修复应收/应付统计实体保真 key。
+   - 拆分客户/供应商映射目标，避免 `mst_customers/mst_suppliers` 组合伪表名。
+   - 为凭证、科目余额、三大报表建立只读镜像模型方案。
+3. `CHANJET_ERP_SCHEMA_ADAPTATION_PLAN` — P0 修复后再生成 ERP 端字段适配计划，不直接改 schema。
+4. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
 
 ## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
 

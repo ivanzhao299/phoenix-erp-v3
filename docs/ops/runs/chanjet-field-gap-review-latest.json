@@ -1,0 +1,1790 @@
+{
+  "totals": {
+    "total": 1677,
+    "high_count": 1518,
+    "medium_count": 63,
+    "low_count": 96
+  },
+  "byEndpoint": [
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 152
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 166
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 142
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/book/findByEnterpriseId",
+      "risk_level": "HIGH",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/book/findByEnterpriseId",
+      "risk_level": "LOW",
+      "count": 96
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "count": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "count": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3539743721526654",
+      "risk_level": "MEDIUM",
+      "count": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 21
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 21
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 12
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 113
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 112
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 28
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 44
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 48
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 50
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 50
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 47
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 36
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 62
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 28
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3533914511118750",
+      "risk_level": "HIGH",
+      "count": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3537748712226818",
+      "risk_level": "HIGH",
+      "count": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3539743721526654",
+      "risk_level": "HIGH",
+      "count": 5
+    }
+  ],
+  "byDomain": [
+    {
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "risk_level": "HIGH",
+      "count": 1181
+    },
+    {
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "risk_level": "HIGH",
+      "count": 337
+    },
+    {
+      "erp_domain": "company",
+      "erp_table": "chanjet_account_books",
+      "risk_level": "LOW",
+      "count": 96
+    },
+    {
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "risk_level": "MEDIUM",
+      "count": 63
+    }
+  ],
+  "fieldExists": [
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 166,
+      "erp_field_exists": 18,
+      "erp_field_missing": 148
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 152,
+      "erp_field_exists": 18,
+      "erp_field_missing": 134
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 142,
+      "erp_field_exists": 18,
+      "erp_field_missing": 124
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 113,
+      "erp_field_exists": 0,
+      "erp_field_missing": 113
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 112,
+      "erp_field_exists": 0,
+      "erp_field_missing": 112
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/book/findByEnterpriseId",
+      "risk_level": "LOW",
+      "erp_domain": "company",
+      "erp_table": "chanjet_account_books",
+      "total": 96,
+      "erp_field_exists": 0,
+      "erp_field_missing": 96
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 56,
+      "erp_field_exists": 3,
+      "erp_field_missing": 53
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 46,
+      "erp_field_exists": 3,
+      "erp_field_missing": 43
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 44,
+      "erp_field_exists": 3,
+      "erp_field_missing": 41
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 44,
+      "erp_field_exists": 3,
+      "erp_field_missing": 41
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 42,
+      "erp_field_exists": 3,
+      "erp_field_missing": 39
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 47,
+      "erp_field_exists": 9,
+      "erp_field_missing": 38
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 36,
+      "erp_field_exists": 3,
+      "erp_field_missing": 33
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 36,
+      "erp_field_exists": 3,
+      "erp_field_missing": 33
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 36,
+      "erp_field_exists": 3,
+      "erp_field_missing": 33
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 36,
+      "erp_field_exists": 3,
+      "erp_field_missing": 33
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 36,
+      "erp_field_exists": 6,
+      "erp_field_missing": 30
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 28,
+      "erp_field_exists": 0,
+      "erp_field_missing": 28
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 26,
+      "erp_field_exists": 1,
+      "erp_field_missing": 25
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 21,
+      "erp_field_exists": 0,
+      "erp_field_missing": 21
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 21,
+      "erp_field_exists": 0,
+      "erp_field_missing": 21
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 15,
+      "erp_field_exists": 0,
+      "erp_field_missing": 15
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 15,
+      "erp_field_exists": 0,
+      "erp_field_missing": 15
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 15,
+      "erp_field_exists": 0,
+      "erp_field_missing": 15
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 15,
+      "erp_field_exists": 0,
+      "erp_field_missing": 15
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/finaccount/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 12,
+      "erp_field_exists": 0,
+      "erp_field_missing": 12
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/balance/rpt/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 11,
+      "erp_field_exists": 0,
+      "erp_field_missing": 11
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 9,
+      "erp_field_exists": 0,
+      "erp_field_missing": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 9,
+      "erp_field_exists": 0,
+      "erp_field_missing": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 9,
+      "erp_field_exists": 0,
+      "erp_field_missing": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 9,
+      "erp_field_exists": 0,
+      "erp_field_missing": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 9,
+      "erp_field_exists": 0,
+      "erp_field_missing": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 8,
+      "erp_field_exists": 0,
+      "erp_field_missing": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 8,
+      "erp_field_exists": 0,
+      "erp_field_missing": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 8,
+      "erp_field_exists": 0,
+      "erp_field_missing": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 8,
+      "erp_field_exists": 0,
+      "erp_field_missing": 8
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 6,
+      "erp_field_exists": 0,
+      "erp_field_missing": 6
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 6,
+      "erp_field_exists": 0,
+      "erp_field_missing": 6
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 6,
+      "erp_field_exists": 0,
+      "erp_field_missing": 6
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 5,
+      "erp_field_exists": 0,
+      "erp_field_missing": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 5,
+      "erp_field_exists": 0,
+      "erp_field_missing": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/subject/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 5,
+      "erp_field_exists": 0,
+      "erp_field_missing": 5
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3539743721526654",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 5,
+      "erp_field_exists": 1,
+      "erp_field_missing": 4
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 5,
+      "erp_field_exists": 1,
+      "erp_field_missing": 4
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 5,
+      "erp_field_exists": 1,
+      "erp_field_missing": 4
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/book/findByEnterpriseId",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "total": 3,
+      "erp_field_exists": 0,
+      "erp_field_missing": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "total": 3,
+      "erp_field_exists": 0,
+      "erp_field_missing": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 2,
+      "erp_field_exists": 0,
+      "erp_field_missing": 2
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 2,
+      "erp_field_exists": 0,
+      "erp_field_missing": 2
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "counterparty",
+      "erp_table": "mst_customers/mst_suppliers",
+      "total": 2,
+      "erp_field_exists": 0,
+      "erp_field_missing": 2
+    }
+  ],
+  "topMissing": [
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/asr/CashFlow/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldBalanceSheet/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msg",
+      "chanjet_field_path": "$.msg",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "msgArgs",
+      "chanjet_field_path": "$.msgArgs",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "multiFieldErrors",
+      "chanjet_field_path": "$.multiFieldErrors",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "nextStepEnumTypeName",
+      "chanjet_field_path": "$.nextStepEnumTypeName",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "requestId",
+      "chanjet_field_path": "$.requestId",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "success",
+      "chanjet_field_path": "$.success",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "validateResult",
+      "chanjet_field_path": "$.validateResult",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "verbose",
+      "chanjet_field_path": "$.verbose",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "code",
+      "chanjet_field_path": "$.code",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "data",
+      "chanjet_field_path": "$.data",
+      "chanjet_type": "null",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    },
+    {
+      "chanjet_endpoint": "/accounting/fin/getOldIncomeStatement/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "envConfigType",
+      "chanjet_field_path": "$.envConfigType",
+      "chanjet_type": "string",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。"
+    }
+  ],
+  "topExisting": [
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 18
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 18
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 18
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 9
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/project/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 6
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 3
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+      "risk_level": "HIGH",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "count": 1
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3533914511118750",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "erp_field": "status",
+      "count": 1
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3537748712226818",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "erp_field": "status",
+      "count": 1
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/department/list/3539743721526654",
+      "risk_level": "MEDIUM",
+      "erp_domain": "organization",
+      "erp_table": "sys_organizations",
+      "erp_field": "status",
+      "count": 1
+    }
+  ]
+}
