@@ -9,6 +9,7 @@ import { SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkelet
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { notificationApi, type MobileNotification } from '@/lib/mobile-api';
+import { resolveNotificationHref } from '@/lib/notification-routing';
 import { authHeader } from '@/lib/mobile-auth-token';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
@@ -366,13 +367,12 @@ export default function NotificationsPage() {
     }
   };
   const handleTap = (item: MobileNotification) => {
-    // 后端返回 linkType/linkId（旧 refType/refId 命名不符，恒判失败导致点通知不跳转）；
-    // 带 instanceId 深链直达该审批实例详情，避免落到待办列表后查无此条而空白。
-    const linkType = item.linkType ?? item.refType ?? null;
-    const linkId = item.linkId ?? item.refId ?? null;
-    if (linkType === 'APPROVAL_INSTANCE' && linkId) {
-      router.push(`/mobile/workflow?instanceId=${encodeURIComponent(linkId)}`);
-    }
+    router.push(resolveNotificationHref({
+      notificationType: item.notificationType,
+      content: item.body,
+      linkType: item.linkType ?? item.refType ?? null,
+      linkId: item.linkId ?? item.refId ?? null,
+    }, { mobile: true }));
   };
   if (permLoading || !allowed) return null;  // F10：无权限不渲染（后端 @RequireMenu 兜底）
   return <div style={{

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { resolveNotificationHref } from "@/lib/notification-routing";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
@@ -144,10 +145,7 @@ export default function NotificationsPage() {
   };
   const handleClick = (n: Notification) => {
     handleMarkRead(n);
-    if (n.linkType === "APPROVAL_INSTANCE") {
-      // 深链带 instanceId，直接打开该审批实例详情，避免落到通用待办列表后查无此条
-      router.push(n.linkId ? `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}` : "/workflow/todos");
-    }
+    router.push(resolveNotificationHref(n));
   };
   const applyFilter = () => {
     setPage(1);
@@ -169,7 +167,7 @@ export default function NotificationsPage() {
   };
   const unreadCount = resp.items.filter(n => n.status === "UNREAD").length;
   return <div>
-      <PageHeader title={t('notif.title', '通知中心')} subtitle={`${t('notif.subtitle', '站内消息通知')}${unreadCount > 0 ? `（${unreadCount} ${t('notif.unreadCount', '条未读）')}` : ""}`} breadcrumb={[t('notif.approvalCenter', '审批中心'), t('notif.breadcrumb', '通知')]} />
+      <PageHeader title={t('notif.title', '通知中心')} subtitle={`${t('notif.subtitle', '站内消息通知')}${unreadCount > 0 ? `（${unreadCount} ${t('notif.unreadCount', '条未读）')}` : ""}`} breadcrumb={[t('notif.title', '通知中心'), t('notif.breadcrumb', '通知')]} />
 
       <section className={s.card}>
         {/* 工具栏 */}

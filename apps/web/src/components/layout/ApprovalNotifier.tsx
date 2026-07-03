@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Bell, X, CheckCheck } from "lucide-react";
 import request from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { resolveNotificationHref } from "@/lib/notification-routing";
 
 interface Notif {
   id: string;
@@ -40,15 +41,6 @@ function timeAgo(iso?: string): string {
   if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
   return `${Math.floor(s / 86400)} 天前`;
 }
-// 点消息进入的目标页：审批类→待办深链（带 instanceId 直接打开该实例详情）；否则待办兜底
-function notifLink(n: { linkType?: string | null; linkId?: string | null }): string {
-  if (n.linkType && n.linkType.startsWith("/")) return n.linkType;
-  if (n.linkType === "APPROVAL_INSTANCE" && n.linkId) {
-    return `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}`;
-  }
-  return "/workflow/todos";
-}
-
 function beep() {
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -90,7 +82,7 @@ export function ApprovalNotifier() {
         try {
           const l = await request<{ items: Notif[] }>("/notifications?pageSize=1", { silent: true });
           const n = l?.items?.[0];
-          if (n) { setBanner({ title: n.title, sub: `${BIZ_LABEL[n.bizType ?? ""] ?? ""}${n.bizNo ? " " + n.bizNo : ""}`.trim(), link: notifLink(n) }); beep(); }
+          if (n) { setBanner({ title: n.title, sub: `${BIZ_LABEL[n.bizType ?? ""] ?? ""}${n.bizNo ? " " + n.bizNo : ""}`.trim(), link: resolveNotificationHref(n) }); beep(); }
         } catch { /* */ }
       }
       prevUnread.current = c;
@@ -128,7 +120,13 @@ export function ApprovalNotifier() {
           setBanner({
             title: String(d.title ?? t('ui.新消息','新消息')),
             sub: `${BIZ_LABEL[String(d.bizType ?? "")] ?? ""}${d.bizNo ? " " + d.bizNo : ""}`.trim(),
-            link: notifLink({ linkType: d.linkType as string, linkId: d.linkId as string }),
+            link: resolveNotificationHref({
+              notificationType: d.notificationType as string,
+              content: d.content as string,
+              linkType: d.linkType as string,
+              linkId: d.linkId as string,
+              bizType: d.bizType as string,
+            }),
           });
           beep();
           refreshCount();
@@ -177,7 +175,7 @@ export function ApprovalNotifier() {
       try { await request(`/notifications/${n.id}/read`, { method: "POST", silent: true }); } catch { /* */ }
       setUnread((u) => Math.max(0, u - 1));
     }
-    router.push(notifLink(n));
+    router.push(resolveNotificationHref(n));
   }, [router]);
 
   const markAll = useCallback(async () => {
@@ -241,9 +239,9 @@ export function ApprovalNotifier() {
             ))}
           </div>
           <div style={{ padding: "9px 14px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
-            <button type="button" onClick={() => { setOpen(false); router.push("/workflow/todos"); }}
+            <button type="button" onClick={() => { setOpen(false); router.push("/notifications"); }}
               style={{ border: "none", background: "none", color: "var(--color-primary)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
-              {t('ui.查看全部审批待办 →','查看全部审批待办 →')}
+              {t('ui.查看全部消息 →','查看全部消息 →')}
             </button>
           </div>
         </div>, document.body)}

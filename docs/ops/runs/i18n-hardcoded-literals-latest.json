@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T00:06:11.886Z",
+  "generated_at": "2026-07-03T00:17:46.423Z",
   "scope": "apps/web/src app/components/lib/hooks",
   "total_findings": 2654,
   "auto_translatable_findings": 2654,
@@ -7268,21 +7268,21 @@
     },
     {
       "file": "apps/web/src/app/(admin)/notifications/page.tsx",
-      "line": 44,
+      "line": 45,
       "kind": "string-literal",
       "text": "审批任务",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/notifications/page.tsx",
-      "line": 45,
+      "line": 46,
       "kind": "string-literal",
       "text": "审批结果",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/notifications/page.tsx",
-      "line": 46,
+      "line": 47,
       "kind": "string-literal",
       "text": "系统消息",
       "auto_translatable": true
@@ -15402,84 +15402,84 @@
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 28,
+      "line": 29,
       "kind": "string-literal",
       "text": "付款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 28,
+      "line": 29,
       "kind": "string-literal",
       "text": "采购订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 28,
+      "line": 29,
       "kind": "string-literal",
       "text": "采购申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 28,
+      "line": 29,
       "kind": "string-literal",
       "text": "费用报销",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 29,
+      "line": 30,
       "kind": "string-literal",
       "text": "股东出资",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 29,
+      "line": 30,
       "kind": "string-literal",
       "text": "股东结算",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 29,
+      "line": 30,
       "kind": "string-literal",
       "text": "股东资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 30,
+      "line": 31,
       "kind": "string-literal",
       "text": "主数据变更",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 30,
+      "line": 31,
       "kind": "string-literal",
       "text": "供应商建档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 31,
+      "line": 32,
       "kind": "string-literal",
       "text": "客户建档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 31,
+      "line": 32,
       "kind": "string-literal",
       "text": "项目建档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
-      "line": 38,
+      "line": 39,
       "kind": "string-literal",
       "text": "刚刚",
       "auto_translatable": true
