@@ -57,4 +57,13 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(two.externalId).toMatch(/^AP_STATISTICS:PAYABLE_STATISTICS:/);
     expect(one.externalId).not.toBe(two.externalId);
   });
+
+  it('ignores aggregate statistics sentinel IDs so rows do not overwrite each other', () => {
+    const one = service.normalizeExternalEntity({ id: 0, subjectName: '甲', endbalance: 12.3 }, 'AP_STATISTICS', 0, 'PAYABLE_STATISTICS');
+    const two = service.normalizeExternalEntity({ id: 0, subjectName: '乙', endbalance: 45.6 }, 'AP_STATISTICS', 1, 'PAYABLE_STATISTICS');
+
+    expect(one.externalId).toMatch(/^AP_STATISTICS:PAYABLE_STATISTICS:/);
+    expect(two.externalId).toMatch(/^AP_STATISTICS:PAYABLE_STATISTICS:/);
+    expect(one.externalId).not.toBe(two.externalId);
+  });
 });

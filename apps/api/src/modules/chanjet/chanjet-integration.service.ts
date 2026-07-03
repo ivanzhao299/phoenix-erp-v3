@@ -532,6 +532,7 @@ export class ChanjetIntegrationService {
       );
       upserted += 1;
     }
+    await this.deprecateFakeCounterpartyTargets();
     return { scanned: fields.length, upserted, statusCounts };
   }
 
@@ -861,7 +862,8 @@ export class ChanjetIntegrationService {
     amount: string;
     currency: string;
   } {
-    const id = this.firstText(row, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
+    const idCandidate = this.firstText(row, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
+    const id = this.isUsableExternalId(idCandidate, entityType, endpointKey) ? idCandidate : '';
     const code = this.firstText(row, ['code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode', 'billNo', 'number']);
     const name = this.firstText(row, ['name', 'Name', 'bookName', 'deptName', 'subjectName', 'customerName', 'supplierName', 'fullName', 'title', 'summary']);
     const status = this.firstText(row, ['status', 'state', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
@@ -973,6 +975,20 @@ export class ChanjetIntegrationService {
     return `${entityType}:${endpointKey || 'UNKNOWN'}:${hash}:${index + 1}`;
   }
 
+  private isUsableExternalId(value: string, entityType: string, endpointKey: string): boolean {
+    if (!value) return false;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || ['0', '-1', 'null', 'undefined', 'n/a', 'na', 'none', '合计', '小计', '总计'].includes(normalized)) {
+      return false;
+    }
+    const isAggregateStatistics = ['AP_STATISTICS', 'AR_STATISTICS'].includes(entityType)
+      || ['PAYABLE_STATISTICS', 'RECEIVABLE_STATISTICS'].includes(endpointKey);
+    if (isAggregateStatistics && /^-?\d+$/.test(normalized) && Number(normalized) <= 0) {
+      return false;
+    }
+    return true;
+  }
+
   private isApiEnvelopeField(fieldPath: string): boolean {
     return /^\$\.(code|msg|success|requestId|validateResult|multiFieldErrors|msgArgs|verbose|envConfigType|nextStepEnumTypeName|data)$/i.test(fieldPath);
   }
@@ -1007,6 +1023,17 @@ export class ChanjetIntegrationService {
       table: 'chanjet_master_mapping',
       rule: '好业财往来单位需先判断客户/供应商属性，再拆分映射到 ERP 客户或供应商主数据。',
     };
+  }
+
+  private async deprecateFakeCounterpartyTargets(): Promise<void> {
+    await this.fieldMappingRepo.update(
+      { erpTable: 'mst_customers/mst_suppliers' },
+      {
+        erpTable: 'chanjet_master_mapping',
+        transformRule: '历史候选目标表不存在；往来单位先进入好业财主数据映射中间层，再按客户/供应商属性拆分。',
+        analysisNote: '已自动收口历史假目标表 mst_customers/mst_suppliers，禁止据此创建 ERP schema。',
+      },
+    );
   }
 
   private firstText(row: Record<string, unknown>, keys: string[]): string {
