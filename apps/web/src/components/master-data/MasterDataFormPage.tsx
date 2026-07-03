@@ -36,7 +36,7 @@ export interface MasterDataFormPageProps {
 
 export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const { type, title, codeKey, nameKey, fields, listRoute, mode, initialRow } = props;
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const router = useRouter();
   const [form, setForm] = useState<Record<string, any>>(initialRow ?? {});
   const [saving, setSaving] = useState(false);
@@ -71,7 +71,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const onSave = async () => {
     setError("");
     for (const f of fields) {
-      if (f.required && !form[f.key]) { setError(`${t('ui.请填写:','请填写:')}${f.label}`); return; }
+      if (f.required && !form[f.key]) { setError(`${t('ui.请填写:','请填写:')}${translateLiteral(f.label)}`); return; }
     }
     setSaving(true);
     try {
@@ -95,9 +95,9 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
   return (
     <div style={{ paddingBottom: 56 /* sticky footer 留位 */ }}>
       <PageHeader
-        title={mode === "create" ? `${t('ui.新增','新增')}${title}` : `${t('ui.编辑','编辑')}${title}`}
+        title={mode === "create" ? `${t('ui.新增','新增')}${translateLiteral(title)}` : `${t('ui.编辑','编辑')}${translateLiteral(title)}`}
         subtitle={mode === "create" ? t('ui.完整建档 · 编码自动生成','完整建档 · 编码自动生成') : `${t('ui.编辑','编辑')} ${initialRow?.[codeKey] ?? ""}`}
-        breadcrumb={[t('ui.主数据中心','主数据中心'), `${title}${t('ui.中心','中心')}`, mode === "create" ? t('ui.新增','新增') : t('ui.编辑','编辑')]}
+        breadcrumb={[t('ui.主数据中心','主数据中心'), `${translateLiteral(title)}${t('ui.中心','中心')}`, mode === "create" ? t('ui.新增','新增') : t('ui.编辑','编辑')]}
         actions={
           <button onClick={onCancel} style={{ ...secondaryActionButton, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <ArrowLeft size={14} /> {t('ui.返回列表','返回列表')}
@@ -111,7 +111,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
         {mode === "edit" && initialRow ? (
           <div style={{ ...drawerHeroBox, marginBottom: 0, padding: "10px 14px" }}>
             <div>
-              <div style={drawerHeroLabel}>{title}{t('ui.编码','编码')}</div>
+              <div style={drawerHeroLabel}>{translateLiteral(title)}{t('ui.编码','编码')}</div>
               <div style={drawerHeroCodeValue}>{initialRow[codeKey]}</div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -131,14 +131,14 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
 
         {/* 按 group 分 Panel — bodyPadding 12 + grid 3 列 + gap 10/16 紧凑化 */}
         {groups.map(g => (
-          <Panel key={g.name} title={g.name} bodyPadding={12}>
+          <Panel key={g.name} title={translateLiteral(g.name)} bodyPadding={12}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px 16px" }}>
               {g.fields.map(f => (
                 <div key={f.key}>
                   <label style={{ ...formLabel, marginBottom: 4 }}>
-                    {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
+                    {translateLiteral(f.label)}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                   </label>
-                  {renderMdFieldInput(f, form, setForm, t)}
+                  {renderMdFieldInput(f, form, setForm, t, translateLiteral)}
                 </div>
               ))}
             </div>

@@ -74,7 +74,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const { objectType, objectCode, title, status, effectiveDate, expireDate, basicInfo, extraTabs } = props;
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [refs, setRefs] = useState<References | null>(null);
@@ -111,7 +111,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
   const statusColor = STATUS_COLOR[status ?? 'ACTIVE'] ?? 'var(--text-secondary)';
   const allTabs: { key: string; label: string; icon: any }[] = [
     ...TABS,
-    ...(extraTabs ?? []).map(t => ({ key: `extra_${t.label}`, label: t.label, icon: FileText })),
+    ...(extraTabs ?? []).map(tab => ({ key: `extra_${tab.label}`, label: tab.label, icon: FileText })),
   ];
 
   return (
@@ -123,7 +123,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
         border: '1px solid var(--border)', marginBottom: 16,
       }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{title}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{translateLiteral(title)}</div>
           <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', color: 'var(--color-primary)', marginTop: 2 }}>{objectCode}</div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
             objectType: <span style={{ fontFamily: 'monospace' }}>{objectType}</span>
@@ -135,17 +135,17 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
           <span style={{
             fontSize: 13, padding: '4px 12px', borderRadius: 6, fontWeight: 600,
             background: `${statusColor}1a`, color: statusColor,
-          }}>{status}</span>
+          }}>{translateLiteral(status)}</span>
         )}
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-        {allTabs.map(t => {
-          const Icon = t.icon;
-          const isActive = activeTab === t.key;
+        {allTabs.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
           return (
-            <button key={t.key} onClick={() => setActiveTab(t.key as TabKey)}
+            <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
               style={{
                 padding: '8px 14px', borderRadius: '8px 8px 0 0', border: 'none',
                 background: isActive ? 'var(--bg-card)' : 'transparent',
@@ -154,7 +154,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
                 fontSize: 13, fontWeight: isActive ? 600 : 400, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-              <Icon size={13} /> {t.label}
+              <Icon size={13} /> {translateLiteral(tab.label)}
             </button>
           );
         })}
@@ -175,7 +175,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
                   color: STATUS_COLOR[s],
                   fontWeight: status === s ? 700 : 400,
                   border: status === s ? `1px solid ${STATUS_COLOR[s]}` : '1px solid transparent',
-                }}>{s}</span>
+                }}>{translateLiteral(s)}</span>
               ))}
             </div>
             <div style={{ marginTop: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -208,7 +208,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
           <div>
             <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>{t('ui.质量评分','质量评分')}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-              <QualityCard label={t('ui.状态','状态')} value={status === 'ACTIVE' ? t('ui.生效中','生效中') : status ?? '—'} ok={status === 'ACTIVE'} />
+              <QualityCard label={t('ui.状态','状态')} value={status === 'ACTIVE' ? t('ui.生效中','生效中') : status ? translateLiteral(status) : '—'} ok={status === 'ACTIVE'} />
               <QualityCard label={t('ui.生效日期','生效日期')} value={effectiveDate ?? t('ui.未设置','未设置')} ok={!!effectiveDate} />
               <QualityCard label={t('ui.引用情况','引用情况')} value={refs ? `${refs.totalReferences} ${t('ui.处','处')}` : t('ui.未查询','未查询')} ok={(refs?.totalReferences ?? 0) > 0 || status !== 'ARCHIVED'} />
               <QualityCard label={t('ui.归档风险','归档风险')} value={refs?.canArchive ? t('ui.无','无') : t('ui.有引用','有引用')} ok={refs?.canArchive !== false} />
@@ -229,7 +229,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
                {audit.map(a => (
                  <div key={a.id} style={{ padding: '10px 14px', background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12 }}>
                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                     <span style={{ padding: '1px 8px', borderRadius: 4, background: 'var(--color-accent)1a', color: 'var(--color-accent)', fontWeight: 600 }}>{a.action}</span>
+                     <span style={{ padding: '1px 8px', borderRadius: 4, background: 'var(--color-accent)1a', color: 'var(--color-accent)', fontWeight: 600 }}>{translateLiteral(a.action)}</span>
                      <span style={{ color: 'var(--text-primary)' }}>{a.operator ?? t('ui.系统','系统')}</span>
                      <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}>{new Date(a.created_at).toLocaleString('zh-CN')}</span>
                    </div>

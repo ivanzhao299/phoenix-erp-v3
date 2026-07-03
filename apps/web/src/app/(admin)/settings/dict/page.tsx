@@ -24,7 +24,7 @@ interface DictRow { id:number; dict_code:string; dict_type:string; dict_label_zh
 
 export default function DictPage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
 
   // 字典类型中文/多语言标签映射，随语言切换动态更新
   const TYPE_LABEL = useMemo<Record<string,string>>(() => ({
@@ -204,7 +204,7 @@ export default function DictPage() {
   const fc = (k: string, v: unknown) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
 
   const selColor = selected ? typeColor(selected) : "var(--color-accent)";
-  const selLabel = selected ? (TYPE_LABEL[selected]||dictTypeLabel(selected)) : "";
+  const selLabel = selected ? (TYPE_LABEL[selected] || translateLiteral(dictTypeLabel(selected))) : "";
 
   return (
     <div className="animate-fade-in" style={{ display:"flex", flexDirection:"column", height:"100%" }}>
@@ -252,7 +252,7 @@ export default function DictPage() {
             )}
             {groups.map(([tp, items]) => {
               const color = typeColor(tp);
-              const label = TYPE_LABEL[tp]||dictTypeLabel(tp);
+              const label = TYPE_LABEL[tp] || translateLiteral(dictTypeLabel(tp));
               const isSel = tp === selected;
               return (
                 <button type="button" key={tp} onClick={()=>setSelected(tp)}

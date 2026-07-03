@@ -56,14 +56,17 @@ Executed in this follow-up:
 2. `menu.<id>` keys were added for all 155 sidebar menu ids in zh/en/lo.
 3. Core navigation labels, tooltips, and aria labels no longer depend on Chinese fallback text.
 4. CI security workflow now runs the hardcoded UI literal coverage gate with `--fail-on-uncovered`.
+5. Master data detail drawer now translates config-driven center names, KPI labels, suffixes, field labels, section titles, statuses, and reference labels through `translateLiteral()`.
+6. Master data detail layout now translates tab labels, object titles, lifecycle status chips, and audit action labels through the shared language context.
+7. Master data runtime panel and full-page form now translate config-driven column headers, field labels, status labels, select option labels, group titles, and validation messages.
+8. Data dictionary editor and master-data governance dictionary coverage panels now translate `dictTypeLabel()` fallback labels instead of rendering Chinese-only fallback text.
 
 Remaining priority files:
 
-1. `apps/web/src/components/master-data/detail-configs.tsx`
-2. `apps/web/src/lib/workflow-templates.ts`
-3. `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx`
-4. `apps/web/src/lib/dict-type-labels.ts`
-5. Procurement, finance, approval, inventory, and master-data high-frequency pages.
+1. `apps/web/src/lib/workflow-templates.ts`
+2. `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx`
+3. Procurement, finance, approval, and inventory high-frequency pages.
+4. Replace selected config literals in `apps/web/src/components/master-data/detail-configs.tsx` with first-class locale keys where long-term ownership requires semantic keys instead of literal keys.
 
 ## Current Execution Result
 
@@ -76,6 +79,7 @@ Remaining priority files:
 - Locale key counts: zh/en/lo aligned
 - Sidebar menu explicit key coverage: 155/155
 - CI hardcoded literal coverage gate: enabled
+- Master-data shared renderer explicit i18n: completed for drawer, detail layout, runtime panel, full-page form, dictionary editor, and governance dictionary coverage
 
 ## Boundaries
 

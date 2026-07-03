@@ -61,7 +61,7 @@ function scoreColor(s: number): { bg: string; fg: string; label: string } {
 }
 
 export default function GovernanceDashboardPage() {
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const qualityPerm = usePermission('MENU_MD_QUALITY');
   const canView = qualityPerm.canView || qualityPerm.isSuper;
   const [scores, setScores] = useState<Scores | null>(null);
@@ -217,7 +217,7 @@ export default function GovernanceDashboardPage() {
                   background: `${color}0a`, border: `1px solid ${color}33`,
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{dictTypeLabel(d.dictType)}<span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 6, fontFamily: 'monospace' }}>{d.dictType}</span></span>
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{translateLiteral(dictTypeLabel(d.dictType))}<span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 6, fontFamily: 'monospace' }}>{d.dictType}</span></span>
                   <span style={{ fontSize: 11, color, fontWeight: 600 }}>
                     {d.status === 'MISSING' ? t('md.missingStatus', '缺失') : d.status === 'EMPTY' ? t('md.emptyStatus', '失效') : `${d.activeCount} ${t('md.unitItem', '条')}`}
                   </span>
@@ -227,7 +227,7 @@ export default function GovernanceDashboardPage() {
           </div>
           {dict.missingDictTypes.length > 0 && (
             <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'var(--status-danger-bg-faint)', fontSize: 12, color: 'var(--status-danger)' }}>
-              <strong>{t('md.missingDict', '缺失字典')}（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.map(dictTypeLabel).join('、')}
+              <strong>{t('md.missingDict', '缺失字典')}（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.map(tp => translateLiteral(dictTypeLabel(tp))).join('、')}
             </div>
           )}
         </Panel>

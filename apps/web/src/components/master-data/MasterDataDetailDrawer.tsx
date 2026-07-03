@@ -43,7 +43,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const [info, setInfo] = useState<any>(null);
   const [extra, setExtra] = useState<Record<string, any>>({});
   const [refs, setRefs] = useState<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>({ totalReferences: 0, references: [], canArchive: true });
@@ -61,7 +61,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
     };
 
     const extraCalls = (config.extraApis || []).map(api =>
-      safe<any>(api.path.replace(':code', encodeURIComponent(code)), api.label)
+      safe<any>(api.path.replace(':code', encodeURIComponent(code)), translateLiteral(api.label))
     );
 
     Promise.all([
@@ -101,12 +101,12 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1,
         }}>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{config.centerName}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{translateLiteral(config.centerName)}</div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{titleText}</h2>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
               <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{code}</code>
               {status && (
-                <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: status.color, borderRadius: 100 }}>{status.label}</span>
+                <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: status.color, borderRadius: 100 }}>{translateLiteral(status.label)}</span>
               )}
               {!refs.canArchive && (
                 <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)', borderRadius: 100 }}>{t('ui.归档阻断','归档阻断')}</span>
@@ -135,13 +135,14 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(4, config.kpis.length)}, 1fr)`, gap: 12 }}>
                 {config.kpis.map((k, i) => {
                   const v = k.value(info, extra);
+                  const display = typeof v?.display === 'string' ? translateLiteral(v.display) : v?.display;
                   return (
                     <KpiTile
                       key={i}
                       icon={k.icon}
-                      label={k.label}
-                      value={v?.display ?? '—'}
-                      suffix={v?.suffix}
+                      label={translateLiteral(k.label)}
+                      value={display ?? '—'}
+                      suffix={v?.suffix ? translateLiteral(v.suffix) : undefined}
                       tone={v?.tone}
                     />
                   );
@@ -156,7 +157,11 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
               <SectionTitle>{t('ui.基础信息','基础信息')}</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', padding: 16, background: 'var(--bg-muted)', borderRadius: 'var(--radius-card)' }}>
                 {config.basicFields.map(f => (
-                  <InfoRow key={f.key} label={f.label} value={f.format ? f.format(info[f.key], info) : (info[f.key] || '—')} />
+                  <InfoRow
+                    key={f.key}
+                    label={translateLiteral(f.label)}
+                    value={f.format ? translateLiteral(f.format(info[f.key], info)) : (info[f.key] || '—')}
+                  />
                 ))}
               </div>
             </section>
@@ -165,7 +170,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           {/* 自定义 sections（最近活动等） */}
           {config.sections?.map((s, i) => (
             <section key={i}>
-              <SectionTitle>{s.title}</SectionTitle>
+              <SectionTitle>{translateLiteral(s.title)}</SectionTitle>
               {s.render(extra, info)}
             </section>
           ))}
@@ -179,7 +184,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
                   <div key={r.refTable} style={{ padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Link2 size={14} color="var(--color-primary)" />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.refDocType}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{translateLiteral(r.refDocType)}</div>
                       <code style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{r.refTable}</code>
                     </div>
                     <span style={{ padding: '1px 7px', fontSize: 11, fontWeight: 600, background: 'var(--status-warning)', color: 'var(--text-on-dark)', borderRadius: 100 }}>{r.refCount}</span>

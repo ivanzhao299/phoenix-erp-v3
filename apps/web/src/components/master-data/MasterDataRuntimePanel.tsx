@@ -82,8 +82,10 @@ export function renderMdFieldInput(
   form: Record<string, any>,
   setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>,
   t?: (key: string, fallback?: string) => string,
+  translateLiteral?: (text: string) => string,
 ): React.ReactNode {
   const tr = t ?? ((_k: string, fb?: string) => fb ?? _k);
+  const tl = translateLiteral ?? ((text: string) => text);
   // G83：主数据选择器化 — 函数式 setForm 防 onChange→onPick 顺序污染
   const code = String(form[f.key] ?? "");
   const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
@@ -115,7 +117,7 @@ export function renderMdFieldInput(
   if (f.type === "select")
     return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
       <option value="">{tr('ui.请选择','请选择')}</option>
-      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{tl(o.label)}</option>)}
     </select>;
   if (f.type === "readonly")
     return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
@@ -152,7 +154,7 @@ export function multilingualNameFields(type: string, nameKey: string): MdField[]
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
-  const { tField, t } = useLanguage();  // task #25：列表名称列按当前语言显示
+  const { tField, t, translateLiteral } = useLanguage();  // task #25：列表名称列按当前语言显示
   // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
   const formFields = useMemo(() => {
     const have = new Set(fields.map(f => f.key));
@@ -235,7 +237,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
   const save = async () => {
     for (const f of fields) {
-      if (f.required && !form[f.key]) { setError(`${t('ui.请填写：','请填写：')}${f.label}`); return; }
+      if (f.required && !form[f.key]) { setError(`${t('ui.请填写：','请填写：')}${translateLiteral(f.label)}`); return; }
     }
     setSaving(true); setError(""); setNotice("");
     try {
@@ -287,7 +289,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           <SelectField
             value={filterStatus}
             onChange={setFilterStatus}
-            options={Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v.label }))}
+            options={Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: translateLiteral(v.label) }))}
             emptyLabel={t('ui.全部状态','全部状态')}
             allowEmpty
             filter
@@ -299,7 +301,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         </button>
         {canCreate && (
           <button onClick={openNew} style={{ ...primaryActionButton, marginLeft: "auto" }}>
-            <Plus size={14} /> {t('ui.新增','新增')}{title}
+            <Plus size={14} /> {t('ui.新增','新增')}{translateLiteral(title)}
           </button>
         )}
       </div>
@@ -315,13 +317,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
       <div style={{ borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-card)" }}>
         {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
-          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`${t('ui.暂无','暂无')}${title}${t('ui.数据','数据')}`} compact /></div>
+          : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`${t('ui.暂无','暂无')}${translateLiteral(title)}${t('ui.数据','数据')}`} compact /></div>
           : (
             <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "auto" }}>
               <thead><tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
                 <th style={thStyle}>{t('ui.编码','编码')}</th>
-                {columns.map(c => <th key={c.key} style={thStyle}>{c.label}</th>)}
+                {columns.map(c => <th key={c.key} style={thStyle}>{translateLiteral(c.label)}</th>)}
                 <th style={{ ...thStyle, textAlign: "center", width: 80 }}>{t('ui.状态','状态')}</th>
                 <th style={{ ...thStyle, textAlign: "center", width: 60 }}>{t('ui.引用','引用')}</th>
                 <th style={{ ...thStyle, textAlign: "right", width: 130 }}>{t('ui.操作','操作')}</th>
@@ -357,7 +359,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                         return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
                       })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
-                        <span style={{ ...inlineBadge(st.tone), whiteSpace: "nowrap" }}>{st.label}</span>
+                        <span style={{ ...inlineBadge(st.tone), whiteSpace: "nowrap" }}>{translateLiteral(st.label)}</span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {/* G5.5-D：引用计数（懒加载，悬浮触发） */}
@@ -399,7 +401,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         <div style={drawerMask} onClick={() => setEditing(null)}>
           <div style={drawerPanelFlex(480)} onClick={e => e.stopPropagation()}>
             <div style={drawerHeaderFlex}>
-              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `${t('ui.编辑','编辑')}${title}` : `${t('ui.新增','新增')}${title}`}</h2>
+              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `${t('ui.编辑','编辑')}${translateLiteral(title)}` : `${t('ui.新增','新增')}${translateLiteral(title)}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
             <div style={drawerBody}>
@@ -407,7 +409,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             {editing[codeKey] ? (
               <div style={drawerHeroBox}>
                 <div>
-                  <div style={drawerHeroLabel}>{title}{t('ui.编码','编码')}</div>
+                  <div style={drawerHeroLabel}>{translateLiteral(title)}{t('ui.编码','编码')}</div>
                   <div style={drawerHeroCodeValue}>{editing[codeKey]}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -424,9 +426,9 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             {formFields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={formLabel}>
-                  {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
+                  {translateLiteral(f.label)}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {renderMdFieldInput(f, form, setForm, t)}
+                {renderMdFieldInput(f, form, setForm, t, translateLiteral)}
               </div>
             ))}
             </div>
@@ -477,7 +479,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
   transitions: { action: string; label: string; icon: any }[];
   onTransition: (action: string) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const [open, setOpen] = useState(false);
   // FIX：下拉菜单经 createPortal 渲染到 body，并按按钮 rect 用 position:fixed 定位。
   //   旧实现用 position:absolute 渲染在表格内，被外层卡片 overflow:hidden + 表格
@@ -540,7 +542,7 @@ function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--bg-muted)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
-                  <a.icon size={12} /> {a.label}
+                  <a.icon size={12} /> {translateLiteral(a.label)}
                 </button>
               ))}
             </div>,
