@@ -562,6 +562,87 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * POST /api/chanjet/integration/mirror/sync
+   * 好业财只读镜像同步：只读好业财，写 ERP 中间层快照/字段目录/实体摘要。
+   * body: { scope?: string[], bookId?: string, period?: string }
+   */
+  @Post('integration/mirror/sync')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async syncIntegrationMirror(
+    @Body() body: { scope?: string[]; bookId?: string; period?: string },
+    @Req() req: any,
+  ) {
+    this.log.warn(`manual chanjet readonly mirror sync triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'} scope=${(body.scope || []).join(',') || 'default'} book=${body.bookId || 'enabled-books'}`);
+    try {
+      const result = await this.integration.syncReadOnlyMirror(body.scope || [], body.bookId, body.period);
+      return { success: true, writeChanjet: false, ...result };
+    } catch (e) {
+      return { success: false, writeChanjet: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/mirror/read-snapshots
+   * 查询好业财原始只读快照。只读 ERP 中间层。
+   */
+  @Get('integration/mirror/read-snapshots')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationReadSnapshots(@Query('limit') limit: string, @Query('endpointKey') endpointKey: string) {
+    try {
+      const snapshots = await this.integration.listReadSnapshots(Number(limit) || 100, endpointKey || undefined);
+      return { success: true, count: snapshots.length, snapshots };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/mirror/entity-snapshots
+   * 查询标准化实体镜像。只读 ERP 中间层。
+   */
+  @Get('integration/mirror/entity-snapshots')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationEntitySnapshots(@Query('limit') limit: string, @Query('entityType') entityType: string) {
+    try {
+      const entities = await this.integration.listEntitySnapshots(Number(limit) || 200, entityType || undefined);
+      return { success: true, count: entities.length, entities };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/field-mappings
+   * 查询好业财字段 ↔ ERP 字段候选映射。
+   */
+  @Get('integration/field-mappings')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFieldMappings(@Query('limit') limit: string, @Query('matchStatus') matchStatus: string) {
+    try {
+      const mappings = await this.integration.listFieldMappings(Number(limit) || 500, matchStatus || undefined);
+      return { success: true, count: mappings.length, mappings };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/field-mappings/analyze
+   * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
+   */
+  @Post('integration/field-mappings/analyze')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async analyzeIntegrationFieldMappings(@Req() req: any) {
+    this.log.warn(`manual chanjet field-gap analysis triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
+    try {
+      const result = await this.integration.analyzeFieldGaps();
+      return { success: true, writeChanjet: false, ...result };
+    } catch (e) {
+      return { success: false, writeChanjet: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * GET /api/chanjet/integration/master-mappings?mappingType=DEPARTMENT
    * ERP ↔ 好业财主数据映射候选。APPROVED 才可作为后续入账/凭证建议依据。
    */

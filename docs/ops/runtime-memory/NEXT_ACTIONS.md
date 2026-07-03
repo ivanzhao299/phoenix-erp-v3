@@ -1,6 +1,24 @@
 # Next Actions
 
-Last updated: 2026-06-27
+Last updated: 2026-07-03
+
+## 2026-07-03 好业财只读中间层 Phase 1
+
+当前状态: `CHANJET_READONLY_MIRROR_PHASE1_READY`，结论 `GO_WITH_CONDITIONS`。
+
+已完成:
+
+1. 建立好业财只读镜像中间层表: `chanjet_read_snapshots`、`chanjet_entity_snapshots`、`chanjet_erp_field_mapping`。
+2. 接入只读镜像同步 API、镜像快照查询 API、ERP 字段差异候选分析 API。
+3. 前端 `/finance2/chanjet-integration` 新增“只读镜像”和“字段差异”视图。
+4. 明确保持好业财只读: 不写入、不删除、不修改、不推送凭证。
+
+下一步:
+
+1. `CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE` — 在有效好业财 token 环境执行只读镜像同步，生成真实快照。
+2. `CHANJET_FIELD_GAP_REVIEW_GATE` — 复核字段差异候选，确认 ERP 哪些字段需要补齐或映射。
+3. `CHANJET_ENTITY_MAPPING_PHASE2` — 对客户、供应商、科目、项目、部门、账户、应收应付、凭证查询做分页/增量同步增强。
+4. `CHANJET_WRITE_BACK_HOLD` — 未经单独批准，继续禁止向好业财写入、删除、修改或推送凭证。
 
 ## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
 

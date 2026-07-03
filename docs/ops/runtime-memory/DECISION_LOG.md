@@ -1,5 +1,29 @@
 # Decision Log
 
+## 2026-07-03 - Chanjet Readonly Mirror Middle Layer Phase 1
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- User approved implementing the Chanjet / 好业财 middle-layer plan under a strict read-only boundary.
+- Phase 1 creates ERP-owned mirror tables for raw read snapshots, normalized entity snapshots, and ERP field mapping candidates.
+- The integration service now supports read-only mirror sync, snapshot browsing, and field-gap candidate generation.
+- The integration UI now exposes read-only mirror status and field-gap review views.
+- No Chanjet write, delete, update, voucher push, deploy, production migration, seed, cleanup, reset, or push was executed.
+
+Conditions:
+
+- Real completeness depends on running the mirror sync with a valid Chanjet token and reviewing endpoint-specific failures.
+- Pagination, deep incremental pull, and final ERP schema/mapping changes remain Phase 2 work.
+- Any future write-back to Chanjet remains HOLD until a separate user-approved Gate.
+
+Next actions:
+
+1. `CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE`
+2. `CHANJET_FIELD_GAP_REVIEW_GATE`
+3. `CHANJET_ENTITY_MAPPING_PHASE2`
+
 ## 2026-06-23 - Production Server Remediation R1 Store Payment Schema Drift Reconciliation
 
 Decision: READY_FOR_SCHEMA_REPAIR_EXECUTION_APPROVAL, with the practical next Gate set to `FILE_METADATA_MIGRATION_EXECUTION_GATE`.

@@ -9,6 +9,10 @@ import { ChanjetMasterMappingEntity, ChanjetMappingType } from './chanjet-master
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
 import { ChanjetVoucherDraftEntity } from './chanjet-voucher-draft.entity';
 import { ChanjetReconciliationResultEntity } from './chanjet-reconciliation-result.entity';
+import { ChanjetReadSnapshotEntity } from './chanjet-read-snapshot.entity';
+import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
+import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
+import * as crypto from 'crypto';
 
 type HttpMethod = 'GET' | 'POST';
 type SampleType = ChanjetApiFieldCatalogEntity['sampleType'];
@@ -23,6 +27,9 @@ interface ProbeEndpoint {
   query?: Record<string, string>;
   requiresBook?: boolean;
   mappingType?: ChanjetMappingType;
+  entityType?: string;
+  periodQuery?: boolean;
+  mirrorDefault?: boolean;
 }
 
 interface NormalizedBook {
@@ -50,6 +57,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     method: 'GET',
     path: '/accounting/openapi/cc/book/findByEnterpriseId',
     query: { queryType: 'BINDING_TO_THIRD_PLATFORM' },
+    entityType: 'ACCOUNT_BOOK',
+    mirrorDefault: true,
   },
   {
     key: 'DEPARTMENT',
@@ -59,6 +68,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     path: '/accounting/openapi/cc/department/list/{bookid}',
     requiresBook: true,
     mappingType: 'DEPARTMENT',
+    entityType: 'DEPARTMENT',
+    mirrorDefault: true,
   },
   {
     key: 'CUSTOMER_SUPPLIER',
@@ -69,6 +80,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     body: {},
     requiresBook: true,
     mappingType: 'CUSTOMER',
+    entityType: 'CUSTOMER_SUPPLIER',
+    mirrorDefault: true,
   },
   {
     key: 'SUBJECT',
@@ -78,6 +91,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     path: '/accounting/openapi/cc/subject/list/{bookid}',
     requiresBook: true,
     mappingType: 'SUBJECT',
+    entityType: 'SUBJECT',
+    mirrorDefault: true,
   },
   {
     key: 'PROJECT',
@@ -88,6 +103,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     body: {},
     requiresBook: true,
     mappingType: 'PROJECT',
+    entityType: 'PROJECT',
+    mirrorDefault: true,
   },
   {
     key: 'FIN_ACCOUNT',
@@ -98,6 +115,8 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     body: {},
     requiresBook: true,
     mappingType: 'CASH_ACCOUNT',
+    entityType: 'CASH_ACCOUNT',
+    mirrorDefault: true,
   },
   {
     key: 'PAYABLE_STATISTICS',
@@ -107,6 +126,147 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     path: '/accounting/gl/statistics/pay/{bookid}',
     query: { period: new Date().toISOString().slice(0, 7).replace('-', '') },
     requiresBook: true,
+    entityType: 'AP_STATISTICS',
+    periodQuery: true,
+    mirrorDefault: true,
+  },
+  {
+    key: 'RECEIVABLE_STATISTICS',
+    label: '应收统计',
+    apiDomain: 'ar',
+    method: 'GET',
+    path: '/accounting/gl/statistics/receive/{bookid}',
+    query: { period: new Date().toISOString().slice(0, 7).replace('-', '') },
+    requiresBook: true,
+    entityType: 'AR_STATISTICS',
+    periodQuery: true,
+    mirrorDefault: true,
+  },
+  {
+    key: 'PAYMENT_AP',
+    label: '付款单列表',
+    apiDomain: 'payment',
+    method: 'POST',
+    path: '/accounting/openapi/cc/payment/ap/list/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'AP_PAYMENT',
+    mirrorDefault: true,
+  },
+  {
+    key: 'PAYMENT_AR',
+    label: '收款单列表',
+    apiDomain: 'payment',
+    method: 'POST',
+    path: '/accounting/openapi/cc/payment/ar/list/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'AR_RECEIPT',
+    mirrorDefault: true,
+  },
+  {
+    key: 'PURCHASE_ORDER',
+    label: '采购订单列表',
+    apiDomain: 'procurement',
+    method: 'POST',
+    path: '/accounting/openapi/cc/purchaseorder/list/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'PURCHASE_ORDER',
+    mirrorDefault: true,
+  },
+  {
+    key: 'SALES_ORDER',
+    label: '销售订单列表',
+    apiDomain: 'sales',
+    method: 'POST',
+    path: '/accounting/internal/cc/salesorder/list',
+    body: {},
+    entityType: 'SALES_ORDER',
+  },
+  {
+    key: 'PURCHASE_APPLY',
+    label: '采购申请单列表',
+    apiDomain: 'procurement',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/purchaseapply/list/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'PURCHASE_APPLY',
+  },
+  {
+    key: 'STOCK_IN',
+    label: '入库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/purchasestockin/list',
+    body: {},
+    entityType: 'STOCK_IN',
+  },
+  {
+    key: 'SALES_STOCK_OUT',
+    label: '销售出库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'SALES_STOCK_OUT',
+  },
+  {
+    key: 'VOUCHER_SEARCH',
+    label: '凭证列表',
+    apiDomain: 'voucher',
+    method: 'GET',
+    path: '/accounting/gl/AcctgTrans/acctgTransFuzzySearch/{bookid}',
+    query: {},
+    requiresBook: true,
+    entityType: 'VOUCHER',
+    mirrorDefault: true,
+  },
+  {
+    key: 'GL_BALANCE',
+    label: '科目余额表',
+    apiDomain: 'gl',
+    method: 'POST',
+    path: '/accounting/gl/balance/rpt/{bookid}',
+    body: {},
+    requiresBook: true,
+    entityType: 'GL_BALANCE',
+    mirrorDefault: true,
+  },
+  {
+    key: 'BALANCE_SHEET',
+    label: '资产负债表',
+    apiDomain: 'report',
+    method: 'GET',
+    path: '/accounting/fin/getOldBalanceSheet/{bookid}',
+    query: {},
+    requiresBook: true,
+    entityType: 'BALANCE_SHEET',
+    mirrorDefault: true,
+  },
+  {
+    key: 'INCOME_STATEMENT',
+    label: '利润表',
+    apiDomain: 'report',
+    method: 'GET',
+    path: '/accounting/fin/getOldIncomeStatement/{bookid}',
+    query: {},
+    requiresBook: true,
+    entityType: 'INCOME_STATEMENT',
+    mirrorDefault: true,
+  },
+  {
+    key: 'CASH_FLOW',
+    label: '现金流量表',
+    apiDomain: 'report',
+    method: 'GET',
+    path: '/accounting/asr/CashFlow/{bookid}',
+    query: {},
+    requiresBook: true,
+    entityType: 'CASH_FLOW',
+    mirrorDefault: true,
   },
 ];
 
@@ -130,16 +290,24 @@ export class ChanjetIntegrationService {
     private readonly voucherDraftRepo: Repository<ChanjetVoucherDraftEntity>,
     @InjectRepository(ChanjetReconciliationResultEntity)
     private readonly reconciliationRepo: Repository<ChanjetReconciliationResultEntity>,
+    @InjectRepository(ChanjetReadSnapshotEntity)
+    private readonly readSnapshotRepo: Repository<ChanjetReadSnapshotEntity>,
+    @InjectRepository(ChanjetEntitySnapshotEntity)
+    private readonly entitySnapshotRepo: Repository<ChanjetEntitySnapshotEntity>,
+    @InjectRepository(ChanjetErpFieldMappingEntity)
+    private readonly fieldMappingRepo: Repository<ChanjetErpFieldMappingEntity>,
   ) {}
 
   listProbeEndpoints() {
-    return PROBE_ENDPOINTS.map(({ key, label, apiDomain, method, path, requiresBook }) => ({
+    return PROBE_ENDPOINTS.map(({ key, label, apiDomain, method, path, requiresBook, entityType, mirrorDefault }) => ({
       key,
       label,
       apiDomain,
       method,
       path,
       requiresBook: !!requiresBook,
+      entityType: entityType || '',
+      mirrorDefault: !!mirrorDefault,
     }));
   }
 
@@ -160,6 +328,10 @@ export class ChanjetIntegrationService {
       voucherDrafts,
       pushReadyDrafts,
       openReconciliationIssues,
+      readSnapshots,
+      entitySnapshots,
+      fieldMappings,
+      unmappedFields,
     ] = await Promise.all([
       this.accountBookRepo.count(),
       this.accountBookRepo.count({ where: { enabled: true } }),
@@ -172,6 +344,10 @@ export class ChanjetIntegrationService {
       this.voucherDraftRepo.count(),
       this.voucherDraftRepo.count({ where: { status: 'PUSH_READY' } }),
       this.reconciliationRepo.count({ where: { resolved: false } }),
+      this.readSnapshotRepo.count(),
+      this.entitySnapshotRepo.count(),
+      this.fieldMappingRepo.count(),
+      this.fieldMappingRepo.count({ where: { matchStatus: 'MISSING_IN_ERP' } }),
     ]);
 
     return {
@@ -186,6 +362,10 @@ export class ChanjetIntegrationService {
       voucherDrafts,
       pushReadyDrafts,
       openReconciliationIssues,
+      readSnapshots,
+      entitySnapshots,
+      fieldMappings,
+      unmappedFields,
       pushEnabled: false,
       boundary: 'ERP writes middle-layer only; Chanjet push remains disabled until a separate gate approves it.',
     };
@@ -203,6 +383,156 @@ export class ChanjetIntegrationService {
       order: { createdAt: 'DESC' },
       take: Math.min(Math.max(Number(limit) || 100, 1), 500),
     });
+  }
+
+  async listReadSnapshots(limit = 100, endpointKey?: string): Promise<ChanjetReadSnapshotEntity[]> {
+    return this.readSnapshotRepo.find({
+      where: endpointKey ? { endpointKey } : {},
+      order: { pulledAt: 'DESC' },
+      take: Math.min(Math.max(Number(limit) || 100, 1), 500),
+    });
+  }
+
+  async listEntitySnapshots(limit = 200, entityType?: string): Promise<ChanjetEntitySnapshotEntity[]> {
+    return this.entitySnapshotRepo.find({
+      where: entityType ? { entityType } : {},
+      order: { entityType: 'ASC', updatedAt: 'DESC' },
+      take: Math.min(Math.max(Number(limit) || 200, 1), 1000),
+    });
+  }
+
+  async listFieldMappings(limit = 500, matchStatus?: string): Promise<ChanjetErpFieldMappingEntity[]> {
+    return this.fieldMappingRepo.find({
+      where: matchStatus ? { matchStatus: matchStatus as ChanjetErpFieldMappingEntity['matchStatus'] } : {},
+      order: { riskLevel: 'DESC', erpDomain: 'ASC', chanjetEndpoint: 'ASC', chanjetFieldPath: 'ASC' },
+      take: Math.min(Math.max(Number(limit) || 500, 1), 2000),
+    });
+  }
+
+  async syncReadOnlyMirror(scope: string[] = [], bookId?: string, period?: string): Promise<{
+    requestedScope: string[];
+    books: string[];
+    results: Array<{
+      key: string;
+      bookId: string;
+      status: 'SUCCESS' | 'FAIL';
+      fields?: number;
+      rows?: number;
+      rawSnapshotId?: string;
+      entityRows?: number;
+      error?: string;
+    }>;
+    fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
+  }> {
+    const requested = scope.length
+      ? scope.map((s) => s.toUpperCase())
+      : PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault).map((ep) => ep.key);
+    const selectedKeys = new Set(requested);
+    const endpoints = PROBE_ENDPOINTS.filter((ep) => selectedKeys.has(ep.key));
+    if (!endpoints.length) throw new Error(`未找到可执行 mirror scope: ${requested.join(',')}`);
+
+    let books = bookId ? [bookId] : (await this.listEnabledBookIds());
+    if (!books.length) {
+      const refreshed = await this.refreshAccountBooks();
+      books = refreshed.books.filter((b) => b.enabled).map((b) => b.bookId);
+    }
+
+    const results: Array<{
+      key: string;
+      bookId: string;
+      status: 'SUCCESS' | 'FAIL';
+      fields?: number;
+      rows?: number;
+      rawSnapshotId?: string;
+      entityRows?: number;
+      error?: string;
+    }> = [];
+
+    for (const ep of endpoints) {
+      const targets = ep.requiresBook ? books : [''];
+      for (const targetBookId of targets) {
+        const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
+        const effectivePeriod = period || ep.query?.period || '';
+        const query = {
+          ...(ep.query || {}),
+          ...(ep.periodQuery && effectivePeriod ? { period: effectivePeriod } : {}),
+        };
+        const job = await this.createJob('SNAPSHOT', targetBookId, effectivePeriod, {
+          key: ep.key,
+          label: ep.label,
+          method: ep.method,
+          path,
+          mode: 'read-chanjet-write-erp-middle-layer',
+        });
+        try {
+          const resp = await this.auth.callApi(path, {
+            method: ep.method,
+            query,
+            body: ep.body,
+          });
+          const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
+          const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp);
+          const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp);
+          if (ep.mappingType) {
+            await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
+          }
+          await this.finishJob(job, 'SUCCESS', {
+            key: ep.key,
+            fields,
+            rows: rawSnapshot.rowCount,
+            rawSnapshotId: rawSnapshot.id,
+            entityRows,
+          });
+          results.push({
+            key: ep.key,
+            bookId: targetBookId,
+            status: 'SUCCESS',
+            fields,
+            rows: rawSnapshot.rowCount,
+            rawSnapshotId: rawSnapshot.id,
+            entityRows,
+          });
+        } catch (err) {
+          const error = (err as Error).message;
+          await this.finishJob(job, 'FAIL', { key: ep.key }, error);
+          results.push({ key: ep.key, bookId: targetBookId, status: 'FAIL', error });
+        }
+      }
+    }
+
+    const fieldGapSummary = await this.analyzeFieldGaps();
+    return { requestedScope: requested, books, results, fieldGapSummary };
+  }
+
+  async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
+    const fields = await this.fieldCatalogRepo.find({ take: 5000 });
+    let upserted = 0;
+    const statusCounts: Record<string, number> = {};
+    for (const field of fields) {
+      if (field.fieldPath === '$' || field.sampleType === 'object' || field.sampleType === 'array') continue;
+      const suggestion = this.suggestErpFieldMapping(field);
+      statusCounts[suggestion.matchStatus] = (statusCounts[suggestion.matchStatus] || 0) + 1;
+      await this.fieldMappingRepo.upsert(
+        {
+          chanjetEndpoint: field.apiPath,
+          chanjetFieldPath: field.fieldPath,
+          chanjetType: field.sampleType,
+          chanjetSampleMasked: field.sampleValueMasked,
+          erpDomain: suggestion.erpDomain,
+          erpTable: suggestion.erpTable,
+          erpField: suggestion.erpField,
+          erpType: suggestion.erpType,
+          transformRule: suggestion.transformRule,
+          matchStatus: suggestion.matchStatus,
+          riskLevel: suggestion.riskLevel,
+          decisionStatus: 'PENDING',
+          analysisNote: suggestion.analysisNote,
+        },
+        { conflictPaths: ['chanjetEndpoint', 'chanjetFieldPath', 'erpDomain', 'erpField'], skipUpdateIfNoValuesChanged: false },
+      );
+      upserted += 1;
+    }
+    return { scanned: fields.length, upserted, statusCounts };
   }
 
   async listVoucherDrafts(limit = 100, status?: string): Promise<ChanjetVoucherDraftEntity[]> {
@@ -455,6 +785,211 @@ export class ChanjetIntegrationService {
     if (books.length) return books.map((b) => b.bookId);
     const maps = await this.bookCompanyMapRepo.find({ where: { syncEnabled: true } });
     return maps.map((m) => m.bookid);
+  }
+
+  private async recordReadSnapshot(
+    ep: ProbeEndpoint,
+    bookId: string,
+    apiPath: string,
+    method: HttpMethod,
+    period: string,
+    payload: unknown,
+  ): Promise<ChanjetReadSnapshotEntity> {
+    const normalizedPayload = this.isRecord(payload) ? payload : { value: payload };
+    const rows = this.extractRows(payload);
+    const payloadHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(this.maskSensitivePayload(normalizedPayload)))
+      .digest('hex');
+    const entity = this.readSnapshotRepo.create({
+      bookId,
+      endpointKey: ep.key,
+      apiDomain: ep.apiDomain,
+      apiPath,
+      method,
+      period: period || '',
+      pageNo: 1,
+      payloadHash,
+      rowCount: rows.length,
+      rawPayload: this.maskSensitivePayload(normalizedPayload),
+    });
+    await this.readSnapshotRepo.upsert(entity as any, {
+      conflictPaths: ['bookId', 'endpointKey', 'payloadHash'],
+      skipUpdateIfNoValuesChanged: false,
+    });
+    const saved = await this.readSnapshotRepo.findOneBy({ bookId, endpointKey: ep.key, payloadHash });
+    return saved || entity;
+  }
+
+  private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown): Promise<number> {
+    const entityType = ep.entityType || ep.key;
+    const rows = this.extractRows(payload).slice(0, 5000);
+    let count = 0;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const normalized = this.normalizeExternalEntity(row, entityType, index);
+      if (!normalized.externalId && !normalized.externalCode && !normalized.externalName) continue;
+      const externalId = normalized.externalId || normalized.externalCode || `${ep.key}-${index + 1}`;
+      await this.entitySnapshotRepo.upsert(
+        {
+          bookId,
+          endpointKey: ep.key,
+          entityType,
+          externalId,
+          externalCode: normalized.externalCode,
+          externalName: normalized.externalName,
+          period: period || normalized.period,
+          status: normalized.status,
+          amount: normalized.amount,
+          currency: normalized.currency,
+          rawData: this.maskSensitivePayload(row),
+          lastSeenAt: new Date(),
+        } as any,
+        { conflictPaths: ['bookId', 'entityType', 'externalId'], skipUpdateIfNoValuesChanged: false },
+      );
+      count += 1;
+    }
+    return count;
+  }
+
+  private normalizeExternalEntity(row: Record<string, unknown>, entityType: string, index: number): {
+    externalId: string;
+    externalCode: string;
+    externalName: string;
+    period: string;
+    status: string;
+    amount: string;
+    currency: string;
+  } {
+    const id = this.firstText(row, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
+    const code = this.firstText(row, ['code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode', 'billNo', 'number']);
+    const name = this.firstText(row, ['name', 'Name', 'bookName', 'deptName', 'subjectName', 'customerName', 'supplierName', 'fullName', 'title', 'summary']);
+    const status = this.firstText(row, ['status', 'state', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
+    const period = this.firstText(row, ['period', 'accountPeriod', 'yearMonth', 'bizPeriod']);
+    const currency = this.firstText(row, ['currency', 'currencyCode', 'currencyName', 'origCurrency']) || 'RMB';
+    const amount = this.firstNumberText(row, [
+      'amount',
+      'totalAmount',
+      'taxAmount',
+      'endbalance',
+      'balance',
+      'currentPeriodJfBalance',
+      'currentPeriodDfBalance',
+      'debitAmount',
+      'creditAmount',
+    ]);
+    return {
+      externalId: id || `${entityType}-${index + 1}`,
+      externalCode: code,
+      externalName: name || code || id,
+      period,
+      status,
+      amount,
+      currency,
+    };
+  }
+
+  private suggestErpFieldMapping(field: ChanjetApiFieldCatalogEntity): {
+    erpDomain: string;
+    erpTable: string;
+    erpField: string;
+    erpType: string;
+    transformRule: string;
+    matchStatus: ChanjetErpFieldMappingEntity['matchStatus'];
+    riskLevel: ChanjetErpFieldMappingEntity['riskLevel'];
+    analysisNote: string;
+  } {
+    const haystack = `${field.apiDomain} ${field.apiPath} ${field.fieldPath}`.toLowerCase();
+    const normalizedName = field.fieldPath.split('.').pop()?.replace(/\[\d+\]/g, '') || field.fieldPath;
+    const candidates: Array<{
+      test: RegExp;
+      erpDomain: string;
+      erpTable: string;
+      erpField: string;
+      erpType: string;
+      transformRule?: string;
+      riskLevel?: ChanjetErpFieldMappingEntity['riskLevel'];
+    }> = [
+      { test: /book(id|name)|tenant/, erpDomain: 'company', erpTable: 'chanjet_account_books', erpField: normalizedName, erpType: 'varchar/jsonb', transformRule: '账套只进入中间层，不直接覆盖公司主数据。', riskLevel: 'LOW' },
+      { test: /dept|department/, erpDomain: 'organization', erpTable: 'sys_organizations', erpField: normalizedName, erpType: 'varchar', transformRule: '通过 chanjet_master_mapping(DEPARTMENT) 人工审核后映射。', riskLevel: 'MEDIUM' },
+      { test: /customer|supplier|custvendor|party|assistant/, erpDomain: 'counterparty', erpTable: 'mst_customers/mst_suppliers', erpField: normalizedName, erpType: 'varchar', transformRule: '客户/供应商生命周期不同，必须经映射表审核。', riskLevel: 'HIGH' },
+      { test: /subject|account|glaccount/, erpDomain: 'accounting', erpTable: 'chanjet_master_mapping', erpField: normalizedName, erpType: 'varchar', transformRule: '会计科目以好业财为主，ERP 仅引用映射。', riskLevel: 'HIGH' },
+      { test: /project/, erpDomain: 'project', erpTable: 'mst_projects', erpField: normalizedName, erpType: 'varchar', transformRule: '项目编码需与 ERP 项目主数据对账。', riskLevel: 'MEDIUM' },
+      { test: /currency/, erpDomain: 'currency', erpTable: 'sys_dict', erpField: 'SYS_CURRENCY', erpType: 'varchar', transformRule: '统一映射到 SYS_CURRENCY。', riskLevel: 'LOW' },
+      { test: /amount|balance|money|debit|credit|jf|df|tax/, erpDomain: 'finance', erpTable: 'finance-v2/chanjet snapshots', erpField: normalizedName, erpType: 'numeric(18,2)', transformRule: '保留原值，后续按本币/原币/汇率规则转换。', riskLevel: 'HIGH' },
+      { test: /date|time|period/, erpDomain: 'period', erpTable: 'finance-v2', erpField: normalizedName, erpType: 'date/varchar(YYYYMM)', transformRule: '业务日期与会计期间分开保存。', riskLevel: 'MEDIUM' },
+      { test: /voucher|trans/, erpDomain: 'voucher', erpTable: 'chanjet_voucher_drafts', erpField: normalizedName, erpType: 'jsonb/varchar', transformRule: 'ERP 先生成凭证草稿，不自动推送好业财。', riskLevel: 'HIGH' },
+    ];
+    const found = candidates.find((c) => c.test.test(haystack));
+    if (!found) {
+      return {
+        erpDomain: 'unclassified',
+        erpTable: '',
+        erpField: normalizedName,
+        erpType: '',
+        transformRule: '',
+        matchStatus: 'MISSING_IN_ERP',
+        riskLevel: 'MEDIUM',
+        analysisNote: '字段暂未匹配到 ERP 业务域，需要人工分类后决定是否扩展 ERP。',
+      };
+    }
+    const expectedType = found.erpType.includes('numeric') ? 'number' : found.erpType.includes('date') ? 'string' : field.sampleType;
+    const status: ChanjetErpFieldMappingEntity['matchStatus'] = expectedType !== field.sampleType && field.sampleType !== 'null'
+      ? 'TRANSFORM_REQUIRED'
+      : 'PENDING';
+    return {
+      erpDomain: found.erpDomain,
+      erpTable: found.erpTable,
+      erpField: found.erpField,
+      erpType: found.erpType,
+      transformRule: found.transformRule || '',
+      matchStatus: status,
+      riskLevel: found.riskLevel || 'MEDIUM',
+      analysisNote: status === 'TRANSFORM_REQUIRED'
+        ? `好业财类型 ${field.sampleType} 与建议 ERP 类型 ${found.erpType} 需要转换确认。`
+        : '自动识别为候选映射，需人工复核后固化。',
+    };
+  }
+
+  private firstText(row: Record<string, unknown>, keys: string[]): string {
+    for (const key of keys) {
+      const value = row[key];
+      if (value !== null && value !== undefined && typeof value !== 'object') {
+        const text = String(value).trim();
+        if (text) return text;
+      }
+    }
+    return '';
+  }
+
+  private firstNumberText(row: Record<string, unknown>, keys: string[]): string {
+    for (const key of keys) {
+      const value = row[key];
+      if (value !== null && value !== undefined && value !== '') {
+        const num = Number(value);
+        if (Number.isFinite(num)) return num.toFixed(2);
+      }
+    }
+    return '0.00';
+  }
+
+  private maskSensitivePayload(value: unknown): Record<string, unknown> {
+    const masked = this.maskSensitiveUnknown(value);
+    return this.isRecord(masked) ? masked : { value: masked };
+  }
+
+  private maskSensitiveUnknown(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.maskSensitiveUnknown(item));
+    if (!value || typeof value !== 'object') return value;
+    const masked: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (/certificate|authCode|appTicket|openToken|accessToken|appSecret|secret|token|password/i.test(key)) {
+        masked[key] = '[REDACTED]';
+      } else {
+        masked[key] = this.maskSensitiveUnknown(item);
+      }
+    }
+    return masked;
   }
 
   private async createJob(

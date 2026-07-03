@@ -1,9 +1,9 @@
 {
-  "last_updated": "2026-06-27",
-  "active_module": "Store Payment",
-  "current_stage": "PRODUCTION_STORE_PAYMENT_REMOTE_SMOKE_REFRESHED",
-  "active_decision": "GO_WITH_CONDITIONS_BUSINESS_UAT_HOLD",
-  "next_gate": "APPROVE_AUTHENTICATED_STORE_PAYMENT_UAT_SMOKE_OR_QR_METADATA_GATE",
+  "last_updated": "2026-07-03",
+  "active_module": "Chanjet Integration",
+  "current_stage": "CHANJET_READONLY_MIRROR_PHASE1_READY",
+  "active_decision": "GO_WITH_CONDITIONS_READONLY_ONLY",
+  "next_gate": "CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -22,6 +22,43 @@
     "migrations_applied_tail": "1782045-1782052 (atomic menus seeds + 1782052 RepairRolePermissionMatrixAtomicity: backfill atomic sys_menu + convert grants + remove 56 coarse non-admin grants + D3 cash submenus)",
     "deploy_chain_bug_fixed": "deploy.yml workflow_dispatch detect-changes HEAD~1 invalid-refspec -> skip paths-filter on dispatch",
     "post_deploy_pending": "5-user re-login smoke (wanglejin/liuhantao/finance/procurement/admin) four-way menu/card/button/api; perms_version bumped so users must re-login"
+  },
+  "chanjet_integration": {
+    "mode": "readonly_first",
+    "current_stage": "CHANJET_READONLY_MIRROR_PHASE1_READY",
+    "active_decision": "GO_WITH_CONDITIONS",
+    "write_chanjet_allowed": false,
+    "delete_chanjet_allowed": false,
+    "modify_chanjet_allowed": false,
+    "voucher_push_allowed": false,
+    "readonly_mirror_tables": [
+      "chanjet_read_snapshots",
+      "chanjet_entity_snapshots",
+      "chanjet_erp_field_mapping"
+    ],
+    "readonly_mirror_api": "implemented",
+    "readonly_mirror_ui": "/finance2/chanjet-integration",
+    "default_mirror_scope": [
+      "ACCOUNT_BOOKS",
+      "DEPARTMENT",
+      "CUSTOMER_SUPPLIER",
+      "SUBJECT",
+      "PROJECT",
+      "FIN_ACCOUNT",
+      "PAYABLE_STATISTICS",
+      "RECEIVABLE_STATISTICS",
+      "PAYMENT_AP",
+      "PAYMENT_AR",
+      "PURCHASE_ORDER",
+      "VOUCHER_SEARCH",
+      "GL_BALANCE",
+      "BALANCE_SHEET",
+      "INCOME_STATEMENT",
+      "CASH_FLOW"
+    ],
+    "field_gap_analysis": "implemented_candidate_generation",
+    "next_action": "run_readonly_mirror_with_valid_chanjet_token_then_review_field_gaps",
+    "last_report": "docs/ops/CHANJET_READONLY_MIRROR_PHASE1_IMPLEMENTATION_REPORT_20260703.md"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

@@ -13,6 +13,9 @@ import { ChanjetMasterMappingEntity } from './chanjet-master-mapping.entity';
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
 import { ChanjetVoucherDraftEntity } from './chanjet-voucher-draft.entity';
 import { ChanjetReconciliationResultEntity } from './chanjet-reconciliation-result.entity';
+import { ChanjetReadSnapshotEntity } from './chanjet-read-snapshot.entity';
+import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
+import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
 import { FinArLedgerEntity } from '../finance-v2/entities/fin-ar-ledger.entity';
 
 @Module({
@@ -27,6 +30,9 @@ import { FinArLedgerEntity } from '../finance-v2/entities/fin-ar-ledger.entity';
       ChanjetSyncJobEntity,
       ChanjetVoucherDraftEntity,
       ChanjetReconciliationResultEntity,
+      ChanjetReadSnapshotEntity,
+      ChanjetEntitySnapshotEntity,
+      ChanjetErpFieldMappingEntity,
       FinArLedgerEntity,
     ]),
   ],

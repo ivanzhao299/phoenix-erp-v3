@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -31,6 +31,10 @@ interface Overview {
   voucherDrafts: number;
   pushReadyDrafts: number;
   openReconciliationIssues: number;
+  readSnapshots: number;
+  entitySnapshots: number;
+  fieldMappings: number;
+  unmappedFields: number;
   pushEnabled: boolean;
   boundary: string;
 }
@@ -66,6 +70,51 @@ interface FieldCatalog {
   sampleType: string;
   sampleValueMasked: string | null;
   observedCount: number;
+}
+
+interface ReadSnapshot {
+  id: string;
+  bookId: string;
+  endpointKey: string;
+  apiDomain: string;
+  apiPath: string;
+  method: string;
+  period: string;
+  rowCount: number;
+  payloadHash: string;
+  pulledAt: string;
+}
+
+interface EntitySnapshot {
+  id: string;
+  bookId: string;
+  endpointKey: string;
+  entityType: string;
+  externalId: string;
+  externalCode: string;
+  externalName: string;
+  period: string;
+  status: string;
+  amount: string;
+  currency: string;
+  updatedAt: string;
+}
+
+interface FieldMapping {
+  id: string;
+  chanjetEndpoint: string;
+  chanjetFieldPath: string;
+  chanjetType: string;
+  chanjetSampleMasked: string | null;
+  erpDomain: string;
+  erpTable: string;
+  erpField: string;
+  erpType: string;
+  transformRule: string;
+  matchStatus: string;
+  riskLevel: string;
+  decisionStatus: string;
+  analysisNote: string;
 }
 
 interface SyncJob {
@@ -157,7 +206,7 @@ function fmtDate(value: string | null | undefined) {
 
 export default function ChanjetIntegrationPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR_LEDGER');
-  const [tab, setTab] = useState<TabKey>('mappings');
+  const [tab, setTab] = useState<TabKey>('mirror');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -165,6 +214,9 @@ export default function ChanjetIntegrationPage() {
   const [books, setBooks] = useState<AccountBook[]>([]);
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [fields, setFields] = useState<FieldCatalog[]>([]);
+  const [readSnapshots, setReadSnapshots] = useState<ReadSnapshot[]>([]);
+  const [entitySnapshots, setEntitySnapshots] = useState<EntitySnapshot[]>([]);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -178,7 +230,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -186,6 +238,9 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; jobs: SyncJob[]; error?: string }>('/chanjet/integration/sync-jobs?limit=80'),
         request<{ success: boolean; drafts: VoucherDraft[]; error?: string }>('/chanjet/integration/voucher-drafts?limit=80'),
         request<{ success: boolean; results: ReconciliationResult[]; error?: string }>('/chanjet/integration/reconciliation-results?limit=120'),
+        request<{ success: boolean; snapshots: ReadSnapshot[]; error?: string }>('/chanjet/integration/mirror/read-snapshots?limit=80'),
+        request<{ success: boolean; entities: EntitySnapshot[]; error?: string }>('/chanjet/integration/mirror/entity-snapshots?limit=160'),
+        request<{ success: boolean; mappings: FieldMapping[]; error?: string }>('/chanjet/integration/field-mappings?limit=300'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -195,6 +250,9 @@ export default function ChanjetIntegrationPage() {
       setJobs(jobResp.jobs || []);
       setDrafts(draftResp.drafts || []);
       setReconciliation(reconResp.results || []);
+      setReadSnapshots(readResp.snapshots || []);
+      setEntitySnapshots(entityResp.entities || []);
+      setFieldMappings(fieldMapResp.mappings || []);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -209,6 +267,8 @@ export default function ChanjetIntegrationPage() {
     { label: '字段目录', value: overview?.fields ?? 0, sub: '脱敏字段样本', icon: Database },
     { label: '映射候选', value: overview?.mappings ?? 0, sub: `${overview?.pendingMappings ?? 0} 待审 / ${overview?.approvedMappings ?? 0} 已批`, icon: GitCompareArrows },
     { label: '凭证草稿', value: overview?.voucherDrafts ?? 0, sub: `${overview?.pushReadyDrafts ?? 0} 可申请推送`, icon: FileText },
+    { label: '镜像实体', value: overview?.entitySnapshots ?? 0, sub: `${overview?.readSnapshots ?? 0} 个原始快照`, icon: Database },
+    { label: '字段差异', value: overview?.fieldMappings ?? 0, sub: `${overview?.unmappedFields ?? 0} 个待归类字段`, icon: GitCompareArrows },
     { label: '开放差异', value: overview?.openReconciliationIssues ?? 0, sub: `${overview?.failedJobs ?? 0} 个失败作业`, icon: AlertTriangle },
   ], [overview]);
 
@@ -284,7 +344,9 @@ export default function ChanjetIntegrationPage() {
           <>
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
+            <Button disabled={!canEdit || loading} onClick={() => runAction('只读镜像同步', () => request('/chanjet/integration/mirror/sync', { method: 'POST', body: JSON.stringify({}) }))}>同步镜像</Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
+            <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
           </>
         )}
       />
@@ -336,6 +398,8 @@ export default function ChanjetIntegrationPage() {
 
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 14, flexWrap: 'wrap' }}>
         {[
+          ['mirror', '只读镜像'],
+          ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
           ['reconciliation', '对账差异'],
           ['drafts', '凭证草稿'],
@@ -359,6 +423,88 @@ export default function ChanjetIntegrationPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'mirror' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div>
+              <strong>好业财只读镜像</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                用于在 ERP 端重现好业财开放数据。这里不写好业财、不覆盖 ERP 业务主表。
+              </div>
+            </div>
+            <Button size="sm" disabled={!canEdit || loading} onClick={() => runAction('只读镜像同步', () => request('/chanjet/integration/mirror/sync', { method: 'POST', body: JSON.stringify({}) }))}>
+              <RefreshCw size={14} />同步镜像
+            </Button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>标准化实体</div>
+              <table style={tableStyle}>
+                <thead><tr>{['类型', '编码 / 名称', '账套', '金额', '状态'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {entitySnapshots.slice(0, 80).map((e) => (
+                    <tr key={e.id}>
+                      <td style={cellStyle}>{e.entityType}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{e.endpointKey}</div></td>
+                      <td style={cellStyle}>{e.externalName || '—'}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{e.externalCode || e.externalId}</div></td>
+                      <td style={cellStyle}>{e.bookId || '全局'}</td>
+                      <td style={cellStyle}>{Number(e.amount || 0).toLocaleString('zh-CN')} {e.currency || ''}</td>
+                      <td style={cellStyle}><Badge tone={e.status ? 'blue' : 'muted'}>{e.status || '—'}</Badge></td>
+                    </tr>
+                  ))}
+                  {entitySnapshots.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无镜像实体。点击“同步镜像”后生成。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>原始快照审计</div>
+              <table style={tableStyle}>
+                <thead><tr>{['接口', '行数', '账套/期间', '时间'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {readSnapshots.slice(0, 60).map((s) => (
+                    <tr key={s.id}>
+                      <td style={cellStyle}>{s.endpointKey}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{s.method} {s.apiPath}</div></td>
+                      <td style={cellStyle}>{s.rowCount}</td>
+                      <td style={cellStyle}>{s.bookId || '全局'}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{s.period || '—'}</div></td>
+                      <td style={cellStyle}>{fmtDate(s.pulledAt)}</td>
+                    </tr>
+                  ))}
+                  {readSnapshots.length === 0 && <tr><td style={cellStyle} colSpan={4}>暂无原始快照。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {tab === 'fieldGaps' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <div>
+              <strong>好业财字段 ↔ ERP 字段差异</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>自动分析只生成候选；ERP schema / DTO / 页面改造必须另走实现 Gate。</div>
+            </div>
+            <Button size="sm" variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>
+              <GitCompareArrows size={14} />重新分析
+            </Button>
+          </div>
+          <table style={tableStyle}>
+            <thead><tr>{['好业财字段', 'ERP 候选', '状态', '风险', '转换/说明'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {fieldMappings.slice(0, 160).map((m) => (
+                <tr key={m.id}>
+                  <td style={cellStyle}>{m.chanjetFieldPath}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{m.chanjetType} · {m.chanjetSampleMasked || '—'}</div><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{m.chanjetEndpoint}</div></td>
+                  <td style={cellStyle}>{m.erpDomain || '未分类'}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{m.erpTable || '—'} / {m.erpField || '—'} / {m.erpType || '—'}</div></td>
+                  <td style={cellStyle}><Badge tone={statusTone(m.matchStatus)}>{m.matchStatus}</Badge><div style={{ marginTop: 4 }}><Badge tone={statusTone(m.decisionStatus)}>{m.decisionStatus}</Badge></div></td>
+                  <td style={cellStyle}><Badge tone={statusTone(m.riskLevel)}>{m.riskLevel}</Badge></td>
+                  <td style={cellStyle}>{m.transformRule || '—'}<div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{m.analysisNote || '—'}</div></td>
+                </tr>
+              ))}
+              {fieldMappings.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无字段差异候选。先运行字段探针或只读镜像同步。</td></tr>}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {tab === 'mappings' && (
         <section style={cardStyle}>
