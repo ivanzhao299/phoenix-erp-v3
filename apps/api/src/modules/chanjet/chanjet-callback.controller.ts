@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException, Req, Param } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
+import { ChanjetIntegrationService } from './chanjet-integration.service';
 import * as crypto from 'crypto';
 
 const CHANJET_PROXY_ALLOWED_PATHS = [
@@ -25,6 +26,7 @@ export class ChanjetCallbackController {
   constructor(
     private readonly auth: ChanjetAuthService,
     private readonly arSync: ChanjetArSyncService,
+    private readonly integration: ChanjetIntegrationService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -451,6 +453,133 @@ export class ChanjetCallbackController {
     try {
       const r = await this.arSync.importToArLedger(body.companyCode, body.period, !!body.dryRun, body.onlyCounterparties);
       return { success: true, ...r };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/probe-endpoints
+   * 列出当前允许的好业财结构探针范围。只读说明，不调用外部 API。
+   */
+  @Get('integration/probe-endpoints')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  probeEndpoints() {
+    return { success: true, endpoints: this.integration.listProbeEndpoints() };
+  }
+
+  /**
+   * GET /api/chanjet/integration/account-books
+   * 读取 ERP 中间层账套缓存，不直接调用好业财。
+   */
+  @Get('integration/account-books')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationAccountBooks() {
+    try {
+      const books = await this.integration.listAccountBooks();
+      return { success: true, books };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/account-books/refresh
+   * 只读好业财账套列表，写 ERP 中间层账套缓存与字段 catalog。
+   */
+  @Post('integration/account-books/refresh')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async refreshIntegrationAccountBooks(@Req() req: any) {
+    this.log.warn(`manual chanjet account-book refresh triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
+    try {
+      const result = await this.integration.refreshAccountBooks();
+      return { success: true, ...result };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/probe
+   * 受控字段采样:只读好业财 API，写 chanjet_api_field_catalog / chanjet_sync_jobs。
+   * body: { scope?: string[], bookId?: string }
+   */
+  @Post('integration/probe')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async integrationProbe(@Body() body: { scope?: string[]; bookId?: string }, @Req() req: any) {
+    this.log.warn(`manual chanjet integration probe triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'} scope=${(body.scope || []).join(',') || 'default'}`);
+    try {
+      const result = await this.integration.probe(body.scope || [], body.bookId);
+      return { success: true, ...result };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/field-catalog
+   * 字段 catalog 查询。样本已脱敏。
+   */
+  @Get('integration/field-catalog')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFieldCatalog(@Query('limit') limit: string) {
+    try {
+      const fields = await this.integration.listFieldCatalog(Number(limit) || 500);
+      return { success: true, count: fields.length, fields };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/sync-jobs
+   * 好业财探针/同步/入账作业审计。
+   */
+  @Get('integration/sync-jobs')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationSyncJobs(@Query('limit') limit: string) {
+    try {
+      const jobs = await this.integration.listSyncJobs(Number(limit) || 100);
+      return { success: true, count: jobs.length, jobs };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/master-mappings?mappingType=DEPARTMENT
+   * ERP ↔ 好业财主数据映射候选。APPROVED 才可作为后续入账/凭证建议依据。
+   */
+  @Get('integration/master-mappings')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationMasterMappings(@Query('mappingType') mappingType: string) {
+    try {
+      const mappings = await this.integration.listMasterMappings(mappingType || undefined);
+      return { success: true, count: mappings.length, mappings };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/master-mappings/:id/review
+   * 人工审核映射候选。仅改中间层映射审核状态，不改 ERP/好业财主数据。
+   */
+  @Post('integration/master-mappings/:id/review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async reviewIntegrationMasterMapping(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() body: { reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' },
+  ) {
+    if (!id) return { success: false, error: 'id 必填' };
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(body.reviewStatus)) {
+      return { success: false, error: 'reviewStatus 必须为 PENDING / APPROVED / REJECTED' };
+    }
+    try {
+      const reviewedBy = req?.user?.username || req?.user?.userId || '';
+      const mapping = await this.integration.updateMappingReview(id, body.reviewStatus, String(reviewedBy));
+      return { success: true, mapping };
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }
