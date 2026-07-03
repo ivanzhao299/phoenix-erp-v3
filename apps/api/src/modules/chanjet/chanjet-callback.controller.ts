@@ -112,6 +112,26 @@ export class ChanjetCallbackController {
     this.nonceCache.set(nonceKey, now + 5 * 60 * 1000);
   }
 
+  private verifyCallbackSignatureIfPresent(
+    headers: Record<string, string | string[] | undefined>,
+    body: Record<string, unknown>,
+    allowEncryptedWithoutSignature: boolean,
+  ): boolean {
+    const signature = String(headers['x-chanjet-signature'] || headers['X-Chanjet-Signature'] || '');
+    const timestamp = String(headers['x-chanjet-timestamp'] || headers['X-Chanjet-Timestamp'] || '');
+    const nonce = String(headers['x-chanjet-nonce'] || headers['X-Chanjet-Nonce'] || '');
+    if (signature || timestamp || nonce) {
+      this.verifyCallbackSignature(headers, body);
+      return true;
+    }
+    if (allowEncryptedWithoutSignature) {
+      this.log.warn('Chanjet encrypted callback received without x-chanjet signature headers; relying on message decryption');
+      return false;
+    }
+    this.verifyCallbackSignature(headers, body);
+    return true;
+  }
+
   /**
    * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
    * GET 只用于平台地址验证。证书 / 授权码等敏感字段必须走带签名的 POST callback。
@@ -139,7 +159,10 @@ export class ChanjetCallbackController {
   @Post('callback')
   @HttpCode(200)
   async handleCallback(@Body() body: Record<string, unknown>, @Headers() headers: Record<string, string | string[] | undefined>) {
-    this.verifyCallbackSignature(headers, body);
+    const isEncryptMsg = !!body.encryptMsg;
+    const content = (body.encryptMsg ?? body.content) as string | undefined;
+    const hasEncryptedContent = typeof content === 'string' && content.length > 0;
+    const signatureVerified = this.verifyCallbackSignatureIfPresent(headers, body, hasEncryptedContent);
     this.log.log(`★ 收到畅捷通推送 keys=[${Object.keys(body).join(',')}] body=${JSON.stringify(this.maskSensitive(body)).slice(0, 800)}`);
 
     // ─── 路径 A：企业授权回调（非加密，直接 JSON，可能含 certificate/authCode） ───
@@ -156,12 +179,14 @@ export class ChanjetCallbackController {
 
     const certificate = deepGet(body, 'certificate');
     if (certificate) {
+      if (!signatureVerified) throw new ForbiddenException('Signed Chanjet callback required for plaintext certificate');
       this.auth.setCertificate(certificate);
       this.log.log('★ certificate 已从回调捕获: [REDACTED]');
     }
 
     const authCode = deepGet(body, 'authCode');
     if (authCode) {
+      if (!signatureVerified) throw new ForbiddenException('Signed Chanjet callback required for plaintext authCode');
       this.log.log('★ authCode 已收到: [REDACTED]');
       try {
         await this.auth.fetchCertificateByAuthCode(authCode);
@@ -173,8 +198,6 @@ export class ChanjetCallbackController {
     // ─── 路径 B：加密消息推送（APP_TICKET 等） ───
     // encryptMsg: 新版格式，密钥 = 环境秘钥原始字节(useRawKey)
     // content:    旧版格式，密钥 = MD5(消息秘钥)
-    const isEncryptMsg = !!body.encryptMsg;
-    const content = (body.encryptMsg ?? body.content) as string | undefined;
     if (content) {
       let payload: Record<string, unknown>;
       try {
@@ -194,6 +217,10 @@ export class ChanjetCallbackController {
           }
         } else {
           this.log.warn(`解密失败，尝试明文解析: ${(e as Error).message}`);
+          if (!signatureVerified) {
+            this.log.warn('未签名 content 解密失败，拒绝明文兜底解析');
+            return { result: 'success' };
+          }
           try {
             payload = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
           } catch {
