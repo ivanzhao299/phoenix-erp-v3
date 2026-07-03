@@ -533,6 +533,7 @@ export class ChanjetIntegrationService {
       upserted += 1;
     }
     await this.deprecateFakeCounterpartyTargets();
+    await this.deprecateApiEnvelopeBusinessTargets();
     return { scanned: fields.length, upserted, statusCounts };
   }
 
@@ -1040,6 +1041,18 @@ export class ChanjetIntegrationService {
         analysisNote: '已自动收口历史假目标表 mst_customers/mst_suppliers，禁止据此创建 ERP schema。',
       },
     );
+  }
+
+  private async deprecateApiEnvelopeBusinessTargets(): Promise<void> {
+    await this.fieldMappingRepo
+      .createQueryBuilder()
+      .delete()
+      .from(ChanjetErpFieldMappingEntity)
+      .where('chanjet_field_path ~* :pattern', {
+        pattern: '^\\$\\.(code|msg|success|requestId|validateResult|multiFieldErrors|msgArgs|verbose|envConfigType|nextStepEnumTypeName|data)$',
+      })
+      .andWhere('erp_domain <> :erpDomain', { erpDomain: 'api_metadata' })
+      .execute();
   }
 
   private firstText(row: Record<string, unknown>, keys: string[]): string {
