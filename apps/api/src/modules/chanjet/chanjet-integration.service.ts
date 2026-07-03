@@ -825,6 +825,9 @@ export class ChanjetIntegrationService {
   private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown): Promise<number> {
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload).slice(0, 5000);
+    if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
+      await this.entitySnapshotRepo.delete({ bookId, endpointKey: ep.key, entityType });
+    }
     let count = 0;
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
@@ -981,12 +984,15 @@ export class ChanjetIntegrationService {
     if (!normalized || ['0', '-1', 'null', 'undefined', 'n/a', 'na', 'none', '合计', '小计', '总计'].includes(normalized)) {
       return false;
     }
-    const isAggregateStatistics = ['AP_STATISTICS', 'AR_STATISTICS'].includes(entityType)
-      || ['PAYABLE_STATISTICS', 'RECEIVABLE_STATISTICS'].includes(endpointKey);
-    if (isAggregateStatistics && /^-?\d+$/.test(normalized) && Number(normalized) <= 0) {
+    if (this.isAggregateStatisticsEndpoint(endpointKey, entityType) && /^-?\d+$/.test(normalized) && Number(normalized) <= 0) {
       return false;
     }
     return true;
+  }
+
+  private isAggregateStatisticsEndpoint(endpointKey: string, entityType: string): boolean {
+    return ['AP_STATISTICS', 'AR_STATISTICS'].includes(entityType)
+      || ['PAYABLE_STATISTICS', 'RECEIVABLE_STATISTICS'].includes(endpointKey);
   }
 
   private isApiEnvelopeField(fieldPath: string): boolean {
