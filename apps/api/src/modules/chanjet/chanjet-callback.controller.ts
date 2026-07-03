@@ -484,6 +484,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/overview
+   * 好业财中间层运营总览。只读本地中间层，不调用外部 API。
+   */
+  @Get('integration/overview')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationOverview() {
+    try {
+      const overview = await this.integration.overview();
+      return { success: true, overview };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/account-books/refresh
    * 只读好业财账套列表，写 ERP 中间层账套缓存与字段 catalog。
    */
@@ -580,6 +595,112 @@ export class ChanjetCallbackController {
       const reviewedBy = req?.user?.username || req?.user?.userId || '';
       const mapping = await this.integration.updateMappingReview(id, body.reviewStatus, String(reviewedBy));
       return { success: true, mapping };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/voucher-drafts
+   * ERP→好业财凭证草稿。仅查询中间层，不推送好业财。
+   */
+  @Get('integration/voucher-drafts')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationVoucherDrafts(@Query('limit') limit: string, @Query('status') status: string) {
+    try {
+      const drafts = await this.integration.listVoucherDrafts(Number(limit) || 100, status || undefined);
+      return { success: true, count: drafts.length, drafts, pushEnabled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/voucher-drafts
+   * 创建凭证草稿。只写中间层，默认 push_allowed=false。
+   */
+  @Post('integration/voucher-drafts')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async createIntegrationVoucherDraft(
+    @Req() req: any,
+    @Body() body: {
+      sourceBizType: string;
+      sourceBizId: string;
+      companyCode?: string;
+      bookId?: string;
+      period?: string;
+      title?: string;
+      voucherLines: Array<Record<string, unknown>>;
+      rawData?: Record<string, unknown>;
+    },
+  ) {
+    try {
+      const createdBy = req?.user?.username || req?.user?.userId || '';
+      const draft = await this.integration.createVoucherDraft(body, String(createdBy));
+      return { success: true, draft, pushEnabled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/voucher-drafts/:id/status
+   * 审核凭证草稿状态。PUSH_READY 只表示可进入下一道推送审批，不实际推送。
+   */
+  @Post('integration/voucher-drafts/:id/status')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async updateIntegrationVoucherDraftStatus(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() body: { status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED' },
+  ) {
+    if (!id) return { success: false, error: 'id 必填' };
+    if (!['DRAFT', 'REVIEWED', 'PUSH_READY', 'REJECTED'].includes(body.status)) {
+      return { success: false, error: 'status 必须为 DRAFT / REVIEWED / PUSH_READY / REJECTED' };
+    }
+    try {
+      const reviewedBy = req?.user?.username || req?.user?.userId || '';
+      const draft = await this.integration.updateVoucherDraftStatus(id, body.status, String(reviewedBy));
+      return { success: true, draft, pushEnabled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/reconciliation-results
+   * 查询中间层对账结果。append-only 审计，不删除历史差异。
+   */
+  @Get('integration/reconciliation-results')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationReconciliationResults(
+    @Query('limit') limit: string,
+    @Query('status') status: string,
+    @Query('reconciliationType') reconciliationType: string,
+  ) {
+    try {
+      const results = await this.integration.listReconciliationResults(
+        Number(limit) || 100,
+        status || undefined,
+        reconciliationType || undefined,
+      );
+      return { success: true, count: results.length, results };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/reconciliation/run
+   * 运行主数据映射对账，只写 chanjet_reconciliation_results / chanjet_sync_jobs。
+   */
+  @Post('integration/reconciliation/run')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async runIntegrationReconciliation(@Req() req: any) {
+    this.log.warn(`manual chanjet mapping reconciliation triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
+    try {
+      const result = await this.integration.runMappingReconciliation();
+      return { success: true, ...result };
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }

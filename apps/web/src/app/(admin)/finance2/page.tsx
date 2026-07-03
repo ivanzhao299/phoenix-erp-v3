@@ -12,7 +12,7 @@ import {
   TrendingDown, TrendingUp, Wallet, Users,
   PieChart, Receipt, ArrowRight, RefreshCw,
   DollarSign, ArrowLeftRight, Activity, AlertTriangle,
-  BookOpen, Scale, Cloud,
+  BookOpen, Scale, Cloud, CloudCog,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -142,6 +142,7 @@ const MODULES: ModuleItem[] = [
   // g199 三大新页(2026-06-19)— 财务总监月末关账核心路径
   { icon: Scale,          title: '应收三方对账', path: '/finance2/ar-reconciliation', accent: 'green',  perm: 'MENU_FIN2_AR_LEDGER', description: '业务发票 ↔ ERP 总账 ↔ 好业财应收 · 按客户对齐 · 差异飘红。' },
   { icon: Cloud,          title: '好业财同步',   path: '/finance2/chanjet-sync',      accent: 'blue',   perm: 'MENU_FIN2_AR', description: '只读好业财→PG 快照 · 部门对账 · 审核入账 fin_ar_ledger(财务总监独占)。' },
+  { icon: CloudCog,       title: '好业财中间层', path: '/finance2/chanjet-integration', accent: 'blue', perm: 'MENU_FIN2_AR_LEDGER', description: '账套、字段目录、主数据映射、对账差异、凭证草稿统一控制台。' },
   { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  perm: 'MENU_FIN2_AP', description: '供应商发票管理、付款核销、多币种、账龄分析。' },
   { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   perm: 'MENU_FIN2_CASH_VIEW', description: '多账户余额管理、流水账本、转账审批。' },
   { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   perm: 'MENU_FIN2_CASH_TRANSFER', description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },

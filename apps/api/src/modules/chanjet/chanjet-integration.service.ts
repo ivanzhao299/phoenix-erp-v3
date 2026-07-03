@@ -7,6 +7,8 @@ import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity
 import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
 import { ChanjetMasterMappingEntity, ChanjetMappingType } from './chanjet-master-mapping.entity';
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
+import { ChanjetVoucherDraftEntity } from './chanjet-voucher-draft.entity';
+import { ChanjetReconciliationResultEntity } from './chanjet-reconciliation-result.entity';
 
 type HttpMethod = 'GET' | 'POST';
 type SampleType = ChanjetApiFieldCatalogEntity['sampleType'];
@@ -27,6 +29,17 @@ interface NormalizedBook {
   bookId: string;
   bookName: string;
   rawData: Record<string, unknown>;
+}
+
+interface VoucherDraftInput {
+  sourceBizType: string;
+  sourceBizId: string;
+  companyCode?: string;
+  bookId?: string;
+  period?: string;
+  title?: string;
+  voucherLines: Array<Record<string, unknown>>;
+  rawData?: Record<string, unknown>;
 }
 
 const PROBE_ENDPOINTS: ProbeEndpoint[] = [
@@ -113,6 +126,10 @@ export class ChanjetIntegrationService {
     private readonly jobRepo: Repository<ChanjetSyncJobEntity>,
     @InjectRepository(ChanjetBookCompanyMapEntity)
     private readonly bookCompanyMapRepo: Repository<ChanjetBookCompanyMapEntity>,
+    @InjectRepository(ChanjetVoucherDraftEntity)
+    private readonly voucherDraftRepo: Repository<ChanjetVoucherDraftEntity>,
+    @InjectRepository(ChanjetReconciliationResultEntity)
+    private readonly reconciliationRepo: Repository<ChanjetReconciliationResultEntity>,
   ) {}
 
   listProbeEndpoints() {
@@ -130,6 +147,50 @@ export class ChanjetIntegrationService {
     return this.accountBookRepo.find({ order: { enabled: 'DESC', bookName: 'ASC' } });
   }
 
+  async overview() {
+    const [
+      accountBooks,
+      enabledBooks,
+      fields,
+      mappings,
+      pendingMappings,
+      approvedMappings,
+      jobs,
+      failedJobs,
+      voucherDrafts,
+      pushReadyDrafts,
+      openReconciliationIssues,
+    ] = await Promise.all([
+      this.accountBookRepo.count(),
+      this.accountBookRepo.count({ where: { enabled: true } }),
+      this.fieldCatalogRepo.count(),
+      this.mappingRepo.count(),
+      this.mappingRepo.count({ where: { reviewStatus: 'PENDING' } }),
+      this.mappingRepo.count({ where: { reviewStatus: 'APPROVED' } }),
+      this.jobRepo.count(),
+      this.jobRepo.count({ where: { status: 'FAIL' } }),
+      this.voucherDraftRepo.count(),
+      this.voucherDraftRepo.count({ where: { status: 'PUSH_READY' } }),
+      this.reconciliationRepo.count({ where: { resolved: false } }),
+    ]);
+
+    return {
+      accountBooks,
+      enabledBooks,
+      fields,
+      mappings,
+      pendingMappings,
+      approvedMappings,
+      jobs,
+      failedJobs,
+      voucherDrafts,
+      pushReadyDrafts,
+      openReconciliationIssues,
+      pushEnabled: false,
+      boundary: 'ERP writes middle-layer only; Chanjet push remains disabled until a separate gate approves it.',
+    };
+  }
+
   async listFieldCatalog(limit = 500): Promise<ChanjetApiFieldCatalogEntity[]> {
     return this.fieldCatalogRepo.find({
       order: { apiDomain: 'ASC', apiPath: 'ASC', fieldPath: 'ASC' },
@@ -142,6 +203,124 @@ export class ChanjetIntegrationService {
       order: { createdAt: 'DESC' },
       take: Math.min(Math.max(Number(limit) || 100, 1), 500),
     });
+  }
+
+  async listVoucherDrafts(limit = 100, status?: string): Promise<ChanjetVoucherDraftEntity[]> {
+    return this.voucherDraftRepo.find({
+      where: status ? { status: status as ChanjetVoucherDraftEntity['status'] } : {},
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(Number(limit) || 100, 1), 500),
+    });
+  }
+
+  async createVoucherDraft(input: VoucherDraftInput, createdBy: string): Promise<ChanjetVoucherDraftEntity> {
+    if (!input.sourceBizType) throw new Error('sourceBizType 必填');
+    if (!input.sourceBizId) throw new Error('sourceBizId 必填');
+    if (!Array.isArray(input.voucherLines) || input.voucherLines.length === 0) {
+      throw new Error('voucherLines 必须为非空数组');
+    }
+    const draft = this.voucherDraftRepo.create({
+      sourceBizType: input.sourceBizType,
+      sourceBizId: input.sourceBizId,
+      companyCode: input.companyCode ?? '',
+      bookId: input.bookId ?? '',
+      period: input.period ?? '',
+      title: input.title ?? '',
+      voucherLines: input.voucherLines,
+      status: 'DRAFT',
+      pushAllowed: false,
+      pushStatus: 'NOT_PUSHED',
+      createdBy: createdBy || '',
+      reviewedBy: null,
+      reviewedAt: null,
+      rawData: input.rawData ?? null,
+    });
+    return this.voucherDraftRepo.save(draft);
+  }
+
+  async updateVoucherDraftStatus(
+    id: string,
+    status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED',
+    reviewedBy: string,
+  ): Promise<ChanjetVoucherDraftEntity> {
+    const draft = await this.voucherDraftRepo.findOneBy({ id });
+    if (!draft) throw new Error(`voucher draft ${id} 不存在`);
+    draft.status = status;
+    draft.pushAllowed = status === 'PUSH_READY';
+    draft.reviewedBy = reviewedBy || null;
+    draft.reviewedAt = new Date();
+    return this.voucherDraftRepo.save(draft);
+  }
+
+  async listReconciliationResults(
+    limit = 100,
+    status?: string,
+    reconciliationType?: string,
+  ): Promise<ChanjetReconciliationResultEntity[]> {
+    return this.reconciliationRepo.find({
+      where: {
+        ...(status ? { status: status as ChanjetReconciliationResultEntity['status'] } : {}),
+        ...(reconciliationType ? { reconciliationType: reconciliationType as ChanjetReconciliationResultEntity['reconciliationType'] } : {}),
+      },
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(Number(limit) || 100, 1), 500),
+    });
+  }
+
+  async runMappingReconciliation(): Promise<{
+    scanned: number;
+    created: number;
+    statusCounts: Record<string, number>;
+    results: ChanjetReconciliationResultEntity[];
+  }> {
+    const job = await this.createJob('RECONCILE', '', '', {
+      scope: 'MASTER_MAPPING',
+      mode: 'middle-layer-only',
+    });
+
+    try {
+      const mappings = await this.mappingRepo.find({ take: 2000, order: { mappingType: 'ASC', createdAt: 'DESC' } });
+      const results: ChanjetReconciliationResultEntity[] = [];
+      for (const mapping of mappings) {
+        const issue = this.mappingIssue(mapping);
+        if (!issue) continue;
+        const result = this.reconciliationRepo.create({
+          reconciliationType: 'MASTER_MAPPING',
+          companyCode: '',
+          bookId: mapping.bookId ?? '',
+          period: '',
+          status: issue.status,
+          severity: issue.severity,
+          subjectType: mapping.mappingType,
+          subjectKey: mapping.erpCode || mapping.chanjetId || mapping.chanjetCode || String(mapping.id),
+          subjectName: mapping.erpName || mapping.chanjetName || '',
+          erpValue: {
+            code: mapping.erpCode,
+            name: mapping.erpName,
+          },
+          chanjetValue: {
+            id: mapping.chanjetId,
+            code: mapping.chanjetCode,
+            name: mapping.chanjetName,
+          },
+          diffSummary: issue.diffSummary,
+          actionRequired: issue.actionRequired,
+          resolved: false,
+          resolvedBy: null,
+          resolvedAt: null,
+        });
+        results.push(await this.reconciliationRepo.save(result));
+      }
+      const statusCounts = results.reduce<Record<string, number>>((acc, r) => {
+        acc[r.status] = (acc[r.status] || 0) + 1;
+        return acc;
+      }, {});
+      await this.finishJob(job, 'SUCCESS', { scanned: mappings.length, created: results.length, statusCounts });
+      return { scanned: mappings.length, created: results.length, statusCounts, results };
+    } catch (err) {
+      await this.finishJob(job, 'FAIL', {}, (err as Error).message);
+      throw err;
+    }
   }
 
   async listMasterMappings(mappingType?: string): Promise<ChanjetMasterMappingEntity[]> {
@@ -303,6 +482,47 @@ export class ChanjetIntegrationService {
     job.resultSummary = resultSummary;
     job.errorMessage = errorMessage || null;
     await this.jobRepo.save(job);
+  }
+
+  private mappingIssue(mapping: ChanjetMasterMappingEntity): null | {
+    status: ChanjetReconciliationResultEntity['status'];
+    severity: ChanjetReconciliationResultEntity['severity'];
+    diffSummary: string;
+    actionRequired: string;
+  } {
+    if (mapping.reviewStatus === 'REJECTED') {
+      return {
+        status: 'HOLD',
+        severity: 'HIGH',
+        diffSummary: '映射候选已被拒绝，后续凭证/对账不得使用该映射。',
+        actionRequired: '重新建立 ERP 与好业财主数据映射候选，并由财务/主数据负责人复核。',
+      };
+    }
+    if (!mapping.erpCode || !mapping.chanjetId) {
+      return {
+        status: 'WARN',
+        severity: mapping.matchStatus === 'PENDING' ? 'MEDIUM' : 'HIGH',
+        diffSummary: 'ERP 编码或好业财 ID 缺失，映射尚未形成可用闭环。',
+        actionRequired: '补齐 ERP 主数据编码与好业财主数据 ID 后再审核。',
+      };
+    }
+    if (mapping.reviewStatus !== 'APPROVED') {
+      return {
+        status: 'WARN',
+        severity: 'MEDIUM',
+        diffSummary: '映射未人工批准。',
+        actionRequired: '由财务/主数据负责人审核为 APPROVED 后才能参与凭证建议。',
+      };
+    }
+    if (mapping.matchStatus !== 'MATCHED' && mapping.matchStatus !== 'MANUAL') {
+      return {
+        status: 'MISMATCH',
+        severity: 'HIGH',
+        diffSummary: `映射状态为 ${mapping.matchStatus}，不能视为稳定匹配。`,
+        actionRequired: '核对两端主数据后改为 MATCHED 或人工标记 MANUAL。',
+      };
+    }
+    return null;
   }
 
   private extractBooks(resp: unknown): NormalizedBook[] {
