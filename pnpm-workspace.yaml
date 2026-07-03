@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   '@nestjs/core': true
   bcrypt: true
+  esbuild: true
   sharp: true
   sqlite3: false
   unrs-resolver: true

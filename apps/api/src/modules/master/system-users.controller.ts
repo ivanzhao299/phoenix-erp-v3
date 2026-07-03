@@ -54,6 +54,30 @@ function statusToStr(n: number): string {
 export class SystemUsersController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
+  private async hasSysUserColumn(columnName: string): Promise<boolean> {
+    const rows = await this.em.query(
+      `SELECT 1
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'sys_user'
+          AND column_name = $1
+        LIMIT 1`,
+      [columnName],
+    ).catch(() => []);
+    return rows.length > 0;
+  }
+
+  private async requireArchiveColumns() {
+    const checks = await Promise.all([
+      this.hasSysUserColumn('archived_at'),
+      this.hasSysUserColumn('archived_by'),
+      this.hasSysUserColumn('archive_reason'),
+    ]);
+    if (!checks.every(Boolean)) {
+      throw new ConflictException('用户归档列尚未完成迁移，请先执行 AddSysUserArchiveLifecycle migration');
+    }
+  }
+
   private async validateLifecycleChange(
     userId: string,
     actorUserId: number | undefined,
@@ -116,10 +140,19 @@ export class SystemUsersController {
   @Get()
   @RequireMenu('MENU_SETTINGS_USER', 'V')
   async list() {
+    const [hasArchivedAt, hasArchivedBy, hasArchiveReason] = await Promise.all([
+      this.hasSysUserColumn('archived_at'),
+      this.hasSysUserColumn('archived_by'),
+      this.hasSysUserColumn('archive_reason'),
+    ]);
+    const archivedAtExpr = hasArchivedAt ? 'u.archived_at' : 'NULL::timestamp AS archived_at';
+    const archivedByExpr = hasArchivedBy ? 'u.archived_by' : 'NULL::bigint AS archived_by';
+    const archiveReasonExpr = hasArchiveReason ? 'u.archive_reason' : 'NULL::text AS archive_reason';
+
     const rows = await this.em.query(`
 	      SELECT u.user_id AS id, u.username, u.real_name AS real_name_zh, u.locale,
 	             u.store_code, u.status, u.email, u.phone,
-                 u.archived_at, u.archived_by, u.archive_reason,
+                 ${archivedAtExpr}, ${archivedByExpr}, ${archiveReasonExpr},
              COALESCE(
                (SELECT r.role_code FROM sys_user_role ur
                   JOIN sys_role r ON ur.role_id = r.role_id
@@ -239,6 +272,7 @@ export class SystemUsersController {
   @Put(':id/archive')
   @RequireMenu('MENU_SETTINGS_USER', 'D')
   async archive(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    await this.requireArchiveColumns();
     await this.validateLifecycleChange(id, req?.user?.userId, -1, 'archive');
     const result = await this.em.query(
       `UPDATE sys_user
@@ -259,6 +293,7 @@ export class SystemUsersController {
   @Put(':id/restore')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
   async restore(@Param('id') id: string) {
+    await this.requireArchiveColumns();
     const result = await this.em.query(
       `UPDATE sys_user
           SET status = 0,

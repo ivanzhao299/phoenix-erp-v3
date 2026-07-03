@@ -97,7 +97,7 @@ assert_fail "T3.3 无效状态值拒绝" "$R3B"
 cyan ""
 cyan "▶ T4: 变更角色 PUT /:id/role"
 # 准备另一个角色
-$PSQL $DB -q -c "INSERT INTO sys_roles (role_code, role_name_zh, description) VALUES ('ROLE_FARM_MGR','场长','农场场长') ON CONFLICT DO NOTHING;" >/dev/null
+$PSQL $DB -q -c "INSERT INTO sys_role (role_code, role_name_zh, role_type, description) VALUES ('ROLE_FARM_MGR','场长','MGMT','农场场长') ON CONFLICT DO NOTHING;" >/dev/null
 
 R4=$(curl -s -o /tmp/sys_t4.json -w '%{http_code}' -X PUT "$API/api/system/users/$USER_ID/role" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \

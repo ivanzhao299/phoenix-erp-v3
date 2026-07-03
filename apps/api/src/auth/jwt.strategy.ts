@@ -74,6 +74,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException({ statusCode: 401, subcode: 'INVALID_TOKEN', message: '登录凭证无效' });
     }
 
+    const devLoginEnabled =
+      (process.env.NODE_ENV || 'development') !== 'production' &&
+      process.env.ENABLE_DEV_LOGIN === 'true';
+    if (
+      devLoginEnabled &&
+      payload.username === 'admin' &&
+      userId === 999999999 &&
+      (payload.role === 'ROLE_ADMIN' || (Array.isArray(payload.roles) && payload.roles.includes('ROLE_ADMIN')))
+    ) {
+      return {
+        userId,
+        username: payload.username,
+        realNameZh: payload.realNameZh || payload.real_name,
+        realNameLo: payload.realNameLo,
+        role: 'ROLE_ADMIN',
+        roleNameZh: payload.roleNameZh || '集团超级管理员',
+        roleNameLo: payload.roleNameLo,
+        storeCode: payload.storeCode || payload.store_code || 'ALL',
+        locale: payload.locale || 'zh-CN',
+        roles: ['ROLE_ADMIN'],
+        permissions: ['*'],
+        perms_version: payload.perms_version || 1,
+      };
+    }
+
     try {
       const rows: Array<{ perms_version: string | number; status: string | number }> = await this.em.query(
         'SELECT perms_version, status FROM sys_user WHERE user_id = $1 LIMIT 1',
