@@ -103,7 +103,7 @@
 - `node --check scripts/ops/chanjet-field-mapping-report.mjs`：PASS
 - `node scripts/ops/chanjet-field-mapping-report.mjs --output-dir docs/ops/runs --top 60`：PASS
 
-生产复跑结果：字段候选 1860，已匹配 183，待处理 1677，高风险开放项 1518，API metadata 183，虚假客户/供应商目标表残留 0。
+生产复跑结果：字段候选 1677，已匹配 183，待处理 1494，高风险开放项 1341，API metadata 183，虚假客户/供应商目标表残留 0，envelope 误分类残留 0。
 
 ## 7. 下一步建议
 
@@ -115,12 +115,13 @@
 ## 8. 生产中间层复跑摘要
 
 - Decision: GO_WITH_CONDITIONS
-- Total mapped field candidates: 1860
+- Total mapped field candidates: 1677
 - Matched fields: 183
-- Pending fields: 1677
-- High/Critical open fields: 1518
+- Pending fields: 1494
+- High/Critical open fields: 1341
 - API metadata fields: 183
 - Fake counterparty targets: 0
+- Envelope business-target noise: 0
 - 最高优先级 endpoint: /accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818
 
 输出文件：

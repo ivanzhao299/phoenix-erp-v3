@@ -1,0 +1,491 @@
+{
+  "generatedAt": "2026-07-03T15:00:31.032Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "total_fields": 1677,
+    "matched_fields": 183,
+    "pending_fields": 1494,
+    "high_or_critical_open_fields": 1341,
+    "api_metadata_fields": 183,
+    "fake_counterparty_targets": 0
+  },
+  "envelopeNoise": {
+    "count": 0
+  },
+  "endpointSummary": [
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+      "field_count": 166,
+      "matched_count": 0,
+      "pending_count": 166,
+      "high_count": 166
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "field_count": 152,
+      "matched_count": 0,
+      "pending_count": 152,
+      "high_count": 152
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654",
+      "field_count": 142,
+      "matched_count": 0,
+      "pending_count": 142,
+      "high_count": 142
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3533914511118750",
+      "field_count": 113,
+      "matched_count": 1,
+      "pending_count": 112,
+      "high_count": 112
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/party/custvendor/query/3537748712226818",
+      "field_count": 112,
+      "matched_count": 1,
+      "pending_count": 111,
+      "high_count": 111
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+      "field_count": 71,
+      "matched_count": 3,
+      "pending_count": 68,
+      "high_count": 59
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3533914511118750",
+      "field_count": 51,
+      "matched_count": 0,
+      "pending_count": 51,
+      "high_count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/pay/3537748712226818",
+      "field_count": 51,
+      "matched_count": 0,
+      "pending_count": 51,
+      "high_count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3533914511118750",
+      "field_count": 51,
+      "matched_count": 0,
+      "pending_count": 51,
+      "high_count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/statistics/receive/3537748712226818",
+      "field_count": 51,
+      "matched_count": 0,
+      "pending_count": 51,
+      "high_count": 51
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+      "field_count": 59,
+      "matched_count": 3,
+      "pending_count": 56,
+      "high_count": 47
+    },
+    {
+      "chanjet_endpoint": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+      "field_count": 59,
+      "matched_count": 3,
+      "pending_count": 56,
+      "high_count": 47
+    }
+  ],
+  "topOpenFields": [
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.id",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.longName",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "longName",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.name",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "name",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].boName",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "boName",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].createdStamp",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "createdStamp",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].createdUserId.id",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].basePostedCr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "basePostedCr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].basePostedDr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "basePostedDr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].comments",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "comments",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].hasQtyAccounting",
+      "chanjet_type": "boolean",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "hasQtyAccounting",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].id",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].longText",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "longText",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedCr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedCr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedCrQty",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedCrQty",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedDr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedDr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedDrQty",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedDrQty",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].sequenceNum",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "sequenceNum",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].basePostedCr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "basePostedCr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].basePostedDr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "basePostedDr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].comments",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "comments",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].hasQtyAccounting",
+      "chanjet_type": "boolean",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "hasQtyAccounting",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].id",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "id",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].longText",
+      "chanjet_type": "string",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "longText",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedCr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedCr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedCrQty",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedCrQty",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedDr",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedDr",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedDrQty",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "postedDrQty",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].sequenceNum",
+      "chanjet_type": "number",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "sequenceNum",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].hasAdjusted",
+      "chanjet_type": "boolean",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "hasAdjusted",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    },
+    {
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].hasEditAuth",
+      "chanjet_type": "boolean",
+      "erp_domain": "accounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_field": "hasEditAuth",
+      "erp_type": "varchar",
+      "match_status": "PENDING",
+      "risk_level": "HIGH"
+    }
+  ],
+  "domainRiskSummary": [
+    {
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "match_status": "PENDING",
+      "count": 1007
+    },
+    {
+      "erp_domain": "api_metadata",
+      "risk_level": "LOW",
+      "match_status": "MATCHED",
+      "count": 183
+    },
+    {
+      "erp_domain": "company",
+      "risk_level": "LOW",
+      "match_status": "PENDING",
+      "count": 96
+    },
+    {
+      "erp_domain": "counterparty",
+      "risk_level": "HIGH",
+      "match_status": "PENDING",
+      "count": 334
+    },
+    {
+      "erp_domain": "organization",
+      "risk_level": "MEDIUM",
+      "match_status": "PENDING",
+      "count": 57
+    }
+  ],
+  "boundaries": {
+    "writeChanjet": false,
+    "deleteChanjet": false,
+    "modifyChanjet": false,
+    "erpBusinessTableWrite": false,
+    "deploy": false,
+    "push": false
+  },
+  "improvementBacklog": [
+    {
+      "priority": "P0",
+      "backlog_id": "P0-FINANCE-MAPPING",
+      "title": "财务核心字段语义映射：往来、金额、科目、凭证",
+      "field_count": 30,
+      "domains": [
+        "accounting"
+      ],
+      "endpoints": [
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750"
+      ]
+    }
+  ],
+  "outputs": {
+    "outputJson": "docs/ops/runs/chanjet-field-mapping-report-latest.json",
+    "outputMd": "docs/ops/runs/chanjet-field-mapping-report-latest.md"
+  }
+}
