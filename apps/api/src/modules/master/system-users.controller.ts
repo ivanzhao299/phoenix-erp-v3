@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Body, Param, UseGuards,
+  Controller, Get, Post, Put, Body, Param, Req, UseGuards,
   BadRequestException, ConflictException, NotFoundException,
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -39,9 +39,11 @@ function statusToInt(s: string): number {
   const v = String(s || '').toUpperCase();
   if (v === 'ACTIVE') return 1;
   if (v === 'FROZEN' || v === 'INACTIVE') return 0;
-  throw new BadRequestException('无效状态值 (ACTIVE/FROZEN/INACTIVE)');
+  if (v === 'ARCHIVED') return -1;
+  throw new BadRequestException('无效状态值 (ACTIVE/FROZEN/ARCHIVED)');
 }
 function statusToStr(n: number): string {
+  if (n === -1) return 'ARCHIVED';
   return n === 1 ? 'ACTIVE' : 'FROZEN';
 }
 
@@ -52,12 +54,72 @@ function statusToStr(n: number): string {
 export class SystemUsersController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
+  private async validateLifecycleChange(
+    userId: string,
+    actorUserId: number | undefined,
+    nextStatus: number,
+    action: 'status' | 'archive',
+  ) {
+    const rows = await this.em.query(
+      `SELECT user_id, username, status FROM sys_user WHERE user_id = $1 LIMIT 1`,
+      [userId],
+    );
+    const user = rows[0];
+    if (!user) throw new NotFoundException(`用户 ${userId} 不存在`);
+
+    if (String(user.username).toLowerCase() === 'admin') {
+      throw new ConflictException('系统特权总控账号不可冻结、归档或恢复');
+    }
+    if (actorUserId && Number(user.user_id) === Number(actorUserId) && nextStatus !== 1) {
+      throw new ConflictException('不能冻结或归档当前登录账号');
+    }
+    if (action === 'status' && Number(user.status) === -1) {
+      throw new ConflictException('归档用户不能直接启用或冻结，请先执行恢复归档');
+    }
+
+    if (nextStatus !== 1) {
+      const targetIsAdmin = await this.em.query(
+        `SELECT 1
+           FROM sys_user_role ur
+           JOIN sys_role r ON r.role_id = ur.role_id
+          WHERE ur.user_id = $1
+            AND r.role_code = 'ROLE_ADMIN'
+            AND COALESCE(ur.is_visible, true) = true
+          LIMIT 1`,
+        [userId],
+      );
+      if (targetIsAdmin[0]) {
+        const otherAdmins = await this.em.query(
+          `SELECT COUNT(DISTINCT u.user_id)::int AS c
+             FROM sys_user u
+             JOIN sys_user_role ur ON ur.user_id = u.user_id
+             JOIN sys_role r ON r.role_id = ur.role_id
+            WHERE u.status = 1
+              AND r.role_code = 'ROLE_ADMIN'
+              AND COALESCE(ur.is_visible, true) = true
+              AND u.user_id <> $1`,
+          [userId],
+        );
+        if (Number(otherAdmins[0]?.c || 0) < 1) {
+          throw new ConflictException('不能冻结或归档最后一个有效管理员账号');
+        }
+      }
+    }
+  }
+
+  private async ensureEditable(userId: string) {
+    const rows = await this.em.query(`SELECT status FROM sys_user WHERE user_id = $1 LIMIT 1`, [userId]);
+    if (rows.length === 0) throw new NotFoundException(`用户 ${userId} 不存在`);
+    if (Number(rows[0].status) === -1) throw new ConflictException('归档用户不可编辑，请先恢复归档');
+  }
+
   @Get()
   @RequireMenu('MENU_SETTINGS_USER', 'V')
   async list() {
     const rows = await this.em.query(`
-      SELECT u.user_id AS id, u.username, u.real_name AS real_name_zh, u.locale,
-             u.store_code, u.status, u.email, u.phone,
+	      SELECT u.user_id AS id, u.username, u.real_name AS real_name_zh, u.locale,
+	             u.store_code, u.status, u.email, u.phone,
+                 u.archived_at, u.archived_by, u.archive_reason,
              COALESCE(
                (SELECT r.role_code FROM sys_user_role ur
                   JOIN sys_role r ON ur.role_id = r.role_id
@@ -157,14 +219,60 @@ export class SystemUsersController {
 
   @Put(':id/status')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async setStatus(@Param('id') id: string, @Body() body: any) {
+  async setStatus(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const statusInt = statusToInt(body?.status);
+    if (statusInt === -1) throw new BadRequestException('归档请使用 archive 接口');
+    await this.validateLifecycleChange(id, req?.user?.userId, statusInt, 'status');
     const result = await this.em.query(
-      `UPDATE sys_user SET status = $1, updated_at = now() WHERE user_id = $2 RETURNING user_id`,
+      `UPDATE sys_user
+          SET status = $1,
+              perms_version = COALESCE(perms_version,0) + 1,
+              updated_at = now()
+        WHERE user_id = $2
+        RETURNING user_id`,
       [statusInt, id],
     );
     if (result.length === 0) throw new NotFoundException(`用户 ${id} 不存在`);
     return { code: 200, msg: '用户状态已更新', data: { id, status: statusToStr(statusInt) } };
+  }
+
+  @Put(':id/archive')
+  @RequireMenu('MENU_SETTINGS_USER', 'D')
+  async archive(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    await this.validateLifecycleChange(id, req?.user?.userId, -1, 'archive');
+    const result = await this.em.query(
+      `UPDATE sys_user
+          SET status = -1,
+              archived_at = now(),
+              archived_by = $2,
+              archive_reason = NULLIF($3, ''),
+              perms_version = COALESCE(perms_version,0) + 1,
+              updated_at = now()
+        WHERE user_id = $1
+        RETURNING user_id`,
+      [id, req?.user?.userId || null, String(body?.reason || '').trim()],
+    );
+    if (result.length === 0) throw new NotFoundException(`用户 ${id} 不存在`);
+    return { code: 200, msg: '用户已归档', data: { id, status: 'ARCHIVED' } };
+  }
+
+  @Put(':id/restore')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async restore(@Param('id') id: string) {
+    const result = await this.em.query(
+      `UPDATE sys_user
+          SET status = 0,
+              archived_at = NULL,
+              archived_by = NULL,
+              archive_reason = NULL,
+              perms_version = COALESCE(perms_version,0) + 1,
+              updated_at = now()
+        WHERE user_id = $1 AND status = -1
+        RETURNING user_id`,
+      [id],
+    );
+    if (result.length === 0) throw new NotFoundException(`归档用户 ${id} 不存在或无需恢复`);
+    return { code: 200, msg: '用户已恢复至冻结态，请复核后再启用', data: { id, status: 'FROZEN' } };
   }
 
   @Put(':id/role')
@@ -172,6 +280,7 @@ export class SystemUsersController {
   async setRole(@Param('id') id: string, @Body() body: any) {
     const { role } = body || {};
     if (!role) throw new BadRequestException('role 必填');
+    await this.ensureEditable(id);
 
     const roleRows = await this.em.query(
       `SELECT role_id FROM sys_role WHERE role_code = $1 LIMIT 1`,
@@ -215,6 +324,7 @@ export class SystemUsersController {
     const { password } = body || {};
     const pwErr = validatePassword(password);
     if (pwErr) throw new BadRequestException(pwErr);
+    await this.ensureEditable(id);
 
     const password_hash = await bcrypt.hash(password, 10);
     const result = await this.em.query(
@@ -229,6 +339,7 @@ export class SystemUsersController {
   @RequireMenu('MENU_SETTINGS_USER', 'E')
   async updateInfo(@Param('id') id: string, @Body() body: any) {
     const { real_name_zh, store_code, locale, email, phone } = body || {};
+    await this.ensureEditable(id);
     const result = await this.em.query(
       `UPDATE sys_user
           SET real_name = COALESCE($1, real_name),
@@ -247,7 +358,8 @@ export class SystemUsersController {
 
   /**
    * PUT /api/system/users/:id/role-visibility
-   * 仅改 sys_user_role.is_visible（前台显示开关），不影响权限。
+   * 历史字段名保留。当前语义：is_visible=false 代表该用户角色授权停用，
+   * 不再参与登录 token、权限计算和前端展示；is_visible=true 恢复该角色授权。
    * body: { items: [{ role_code: string, is_visible: boolean }] }
    */
   @Put(':id/role-visibility')
@@ -257,6 +369,7 @@ export class SystemUsersController {
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('items 不能为空');
     }
+    await this.ensureEditable(id);
 
     await this.em.transaction(async (mgr) => {
       for (const it of items) {

@@ -11,6 +11,7 @@ import {
   Users, Shield, Plus, Lock, Unlock, Key, Edit2, UserCheck,
   FlaskConical, RefreshCw, Search, ChevronUp, ChevronDown,
   ChevronsUpDown, Star, LayoutGrid, List, ChevronRight,
+  Archive, RotateCcw,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
@@ -45,10 +46,14 @@ interface UserRecord {
   status: string;
   user_type?: string;
   roles_detail?: UserRole[];
+  archived_at?: string | null;
+  archive_reason?: string | null;
 }
 type SortKey = "username" | "real_name_zh" | "role_name_zh" | "status";
 type SortDir = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+type LifecycleAction = "STATUS" | "ARCHIVE" | "RESTORE";
 
 // ── Role type meta (order / label / color / emoji) ────────────────
 const ROLE_TYPE_META: Record<string, { order: number; label: string; color: string; emoji: string }> = {
@@ -83,7 +88,7 @@ export default function UserManagementPage() {
 
   // ── Filters ──────────────────────────────────────────────────────────────────
   const [typeFilter,   setTypeFilter]   = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("LIVE");
   const [roleFilter,   setRoleFilter]   = useState("");
   const [search,       setSearch]       = useState("");
 
@@ -98,7 +103,7 @@ export default function UserManagementPage() {
   // ── 新建抽屉 / Form（编辑已迁移至路由式全宽详情页 /settings/users/[id]）──────────
   const [showDrawer, setShowDrawer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [confirm,    setConfirm]    = useState<{ open: boolean; user?: UserRecord; nextStatus?: string }>({ open: false });
+  const [confirm,    setConfirm]    = useState<{ open: boolean; user?: UserRecord; nextStatus?: string; action?: LifecycleAction }>({ open: false });
 
   // 最小新建表单：账户名 / 姓名 / 密码 / 类型 / 主角色（组织 / 范围 / 门店在详情页继续补）
   const [form, setForm] = useState({
@@ -127,7 +132,8 @@ export default function UserManagementPage() {
     const q = search.trim().toLowerCase();
     let list = users;
     if (typeFilter !== "ALL")   list = list.filter(u => (u.user_type || "REAL") === typeFilter);
-    if (statusFilter !== "ALL") list = list.filter(u => u.status === statusFilter);
+    if (statusFilter === "LIVE") list = list.filter(u => u.status !== "ARCHIVED");
+    else if (statusFilter !== "ALL") list = list.filter(u => u.status === statusFilter);
     if (roleFilter)             list = list.filter(u =>
       (u.roles_detail || []).some(r => r.role_code === roleFilter)
     );
@@ -152,6 +158,9 @@ export default function UserManagementPage() {
     ALL:  users.length,
     REAL: users.filter(u => (u.user_type || "REAL") === "REAL").length,
     TEST: users.filter(u => u.user_type === "TEST").length,
+    ACTIVE: users.filter(u => u.status === "ACTIVE").length,
+    FROZEN: users.filter(u => u.status === "FROZEN").length,
+    ARCHIVED: users.filter(u => u.status === "ARCHIVED").length,
   };
 
   const handleSort = (key: SortKey) => {
@@ -264,22 +273,67 @@ export default function UserManagementPage() {
     } finally { setSubmitting(false); }
   };
 
-  const doToggleStatus = async () => {
-    const { user, nextStatus } = confirm;
+  const statusMeta = (status: string) => {
+    if (status === "ACTIVE") return {
+      dot: s.dotOnline,
+      badge: s.badgeSuccess,
+      label: t("status.normal", "正常"),
+      rowBg: "transparent",
+    };
+    if (status === "ARCHIVED") return {
+      dot: s.dotOffline,
+      badge: s.badgeWarning,
+      label: t("ui.已归档", "已归档"),
+      rowBg: "var(--bg-muted)",
+    };
+    return {
+      dot: s.dotOffline,
+      badge: s.badgeDanger,
+      label: t("ui.已冻结", "已冻结"),
+      rowBg: "var(--status-danger-bg-page)",
+    };
+  };
+
+  const doLifecycleAction = async () => {
+    const { user, nextStatus, action } = confirm;
     if (!user) return;
     setConfirm({ open: false });
-    const res = await API(`/${user.id}/status`, { method: "PUT", body: JSON.stringify({ status: nextStatus }) });
-    if (res.code === 200) { loadData(); toast.success(nextStatus === "FROZEN" ? t("ui.已冻结", "已冻结") : t("ui.已解冻", "已解冻")); }
+    const endpoint = action === "ARCHIVE" ? `/${user.id}/archive`
+      : action === "RESTORE" ? `/${user.id}/restore`
+        : `/${user.id}/status`;
+    const payload = action === "ARCHIVE"
+      ? { reason: t("ui.管理员手工归档", "管理员手工归档") }
+      : { status: nextStatus };
+    const res = await API(endpoint, { method: "PUT", body: JSON.stringify(payload) });
+    if (res.code === 200) {
+      loadData();
+      toast.success(action === "ARCHIVE"
+        ? t("ui.已归档", "已归档")
+        : action === "RESTORE"
+          ? t("ui.已恢复至冻结态", "已恢复至冻结态")
+          : nextStatus === "FROZEN" ? t("ui.已冻结", "已冻结") : t("ui.已解冻", "已解冻"));
+    }
     else toast.error(res.msg);
   };
 
   const handleToggle = (u: UserRecord) => {
     if (u.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    if (u.status === "ARCHIVED") { toast.error(t("ui.归档用户需先恢复", "归档用户需先恢复")); return; }
     const nextStatus = u.status === "ACTIVE" ? "FROZEN" : "ACTIVE";
-    setConfirm({ open: true, user: u, nextStatus });
+    setConfirm({ open: true, user: u, nextStatus, action: "STATUS" });
   };
 
-  const hasActiveFilters = statusFilter !== "ALL" || roleFilter !== "" || search !== "";
+  const handleArchive = (u: UserRecord) => {
+    if (u.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    setConfirm({ open: true, user: u, nextStatus: "ARCHIVED", action: "ARCHIVE" });
+  };
+
+  const handleRestore = (u: UserRecord) => {
+    if (u.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    setConfirm({ open: true, user: u, nextStatus: "FROZEN", action: "RESTORE" });
+  };
+
+  const hasActiveFilters = statusFilter !== "LIVE" || roleFilter !== "" || search !== "";
 
   return (
     <div className="animate-fade-in" style={{ paddingBottom: 60 }}>
@@ -307,9 +361,10 @@ export default function UserManagementPage() {
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{t("ui.用户账号管理台", "用户账号管理台")}</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                {t("ui.共", "共")} {counts.ALL} {t("ui.个账号", "个账号")} ·{" "}
-                <span style={{ color: "var(--status-success)", fontWeight: 600 }}>{t("ui.正式", "正式")} {counts.REAL}</span> ·{" "}
-                <span style={{ color: "var(--status-special)", fontWeight: 600 }}>{t("ui.测试", "测试")} {counts.TEST}</span>
+	                {t("ui.共", "共")} {counts.ALL} {t("ui.个账号", "个账号")} ·{" "}
+	                <span style={{ color: "var(--status-success)", fontWeight: 600 }}>{t("ui.正常", "正常")} {counts.ACTIVE}</span> ·{" "}
+	                <span style={{ color: "var(--status-danger)", fontWeight: 600 }}>{t("ui.冻结", "冻结")} {counts.FROZEN}</span> ·{" "}
+	                <span style={{ color: "var(--status-warning)", fontWeight: 600 }}>{t("ui.归档", "归档")} {counts.ARCHIVED}</span>
                 {filtered.length !== users.length && (
                   <span style={{ color: "var(--color-primary)", fontWeight: 600 }}> · {t("ui.筛选结果", "筛选结果")} {filtered.length} {t("ui.条", "条")}</span>
                 )}
@@ -369,13 +424,15 @@ export default function UserManagementPage() {
         </div>
 
         {/* Status filter */}
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className={s.inp} style={{ width: "auto", padding: "7px 10px", fontSize: 13, minWidth: 100,
-            borderColor: statusFilter !== "ALL" ? "var(--color-primary)" : undefined }}>
-          <option value="ALL">{t("ui.全部状态", "全部状态")}</option>
-          <option value="ACTIVE">✅ {t("status.normal", "正常")}</option>
-          <option value="FROZEN">🔒 {t("ui.已冻结", "已冻结")}</option>
-        </select>
+	        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+	          className={s.inp} style={{ width: "auto", padding: "7px 10px", fontSize: 13, minWidth: 100,
+	            borderColor: statusFilter !== "LIVE" ? "var(--color-primary)" : undefined }}>
+	          <option value="LIVE">{t("ui.在管账号", "在管账号")}</option>
+	          <option value="ALL">{t("ui.全部含归档", "全部（含归档）")}</option>
+	          <option value="ACTIVE">✅ {t("status.normal", "正常")}</option>
+	          <option value="FROZEN">🔒 {t("ui.已冻结", "已冻结")}</option>
+	          <option value="ARCHIVED">🗄 {t("ui.已归档", "已归档")}</option>
+	        </select>
 
         {/* Role filter */}
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
@@ -386,7 +443,7 @@ export default function UserManagementPage() {
         </select>
 
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setSearch(""); setStatusFilter("ALL"); setRoleFilter(""); }}
+	          <button type="button" onClick={() => { setSearch(""); setStatusFilter("LIVE"); setRoleFilter(""); }}
             style={{ fontSize: 12, color: "var(--status-danger)", background: "var(--status-danger-bg-faint)",
               border: "1px solid var(--status-danger-bg-medium)", borderRadius: 6,
               padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -447,8 +504,8 @@ export default function UserManagementPage() {
                       {groupUsers.map((u, i) => {
                         const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
                         return (
-                          <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
-                            style={{ "--i": i, background: u.status === "FROZEN" ? "var(--status-danger-bg-page)" : u.user_type === "TEST" ? "var(--status-special-bg)" : "transparent" } as any}>
+	                          <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
+	                            style={{ "--i": i, background: u.status === "ARCHIVED" || u.status === "FROZEN" ? statusMeta(u.status).rowBg : u.user_type === "TEST" ? "var(--status-special-bg)" : "transparent" } as any}>
                             <td>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span className={s.code}>{u.username}</span>
@@ -488,10 +545,10 @@ export default function UserManagementPage() {
                             </td>
                             <td>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span className={`${s.dot} ${u.status === "ACTIVE" ? s.dotOnline : s.dotOffline}`}/>
-                                <span className={`${s.badge} ${u.status === "ACTIVE" ? s.badgeSuccess : s.badgeDanger}`}>
-                                  {u.status === "ACTIVE" ? t("status.normal", "正常") : t("ui.已冻结", "已冻结")}
-                                </span>
+	                                <span className={`${s.dot} ${statusMeta(u.status).dot}`}/>
+	                                <span className={`${s.badge} ${statusMeta(u.status).badge}`}>
+	                                  {statusMeta(u.status).label}
+	                                </span>
                               </div>
                             </td>
                             <td>
@@ -506,11 +563,22 @@ export default function UserManagementPage() {
                                       <Edit2 size={13}/>
                                     </button>
                                   )}
-                                  <button type="button" onClick={() => handleToggle(u)}
-                                    className={`${s.btnSm} ${u.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
-                                    {u.status === "ACTIVE" ? <><Lock size={11}/>{t("ui.冻结", "冻结")}</> : <><Unlock size={11}/>{t("ui.解冻", "解冻")}</>}
-                                  </button>
-                                </div>
+	                                  {u.status === "ARCHIVED" ? (
+	                                    <button type="button" onClick={() => handleRestore(u)} className={`${s.btnSm} ${s.btnSecondary}`}>
+	                                      <RotateCcw size={11}/>{t("ui.恢复", "恢复")}
+	                                    </button>
+	                                  ) : (
+	                                    <>
+	                                      <button type="button" onClick={() => handleToggle(u)}
+	                                        className={`${s.btnSm} ${u.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
+	                                        {u.status === "ACTIVE" ? <><Lock size={11}/>{t("ui.冻结", "冻结")}</> : <><Unlock size={11}/>{t("ui.解冻", "解冻")}</>}
+	                                      </button>
+	                                      <button type="button" onClick={() => handleArchive(u)} className={`${s.btnSm} ${s.btnSecondary}`}>
+	                                        <Archive size={11}/>{t("ui.归档", "归档")}
+	                                      </button>
+	                                    </>
+	                                  )}
+	                                </div>
                               )}
                             </td>
                           </tr>
@@ -583,8 +651,8 @@ export default function UserManagementPage() {
               ) : paginated.map((u, i) => {
                 const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
                 return (
-                  <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
-                    style={{ "--i": i, background: u.status === "FROZEN" ? "var(--status-danger-bg-page)" : u.user_type === "TEST" ? "var(--status-special-bg)" : "transparent" } as any}>
+	                  <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
+	                    style={{ "--i": i, background: u.status === "ARCHIVED" || u.status === "FROZEN" ? statusMeta(u.status).rowBg : u.user_type === "TEST" ? "var(--status-special-bg)" : "transparent" } as any}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span className={s.code}>{u.username}</span>
@@ -624,10 +692,10 @@ export default function UserManagementPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className={`${s.dot} ${u.status === "ACTIVE" ? s.dotOnline : s.dotOffline}`}/>
-                        <span className={`${s.badge} ${u.status === "ACTIVE" ? s.badgeSuccess : s.badgeDanger}`}>
-                          {u.status === "ACTIVE" ? t("status.normal", "正常") : t("ui.已冻结", "已冻结")}
-                        </span>
+	                        <span className={`${s.dot} ${statusMeta(u.status).dot}`}/>
+	                        <span className={`${s.badge} ${statusMeta(u.status).badge}`}>
+	                          {statusMeta(u.status).label}
+	                        </span>
                       </div>
                     </td>
                     <td>
@@ -642,11 +710,22 @@ export default function UserManagementPage() {
                               <Edit2 size={13}/>
                             </button>
                           )}
-                          <button type="button" onClick={() => handleToggle(u)}
-                            className={`${s.btnSm} ${u.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
-                            {u.status === "ACTIVE" ? <><Lock size={11}/>{t("ui.冻结", "冻结")}</> : <><Unlock size={11}/>{t("ui.解冻", "解冻")}</>}
-                          </button>
-                        </div>
+	                          {u.status === "ARCHIVED" ? (
+	                            <button type="button" onClick={() => handleRestore(u)} className={`${s.btnSm} ${s.btnSecondary}`}>
+	                              <RotateCcw size={11}/>{t("ui.恢复", "恢复")}
+	                            </button>
+	                          ) : (
+	                            <>
+	                              <button type="button" onClick={() => handleToggle(u)}
+	                                className={`${s.btnSm} ${u.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
+	                                {u.status === "ACTIVE" ? <><Lock size={11}/>{t("ui.冻结", "冻结")}</> : <><Unlock size={11}/>{t("ui.解冻", "解冻")}</>}
+	                              </button>
+	                              <button type="button" onClick={() => handleArchive(u)} className={`${s.btnSm} ${s.btnSecondary}`}>
+	                                <Archive size={11}/>{t("ui.归档", "归档")}
+	                              </button>
+	                            </>
+	                          )}
+	                        </div>
                       )}
                     </td>
                   </tr>
@@ -793,15 +872,27 @@ export default function UserManagementPage() {
         </div>
       </RightDrawer>
 
-      <ConfirmDialog
-        open={confirm.open}
-        title={confirm.nextStatus === "FROZEN" ? t("ui.冻结用户", "冻结用户") : t("ui.解冻用户", "解冻用户")}
-        message={`${t("common.confirm", "确认")}${confirm.nextStatus === "FROZEN" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}${t("ui.用户", "用户")} ${confirm.user?.real_name_zh}？`}
-        confirmLabel={confirm.nextStatus === "FROZEN" ? t("ui.确认冻结", "确认冻结") : t("ui.确认解冻", "确认解冻")}
-        danger={confirm.nextStatus === "FROZEN"}
-        onConfirm={doToggleStatus}
-        onCancel={() => setConfirm({ open: false })}
-      />
+	      <ConfirmDialog
+	        open={confirm.open}
+	        title={confirm.action === "ARCHIVE"
+	          ? t("ui.归档用户", "归档用户")
+	          : confirm.action === "RESTORE"
+	            ? t("ui.恢复归档用户", "恢复归档用户")
+	            : confirm.nextStatus === "FROZEN" ? t("ui.冻结用户", "冻结用户") : t("ui.解冻用户", "解冻用户")}
+	        message={confirm.action === "ARCHIVE"
+	          ? `${t("common.confirm", "确认")}${t("ui.归档", "归档")}${t("ui.用户", "用户")} ${confirm.user?.real_name_zh}？${t("ui.归档后默认不在日常列表显示且不能登录", "归档后默认不在日常列表显示且不能登录。")}`
+	          : confirm.action === "RESTORE"
+	            ? `${t("common.confirm", "确认")}${t("ui.恢复", "恢复")}${t("ui.用户", "用户")} ${confirm.user?.real_name_zh}？${t("ui.恢复后进入冻结态需再次解冻才可登录", "恢复后进入冻结态，需再次解冻才可登录。")}`
+	            : `${t("common.confirm", "确认")}${confirm.nextStatus === "FROZEN" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}${t("ui.用户", "用户")} ${confirm.user?.real_name_zh}？`}
+	        confirmLabel={confirm.action === "ARCHIVE"
+	          ? t("ui.确认归档", "确认归档")
+	          : confirm.action === "RESTORE"
+	            ? t("ui.确认恢复", "确认恢复")
+	            : confirm.nextStatus === "FROZEN" ? t("ui.确认冻结", "确认冻结") : t("ui.确认解冻", "确认解冻")}
+	        danger={confirm.action === "ARCHIVE" || confirm.nextStatus === "FROZEN"}
+	        onConfirm={doLifecycleAction}
+	        onCancel={() => setConfirm({ open: false })}
+	      />
     </div>
   );
 }

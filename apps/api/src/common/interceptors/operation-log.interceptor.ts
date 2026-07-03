@@ -76,12 +76,14 @@ const LOG_RULES: LogRule[] = [
   },
   // 用户权限/状态修改
   {
-    pathPattern: /^\/api\/system\/users\/\d+\/(role|status|password)/,
+    pathPattern: /^\/api\/(?:system\/users|users)\/\d+\/(roles?|role-visibility|status|password|archive|restore)/,
     methods: ['PUT', 'PATCH'],
     bizType: 'PERMISSION',
     actionFn: (method, path) => {
-      if (path.includes('/role'))     return 'MODIFY_ROLE';
-      if (path.includes('/status'))   return 'MODIFY_STATUS';
+      if (path.includes('/archive')) return 'ARCHIVE_USER';
+      if (path.includes('/restore')) return 'RESTORE_USER';
+      if (path.includes('/role')) return 'MODIFY_ROLE';
+      if (path.includes('/status')) return 'MODIFY_STATUS';
       if (path.includes('/password')) return 'MODIFY_PASSWORD';
       return 'MODIFY';
     },

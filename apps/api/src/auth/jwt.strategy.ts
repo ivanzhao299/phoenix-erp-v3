@@ -18,12 +18,6 @@ export interface JwtPayload {
   exp: number;
 }
 
-// 缓存 sys_user.perms_version：30 秒 TTL，避免每个请求都打 DB
-// 用户修改权限后最多 30 秒延迟即被检测到（DB 触发器已实时 bump 版本号）
-interface VersionCacheEntry { version: number; expiresAt: number }
-const versionCache = new Map<number, VersionCacheEntry>();
-const VERSION_TTL_MS = 30_000;
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -72,7 +66,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   /**
    * Passport 自动校验签名与过期后调用
    * 增加 perms_version 对账：JWT 携带的版本若落后于 DB 当前版本 → 401 强制重登
-   * 缓存 30 秒，避免每个请求都打 DB
+   * 同时核对 sys_user.status：冻结/归档用户的既有 token 立即失效。
    */
   async validate(payload: any) {
     const userId = Number(payload.sub || payload.userId);
@@ -80,30 +74,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException({ statusCode: 401, subcode: 'INVALID_TOKEN', message: '登录凭证无效' });
     }
 
-    // perms_version 对账（只在 JWT 携带该字段时执行；老 token 兼容跳过）
-    if (typeof payload.perms_version === 'number') {
-      const now = Date.now();
-      const cached = versionCache.get(userId);
-      let currentVersion: number;
-      if (cached && cached.expiresAt > now) {
-        currentVersion = cached.version;
-      } else {
-        try {
-          const rows: Array<{ perms_version: string | number }> = await this.em.query(
-            'SELECT perms_version FROM sys_user WHERE user_id = $1 LIMIT 1',
-            [userId],
-          );
-          currentVersion = Number(rows[0]?.perms_version ?? 1);
-          versionCache.set(userId, { version: currentVersion, expiresAt: now + VERSION_TTL_MS });
-        } catch (e: any) {
-          // 表不存在 / 列缺失 → 跳过对账（向前兼容未升级的库）
-          console.warn('[JWT][WARN] perms_version check skipped:', e?.message);
-          currentVersion = payload.perms_version;
-        }
+    try {
+      const rows: Array<{ perms_version: string | number; status: string | number }> = await this.em.query(
+        'SELECT perms_version, status FROM sys_user WHERE user_id = $1 LIMIT 1',
+        [userId],
+      );
+      const current = rows[0];
+      if (!current) {
+        throw new UnauthorizedException({ statusCode: 401, subcode: 'USER_NOT_FOUND', message: '账号不存在或已失效' });
       }
-      if (currentVersion > payload.perms_version) {
+      if (Number(current.status) !== 1) {
+        throw new UnauthorizedException({ statusCode: 401, subcode: 'USER_DISABLED', message: '账号已冻结或归档' });
+      }
+      if (typeof payload.perms_version === 'number' && Number(current.perms_version ?? 1) > payload.perms_version) {
         throw new UnauthorizedException({ statusCode: 401, subcode: 'PERMS_CHANGED', message: '权限刚刚更新，请重新登录' });
       }
+    } catch (e: any) {
+      if (e instanceof UnauthorizedException) throw e;
+      console.warn('[JWT][WARN] account status/version check skipped:', e?.message);
     }
 
     return {
@@ -125,5 +113,5 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
 /** 测试钩子：清缓存 */
 export function __resetJwtVersionCache() {
-  versionCache.clear();
+  return undefined;
 }

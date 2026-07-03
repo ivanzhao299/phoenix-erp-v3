@@ -7,7 +7,7 @@ import { Panel } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
-import { Users, Shield, Key, Lock, Unlock, Building2, Eye } from "lucide-react";
+import { Users, Shield, Key, Lock, Unlock, Building2, Eye, Archive, RotateCcw } from "lucide-react";
 import { enterImpersonation } from "@/lib/impersonate";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
@@ -32,7 +32,11 @@ interface UserRecord {
   status: string;
   user_type?: string;
   roles_detail?: UserRole[];
+  archived_at?: string | null;
+  archive_reason?: string | null;
 }
+
+type LifecycleAction = "STATUS" | "ARCHIVE" | "RESTORE";
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -47,7 +51,7 @@ export default function UserDetailPage() {
   const [allRoles, setAllRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [confirm, setConfirm] = useState<{ open: boolean; nextStatus?: string }>({ open: false });
+  const [confirm, setConfirm] = useState<{ open: boolean; nextStatus?: string; action?: LifecycleAction }>({ open: false });
   const [sodConflicts, setSodConflicts] = useState<Array<{menu_a: string; menu_b: string; reason_zh: string; severity: string}>>([]);
   const [showSodConfirm, setShowSodConfirm] = useState(false);
   const [showImpersonateConfirm, setShowImpersonateConfirm] = useState(false);
@@ -200,14 +204,24 @@ export default function UserDetailPage() {
     catch (e: any) { toast.error(t("ui.影子登录失败", "影子登录失败") + ": " + (e.message || String(e))); }
   };
 
-  // ── 冻结 / 解冻 ──────────────────────────────────────────────────────────────
-  const doToggleStatus = async () => {
+  // ── 冻结 / 解冻 / 归档 / 恢复归档 ───────────────────────────────────────────
+  const doLifecycleAction = async () => {
     if (!user) return;
-    const nextStatus = confirm.nextStatus;
+    const { nextStatus, action } = confirm;
     setConfirm({ open: false });
-    const res = await API(`/${user.id}/status`, { method: "PUT", body: JSON.stringify({ status: nextStatus }) });
+    const endpoint = action === "ARCHIVE" ? `/${user.id}/archive`
+      : action === "RESTORE" ? `/${user.id}/restore`
+        : `/${user.id}/status`;
+    const payload = action === "ARCHIVE"
+      ? { reason: t("ui.管理员手工归档", "管理员手工归档") }
+      : { status: nextStatus };
+    const res = await API(endpoint, { method: "PUT", body: JSON.stringify(payload) });
     if (res.code === 200) {
-      toast.success(nextStatus === "FROZEN" ? t("ui.已冻结", "已冻结") : t("ui.已解冻", "已解冻"));
+      toast.success(action === "ARCHIVE"
+        ? t("ui.已归档", "已归档")
+        : action === "RESTORE"
+          ? t("ui.已恢复至冻结态", "已恢复至冻结态")
+          : nextStatus === "FROZEN" ? t("ui.已冻结", "已冻结") : t("ui.已解冻", "已解冻"));
       await loadData();
     } else toast.error(res.msg);
   };
@@ -215,8 +229,21 @@ export default function UserDetailPage() {
   const handleToggle = () => {
     if (!user) return;
     if (user.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    if (user.status === "ARCHIVED") { toast.error(t("ui.归档用户需先恢复", "归档用户需先恢复")); return; }
     const nextStatus = user.status === "ACTIVE" ? "FROZEN" : "ACTIVE";
-    setConfirm({ open: true, nextStatus });
+    setConfirm({ open: true, nextStatus, action: "STATUS" });
+  };
+
+  const handleArchive = () => {
+    if (!user) return;
+    if (user.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    setConfirm({ open: true, nextStatus: "ARCHIVED", action: "ARCHIVE" });
+  };
+
+  const handleRestore = () => {
+    if (!user) return;
+    if (user.username === "admin") { toast.error(t("ui.管理员账号不可操作", "管理员账号不可操作")); return; }
+    setConfirm({ open: true, nextStatus: "FROZEN", action: "RESTORE" });
   };
 
   // ── Loading / not found ───────────────────────────────────────────────────────
@@ -252,9 +279,10 @@ export default function UserDetailPage() {
   }
 
   const isAdmin = user.username === "admin";
+  const isArchived = user.status === "ARCHIVED";
   const primaryRole = (user.roles_detail || []).find(r => r.is_primary)
     ?? [...(user.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level)[0];
-  const editable = canEdit && !isAdmin;
+  const editable = canEdit && !isAdmin && !isArchived;
 
   // ── Tabs ──────────────────────────────────────────────────────────────────────
   const basicTab = (
@@ -321,9 +349,9 @@ export default function UserDetailPage() {
     <Panel title={t("ui.组织与数据范围", "组织与数据范围（决定可见数据范围）")} icon={<Building2 size={14}/>}>
       <UserOrgBindingPanel
         userId={user.id}
-        canCreate={canCreate}
-        canEdit={canEdit}
-        canDelete={canEdit}
+        canCreate={canCreate && !isArchived}
+        canEdit={editable}
+        canDelete={editable}
       />
     </Panel>
   );
@@ -347,7 +375,9 @@ export default function UserDetailPage() {
     </Panel>
   );
 
-  const statusBadge = (
+  const statusBadge = user.status === "ARCHIVED" ? (
+    <span style={inlineBadge("warning")}>{t("ui.已归档", "已归档")}</span>
+  ) : (
     <span style={inlineBadge(user.status === "ACTIVE" ? "success" : "danger")}>
       {user.status === "ACTIVE" ? t("status.normal", "在职") : t("ui.已冻结", "冻结")}
     </span>
@@ -366,13 +396,23 @@ export default function UserDetailPage() {
           <Eye size={12}/>{t("ui.以其身份查看", "以其身份查看")}
         </button>
       )}
-      {!isAdmin && (
-        <button type="button" onClick={handleToggle}
-          className={`${s.btnSm} ${user.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
-          {user.status === "ACTIVE"
-            ? <><Lock size={12}/>{t("ui.冻结", "冻结")}</>
-            : <><Unlock size={12}/>{t("ui.解冻", "解冻")}</>}
+      {!isAdmin && user.status === "ARCHIVED" && (
+        <button type="button" onClick={handleRestore} className={`${s.btnSm} ${s.btnSecondary}`}>
+          <RotateCcw size={12}/>{t("ui.恢复归档", "恢复归档")}
         </button>
+      )}
+      {!isAdmin && user.status !== "ARCHIVED" && (
+        <>
+          <button type="button" onClick={handleToggle}
+            className={`${s.btnSm} ${user.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
+            {user.status === "ACTIVE"
+              ? <><Lock size={12}/>{t("ui.冻结", "冻结")}</>
+              : <><Unlock size={12}/>{t("ui.解冻", "解冻")}</>}
+          </button>
+          <button type="button" onClick={handleArchive} className={`${s.btnSm} ${s.btnSecondary}`}>
+            <Archive size={12}/>{t("ui.归档", "归档")}
+          </button>
+        </>
       )}
       {isAdmin && (
         <span style={inlineBadge("warning")}>{t("ui.超管保护", "超管保护")}</span>
@@ -402,11 +442,23 @@ export default function UserDetailPage() {
 
       <ConfirmDialog
         open={confirm.open}
-        title={confirm.nextStatus === "FROZEN" ? t("ui.冻结用户", "冻结用户") : t("ui.解冻用户", "解冻用户")}
-        message={`${t("common.confirm", "确认")}${confirm.nextStatus === "FROZEN" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}${t("ui.用户", "用户")} ${user.real_name_zh}？`}
-        confirmLabel={confirm.nextStatus === "FROZEN" ? t("ui.确认冻结", "确认冻结") : t("ui.确认解冻", "确认解冻")}
-        danger={confirm.nextStatus === "FROZEN"}
-        onConfirm={doToggleStatus}
+        title={confirm.action === "ARCHIVE"
+          ? t("ui.归档用户", "归档用户")
+          : confirm.action === "RESTORE"
+            ? t("ui.恢复归档用户", "恢复归档用户")
+            : confirm.nextStatus === "FROZEN" ? t("ui.冻结用户", "冻结用户") : t("ui.解冻用户", "解冻用户")}
+        message={confirm.action === "ARCHIVE"
+          ? `${t("common.confirm", "确认")}${t("ui.归档", "归档")}${t("ui.用户", "用户")} ${user.real_name_zh}？${t("ui.归档后默认不在日常列表显示且不能登录", "归档后默认不在日常列表显示且不能登录。")}`
+          : confirm.action === "RESTORE"
+            ? `${t("common.confirm", "确认")}${t("ui.恢复", "恢复")}${t("ui.用户", "用户")} ${user.real_name_zh}？${t("ui.恢复后进入冻结态需再次解冻才可登录", "恢复后进入冻结态，需再次解冻才可登录。")}`
+            : `${t("common.confirm", "确认")}${confirm.nextStatus === "FROZEN" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}${t("ui.用户", "用户")} ${user.real_name_zh}？`}
+        confirmLabel={confirm.action === "ARCHIVE"
+          ? t("ui.确认归档", "确认归档")
+          : confirm.action === "RESTORE"
+            ? t("ui.确认恢复", "确认恢复")
+            : confirm.nextStatus === "FROZEN" ? t("ui.确认冻结", "确认冻结") : t("ui.确认解冻", "确认解冻")}
+        danger={confirm.action === "ARCHIVE" || confirm.nextStatus === "FROZEN"}
+        onConfirm={doLifecycleAction}
         onCancel={() => setConfirm({ open: false })}
       />
 

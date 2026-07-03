@@ -452,15 +452,97 @@ export class DashboardBffController {
 export class UsersBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
+  private userStatusLabel(status: any): string {
+    const n = Number(status);
+    if (n === 1) return 'ACTIVE';
+    if (n === -1) return 'ARCHIVED';
+    return 'FROZEN';
+  }
+
+  private parseUserStatus(status: any): number | null {
+    const s = String(status || '').toUpperCase();
+    if (s === 'ACTIVE') return 1;
+    if (s === 'FROZEN' || s === 'INACTIVE') return 0;
+    if (s === 'ARCHIVED') return -1;
+    return null;
+  }
+
+  private async validateUserLifecycleChange(
+    userId: string,
+    actorUserId: number | undefined,
+    nextStatus: number,
+    action: 'status' | 'archive' | 'restore',
+  ): Promise<{ ok: true; user: any } | { ok: false; code: number; msg: string }> {
+    const rows = await this.em.query(
+      `SELECT u.user_id, u.username, u.real_name, u.status
+         FROM sys_user u
+        WHERE u.user_id = $1
+        LIMIT 1`,
+      [userId],
+    );
+    const user = rows[0];
+    if (!user) return { ok: false, code: 404, msg: '用户不存在' };
+
+    if (String(user.username).toLowerCase() === 'admin') {
+      return { ok: false, code: 409, msg: '系统特权总控账号不可冻结、归档或恢复' };
+    }
+
+    if (actorUserId && Number(user.user_id) === Number(actorUserId) && nextStatus !== 1) {
+      return { ok: false, code: 409, msg: '不能冻结或归档当前登录账号' };
+    }
+
+    if (action === 'status' && Number(user.status) === -1) {
+      return { ok: false, code: 409, msg: '归档用户不能直接启用或冻结，请先执行恢复归档' };
+    }
+
+    if (nextStatus !== 1) {
+      const roleRows = await this.em.query(
+        `SELECT 1
+           FROM sys_user_role ur
+           JOIN sys_role r ON r.role_id = ur.role_id
+          WHERE ur.user_id = $1
+            AND r.role_code = 'ROLE_ADMIN'
+            AND COALESCE(ur.is_visible, true) = true
+          LIMIT 1`,
+        [userId],
+      );
+      if (roleRows[0]) {
+        const adminRows = await this.em.query(
+          `SELECT COUNT(DISTINCT u.user_id)::int AS c
+             FROM sys_user u
+             JOIN sys_user_role ur ON ur.user_id = u.user_id
+             JOIN sys_role r ON r.role_id = ur.role_id
+            WHERE u.status = 1
+              AND r.role_code = 'ROLE_ADMIN'
+              AND COALESCE(ur.is_visible, true) = true
+              AND u.user_id <> $1`,
+          [userId],
+        );
+        if (Number(adminRows[0]?.c || 0) < 1) {
+          return { ok: false, code: 409, msg: '不能冻结或归档最后一个有效管理员账号' };
+        }
+      }
+    }
+
+    return { ok: true, user };
+  }
+
+  private async ensureUserEditable(userId: string): Promise<{ ok: true } | { ok: false; code: number; msg: string }> {
+    const rows = await this.em.query(`SELECT status FROM sys_user WHERE user_id=$1 LIMIT 1`, [userId]);
+    if (!rows[0]) return { ok: false, code: 404, msg: '用户不存在' };
+    if (Number(rows[0].status) === -1) return { ok: false, code: 409, msg: '归档用户不可编辑，请先恢复归档' };
+    return { ok: true };
+  }
+
   /** GET /api/users — 用户列表（含所有角色信息）*/
   @Get()
   async getUsers() {
     try {
-      const data = await this.em.query(
-        `SELECT
-           u.user_id AS id, u.username, u.real_name AS real_name_zh, u.store_code,
-           CASE WHEN u.status = 1 THEN 'ACTIVE' ELSE 'FROZEN' END AS status,
-           u.locale, u.email, u.phone,
+	      const data = await this.em.query(
+	        `SELECT
+	           u.user_id AS id, u.username, u.real_name AS real_name_zh, u.store_code,
+	           CASE WHEN u.status = 1 THEN 'ACTIVE' WHEN u.status = -1 THEN 'ARCHIVED' ELSE 'FROZEN' END AS status,
+	           u.locale, u.email, u.phone, u.archived_at, u.archive_reason, u.archived_by,
            -- 主组织 id（FIX 2026-06-04: sys_user 表无 org_id 列；通过 sys_user_orgs 取主组织）
            (SELECT uo.org_id FROM sys_user_orgs uo
               WHERE uo.user_id = u.user_id AND uo.is_primary = true LIMIT 1) AS org_id,
@@ -551,9 +633,11 @@ export class UsersBffController {
   /** PUT /api/users/:id — 更新基本信息（含组织绑定 org_bindings）*/
   @Put(':id')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async updateUser(@Param('id') id: string, @Body() body: any) {
-    try {
-      const fields: string[] = [];
+	  async updateUser(@Param('id') id: string, @Body() body: any) {
+	    try {
+	      const editable = await this.ensureUserEditable(id);
+	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
+	      const fields: string[] = [];
       const params: any[] = [];
       let idx = 1;
       if (body.real_name_zh !== undefined) { fields.push(`real_name=$${idx++}`);  params.push(body.real_name_zh); }
@@ -603,24 +687,78 @@ export class UsersBffController {
   /** PUT /api/users/:id/status — 启用/冻结 */
   @Put(':id/status')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async setStatus(@Param('id') id: string, @Body() body: any) {
+  async setStatus(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     try {
-      const s = String(body?.status || '').toUpperCase();
-      const statusInt = s === 'ACTIVE' ? 1 : s === 'FROZEN' || s === 'INACTIVE' ? 0 : null;
-      if (statusInt === null) return { code: 400, msg: '无效状态 (ACTIVE/FROZEN)' };
-      await this.em.query(`UPDATE sys_user SET status=$1, updated_at=now() WHERE user_id=$2`, [statusInt, id]);
-      return { code: 200, msg: '状态已更新' };
+      const statusInt = this.parseUserStatus(body?.status);
+      if (statusInt === null || statusInt === -1) return { code: 400, msg: '无效状态 (ACTIVE/FROZEN)' };
+      const validation = await this.validateUserLifecycleChange(id, req?.user?.userId, statusInt, 'status');
+      if (!validation.ok) return { code: validation.code, msg: validation.msg };
+      await this.em.query(
+        `UPDATE sys_user
+            SET status=$1,
+                perms_version=COALESCE(perms_version,0)+1,
+                updated_at=now()
+          WHERE user_id=$2`,
+        [statusInt, id],
+      );
+      return { code: 200, msg: '状态已更新', data: { id, status: this.userStatusLabel(statusInt) } };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/archive — 归档用户（保留历史引用，不物理删除） */
+  @Put(':id/archive')
+  @RequireMenu('MENU_SETTINGS_USER', 'D')
+  async archiveUser(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    try {
+      const validation = await this.validateUserLifecycleChange(id, req?.user?.userId, -1, 'archive');
+      if (!validation.ok) return { code: validation.code, msg: validation.msg };
+      await this.em.query(
+        `UPDATE sys_user
+            SET status=-1,
+                archived_at=now(),
+                archived_by=$2,
+                archive_reason=NULLIF($3, ''),
+                perms_version=COALESCE(perms_version,0)+1,
+                updated_at=now()
+          WHERE user_id=$1`,
+        [id, req?.user?.userId || null, String(body?.reason || '').trim()],
+      );
+      return { code: 200, msg: '用户已归档', data: { id, status: 'ARCHIVED' } };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/restore — 恢复归档到冻结态，需再人工启用 */
+  @Put(':id/restore')
+  @RequireMenu('MENU_SETTINGS_USER', 'E')
+  async restoreUser(@Param('id') id: string) {
+    try {
+      const rows = await this.em.query(
+        `UPDATE sys_user
+            SET status=0,
+                archived_at=NULL,
+                archived_by=NULL,
+                archive_reason=NULL,
+                perms_version=COALESCE(perms_version,0)+1,
+                updated_at=now()
+          WHERE user_id=$1 AND status=-1
+          RETURNING user_id`,
+        [id],
+      );
+      if (!rows[0]) return { code: 404, msg: '归档用户不存在或无需恢复' };
+      return { code: 200, msg: '用户已恢复至冻结态，请复核后再启用', data: { id, status: 'FROZEN' } };
     } catch (e: any) { return { code: 500, msg: e?.message }; }
   }
 
   /** PUT /api/users/:id/role — 设置主角色（保留已有副角色）*/
   @Put(':id/role')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async setRole(@Param('id') id: string, @Body() body: any) {
-    const { role } = body || {};
-    if (!role) return { code: 400, msg: 'role 必填' };
-    try {
-      const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code=$1`, [role]);
+	  async setRole(@Param('id') id: string, @Body() body: any) {
+	    const { role } = body || {};
+	    if (!role) return { code: 400, msg: 'role 必填' };
+	    try {
+	      const editable = await this.ensureUserEditable(id);
+	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
+	      const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code=$1`, [role]);
       if (!roleRow[0]) return { code: 400, msg: `角色 ${role} 不存在` };
       const roleId = roleRow[0].role_id;
       // 清除旧 primary，再设新 primary
@@ -639,12 +777,14 @@ export class UsersBffController {
   /** PUT /api/users/:id/roles — 全量设置用户角色列表（多角色）*/
   @Put(':id/roles')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async setRoles(@Param('id') id: string, @Body() body: any) {
+	  async setRoles(@Param('id') id: string, @Body() body: any) {
     // body: { roles: [{ role_code, is_primary }] }
     const { roles } = body || {};
-    if (!Array.isArray(roles)) return { code: 400, msg: 'roles 必须是数组' };
-    try {
-      // 获取角色 ID 映射
+	    if (!Array.isArray(roles)) return { code: 400, msg: 'roles 必须是数组' };
+	    try {
+	      const editable = await this.ensureUserEditable(id);
+	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
+	      // 获取角色 ID 映射
       const allRoles = await this.em.query(`SELECT role_id, role_code FROM sys_role`);
       const codeToId = new Map(allRoles.map((r: any) => [r.role_code, r.role_id]));
 
@@ -683,10 +823,12 @@ export class UsersBffController {
 	  @Put(':id/role-visibility')
 	  @RequireMenu('MENU_SETTINGS_USER', 'E')
 	  async updateRoleVisibility(@Param('id') id: string, @Body() body: any) {
-	    const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
-	    if (!Array.isArray(items)) return { code: 400, msg: 'items 必须是数组' };
-	    try {
-	      await this.em.transaction(async (mgr) => {
+		    const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
+		    if (!Array.isArray(items)) return { code: 400, msg: 'items 必须是数组' };
+		    try {
+		      const editable = await this.ensureUserEditable(id);
+		      if (!editable.ok) return { code: editable.code, msg: editable.msg };
+		      await this.em.transaction(async (mgr) => {
 	        for (const it of items) {
 	          if (typeof it?.role_code !== 'string' || typeof it?.is_visible !== 'boolean') continue;
 	          await mgr.query(
@@ -711,11 +853,13 @@ export class UsersBffController {
 	  /** PUT /api/users/:id/password — 重置密码 */
   @Put(':id/password')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async resetPassword(@Param('id') id: string, @Body() body: any) {
-    const { password } = body || {};
-    if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
-    try {
-      const bcrypt = await import('bcrypt');
+	  async resetPassword(@Param('id') id: string, @Body() body: any) {
+	    const { password } = body || {};
+	    if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
+	    try {
+	      const editable = await this.ensureUserEditable(id);
+	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
+	      const bcrypt = await import('bcrypt');
       const hash = await bcrypt.hash(password, 10);
       const res = await this.em.query(
         `UPDATE sys_user SET password_hash=$1, updated_at=now() WHERE user_id=$2 RETURNING user_id`,
