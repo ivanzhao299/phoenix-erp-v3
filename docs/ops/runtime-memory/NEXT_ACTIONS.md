@@ -54,8 +54,10 @@ Last updated: 2026-07-03
    - 修复应收/应付统计实体保真 key。
    - 拆分客户/供应商映射目标，避免 `mst_customers/mst_suppliers` 组合伪表名。
    - 为凭证、科目余额、三大报表建立只读镜像模型方案。
-3. `CHANJET_ERP_SCHEMA_ADAPTATION_PLAN` — P0 修复后再生成 ERP 端字段适配计划，不直接改 schema。
-4. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
+   - 状态: 已完成代码修复和本地验证，报告见 `docs/ops/CHANJET_FIELD_GAP_P0_REPAIR_REPORT_20260703.md`。
+3. `CHANJET_FIELD_GAP_P0_REPAIR_DEPLOY_GATE` — 部署 P0 修复后重跑只读同步，验证 envelope 降噪、统计实体保真、客户/供应商拆分是否生效。
+4. `CHANJET_ERP_SCHEMA_ADAPTATION_PLAN` — P0 修复重跑后再生成 ERP 端字段适配计划，不直接改 schema。
+5. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
 
 ## ⚠️ 2026-06-27 重大状态变更 — 已执行全量生产部署
 

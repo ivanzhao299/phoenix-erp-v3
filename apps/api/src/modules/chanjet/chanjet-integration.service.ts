@@ -827,7 +827,7 @@ export class ChanjetIntegrationService {
     let count = 0;
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
-      const normalized = this.normalizeExternalEntity(row, entityType, index);
+      const normalized = this.normalizeExternalEntity(row, entityType, index, ep.key);
       if (!normalized.externalId && !normalized.externalCode && !normalized.externalName) continue;
       const externalId = normalized.externalId || normalized.externalCode || `${ep.key}-${index + 1}`;
       await this.entitySnapshotRepo.upsert(
@@ -852,7 +852,7 @@ export class ChanjetIntegrationService {
     return count;
   }
 
-  private normalizeExternalEntity(row: Record<string, unknown>, entityType: string, index: number): {
+  private normalizeExternalEntity(row: Record<string, unknown>, entityType: string, index: number, endpointKey = ''): {
     externalId: string;
     externalCode: string;
     externalName: string;
@@ -879,7 +879,7 @@ export class ChanjetIntegrationService {
       'creditAmount',
     ]);
     return {
-      externalId: id || `${entityType}-${index + 1}`,
+      externalId: id || this.stableExternalId(row, entityType, endpointKey, index),
       externalCode: code,
       externalName: name || code || id,
       period,
@@ -899,8 +899,21 @@ export class ChanjetIntegrationService {
     riskLevel: ChanjetErpFieldMappingEntity['riskLevel'];
     analysisNote: string;
   } {
+    if (this.isApiEnvelopeField(field.fieldPath)) {
+      return {
+        erpDomain: 'api_metadata',
+        erpTable: 'chanjet_read_snapshots',
+        erpField: 'raw_payload',
+        erpType: 'jsonb',
+        transformRule: '好业财响应 envelope 字段仅作为 raw snapshot 审计元数据保存，不进入 ERP 业务字段改造。',
+        matchStatus: 'MATCHED',
+        riskLevel: 'LOW',
+        analysisNote: 'API envelope 字段，不作为 ERP 业务 schema 缺口。',
+      };
+    }
     const haystack = `${field.apiDomain} ${field.apiPath} ${field.fieldPath}`.toLowerCase();
     const normalizedName = field.fieldPath.split('.').pop()?.replace(/\[\d+\]/g, '') || field.fieldPath;
+    const counterpartyTarget = this.suggestCounterpartyTarget(haystack, normalizedName);
     const candidates: Array<{
       test: RegExp;
       erpDomain: string;
@@ -912,7 +925,7 @@ export class ChanjetIntegrationService {
     }> = [
       { test: /book(id|name)|tenant/, erpDomain: 'company', erpTable: 'chanjet_account_books', erpField: normalizedName, erpType: 'varchar/jsonb', transformRule: '账套只进入中间层，不直接覆盖公司主数据。', riskLevel: 'LOW' },
       { test: /dept|department/, erpDomain: 'organization', erpTable: 'sys_organizations', erpField: normalizedName, erpType: 'varchar', transformRule: '通过 chanjet_master_mapping(DEPARTMENT) 人工审核后映射。', riskLevel: 'MEDIUM' },
-      { test: /customer|supplier|custvendor|party|assistant/, erpDomain: 'counterparty', erpTable: 'mst_customers/mst_suppliers', erpField: normalizedName, erpType: 'varchar', transformRule: '客户/供应商生命周期不同，必须经映射表审核。', riskLevel: 'HIGH' },
+      { test: /customer|supplier|custvendor|party|assistant/, erpDomain: 'counterparty', erpTable: counterpartyTarget.table, erpField: normalizedName, erpType: 'varchar', transformRule: counterpartyTarget.rule, riskLevel: 'HIGH' },
       { test: /subject|account|glaccount/, erpDomain: 'accounting', erpTable: 'chanjet_master_mapping', erpField: normalizedName, erpType: 'varchar', transformRule: '会计科目以好业财为主，ERP 仅引用映射。', riskLevel: 'HIGH' },
       { test: /project/, erpDomain: 'project', erpTable: 'mst_projects', erpField: normalizedName, erpType: 'varchar', transformRule: '项目编码需与 ERP 项目主数据对账。', riskLevel: 'MEDIUM' },
       { test: /currency/, erpDomain: 'currency', erpTable: 'sys_dict', erpField: 'SYS_CURRENCY', erpType: 'varchar', transformRule: '统一映射到 SYS_CURRENCY。', riskLevel: 'LOW' },
@@ -948,6 +961,51 @@ export class ChanjetIntegrationService {
       analysisNote: status === 'TRANSFORM_REQUIRED'
         ? `好业财类型 ${field.sampleType} 与建议 ERP 类型 ${found.erpType} 需要转换确认。`
         : '自动识别为候选映射，需人工复核后固化。',
+    };
+  }
+
+  private stableExternalId(row: Record<string, unknown>, entityType: string, endpointKey: string, index: number): string {
+    const hash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(this.maskSensitivePayload(row)))
+      .digest('hex')
+      .slice(0, 24);
+    return `${entityType}:${endpointKey || 'UNKNOWN'}:${hash}:${index + 1}`;
+  }
+
+  private isApiEnvelopeField(fieldPath: string): boolean {
+    return /^\$\.(code|msg|success|requestId|validateResult|multiFieldErrors|msgArgs|verbose|envConfigType|nextStepEnumTypeName|data)$/i.test(fieldPath);
+  }
+
+  private suggestCounterpartyTarget(haystack: string, normalizedName: string): { table: string; rule: string } {
+    const name = normalizedName.toLowerCase();
+    if (/customer/.test(name)) {
+      return {
+        table: 'mst_customers',
+        rule: '客户字段进入客户主数据映射候选，必须经人工审核后固化。',
+      };
+    }
+    if (/supplier|vendor/.test(name)) {
+      return {
+        table: 'mst_suppliers',
+        rule: '供应商字段进入供应商主数据映射候选，必须经人工审核后固化。',
+      };
+    }
+    if (/(^|[^a-z])(supplier|payable|ap)([^a-z]|$)/.test(haystack)) {
+      return {
+        table: 'mst_suppliers',
+        rule: '供应商字段进入供应商主数据映射候选，必须经人工审核后固化。',
+      };
+    }
+    if (/(^|[^a-z])(customer|receivable|ar)([^a-z]|$)/.test(haystack)) {
+      return {
+        table: 'mst_customers',
+        rule: '客户字段进入客户主数据映射候选，必须经人工审核后固化。',
+      };
+    }
+    return {
+      table: 'chanjet_master_mapping',
+      rule: '好业财往来单位需先判断客户/供应商属性，再拆分映射到 ERP 客户或供应商主数据。',
     };
   }
 
