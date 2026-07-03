@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-03T11:34:15.862Z",
+  "generatedAt": "2026-07-03T12:54:05.013Z",
   "decision": "HOLD",
   "plan": {
     "requestedScope": [],
     "bookId": "",
     "period": "",
-    "apiBase": "http://127.0.0.1:3100",
+    "apiBase": "https://erp.eggslao.com",
     "tokenPresent": false,
     "chanjetEnv": {
       "CHANJET_APP_KEY": false,
@@ -38,8 +38,8 @@
       ]
     },
     "apiHealth": {
-      "status": "HOLD",
-      "httpStatus": 0
+      "status": "PASS",
+      "httpStatus": 200
     },
     "authToken": {
       "status": "HOLD"
@@ -58,7 +58,6 @@
     }
   },
   "blockers": [
-    "API health is not OK at http://127.0.0.1:3100/api/health (status=0).",
     "No PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN provided for protected mirror API.",
     "Chanjet configuration/token chain is not visible to this runner."
   ],

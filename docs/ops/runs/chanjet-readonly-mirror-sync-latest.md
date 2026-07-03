@@ -1,11 +1,11 @@
 # Chanjet Readonly Mirror Sync Gate
 
-Generated at: 2026-07-03T11:34:15.862Z
+Generated at: 2026-07-03T12:54:05.013Z
 Decision: HOLD
 
 ## Scope
 
-- API base: http://127.0.0.1:3100
+- API base: https://erp.eggslao.com
 - Dry run: yes
 - Requested scope: default mirror scope
 - Book ID: enabled books
@@ -15,7 +15,7 @@ Decision: HOLD
 
 - DB reachable: PASS
 - Mirror tables present: PASS
-- API health: HOLD
+- API health: PASS
 - Auth token present: HOLD
 - Chanjet env present: HOLD
 
@@ -30,7 +30,6 @@ Decision: HOLD
 
 ## Blocking Reasons
 
-- API health is not OK at http://127.0.0.1:3100/api/health (status=0).
 - No PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN provided for protected mirror API.
 - Chanjet configuration/token chain is not visible to this runner.
 

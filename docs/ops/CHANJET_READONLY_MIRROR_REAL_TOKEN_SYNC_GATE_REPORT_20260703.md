@@ -4,6 +4,8 @@
 阶段：CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE
 结论：HOLD
 
+Latest refresh: 2026-07-03 20:54 CST
+
 ## 1. 本轮目标
 
 在 Phase 1 已完成的好业财只读镜像中间层基础上，尝试进入真实 token 环境同步 Gate：
@@ -76,17 +78,23 @@
 
 Gate runner dry-run 结果为 HOLD：
 
-1. 本地 API 未运行或 `/api/health` 不可访问：
-   - `http://127.0.0.1:3100/api/health`
+1. 生产 API health 已可访问：
+   - `https://erp.eggslao.com/api/health`
+   - latest dry-run result: PASS
 
-2. 当前运行环境没有受控 API token：
+2. ERP 只读镜像中间层表已存在：
+   - `chanjet_read_snapshots`
+   - `chanjet_entity_snapshots`
+   - `chanjet_erp_field_mapping`
+
+3. 当前运行环境没有受控 API token：
    - 未发现 `PHOENIX_ADMIN_TOKEN`
    - 未发现 `PHOENIX_AUTH_TOKEN`
 
-3. 当前 worktree 未发现好业财本地配置：
+4. 当前 worktree 未发现好业财本地配置：
    - 未发现 `.env` / `apps/api/.env` 中的可用好业财鉴权链。
 
-4. 本地 DB 还缺历史 `sys_chanjet_state` 表，说明本地库不是完整迁移状态。未自动补历史迁移，避免扩大本轮 Gate 范围。
+5. 真实同步仍必须通过 ERP 受保护 API 执行，不允许绕过后端鉴权直接拼接好业财调用。
 
 ## 6. 是否执行真实同步
 
@@ -96,15 +104,16 @@ Gate runner dry-run 结果为 HOLD：
 
 - 无 API token。
 - 无可见好业财鉴权链。
-- 本地 API 未运行。
+- 生产 API health 虽已 PASS，但 `/api/chanjet/integration/mirror/sync` 是受保护接口，不能无 token 执行。
 
 本轮没有伪造快照，没有伪造字段结果，没有向好业财发起写请求。
 
 ## 7. 验证结果
 
 - `node --check scripts/ops/chanjet-readonly-mirror-sync.mjs`：PASS
-- `node scripts/ops/chanjet-readonly-mirror-sync.mjs --dry-run --output-dir docs/ops/runs`：HOLD，符合 fail-closed 预期
+- `node scripts/ops/chanjet-readonly-mirror-sync.mjs --dry-run --api-base https://erp.eggslao.com --output-dir docs/ops/runs`：HOLD，符合 fail-closed 预期
 - ERP 中间层表存在性：PASS
+- Production API health：PASS
 
 ## 8. 下一步
 
@@ -115,7 +124,7 @@ Gate runner dry-run 结果为 HOLD：
 前置条件：
 
 1. 在已部署或本地可登录 API 环境提供 `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN`。
-2. API `/api/health` 可访问。
+2. API `/api/health` 可访问。当前生产 API health 已 PASS。
 3. 运行环境具备好业财 `appTicket / certificate / openToken` 链路。
 4. 确认执行命令只调用：
    - `POST /api/chanjet/integration/mirror/sync`

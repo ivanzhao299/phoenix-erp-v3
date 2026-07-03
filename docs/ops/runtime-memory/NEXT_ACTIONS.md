@@ -36,13 +36,15 @@ Last updated: 2026-07-03
 
 HOLD 原因:
 
-1. 当前本地 API `http://127.0.0.1:3100/api/health` 不可访问。
-2. 当前环境没有 `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN`。
-3. 当前 worktree 未发现可见好业财鉴权链。
+1. 生产 API `https://erp.eggslao.com/api/health` 已可访问，latest dry-run 为 PASS。
+2. ERP 只读镜像中间层表已存在。
+3. 当前执行环境没有 `PHOENIX_ADMIN_TOKEN` / `PHOENIX_AUTH_TOKEN`。
+4. 当前 worktree 未发现可见好业财鉴权链。
+5. `/api/chanjet/integration/mirror/sync` 是受保护接口，必须通过有效 ERP Bearer token 执行，不允许绕过后端鉴权直接调用好业财。
 
 下一步:
 
-1. `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN` — 在具备有效 API token 和好业财 token 链的运行环境执行只读镜像同步。
+1. `CHANJET_READONLY_MIRROR_EXECUTE_WITH_RUNTIME_TOKEN` — 在具备有效 ERP API token 和好业财 token 链的运行环境执行只读镜像同步。
 2. `CHANJET_FIELD_GAP_REVIEW_GATE` — 同步完成后审查字段差异。
 3. `CHANJET_WRITE_BACK_HOLD` — 继续禁止写好业财，直到用户另行批准写回 Gate。
 
