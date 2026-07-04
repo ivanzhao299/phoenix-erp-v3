@@ -257,7 +257,40 @@ interface OverviewData {
     companyCode: string;
     cashBalance: number;
   }[];
+  sourceAuthority?: {
+    apOpen: string;
+    arOpen: string;
+    cashBalance: string;
+    shareholderBalance: string;
+    expensePending: string;
+    reimbursementPending: string;
+  };
+  chanjetAlignment?: {
+    coverageRate: number;
+    metrics: {
+      apOpen: { source: string; authoritativeValue: number; erpValue: number; diff: number; covered: boolean; latestPeriod: string | null };
+      arOpen: { source: string; authoritativeValue: number; erpValue: number; diff: number; covered: boolean; latestPeriod: string | null };
+    };
+    guardrail: string;
+  };
 }
+
+function sourceLabel(source?: string) {
+  if (!source) return '';
+  if (source.startsWith('CHANJET')) return '好业财口径';
+  if (source === 'ERP_FALLBACK') return 'ERP回退';
+  return source.replace(/_/g, ' ');
+}
+
+function chanjetSub(data: OverviewData, key: 'arOpen' | 'apOpen') {
+  const metric = data.chanjetAlignment?.metrics?.[key];
+  const source = data.sourceAuthority?.[key];
+  if (!metric) return sourceLabel(source);
+  const diff = metric.covered ? `差异 ${fmt(metric.diff)}` : '待同步好业财镜像';
+  const period = metric.latestPeriod ? ` · 期间 ${metric.latestPeriod}` : '';
+  return `${sourceLabel(source)} · ${diff}${period}`;
+}
+
 function OverviewTab() {
   const { t } = useLanguage();
   const [data, setData] = useState<OverviewData | null>(null);
@@ -329,11 +362,17 @@ function OverviewTab() {
       marginBottom: 20
     }}>
         <KpiCard label={t('fin2.reports.cash_account_balance','现金账户余额')} value={cashRows.length > 0 ? renderCcyRows(cashRows, 16) : fmtMoney(data.cashBalance)} icon={Wallet} color="var(--color-primary)" />
-        <KpiCard label={t('fin2.reports.ar_open','应收待收款')} value={fmtMoney(data.arOpen)} icon={TrendingUp} color="var(--status-success)" />
-        <KpiCard label={t('fin2.reports.ap_open','应付待付款')} value={fmtMoney(data.apOpen)} icon={TrendingDown} color="var(--status-warning)" />
+        <KpiCard label={t('fin2.reports.ar_open','应收待收款')} value={fmtMoney(data.arOpen)} sub={chanjetSub(data, 'arOpen')} icon={TrendingUp} color="var(--status-success)" />
+        <KpiCard label={t('fin2.reports.ap_open','应付待付款')} value={fmtMoney(data.apOpen)} sub={chanjetSub(data, 'apOpen')} icon={TrendingDown} color="var(--status-warning)" />
         <KpiCard label={t('fin2.reports.shareholder_balance','股东资金余额')} value={fmtMoney(data.shareholderBalance)} icon={Users} color="var(--status-info)" />
         <KpiCard label={t('fin2.reports.expense_pending','费用待审批')} value={`${data.expensePendingCount} ${t('fin2.common.count_unit','笔')}`} sub={fmtMoney(data.expensePendingAmount)} icon={Receipt} color="var(--color-primary)" />
         <KpiCard label={t('fin2.reports.reimb_pending','报销待处理')} value={`${data.reimbursementPendingCount} ${t('fin2.common.count_unit','笔')}`} sub={fmtMoney(data.reimbursementPendingAmount)} icon={ArrowLeftRight} color="var(--color-accent)" />
+      </div>
+
+      <div style={{ ...inlineAlert('info'), marginBottom: 16 }}>
+        <strong>财务数字来源：</strong>
+        应收/应付优先采用好业财只读镜像；未覆盖项明确显示 ERP 回退。当前好业财覆盖率：
+        {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}%。
       </div>
 
       {data.byCurrency.length > 0 && <>

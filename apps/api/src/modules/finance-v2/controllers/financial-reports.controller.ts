@@ -53,6 +53,16 @@ export class FinancialReportsController {
     return this.reportsSvc.getOverview(this.scopedUser);
   }
 
+  /**
+   * GET /api/v2/finance/reports/chanjet-alignment
+   * 财务卡片与好业财只读镜像的口径对齐状态。
+   */
+  @Get('chanjet-alignment')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
+  getChanjetAlignment() {
+    return this.reportsSvc.getChanjetAlignment(this.scopedUser);
+  }
+
   // ── 2. AP 账龄 ────────────────────────────────────────────────────────────
 
   /**
