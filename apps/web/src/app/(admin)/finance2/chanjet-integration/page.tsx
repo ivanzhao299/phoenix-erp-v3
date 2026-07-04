@@ -246,6 +246,24 @@ interface FinanceReadonlyCoverage {
 }
 
 type FinanceRuntimeReconciliationStatus = 'OK' | 'WARN' | 'MISMATCH' | 'HOLD' | 'NEED_MAPPING' | 'NEED_MANUAL_REVIEW';
+type FinanceSemanticLockStatus = 'LOCKED' | 'PARTIAL' | 'PENDING' | 'HOLD';
+
+interface FinanceSemanticLock {
+  key: string;
+  label: string;
+  status: FinanceSemanticLockStatus;
+  authorityEligible: boolean;
+  chanjetEntityTypes: string[];
+  lockedFields: string[];
+  pendingFields: string[];
+  dateRule: string;
+  amountRule: string;
+  statusRule: string;
+  erpComparisonRule: string;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  reason: string;
+  nextAction: string;
+}
 
 interface FinanceRuntimeReconciliationItem {
   key: string;
@@ -267,6 +285,7 @@ interface FinanceRuntimeReconciliationItem {
   };
   reason: string;
   recommendedAction: string;
+  semanticLock: FinanceSemanticLock;
 }
 
 interface FinanceRuntimeReconciliation {
@@ -281,6 +300,10 @@ interface FinanceRuntimeReconciliation {
     needManualReview: number;
     hold: number;
     p0Open: number;
+    semanticLocked: number;
+    semanticPartial: number;
+    semanticPending: number;
+    authorityEligible: number;
     nextGate: string;
   };
   items: FinanceRuntimeReconciliationItem[];
@@ -330,9 +353,9 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 }
 
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
-  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY'].includes(status)) return 'green';
+  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW'].includes(status)) return 'amber';
+  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW'].includes(status)) return 'amber';
   return 'muted';
 }
 
@@ -898,6 +921,13 @@ export default function ChanjetIntegrationPage() {
               <div style={{ fontSize: 28, fontWeight: 800 }}>{financeRuntimeRecon?.summary?.needManualReview ?? 0}</div>
               <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>日期 / 审核状态口径待锁定</div>
             </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>语义锁进度</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeRuntimeRecon?.summary?.semanticPartial ?? 0}/{financeRuntimeRecon?.summary?.totalItems ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                可作权威候选 {financeRuntimeRecon?.summary?.authorityEligible ?? 0} · 待锁 {financeRuntimeRecon?.summary?.semanticPending ?? 0}
+              </div>
+            </div>
           </div>
 
           <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
@@ -914,7 +944,7 @@ export default function ChanjetIntegrationPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ ...tableStyle, minWidth: 1120 }}>
               <thead>
-                <tr>{['口径', '状态', '好业财值', 'ERP 辅助值', '差异', '证据', '下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+                <tr>{['口径', '状态', '语义锁', '好业财值', 'ERP 辅助值', '差异', '证据', '下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {(financeRuntimeRecon?.items || []).map((item) => (
@@ -928,6 +958,17 @@ export default function ChanjetIntegrationPage() {
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{item.chanjetEndpointKeys.join(' / ')}</div>
                     </td>
                     <td style={cellStyle}><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
+                    <td style={cellStyle}>
+                      <Badge tone={statusTone(item.semanticLock?.status)}>{item.semanticLock?.status || 'PENDING'}</Badge>
+                      <div style={{ marginTop: 6 }}>
+                        <Badge tone={item.semanticLock?.authorityEligible ? 'green' : 'amber'}>
+                          {item.semanticLock?.authorityEligible ? '可作权威候选' : '不可作权威值'}
+                        </Badge>
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
+                        待锁: {(item.semanticLock?.pendingFields || []).slice(0, 4).join(' / ') || '—'}
+                      </div>
+                    </td>
                     <td style={{ ...cellStyle, fontWeight: 800 }}>{fmtMoney(item.chanjetValue)}</td>
                     <td style={cellStyle}>
                       <div style={{ fontWeight: 700 }}>{fmtMoney(item.erpValue)}</div>
@@ -945,10 +986,11 @@ export default function ChanjetIntegrationPage() {
                     <td style={cellStyle}>
                       <div>{item.recommendedAction}</div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.reason}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.semanticLock?.nextAction}</div>
                     </td>
                   </tr>
                 ))}
-                {!financeRuntimeRecon?.items?.length && <tr><td style={cellStyle} colSpan={7}>暂无运行时财务对账数据。</td></tr>}
+                {!financeRuntimeRecon?.items?.length && <tr><td style={cellStyle} colSpan={8}>暂无运行时财务对账数据。</td></tr>}
               </tbody>
             </table>
           </div>

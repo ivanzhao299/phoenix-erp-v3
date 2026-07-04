@@ -687,6 +687,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-semantic-locks
+   * 好业财财务字段语义锁。只读 ERP 中间层，不调用好业财写接口，不覆盖 ERP 业务表。
+   */
+  @Get('integration/finance-semantic-locks')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceSemanticLocks() {
+    try {
+      const semanticLocks = await this.integration.financeSemanticLocksOverview();
+      return { success: true, semanticLocks };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

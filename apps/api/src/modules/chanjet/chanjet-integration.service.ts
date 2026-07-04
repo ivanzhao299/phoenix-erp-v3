@@ -71,6 +71,24 @@ interface MasterDataAlignmentDomainDefinition {
 }
 
 export type FinanceReconciliationStatus = 'OK' | 'WARN' | 'MISMATCH' | 'HOLD' | 'NEED_MAPPING' | 'NEED_MANUAL_REVIEW';
+export type FinanceSemanticLockStatus = 'LOCKED' | 'PARTIAL' | 'PENDING' | 'HOLD';
+
+export interface FinanceSemanticLock {
+  key: string;
+  label: string;
+  status: FinanceSemanticLockStatus;
+  authorityEligible: boolean;
+  chanjetEntityTypes: string[];
+  lockedFields: string[];
+  pendingFields: string[];
+  dateRule: string;
+  amountRule: string;
+  statusRule: string;
+  erpComparisonRule: string;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  reason: string;
+  nextAction: string;
+}
 
 export interface FinanceReconciliationItem {
   key: string;
@@ -91,7 +109,171 @@ export interface FinanceReconciliationItem {
   };
   reason: string;
   recommendedAction: string;
+  semanticLock: FinanceSemanticLock;
 }
+
+const FINANCE_SEMANTIC_LOCKS: FinanceSemanticLock[] = [
+  {
+    key: 'AR_OPEN',
+    label: '应收待收',
+    status: 'PARTIAL',
+    authorityEligible: true,
+    chanjetEntityTypes: ['AR_STATISTICS'],
+    lockedFields: ['book_id', 'entity_type', 'external_id', 'external_name', 'amount', 'period', 'raw_data'],
+    pendingFields: ['counterparty_role', 'subject_direction', 'aging_bucket', 'invoice_level_fields'],
+    dateRule: '按好业财应收统计当前期间/拉取批次展示，不拆成发票到期日。',
+    amountRule: 'amount 为好业财客户/往来单位级期末余额汇总；负数保留，不写 fin_ar_invoices。',
+    statusRule: '统计类镜像无业务审批状态，仅作为财务汇总权威候选。',
+    erpComparisonRule: 'ERP fin_ar_invoices 只作辅助差异，不被好业财汇总覆盖。',
+    risk: 'HIGH',
+    reason: '好业财应收统计是汇总口径，不提供 ERP 发票级字段。',
+    nextAction: '继续主数据往来单位审核映射；卡片可标注好业财权威候选，但必须显示与 ERP 明细差异。',
+  },
+  {
+    key: 'AP_OPEN',
+    label: '应付待付',
+    status: 'PARTIAL',
+    authorityEligible: true,
+    chanjetEntityTypes: ['AP_STATISTICS'],
+    lockedFields: ['book_id', 'entity_type', 'external_id', 'external_name', 'amount', 'period', 'raw_data'],
+    pendingFields: ['counterparty_role', 'subject_direction', 'invoice_level_fields'],
+    dateRule: '按好业财应付统计当前期间/拉取批次展示，不拆成单据到期日。',
+    amountRule: 'amount 为好业财供应商/往来单位级期末余额汇总；负数保留。',
+    statusRule: '统计类镜像无业务审批状态，仅作为财务汇总权威候选。',
+    erpComparisonRule: 'ERP fin_ap_invoices 只作辅助差异，不静默覆盖。',
+    risk: 'HIGH',
+    reason: '好业财应付统计是汇总口径，与 ERP 应付单据明细不是同一粒度。',
+    nextAction: '锁定供应商/往来单位映射后进入差异拆解。',
+  },
+  {
+    key: 'CASH_BALANCE',
+    label: '现金 / 银行余额',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['CASH_ACCOUNT', 'GL_BALANCE'],
+    lockedFields: ['book_id', 'entity_type', 'external_id', 'external_code', 'external_name', 'raw_data'],
+    pendingFields: ['current_balance', 'available_balance', 'currency_balance', 'account_status'],
+    dateRule: '资金账户余额必须明确余额时点；当前只证明资金账号列表存在。',
+    amountRule: '不得把 entity amountSum=0 视作真实账户余额。',
+    statusRule: '账户启停与币种状态需从 raw_data 明确抽取。',
+    erpComparisonRule: 'ERP fin_cash_accounts.current_balance 继续作为辅助值；好业财余额字段锁定前不覆盖卡片。',
+    risk: 'CRITICAL',
+    reason: '资金账号镜像已覆盖，但余额字段未锁定；0 可能是未抽取，不是真实余额。',
+    nextAction: '从 raw snapshot 抽样确认余额字段路径，再建立 CASH_ACCOUNT_BALANCE read model。',
+  },
+  {
+    key: 'TODAY_RECEIPT',
+    label: '今日收款',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['AR_RECEIPT'],
+    lockedFields: ['book_id', 'entity_type', 'external_id', 'amount', 'raw_data'],
+    pendingFields: ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction'],
+    dateRule: '必须确认业务日、入账日、制单日、审核日哪一个用于“今日”。',
+    amountRule: '当前 amountSum 是列表累计，不等于今日实收。',
+    statusRule: '必须过滤已作废/未审核/草稿等状态后才能影响卡片。',
+    erpComparisonRule: 'ERP 今日收款继续使用本地现金流水辅助值。',
+    risk: 'CRITICAL',
+    reason: '日期和审核状态口径未锁定。',
+    nextAction: '抽样收款单 raw_data，锁定日期字段和有效状态枚举。',
+  },
+  {
+    key: 'TODAY_PAYMENT',
+    label: '今日付款',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['AP_PAYMENT'],
+    lockedFields: ['book_id', 'entity_type', 'external_id', 'amount', 'raw_data'],
+    pendingFields: ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction'],
+    dateRule: '必须确认业务日、入账日、制单日、审核日哪一个用于“今日”。',
+    amountRule: '当前 amountSum 是列表累计，不等于今日实付。',
+    statusRule: '必须过滤已作废/未审核/草稿等状态后才能影响卡片。',
+    erpComparisonRule: 'ERP 今日付款继续使用本地现金流水辅助值。',
+    risk: 'CRITICAL',
+    reason: '日期和审核状态口径未锁定。',
+    nextAction: '抽样付款单 raw_data，锁定日期字段和有效状态枚举。',
+  },
+  {
+    key: 'SUBJECT_BALANCE',
+    label: '科目余额',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['GL_BALANCE'],
+    lockedFields: ['book_id', 'entity_type', 'raw_data'],
+    pendingFields: ['subject_code', 'subject_name', 'opening_balance', 'debit_amount', 'credit_amount', 'closing_balance', 'direction'],
+    dateRule: '按账套与会计期间展示，期间字段需从 raw_data 明确确认。',
+    amountRule: '必须拆出期初、本期借方、本期贷方、期末余额；不得使用 amountSum=0。',
+    statusRule: '科目余额表无审批状态，但需要科目启用/末级状态说明。',
+    erpComparisonRule: 'ERP 无同粒度总账表时仅展示好业财只读报表，不做伪差异。',
+    risk: 'HIGH',
+    reason: '科目余额表已同步，但金额字段尚未结构化。',
+    nextAction: '建立 GL_BALANCE semantic extractor，把 P0 字段映射为只读模型。',
+  },
+  {
+    key: 'BALANCE_SHEET',
+    label: '资产负债表关键项',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['BALANCE_SHEET'],
+    lockedFields: ['book_id', 'entity_type', 'raw_data'],
+    pendingFields: ['line_no', 'item_name', 'begin_amount', 'ending_amount'],
+    dateRule: '按报表期间和账套展示，期间需显式保留。',
+    amountRule: '必须拆出报表项目、年初/期末金额；不得使用 amountSum=0。',
+    statusRule: '报表类无审批状态，需保留拉取批次和账套。',
+    erpComparisonRule: 'ERP 经营数据只做辅助解释，不与报表行强行一一对应。',
+    risk: 'HIGH',
+    reason: '报表行项目字段尚未锁定。',
+    nextAction: '建立 BALANCE_SHEET semantic extractor 和关键项展示映射。',
+  },
+  {
+    key: 'INCOME_STATEMENT',
+    label: '利润表关键项',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['INCOME_STATEMENT'],
+    lockedFields: ['book_id', 'entity_type', 'raw_data'],
+    pendingFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount'],
+    dateRule: '按报表期间和账套展示，期间需显式保留。',
+    amountRule: '必须拆出本期金额和累计金额；不得使用 amountSum=0。',
+    statusRule: '报表类无审批状态，需保留拉取批次和账套。',
+    erpComparisonRule: 'ERP 销售/采购/费用经营数据只做辅助解释。',
+    risk: 'HIGH',
+    reason: '利润表行项目字段尚未锁定。',
+    nextAction: '建立 INCOME_STATEMENT semantic extractor 和关键项展示映射。',
+  },
+  {
+    key: 'CASH_FLOW',
+    label: '现金流量表关键项',
+    status: 'PENDING',
+    authorityEligible: false,
+    chanjetEntityTypes: ['CASH_FLOW'],
+    lockedFields: ['book_id', 'entity_type', 'raw_data'],
+    pendingFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount', 'cash_flow_category'],
+    dateRule: '按报表期间和账套展示，期间需显式保留。',
+    amountRule: '必须拆出现金流项目金额；不得使用 amountSum=0。',
+    statusRule: '报表类无审批状态。',
+    erpComparisonRule: 'ERP 现金流水仅作辅助解释。',
+    risk: 'MEDIUM',
+    reason: '现金流量表字段尚未锁定。',
+    nextAction: '排在资产负债表/利润表之后建立 semantic extractor。',
+  },
+  {
+    key: 'VOUCHER_LIST',
+    label: '凭证列表 / 明细',
+    status: 'PARTIAL',
+    authorityEligible: false,
+    chanjetEntityTypes: ['VOUCHER'],
+    lockedFields: ['voucher_header_candidate', 'voucher_line_candidate', 'raw_data'],
+    pendingFields: ['voucher_status', 'posting_date', 'assistant_accounting', 'subject_mapping_review'],
+    dateRule: '凭证日期/期间需以好业财凭证字段为准，不能用拉取时间代替。',
+    amountRule: '借贷金额必须按行保留 Decimal 字符串，不用 JS 浮点做账。',
+    statusRule: '写回仍关闭；只读重现可用，推送必须进入 P4 单独 Gate。',
+    erpComparisonRule: 'ERP 凭证草稿仅作为候选，不自动推送。',
+    risk: 'CRITICAL',
+    reason: '凭证只读重现已有候选字段，但写回链路必须继续关闭。',
+    nextAction: '建立凭证只读详情页与人工审核队列；P4 前不得开放写好业财。',
+  },
+];
 
 const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
   {
@@ -876,6 +1058,10 @@ export class ChanjetIntegrationService {
       needManualReview: number;
       hold: number;
       p0Open: number;
+      semanticLocked: number;
+      semanticPartial: number;
+      semanticPending: number;
+      authorityEligible: number;
       nextGate: string;
     };
     items: FinanceReconciliationItem[];
@@ -1073,7 +1259,11 @@ export class ChanjetIntegrationService {
         needManualReview: statusCounts.NEED_MANUAL_REVIEW || 0,
         hold,
         p0Open,
-        nextGate: 'CHANJET_P3_RECONCILIATION_CENTER_UI',
+        semanticLocked: items.filter((item) => item.semanticLock.status === 'LOCKED').length,
+        semanticPartial: items.filter((item) => item.semanticLock.status === 'PARTIAL').length,
+        semanticPending: items.filter((item) => item.semanticLock.status === 'PENDING').length,
+        authorityEligible: items.filter((item) => item.semanticLock.authorityEligible).length,
+        nextGate: 'CHANJET_P3_FIELD_SEMANTIC_LOCK',
       },
       items,
       guardrails: {
@@ -1084,6 +1274,59 @@ export class ChanjetIntegrationService {
         erpBusinessOverwrite: false,
         migration: false,
         rule: '本接口只做只读对账。好业财有数据时作为财务权威候选；字段语义未锁定或差异未解释时必须显示 NEED_MAPPING / NEED_MANUAL_REVIEW。',
+      },
+    };
+  }
+
+  async financeSemanticLocksOverview() {
+    const [coverage, reconciliation] = await Promise.all([
+      this.financeReadonlyCoverage(),
+      this.financeReconciliationOverview(),
+    ]);
+    const itemByKey = new Map(reconciliation.items.map((item) => [item.key, item]));
+    const locks = FINANCE_SEMANTIC_LOCKS.map((lock) => {
+      const item = itemByKey.get(lock.key);
+      return {
+        ...lock,
+        reconciliationStatus: item?.status || 'NEED_MAPPING',
+        chanjetRows: item?.evidence.chanjetRows || 0,
+        erpRows: item?.evidence.erpRows || 0,
+        latestPulledAt: item?.evidence.latestPulledAt || null,
+        chanjetValue: item?.chanjetValue ?? null,
+        erpValue: item?.erpValue ?? null,
+        diff: item?.diff ?? null,
+      };
+    });
+    const p0Locks = locks.filter((lock) => lock.key !== 'CASH_FLOW' && lock.key !== 'VOUCHER_LIST');
+    const pendingP0 = p0Locks.filter((lock) => !['LOCKED', 'PARTIAL'].includes(lock.status)).length;
+    const criticalPending = locks.filter((lock) => ['CRITICAL', 'HIGH'].includes(lock.risk) && lock.status === 'PENDING').length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: pendingP0 > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalLocks: locks.length,
+        locked: locks.filter((lock) => lock.status === 'LOCKED').length,
+        partial: locks.filter((lock) => lock.status === 'PARTIAL').length,
+        pending: locks.filter((lock) => lock.status === 'PENDING').length,
+        hold: locks.filter((lock) => lock.status === 'HOLD').length,
+        p0Total: p0Locks.length,
+        p0Pending: pendingP0,
+        criticalPending,
+        authorityEligible: locks.filter((lock) => lock.authorityEligible).length,
+        endpointCoverageRate: coverage.summary.endpointCoverageRate,
+        cardCoverageRate: coverage.summary.cardCoverageRate,
+        fieldCoverageRate: coverage.summary.fieldCoverageRate,
+        nextGate: 'CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS',
+      },
+      locks,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '语义锁只决定 ERP 展示和差异解释，不写好业财、不覆盖 ERP 业务事实表。',
       },
     };
   }
@@ -1463,6 +1706,7 @@ export class ChanjetIntegrationService {
     reason: string;
     forceStatus?: FinanceReconciliationStatus;
   }): FinanceReconciliationItem {
+    const semanticLock = this.financeSemanticLockFor(input.key);
     const chanjetValue = input.chanjet.available ? input.chanjet.value : null;
     const erpValue = input.erp?.available ? input.erp.value : null;
     const diff = chanjetValue !== null && erpValue !== null ? chanjetValue - erpValue : null;
@@ -1499,6 +1743,26 @@ export class ChanjetIntegrationService {
       },
       reason: input.reason,
       recommendedAction: this.financeReconciliationNextAction(status),
+      semanticLock,
+    };
+  }
+
+  private financeSemanticLockFor(key: string): FinanceSemanticLock {
+    return FINANCE_SEMANTIC_LOCKS.find((item) => item.key === key) || {
+      key,
+      label: key,
+      status: 'PENDING',
+      authorityEligible: false,
+      chanjetEntityTypes: [],
+      lockedFields: [],
+      pendingFields: ['semantic_definition'],
+      dateRule: '未定义。',
+      amountRule: '未定义。',
+      statusRule: '未定义。',
+      erpComparisonRule: '未定义。',
+      risk: 'HIGH',
+      reason: '缺少语义锁定义。',
+      nextAction: '补充 FinanceSemanticLock 定义后才能进入财务卡片权威口径。',
     };
   }
 

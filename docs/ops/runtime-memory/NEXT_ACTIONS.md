@@ -349,3 +349,25 @@ Next actions:
 - deploy-chain mutation before `APPROVE_DEPLOY_CHAIN_HARDENING_PLAN`.
 - executing MANUAL_REVIEW_REQUIRED user-scope rows from the dry-run package.
 - executing action-bit legacy cleanup before a dedicated cleanup plan is approved.
+
+## 2026-07-04 — Chanjet P3 Field Semantic Lock Implemented
+
+Current stage: `CHANJET_P3_FIELD_SEMANTIC_LOCK_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Runtime semantic locks are attached to `GET /api/chanjet/integration/finance-reconciliation` items.
+- New readonly API: `GET /api/chanjet/integration/finance-semantic-locks`.
+- UI `/finance2/chanjet-integration` now shows semantic lock status, authority eligibility, pending fields, and next action.
+- Report: `docs/ops/CHANJET_P3_FIELD_SEMANTIC_LOCK_IMPLEMENTATION_REPORT_20260704.md`
+
+Next actions:
+
+1. `CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS`
+   - Extract cash-account real balance fields from raw snapshots.
+   - Extract GL balance opening/debit/credit/closing fields.
+   - Extract balance sheet and income statement line amount fields.
+2. Lock receipt/payment business date and approval status filters before using Chanjet values for today receipt/payment cards.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P3 P0 semantic pending items are closed or explicitly accepted.

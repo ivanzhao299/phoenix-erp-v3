@@ -1169,3 +1169,32 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FIELD_SEMANTIC_LOCK`
+
+## 2026-07-04 — Chanjet P3 field semantic locks implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added machine-readable finance semantic lock rules for AR/AP, cash balance, today receipt/payment, GL balance, financial statements, cash flow, and vouchers.
+- Reconciliation rows now expose `semanticLock`, including authority eligibility and pending field lists.
+- Added `GET /api/chanjet/integration/finance-semantic-locks` as a readonly endpoint.
+- Updated the Chanjet integration UI to show why a metric can or cannot be treated as a financial authority value.
+
+Key decision:
+
+- `AR_OPEN` and `AP_OPEN` are authority candidates only at aggregate level.
+- `CASH_BALANCE`, `SUBJECT_BALANCE`, `BALANCE_SHEET`, `INCOME_STATEMENT`, and `CASH_FLOW` remain blocked from authority use until real amount fields are extracted.
+- `amountSum=0` from mirror coverage must not be interpreted as real zero balance or real zero report value.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS`
