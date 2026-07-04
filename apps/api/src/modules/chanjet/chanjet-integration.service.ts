@@ -121,6 +121,7 @@ export interface FinanceSemanticExtractor {
 }
 
 export type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
+export type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
 
 export interface FinanceReadModelMetric {
   key: string;
@@ -142,6 +143,27 @@ export interface FinanceReadModelMetric {
     candidatePath: string;
     sampleValue: string | null;
   }>;
+  reason: string;
+  nextAction: string;
+}
+
+export interface ReceiptPaymentDateStatusLock {
+  key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT';
+  label: string;
+  entityType: 'AR_RECEIPT' | 'AP_PAYMENT';
+  status: ReceiptPaymentLockStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  requiredDimensions: string[];
+  lockedDimensions: string[];
+  missingDimensions: string[];
+  fieldCandidates: FinanceSemanticFieldCandidate[];
+  dateRule: string;
+  statusRule: string;
+  directionRule: string;
+  amountRule: string;
+  readyForFinanceReview: boolean;
+  readyForCardAuthority: boolean;
   reason: string;
   nextAction: string;
 }
@@ -1496,6 +1518,57 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReceiptPaymentDateStatusLockOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalLocks: number;
+      locked: number;
+      partial: number;
+      waitingSample: number;
+      hold: number;
+      readyForFinanceReview: number;
+      readyForCardAuthority: number;
+      nextGate: string;
+    };
+    locks: ReceiptPaymentDateStatusLock[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const locks = await Promise.all([
+      this.buildReceiptPaymentDateStatusLock('TODAY_RECEIPT', '今日收款', 'AR_RECEIPT'),
+      this.buildReceiptPaymentDateStatusLock('TODAY_PAYMENT', '今日付款', 'AP_PAYMENT'),
+    ]);
+    const statusCounts = locks.reduce<Record<ReceiptPaymentLockStatus, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {} as Record<ReceiptPaymentLockStatus, number>);
+    const hold = statusCounts.HOLD || 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : locks.every((item) => item.status === 'LOCKED') ? 'GO' : 'GO_WITH_CONDITIONS',
+      summary: {
+        totalLocks: locks.length,
+        locked: statusCounts.LOCKED || 0,
+        partial: statusCounts.PARTIAL || 0,
+        waitingSample: statusCounts.WAITING_SAMPLE || 0,
+        hold,
+        readyForFinanceReview: locks.filter((item) => item.readyForFinanceReview).length,
+        readyForCardAuthority: locks.filter((item) => item.readyForCardAuthority).length,
+        nextGate: 'CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING',
+      },
+      locks,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '本 Gate 只锁定收付款日期/状态/方向候选字段。即使 LOCKED，也只表示可进入财务确认；未进入卡片权威切换前不得替换 ERP 今日收付款主值。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),
@@ -2040,6 +2113,70 @@ export class ChanjetIntegrationService {
     return extractor?.missingRequiredFields.length
       ? `补齐字段候选: ${extractor.missingRequiredFields.slice(0, 5).join(' / ')}`
       : item.recommendedAction;
+  }
+
+  private async buildReceiptPaymentDateStatusLock(
+    key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT',
+    label: string,
+    entityType: 'AR_RECEIPT' | 'AP_PAYMENT',
+  ): Promise<ReceiptPaymentDateStatusLock> {
+    const rows = await this.entitySnapshotRepo.find({
+      where: { entityType },
+      order: { updatedAt: 'DESC' },
+      take: 80,
+    });
+    const requiredDimensions = ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction', 'amount'];
+    const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
+    const latestPulledAt = rows.reduce<string | null>((latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null), null);
+    const fieldCandidates = requiredDimensions.map((field) => {
+      const candidates = this.matchSemanticFieldCandidates(field, flattened).slice(0, 8);
+      return {
+        semanticField: field,
+        candidatePaths: candidates,
+        required: true,
+        status: candidates.length ? 'FOUND' as const : 'MISSING' as const,
+      };
+    });
+    const lockedDimensions = fieldCandidates.filter((field) => field.status === 'FOUND').map((field) => field.semanticField);
+    const missingDimensions = fieldCandidates.filter((field) => field.status === 'MISSING').map((field) => field.semanticField);
+    const status: ReceiptPaymentLockStatus = rows.length === 0
+      ? 'WAITING_SAMPLE'
+      : missingDimensions.length === 0
+        ? 'LOCKED'
+        : lockedDimensions.length > 0
+          ? 'PARTIAL'
+          : 'HOLD';
+    const readyForFinanceReview = status === 'LOCKED';
+    return {
+      key,
+      label,
+      entityType,
+      status,
+      sampleRows: rows.length,
+      latestPulledAt,
+      requiredDimensions,
+      lockedDimensions,
+      missingDimensions,
+      fieldCandidates,
+      dateRule: '今日口径必须由业务日与入账日候选字段共同确认，禁止用拉取时间或 created_at 代替。',
+      statusRule: '必须显式过滤未审核、草稿、已作废、已取消记录；未锁定前不得进入主卡片。',
+      directionRule: key === 'TODAY_RECEIPT'
+        ? '仅允许收款方向；退款/冲销/反向单必须排除或单列差异。'
+        : '仅允许付款方向；退款/冲销/反向单必须排除或单列差异。',
+      amountRule: '金额字段必须来自好业财单据实收/实付金额候选，不能使用列表累计或 amount=0 占位。',
+      readyForFinanceReview,
+      readyForCardAuthority: false,
+      reason: rows.length === 0
+        ? `${entityType} 暂无中间层样本，需先重跑只读同步。`
+        : missingDimensions.length === 0
+          ? '日期、状态、方向和金额候选字段均已识别，可进入财务人工确认；尚未自动切换卡片权威值。'
+          : `仍缺少候选维度: ${missingDimensions.join(' / ')}。`,
+      nextAction: rows.length === 0
+        ? '执行好业财全量只读同步，补齐收付款单 raw_data。'
+        : missingDimensions.length === 0
+          ? '由财务确认业务日/入账日/审核/作废枚举后，再进入财务卡片权威接线 Gate。'
+          : `补齐字段候选: ${missingDimensions.join(' / ')}`,
+    };
   }
 
   private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {

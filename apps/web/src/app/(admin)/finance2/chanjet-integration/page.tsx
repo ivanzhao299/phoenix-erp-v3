@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -408,6 +408,56 @@ interface FinanceReadModelOverview {
   guardrails: { rule: string };
 }
 
+type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
+
+interface ReceiptPaymentDateStatusLock {
+  key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT';
+  label: string;
+  entityType: 'AR_RECEIPT' | 'AP_PAYMENT';
+  status: ReceiptPaymentLockStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  requiredDimensions: string[];
+  lockedDimensions: string[];
+  missingDimensions: string[];
+  fieldCandidates: Array<{
+    semanticField: string;
+    candidatePaths: Array<{
+      path: string;
+      sampleType: string;
+      sampleValue: string | null;
+      observedCount: number;
+    }>;
+    required: boolean;
+    status: 'FOUND' | 'MISSING';
+  }>;
+  dateRule: string;
+  statusRule: string;
+  directionRule: string;
+  amountRule: string;
+  readyForFinanceReview: boolean;
+  readyForCardAuthority: boolean;
+  reason: string;
+  nextAction: string;
+}
+
+interface ReceiptPaymentLocksOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalLocks: number;
+    locked: number;
+    partial: number;
+    waitingSample: number;
+    hold: number;
+    readyForFinanceReview: number;
+    readyForCardAuthority: number;
+    nextGate: string;
+  };
+  locks: ReceiptPaymentDateStatusLock[];
+  guardrails: { rule: string };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -488,6 +538,7 @@ export default function ChanjetIntegrationPage() {
   const [financeRuntimeRecon, setFinanceRuntimeRecon] = useState<FinanceRuntimeReconciliation | null>(null);
   const [financeSemanticExtractors, setFinanceSemanticExtractors] = useState<FinanceSemanticExtractorsOverview | null>(null);
   const [financeReadModel, setFinanceReadModel] = useState<FinanceReadModelOverview | null>(null);
+  const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -501,7 +552,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, receiptPaymentLocksResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -517,6 +568,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; reconciliation: FinanceRuntimeReconciliation; error?: string }>('/chanjet/integration/finance-reconciliation'),
         request<{ success: boolean; semanticExtractors: FinanceSemanticExtractorsOverview; error?: string }>('/chanjet/integration/finance-semantic-extractors'),
         request<{ success: boolean; readModel: FinanceReadModelOverview; error?: string }>('/chanjet/integration/finance-read-model'),
+        request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -534,6 +586,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceRuntimeRecon(financeRuntimeReconResp.reconciliation || null);
       setFinanceSemanticExtractors(financeSemanticExtractorResp.semanticExtractors || null);
       setFinanceReadModel(financeReadModelResp.readModel || null);
+      setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -687,6 +740,7 @@ export default function ChanjetIntegrationPage() {
           ['reconciliation', '对账差异'],
           ['semantic', '语义提取器'],
           ['readModel', '财务 Read Model'],
+          ['receiptPaymentLocks', '收付款日期状态锁'],
           ['drafts', '凭证草稿'],
           ['fields', '字段目录'],
           ['jobs', '作业审计'],
@@ -1303,6 +1357,113 @@ export default function ChanjetIntegrationPage() {
                   </tr>
                 ))}
                 {!financeReadModel?.metrics?.length && <tr><td style={cellStyle} colSpan={6}>暂无财务 read model 数据。</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'receiptPaymentLocks' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <strong>今日收款 / 今日付款语义锁</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                先锁定业务日期、入账日期、审核状态、作废状态、收付方向和金额字段，再允许进入财务首页卡片权威值切换。
+              </div>
+            </div>
+            <Badge tone={receiptPaymentLocks?.decision === 'GO' ? 'green' : receiptPaymentLocks?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {receiptPaymentLocks?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>锁定对象</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{receiptPaymentLocks?.summary?.locked ?? 0}/{receiptPaymentLocks?.summary?.totalLocks ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate: {receiptPaymentLocks?.summary?.nextGate || '—'}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>可财务复核</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{receiptPaymentLocks?.summary?.readyForFinanceReview ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>字段候选已完整才可复核</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>可切主卡权威</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{receiptPaymentLocks?.summary?.readyForCardAuthority ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>本 Gate 仍不自动切换</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺样本 / HOLD</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(receiptPaymentLocks?.summary?.waitingSample ?? 0) + (receiptPaymentLocks?.summary?.hold ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺关键维度不得参与今日卡片</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>执行边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{receiptPaymentLocks?.guardrails?.rule || '本页只锁定收/付款字段语义，不写好业财，不覆盖 ERP 业务表，不切换财务首页权威卡片。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">ERP 业务表覆盖: 否</Badge>
+              <Badge tone="green">今日卡片切换: 否</Badge>
+              <Badge tone="green">migration: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ ...tableStyle, minWidth: 1220 }}>
+              <thead>
+                <tr>{['口径', '状态', '样本', '维度锁定', '规则', '字段候选 / 下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {(receiptPaymentLocks?.locks || []).map((item) => (
+                  <tr key={item.key}>
+                    <td style={cellStyle}>
+                      <strong>{item.label}</strong>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.key}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{item.entityType}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                      <div style={{ marginTop: 6 }}>
+                        <Badge tone={item.readyForFinanceReview ? 'green' : 'amber'}>{item.readyForFinanceReview ? '可财务复核' : '等待字段补齐'}</Badge>
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        <Badge tone={item.readyForCardAuthority ? 'green' : 'amber'}>{item.readyForCardAuthority ? '可切权威' : '禁止切权威'}</Badge>
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div>样本 {item.sampleRows}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>最近拉取: {fmtDate(item.latestPulledAt)}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div style={{ color: 'var(--status-success)', fontSize: 12 }}>已锁: {item.lockedDimensions.join(' / ') || '无'}</div>
+                      <div style={{ color: item.missingDimensions.length ? 'var(--status-danger)' : 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>
+                        缺失: {item.missingDimensions.join(' / ') || '无'}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>必需: {item.requiredDimensions.join(' / ')}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div><strong>日期</strong>: {item.dateRule}</div>
+                      <div style={{ marginTop: 4 }}><strong>状态</strong>: {item.statusRule}</div>
+                      <div style={{ marginTop: 4 }}><strong>方向</strong>: {item.directionRule}</div>
+                      <div style={{ marginTop: 4 }}><strong>金额</strong>: {item.amountRule}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        {item.fieldCandidates
+                          .filter((field) => field.candidatePaths.length > 0)
+                          .slice(0, 6)
+                          .map((field) => `${field.semanticField}: ${field.candidatePaths[0]?.path}`)
+                          .join('；') || '暂无字段候选'}
+                      </div>
+                      <div style={{ marginTop: 8 }}>{item.nextAction}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>{item.reason}</div>
+                    </td>
+                  </tr>
+                ))}
+                {!receiptPaymentLocks?.locks?.length && <tr><td style={cellStyle} colSpan={6}>暂无收付款语义锁数据。</td></tr>}
               </tbody>
             </table>
           </div>

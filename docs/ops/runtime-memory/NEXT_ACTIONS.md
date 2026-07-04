@@ -414,3 +414,24 @@ Next actions:
 2. `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING`
    - Wire only `AUTHORITY_READY` values into finance cards and keep ERP auxiliary values visible.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked.
+
+## 2026-07-04 — Chanjet P3 Receipt/Payment Date Status Lock Implemented
+
+Current stage: `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- New readonly API: `GET /api/chanjet/integration/receipt-payment-locks`.
+- UI entry: `/finance2/chanjet-integration`, tab `收付款日期状态锁`.
+- Locks required dimensions for today receipt/payment metrics: business date, posting date, approved status, void status, direction, and amount.
+- Keeps finance card authority switching blocked until finance confirms these dimensions and the next wiring gate is implemented.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING`
+   - Wire only finance-reviewed, authority-ready values into finance cards.
+   - Keep ERP auxiliary values and differences visible.
+2. Finance confirms receipt/payment business date, posting date, approval/void status, and direction semantics.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until card authority wiring and review are complete.

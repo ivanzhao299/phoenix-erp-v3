@@ -1227,6 +1227,34 @@ Next gate:
 
 - `CHANJET_P3_FINANCE_READ_MODEL`
 
+## 2026-07-04 — Chanjet P3 receipt/payment date status lock implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/receipt-payment-locks`.
+- Added a `收付款日期状态锁` tab to `/finance2/chanjet-integration`.
+- Today receipt/payment metrics now require business date, posting date, approved status, void status, direction, and amount dimensions before finance card authority wiring.
+
+Key decision:
+
+- This gate only locks candidate semantics and exposes blockers.
+- It does not switch ERP finance homepage cards to Chanjet authority values.
+- Finance must confirm the date/status/direction rules before `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING`.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING`
+
 ## 2026-07-04 — Chanjet P3 finance read model implemented
 
 Decision: `GO_WITH_CONDITIONS`

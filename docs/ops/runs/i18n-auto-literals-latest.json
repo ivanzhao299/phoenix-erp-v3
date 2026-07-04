@@ -1,130 +1,148 @@
 {
-  "generated_at": "2026-07-04T12:04:49.519Z",
+  "generated_at": "2026-07-04T12:20:42.628Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1867,
-  "created_keys": 18,
-  "updated_keys": 1849,
+  "unique_hardcoded_literals": 1888,
+  "created_keys": 21,
+  "updated_keys": 1867,
   "locale_counts_before": {
-    "zh": 13109,
-    "en": 13109,
-    "lo": 13109
-  },
-  "locale_counts_after": {
     "zh": 13127,
     "en": 13127,
     "lo": 13127
+  },
+  "locale_counts_after": {
+    "zh": 13148,
+    "en": 13148,
+    "lo": 13148
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.af252fb15de0",
-      "text": "财务 Read Model",
-      "en": "Finance Read Model",
-      "lo": "Finance Read Model"
+      "key": "auto.literal.7e3027986fd9",
+      "text": "收付款日期状态锁",
+      "en": "Localized UI text 7e3027986fd9",
+      "lo": "Localized UI text 7e3027986fd9"
     },
     {
-      "key": "auto.literal.34d3f7a9e1d0",
-      "text": "好业财财务只读 Read Model",
-      "en": "ChanjetFinanceRead-only Read Model",
-      "lo": "ChanjetFinanceອ່ານຢ່າງດຽວ Read Model"
+      "key": "auto.literal.9ee5631050e2",
+      "text": "今日收款 / 今日付款语义锁",
+      "en": "Today's receipts / Today's paymentsLocalized UI text 004191d823ce",
+      "lo": "ຮັບເງິນມື້ນີ້ / ຈ່າຍເງິນມື້ນີ້Localized UI text 004191d823ce"
     },
     {
-      "key": "auto.literal.ed3183d14c8e",
-      "text": "指标总数",
-      "en": "MetricTotal",
-      "lo": "ຕົວຊີ້ວັດທັງໝົດ"
+      "key": "auto.literal.9bb529f0e8fb",
+      "text": "锁定对象",
+      "en": "LockLocalized UI text 539cb3b0a662",
+      "lo": "ລັອກLocalized UI text 539cb3b0a662"
     },
     {
-      "key": "auto.literal.518484e03056",
-      "text": "权威 / 只读",
-      "en": "Localized UI text 518484e03056",
-      "lo": "Localized UI text 518484e03056"
+      "key": "auto.literal.c72c1c61d5b7",
+      "text": "可财务复核",
+      "en": "Localized UI text c72c1c61d5b7",
+      "lo": "Localized UI text c72c1c61d5b7"
     },
     {
-      "key": "auto.literal.d330d3b7a966",
-      "text": "权威值仍需显示 ERP 辅助差异",
-      "en": "Localized UI text d330d3b7a966",
-      "lo": "Localized UI text d330d3b7a966"
+      "key": "auto.literal.62c91554e4ea",
+      "text": "字段候选已完整才可复核",
+      "en": "Localized UI text 62c91554e4ea",
+      "lo": "Localized UI text 62c91554e4ea"
     },
     {
-      "key": "auto.literal.d63c1fe7e0af",
-      "text": "P0 阻断",
-      "en": "Localized UI text d63c1fe7e0af",
-      "lo": "Localized UI text d63c1fe7e0af"
+      "key": "auto.literal.c9c777f5c69e",
+      "text": "可切主卡权威",
+      "en": "Localized UI text c9c777f5c69e",
+      "lo": "Localized UI text c9c777f5c69e"
     },
     {
-      "key": "auto.literal.4958d86cb842",
-      "text": "不得进入财务首页主值",
-      "en": "Localized UI text 4958d86cb842",
-      "lo": "Localized UI text 4958d86cb842"
+      "key": "auto.literal.3385c560cfbe",
+      "text": "本 Gate 仍不自动切换",
+      "en": "Localized UI text 3385c560cfbe",
+      "lo": "Localized UI text 3385c560cfbe"
     },
     {
-      "key": "auto.literal.e49911c002c9",
-      "text": "人工复核 / 缺样本",
-      "en": "Localized UI text e49911c002c9",
-      "lo": "Localized UI text e49911c002c9"
+      "key": "auto.literal.06e142902ae6",
+      "text": "缺样本 / HOLD",
+      "en": "Localized UI text 06e142902ae6",
+      "lo": "Localized UI text 06e142902ae6"
     },
     {
-      "key": "auto.literal.1b5fc5a6d331",
-      "text": "日期、状态或样本不足",
-      "en": "Localized UI text 1b5fc5a6d331",
-      "lo": "Localized UI text 1b5fc5a6d331"
+      "key": "auto.literal.ccbd1a8a3993",
+      "text": "执行边界",
+      "en": "Localized UI text ccbd1a8a3993",
+      "lo": "Localized UI text ccbd1a8a3993"
     },
     {
-      "key": "auto.literal.1dfc810a7b0c",
-      "text": "指标",
-      "en": "Metric",
-      "lo": "ຕົວຊີ້ວັດ"
+      "key": "auto.literal.4d67292e1bc3",
+      "text": "今日卡片切换: 否",
+      "en": "Localized UI text 4d67292e1bc3",
+      "lo": "Localized UI text 4d67292e1bc3"
     },
     {
-      "key": "auto.literal.5545cfbfc41b",
-      "text": "显示值",
-      "en": "Localized UI text 5545cfbfc41b",
-      "lo": "Localized UI text 5545cfbfc41b"
+      "key": "auto.literal.40924f1e6f4e",
+      "text": "维度锁定",
+      "en": "DimensionLock",
+      "lo": "ມິຕິລັອກ"
     },
     {
-      "key": "auto.literal.50fe1f867cd9",
-      "text": "ERP 辅助",
-      "en": "Localized UI text 50fe1f867cd9",
-      "lo": "Localized UI text 50fe1f867cd9"
+      "key": "auto.literal.bfecac1184cb",
+      "text": "字段候选 / 下一步",
+      "en": "Localized UI text bfecac1184cb",
+      "lo": "Localized UI text bfecac1184cb"
     },
     {
-      "key": "auto.literal.4563f1d68b09",
-      "text": "字段证据",
-      "en": "FieldLocalized UI text 68d4cdfc0935",
-      "lo": "ຊ່ອງຂໍ້ມູນLocalized UI text 68d4cdfc0935"
+      "key": "auto.literal.ed64e152a1c8",
+      "text": "等待字段补齐",
+      "en": "Localized UI text ed64e152a1c8",
+      "lo": "Localized UI text ed64e152a1c8"
     },
     {
-      "key": "auto.literal.862a2bfef42d",
-      "text": "原因 / 下一步",
-      "en": "Reason / Next",
-      "lo": "ເຫດຜົນ / ຕໍ່ໄປ"
+      "key": "auto.literal.3d89e5052902",
+      "text": "可切权威",
+      "en": "Localized UI text 3d89e5052902",
+      "lo": "Localized UI text 3d89e5052902"
     },
     {
-      "key": "auto.literal.2d884d017fdb",
-      "text": "权威候选",
-      "en": "Localized UI text 2d884d017fdb",
-      "lo": "Localized UI text 2d884d017fdb"
+      "key": "auto.literal.c657b678559d",
+      "text": "禁止切权威",
+      "en": "Localized UI text c657b678559d",
+      "lo": "Localized UI text c657b678559d"
     },
     {
-      "key": "auto.literal.6a3c9091a975",
-      "text": "阻止权威使用",
-      "en": "Localized UI text 6a3c9091a975",
-      "lo": "Localized UI text 6a3c9091a975"
+      "key": "auto.literal.bea85bf48222",
+      "text": "最近拉取:",
+      "en": "Localized UI text bea85bf48222",
+      "lo": "Localized UI text bea85bf48222"
     },
     {
-      "key": "auto.literal.830130ae8287",
-      "text": "暂无金额字段候选",
-      "en": "Localized UI text 830130ae8287",
-      "lo": "Localized UI text 830130ae8287"
+      "key": "auto.literal.0bf2382cbf39",
+      "text": "已锁:",
+      "en": "Localized UI text 0bf2382cbf39",
+      "lo": "Localized UI text 0bf2382cbf39"
     },
     {
-      "key": "auto.literal.0e670d50ae65",
-      "text": "暂无财务 read model 数据。",
-      "en": "NoneFinance read model Data.",
-      "lo": "NoneFinance read model ຂໍ້ມູນ."
+      "key": "auto.literal.6a4670fc5937",
+      "text": "缺失:",
+      "en": "Missing:",
+      "lo": "ຂາດ:"
+    },
+    {
+      "key": "auto.literal.d6ad8ac46f6a",
+      "text": "必需:",
+      "en": "Localized UI text d6ad8ac46f6a",
+      "lo": "Localized UI text d6ad8ac46f6a"
+    },
+    {
+      "key": "auto.literal.57ec6d6998df",
+      "text": "暂无字段候选",
+      "en": "Localized UI text 57ec6d6998df",
+      "lo": "Localized UI text 57ec6d6998df"
+    },
+    {
+      "key": "auto.literal.fb89dc85de96",
+      "text": "暂无收付款语义锁数据。",
+      "en": "Localized UI text fb89dc85de96",
+      "lo": "Localized UI text fb89dc85de96"
     }
   ]
 }

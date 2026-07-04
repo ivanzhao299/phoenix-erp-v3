@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FINANCE_READ_MODEL_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK",
+  "next_gate": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FINANCE_READ_MODEL_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "lock_receipt_payment_business_date_and_status_filters",
+    "next_action": "wire_authority_ready_finance_cards_with_source_and_diff_visible",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -159,7 +159,12 @@
     "finance_read_model_api": "/api/chanjet/integration/finance-read-model",
     "finance_read_model_ui": "/finance2/chanjet-integration",
     "finance_read_model_status": "implemented_runtime_readonly",
-    "finance_read_model_next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK"
+    "finance_read_model_next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK",
+    "receipt_payment_lock_api": "/api/chanjet/integration/receipt-payment-locks",
+    "receipt_payment_lock_ui": "/finance2/chanjet-integration",
+    "receipt_payment_lock_status": "implemented_runtime_readonly",
+    "receipt_payment_lock_next_gate": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING",
+    "today_receipt_payment_card_authority": "blocked_until_finance_confirms_date_status_direction_lock"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
@@ -662,12 +667,9 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "USE_AGENT_INBOX_FOR_SHORT_COMMANDS",
-    "USER_WRITES_SHORT_INTENT_TO_AGENT_INBOX",
-    "AGENT_EXPANDS_CONTEXT_FROM_RUNTIME_MEMORY",
-    "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS",
-    "APPROVE_MASTER_DATA_REMEDIATION_PLAN",
-    "APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN"
+    "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING",
+    "FINANCE_CONFIRMS_RECEIPT_PAYMENT_DATE_STATUS_DIRECTION_LOCKS",
+    "KEEP_CHANJET_P4_WRITEBACK_BLOCKED"
   ],
   "agent_inbox_mode": "enabled",
   "short_command_mode": "enabled",

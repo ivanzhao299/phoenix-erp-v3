@@ -732,6 +732,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/receipt-payment-locks
+   * 好业财收/付款业务日、入账日、审核状态、作废状态和方向候选锁。只读 ERP 中间层。
+   */
+  @Get('integration/receipt-payment-locks')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationReceiptPaymentLocks() {
+    try {
+      const receiptPaymentLocks = await this.integration.financeReceiptPaymentDateStatusLockOverview();
+      return { success: true, receiptPaymentLocks };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */
