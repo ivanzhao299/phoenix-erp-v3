@@ -1309,3 +1309,32 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA`
+
+## 2026-07-04 — Chanjet P3 finance card diff visual QA verified
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added reusable QA script `scripts/ops/chanjet-finance-card-authority-qa.mjs`.
+- Generated latest QA artifacts under `docs/ops/runs/`.
+- Verified 8/8 finance card authority checks.
+- Verified `/finance2/reports` exposes card source, Chanjet readonly value, ERP auxiliary value, difference, read model status, and blocker reason.
+
+Key decision:
+
+- Finance card mirror coverage does not equal finance authority.
+- Primary card values may use Chanjet only when the read model is `AUTHORITY_READY`.
+- Today receipt/payment remain blocked until business date, posting date, approved status, void status, and direction are finance-approved.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration or DB write.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION`

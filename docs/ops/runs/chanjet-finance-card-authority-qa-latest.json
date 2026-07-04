@@ -1,0 +1,164 @@
+{
+  "generatedAt": "2026-07-04T12:52:48.156Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "totalChecks": 8,
+    "passedChecks": 8,
+    "failedChecks": 0,
+    "totalCards": 8,
+    "cardServiceCoverage": 8,
+    "cardUiCoverage": 8,
+    "endpointCoverageRate": 1,
+    "cardCoverageRate": 1,
+    "fieldCoverageRate": 1,
+    "reconciliationStatusCounts": {}
+  },
+  "checks": [
+    {
+      "name": "Finance card authority endpoint exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "GET /api/chanjet/integration/finance-card-authority is protected by MENU_FIN2_AR V."
+    },
+    {
+      "name": "Only AUTHORITY_READY can feed primary cards",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Authority is enabled only when read model is AUTHORITY_READY and receipt/payment lock permits card authority."
+    },
+    {
+      "name": "Chanjet write boundaries are explicit",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Finance authority/read-model guardrails keep Chanjet write/delete/modify/voucher push disabled."
+    },
+    {
+      "name": "All eight finance cards are covered by authority service",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "arOpen:yes, apOpen:yes, cashBalance:yes, todayInflow:yes, todayOutflow:yes, subjectBalance:yes, balanceSheet:yes, incomeStatement:yes"
+    },
+    {
+      "name": "All eight finance cards are rendered in finance report panel",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "arOpen:yes, apOpen:yes, cashBalance:yes, todayInflow:yes, todayOutflow:yes, subjectBalance:yes, balanceSheet:yes, incomeStatement:yes"
+    },
+    {
+      "name": "UI shows source, Chanjet value, ERP auxiliary value, diff, and lock reason",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "好业财财务卡片权威接线:yes, 主值来源:yes, 权威接线:yes, Read Model:yes, 好业财:yes, ERP 辅助:yes, 差异:yes, 只有 AUTHORITY_READY:yes, 不静默覆盖:yes"
+    },
+    {
+      "name": "Finance overview consumes Chanjet authority as guarded evidence",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "FinancialReportsService pulls read model and receipt/payment locks before exposing card source authority."
+    },
+    {
+      "name": "Today receipt/payment remain blocked unless date/status/direction lock is approved",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Receipt/payment cards expose lock blockers instead of silently using list amountSum."
+    }
+  ],
+  "cardChecks": [
+    {
+      "cardKey": "arOpen",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "apOpen",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "cashBalance",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "todayInflow",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "todayOutflow",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "subjectBalance",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "balanceSheet",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    },
+    {
+      "cardKey": "incomeStatement",
+      "presentInAuthorityService": true,
+      "presentInFinancePage": true
+    }
+  ],
+  "uiTextChecks": [
+    {
+      "pattern": "好业财财务卡片权威接线",
+      "present": true
+    },
+    {
+      "pattern": "主值来源",
+      "present": true
+    },
+    {
+      "pattern": "权威接线",
+      "present": true
+    },
+    {
+      "pattern": "Read Model",
+      "present": true
+    },
+    {
+      "pattern": "好业财",
+      "present": true
+    },
+    {
+      "pattern": "ERP 辅助",
+      "present": true
+    },
+    {
+      "pattern": "差异",
+      "present": true
+    },
+    {
+      "pattern": "只有 AUTHORITY_READY",
+      "present": true
+    },
+    {
+      "pattern": "不静默覆盖",
+      "present": true
+    }
+  ],
+  "conditions": [],
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "dbWrite": false,
+    "deploy": false,
+    "push": false
+  },
+  "nextActions": [
+    "Keep AUTHORITY_READY as the only primary-card switch.",
+    "Use /finance2/reports to review card source, Chanjet value, ERP auxiliary value, diff, and blockers.",
+    "Lock cash balance, subject balance, statement rows, and receipt/payment date/status semantics before promoting more cards.",
+    "Continue Chanjet write-back HOLD until voucher draft review, approval, idempotency, and rollback Gates are complete."
+  ]
+}

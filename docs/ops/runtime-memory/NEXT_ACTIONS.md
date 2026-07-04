@@ -2,6 +2,38 @@
 
 Last updated: 2026-07-03
 
+## 2026-07-04 — Chanjet P3 Finance Card Diff Visual QA
+
+Current stage: `CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added reusable QA tool `scripts/ops/chanjet-finance-card-authority-qa.mjs`.
+2. Verified 8/8 finance card authority checks.
+3. Verified all 8 cards are covered by the backend authority service and `/finance2/reports` UI panel.
+4. Verified the UI exposes source, Chanjet readonly value, ERP auxiliary value, visible difference, and blocker reason.
+5. Verified primary card switch is guarded by `AUTHORITY_READY`; receipt/payment also requires `readyForCardAuthority`.
+
+Artifacts:
+
+- `docs/ops/runs/chanjet-finance-card-authority-qa-latest.json`
+- `docs/ops/runs/chanjet-finance-card-authority-qa-latest.md`
+- `docs/ops/CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA_REPORT_20260704.md`
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION`
+   - Lock cash/bank balance fields.
+   - Lock subject balance current/initial/debit/credit/end-balance semantics.
+   - Lock balance sheet and income statement row semantics.
+   - Keep today receipt/payment blocked until finance confirms date/status/direction.
+2. `CHANJET_P4_VOUCHER_DRAFT_PREP`
+   - Build ERP voucher draft generation only; do not push to Chanjet.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
+
 ## 2026-07-03 好业财只读中间层 Phase 1
 
 当前状态: `CHANJET_READONLY_MIRROR_PHASE1_READY`，结论 `GO_WITH_CONDITIONS`。
