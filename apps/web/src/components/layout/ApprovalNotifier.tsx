@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { Bell, X, CheckCheck } from "lucide-react";
 import request from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { resolveNotificationHref } from "@/lib/notification-routing";
+import { resolveNotificationHref, summarizeNotificationContent } from "@/lib/notification-routing";
 
 interface Notif {
   id: string;
@@ -230,7 +230,7 @@ export function ApprovalNotifier() {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: n.status === "UNREAD" ? 600 : 500, color: "var(--text-primary)",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</div>
-                  {n.content && <div style={{ fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{n.content}</div>}
+                  {n.content && <div style={{ fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{summarizeNotificationContent(n)}</div>}
                   <div style={{ fontSize: 11, color: "var(--text-disabled)", marginTop: 3 }}>
                     {BIZ_LABEL[n.bizType ?? ""] ?? ""}{n.bizNo ? ` ${n.bizNo}` : ""}{n.createdAt ? ` · ${timeAgo(n.createdAt)}` : ""}
                   </div>

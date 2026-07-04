@@ -39,6 +39,7 @@ export class SysAlertsController {
   @Get()
   @RequireMenu('MENU_SYS_MONITOR', 'V')
   async listAll(
+    @Query('alertId')                                            alertId?:   string,
     @Query('alertType')                                          alertType?: string,
     @Query('severity')                                           severity?:  string,
     @Query('resolved')                                           resolved?:  string,
@@ -46,6 +47,7 @@ export class SysAlertsController {
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe)     limit?:     number,
   ) {
     return this.alertsService.listAll({
+      alertId: alertId && /^\d+$/.test(alertId) ? Number(alertId) : undefined,
       alertType,
       severity,
       resolved: resolved === 'true' ? true : resolved === 'false' ? false : undefined,

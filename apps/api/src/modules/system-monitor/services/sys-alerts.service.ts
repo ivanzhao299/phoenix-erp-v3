@@ -128,6 +128,7 @@ export class SysAlertsService {
 
   /** 查询所有告警（含已处理） */
   async listAll(params: {
+    alertId?:   number;
     alertType?: string;
     severity?:  string;
     resolved?:  boolean;
@@ -142,6 +143,7 @@ export class SysAlertsService {
     const values: any[] = [];
     let idx = 1;
 
+    if (params.alertId !== undefined) { conditions.push(`id = $${idx++}`); values.push(params.alertId); }
     if (params.alertType !== undefined) { conditions.push(`alert_type = $${idx++}`); values.push(params.alertType); }
     if (params.severity  !== undefined) { conditions.push(`severity   = $${idx++}`); values.push(params.severity);  }
     if (params.resolved  !== undefined) { conditions.push(`resolved   = $${idx++}`); values.push(params.resolved);  }

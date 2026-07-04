@@ -108,6 +108,8 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/master-data/products":         "menu.mdc-products",
   "/master-data/stores":           "menu.mdc-stores",
   "/master-data/organizations":    "menu.mdc-orgs",
+  "/system/health":                "menu.sysops-monitor",
+  "/system/alerts":                "menu.sysops-alerts",
   "/system/backup":                "menu.sysops-backup",
   "/system/error-logs":            "menu.sysops-errors",
 };

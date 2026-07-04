@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { CheckCircle, RefreshCw, AlertTriangle, Activity, Database, ShieldAlert, ListChecks } from "lucide-react";
@@ -103,6 +104,8 @@ function SummaryCard({
 
 export default function SystemAlertsPage() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
+  const selectedAlertId = searchParams.get("alertId");
   const [alerts,    setAlerts]    = useState<Alert[]>([]);
   const [total,     setTotal]     = useState(0);
   const [health,    setHealth]    = useState<HealthSummary | null>(null);
@@ -120,7 +123,10 @@ export default function SystemAlertsPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const params = filterResolved !== "" ? `?resolved=${filterResolved}` : "";
+      const query = new URLSearchParams();
+      if (filterResolved !== "") query.set("resolved", filterResolved);
+      if (selectedAlertId && /^\d+$/.test(selectedAlertId)) query.set("alertId", selectedAlertId);
+      const params = query.toString() ? `?${query.toString()}` : "";
       const headers = { Authorization: `Bearer ${tok()}` };
       const [alertsRes, healthRes, errorsRes, qualityRes, deliveryRes] = await Promise.allSettled([
         fetch(`/api/system/alerts${params}`, { headers }),
@@ -133,6 +139,9 @@ export default function SystemAlertsPage() {
         const d = await alertsRes.value.json();
         setAlerts(d.items ?? []);
         setTotal(d.total ?? 0);
+        if (selectedAlertId && (d.items ?? []).length === 0) {
+          setLoadError(`未找到告警 #${selectedAlertId}。可能已被清理权限过滤，或通知引用了不存在的告警。`);
+        }
       } else {
         setAlerts([]);
         setTotal(0);
@@ -161,7 +170,7 @@ export default function SystemAlertsPage() {
         setDeliveryHealth(null);
       }
     } finally { setLoading(false); }
-  }, [filterResolved]);
+  }, [filterResolved, selectedAlertId]);
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
@@ -185,12 +194,15 @@ export default function SystemAlertsPage() {
   const highQualityCount = qualityAlerts.filter(a => a.severity === "HIGH").length;
   const healthTone = health?.status === "HEALTHY" ? "success" : health?.status === "DEGRADED" ? "warning" : "info";
   const deliveryTone = !deliveryHealth ? "info" : deliveryHealth.monitorRecipients > 0 ? "success" : "danger";
+  const selectedAlert = selectedAlertId
+    ? alerts.find(a => String(a.id) === selectedAlertId)
+    : null;
 
   return (
     <div>
       <PageHeader
         title={t('ui.异常告警','异常告警')}
-        subtitle={`生产值班台账 · 只展示需要人工确认的异常 · 0 条代表当前筛选下无待处理系统故障 · 共 ${total} 条`}
+        subtitle={`${selectedAlertId ? `告警 #${selectedAlertId} · ` : ""}生产值班台账 · 只展示需要人工确认的异常 · 0 条代表当前筛选下无待处理系统故障 · 共 ${total} 条`}
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select
@@ -294,6 +306,60 @@ export default function SystemAlertsPage() {
         </div>
       )}
 
+      {selectedAlert && (
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderLeft: "var(--card-accent-width) solid var(--status-warning)",
+          borderRadius: "var(--radius-lg)",
+          padding: 16,
+          marginBottom: 18,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 700 }}>通知关联的告警详情</div>
+              <div style={{ marginTop: 4, fontSize: 18, color: "var(--text-primary)", fontWeight: 800 }}>{selectedAlert.title}</div>
+            </div>
+            <span style={{
+              alignSelf: "flex-start",
+              padding: "3px 10px",
+              borderRadius: 99,
+              fontSize: 12,
+              fontWeight: 800,
+              ...(SEVERITY_STYLE[selectedAlert.severity] ?? SEVERITY_STYLE.INFO),
+            }}>{selectedAlert.severity}</span>
+          </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 10,
+            fontSize: 13,
+            color: "var(--text-secondary)",
+          }}>
+            <div><strong style={{ color: "var(--text-primary)" }}>类型：</strong>{selectedAlert.alert_type}</div>
+            <div><strong style={{ color: "var(--text-primary)" }}>状态：</strong>{selectedAlert.resolved ? "已处理" : "待处理"}</div>
+            <div><strong style={{ color: "var(--text-primary)" }}>创建时间：</strong>{new Date(selectedAlert.created_at).toLocaleString("zh-CN")}</div>
+            <div><strong style={{ color: "var(--text-primary)" }}>相关路径：</strong>{selectedAlert.related_path ?? "—"}</div>
+          </div>
+          {selectedAlert.detail && (
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
+              {Object.entries(selectedAlert.detail).map(([key, value]) => (
+                <div key={key} style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "8px 10px",
+                  background: "var(--bg-page)",
+                  fontSize: 12,
+                }}>
+                  <div style={{ color: "var(--text-secondary)", marginBottom: 3 }}>{key}</div>
+                  <div style={{ color: "var(--text-primary)", fontWeight: 700, wordBreak: "break-word" }}>{String(value ?? "—")}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>
           <thead>
@@ -335,7 +401,7 @@ export default function SystemAlertsPage() {
             ) : alerts.map((a, i) => {
               const sty = SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.INFO;
               return (
-                <tr key={a.id}>
+                <tr key={a.id} style={String(a.id) === selectedAlertId ? { background: "var(--status-warning-bg-faint)" } : undefined}>
                   <td style={{ fontFamily: "monospace", fontSize: 12 }}>{a.alert_type}</td>
                   <td>
                     <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, ...sty }}>

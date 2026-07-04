@@ -9,7 +9,7 @@ import { SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkelet
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { notificationApi, type MobileNotification } from '@/lib/mobile-api';
-import { resolveNotificationHref } from '@/lib/notification-routing';
+import { resolveNotificationHref, summarizeNotificationContent } from '@/lib/notification-routing';
 import { authHeader } from '@/lib/mobile-auth-token';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
@@ -79,6 +79,11 @@ const buildTypeConfig = (tr: TFn): Record<string, {
     icon: '🔺',
     color: 'var(--status-warning)',
     label: tr('mob.sys.notif_task_escalated', '审批升级')
+  },
+  SYSTEM_ALERT: {
+    icon: '⚠️',
+    color: 'var(--status-danger)',
+    label: tr('mob.sys.notif_system_alert', '系统告警')
   }
 });
 function getTypeConfig(type: string, tr: TFn) {
@@ -201,7 +206,12 @@ function NotificationCard({
           color: t.textSub,
           lineHeight: 1.5
         }}>
-              {item.body}
+              {summarizeNotificationContent({
+                notificationType: item.notificationType,
+                content: item.body,
+                linkType: item.linkType ?? item.refType ?? null,
+                linkId: item.linkId ?? item.refId ?? null,
+              })}
             </div>}
         </div>
       </div>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { resolveNotificationHref } from "@/lib/notification-routing";
+import { isSystemAlertNotification, resolveNotificationHref, summarizeNotificationContent } from "@/lib/notification-routing";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
@@ -44,7 +44,8 @@ interface NotifListResp {
 const TYPE_LABEL: Record<string, string> = {
   WORKFLOW_TASK: "审批任务",
   APPROVAL_RESULT: "审批结果",
-  SYSTEM: "系统消息"
+  SYSTEM: "系统消息",
+  SYSTEM_ALERT: "系统告警"
 };
 function fmtDate(s: string) {
   if (!s) return "-";
@@ -286,7 +287,7 @@ export default function NotificationsPage() {
               margin: "0 0 6px",
               lineHeight: 1.6
             }}>
-                    {n.content}
+                    {summarizeNotificationContent(n)}
                   </p>
 
                   <div className={u.flexRow8}>
@@ -295,8 +296,8 @@ export default function NotificationsPage() {
                 padding: "1px 6px",
                 borderRadius: 4,
                 fontWeight: 600,
-                background: "var(--slate-100)",
-                color: "var(--slate-500)"
+                background: isSystemAlertNotification(n) ? "var(--status-danger-bg-faint)" : "var(--slate-100)",
+                color: isSystemAlertNotification(n) ? "var(--status-danger)" : "var(--slate-500)"
               }}>
                       {t(`notif.type.${n.notificationType}`, TYPE_LABEL[n.notificationType] ?? n.notificationType)}
                     </span>
