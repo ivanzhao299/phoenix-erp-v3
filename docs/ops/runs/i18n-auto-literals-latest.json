@@ -1,94 +1,64 @@
 {
-  "generated_at": "2026-07-04T12:38:40.172Z",
+  "generated_at": "2026-07-04T15:38:38.902Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1898,
-  "created_keys": 12,
-  "updated_keys": 1886,
+  "unique_hardcoded_literals": 1905,
+  "created_keys": 7,
+  "updated_keys": 1898,
   "locale_counts_before": {
-    "zh": 13148,
-    "en": 13148,
-    "lo": 13148
-  },
-  "locale_counts_after": {
     "zh": 13160,
     "en": 13160,
     "lo": 13160
+  },
+  "locale_counts_after": {
+    "zh": 13167,
+    "en": 13167,
+    "lo": 13167
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.bd8e9febf63d",
-      "text": "权威可用",
-      "en": "Localized UI text bd8e9febf63d",
-      "lo": "Localized UI text bd8e9febf63d"
+      "key": "auto.literal.d12f1f667e0f",
+      "text": "可作为权威",
+      "en": "Localized UI text d12f1f667e0f",
+      "lo": "Localized UI text d12f1f667e0f"
     },
     {
-      "key": "auto.literal.690d2c0ec023",
-      "text": "只读就绪",
-      "en": "Localized UI text 690d2c0ec023",
-      "lo": "Localized UI text 690d2c0ec023"
+      "key": "auto.literal.f5e36ac30649",
+      "text": "只读可用",
+      "en": "Read-onlyAvailable",
+      "lo": "ອ່ານຢ່າງດຽວທີ່ໃຊ້ໄດ້"
     },
     {
-      "key": "auto.literal.b52115e81613",
-      "text": "映射阻断",
-      "en": "Localized UI text b52115e81613",
-      "lo": "Localized UI text b52115e81613"
+      "key": "auto.literal.ddca83ec2178",
+      "text": "字段阻断",
+      "en": "Localized UI text ddca83ec2178",
+      "lo": "Localized UI text ddca83ec2178"
     },
     {
-      "key": "auto.literal.5f514d1c5976",
-      "text": "待同步样本",
-      "en": "Pending syncLocalized UI text 610da878ac9f",
-      "lo": "ລໍຖ້າຊິ້ງຄ໌Localized UI text 610da878ac9f"
+      "key": "auto.literal.9b9c4e4980ad",
+      "text": "待口径复核",
+      "en": "Localized UI text 9b9c4e4980ad",
+      "lo": "Localized UI text 9b9c4e4980ad"
     },
     {
-      "key": "auto.literal.76923ce76370",
-      "text": "待人工确认",
-      "en": "Localized UI text 76923ce76370",
-      "lo": "Localized UI text 76923ce76370"
+      "key": "auto.literal.6234f9606943",
+      "text": "待样本",
+      "en": "Localized UI text 6234f9606943",
+      "lo": "Localized UI text 6234f9606943"
     },
     {
-      "key": "auto.literal.130448bce675",
-      "text": "暂停",
-      "en": "Localized UI text 130448bce675",
-      "lo": "Localized UI text 130448bce675"
+      "key": "auto.literal.7d863483c39f",
+      "text": "暂停升权",
+      "en": "Localized UI text 7d863483c39f",
+      "lo": "Localized UI text 7d863483c39f"
     },
     {
-      "key": "auto.literal.bf35b186a5a9",
-      "text": "好业财财务卡片权威接线",
-      "en": "Localized UI text bf35b186a5a9",
-      "lo": "Localized UI text bf35b186a5a9"
-    },
-    {
-      "key": "auto.literal.a4cd857d0ae9",
-      "text": "镜像覆盖率",
-      "en": "Localized UI text a4cd857d0ae9",
-      "lo": "Localized UI text a4cd857d0ae9"
-    },
-    {
-      "key": "auto.literal.9eb1d32fd7bd",
-      "text": "主值来源：",
-      "en": "Localized UI text 9eb1d32fd7bd",
-      "lo": "Localized UI text 9eb1d32fd7bd"
-    },
-    {
-      "key": "auto.literal.05a101857579",
-      "text": "权威接线：",
-      "en": "Localized UI text 05a101857579",
-      "lo": "Localized UI text 05a101857579"
-    },
-    {
-      "key": "auto.literal.392fab6f6665",
-      "text": "已接入好业财主值",
-      "en": "Localized UI text 392fab6f6665",
-      "lo": "Localized UI text 392fab6f6665"
-    },
-    {
-      "key": "auto.literal.48e02dc71220",
-      "text": "未接入，保留 ERP 主值",
-      "en": "Localized UI text 48e02dc71220",
-      "lo": "Localized UI text 48e02dc71220"
+      "key": "auto.literal.7dd1aaef4213",
+      "text": "仅只读可用",
+      "en": "Localized UI text 7dd1aaef4213",
+      "lo": "Localized UI text 7dd1aaef4213"
     }
   ]
 }
