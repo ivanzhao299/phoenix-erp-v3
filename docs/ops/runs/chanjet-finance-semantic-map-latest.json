@@ -1,0 +1,344 @@
+{
+  "generated_at": "2026-07-04T03:27:09.774Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "source_report": "docs/ops/runs/chanjet-field-mapping-report-latest.json",
+  "boundaries": {
+    "chanjet_write": false,
+    "chanjet_delete": false,
+    "chanjet_modify": false,
+    "voucher_push": false,
+    "erp_business_table_write": false,
+    "migration": false,
+    "deploy": false
+  },
+  "source_summary": {
+    "total_fields": 1677,
+    "pending_fields": 1494,
+    "high_or_critical_open_fields": 1341,
+    "envelope_noise": 0,
+    "fake_counterparty_targets": 0
+  },
+  "hold_reasons": [],
+  "semantic_map": [
+    {
+      "semantic_id": "CHANJET_VOUCHER_LINE",
+      "title": "凭证明细",
+      "priority": "P0",
+      "target_model": "chanjet_voucher_read_model.lines[]",
+      "target_type": "readonly_adapter",
+      "owner_recommendation": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
+      "proposed_solution": "建立借贷方向、原币/本币金额、数量核算、摘要、行号的只读转换层；金额字段使用 Decimal 字符串，不用 JS 浮点做账。",
+      "acceptance_criteria": [
+        "借方/贷方金额字段不会互相覆盖。",
+        "本币与原币金额同时保留。",
+        "摘要、数量、行号能支撑 ERP 端展示和后续对账。"
+      ],
+      "endpoint_count": 460,
+      "field_count": 22,
+      "high_or_critical_count": 22,
+      "endpoints": [
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654"
+      ],
+      "sample_fields": [
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].basePostedCr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / basePostedCr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].basePostedDr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / basePostedDr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].comments",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / comments"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].hasQtyAccounting",
+          "type": "boolean",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / hasQtyAccounting"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].id",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / id"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].longText",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / longText"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].postedCr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / postedCr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].postedCrQty",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / postedCrQty"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].postedDr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / postedDr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].postedDrQty",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / postedDrQty"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[0].sequenceNum",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / sequenceNum"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[1].basePostedCr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / basePostedCr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[1].basePostedDr",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / basePostedDr"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[1].comments",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / comments"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[1].hasQtyAccounting",
+          "type": "boolean",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / hasQtyAccounting"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].details[1].id",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / id"
+        }
+      ]
+    },
+    {
+      "semantic_id": "CHANJET_VOUCHER_HEADER",
+      "title": "凭证头",
+      "priority": "P0",
+      "target_model": "chanjet_voucher_read_model.header",
+      "target_type": "readonly_adapter",
+      "owner_recommendation": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
+      "proposed_solution": "建立 ERP 只读凭证头适配 DTO，保留好业财原始 payload，不直接写 ERP 凭证事实表，不推送好业财。",
+      "acceptance_criteria": [
+        "凭证头字段可从 raw snapshot 稳定解析。",
+        "凭证号、账套、期间、制单人、状态、来源单据等字段有明确中文业务名。",
+        "字段缺失或类型不一致时 fail-closed，进入人工映射。"
+      ],
+      "endpoint_count": 460,
+      "field_count": 8,
+      "high_or_critical_count": 8,
+      "endpoints": [
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3537748712226818",
+        "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3539743721526654"
+      ],
+      "sample_fields": [
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].acctgTransCategoryId.id",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / id"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].acctgTransCategoryId.longName",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / longName"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].acctgTransCategoryId.name",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / name"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].boName",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / boName"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].createdStamp",
+          "type": "string",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / createdStamp"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].createdUserId.id",
+          "type": "number",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / id"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].hasAdjusted",
+          "type": "boolean",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / hasAdjusted"
+        },
+        {
+          "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+          "field": "$.result[0].hasEditAuth",
+          "type": "boolean",
+          "risk": "HIGH",
+          "current_target": "accounting / chanjet_master_mapping / hasEditAuth"
+        }
+      ]
+    },
+    {
+      "semantic_id": "CHANJET_AP_AR_AGGREGATE",
+      "title": "应收/应付统计",
+      "priority": "P0",
+      "target_model": "chanjet_ap_ar_read_model",
+      "target_type": "readonly_adapter",
+      "owner_recommendation": "A3-Backend-Critical-Path + A5-Data-Readiness",
+      "proposed_solution": "应收/应付统计保持客户/供应商级只读汇总，不能写入发票级 fin_ar_invoices；只可进入总账/报表对账视图。",
+      "acceptance_criteria": [
+        "AP/AR 统计行数与 raw 快照保真。",
+        "期间、往来单位、期初、借贷、本期、期末字段可解释。",
+        "不产生发票号、到期日、账龄等好业财未提供的伪字段。"
+      ],
+      "endpoint_count": 204,
+      "field_count": 0,
+      "high_or_critical_count": 0,
+      "endpoints": [
+        "/accounting/gl/statistics/pay/3533914511118750",
+        "/accounting/gl/statistics/pay/3537748712226818",
+        "/accounting/gl/statistics/receive/3533914511118750",
+        "/accounting/gl/statistics/receive/3537748712226818"
+      ],
+      "sample_fields": []
+    },
+    {
+      "semantic_id": "CHANJET_COUNTERPARTY",
+      "title": "往来单位",
+      "priority": "P0",
+      "target_model": "chanjet_master_mapping.CUSTOMER_SUPPLIER",
+      "target_type": "reviewed_mapping",
+      "owner_recommendation": "A5-Data-Readiness + A2-Security-Regression-Gate",
+      "proposed_solution": "往来单位先进入中间层人工审核，确认客户/供应商/双重属性后再映射 ERP 主数据，禁止自动覆盖客户或供应商档案。",
+      "acceptance_criteria": [
+        "同一好业财往来单位只对应一个审核态映射记录。",
+        "客户/供应商属性缺失时保持 HOLD。",
+        "不把 subjectName 误当会计科目名。"
+      ],
+      "endpoint_count": 547,
+      "field_count": 0,
+      "high_or_critical_count": 0,
+      "endpoints": [
+        "/accounting/gl/statistics/pay/3533914511118750",
+        "/accounting/gl/statistics/pay/3537748712226818",
+        "/accounting/gl/statistics/receive/3533914511118750",
+        "/accounting/gl/statistics/receive/3537748712226818",
+        "/accounting/openapi/cc/party/custvendor/query/3533914511118750",
+        "/accounting/openapi/cc/party/custvendor/query/3537748712226818",
+        "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+        "/accounting/openapi/cc/payment/ar/list/3537748712226818"
+      ],
+      "sample_fields": []
+    },
+    {
+      "semantic_id": "CHANJET_PAYMENT_DOCUMENT",
+      "title": "收付款单",
+      "priority": "P1",
+      "target_model": "chanjet_payment_read_model",
+      "target_type": "readonly_adapter",
+      "owner_recommendation": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
+      "proposed_solution": "建立收付款单只读查询模型，与 ERP 采购付款/收款模块做对照，不自动生成 ERP 单据。",
+      "acceptance_criteria": [
+        "付款单与收款单方向明确。",
+        "资金账户、币种、金额、状态字段有一致口径。",
+        "权限收紧到财务菜单 V/E/X，不允许普通业务角色查看全量。"
+      ],
+      "endpoint_count": 118,
+      "field_count": 0,
+      "high_or_critical_count": 0,
+      "endpoints": [
+        "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+        "/accounting/openapi/cc/payment/ar/list/3537748712226818"
+      ],
+      "sample_fields": []
+    },
+    {
+      "semantic_id": "CHANJET_PURCHASE_LINKAGE",
+      "title": "采购订单关联",
+      "priority": "P1",
+      "target_model": "chanjet_procurement_read_model",
+      "target_type": "readonly_adapter",
+      "owner_recommendation": "A3-Backend-Critical-Path + A5-Data-Readiness",
+      "proposed_solution": "只读展示好业财采购订单与 ERP 采购订单差异，先做字段对照和差异分析，不自动回写任一侧。",
+      "acceptance_criteria": [
+        "供应商、项目、金额、税额、物料字段可对照。",
+        "ERP 缺字段进入后续 schema Gate，不在本轮直接改业务表。",
+        "差异只作为审计和人工核对，不自动调整库存或财务。"
+      ],
+      "endpoint_count": 71,
+      "field_count": 0,
+      "high_or_critical_count": 0,
+      "endpoints": [
+        "/accounting/openapi/cc/purchaseorder/list/3533914511118750"
+      ],
+      "sample_fields": []
+    }
+  ],
+  "next_gate_recommendation": [
+    "P0-1: Implement readonly voucher adapter DTO/API report from raw snapshots.",
+    "P0-2: Implement counterparty review queue and customer/supplier split decision report.",
+    "P0-3: Implement AP/AR aggregate read model, explicitly excluding fin_ar_invoices."
+  ],
+  "outputs": {
+    "outputJson": "docs/ops/runs/chanjet-finance-semantic-map-latest.json",
+    "outputMd": "docs/ops/runs/chanjet-finance-semantic-map-latest.md"
+  }
+}
