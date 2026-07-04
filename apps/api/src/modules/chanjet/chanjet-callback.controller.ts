@@ -627,6 +627,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-adapter/p0
+   * 好业财 P0 财务只读适配总览。只读 ERP 中间层，不调用好业财，不写业务表。
+   */
+  @Get('integration/finance-adapter/p0')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceP0Adapter() {
+    try {
+      const adapter = await this.integration.financeP0AdapterOverview();
+      return { success: true, adapter };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

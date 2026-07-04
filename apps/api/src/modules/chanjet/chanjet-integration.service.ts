@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -48,6 +48,73 @@ interface VoucherDraftInput {
   voucherLines: Array<Record<string, unknown>>;
   rawData?: Record<string, unknown>;
 }
+
+interface FinanceAdapterBucketDefinition {
+  key: string;
+  title: string;
+  priority: 'P0' | 'P1';
+  endpointKeys: string[];
+  entityTypes: string[];
+  erpTarget: string;
+  adapterScope: string;
+}
+
+const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
+  {
+    key: 'CHANJET_VOUCHER_HEADER',
+    title: '凭证头',
+    priority: 'P0',
+    endpointKeys: ['VOUCHER_SEARCH'],
+    entityTypes: ['VOUCHER'],
+    erpTarget: 'chanjet_voucher_drafts.header_snapshot',
+    adapterScope: '凭证号、期间、制单人、审核状态、摘要等只读重现。',
+  },
+  {
+    key: 'CHANJET_VOUCHER_LINE',
+    title: '凭证明细',
+    priority: 'P0',
+    endpointKeys: ['VOUCHER_SEARCH'],
+    entityTypes: ['VOUCHER'],
+    erpTarget: 'chanjet_voucher_drafts.voucher_lines',
+    adapterScope: '科目、借方、贷方、辅助核算、摘要等只读重现。',
+  },
+  {
+    key: 'CHANJET_COUNTERPARTY',
+    title: '往来单位',
+    priority: 'P0',
+    endpointKeys: ['CUSTOMER_SUPPLIER'],
+    entityTypes: ['CUSTOMER_SUPPLIER'],
+    erpTarget: 'chanjet_master_mappings.CUSTOMER/SUPPLIER',
+    adapterScope: '客户/供应商往来单位候选映射，必须人工审核后才能作为后续入账依据。',
+  },
+  {
+    key: 'CHANJET_AP_AR_AGGREGATE',
+    title: '应收/应付汇总',
+    priority: 'P0',
+    endpointKeys: ['PAYABLE_STATISTICS', 'RECEIVABLE_STATISTICS'],
+    entityTypes: ['AP_STATISTICS', 'AR_STATISTICS'],
+    erpTarget: 'chanjet_entity_snapshots + fin_ar_ledger review input',
+    adapterScope: '好业财客户/供应商级汇总，只能进入汇总/对账，不得写入 fin_ar_invoices。',
+  },
+  {
+    key: 'CHANJET_PAYMENT_DOCUMENT',
+    title: '收付款单',
+    priority: 'P1',
+    endpointKeys: ['PAYMENT_AP', 'PAYMENT_AR'],
+    entityTypes: ['AP_PAYMENT', 'AR_RECEIPT'],
+    erpTarget: 'finance-v2 payment readonly adapter',
+    adapterScope: '收付款单只读重现和 ERP 单据匹配候选。',
+  },
+  {
+    key: 'CHANJET_PURCHASE_LINKAGE',
+    title: '采购链路',
+    priority: 'P1',
+    endpointKeys: ['PURCHASE_ORDER'],
+    entityTypes: ['PURCHASE_ORDER'],
+    erpTarget: 'procurement-v2 readonly reconciliation input',
+    adapterScope: '采购订单只读重现和 ERP 采购单据差异分析。',
+  },
+];
 
 const PROBE_ENDPOINTS: ProbeEndpoint[] = [
   {
@@ -407,6 +474,140 @@ export class ChanjetIntegrationService {
       order: { riskLevel: 'DESC', erpDomain: 'ASC', chanjetEndpoint: 'ASC', chanjetFieldPath: 'ASC' },
       take: Math.min(Math.max(Number(limit) || 500, 1), 2000),
     });
+  }
+
+  async financeP0AdapterOverview() {
+    const [fieldMappings, books] = await Promise.all([
+      this.fieldMappingRepo.find({ take: 5000 }),
+      this.listAccountBooks(),
+    ]);
+
+    const buckets = await Promise.all(FINANCE_ADAPTER_BUCKETS.map(async (bucket) => {
+      const [snapshotCount, entityCount, latestSnapshot, sampleEntities] = await Promise.all([
+        this.readSnapshotRepo.count({ where: { endpointKey: In(bucket.endpointKeys) } }),
+        this.entitySnapshotRepo.count({ where: { entityType: In(bucket.entityTypes) } }),
+        this.readSnapshotRepo.find({
+          where: { endpointKey: In(bucket.endpointKeys) },
+          order: { pulledAt: 'DESC' },
+          take: 1,
+        }),
+        this.entitySnapshotRepo.find({
+          where: { entityType: In(bucket.entityTypes) },
+          order: { updatedAt: 'DESC' },
+          take: 5,
+        }),
+      ]);
+      const bucketMappings = fieldMappings.filter((mapping) => this.fieldBelongsToFinanceBucket(mapping, bucket));
+      const statusCounts = bucketMappings.reduce<Record<string, number>>((acc, mapping) => {
+        acc[mapping.matchStatus] = (acc[mapping.matchStatus] || 0) + 1;
+        return acc;
+      }, {});
+      const riskCounts = bucketMappings.reduce<Record<string, number>>((acc, mapping) => {
+        acc[mapping.riskLevel] = (acc[mapping.riskLevel] || 0) + 1;
+        return acc;
+      }, {});
+      const unresolvedHighRisk = bucketMappings.filter((mapping) => (
+        ['HIGH', 'CRITICAL'].includes(mapping.riskLevel)
+        && ['PENDING', 'HOLD'].includes(mapping.decisionStatus)
+      )).length;
+      const hasMirrorData = snapshotCount > 0 || entityCount > 0;
+      const adapterStatus = hasMirrorData
+        ? (unresolvedHighRisk > 0 ? 'READY_WITH_FIELD_GAPS' : 'READY')
+        : 'WAITING_MIRROR_SYNC';
+      return {
+        key: bucket.key,
+        title: bucket.title,
+        priority: bucket.priority,
+        endpointKeys: bucket.endpointKeys,
+        entityTypes: bucket.entityTypes,
+        erpTarget: bucket.erpTarget,
+        adapterScope: bucket.adapterScope,
+        adapterStatus,
+        snapshotCount,
+        entityCount,
+        mappedFieldCount: bucketMappings.length,
+        statusCounts,
+        riskCounts,
+        unresolvedHighRisk,
+        latestPulledAt: latestSnapshot[0]?.pulledAt ?? null,
+        sampleEntities: sampleEntities.map((entity) => ({
+          entityType: entity.entityType,
+          externalCode: entity.externalCode,
+          externalName: entity.externalName,
+          amount: entity.amount,
+          currency: entity.currency,
+          status: entity.status,
+          period: entity.period,
+        })),
+        nextAction: this.financeAdapterNextAction(bucket.priority, adapterStatus, unresolvedHighRisk),
+      };
+    }));
+
+    const readiness = {
+      p0Total: buckets.filter((bucket) => bucket.priority === 'P0').length,
+      p0Ready: buckets.filter((bucket) => bucket.priority === 'P0' && bucket.adapterStatus === 'READY').length,
+      p0ReadyWithGaps: buckets.filter((bucket) => bucket.priority === 'P0' && bucket.adapterStatus === 'READY_WITH_FIELD_GAPS').length,
+      p0WaitingMirrorSync: buckets.filter((bucket) => bucket.priority === 'P0' && bucket.adapterStatus === 'WAITING_MIRROR_SYNC').length,
+      p1Total: buckets.filter((bucket) => bucket.priority === 'P1').length,
+      pushEnabled: false,
+      writeChanjet: false,
+      writeBusinessTables: false,
+      allowedNextGate: 'CHANJET_P0_READONLY_FINANCE_ADAPTER_REVIEW',
+    };
+
+    return {
+      generatedAt: new Date().toISOString(),
+      accountBooks: books.map((book) => ({
+        bookId: book.bookId,
+        bookName: book.bookName,
+        companyCode: book.companyCode,
+        companyName: book.companyName,
+        enabled: book.enabled,
+      })),
+      readiness,
+      buckets,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        voucherPush: false,
+        erpBusinessTableWrite: false,
+        migration: false,
+        productionDeploy: false,
+        finArInvoicesChanjetLink: false,
+        note: '好业财只读镜像只能进入 ERP 中间层和差异分析；不得把好业财汇总数据写入 fin_ar_invoices。',
+      },
+    };
+  }
+
+  private fieldBelongsToFinanceBucket(mapping: ChanjetErpFieldMappingEntity, bucket: FinanceAdapterBucketDefinition) {
+    const endpoint = `${mapping.chanjetEndpoint || ''}`.toLowerCase();
+    const fieldPath = `${mapping.chanjetFieldPath || ''}`.toLowerCase();
+    if (bucket.key === 'CHANJET_VOUCHER_LINE') {
+      return endpoint.includes('acctgtrans') && fieldPath.includes('.details[');
+    }
+    if (bucket.key === 'CHANJET_VOUCHER_HEADER') {
+      return endpoint.includes('acctgtrans') && !fieldPath.includes('.details[');
+    }
+    if (bucket.key === 'CHANJET_COUNTERPARTY') {
+      return endpoint.includes('custvendor') || /customer|supplier|vendor|counterparty|subjectname/.test(fieldPath);
+    }
+    if (bucket.key === 'CHANJET_AP_AR_AGGREGATE') {
+      return endpoint.includes('/statistics/pay') || endpoint.includes('/statistics/receive') || /receive|payable|amount|balance|期末/.test(fieldPath);
+    }
+    if (bucket.key === 'CHANJET_PAYMENT_DOCUMENT') {
+      return endpoint.includes('/payment/') || /payment|receipt|settle|payee|payer/.test(fieldPath);
+    }
+    if (bucket.key === 'CHANJET_PURCHASE_LINKAGE') {
+      return endpoint.includes('purchaseorder') || /purchase|supplier|po|order/.test(fieldPath);
+    }
+    return bucket.endpointKeys.some((key) => endpoint.includes(key.toLowerCase()));
+  }
+
+  private financeAdapterNextAction(priority: 'P0' | 'P1', adapterStatus: string, unresolvedHighRisk: number) {
+    if (adapterStatus === 'WAITING_MIRROR_SYNC') return '先执行只读镜像同步，不得写好业财。';
+    if (unresolvedHighRisk > 0) return '先由财务/A2 审核高风险字段映射，再进入 UI/差异分析。';
+    if (priority === 'P0') return '可进入 P0 只读财务适配展示与人工映射复核。';
+    return 'P1 可排队进入后续采购/收付款链路适配。';
   }
 
   async syncReadOnlyMirror(scope: string[] = [], bookId?: string, period?: string): Promise<{

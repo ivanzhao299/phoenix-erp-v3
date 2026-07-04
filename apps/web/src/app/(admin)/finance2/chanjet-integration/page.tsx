@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -158,6 +158,47 @@ interface ReconciliationResult {
   createdAt: string;
 }
 
+interface FinanceAdapterBucket {
+  key: string;
+  title: string;
+  priority: 'P0' | 'P1';
+  endpointKeys: string[];
+  entityTypes: string[];
+  erpTarget: string;
+  adapterScope: string;
+  adapterStatus: 'READY' | 'READY_WITH_FIELD_GAPS' | 'WAITING_MIRROR_SYNC';
+  snapshotCount: number;
+  entityCount: number;
+  mappedFieldCount: number;
+  statusCounts: Record<string, number>;
+  riskCounts: Record<string, number>;
+  unresolvedHighRisk: number;
+  latestPulledAt: string | null;
+  nextAction: string;
+}
+
+interface FinanceAdapterOverview {
+  readiness: {
+    p0Total: number;
+    p0Ready: number;
+    p0ReadyWithGaps: number;
+    p0WaitingMirrorSync: number;
+    p1Total: number;
+    pushEnabled: boolean;
+    writeChanjet: boolean;
+    writeBusinessTables: boolean;
+    allowedNextGate: string;
+  };
+  buckets: FinanceAdapterBucket[];
+  guardrails: {
+    chanjetWrite: boolean;
+    voucherPush: boolean;
+    erpBusinessTableWrite: boolean;
+    finArInvoicesChanjetLink: boolean;
+    note: string;
+  };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -206,7 +247,7 @@ function fmtDate(value: string | null | undefined) {
 
 export default function ChanjetIntegrationPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR_LEDGER');
-  const [tab, setTab] = useState<TabKey>('mirror');
+  const [tab, setTab] = useState<TabKey>('adapter');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -217,6 +258,7 @@ export default function ChanjetIntegrationPage() {
   const [readSnapshots, setReadSnapshots] = useState<ReadSnapshot[]>([]);
   const [entitySnapshots, setEntitySnapshots] = useState<EntitySnapshot[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [financeAdapter, setFinanceAdapter] = useState<FinanceAdapterOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -230,7 +272,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -241,6 +283,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; snapshots: ReadSnapshot[]; error?: string }>('/chanjet/integration/mirror/read-snapshots?limit=80'),
         request<{ success: boolean; entities: EntitySnapshot[]; error?: string }>('/chanjet/integration/mirror/entity-snapshots?limit=160'),
         request<{ success: boolean; mappings: FieldMapping[]; error?: string }>('/chanjet/integration/field-mappings?limit=300'),
+        request<{ success: boolean; adapter: FinanceAdapterOverview; error?: string }>('/chanjet/integration/finance-adapter/p0'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -253,6 +296,7 @@ export default function ChanjetIntegrationPage() {
       setReadSnapshots(readResp.snapshots || []);
       setEntitySnapshots(entityResp.entities || []);
       setFieldMappings(fieldMapResp.mappings || []);
+      setFinanceAdapter(financeAdapterResp.adapter || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -398,6 +442,7 @@ export default function ChanjetIntegrationPage() {
 
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 14, flexWrap: 'wrap' }}>
         {[
+          ['adapter', 'P0 财务适配'],
           ['mirror', '只读镜像'],
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
@@ -423,6 +468,82 @@ export default function ChanjetIntegrationPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'adapter' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>P0 财务只读适配层</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                将好业财只读镜像按凭证、往来、应收应付等财务语义重组成 ERP 可审查视图；不写好业财、不推凭证、不写 ERP 业务主表。
+              </div>
+            </div>
+            <Badge tone={financeAdapter?.readiness?.pushEnabled ? 'red' : 'green'}>凭证推送关闭</Badge>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>P0 桶</div>
+              <div style={{ fontSize: 24, fontWeight: 800 }}>{financeAdapter?.readiness?.p0Total ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>READY {financeAdapter?.readiness?.p0Ready ?? 0} / 条件项 {financeAdapter?.readiness?.p0ReadyWithGaps ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>待镜像同步</div>
+              <div style={{ fontSize: 24, fontWeight: 800 }}>{financeAdapter?.readiness?.p0WaitingMirrorSync ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>只读同步后才能进入适配审查</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginTop: 8 }}>{financeAdapter?.readiness?.allowedNextGate ?? '—'}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>仍需人工字段复核</div>
+            </div>
+          </div>
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>安全边界</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">ERP 业务表写入: 否</Badge>
+              <Badge tone="green">fin_ar_invoices 连接: 否</Badge>
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>{financeAdapter?.guardrails?.note}</div>
+          </div>
+          <table style={tableStyle}>
+            <thead>
+              <tr>{['适配桶', '镜像/实体', '字段风险', 'ERP 目标', '下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {(financeAdapter?.buckets || []).map((bucket) => (
+                <tr key={bucket.key}>
+                  <td style={cellStyle}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <strong>{bucket.title}</strong>
+                      <Badge tone={bucket.priority === 'P0' ? 'blue' : 'muted'}>{bucket.priority}</Badge>
+                      <Badge tone={statusTone(bucket.adapterStatus)}>{bucket.adapterStatus}</Badge>
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{bucket.endpointKeys.join(' / ')}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{bucket.adapterScope}</div>
+                  </td>
+                  <td style={cellStyle}>
+                    快照 {bucket.snapshotCount}<br />
+                    实体 {bucket.entityCount}<br />
+                    <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>最近: {fmtDate(bucket.latestPulledAt)}</span>
+                  </td>
+                  <td style={cellStyle}>
+                    字段 {bucket.mappedFieldCount}<br />
+                    高风险待审 {bucket.unresolvedHighRisk}
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                      HIGH {bucket.riskCounts.HIGH || 0} / CRITICAL {bucket.riskCounts.CRITICAL || 0}
+                    </div>
+                  </td>
+                  <td style={cellStyle}>{bucket.erpTarget}</td>
+                  <td style={cellStyle}>{bucket.nextAction}</td>
+                </tr>
+              ))}
+              {!financeAdapter?.buckets?.length && <tr><td style={cellStyle} colSpan={5}>暂无 P0 适配数据，请先执行只读镜像同步和字段分析。</td></tr>}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {tab === 'mirror' && (
         <section style={cardStyle}>
