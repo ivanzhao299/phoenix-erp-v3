@@ -109,28 +109,76 @@ jobs:
             --output-dir=docs/ops/runs \
             --strict
 
-      - name: Mint short-lived production admin token for Chanjet sync
-        if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-        run: |
-          set -euo pipefail
-          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
-          echo "::add-mask::$TOKEN"
-          echo "PHOENIX_ADMIN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
       - name: Run Chanjet readonly production sync
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
-        run: |
-          node scripts/ops/chanjet-readonly-mirror-sync.mjs \
-            --execute \
-            --remote-api-only \
-            --api-base=https://erp.eggslao.com \
-            --output-dir=docs/ops/runs
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git pull --ff-only origin main
+
+            USER_ROW="$(docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select user_id::text || '"'"'|'"'"' || coalesce(perms_version,1)::text from sys_user where username='"'"'admin'"'"' and status=1 limit 1"' | tr -d '\r\n')"
+            if [ -z "$USER_ROW" ]; then
+              echo "::error::ACTIVE_ADMIN_NOT_FOUND"
+              exit 3
+            fi
+            ADMIN_ID="${USER_ROW%%|*}"
+            PERMS_VERSION="${USER_ROW##*|}"
+            TOKEN="$(
+              docker compose exec -T \
+                -e PHOENIX_CI_ADMIN_ID="$ADMIN_ID" \
+                -e PHOENIX_CI_PERMS_VERSION="$PERMS_VERSION" \
+                api node - <<'NODE'
+            const jwt = require('jsonwebtoken');
+            const secret = process.env.JWT_SECRET;
+            if (!secret || secret === 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD') {
+              console.error('JWT_SECRET_NOT_AVAILABLE');
+              process.exit(4);
+            }
+            const adminId = Number(process.env.PHOENIX_CI_ADMIN_ID || 0);
+            const permsVersion = Number(process.env.PHOENIX_CI_PERMS_VERSION || 1);
+            if (!adminId) {
+              console.error('ADMIN_ID_NOT_AVAILABLE');
+              process.exit(5);
+            }
+            const payload = {
+              userId: adminId,
+              sub: adminId,
+              username: 'admin',
+              realNameZh: 'CI Chanjet Readonly Sync',
+              role: 'ROLE_ADMIN',
+              roleNameZh: '集团超级管理员',
+              storeCode: 'ALL',
+              store_code: 'ALL',
+              locale: 'zh-CN',
+              roles: ['ROLE_ADMIN'],
+              permissions: ['*'],
+              perms_version: permsVersion,
+            };
+            process.stdout.write(jwt.sign(payload, secret, { expiresIn: '20m' }));
+            NODE
+            )"
+            if [ -z "$TOKEN" ]; then
+              echo "::error::Failed to mint production token."
+              exit 2
+            fi
+            PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-readonly-mirror-sync.mjs \
+              --execute \
+              --remote-api-only \
+              --api-base=https://erp.eggslao.com \
+              --output-dir=docs/ops/runs
 
       - name: Upload runtime smoke artifacts
         if: always() && github.event_name == 'workflow_dispatch'
