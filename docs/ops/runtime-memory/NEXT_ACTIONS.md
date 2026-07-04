@@ -393,3 +393,24 @@ Next actions:
 2. `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK`
    - Lock business date and approval/void status filters before using Chanjet receipt/payment values for daily cards.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until the read model is stable and reviewed.
+
+## 2026-07-04 — Chanjet P3 Finance Read Model Implemented
+
+Current stage: `CHANJET_P3_FINANCE_READ_MODEL_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- New readonly API: `GET /api/chanjet/integration/finance-read-model`.
+- UI entry: `/finance2/chanjet-integration`, tab `财务 Read Model`.
+- Metrics are classified as `AUTHORITY_READY`, `READONLY_READY`, `BLOCKED_MAPPING`, `WAITING_SAMPLE`, `NEED_MANUAL_REVIEW`, or `HOLD`.
+- Only `AUTHORITY_READY` metrics may feed primary finance cards.
+
+Next actions:
+
+1. `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK`
+   - Lock receipt/payment business date, posting date, approved status, void status, and direction semantics.
+2. `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING`
+   - Wire only `AUTHORITY_READY` values into finance cards and keep ERP auxiliary values visible.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked.

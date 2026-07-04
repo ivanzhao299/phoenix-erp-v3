@@ -717,6 +717,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-read-model
+   * 好业财财务只读 read model。只决定展示权威候选，不写好业财，不覆盖 ERP 业务表。
+   */
+  @Get('integration/finance-read-model')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceReadModel() {
+    try {
+      const readModel = await this.integration.financeReadModelOverview();
+      return { success: true, readModel };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

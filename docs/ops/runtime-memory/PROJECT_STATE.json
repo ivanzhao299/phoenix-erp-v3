@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_FINANCE_READ_MODEL_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_READ_MODEL",
+  "next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_FINANCE_READ_MODEL_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "build_finance_read_model_from_locked_semantic_extractors",
+    "next_action": "lock_receipt_payment_business_date_and_status_filters",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -155,7 +155,11 @@
     "finance_semantic_extractors_ui": "/finance2/chanjet-integration",
     "finance_semantic_extractors_status": "implemented",
     "finance_semantic_extractors_next_gate": "CHANJET_P3_FINANCE_READ_MODEL",
-    "finance_authority_guard": "raw_data_semantic_field_candidates_required_before_card_authority"
+    "finance_authority_guard": "only_AUTHORITY_READY_metrics_can_feed_primary_finance_cards",
+    "finance_read_model_api": "/api/chanjet/integration/finance-read-model",
+    "finance_read_model_ui": "/finance2/chanjet-integration",
+    "finance_read_model_status": "implemented_runtime_readonly",
+    "finance_read_model_next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

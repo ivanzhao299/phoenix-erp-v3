@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -364,6 +364,50 @@ interface FinanceSemanticExtractorsOverview {
   guardrails: { rule: string };
 }
 
+type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
+
+interface FinanceReadModelMetric {
+  key: string;
+  label: string;
+  priority: 'P0' | 'P1';
+  status: FinanceReadModelStatus;
+  authorityEligible: boolean;
+  displayValue: number | null;
+  erpAuxiliaryValue: number | null;
+  diff: number | null;
+  valueSource: string;
+  sourceEntityTypes: string[];
+  sampleRows: number;
+  latestPulledAt: string | null;
+  requiredFields: string[];
+  missingRequiredFields: string[];
+  selectedValueFields: Array<{
+    semanticField: string;
+    candidatePath: string;
+    sampleValue: string | null;
+  }>;
+  reason: string;
+  nextAction: string;
+}
+
+interface FinanceReadModelOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalMetrics: number;
+    authorityReady: number;
+    readonlyReady: number;
+    blockedMapping: number;
+    waitingSample: number;
+    needManualReview: number;
+    hold: number;
+    p0Blocked: number;
+    nextGate: string;
+  };
+  metrics: FinanceReadModelMetric[];
+  guardrails: { rule: string };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -399,9 +443,9 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 }
 
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
-  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND'].includes(status)) return 'green';
+  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING'].includes(status)) return 'amber';
+  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'BLOCKED_MAPPING'].includes(status)) return 'amber';
   return 'muted';
 }
 
@@ -443,6 +487,7 @@ export default function ChanjetIntegrationPage() {
   const [financeCoverage, setFinanceCoverage] = useState<FinanceReadonlyCoverage | null>(null);
   const [financeRuntimeRecon, setFinanceRuntimeRecon] = useState<FinanceRuntimeReconciliation | null>(null);
   const [financeSemanticExtractors, setFinanceSemanticExtractors] = useState<FinanceSemanticExtractorsOverview | null>(null);
+  const [financeReadModel, setFinanceReadModel] = useState<FinanceReadModelOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -456,7 +501,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -471,6 +516,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; coverage: FinanceReadonlyCoverage; error?: string }>('/chanjet/integration/finance-coverage'),
         request<{ success: boolean; reconciliation: FinanceRuntimeReconciliation; error?: string }>('/chanjet/integration/finance-reconciliation'),
         request<{ success: boolean; semanticExtractors: FinanceSemanticExtractorsOverview; error?: string }>('/chanjet/integration/finance-semantic-extractors'),
+        request<{ success: boolean; readModel: FinanceReadModelOverview; error?: string }>('/chanjet/integration/finance-read-model'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -487,6 +533,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceCoverage(financeCoverageResp.coverage || null);
       setFinanceRuntimeRecon(financeRuntimeReconResp.reconciliation || null);
       setFinanceSemanticExtractors(financeSemanticExtractorResp.semanticExtractors || null);
+      setFinanceReadModel(financeReadModelResp.readModel || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -639,6 +686,7 @@ export default function ChanjetIntegrationPage() {
           ['mappings', '主数据映射'],
           ['reconciliation', '对账差异'],
           ['semantic', '语义提取器'],
+          ['readModel', '财务 Read Model'],
           ['drafts', '凭证草稿'],
           ['fields', '字段目录'],
           ['jobs', '作业审计'],
@@ -1158,6 +1206,103 @@ export default function ChanjetIntegrationPage() {
                   </tr>
                 ))}
                 {!financeSemanticExtractors?.extractors?.length && <tr><td style={cellStyle} colSpan={6}>暂无语义提取数据。</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'readModel' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <strong>好业财财务只读 Read Model</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                只把语义提取器 READY 的指标纳入展示候选；未锁定字段继续阻止进入财务首页主卡片。
+              </div>
+            </div>
+            <Badge tone={financeReadModel?.decision === 'GO' ? 'green' : financeReadModel?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {financeReadModel?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>指标总数</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadModel?.summary?.totalMetrics ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate: {financeReadModel?.summary?.nextGate || '—'}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>权威 / 只读</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadModel?.summary?.authorityReady ?? 0}/{financeReadModel?.summary?.readonlyReady ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>权威值仍需显示 ERP 辅助差异</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>P0 阻断</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadModel?.summary?.p0Blocked ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>不得进入财务首页主值</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>人工复核 / 缺样本</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(financeReadModel?.summary?.needManualReview ?? 0) + (financeReadModel?.summary?.waitingSample ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>日期、状态或样本不足</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>只读边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{financeReadModel?.guardrails?.rule || '只读 read model 不写好业财，不覆盖 ERP 业务表。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">ERP 业务表覆盖: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">migration: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ ...tableStyle, minWidth: 1180 }}>
+              <thead>
+                <tr>{['指标', '状态', '显示值', 'ERP 辅助', '字段证据', '原因 / 下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {(financeReadModel?.metrics || []).map((item) => (
+                  <tr key={item.key}>
+                    <td style={cellStyle}>
+                      <strong>{item.label}</strong>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.key} · {item.priority}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{item.sourceEntityTypes.join(' / ') || '—'}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                      <div style={{ marginTop: 6 }}>
+                        <Badge tone={item.authorityEligible ? 'green' : 'amber'}>{item.authorityEligible ? '权威候选' : '阻止权威使用'}</Badge>
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      <strong>{fmtMoney(item.displayValue)}</strong>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.valueSource}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      {fmtMoney(item.erpAuxiliaryValue)}
+                      <div style={{ color: item.diff ? 'var(--status-warning)' : 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>差异 {fmtSignedMoney(item.diff)}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div>样本 {item.sampleRows} · {fmtDate(item.latestPulledAt)}</div>
+                      <div style={{ color: item.missingRequiredFields.length ? 'var(--status-danger)' : 'var(--status-success)', fontSize: 12, marginTop: 5 }}>
+                        缺: {item.missingRequiredFields.slice(0, 5).join(' / ') || '无'}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>
+                        {item.selectedValueFields.slice(0, 3).map((field) => `${field.semanticField}: ${field.candidatePath}`).join('；') || '暂无金额字段候选'}
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      {item.nextAction}
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>{item.reason}</div>
+                    </td>
+                  </tr>
+                ))}
+                {!financeReadModel?.metrics?.length && <tr><td style={cellStyle} colSpan={6}>暂无财务 read model 数据。</td></tr>}
               </tbody>
             </table>
           </div>

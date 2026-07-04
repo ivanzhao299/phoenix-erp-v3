@@ -1226,3 +1226,30 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FINANCE_READ_MODEL`
+
+## 2026-07-04 — Chanjet P3 finance read model implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-read-model`.
+- Added a `财务 Read Model` tab to `/finance2/chanjet-integration`.
+- Each finance metric now exposes whether it can become a primary finance card authority value.
+
+Key decision:
+
+- Only `AUTHORITY_READY` metrics may feed primary ERP finance cards.
+- `BLOCKED_MAPPING`, `WAITING_SAMPLE`, and `NEED_MANUAL_REVIEW` must remain visible as blockers, not silent zeroes or ERP fallbacks.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK`

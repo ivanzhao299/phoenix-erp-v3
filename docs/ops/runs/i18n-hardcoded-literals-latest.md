@@ -1,9 +1,9 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-04T11:49:36.779Z
+Generated: 2026-07-04T12:04:59.802Z
 
-Total findings: 2945
-Auto-translatable by runtime bridge: 2945
+Total findings: 2973
+Auto-translatable by runtime bridge: 2973
 Still requiring componentization or dictionary modeling: 0
 Affected files: 170
 
@@ -13,7 +13,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 
 | File | Count | Samples |
 |---|---:|---|
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 226 | 452:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>475:总览加载失败<br>500:账套缓存<br>501:字段目录<br>501:脱敏字段样本<br>502:映射候选<br>503:凭证草稿<br>504:镜像实体 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 254 | 497:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>521:总览加载失败<br>547:账套缓存<br>548:字段目录<br>548:脱敏字段样本<br>549:映射候选<br>550:凭证草稿<br>551:镜像实体 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
 | `apps/web/src/components/layout/Sidebar.tsx` | 157 | 71:运营工作台<br>73:每日工作台<br>80:经营仪表盘<br>83:生产管理<br>85:养殖总览<br>86:鸡舍管理<br>87:鸡群档案<br>88:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |

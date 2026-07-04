@@ -120,6 +120,32 @@ export interface FinanceSemanticExtractor {
   nextAction: string;
 }
 
+export type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
+
+export interface FinanceReadModelMetric {
+  key: string;
+  label: string;
+  priority: 'P0' | 'P1';
+  status: FinanceReadModelStatus;
+  authorityEligible: boolean;
+  displayValue: number | null;
+  erpAuxiliaryValue: number | null;
+  diff: number | null;
+  valueSource: string;
+  sourceEntityTypes: string[];
+  sampleRows: number;
+  latestPulledAt: string | null;
+  requiredFields: string[];
+  missingRequiredFields: string[];
+  selectedValueFields: Array<{
+    semanticField: string;
+    candidatePath: string;
+    sampleValue: string | null;
+  }>;
+  reason: string;
+  nextAction: string;
+}
+
 export interface FinanceReconciliationItem {
   key: string;
   label: string;
@@ -1414,6 +1440,62 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReadModelOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalMetrics: number;
+      authorityReady: number;
+      readonlyReady: number;
+      blockedMapping: number;
+      waitingSample: number;
+      needManualReview: number;
+      hold: number;
+      p0Blocked: number;
+      nextGate: string;
+    };
+    metrics: FinanceReadModelMetric[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const [reconciliation, semanticExtractors] = await Promise.all([
+      this.financeReconciliationOverview(),
+      this.financeSemanticExtractorsOverview(),
+    ]);
+    const extractorByKey = new Map(semanticExtractors.extractors.map((item) => [item.key, item]));
+    const metrics = reconciliation.items.map((item) => this.buildFinanceReadModelMetric(item, extractorByKey.get(item.key)));
+    const statusCounts = metrics.reduce<Record<FinanceReadModelStatus, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {} as Record<FinanceReadModelStatus, number>);
+    const p0Blocked = metrics.filter((item) => item.priority === 'P0' && !['AUTHORITY_READY', 'READONLY_READY'].includes(item.status)).length;
+    const hold = statusCounts.HOLD || 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : p0Blocked > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalMetrics: metrics.length,
+        authorityReady: statusCounts.AUTHORITY_READY || 0,
+        readonlyReady: statusCounts.READONLY_READY || 0,
+        blockedMapping: statusCounts.BLOCKED_MAPPING || 0,
+        waitingSample: statusCounts.WAITING_SAMPLE || 0,
+        needManualReview: statusCounts.NEED_MANUAL_REVIEW || 0,
+        hold,
+        p0Blocked,
+        nextGate: 'CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK',
+      },
+      metrics,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '只读 read model 只决定 ERP 展示与权威候选状态；READY 之前不得把好业财镜像数字写入 ERP 业务事实表，也不得静默替换 ERP 明细。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),
@@ -1856,6 +1938,108 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MAPPING') return '补齐字段语义映射和 ERP 对照字段，禁止静默显示为 0。';
     if (status === 'NEED_MANUAL_REVIEW') return '需要财务确认业务日/入账日/审核状态等口径后才能成为卡片权威值。';
     return '存在基础表或查询异常，先修复运行时证据再继续。';
+  }
+
+  private buildFinanceReadModelMetric(
+    item: FinanceReconciliationItem,
+    extractor?: FinanceSemanticExtractor,
+  ): FinanceReadModelMetric {
+    const selectedValueFields = this.financeReadModelValueFields(extractor);
+    const hasMirrorValue = item.chanjetValue !== null;
+    const waitingSample = !extractor || extractor.status === 'WAITING_SAMPLE';
+    const needManualReview = item.status === 'NEED_MANUAL_REVIEW';
+    const blockedMapping = !extractor || ['PARTIAL', 'NEED_EXTRACTION'].includes(extractor.status) || item.status === 'NEED_MAPPING';
+    const hold = item.status === 'HOLD' || extractor?.status === 'HOLD';
+    const authorityReady = Boolean(
+      extractor?.authorityEligible
+      && item.semanticLock.authorityEligible
+      && hasMirrorValue
+      && !needManualReview
+      && !blockedMapping
+      && !hold,
+    );
+    const readonlyReady = Boolean(
+      extractor?.status === 'READY'
+      && !authorityReady
+      && hasMirrorValue
+      && !needManualReview
+      && !hold,
+    );
+    const status: FinanceReadModelStatus = hold
+      ? 'HOLD'
+      : authorityReady
+        ? 'AUTHORITY_READY'
+        : readonlyReady
+          ? 'READONLY_READY'
+          : needManualReview
+            ? 'NEED_MANUAL_REVIEW'
+            : waitingSample
+              ? 'WAITING_SAMPLE'
+              : 'BLOCKED_MAPPING';
+    const displayValue = ['AUTHORITY_READY', 'READONLY_READY'].includes(status) ? item.chanjetValue : null;
+    return {
+      key: item.key,
+      label: item.label,
+      priority: item.priority,
+      status,
+      authorityEligible: status === 'AUTHORITY_READY',
+      displayValue,
+      erpAuxiliaryValue: item.erpValue,
+      diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
+      valueSource: displayValue !== null
+        ? 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
+        : 'blocked_until_semantic_extractor_ready',
+      sourceEntityTypes: item.chanjetEntityTypes,
+      sampleRows: extractor?.sampleRows || item.evidence.chanjetRows,
+      latestPulledAt: extractor?.latestPulledAt || item.evidence.latestPulledAt,
+      requiredFields: extractor?.fieldCandidates.filter((field) => field.required).map((field) => field.semanticField) || item.semanticLock.pendingFields,
+      missingRequiredFields: extractor?.missingRequiredFields || item.semanticLock.pendingFields,
+      selectedValueFields,
+      reason: this.financeReadModelReason(status, item, extractor),
+      nextAction: this.financeReadModelNextAction(status, item, extractor),
+    };
+  }
+
+  private financeReadModelValueFields(extractor?: FinanceSemanticExtractor): FinanceReadModelMetric['selectedValueFields'] {
+    if (!extractor) return [];
+    const amountLike = /(amount|money|balance|closing|ending|debit|credit|tax|current_period|year_to_date)/i;
+    return extractor.fieldCandidates
+      .filter((field) => amountLike.test(field.semanticField) && field.candidatePaths.length > 0)
+      .map((field) => ({
+        semanticField: field.semanticField,
+        candidatePath: field.candidatePaths[0].path,
+        sampleValue: field.candidatePaths[0].sampleValue,
+      }));
+  }
+
+  private financeReadModelReason(
+    status: FinanceReadModelStatus,
+    item: FinanceReconciliationItem,
+    extractor?: FinanceSemanticExtractor,
+  ): string {
+    if (status === 'AUTHORITY_READY') return '好业财镜像、语义锁和提取器均满足权威候选条件，可作为财务卡片主值，并保留 ERP 辅助差异。';
+    if (status === 'READONLY_READY') return '字段样本已就绪，但该指标尚非权威口径；只能只读展示，不得覆盖 ERP 业务事实。';
+    if (status === 'NEED_MANUAL_REVIEW') return '日期、审核状态、作废状态或方向口径仍需财务确认。';
+    if (status === 'WAITING_SAMPLE') return '该指标缺少好业财 raw_data 样本，需要先重跑只读同步。';
+    if (status === 'HOLD') return '存在基础查询或安全边界异常，必须停止进入人工处理。';
+    return extractor?.missingRequiredFields.length
+      ? `必需字段未锁定: ${extractor.missingRequiredFields.slice(0, 6).join(' / ')}。`
+      : item.reason;
+  }
+
+  private financeReadModelNextAction(
+    status: FinanceReadModelStatus,
+    item: FinanceReconciliationItem,
+    extractor?: FinanceSemanticExtractor,
+  ): string {
+    if (status === 'AUTHORITY_READY') return '接入财务首页主卡片，标明好业财口径，同时显示 ERP 辅助差异。';
+    if (status === 'READONLY_READY') return '只读展示明细，不作为主卡片权威值。';
+    if (status === 'NEED_MANUAL_REVIEW') return '锁定业务日/入账日/审核状态/作废过滤，再进入下一轮 read model。';
+    if (status === 'WAITING_SAMPLE') return '执行好业财全量只读同步，补齐该实体 raw_data 样本。';
+    if (status === 'HOLD') return '停止接入卡片，先修复 HOLD 原因。';
+    return extractor?.missingRequiredFields.length
+      ? `补齐字段候选: ${extractor.missingRequiredFields.slice(0, 5).join(' / ')}`
+      : item.recommendedAction;
   }
 
   private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {
