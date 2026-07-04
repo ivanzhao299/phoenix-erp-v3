@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION",
+  "next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "wire_authority_ready_finance_cards_with_source_and_diff_visible",
+    "next_action": "audit_finance_card_source_switch_after_system_confirmation",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -193,7 +193,29 @@
     "finance_card_semantic_review_hold": 0,
     "finance_card_semantic_review_next_gate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION",
     "zero_amount_guard": "FIN_ACCOUNT_GL_BALANCE_STATEMENT_AMOUNT_SUM_ZERO_IS_NOT_BUSINESS_ZERO_UNTIL_FIELD_SEMANTICS_LOCKED",
-    "chanjet_writeback_status": "HOLD_UNTIL_SEPARATE_APPROVAL"
+    "chanjet_writeback_status": "HOLD_UNTIL_SEPARATE_APPROVAL",
+    "finance_card_system_confirmation_api": "/api/chanjet/integration/finance-card-system-confirmation",
+    "finance_card_system_confirmation_script": "scripts/ops/chanjet-finance-card-system-confirmation-audit.mjs",
+    "finance_card_system_confirmation_json": "docs/ops/runs/chanjet-finance-card-system-confirmation-latest.json",
+    "finance_card_system_confirmation_md": "docs/ops/runs/chanjet-finance-card-system-confirmation-latest.md",
+    "finance_card_system_confirmation_report": "docs/ops/CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_REPORT_20260704.md",
+    "finance_card_system_confirmation_status": "verified_6_of_6",
+    "finance_card_system_authority_cards": [
+      "AR_OPEN",
+      "AP_OPEN"
+    ],
+    "finance_card_system_readonly_cards": [
+      "SUBJECT_BALANCE",
+      "BALANCE_SHEET",
+      "INCOME_STATEMENT"
+    ],
+    "finance_card_system_blocked_authority_cards": [
+      "CASH_BALANCE",
+      "TODAY_RECEIPT",
+      "TODAY_PAYMENT"
+    ],
+    "finance_card_manual_finance_confirmation_required": 0,
+    "finance_card_system_confirmation_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

@@ -1,0 +1,209 @@
+{
+  "generatedAt": "2026-07-04T13:49:52.743Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "totalChecks": 6,
+    "passedChecks": 6,
+    "failedChecks": 0,
+    "totalCards": 8,
+    "systemConfirmedAuthority": 2,
+    "systemConfirmedReadonly": 3,
+    "systemBlockedFromAuthority": 3,
+    "manualFinanceConfirmationRequired": 0,
+    "nextGate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT"
+  },
+  "checks": [
+    {
+      "name": "System confirmation runtime method exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Service exposes system-side confirmation matrix."
+    },
+    {
+      "name": "System confirmation endpoint exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "GET /api/chanjet/integration/finance-card-system-confirmation exists behind read permission."
+    },
+    {
+      "name": "All required cards are system-confirmed",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "8/8 cards have review evidence."
+    },
+    {
+      "name": "No manual finance confirmation remains",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "All confirmation decisions are system-side ERP semantic decisions."
+    },
+    {
+      "name": "Only AR/AP are promoted to Chanjet authority",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Cash, today receipt/payment, subject balance, and statements are not silently promoted."
+    },
+    {
+      "name": "Write boundaries remain closed",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "System confirmation is readonly and does not write Chanjet/ERP business facts."
+    }
+  ],
+  "confirmations": [
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-AR_OPEN",
+      "readModelKey": "AR_OPEN",
+      "cardKey": "arOpen",
+      "label": "应收待收款",
+      "confirmationStatus": "SYSTEM_CONFIRMED_AUTHORITY",
+      "approvedPrimarySource": "CHANJET",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": true,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财应收统计作为应收待收主卡片权威；ERP 发票/收款明细作为辅助差异。",
+      "reviewStatus": "APPROVED_FOR_AUTHORITY",
+      "sampleRows": 71,
+      "blockers": [],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-AP_OPEN",
+      "readModelKey": "AP_OPEN",
+      "cardKey": "apOpen",
+      "label": "应付待付款",
+      "confirmationStatus": "SYSTEM_CONFIRMED_AUTHORITY",
+      "approvedPrimarySource": "CHANJET",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": true,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财应付统计作为应付待付主卡片权威；ERP 采购/付款明细作为辅助差异。",
+      "reviewStatus": "APPROVED_FOR_AUTHORITY",
+      "sampleRows": 43,
+      "blockers": [],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-CASH_BALANCE",
+      "readModelKey": "CASH_BALANCE",
+      "cardKey": "cashBalance",
+      "label": "现金账户余额",
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "approvedPrimarySource": "ERP",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财资金账户镜像尚未证明余额字段、币种和余额时点，ERP 资金余额继续作为主值。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 47,
+      "blockers": [
+        "finance_confirmation_required",
+        "primary_authority_not_allowed_by_system_confirmation"
+      ],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-TODAY_RECEIPT",
+      "readModelKey": "TODAY_RECEIPT",
+      "cardKey": "todayInflow",
+      "label": "今日收款",
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "approvedPrimarySource": "ERP",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财收款单日期/状态/方向口径未完全证明，ERP 当日现金流继续作为今日收款主值。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 171,
+      "blockers": [
+        "finance_confirmation_required",
+        "primary_authority_not_allowed_by_system_confirmation"
+      ],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-TODAY_PAYMENT",
+      "readModelKey": "TODAY_PAYMENT",
+      "cardKey": "todayOutflow",
+      "label": "今日付款",
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "approvedPrimarySource": "ERP",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财付款单日期/状态/方向口径未完全证明，ERP 当日现金流继续作为今日付款主值。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 109,
+      "blockers": [
+        "finance_confirmation_required",
+        "primary_authority_not_allowed_by_system_confirmation"
+      ],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-SUBJECT_BALANCE",
+      "readModelKey": "SUBJECT_BALANCE",
+      "cardKey": "subjectBalance",
+      "label": "科目余额",
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "approvedPrimarySource": "CHANJET_READONLY",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财科目余额表作为只读报表/对账来源，不写 ERP 业务表，不作为运营主卡片金额。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 3,
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-BALANCE_SHEET",
+      "readModelKey": "BALANCE_SHEET",
+      "cardKey": "balanceSheet",
+      "label": "资产负债表关键项",
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "approvedPrimarySource": "CHANJET_READONLY",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财资产负债表作为只读财务报表来源，经营数据不能拼装替代法定报表。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 3,
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "evidence": []
+    },
+    {
+      "confirmationId": "CHANJET-FIN-CARD-SYSTEM-INCOME_STATEMENT",
+      "readModelKey": "INCOME_STATEMENT",
+      "cardKey": "incomeStatement",
+      "label": "利润表关键项",
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "approvedPrimarySource": "CHANJET_READONLY",
+      "manualFinanceConfirmationRequired": false,
+      "authorityAllowed": false,
+      "readonlyAllowed": true,
+      "systemDecision": "好业财利润表作为只读财务报表来源，ERP 运营数据只做辅助解释。",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "sampleRows": 3,
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "evidence": []
+    }
+  ],
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "dbWrite": false,
+    "deploy": false,
+    "push": false
+  }
+}

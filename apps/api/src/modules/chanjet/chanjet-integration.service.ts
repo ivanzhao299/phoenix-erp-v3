@@ -172,6 +172,12 @@ export type FinanceCardSemanticReviewStatus =
   | 'BLOCKED'
   | 'HOLD';
 
+export type FinanceCardSystemConfirmationStatus =
+  | 'SYSTEM_CONFIRMED_AUTHORITY'
+  | 'SYSTEM_CONFIRMED_READONLY'
+  | 'SYSTEM_BLOCKED_FROM_AUTHORITY'
+  | 'HOLD';
+
 export interface FinanceCardSemanticReviewItem {
   reviewId: string;
   cardKey: string;
@@ -192,6 +198,26 @@ export interface FinanceCardSemanticReviewItem {
   evidence: string[];
   approvalInstruction: string;
   recommendedAction: string;
+}
+
+export interface FinanceCardSystemConfirmationItem {
+  confirmationId: string;
+  cardKey: string;
+  label: string;
+  readModelKey: string;
+  confirmationStatus: FinanceCardSystemConfirmationStatus;
+  approvedPrimarySource: 'CHANJET' | 'ERP' | 'CHANJET_READONLY';
+  erpSemanticDefinition: string;
+  chanjetSemanticDefinition: string;
+  fieldMappingDecision: string;
+  calculationRule: string;
+  displayRule: string;
+  manualFinanceConfirmationRequired: false;
+  authorityAllowed: boolean;
+  readonlyAllowed: boolean;
+  blockers: string[];
+  evidence: string[];
+  nextAction: string;
 }
 
 export interface ReceiptPaymentDateStatusLock {
@@ -2012,6 +2038,199 @@ export class ChanjetIntegrationService {
         migration: false,
         dbWrite: false,
         rule: '本复核矩阵只生成财务确认清单和卡片升权建议；未获确认的好业财数字只能展示为只读证据，不得替换 ERP 主值。',
+      },
+    };
+  }
+
+  async financeCardSystemConfirmationOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalCards: number;
+      systemConfirmedAuthority: number;
+      systemConfirmedReadonly: number;
+      systemBlockedFromAuthority: number;
+      hold: number;
+      manualFinanceConfirmationRequired: 0;
+      nextGate: string;
+    };
+    confirmations: FinanceCardSystemConfirmationItem[];
+    guardrails: Record<string, boolean | string | number>;
+  }> {
+    const review = await this.financeCardSemanticReviewOverview();
+    const confirmationRules: Record<string, Omit<
+      FinanceCardSystemConfirmationItem,
+      | 'confirmationId'
+      | 'cardKey'
+      | 'label'
+      | 'reviewStatus'
+      | 'readModelKey'
+      | 'blockers'
+      | 'evidence'
+    >> = {
+      AR_OPEN: {
+        confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
+        approvedPrimarySource: 'CHANJET',
+        erpSemanticDefinition: 'ERP 应收发票、收款记录和业务流水是单据级辅助明细，不作为集团应收汇总主口径。',
+        chanjetSemanticDefinition: '好业财应收统计是往来单位/客户级财务汇总余额，适合集团财务卡片展示。',
+        fieldMappingDecision: '好业财 `AR_STATISTICS.amount` 对应 ERP 财务卡片 `arOpen`。不得写入 `fin_ar_invoices`。',
+        calculationRule: '按好业财只读镜像汇总当前应收余额；ERP 明细只计算差异和追溯解释。',
+        displayRule: '主值显示好业财，应同时展示来源、拉取时间和 ERP 辅助差异。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: true,
+        readonlyAllowed: true,
+        nextAction: '保持应收待收卡片好业财权威口径，继续做往来单位映射质量提升。',
+      },
+      AP_OPEN: {
+        confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
+        approvedPrimarySource: 'CHANJET',
+        erpSemanticDefinition: 'ERP 采购、付款和应付单据是运营明细，不作为集团应付汇总主口径。',
+        chanjetSemanticDefinition: '好业财应付统计是供应商/往来单位级财务汇总余额，适合集团财务卡片展示。',
+        fieldMappingDecision: '好业财 `AP_STATISTICS.amount` 对应 ERP 财务卡片 `apOpen`。不得静默覆盖 ERP 付款/采购明细。',
+        calculationRule: '按好业财只读镜像汇总当前应付余额；ERP 明细只计算差异和追溯解释。',
+        displayRule: '主值显示好业财，应同时展示来源、拉取时间和 ERP 辅助差异。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: true,
+        readonlyAllowed: true,
+        nextAction: '保持应付待付卡片好业财权威口径，继续做供应商/往来单位映射质量提升。',
+      },
+      CASH_BALANCE: {
+        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
+        approvedPrimarySource: 'ERP',
+        erpSemanticDefinition: 'ERP 现金/银行余额来自本地资金账户余额和业务现金流水，是当前可用的主卡片保守口径。',
+        chanjetSemanticDefinition: '当前好业财资金账户镜像证明账户存在，但尚未证明实时/期末余额字段、币种余额和余额时点。',
+        fieldMappingDecision: '好业财资金账户可作为资金账户只读清单和对账证据，不得把 `amountSum=0` 当真实余额。',
+        calculationRule: '主值继续使用 ERP 资金账户余额；好业财余额字段锁定后再进入单独 Gate。',
+        displayRule: '显示 ERP 主值，并展示好业财只读证据状态为“余额字段未锁定”。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '补好业财现金/银行余额字段抽取，必须证明余额字段、币种和余额时点后才能升权。',
+      },
+      TODAY_RECEIPT: {
+        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
+        approvedPrimarySource: 'ERP',
+        erpSemanticDefinition: 'ERP 今日收款是按业务当日、有效收款状态和本地业务流水计算的运营日指标。',
+        chanjetSemanticDefinition: '当前好业财收款单镜像可只读重现，但业务日/入账日/审核日、作废/红冲过滤和方向口径未全部证明。',
+        fieldMappingDecision: '好业财 `AR_RECEIPT` 先作为收款单只读明细与对账证据，不替代 ERP 今日收款。',
+        calculationRule: '今日主值继续使用 ERP 当日现金流；好业财只读单据按状态/日期字段锁定后再做差异对账。',
+        displayRule: '显示 ERP 主值；好业财收款单作为对账明细，不显示为主卡片。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '继续锁定收款单业务日期、审核状态、作废状态、方向和正负号。',
+      },
+      TODAY_PAYMENT: {
+        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
+        approvedPrimarySource: 'ERP',
+        erpSemanticDefinition: 'ERP 今日付款是按业务当日、有效付款状态和本地业务流水计算的运营日指标。',
+        chanjetSemanticDefinition: '当前好业财付款单镜像可只读重现，但业务日/入账日/审核日、作废/红冲过滤和方向口径未全部证明。',
+        fieldMappingDecision: '好业财 `AP_PAYMENT` 先作为付款单只读明细与对账证据，不替代 ERP 今日付款。',
+        calculationRule: '今日主值继续使用 ERP 当日现金流；好业财只读单据按状态/日期字段锁定后再做差异对账。',
+        displayRule: '显示 ERP 主值；好业财付款单作为对账明细，不显示为主卡片。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '继续锁定付款单业务日期、审核状态、作废状态、方向和正负号。',
+      },
+      SUBJECT_BALANCE: {
+        confirmationStatus: 'SYSTEM_CONFIRMED_READONLY',
+        approvedPrimarySource: 'CHANJET_READONLY',
+        erpSemanticDefinition: 'ERP 当前没有同粒度总账科目余额事实表，不应自行汇总业务表伪造科目余额。',
+        chanjetSemanticDefinition: '好业财科目余额表是财务科目级只读权威来源，可用于报表页和差异中心。',
+        fieldMappingDecision: '好业财 `GL_BALANCE` 对应 ERP 科目余额只读适配器，不进入业务表。',
+        calculationRule: '按账套、期间、科目编码、期初、本期借方、本期贷方、期末余额展示。',
+        displayRule: '作为报表/对账只读行展示；除非字段完全锁定，不作为聚合卡片金额。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '建立科目余额只读页面和 ERP 差异解释，不写 ERP 业务事实。',
+      },
+      BALANCE_SHEET: {
+        confirmationStatus: 'SYSTEM_CONFIRMED_READONLY',
+        approvedPrimarySource: 'CHANJET_READONLY',
+        erpSemanticDefinition: 'ERP 运营数据不能直接替代法定资产负债表项目。',
+        chanjetSemanticDefinition: '好业财资产负债表是财务报表只读权威来源，适合 ERP 展示和上线准备校验。',
+        fieldMappingDecision: '好业财 `BALANCE_SHEET` 对应 ERP 报表只读适配器，不反写业务明细。',
+        calculationRule: '按账套、期间、报表项目、行次、年初金额和期末金额展示。',
+        displayRule: '作为财务报表只读展示；经营驾驶舱可引用关键项但必须标明好业财来源。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '建立资产负债表只读报表与关键项展示，禁止用运营表拼装法定报表。',
+      },
+      INCOME_STATEMENT: {
+        confirmationStatus: 'SYSTEM_CONFIRMED_READONLY',
+        approvedPrimarySource: 'CHANJET_READONLY',
+        erpSemanticDefinition: 'ERP 销售、采购、费用运营数据不能直接替代法定利润表项目。',
+        chanjetSemanticDefinition: '好业财利润表是财务报表只读权威来源，适合 ERP 展示和经营分析辅助。',
+        fieldMappingDecision: '好业财 `INCOME_STATEMENT` 对应 ERP 报表只读适配器，不反写业务明细。',
+        calculationRule: '按账套、期间、报表项目、本期金额和累计金额展示。',
+        displayRule: '作为财务报表只读展示；经营驾驶舱可引用关键项但必须标明好业财来源。',
+        manualFinanceConfirmationRequired: false,
+        authorityAllowed: false,
+        readonlyAllowed: true,
+        nextAction: '建立利润表只读报表与关键项展示，禁止用运营表拼装法定报表。',
+      },
+    };
+    const confirmations = review.reviewItems.map((item) => {
+      const rule = confirmationRules[item.readModelKey] || {
+        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY' as const,
+        approvedPrimarySource: 'ERP' as const,
+        erpSemanticDefinition: '未定义 ERP 语义。',
+        chanjetSemanticDefinition: '未定义好业财语义。',
+        fieldMappingDecision: '未定义字段映射，保持阻断。',
+        calculationRule: '保持 ERP 原主值。',
+        displayRule: '不展示为好业财权威。',
+        manualFinanceConfirmationRequired: false as const,
+        authorityAllowed: false,
+        readonlyAllowed: false,
+        nextAction: '补充系统语义定义。',
+      };
+      const blockers = [
+        ...item.blockers,
+        ...(rule.authorityAllowed ? [] : ['primary_authority_not_allowed_by_system_confirmation']),
+      ];
+      return {
+        confirmationId: `CHANJET-FIN-CARD-SYSTEM-${item.readModelKey}`,
+        cardKey: item.cardKey,
+        label: item.label,
+        readModelKey: item.readModelKey,
+        ...rule,
+        blockers,
+        evidence: [
+          ...item.evidence,
+          `reviewStatus=${item.reviewStatus}`,
+          `manualFinanceConfirmationRequired=false`,
+          `approvedPrimarySource=${rule.approvedPrimarySource}`,
+        ],
+      };
+    });
+    const hold = confirmations.filter((item) => item.confirmationStatus === 'HOLD').length;
+    const systemBlockedFromAuthority = confirmations.filter((item) => item.confirmationStatus === 'SYSTEM_BLOCKED_FROM_AUTHORITY').length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : systemBlockedFromAuthority > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalCards: confirmations.length,
+        systemConfirmedAuthority: confirmations.filter((item) => item.confirmationStatus === 'SYSTEM_CONFIRMED_AUTHORITY').length,
+        systemConfirmedReadonly: confirmations.filter((item) => item.confirmationStatus === 'SYSTEM_CONFIRMED_READONLY').length,
+        systemBlockedFromAuthority,
+        hold,
+        manualFinanceConfirmationRequired: 0,
+        nextGate: 'CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT',
+      },
+      confirmations,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        manualFinanceConfirmationRequired: 0,
+        rule: '本接口由 ERP 系统建设方完成口径确认。只能把 SYSTEM_CONFIRMED_AUTHORITY 的卡片接入好业财主值；SYSTEM_CONFIRMED_READONLY 仅做只读报表/对账；SYSTEM_BLOCKED_FROM_AUTHORITY 继续保留 ERP 主值。',
       },
     };
   }

@@ -4,7 +4,7 @@ Last updated: 2026-07-03
 
 ## 2026-07-04 — Chanjet P3 Finance Card Semantic Review
 
-Current stage: `CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_IMPLEMENTED`
+Current stage: `CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED`
 
 Decision: `GO_WITH_CONDITIONS`
 
@@ -16,15 +16,44 @@ Completed:
    - `docs/ops/runs/chanjet-finance-card-semantic-review-latest.json`
    - `docs/ops/runs/chanjet-finance-card-semantic-review-latest.md`
 4. Generated report `docs/ops/CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_REPORT_20260704.md`.
-5. Review result: 8/8 cards covered, 2 approved for authority candidates, 6 ready for finance confirmation, 0 HOLD.
+5. Review result: 8/8 cards covered; system confirmation completed with 2 Chanjet authority cards, 3 Chanjet readonly report cards, 3 ERP-primary blocked cards, 0 manual finance confirmation required.
 
 Next actions:
 
-1. `CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION`
-   - Finance confirms cash balance, today receipt/payment, subject balance, balance sheet, and income statement field semantics.
-   - Confirm date/status/direction for receipt/payment before primary card authority.
+1. `CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT`
+   - System-side confirmation is now the authority: AR/AP can use Chanjet primary values; subject balance, balance sheet, and income statement stay Chanjet readonly; cash balance and today receipt/payment stay ERP-primary until field proof is complete.
+   - Audit `/finance2` card source switching so only `SYSTEM_CONFIRMED_AUTHORITY` cards can become primary values.
 2. `CHANJET_P4_VOUCHER_DRAFT_PREP`
    - Prepare ERP voucher draft generation only; still do not push to Chanjet.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
+
+## 2026-07-04 — Chanjet P3 Finance Card System Confirmation
+
+Current stage: `CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added readonly system confirmation API `GET /api/chanjet/integration/finance-card-system-confirmation`.
+2. Added audit tool `scripts/ops/chanjet-finance-card-system-confirmation-audit.mjs`.
+3. Generated artifacts:
+   - `docs/ops/runs/chanjet-finance-card-system-confirmation-latest.json`
+   - `docs/ops/runs/chanjet-finance-card-system-confirmation-latest.md`
+4. System confirmation result:
+   - Chanjet authority cards: `AR_OPEN`, `AP_OPEN`.
+   - Chanjet readonly report cards: `SUBJECT_BALANCE`, `BALANCE_SHEET`, `INCOME_STATEMENT`.
+   - ERP-primary blocked cards: `CASH_BALANCE`, `TODAY_RECEIPT`, `TODAY_PAYMENT`.
+   - Manual finance confirmation required: `0`.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT`
+   - Ensure finance cards only use Chanjet primary values for system-confirmed authority cards.
+   - Keep cash balance and today receipt/payment ERP-primary until actual field proof is complete.
+2. `CHANJET_P3_READONLY_STATEMENT_UI`
+   - Expose subject balance, balance sheet, and income statement as Chanjet readonly reports, not as fabricated ERP values.
 3. `CHANJET_WRITE_BACK_HOLD`
    - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
 

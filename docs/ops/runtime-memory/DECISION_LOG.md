@@ -1399,3 +1399,36 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION`
+
+## 2026-07-04 — Chanjet P3 finance card system confirmation implemented
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The user explicitly requested that ERP/system side complete the finance card semantic confirmation instead of waiting for finance users.
+- The system confirmation matrix now maps each finance card to a primary source and allowed usage.
+- AR/AP open balance cards are system-confirmed for Chanjet authority because Chanjet aggregate financial balances are the correct finance-side source and ERP operational documents remain auxiliary evidence.
+- Cash balance, today receipt, and today payment remain ERP-primary because using Chanjet mirrored list totals or unproven zero amounts would recreate the bad dashboard-number problem.
+- Subject balance, balance sheet, and income statement are confirmed as Chanjet readonly financial reports, not ERP business fact overwrites.
+
+Results:
+
+- System authority: AR_OPEN, AP_OPEN.
+- System readonly: SUBJECT_BALANCE, BALANCE_SHEET, INCOME_STATEMENT.
+- System blocked from authority: CASH_BALANCE, TODAY_RECEIPT, TODAY_PAYMENT.
+- Manual finance confirmation required: 0.
+- Audit result: 6/6 PASS.
+
+Boundaries:
+
+- No Chanjet write/delete/modify.
+- No voucher push.
+- No ERP business overwrite.
+- No migration or DB write.
+
+Next actions:
+
+1. CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT.
+2. CHANJET_P3_READONLY_STATEMENT_UI.
+3. CHANJET_WRITE_BACK_HOLD.

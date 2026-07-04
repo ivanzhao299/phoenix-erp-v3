@@ -792,6 +792,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-card-system-confirmation
+   * 财务卡片系统侧语义确认结果。由 ERP 侧固定主值/只读/阻断规则，不等待人工财务确认。
+   */
+  @Get('integration/finance-card-system-confirmation')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCardSystemConfirmation() {
+    try {
+      const systemConfirmation = await this.integration.financeCardSystemConfirmationOverview();
+      return { success: true, systemConfirmation };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */
