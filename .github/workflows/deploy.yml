@@ -392,7 +392,7 @@ jobs:
     needs: [detect-changes, test]
     if: |
       always() &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.detect-changes.outputs.build_web == 'true' || needs.detect-changes.outputs.build_api == 'true')
     runs-on: ubuntu-latest
@@ -474,7 +474,7 @@ jobs:
     name: Deploy · fast-css (CSS hot patch)
     needs: detect-changes
     if: |
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       needs.detect-changes.outputs.mode == 'fast-css' &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
@@ -549,7 +549,7 @@ jobs:
     needs: [detect-changes, build-push]
     if: |
       always() &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
       needs.build-push.result == 'success' &&
       inputs.skip_deploy != true
