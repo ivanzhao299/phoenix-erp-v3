@@ -232,6 +232,41 @@ Next actions:
    - Surface OK/WARN/MISMATCH/HOLD/NEED_MAPPING differences between ERP operational detail and Chanjet financial authority.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until readonly coverage, mapping, and reconciliation are production-stable.
 
+## 2026-07-04 — Chanjet P2 Master Data Alignment Audited
+
+Current stage: `CHANJET_P2_MASTER_DATA_ALIGNMENT_AUDITED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Runtime API: `GET /api/chanjet/integration/master-data-alignment`
+- Ops runner: `scripts/ops/chanjet-master-data-alignment-audit.mjs`
+- Report: `docs/ops/CHANJET_P2_MASTER_DATA_ALIGNMENT_AUDIT_REPORT_20260704.md`
+- Latest outputs:
+  - `docs/ops/runs/chanjet-master-data-alignment-latest.json`
+  - `docs/ops/runs/chanjet-master-data-alignment-latest.md`
+
+Results:
+
+- Master-data mirror coverage: `100%`
+- Scoped Chanjet mirror rows: `5959`
+- Field mapping candidates: `1677`
+- Pending semantic mappings: `1494`
+- P0 domains needing review:
+  1. `COUNTERPARTY`
+  2. `SUBJECT`
+  3. `CASH_ACCOUNT`
+
+Next actions:
+
+1. `CHANJET_P3_RECONCILIATION_CENTER`
+   - Build visible ERP vs Chanjet rows with `OK / WARN / MISMATCH / HOLD / NEED_MAPPING`.
+   - Start with AP/AR, cash account balance, subject balance, receipt/payment, and key financial statement figures.
+2. `CHANJET_P2_MAPPING_REVIEW_QUEUE_UI`
+   - Optional UI follow-up for reviewing P0 mapping domains.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P2/P3 are stable and separately approved.
+
 ## Do Not Auto-Start
 
 - production `push main` deployment path.

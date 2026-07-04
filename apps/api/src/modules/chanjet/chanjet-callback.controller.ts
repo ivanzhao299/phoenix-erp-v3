@@ -657,6 +657,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/master-data-alignment
+   * 好业财 ↔ ERP 主数据映射成熟度。只读 ERP 中间层，不调用好业财写接口，不自动批准映射。
+   */
+  @Get('integration/master-data-alignment')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationMasterDataAlignment() {
+    try {
+      const alignment = await this.integration.masterDataAlignmentOverview();
+      return { success: true, alignment };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

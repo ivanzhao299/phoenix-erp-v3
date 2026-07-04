@@ -59,6 +59,17 @@ interface FinanceAdapterBucketDefinition {
   adapterScope: string;
 }
 
+interface MasterDataAlignmentDomainDefinition {
+  key: string;
+  title: string;
+  mappingTypes: ChanjetMappingType[];
+  endpointKeys: string[];
+  entityTypes: string[];
+  erpTargets: string[];
+  priority: 'P0' | 'P1';
+  authorityRule: string;
+}
+
 const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
   {
     key: 'CHANJET_VOUCHER_HEADER',
@@ -140,6 +151,79 @@ const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
     entityTypes: ['PURCHASE_ORDER'],
     erpTarget: 'procurement-v2 readonly reconciliation input',
     adapterScope: '采购订单只读重现和 ERP 采购单据差异分析。',
+  },
+];
+
+const MASTER_DATA_ALIGNMENT_DOMAINS: MasterDataAlignmentDomainDefinition[] = [
+  {
+    key: 'COMPANY_BOOK',
+    title: '公司 / 账套',
+    mappingTypes: ['COMPANY'],
+    endpointKeys: ['ACCOUNT_BOOKS'],
+    entityTypes: ['ACCOUNT_BOOK'],
+    erpTargets: ['sys_organizations.company_code', 'chanjet_book_company_map.bookid'],
+    priority: 'P0',
+    authorityRule: '账套归属必须人工审核后绑定 ERP 公司；不得用名称相似自动覆盖公司档案。',
+  },
+  {
+    key: 'DEPARTMENT_ORG',
+    title: '部门 / 组织',
+    mappingTypes: ['DEPARTMENT'],
+    endpointKeys: ['DEPARTMENT'],
+    entityTypes: ['DEPARTMENT'],
+    erpTargets: ['sys_organizations.organization_code', 'sys_user_orgs'],
+    priority: 'P1',
+    authorityRule: '部门映射影响 DataScope，只能进入候选映射和人工复核。',
+  },
+  {
+    key: 'COUNTERPARTY',
+    title: '客户 / 供应商 / 往来单位',
+    mappingTypes: ['CUSTOMER', 'SUPPLIER'],
+    endpointKeys: ['CUSTOMER_SUPPLIER'],
+    entityTypes: ['CUSTOMER_SUPPLIER'],
+    erpTargets: ['sal_customers.customer_code', 'prc2_suppliers.supplier_code'],
+    priority: 'P0',
+    authorityRule: '往来单位必须区分客户/供应商/双重身份；不得把好业财汇总行写入发票级表。',
+  },
+  {
+    key: 'SUBJECT',
+    title: '会计科目',
+    mappingTypes: ['SUBJECT'],
+    endpointKeys: ['SUBJECT', 'GL_BALANCE'],
+    entityTypes: ['SUBJECT', 'GL_BALANCE'],
+    erpTargets: ['chanjet_master_mapping.SUBJECT', 'finance-v2 reporting adapter'],
+    priority: 'P0',
+    authorityRule: '会计科目以好业财为财务口径权威，ERP 只保存映射和只读引用。',
+  },
+  {
+    key: 'PROJECT',
+    title: '项目',
+    mappingTypes: ['PROJECT'],
+    endpointKeys: ['PROJECT'],
+    entityTypes: ['PROJECT'],
+    erpTargets: ['prc2_projects.project_code', 'sys_user_projects'],
+    priority: 'P0',
+    authorityRule: '项目映射影响采购/付款/费用归属，需与 ERP 项目主数据对齐后才能用于写回前校验。',
+  },
+  {
+    key: 'CASH_ACCOUNT',
+    title: '资金账户',
+    mappingTypes: ['CASH_ACCOUNT'],
+    endpointKeys: ['FIN_ACCOUNT'],
+    entityTypes: ['CASH_ACCOUNT'],
+    erpTargets: ['fin_cash_accounts.account_code'],
+    priority: 'P0',
+    authorityRule: '现金/银行余额展示以好业财只读镜像优先，ERP 现金账户作为辅助差异明细。',
+  },
+  {
+    key: 'CURRENCY',
+    title: '币种',
+    mappingTypes: ['CURRENCY'],
+    endpointKeys: ['FIN_ACCOUNT', 'PAYMENT_AP', 'PAYMENT_AR'],
+    entityTypes: ['CASH_ACCOUNT', 'AP_PAYMENT', 'AR_RECEIPT'],
+    erpTargets: ['sys_dict.SYS_CURRENCY'],
+    priority: 'P1',
+    authorityRule: '币种必须归一到 SYS_CURRENCY；金额展示不得混淆本币/原币。',
   },
 ];
 
@@ -505,6 +589,258 @@ export class ChanjetIntegrationService {
     });
   }
 
+  async masterDataAlignmentOverview() {
+    const [entityRows, mappingRows, fieldRows, books] = await Promise.all([
+      this.entitySnapshotRepo
+        .createQueryBuilder('s')
+        .select('s.entityType', 'entityType')
+        .addSelect('s.endpointKey', 'endpointKey')
+        .addSelect('COUNT(*)', 'entityCount')
+        .addSelect('MAX(s.updatedAt)', 'latestUpdatedAt')
+        .groupBy('s.entityType')
+        .addGroupBy('s.endpointKey')
+        .getRawMany(),
+      this.mappingRepo
+        .createQueryBuilder('m')
+        .select('m.mappingType', 'mappingType')
+        .addSelect('m.matchStatus', 'matchStatus')
+        .addSelect('m.reviewStatus', 'reviewStatus')
+        .addSelect('COUNT(*)', 'mappingCount')
+        .addSelect('AVG(CAST(m.confidence AS numeric))', 'avgConfidence')
+        .groupBy('m.mappingType')
+        .addGroupBy('m.matchStatus')
+        .addGroupBy('m.reviewStatus')
+        .getRawMany(),
+      this.fieldMappingRepo
+        .createQueryBuilder('f')
+        .select('f.erpDomain', 'erpDomain')
+        .addSelect('f.matchStatus', 'matchStatus')
+        .addSelect('f.riskLevel', 'riskLevel')
+        .addSelect('COUNT(*)', 'fieldCount')
+        .groupBy('f.erpDomain')
+        .addGroupBy('f.matchStatus')
+        .addGroupBy('f.riskLevel')
+        .getRawMany(),
+      this.listAccountBooks(),
+    ]);
+
+    const entityByType = new Map<string, { count: number; latest: string | null }>();
+    const entityByEndpoint = new Map<string, { count: number; latest: string | null }>();
+    for (const row of entityRows as any[]) {
+      const type = String(row.entityType || '');
+      const endpoint = String(row.endpointKey || '');
+      const count = Number(row.entityCount || 0);
+      const latest = row.latestUpdatedAt ? String(row.latestUpdatedAt) : null;
+      if (type) {
+        const current = entityByType.get(type) || { count: 0, latest: null };
+        entityByType.set(type, { count: current.count + count, latest: this.maxIso(current.latest, latest) });
+      }
+      if (endpoint) {
+        const current = entityByEndpoint.get(endpoint) || { count: 0, latest: null };
+        entityByEndpoint.set(endpoint, { count: current.count + count, latest: this.maxIso(current.latest, latest) });
+      }
+    }
+
+    const mappingByType = new Map<string, {
+      total: number;
+      approved: number;
+      pending: number;
+      rejected: number;
+      matched: number;
+      manual: number;
+      conflicts: number;
+      confidenceSum: number;
+      confidenceRows: number;
+    }>();
+    for (const row of mappingRows as any[]) {
+      const type = String(row.mappingType || '');
+      if (!type) continue;
+      const count = Number(row.mappingCount || 0);
+      const item = mappingByType.get(type) || {
+        total: 0,
+        approved: 0,
+        pending: 0,
+        rejected: 0,
+        matched: 0,
+        manual: 0,
+        conflicts: 0,
+        confidenceSum: 0,
+        confidenceRows: 0,
+      };
+      item.total += count;
+      if (row.reviewStatus === 'APPROVED') item.approved += count;
+      if (row.reviewStatus === 'PENDING') item.pending += count;
+      if (row.reviewStatus === 'REJECTED') item.rejected += count;
+      if (row.matchStatus === 'MATCHED') item.matched += count;
+      if (row.matchStatus === 'MANUAL') item.manual += count;
+      if (row.matchStatus === 'CONFLICT') item.conflicts += count;
+      if (row.avgConfidence !== null && row.avgConfidence !== undefined) {
+        item.confidenceSum += Number(row.avgConfidence || 0) * count;
+        item.confidenceRows += count;
+      }
+      mappingByType.set(type, item);
+    }
+
+    const fieldByDomain = new Map<string, {
+      total: number;
+      matched: number;
+      transformRequired: number;
+      missingInErp: number;
+      highOpen: number;
+    }>();
+    for (const row of fieldRows as any[]) {
+      const domain = String(row.erpDomain || 'unclassified');
+      const count = Number(row.fieldCount || 0);
+      const item = fieldByDomain.get(domain) || {
+        total: 0,
+        matched: 0,
+        transformRequired: 0,
+        missingInErp: 0,
+        highOpen: 0,
+      };
+      item.total += count;
+      if (row.matchStatus === 'MATCHED') item.matched += count;
+      if (row.matchStatus === 'TRANSFORM_REQUIRED') item.transformRequired += count;
+      if (row.matchStatus === 'MISSING_IN_ERP') item.missingInErp += count;
+      if (['HIGH', 'CRITICAL'].includes(String(row.riskLevel)) && row.matchStatus !== 'MATCHED') item.highOpen += count;
+      fieldByDomain.set(domain, item);
+    }
+
+    const domains = MASTER_DATA_ALIGNMENT_DOMAINS.map((domain) => {
+      const mappingStats = domain.mappingTypes.reduce((acc, type) => {
+        const item = mappingByType.get(type) || {
+          total: 0,
+          approved: 0,
+          pending: 0,
+          rejected: 0,
+          matched: 0,
+          manual: 0,
+          conflicts: 0,
+          confidenceSum: 0,
+          confidenceRows: 0,
+        };
+        acc.total += item.total;
+        acc.approved += item.approved;
+        acc.pending += item.pending;
+        acc.rejected += item.rejected;
+        acc.matched += item.matched;
+        acc.manual += item.manual;
+        acc.conflicts += item.conflicts;
+        acc.confidenceSum += item.confidenceSum;
+        acc.confidenceRows += item.confidenceRows;
+        return acc;
+      }, {
+        total: 0,
+        approved: 0,
+        pending: 0,
+        rejected: 0,
+        matched: 0,
+        manual: 0,
+        conflicts: 0,
+        confidenceSum: 0,
+        confidenceRows: 0,
+      });
+      const entityCount = domain.entityTypes.reduce((sum, type) => sum + (entityByType.get(type)?.count || 0), 0);
+      const endpointEntityCount = domain.endpointKeys.reduce((sum, key) => sum + (entityByEndpoint.get(key)?.count || 0), 0);
+      const latestSeenAt = [...domain.entityTypes.map((type) => entityByType.get(type)?.latest || null)]
+        .reduce<string | null>((latest, value) => this.maxIso(latest, value), null);
+      const domainKeys = this.masterDataFieldDomains(domain.key);
+      const fieldStats = domainKeys.reduce((acc, key) => {
+        const item = fieldByDomain.get(key);
+        if (!item) return acc;
+        acc.total += item.total;
+        acc.matched += item.matched;
+        acc.transformRequired += item.transformRequired;
+        acc.missingInErp += item.missingInErp;
+        acc.highOpen += item.highOpen;
+        return acc;
+      }, { total: 0, matched: 0, transformRequired: 0, missingInErp: 0, highOpen: 0 });
+      const approvedRate = mappingStats.total ? mappingStats.approved / mappingStats.total : 0;
+      const mirrorReady = entityCount > 0 || endpointEntityCount > 0;
+      const reviewReady = mappingStats.total > 0 && approvedRate >= 0.9 && mappingStats.conflicts === 0;
+      const status = !mirrorReady
+        ? 'WAITING_MIRROR_SYNC'
+        : mappingStats.total === 0
+          ? 'NEED_MAPPING_CANDIDATES'
+          : mappingStats.conflicts > 0
+            ? 'HOLD_CONFLICT'
+            : reviewReady
+              ? 'READY'
+              : 'NEED_REVIEW';
+      return {
+        key: domain.key,
+        title: domain.title,
+        priority: domain.priority,
+        mappingTypes: domain.mappingTypes,
+        endpointKeys: domain.endpointKeys,
+        entityTypes: domain.entityTypes,
+        erpTargets: domain.erpTargets,
+        authorityRule: domain.authorityRule,
+        mirror: {
+          ready: mirrorReady,
+          entityCount,
+          endpointEntityCount,
+          latestSeenAt,
+        },
+        mapping: {
+          ...mappingStats,
+          averageConfidence: mappingStats.confidenceRows
+            ? Math.round((mappingStats.confidenceSum / mappingStats.confidenceRows) * 100) / 100
+            : 0,
+          approvedRate,
+        },
+        fieldGaps: fieldStats,
+        status,
+        recommendedAction: this.masterDataAlignmentNextAction(status, domain.key),
+      };
+    });
+
+    const p0Domains = domains.filter((domain) => domain.priority === 'P0');
+    const readyDomains = domains.filter((domain) => domain.status === 'READY');
+    const waitingDomains = domains.filter((domain) => domain.status === 'WAITING_MIRROR_SYNC');
+    const holdDomains = domains.filter((domain) => domain.status === 'HOLD_CONFLICT');
+    const needReviewDomains = domains.filter((domain) => ['NEED_REVIEW', 'NEED_MAPPING_CANDIDATES'].includes(domain.status));
+    const mirrorCoverageRate = domains.length
+      ? domains.filter((domain) => domain.mirror.ready).length / domains.length
+      : 0;
+    const approvedCoverageRate = domains.length
+      ? readyDomains.length / domains.length
+      : 0;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: holdDomains.length ? 'HOLD' : 'GO_WITH_CONDITIONS',
+      accountBooks: books.map((book) => ({
+        bookId: book.bookId,
+        bookName: book.bookName,
+        companyCode: book.companyCode,
+        companyName: book.companyName,
+        enabled: book.enabled,
+      })),
+      summary: {
+        totalDomains: domains.length,
+        p0Domains: p0Domains.length,
+        readyDomains: readyDomains.length,
+        needReviewDomains: needReviewDomains.length,
+        waitingDomains: waitingDomains.length,
+        holdDomains: holdDomains.length,
+        mirrorCoverageRate,
+        approvedCoverageRate,
+        nextGate: 'CHANJET_P2_MASTER_DATA_MAPPING_REVIEW',
+      },
+      domains,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        note: '本接口只读 ERP 好业财中间层，不调用好业财写接口，不自动批准映射。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),
@@ -785,6 +1121,38 @@ export class ChanjetIntegrationService {
     if (unresolvedHighRisk > 0) return '先由财务/A2 审核高风险字段映射，再进入 UI/差异分析。';
     if (priority === 'P0') return '可进入 P0 只读财务适配展示与人工映射复核。';
     return 'P1 可排队进入后续采购/收付款链路适配。';
+  }
+
+  private masterDataFieldDomains(domainKey: string): string[] {
+    const map: Record<string, string[]> = {
+      COMPANY_BOOK: ['company'],
+      DEPARTMENT_ORG: ['organization'],
+      COUNTERPARTY: ['counterparty'],
+      SUBJECT: ['accounting', 'finance'],
+      PROJECT: ['project'],
+      CASH_ACCOUNT: ['finance', 'accounting'],
+      CURRENCY: ['currency', 'finance'],
+    };
+    return map[domainKey] || [];
+  }
+
+  private masterDataAlignmentNextAction(status: string, domainKey: string): string {
+    if (status === 'WAITING_MIRROR_SYNC') return '先重跑好业财只读镜像同步，不得写好业财。';
+    if (status === 'NEED_MAPPING_CANDIDATES') return '从实体镜像生成 ERP ↔ 好业财候选映射，保持 PENDING，禁止自动生效。';
+    if (status === 'HOLD_CONFLICT') return '存在冲突映射，必须人工复核后才能进入后续财务对齐。';
+    if (status === 'NEED_REVIEW') {
+      if (domainKey === 'COUNTERPARTY') return '优先区分客户/供应商/双重身份，并由财务/主数据审核。';
+      if (domainKey === 'SUBJECT') return '优先确认会计科目编码、科目层级和余额方向。';
+      if (domainKey === 'CASH_ACCOUNT') return '优先确认资金账户、币种、启停状态和公司归属。';
+      return '完成候选映射人工审核，APPROVED 后才能作为权威映射。';
+    }
+    return '可进入差异对账中心或写回前校验设计，仍不得直接写好业财。';
+  }
+
+  private maxIso(left: string | null, right: string | null): string | null {
+    if (!left) return right || null;
+    if (!right) return left;
+    return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
   }
 
   async syncReadOnlyMirror(scope: string[] = [], bookId?: string, period?: string): Promise<{

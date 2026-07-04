@@ -1076,3 +1076,35 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`
+
+---
+
+## 2026-07-04 — Chanjet P2 master data alignment audited
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/master-data-alignment` as a readonly middle-layer alignment endpoint.
+- Added `scripts/ops/chanjet-master-data-alignment-audit.mjs` to generate repeatable P2 reports from production sync artifacts.
+- Generated latest P2 outputs under `docs/ops/runs/chanjet-master-data-alignment-latest.*`.
+
+Evidence:
+
+- Mirror domain coverage: `100%`
+- Scoped Chanjet mirror rows: `5959`
+- Field mapping candidates: `1677`
+- Pending semantic mappings: `1494`
+- P0 domains requiring review: `COUNTERPARTY`, `SUBJECT`, `CASH_ACCOUNT`
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_RECONCILIATION_CENTER`

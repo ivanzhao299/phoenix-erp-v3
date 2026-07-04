@@ -1,0 +1,396 @@
+{
+  "generatedAt": "2026-07-04T10:50:56.168Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "sourceArtifacts": {
+    "syncJsonPath": "docs/ops/runs/chanjet-readonly-mirror-sync-latest.json",
+    "fieldJsonPath": "docs/ops/runs/chanjet-field-mapping-report-latest.json",
+    "syncDecision": "GO_WITH_CONDITIONS",
+    "fieldDecision": "GO_WITH_CONDITIONS"
+  },
+  "summary": {
+    "mirrorCoverageRate": 1,
+    "totalMirrorRows": 5959,
+    "p0NeedReview": 3,
+    "fieldMappingTotal": 1677,
+    "matchedMappings": 183,
+    "pendingSemanticMappings": 1494,
+    "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+  },
+  "domains": [
+    {
+      "key": "COMPANY_BOOK",
+      "title": "公司 / 账套",
+      "priority": "P0",
+      "endpoints": [
+        "ACCOUNT_BOOKS"
+      ],
+      "erpTargets": [
+        "sys_organizations.company_code",
+        "chanjet_book_company_map.bookid"
+      ],
+      "fieldDomains": [
+        "company"
+      ],
+      "rule": "账套和 ERP 公司必须由审核态映射绑定，不能按名称自动覆盖公司档案。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 3,
+        "entityCount": 6,
+        "latestPulledAt": "2026-07-03T13:05:49.928Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 0,
+        "highOpenFields": 0,
+        "transformRequired": 0,
+        "pendingFields": 96,
+        "matchedFields": 0,
+        "sampleFields": []
+      },
+      "status": "READY_FOR_MAPPING_REVIEW",
+      "recommendedAction": "进入人工映射复核，APPROVED 前不得用于写回或自动覆盖。"
+    },
+    {
+      "key": "COUNTERPARTY",
+      "title": "客户 / 供应商 / 往来单位",
+      "priority": "P0",
+      "endpoints": [
+        "CUSTOMER_SUPPLIER",
+        "RECEIVABLE_STATISTICS",
+        "PAYABLE_STATISTICS"
+      ],
+      "erpTargets": [
+        "sal_customers.customer_code",
+        "prc2_suppliers.supplier_code",
+        "chanjet_master_mapping.CUSTOMER/SUPPLIER"
+      ],
+      "fieldDomains": [
+        "counterparty"
+      ],
+      "rule": "必须区分客户、供应商和双重身份；好业财汇总数据不得写入 fin_ar_invoices。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 1668,
+        "entityCount": 406,
+        "latestPulledAt": "2026-07-04T10:07:43.808Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 0,
+        "highOpenFields": 334,
+        "transformRequired": 0,
+        "pendingFields": 334,
+        "matchedFields": 0,
+        "sampleFields": []
+      },
+      "status": "NEED_REVIEW",
+      "recommendedAction": "优先做客户/供应商/双重身份审核映射，解决往来余额对齐。"
+    },
+    {
+      "key": "SUBJECT",
+      "title": "会计科目",
+      "priority": "P0",
+      "endpoints": [
+        "SUBJECT",
+        "GL_BALANCE",
+        "BALANCE_SHEET",
+        "INCOME_STATEMENT",
+        "CASH_FLOW"
+      ],
+      "erpTargets": [
+        "chanjet_master_mapping.SUBJECT",
+        "finance-v2 reporting adapter"
+      ],
+      "fieldDomains": [
+        "accounting",
+        "finance"
+      ],
+      "rule": "财务科目口径以好业财为准，ERP 做只读引用、映射和差异展示。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 135,
+        "entityCount": 15,
+        "latestPulledAt": "2026-07-04T10:08:08.897Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 30,
+        "highOpenFields": 1037,
+        "transformRequired": 0,
+        "pendingFields": 1037,
+        "matchedFields": 0,
+        "sampleFields": [
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.id",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.id",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.longName",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.longName",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.name",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.name",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].boName",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.boName",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].createdStamp",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.createdStamp",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].createdUserId.id",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.id",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].details[0].basePostedCr",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.basePostedCr",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].details[0].basePostedDr",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.basePostedDr",
+            "risk": "HIGH",
+            "status": "PENDING"
+          }
+        ]
+      },
+      "status": "NEED_REVIEW",
+      "recommendedAction": "优先固化科目编码、层级、余额方向和三大报表字段口径。"
+    },
+    {
+      "key": "PROJECT",
+      "title": "项目",
+      "priority": "P0",
+      "endpoints": [
+        "PROJECT",
+        "PURCHASE_ORDER"
+      ],
+      "erpTargets": [
+        "prc2_projects.project_code",
+        "sys_user_projects"
+      ],
+      "fieldDomains": [
+        "project"
+      ],
+      "rule": "项目映射影响采购付款和费用归属，未审核前只能用于对账提示。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 432,
+        "entityCount": 48,
+        "latestPulledAt": "2026-07-04T10:07:59.273Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 0,
+        "highOpenFields": 0,
+        "transformRequired": 0,
+        "pendingFields": 0,
+        "matchedFields": 0,
+        "sampleFields": []
+      },
+      "status": "READY_FOR_MAPPING_REVIEW",
+      "recommendedAction": "进入人工映射复核，APPROVED 前不得用于写回或自动覆盖。"
+    },
+    {
+      "key": "CASH_ACCOUNT",
+      "title": "资金账户",
+      "priority": "P0",
+      "endpoints": [
+        "FIN_ACCOUNT",
+        "PAYMENT_AP",
+        "PAYMENT_AR"
+      ],
+      "erpTargets": [
+        "fin_cash_accounts.account_code"
+      ],
+      "fieldDomains": [
+        "finance",
+        "accounting"
+      ],
+      "rule": "现金/银行余额以好业财只读镜像优先，ERP 现金流水作为辅助明细。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 1847,
+        "entityCount": 327,
+        "latestPulledAt": "2026-07-04T10:07:58.371Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 30,
+        "highOpenFields": 1037,
+        "transformRequired": 0,
+        "pendingFields": 1037,
+        "matchedFields": 0,
+        "sampleFields": [
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.id",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.id",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.longName",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.longName",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].acctgTransCategoryId.name",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.name",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].boName",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.boName",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].createdStamp",
+            "chanjetType": "string",
+            "erpTarget": "chanjet_master_mapping.createdStamp",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].createdUserId.id",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.id",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].details[0].basePostedCr",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.basePostedCr",
+            "risk": "HIGH",
+            "status": "PENDING"
+          },
+          {
+            "endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+            "field": "$.result[0].details[0].basePostedDr",
+            "chanjetType": "number",
+            "erpTarget": "chanjet_master_mapping.basePostedDr",
+            "risk": "HIGH",
+            "status": "PENDING"
+          }
+        ]
+      },
+      "status": "NEED_REVIEW",
+      "recommendedAction": "优先核对资金账户、币种、余额来源和启停状态。"
+    },
+    {
+      "key": "DEPARTMENT_ORG",
+      "title": "部门 / 组织",
+      "priority": "P1",
+      "endpoints": [
+        "DEPARTMENT"
+      ],
+      "erpTargets": [
+        "sys_organizations.organization_code",
+        "sys_user_orgs"
+      ],
+      "fieldDomains": [
+        "organization"
+      ],
+      "rule": "部门映射影响 DataScope，只能在人工审核后进入权限和数据域使用。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 27,
+        "entityCount": 3,
+        "latestPulledAt": "2026-07-04T10:07:43.210Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 0,
+        "highOpenFields": 0,
+        "transformRequired": 0,
+        "pendingFields": 57,
+        "matchedFields": 0,
+        "sampleFields": []
+      },
+      "status": "READY_FOR_MAPPING_REVIEW",
+      "recommendedAction": "进入人工映射复核，APPROVED 前不得用于写回或自动覆盖。"
+    },
+    {
+      "key": "CURRENCY",
+      "title": "币种",
+      "priority": "P1",
+      "endpoints": [
+        "FIN_ACCOUNT",
+        "PAYMENT_AP",
+        "PAYMENT_AR"
+      ],
+      "erpTargets": [
+        "sys_dict.SYS_CURRENCY"
+      ],
+      "fieldDomains": [
+        "currency",
+        "finance"
+      ],
+      "rule": "币种必须映射到 SYS_CURRENCY；本币、原币和汇率不能混用。",
+      "mirror": {
+        "ready": true,
+        "rowCount": 1847,
+        "entityCount": 327,
+        "latestPulledAt": "2026-07-04T10:07:58.371Z"
+      },
+      "fieldGaps": {
+        "sampledOpenFields": 0,
+        "highOpenFields": 0,
+        "transformRequired": 0,
+        "pendingFields": 0,
+        "matchedFields": 0,
+        "sampleFields": []
+      },
+      "status": "READY_FOR_MAPPING_REVIEW",
+      "recommendedAction": "进入人工映射复核，APPROVED 前不得用于写回或自动覆盖。"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessTableOverwrite": false,
+    "migration": false
+  }
+}
