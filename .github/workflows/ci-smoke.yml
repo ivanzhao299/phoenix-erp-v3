@@ -219,12 +219,14 @@ jobs:
             )
           fi
 
-          scp "${SSH_OPTS[@]}" \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.json" \
-            docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
-          scp "${SSH_OPTS[@]}" \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.md" \
-            docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.json\"" \
+            > docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.md\"" \
+            > docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
+          test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
+          test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
 
       - name: Upload runtime smoke artifacts
         if: always() && github.event_name == 'workflow_dispatch'
