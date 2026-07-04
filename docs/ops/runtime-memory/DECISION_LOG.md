@@ -1338,3 +1338,33 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION`
+
+## 2026-07-04 — Chanjet P3 finance card semantic lock expansion implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-card-semantic-expansion`.
+- Added `FinanceCardSemanticExpansionItem` to describe card-level authority, readonly detail, promotion candidate, missing fields, blockers, and recommended action.
+- Added `scripts/ops/chanjet-finance-card-semantic-expansion-audit.mjs`.
+- Generated latest artifacts under `docs/ops/runs/chanjet-finance-card-semantic-expansion-latest.*`.
+
+Key decision:
+
+- All 8 finance card endpoint groups have readonly mirror evidence.
+- Endpoint coverage is not enough to promote a card to Chanjet authority.
+- `amountSum=0` from cash/accounting statement endpoints is not business evidence that the value is zero; it remains blocked until raw field semantics are locked.
+- Today receipt/payment remain blocked until date, status, direction, and amount semantics are finance-confirmed.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration or DB write.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW`

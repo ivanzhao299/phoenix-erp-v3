@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA_VERIFIED",
+  "current_stage": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA",
+  "next_gate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA_VERIFIED",
+    "current_stage": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -174,7 +174,16 @@
     "finance_card_diff_visual_qa_json": "docs/ops/runs/chanjet-finance-card-authority-qa-latest.json",
     "finance_card_diff_visual_qa_md": "docs/ops/runs/chanjet-finance-card-authority-qa-latest.md",
     "finance_card_authority_next_gate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION",
-    "finance_card_primary_values": "chanjet_only_when_AUTHORITY_READY_else_erp_with_visible_chanjet_evidence"
+    "finance_card_primary_values": "chanjet_only_when_AUTHORITY_READY_else_erp_with_visible_chanjet_evidence",
+    "finance_card_semantic_expansion_api": "/api/chanjet/integration/finance-card-semantic-expansion",
+    "finance_card_semantic_expansion_script": "scripts/ops/chanjet-finance-card-semantic-expansion-audit.mjs",
+    "finance_card_semantic_expansion_json": "docs/ops/runs/chanjet-finance-card-semantic-expansion-latest.json",
+    "finance_card_semantic_expansion_md": "docs/ops/runs/chanjet-finance-card-semantic-expansion-latest.md",
+    "finance_card_semantic_expansion_status": "verified_7_of_7",
+    "finance_card_endpoint_coverage": "8/8",
+    "finance_card_semantic_expansion_next_gate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW",
+    "zero_amount_guard": "FIN_ACCOUNT_GL_BALANCE_STATEMENT_AMOUNT_SUM_ZERO_IS_NOT_BUSINESS_ZERO_UNTIL_FIELD_SEMANTICS_LOCKED",
+    "chanjet_writeback_status": "HOLD_UNTIL_SEPARATE_APPROVAL"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

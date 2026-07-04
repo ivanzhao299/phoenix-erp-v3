@@ -447,6 +447,37 @@ Next actions:
    - Wire only `AUTHORITY_READY` values into finance cards and keep ERP auxiliary values visible.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked.
 
+## 2026-07-04 — Chanjet P3 Finance Card Semantic Lock Expansion Implemented
+
+Current stage: `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- New readonly API: `GET /api/chanjet/integration/finance-card-semantic-expansion`.
+- New audit runner: `scripts/ops/chanjet-finance-card-semantic-expansion-audit.mjs`.
+- Latest artifacts:
+  - `docs/ops/runs/chanjet-finance-card-semantic-expansion-latest.json`
+  - `docs/ops/runs/chanjet-finance-card-semantic-expansion-latest.md`
+- Verified all 8 finance cards have readonly endpoint evidence.
+- Preserved the hard guardrail that coverage is not authority.
+
+Key decision:
+
+- `AUTHORITY_READY` remains the only primary-card switch.
+- `FIN_ACCOUNT`, `GL_BALANCE`, and statement endpoint `amountSum=0` values are not treated as real business zeroes until field semantics are locked.
+- Today receipt/payment remain blocked until date/status/direction semantics are finance-confirmed.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW`
+   - Use the new runtime API after deploy to inspect live per-card blockers.
+   - Promote only `AUTHORITY_READY` cards.
+2. `CHANJET_P3_RECEIPT_PAYMENT_FINANCE_CONFIRMATION`
+   - Confirm business date, posting date, approved status, void status, direction, and amount rules.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until voucher draft/review/idempotency/rollback Gates are separately approved.
+
 ## 2026-07-04 — Chanjet P3 Receipt/Payment Date Status Lock Implemented
 
 Current stage: `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED`

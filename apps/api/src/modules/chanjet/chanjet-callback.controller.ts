@@ -762,6 +762,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-card-semantic-expansion
+   * 财务卡片语义锁扩展审计。只读本地中间层，输出可晋级卡片、阻断字段和财务确认点。
+   */
+  @Get('integration/finance-card-semantic-expansion')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCardSemanticExpansion() {
+    try {
+      const semanticExpansion = await this.integration.financeCardSemanticLockExpansionOverview();
+      return { success: true, semanticExpansion };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

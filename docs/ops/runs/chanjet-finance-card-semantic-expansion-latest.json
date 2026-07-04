@@ -1,0 +1,171 @@
+{
+  "generatedAt": "2026-07-04T13:06:43.332Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "totalChecks": 7,
+    "passedChecks": 7,
+    "failedChecks": 0,
+    "cardEndpointCoverage": 8,
+    "totalCards": 8,
+    "nextGate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW"
+  },
+  "checks": [
+    {
+      "name": "Semantic expansion runtime method exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "ChanjetIntegrationService exposes financeCardSemanticLockExpansionOverview with structured card expansion items."
+    },
+    {
+      "name": "Semantic expansion endpoint exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "GET /api/chanjet/integration/finance-card-semantic-expansion is available behind MENU_FIN2_AR_LEDGER V."
+    },
+    {
+      "name": "All eight finance cards are covered by expansion definitions",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "arOpen/AR_OPEN, apOpen/AP_OPEN, cashBalance/CASH_BALANCE, todayInflow/TODAY_RECEIPT, todayOutflow/TODAY_PAYMENT, subjectBalance/SUBJECT_BALANCE, balanceSheet/BALANCE_SHEET, incomeStatement/INCOME_STATEMENT"
+    },
+    {
+      "name": "Promotion remains guarded",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Expansion distinguishes current authority, readonly candidates, promotion candidates, and finance confirmation requirements."
+    },
+    {
+      "name": "Chanjet write boundaries remain explicit",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "The new expansion endpoint is read-only and keeps Chanjet write/voucher push disabled."
+    },
+    {
+      "name": "Latest readonly sync artifact covers finance card endpoints",
+      "passed": true,
+      "severity": "P1",
+      "evidence": "8/8 card endpoints have readonly mirror evidence."
+    },
+    {
+      "name": "Previous authority QA passed",
+      "passed": true,
+      "severity": "P1",
+      "evidence": "8/8 checks, decision=GO_WITH_CONDITIONS"
+    }
+  ],
+  "cardEndpointEvidence": [
+    {
+      "cardKey": "arOpen",
+      "readModelKey": "AR_OPEN",
+      "label": "应收待收款",
+      "endpointKeys": [
+        "RECEIVABLE_STATISTICS"
+      ],
+      "covered": true,
+      "rows": 71,
+      "amountSum": -10936306.32,
+      "latestPulledAt": "2026-07-04T07:40:11.677Z"
+    },
+    {
+      "cardKey": "apOpen",
+      "readModelKey": "AP_OPEN",
+      "label": "应付待付款",
+      "endpointKeys": [
+        "PAYABLE_STATISTICS"
+      ],
+      "covered": true,
+      "rows": 43,
+      "amountSum": -7084274.34,
+      "latestPulledAt": "2026-07-04T07:40:10.629Z"
+    },
+    {
+      "cardKey": "cashBalance",
+      "readModelKey": "CASH_BALANCE",
+      "label": "现金账户余额",
+      "endpointKeys": [
+        "FIN_ACCOUNT"
+      ],
+      "covered": true,
+      "rows": 47,
+      "amountSum": 0,
+      "latestPulledAt": "2026-07-03T13:05:55.027Z"
+    },
+    {
+      "cardKey": "todayInflow",
+      "readModelKey": "TODAY_RECEIPT",
+      "label": "今日收款",
+      "endpointKeys": [
+        "PAYMENT_AR"
+      ],
+      "covered": true,
+      "rows": 171,
+      "amountSum": 5763304971,
+      "latestPulledAt": "2026-07-04T10:07:58.371Z"
+    },
+    {
+      "cardKey": "todayOutflow",
+      "readModelKey": "TODAY_PAYMENT",
+      "label": "今日付款",
+      "endpointKeys": [
+        "PAYMENT_AP"
+      ],
+      "covered": true,
+      "rows": 109,
+      "amountSum": 9003331626.45,
+      "latestPulledAt": "2026-07-04T10:07:51.593Z"
+    },
+    {
+      "cardKey": "subjectBalance",
+      "readModelKey": "SUBJECT_BALANCE",
+      "label": "科目余额",
+      "endpointKeys": [
+        "GL_BALANCE"
+      ],
+      "covered": true,
+      "rows": 3,
+      "amountSum": 0,
+      "latestPulledAt": "2026-07-04T10:08:07.427Z"
+    },
+    {
+      "cardKey": "balanceSheet",
+      "readModelKey": "BALANCE_SHEET",
+      "label": "资产负债表关键项",
+      "endpointKeys": [
+        "BALANCE_SHEET"
+      ],
+      "covered": true,
+      "rows": 3,
+      "amountSum": 0,
+      "latestPulledAt": "2026-07-04T10:08:07.921Z"
+    },
+    {
+      "cardKey": "incomeStatement",
+      "readModelKey": "INCOME_STATEMENT",
+      "label": "利润表关键项",
+      "endpointKeys": [
+        "INCOME_STATEMENT"
+      ],
+      "covered": true,
+      "rows": 3,
+      "amountSum": 0,
+      "latestPulledAt": "2026-07-04T10:08:08.411Z"
+    }
+  ],
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "dbWrite": false,
+    "deploy": false,
+    "push": false
+  },
+  "nextActions": [
+    "Call GET /api/chanjet/integration/finance-card-semantic-expansion after deploy to review actual card promotion blockers.",
+    "Promote only cards with AUTHORITY_READY and no finance confirmation blockers.",
+    "Keep TODAY_RECEIPT/TODAY_PAYMENT blocked until business date/status/direction are confirmed.",
+    "Keep Chanjet write-back HOLD until a separate voucher draft/writeback Gate is approved."
+  ]
+}
