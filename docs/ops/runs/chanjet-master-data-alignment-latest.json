@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-04T10:50:56.168Z",
+  "generatedAt": "2026-07-04T15:11:15.642Z",
   "decision": "GO_WITH_CONDITIONS",
   "sourceArtifacts": {
     "syncJsonPath": "docs/ops/runs/chanjet-readonly-mirror-sync-latest.json",
