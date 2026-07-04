@@ -13026,5 +13026,8 @@
   "ui.全部含归档": "All, including archived",
   "mob.sys.notif_system_alert": "System alert",
   "ui.该角色授权已停用点击恢复": "This role assignment is disabled; click to restore",
-  "ui.点击停用该用户此角色授权": "Click to disable this user role assignment"
+  "ui.点击停用该用户此角色授权": "Click to disable this user role assignment",
+  "auto.literal.4b168fbc4337": "Localized UI text 4b168fbc4337",
+  "auto.literal.cd13e507a016": "impending",
+  "auto.literal.ca8ffc399034": "Localized UI text ca8ffc399034"
 }

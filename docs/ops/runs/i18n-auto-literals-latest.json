@@ -1,262 +1,40 @@
 {
-  "generated_at": "2026-07-04T08:21:02.850Z",
+  "generated_at": "2026-07-04T09:07:12.284Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1787,
-  "created_keys": 161,
-  "updated_keys": 1626,
+  "unique_hardcoded_literals": 1790,
+  "created_keys": 3,
+  "updated_keys": 1787,
   "locale_counts_before": {
-    "zh": 12848,
-    "en": 12848,
-    "lo": 12848
+    "zh": 13028,
+    "en": 13028,
+    "lo": 13028
   },
   "locale_counts_after": {
-    "zh": 13009,
-    "en": 13009,
-    "lo": 13009
+    "zh": 13031,
+    "en": 13031,
+    "lo": 13031
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.44dbdfb68e89",
-      "text": "[{\"summary\":\"示例摘要\",\"debitSubject\":\"\",\"creditSubject\":\"\",\"amount\":0}]",
-      "en": "Localized UI text 44dbdfb68e89",
-      "lo": "Localized UI text 44dbdfb68e89"
+      "key": "auto.literal.4b168fbc4337",
+      "text": "认证状态接口暂不可用",
+      "en": "Localized UI text 4b168fbc4337",
+      "lo": "Localized UI text 4b168fbc4337"
     },
     {
-      "key": "auto.literal.2d2a8decd383",
-      "text": "总览加载失败",
-      "en": "OverviewLoad failed",
-      "lo": "ພາບລວມໂຫຼດຜິດ"
+      "key": "auto.literal.cd13e507a016",
+      "text": "临期",
+      "en": "impending",
+      "lo": "ໃກ້ຈະມາຮອດ"
     },
     {
-      "key": "auto.literal.5db1f310d463",
-      "text": "账套缓存",
-      "en": "Localized UI text 5db1f310d463",
-      "lo": "Localized UI text 5db1f310d463"
-    },
-    {
-      "key": "auto.literal.2dee2d73011b",
-      "text": "字段目录",
-      "en": "Localized UI text 2dee2d73011b",
-      "lo": "Localized UI text 2dee2d73011b"
-    },
-    {
-      "key": "auto.literal.da76306921cc",
-      "text": "脱敏字段样本",
-      "en": "Localized UI text da76306921cc",
-      "lo": "Localized UI text da76306921cc"
-    },
-    {
-      "key": "auto.literal.0f176fc0f774",
-      "text": "映射候选",
-      "en": "Localized UI text 0f176fc0f774",
-      "lo": "Localized UI text 0f176fc0f774"
-    },
-    {
-      "key": "auto.literal.f5a2f8f0814d",
-      "text": "凭证草稿",
-      "en": "Localized UI text f5a2f8f0814d",
-      "lo": "Localized UI text f5a2f8f0814d"
-    },
-    {
-      "key": "auto.literal.3ce194108bfb",
-      "text": "镜像实体",
-      "en": "Localized UI text 3ce194108bfb",
-      "lo": "Localized UI text 3ce194108bfb"
-    },
-    {
-      "key": "auto.literal.08b82b7e5d11",
-      "text": "字段差异",
-      "en": "Fielddifference",
-      "lo": "ຊ່ອງຂໍ້ມູນຄວາມແຕກຕ່າງ"
-    },
-    {
-      "key": "auto.literal.16e57e071574",
-      "text": "开放差异",
-      "en": "Localized UI text 16e57e071574",
-      "lo": "Localized UI text 16e57e071574"
-    },
-    {
-      "key": "auto.literal.3bba60daf793",
-      "text": "映射审核",
-      "en": "Localized UI text 3bba60daf793",
-      "lo": "Localized UI text 3bba60daf793"
-    },
-    {
-      "key": "auto.literal.171268d5d5f2",
-      "text": "凭证草稿审核",
-      "en": "Localized UI text 171268d5d5f2",
-      "lo": "Localized UI text 171268d5d5f2"
-    },
-    {
-      "key": "auto.literal.80f595a3aacd",
-      "text": "凭证分录必须为数组",
-      "en": "Localized UI text 80f595a3aacd",
-      "lo": "Localized UI text 80f595a3aacd"
-    },
-    {
-      "key": "auto.literal.ed5e6a2d2089",
-      "text": "凭证草稿创建",
-      "en": "Localized UI text ed5e6a2d2089",
-      "lo": "Localized UI text ed5e6a2d2089"
-    },
-    {
-      "key": "auto.literal.717554c5ca87",
-      "text": "人工凭证草稿",
-      "en": "Localized UI text 717554c5ca87",
-      "lo": "Localized UI text 717554c5ca87"
-    },
-    {
-      "key": "auto.literal.b4a2e74dce0c",
-      "text": "好业财中间层",
-      "en": "Localized UI text b4a2e74dce0c",
-      "lo": "Localized UI text b4a2e74dce0c"
-    },
-    {
-      "key": "auto.literal.bc5043c7736f",
-      "text": "无权限访问，需 MENU_FIN2_AR_LEDGER:V",
-      "en": "Localized UI text bc5043c7736f",
-      "lo": "Localized UI text bc5043c7736f"
-    },
-    {
-      "key": "auto.literal.64e7e421195f",
-      "text": "无权限访问。",
-      "en": "Localized UI text 64e7e421195f",
-      "lo": "Localized UI text 64e7e421195f"
-    },
-    {
-      "key": "auto.literal.38108eaa1d32",
-      "text": "刷新",
-      "en": "refresh",
-      "lo": "ໂຫຼດຂໍ້ມູນຄືນໃໝ່"
-    },
-    {
-      "key": "auto.literal.6d788069a0c6",
-      "text": "账套刷新",
-      "en": "Localized UI text 6d788069a0c6",
-      "lo": "Localized UI text 6d788069a0c6"
-    },
-    {
-      "key": "auto.literal.a26840d37975",
-      "text": "刷新账套",
-      "en": "Localized UI text a26840d37975",
-      "lo": "Localized UI text a26840d37975"
-    },
-    {
-      "key": "auto.literal.8b59f8bd0877",
-      "text": "全量只读同步",
-      "en": "Localized UI text 8b59f8bd0877",
-      "lo": "Localized UI text 8b59f8bd0877"
-    },
-    {
-      "key": "auto.literal.48a6c58c9157",
-      "text": "字段探针",
-      "en": "Localized UI text 48a6c58c9157",
-      "lo": "Localized UI text 48a6c58c9157"
-    },
-    {
-      "key": "auto.literal.f1dc2756f625",
-      "text": "运行探针",
-      "en": "Localized UI text f1dc2756f625",
-      "lo": "Localized UI text f1dc2756f625"
-    },
-    {
-      "key": "auto.literal.136f88cb129d",
-      "text": "字段差异分析",
-      "en": "Localized UI text 136f88cb129d",
-      "lo": "Localized UI text 136f88cb129d"
-    },
-    {
-      "key": "auto.literal.421f18fab2be",
-      "text": "字段分析",
-      "en": "Localized UI text 421f18fab2be",
-      "lo": "Localized UI text 421f18fab2be"
-    },
-    {
-      "key": "auto.literal.8bb38ef00ccc",
-      "text": "未启用",
-      "en": "Localized UI text 8bb38ef00ccc",
-      "lo": "Localized UI text 8bb38ef00ccc"
-    },
-    {
-      "key": "auto.literal.9e566c8beb1d",
-      "text": "未映射公司",
-      "en": "UnmappedCompany",
-      "lo": "ຍັງບໍ່ໄດ້ແມັບCompany"
-    },
-    {
-      "key": "auto.literal.add4de87acfb",
-      "text": "P0 财务适配",
-      "en": "Localized UI text add4de87acfb",
-      "lo": "Localized UI text add4de87acfb"
-    },
-    {
-      "key": "auto.literal.2e6ae2be10e6",
-      "text": "覆盖率看板",
-      "en": "Localized UI text 2e6ae2be10e6",
-      "lo": "Localized UI text 2e6ae2be10e6"
-    },
-    {
-      "key": "auto.literal.5250002ef169",
-      "text": "只读镜像",
-      "en": "Localized UI text 5250002ef169",
-      "lo": "Localized UI text 5250002ef169"
-    },
-    {
-      "key": "auto.literal.ab6c1667b5d3",
-      "text": "主数据映射",
-      "en": "Localized UI text ab6c1667b5d3",
-      "lo": "Localized UI text ab6c1667b5d3"
-    },
-    {
-      "key": "auto.literal.f187dfe99215",
-      "text": "对账差异",
-      "en": "Reconciledifference",
-      "lo": "ກວດສອບຄວາມແຕກຕ່າງ"
-    },
-    {
-      "key": "auto.literal.fb1e6b9b6980",
-      "text": "作业审计",
-      "en": "Localized UI text fb1e6b9b6980",
-      "lo": "Localized UI text fb1e6b9b6980"
-    },
-    {
-      "key": "auto.literal.3d1af4456848",
-      "text": "P0 财务只读适配层",
-      "en": "Localized UI text 3d1af4456848",
-      "lo": "Localized UI text 3d1af4456848"
-    },
-    {
-      "key": "auto.literal.1ac6077012b6",
-      "text": "凭证推送关闭",
-      "en": "Localized UI text 1ac6077012b6",
-      "lo": "Localized UI text 1ac6077012b6"
-    },
-    {
-      "key": "auto.literal.f58d3f2b2e9d",
-      "text": "P0 桶",
-      "en": "Localized UI text f58d3f2b2e9d",
-      "lo": "Localized UI text f58d3f2b2e9d"
-    },
-    {
-      "key": "auto.literal.84cdd6248801",
-      "text": "/ 条件项",
-      "en": "Localized UI text 84cdd6248801",
-      "lo": "Localized UI text 84cdd6248801"
-    },
-    {
-      "key": "auto.literal.9e16cadbb380",
-      "text": "待镜像同步",
-      "en": "Localized UI text 9e16cadbb380",
-      "lo": "Localized UI text 9e16cadbb380"
-    },
-    {
-      "key": "auto.literal.d3a29f64ce1e",
-      "text": "下一 Gate",
-      "en": "Localized UI text d3a29f64ce1e",
-      "lo": "Localized UI text d3a29f64ce1e"
+      "key": "auto.literal.ca8ffc399034",
+      "text": "统计",
+      "en": "Localized UI text ca8ffc399034",
+      "lo": "Localized UI text ca8ffc399034"
     }
   ]
 }

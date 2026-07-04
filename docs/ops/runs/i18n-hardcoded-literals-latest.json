@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-04T08:22:15.241Z",
+  "generated_at": "2026-07-04T09:07:43.099Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 2864,
-  "auto_translatable_findings": 2864,
+  "total_findings": 2865,
+  "auto_translatable_findings": 2865,
   "manual_componentization_findings": 0,
-  "affected_files": 169,
+  "affected_files": 170,
   "top_files": [
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
@@ -3236,105 +3236,105 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 276,
+      "line": 290,
       "kind": "string-literal",
       "text": "温度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 281,
+      "line": 295,
       "kind": "string-literal",
       "text": "湿度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 291,
+      "line": 305,
       "kind": "string-literal",
       "text": "氨气",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 466,
+      "line": 481,
       "kind": "string-literal",
       "text": "设备汇总接口返回异常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 469,
+      "line": 484,
       "kind": "string-literal",
       "text": "网络错误",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 527,
+      "line": 542,
       "kind": "string-literal",
       "text": "未检测",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 556,
+      "line": 571,
       "kind": "jsx-text",
       "text": "当前没有实时采集数据",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 567,
+      "line": 582,
       "kind": "jsx-text",
       "text": "鸡舍：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 567,
+      "line": 582,
       "kind": "jsx-text",
       "text": "； 已绑定：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 568,
+      "line": 583,
       "kind": "jsx-text",
       "text": "； 快照：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 573,
+      "line": 588,
       "kind": "jsx-text",
       "text": "查询错误：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 578,
+      "line": 593,
       "kind": "string-literal",
       "text": "诊断中…",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 578,
+      "line": 593,
       "kind": "string-literal",
       "text": "重新诊断",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 581,
+      "line": 596,
       "kind": "string-literal",
       "text": "已复制",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "line": 581,
+      "line": 596,
       "kind": "string-literal",
       "text": "复制诊断",
       "auto_translatable": true
@@ -3470,6 +3470,13 @@
       "line": 474,
       "kind": "string-literal",
       "text": "预警",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx",
+      "line": 277,
+      "kind": "string-literal",
+      "text": "认证状态接口暂不可用",
       "auto_translatable": true
     },
     {
@@ -9629,7 +9636,7 @@
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
       "line": 226,
       "kind": "string-literal",
-      "text": "库存",
+      "text": "批次",
       "auto_translatable": true
     },
     {
@@ -9643,7 +9650,7 @@
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
       "line": 228,
       "kind": "string-literal",
-      "text": "预警",
+      "text": "临期",
       "auto_translatable": true
     },
     {
@@ -9657,40 +9664,40 @@
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
       "line": 231,
       "kind": "string-literal",
-      "text": "批次",
+      "text": "统计",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 767,
+      "line": 766,
       "kind": "string-literal",
       "text": "手动分配",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1037,
+      "line": 1036,
       "kind": "string-literal",
       "text": "批次库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1040,
+      "line": 1039,
       "kind": "string-literal",
       "text": "临期库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1043,
+      "line": 1042,
       "kind": "string-literal",
       "text": "FIFO 出库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1046,
+      "line": 1045,
       "kind": "string-literal",
       "text": "损耗分析",
       "auto_translatable": true
@@ -21226,21 +21233,21 @@
     },
     {
       "file": "apps/web/src/lib/notification-routing.ts",
-      "line": 43,
+      "line": 52,
       "kind": "string-literal",
       "text": "详情：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/notification-routing.ts",
-      "line": 44,
+      "line": 53,
       "kind": "string-literal",
       "text": "详情：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/notification-routing.ts",
-      "line": 66,
+      "line": 75,
       "kind": "string-literal",
       "text": "系统告警",
       "auto_translatable": true
