@@ -98,7 +98,18 @@ interface ReportOverviewData {
   sourceAuthority?:           Record<string, string>;
 }
 
-type AlignmentStatus = 'OK' | 'WARN' | 'MISMATCH' | 'ERP_FALLBACK';
+type AlignmentStatus =
+  | 'OK'
+  | 'WARN'
+  | 'MISMATCH'
+  | 'ERP_FALLBACK'
+  | 'NEEDS_MAPPING'
+  | 'AUTHORITY_READY'
+  | 'READONLY_READY'
+  | 'BLOCKED_MAPPING'
+  | 'NEED_MANUAL_REVIEW'
+  | 'WAITING_SAMPLE'
+  | 'HOLD';
 
 interface ChanjetAlignmentCard {
   cardKey: string;
@@ -168,13 +179,24 @@ function statusLabel(status?: AlignmentStatus): string {
   if (status === 'WARN') return '轻微差异';
   if (status === 'MISMATCH') return '存在差异';
   if (status === 'ERP_FALLBACK') return '待同步';
+  if (status === 'NEEDS_MAPPING') return '待字段锁定';
+  if (status === 'AUTHORITY_READY') return '可作为权威';
+  if (status === 'READONLY_READY') return '只读可用';
+  if (status === 'BLOCKED_MAPPING') return '字段阻断';
+  if (status === 'NEED_MANUAL_REVIEW') return '待口径复核';
+  if (status === 'WAITING_SAMPLE') return '待样本';
+  if (status === 'HOLD') return '暂停';
   return '待核对';
 }
 
 function statusTone(status?: AlignmentStatus) {
   if (status === 'OK') return { bg: 'var(--success-50, #ecfdf3)', fg: 'var(--success, #15803d)', border: 'var(--success-100, #bbf7d0)' };
+  if (status === 'AUTHORITY_READY') return { bg: 'var(--success-50, #ecfdf3)', fg: 'var(--success, #15803d)', border: 'var(--success-100, #bbf7d0)' };
+  if (status === 'READONLY_READY') return { bg: 'var(--info-50, #eff6ff)', fg: 'var(--info, #2563eb)', border: 'var(--info-100, #bfdbfe)' };
   if (status === 'WARN') return { bg: 'var(--warning-50, #fffbeb)', fg: 'var(--warning, #b45309)', border: 'var(--warning-100, #fde68a)' };
   if (status === 'MISMATCH') return { bg: 'var(--danger-50, #fef2f2)', fg: 'var(--danger, #dc2626)', border: 'var(--danger-100, #fecaca)' };
+  if (status === 'NEEDS_MAPPING' || status === 'BLOCKED_MAPPING' || status === 'NEED_MANUAL_REVIEW' || status === 'WAITING_SAMPLE') return { bg: 'var(--warning-50, #fffbeb)', fg: 'var(--warning, #b45309)', border: 'var(--warning-100, #fde68a)' };
+  if (status === 'HOLD') return { bg: 'var(--danger-50, #fef2f2)', fg: 'var(--danger, #dc2626)', border: 'var(--danger-100, #fecaca)' };
   return { bg: 'var(--bg-muted, #f3f4f6)', fg: 'var(--text-muted, #6b7280)', border: 'var(--border, #e5e7eb)' };
 }
 

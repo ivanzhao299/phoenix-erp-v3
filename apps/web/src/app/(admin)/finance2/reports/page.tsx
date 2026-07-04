@@ -342,6 +342,19 @@ function statusStyle(status?: string): CSSProperties {
   return { background: '#f2f4f7', color: '#475467', borderColor: '#d0d5dd' };
 }
 
+function alignmentSummary(items: { metric: AlignmentMetric }[]) {
+  const statuses = items.map((item) => item.metric.status);
+  if (statuses.includes('HOLD')) return { status: 'HOLD', label: '暂停升权' };
+  if (statuses.some((status) => status === 'MISMATCH' || status === 'WARN')) {
+    return { status: statuses.includes('MISMATCH') ? 'MISMATCH' : 'WARN', label: '存在差异' };
+  }
+  if (statuses.some((status) => ['NEEDS_MAPPING', 'BLOCKED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE'].includes(status))) {
+    return { status: 'BLOCKED_MAPPING', label: '待字段锁定' };
+  }
+  if (statuses.includes('READONLY_READY')) return { status: 'READONLY_READY', label: '仅只读可用' };
+  return { status: 'AUTHORITY_READY', label: '权威可用' };
+}
+
 function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
   const metrics = data.chanjetAlignment?.metrics;
   if (!metrics) return null;
@@ -355,6 +368,7 @@ function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
     { key: 'balanceSheet', label: '资产负债表' },
     { key: 'incomeStatement', label: '利润表' },
   ].map((item) => ({ ...item, metric: metrics[item.key] })).filter((item) => item.metric);
+  const summary = alignmentSummary(items);
   return (
     <div style={{ ...tableContainer, padding: 14, marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
@@ -364,8 +378,8 @@ function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
             镜像覆盖率 {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}% · 只有 AUTHORITY_READY 可作为主卡片；ERP 明细保留为辅助对账，不静默覆盖。
           </div>
         </div>
-        <span style={{ ...inlineBadge, ...statusStyle(items.some((item) => item.metric.status === 'MISMATCH') ? 'MISMATCH' : items.some((item) => item.metric.status === 'NEEDS_MAPPING') ? 'NEEDS_MAPPING' : 'OK') }}>
-          {items.some((item) => item.metric.status === 'MISMATCH') ? '存在差异' : items.some((item) => item.metric.status === 'NEEDS_MAPPING') ? '待字段锁定' : '可用'}
+        <span style={{ ...inlineBadge, ...statusStyle(summary.status) }}>
+          {summary.label}
         </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>

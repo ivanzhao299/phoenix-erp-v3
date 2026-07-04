@@ -475,6 +475,16 @@ export class FinancialReportsService {
       acc[card.status] = (acc[card.status] ?? 0) + 1;
       return acc;
     }, {});
+    const blockedStatuses = new Set([
+      'NEEDS_MAPPING',
+      'BLOCKED_MAPPING',
+      'NEED_MANUAL_REVIEW',
+      'WAITING_SAMPLE',
+      'HOLD',
+    ]);
+    const blockedCount = cards.filter((card) => blockedStatuses.has(card.status)).length;
+    const readonlyReadyCount = statusCounts.READONLY_READY ?? 0;
+    const authorityReadyCount = cards.filter((card) => card.authorityEligible).length;
     return {
       generatedAt: new Date().toISOString(),
       coverageRate: overview.chanjetAlignment.coverageRate,
@@ -484,14 +494,24 @@ export class FinancialReportsService {
       statusCounts,
       mismatchCount: (statusCounts.MISMATCH ?? 0) + (statusCounts.WARN ?? 0),
       fallbackCount: statusCounts.ERP_FALLBACK ?? 0,
-      needsMappingCount: statusCounts.NEEDS_MAPPING ?? 0,
-      decision: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 && (statusCounts.NEEDS_MAPPING ?? 0) === 0 ? 'GO' : 'GO_WITH_CONDITIONS',
-      conditions: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 && (statusCounts.NEEDS_MAPPING ?? 0) === 0
+      needsMappingCount: (statusCounts.NEEDS_MAPPING ?? 0) + (statusCounts.BLOCKED_MAPPING ?? 0),
+      blockedCount,
+      readonlyReadyCount,
+      authorityReadyCount,
+      decision: overview.chanjetAlignment.coverageRate >= 0.9
+        && (statusCounts.MISMATCH ?? 0) === 0
+        && blockedCount === 0
+        ? 'GO'
+        : 'GO_WITH_CONDITIONS',
+      conditions: overview.chanjetAlignment.coverageRate >= 0.9
+        && (statusCounts.MISMATCH ?? 0) === 0
+        && blockedCount === 0
         ? []
         : [
           '好业财已覆盖的财务卡片以好业财为权威口径；ERP 明细仅作为辅助差异展示。',
           'MISMATCH/WARN 卡片必须展示差异，不允许静默覆盖；ERP_FALLBACK 卡片需继续补齐好业财映射。',
-          'NEEDS_MAPPING 卡片表示好业财镜像已读取，但尚缺业务日或字段语义证明，暂不得覆盖 ERP 卡片显示。',
+          'NEEDS_MAPPING/BLOCKED_MAPPING/NEED_MANUAL_REVIEW/WAITING_SAMPLE/HOLD 卡片表示好业财镜像已读取但尚缺字段、日期、状态或报表语义证明，暂不得覆盖 ERP 卡片显示。',
+          'READONLY_READY 卡片只允许作为报表/对账证据，不允许升权为经营首页主值。',
         ],
     };
   }
@@ -500,6 +520,12 @@ export class FinancialReportsService {
     if (status === 'OK') return '保持好业财权威口径，并定期对账。';
     if (status === 'WARN') return '展示差异并进入月末复核，不静默覆盖。';
     if (status === 'MISMATCH') return '进入差异对账中心，定位 ERP 明细与好业财科目/往来口径差异。';
+    if (status === 'AUTHORITY_READY') return '允许作为主卡片候选，但仍需保留 ERP 辅助差异和来源标识。';
+    if (status === 'READONLY_READY') return '仅作为只读报表/对账证据展示，不允许覆盖 ERP 主卡片。';
+    if (status === 'BLOCKED_MAPPING') return '字段语义尚未锁定，保持 ERP 主值并补齐映射。';
+    if (status === 'NEED_MANUAL_REVIEW') return '日期、状态、方向或金额口径需复核，保持 ERP 主值。';
+    if (status === 'WAITING_SAMPLE') return '重跑好业财只读同步，补齐 raw_data 样本。';
+    if (status === 'HOLD') return '停止升权，先处理 HOLD 原因。';
     if (status === 'NEEDS_MAPPING') return '补齐好业财字段语义映射和日期口径证明后，才能作为卡片权威值。';
     return '继续执行只读同步或字段映射补齐。';
   }
