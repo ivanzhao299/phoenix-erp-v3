@@ -133,8 +133,18 @@ export class FarmDeviceController {
   @Get('auth/status')
   async getAuthStatus() {
     // 真实探测第三方网关鉴权（此前是硬编码桩，永远"已认证"，会误导排障）
-    const p = await this.iotSyncService.probeVendorAuth();
-    return { hasToken: p.ok, appId: p.appId, remainMin: p.remainMin ?? 0, base: p.base, error: p.error };
+    try {
+      const p = await this.iotSyncService.probeVendorAuth();
+      return { hasToken: Boolean(p.ok), appId: p.appId ?? '', remainMin: p.remainMin ?? 0, base: p.base ?? '', error: p.error ?? null };
+    } catch (e: any) {
+      return {
+        hasToken: false,
+        appId: '',
+        remainMin: 0,
+        base: '',
+        error: e?.message ?? String(e),
+      };
+    }
   }
 
   @Get('mappings')

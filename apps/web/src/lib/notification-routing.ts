@@ -1,9 +1,15 @@
 export interface NotificationRouteLike {
   notificationType?: string | null;
+  notification_type?: string | null;
   content?: string | null;
   linkType?: string | null;
+  link_type?: string | null;
   linkId?: string | null;
+  link_id?: string | null;
   bizType?: string | null;
+  biz_type?: string | null;
+  bizNo?: string | null;
+  biz_no?: string | null;
 }
 
 export interface NotificationRouteOptions {
@@ -25,14 +31,17 @@ function extractRelatedPath(content?: string | null): string | null {
 }
 
 export function isSystemAlertNotification(n: NotificationRouteLike): boolean {
-  return n.notificationType === "SYSTEM_ALERT"
-    || n.linkType === "SYSTEM_ALERT"
-    || n.bizType === "SYS_ALERT";
+  const notificationType = n.notificationType ?? n.notification_type;
+  const linkType = n.linkType ?? n.link_type;
+  const bizType = n.bizType ?? n.biz_type;
+  return notificationType === "SYSTEM_ALERT"
+    || linkType === "SYSTEM_ALERT"
+    || bizType === "SYS_ALERT";
 }
 
 export function getSystemAlertId(n: NotificationRouteLike): string | null {
   if (!isSystemAlertNotification(n)) return null;
-  const raw = n.linkId ?? null;
+  const raw = n.linkId ?? n.link_id ?? n.bizNo ?? n.biz_no ?? null;
   if (!raw) return null;
   const trimmed = raw.trim();
   return /^\d+$/.test(trimmed) ? trimmed : null;
@@ -95,19 +104,8 @@ export function resolveNotificationHref(
 ): string {
   const approvalHome = options.mobile ? "/mobile/workflow" : "/workflow/todos";
   const notificationHome = options.mobile ? "/mobile/notifications" : "/notifications";
-
-  const directLinkType = safeInternalPath(n.linkType);
-  if (directLinkType) return directLinkType;
-
-  if (n.linkType === "PAGE") {
-    return safeInternalPath(n.linkId) ?? notificationHome;
-  }
-
-  if (n.linkType === "APPROVAL_INSTANCE") {
-    return n.linkId
-      ? `${approvalHome}?instanceId=${encodeURIComponent(n.linkId)}`
-      : approvalHome;
-  }
+  const linkType = n.linkType ?? n.link_type;
+  const linkId = n.linkId ?? n.link_id;
 
   if (isSystemAlertNotification(n)) {
     const alertId = getSystemAlertId(n);
@@ -117,6 +115,19 @@ export function resolveNotificationHref(
     if (relatedPath) params.set("relatedPath", relatedPath);
     const query = params.toString();
     return query ? `/system/alerts?${query}` : "/system/alerts";
+  }
+
+  const directLinkType = safeInternalPath(linkType);
+  if (directLinkType) return directLinkType;
+
+  if (linkType === "PAGE") {
+    return safeInternalPath(linkId) ?? notificationHome;
+  }
+
+  if (linkType === "APPROVAL_INSTANCE") {
+    return linkId
+      ? `${approvalHome}?instanceId=${encodeURIComponent(linkId)}`
+      : approvalHome;
   }
 
   return notificationHome;

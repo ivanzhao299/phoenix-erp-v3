@@ -54,7 +54,7 @@ interface IotAlarm {
   triggered_at?: string | number;
 }
 interface IotSummary {
-  summary: Record<string, number>;
+  summary: Record<string, number | string | null | undefined>;
   houses: IotHouse[];
   recentAlarms: IotAlarm[];
   _diagnostic?: IotDiagnostic;
@@ -95,6 +95,20 @@ async function fetchTextWithTimeout(url: string, options: RequestInit = {}, time
   } finally {
     clearTimeout(timer);
   }
+}
+function normalizeSummary(raw: any): IotSummary | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const summary = raw.summary && typeof raw.summary === 'object' ? raw.summary : {};
+  return {
+    summary,
+    houses: Array.isArray(raw.houses) ? raw.houses : [],
+    recentAlarms: Array.isArray(raw.recentAlarms) ? raw.recentAlarms : [],
+    _diagnostic: raw._diagnostic && typeof raw._diagnostic === 'object' ? raw._diagnostic : undefined,
+  };
+}
+function num(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 // ── 系统状态点配置 ──────────────────────────────────────────────────────
@@ -452,8 +466,9 @@ export default function DeviceOverviewPage() {
         setError(`设备汇总接口加载失败（HTTP ${res.status}）`);
         return;
       }
-      if (json?.ok && json?.data) {
-        setData(json.data);
+      const normalized = normalizeSummary(json?.data);
+      if (json?.ok && normalized) {
+        setData(normalized);
         if (json.data._diagnostic?.reason) {
           setDiag({
             code: String(json.data._diagnostic.code ?? ''),
@@ -511,12 +526,12 @@ export default function DeviceOverviewPage() {
   const sum = data?.summary || {};
   const houses = data?.houses || [];
   const alarms = data?.recentAlarms || [];
-  const hasAlarm = (sum.totalAlarms || 0) > 0;
+  const hasAlarm = num(sum.totalAlarms) > 0;
   const noLiveData = !loading && (
     Boolean(error)
     || houses.length === 0
-    || (sum.onlineSensorCnt || 0) === 0
-    || (sum.totalSensorCnt || 0) === 0
+    || num(sum.onlineSensorCnt) === 0
+    || num(sum.totalSensorCnt) === 0
     || Boolean(sum.diagnosticCode && String(sum.diagnosticCode) !== 'OK')
   );
   useEffect(() => {
@@ -583,13 +598,13 @@ export default function DeviceOverviewPage() {
     </div>
   </div>;
   const kpiCards: { label: string; value: string; sub: string; Icon: typeof Home; tone: Tone }[] = [
-    { label: t('ui.在线鸡舍',   '在线鸡舍'),   value: `${sum.activeHouses     || 0}/${sum.totalHouses || 0}`, sub: `已映射 ${sum.totalHouses   || 0} 栋；在线按实时采集判定`,    Icon: Home,          tone: 'brand' },
-    { label: t('ui.当前告警',   '当前告警'),   value: `${sum.totalAlarms      || 0}`, sub: `${sum.alarmHouses      || 0} 栋鸡舍受影响`, Icon: AlertTriangle, tone: hasAlarm ? 'danger' : 'success' },
-    { label: t('ui.在线传感器', '在线传感器'), value: `${sum.onlineSensorCnt  || 0}`, sub: `共 ${sum.totalSensorCnt || 0} 个监测点`,    Icon: Wifi,          tone: 'info'  },
-    { label: t('ui.运行中设备', '运行中设备'), value: `${sum.onlineDeviceCnt  || 0}`, sub: `共 ${sum.totalDeviceCnt || 0} 台（风机/加热）`, Icon: Activity,     tone: 'success' },
+    { label: t('ui.在线鸡舍',   '在线鸡舍'),   value: `${num(sum.activeHouses)}/${num(sum.totalHouses)}`, sub: `已映射 ${num(sum.totalHouses)} 栋；在线按实时采集判定`,    Icon: Home,          tone: 'brand' },
+    { label: t('ui.当前告警',   '当前告警'),   value: `${num(sum.totalAlarms)}`, sub: `${num(sum.alarmHouses)} 栋鸡舍受影响`, Icon: AlertTriangle, tone: hasAlarm ? 'danger' : 'success' },
+    { label: t('ui.在线传感器', '在线传感器'), value: `${num(sum.onlineSensorCnt)}`, sub: `共 ${num(sum.totalSensorCnt)} 个监测点`,    Icon: Wifi,          tone: 'info'  },
+    { label: t('ui.运行中设备', '运行中设备'), value: `${num(sum.onlineDeviceCnt)}`, sub: `共 ${num(sum.totalDeviceCnt)} 台（风机/加热）`, Icon: Activity,     tone: 'success' },
   ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${sum.activeHouses || 0}/${sum.totalHouses || 0} 栋在线 · ${sum.totalAlarms || 0} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]} actions={<div className={u.flexRow8}>
+      <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${num(sum.activeHouses)}/${num(sum.totalHouses)} 栋在线 · ${num(sum.totalAlarms)} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]} actions={<div className={u.flexRow8}>
             {/* 自动刷新开关：label 只做布局，s.toggle 只包裹 input+track */}
             <label style={{
         display: 'flex',

@@ -134,15 +134,15 @@ export class DashboardBffController {
 
     // 设备环境快报（全局；受限用户跳过——设备有独立监控页 /breeding/device，避免跨场泄漏）
     const [deviceAlertRow] = scopeStore ? [{ cnt: 0 }] : await safe(
-      this.em.query(`SELECT COUNT(*)::int AS cnt FROM farm_device_alert_event WHERE status IN ('OPEN','CONFIRMED')`),
+      this.em.query(`SELECT COUNT(*)::int AS cnt FROM mon_device_alert_event WHERE status IN ('OPEN','CONFIRMED')`),
       [{ cnt: 0 }],
     );
     const [offlineRow] = scopeStore ? [{ cnt: 0 }] : await safe(
-      this.em.query(`SELECT COUNT(DISTINCT erp_house_code)::int AS cnt FROM farm_device_realtime_snapshot WHERE collect_time < (now() - INTERVAL '10 minutes')`),
+      this.em.query(`SELECT COUNT(DISTINCT erp_house_code)::int AS cnt FROM mon_device_realtime_snapshot WHERE COALESCE(updated_at, collect_time) < (now() - INTERVAL '30 minutes')`),
       [{ cnt: 0 }],
     );
     const [hottestRow] = scopeStore ? [null] : await safe(
-      this.em.query(`SELECT erp_house_code, value FROM farm_device_realtime_snapshot WHERE property_code='2001' ORDER BY value DESC NULLS LAST LIMIT 1`),
+      this.em.query(`SELECT erp_house_code, value FROM mon_device_realtime_snapshot WHERE property_code='2001' ORDER BY value DESC NULLS LAST LIMIT 1`),
       [null],
     );
     const deviceStats = {
@@ -259,7 +259,7 @@ export class DashboardBffController {
           eggs:      { value: todayEggs.toLocaleString(), unit: '枚', trend: null },
           stock:     {
             value: Number(stockRow?.total || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
-            unit: '基础单位',
+            unit: '枚',
             trend: null,
           },
           salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK' },

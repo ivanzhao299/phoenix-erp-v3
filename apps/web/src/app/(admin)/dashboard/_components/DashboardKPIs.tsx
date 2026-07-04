@@ -299,7 +299,7 @@ export default function DashboardKPIs({
       gap: 20
     }}>
         <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={eggsHint} />
-        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '可用库存')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
+        <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '可用库存（枚）')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
         <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={posHint} />
         <StatCard loading={loading} themeIdx={4} title={t('dash.todayFarmSales', '今日农场直销')} value={stats.salesFarm?.value} unit={stats.salesFarm?.unit} icon={<Tractor size={22} />} trend={stats.salesFarm?.trend} hint={farmHint} />
         <StatCard loading={loading} themeIdx={3} title={t('dash.pendingAlerts', '待处理预警')} value={stats.alerts.value} unit={stats.alerts.unit} icon={<AlertCircle size={22} />} hint={t('dash.pendingAlertsHint', '未处理业务预警与设备告警合计')} alert />

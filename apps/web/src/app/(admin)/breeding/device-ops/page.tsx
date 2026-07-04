@@ -89,6 +89,8 @@ interface AuthStatus {
   hasToken: boolean;
   appId?: string;
   remainMin?: number;
+  base?: string;
+  error?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -111,11 +113,15 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
         ...(init?.headers ?? {})
       }
     });
+    if (!res.ok) return null;
     const d = await res.json();
     return d;
   } catch {
     return null;
   }
+}
+function isAuthStatus(value: unknown): value is AuthStatus {
+  return Boolean(value && typeof value === "object" && "hasToken" in value && typeof (value as AuthStatus).hasToken === "boolean");
 }
 function StatusPill({
   active,
@@ -264,7 +270,12 @@ export default function DeviceOpsPage() {
       setErpHouses(Array.isArray(hd?.data) ? hd.data : Array.isArray(hd) ? hd : []);
       const fd = erpFRes as any;
       setErpFarms(Array.isArray(fd?.data) ? fd.data : Array.isArray(fd) ? fd : []);
-      if (authRes) setAuthStatus(authRes);
+      setAuthStatus(isAuthStatus(authRes) ? authRes : {
+        hasToken: false,
+        appId: "",
+        remainMin: 0,
+        error: "认证状态接口暂不可用",
+      });
     } finally {
       setLoading(false);
     }
@@ -580,7 +591,7 @@ export default function DeviceOpsPage() {
         color: "var(--status-warning)"
       }} />}
           <span className={u.fw600}>{t('ui.第三方 IoT API：', '第三方 IoT API：')}</span>
-          {authStatus.hasToken ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · ${t('ui.Token 剩余', 'Token 剩余')} ${authStatus.remainMin} min` : t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}
+          {authStatus.hasToken ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId || "—"} · ${t('ui.Token 剩余', 'Token 剩余')} ${authStatus.remainMin ?? 0} min` : `${t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}${authStatus.error ? `：${authStatus.error}` : ""}`}
         </div>}
 
       {/* Tab 切换 */}

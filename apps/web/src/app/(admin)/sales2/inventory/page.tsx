@@ -223,24 +223,23 @@ function StatCard({
   tone?: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'neutral';
 }) {
   const toneMap: Record<string, { border: string; bg: string; fg: string; icon: string }> = {
-    blue: { border: '#2563eb', bg: '#eff6ff', fg: '#1d4ed8', icon: '库存' },
+    blue: { border: '#2563eb', bg: '#eff6ff', fg: '#1d4ed8', icon: '批次' },
     green: { border: '#16a34a', bg: '#f0fdf4', fg: '#15803d', icon: '可用' },
-    amber: { border: '#f59e0b', bg: '#fffbeb', fg: '#b45309', icon: '预警' },
+    amber: { border: '#f59e0b', bg: '#fffbeb', fg: '#b45309', icon: '临期' },
     red: { border: '#dc2626', bg: '#fef2f2', fg: '#b91c1c', icon: '风险' },
     purple: { border: '#7c3aed', bg: '#f5f3ff', fg: '#6d28d9', icon: 'SKU' },
-    neutral: { border: '#64748b', bg: '#f8fafc', fg: '#334155', icon: '批次' },
+    neutral: { border: '#64748b', bg: '#f8fafc', fg: '#334155', icon: '统计' },
   };
   const cfg = toneMap[tone] ?? toneMap.neutral;
   return (
     <div style={{
-      minWidth: 168,
-      minHeight: 104,
-      padding: '16px 18px',
-      borderRadius: 8,
+      minHeight: 116,
+      padding: '16px 18px 15px',
+      borderRadius: 10,
       background: 'linear-gradient(180deg, #fff 0%, #fbfdff 100%)',
       border: '1px solid var(--gray-200)',
-      borderLeft: `4px solid ${cfg.border}`,
-      boxShadow: '0 8px 22px rgba(15, 23, 42, 0.06)',
+      borderTop: `3px solid ${cfg.border}`,
+      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.055)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
@@ -249,7 +248,7 @@ function StatCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{
           color: 'var(--gray-600)',
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: 700,
           lineHeight: 1.35,
         }}>{label}</div>
@@ -266,7 +265,7 @@ function StatCard({
       <div>
         <div style={{
           color: 'var(--gray-900)',
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 800,
           lineHeight: 1.08,
           letterSpacing: 0,
@@ -1062,8 +1061,8 @@ export default function InventoryPage() {
       {/* 仪表盘统计 */}
       {stats && <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-      gap: 14,
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: 12,
       marginBottom: 24,
       alignItems: 'stretch'
     }}>

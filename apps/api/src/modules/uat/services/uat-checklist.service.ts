@@ -120,26 +120,17 @@ export class UatChecklistService {
     const remark = String(dto.remark ?? '').trim() || null;
 
     await this.ds.query(
-      `WITH payload AS (
-         SELECT
-           $1::bigint AS checklist_id,
-           $2::varchar AS next_status,
-           $3::bigint AS tester_id,
-           $4::varchar AS tester_name,
-           $5::text AS remark
-       )
-       UPDATE uat_checklists AS c
-       SET status      = p.next_status,
-           tester_id   = p.tester_id,
-           tester_name = p.tester_name,
+      `UPDATE uat_checklists
+       SET status      = $2::varchar,
+           tester_id   = $3::bigint,
+           tester_name = $4::varchar,
            tested_at   = CASE
-             WHEN p.next_status IN ('PASSED','FAILED','BLOCKED') THEN NOW()
-             WHEN p.next_status = 'NOT_STARTED' THEN NULL
-             ELSE c.tested_at
+             WHEN $2::varchar IN ('PASSED','FAILED','BLOCKED') THEN NOW()
+             WHEN $2::varchar = 'NOT_STARTED' THEN NULL
+             ELSE tested_at
            END,
-           remark      = p.remark
-       FROM payload AS p
-       WHERE c.id = p.checklist_id`,
+           remark      = $5::text
+       WHERE id = $1::bigint`,
       [checklistId, dto.status, safeTesterId, testerName, remark],
     );
     return this.ds.query<any[]>(`SELECT * FROM uat_checklists WHERE id = $1::bigint`, [checklistId]).then(r => r[0]);
