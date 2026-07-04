@@ -178,6 +178,8 @@ jobs:
               --execute \
               --remote-api-only \
               --api-base=https://erp.eggslao.com \
+              --sync-timeout-ms=300000 \
+              --coverage-timeout-ms=120000 \
               --output-dir=docs/ops/runs
 
       - name: Upload runtime smoke artifacts

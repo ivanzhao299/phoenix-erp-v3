@@ -23,6 +23,9 @@ const bookId = getArg('--book-id', '');
 const period = getArg('--period', '');
 const remoteApiOnly = hasArg('--remote-api-only') || /^https?:\/\/(?!localhost(?::|\/|$)|127\.0\.0\.1(?::|\/|$)|\[?::1\]?(?::|\/|$))/i.test(apiBase);
 const includeCoverage = !hasArg('--skip-coverage');
+const healthTimeoutMs = Number(getArg('--health-timeout-ms', '30000'));
+const coverageTimeoutMs = Number(getArg('--coverage-timeout-ms', remoteApiOnly ? '120000' : '30000'));
+const syncTimeoutMs = Number(getArg('--sync-timeout-ms', remoteApiOnly ? '300000' : '120000'));
 
 const generatedAt = new Date().toISOString();
 const outputJson = join(outputDir, 'chanjet-readonly-mirror-sync-latest.json');
@@ -75,9 +78,9 @@ function runPsql(sql) {
   };
 }
 
-async function fetchJson(path, options = {}) {
+async function fetchJson(path, options = {}, timeoutMs = 30_000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${apiBase}${path}`, {
       ...options,
@@ -183,6 +186,11 @@ async function main() {
     period,
     apiBase,
     remoteApiOnly,
+    timeouts: {
+      healthTimeoutMs,
+      coverageTimeoutMs,
+      syncTimeoutMs,
+    },
   });
 
   const dbIdentity = remoteApiOnly
@@ -205,7 +213,7 @@ async function main() {
 
   let apiHealth = { ok: false, status: 0, json: null };
   try {
-    apiHealth = await fetchJson('/api/health');
+    apiHealth = await fetchJson('/api/health', {}, healthTimeoutMs);
   } catch (error) {
     apiHealth = { ok: false, status: 0, json: { error: error?.name === 'AbortError' ? 'timeout' : String(error?.message || error) } };
   }
@@ -217,7 +225,7 @@ async function main() {
   let financeCoverage = { ok: false, status: 0, json: null };
   if (includeCoverage && token) {
     try {
-      financeCoverage = await fetchJson('/api/chanjet/integration/finance-coverage');
+      financeCoverage = await fetchJson('/api/chanjet/integration/finance-coverage', {}, coverageTimeoutMs);
     } catch (error) {
       financeCoverage = { ok: false, status: 0, json: { error: error?.name === 'AbortError' ? 'timeout' : String(error?.message || error) } };
     }
@@ -286,10 +294,21 @@ async function main() {
       ...(bookId ? { bookId } : {}),
       ...(period ? { period } : {}),
     };
-    const sync = await fetchJson('/api/chanjet/integration/mirror/sync', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    let sync = { ok: false, status: 0, json: null };
+    try {
+      sync = await fetchJson('/api/chanjet/integration/mirror/sync', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }, syncTimeoutMs);
+    } catch (error) {
+      sync = {
+        ok: false,
+        status: 0,
+        json: {
+          error: error?.name === 'AbortError' ? `timeout after ${syncTimeoutMs}ms` : String(error?.message || error),
+        },
+      };
+    }
     result.execution.executed = sync.ok;
     result.execution.summary = { httpStatus: sync.status, response: sync.json };
     result.decision = sync.ok && sync.json?.success !== false ? 'GO_WITH_CONDITIONS' : 'HOLD';
@@ -298,7 +317,7 @@ async function main() {
     }
     if (includeCoverage) {
       try {
-        const afterCoverage = await fetchJson('/api/chanjet/integration/finance-coverage');
+        const afterCoverage = await fetchJson('/api/chanjet/integration/finance-coverage', {}, coverageTimeoutMs);
         result.prechecks.financeCoverage = {
           status: afterCoverage.ok ? 'PASS' : 'HOLD',
           httpStatus: afterCoverage.status,

@@ -67,6 +67,8 @@ node scripts/ops/chanjet-readonly-mirror-sync.mjs \
   --execute \
   --remote-api-only \
   --api-base=https://erp.eggslao.com \
+  --sync-timeout-ms=300000 \
+  --coverage-timeout-ms=120000 \
   --output-dir=docs/ops/runs
 ```
 
@@ -88,9 +90,15 @@ node scripts/ops/chanjet-readonly-mirror-sync.mjs \
 - First remote execution without token: HOLD, expected fail-closed result
 - Second attempt using direct SSH from GitHub runner: HOLD/FAIL, SSH timed out before reaching host.
 - Workflow updated to reuse deploy `appleboy/ssh-action` proxy path and run the protected sync from the production server.
+- Third attempt reached the production server and minted the runtime token, then failed in the readonly sync script because the mirror sync API exceeded the previous 30-second fetch timeout.
+- Script updated to separate timeout windows:
+  - health check: 30 seconds
+  - finance coverage check: 120 seconds in remote mode
+  - mirror sync: 300 seconds in remote mode
+- Sync timeout is now reported as an audited HOLD response instead of an uncontextualized process crash.
 
 ## Current Status
 
-READY FOR SSH-BACKED SHORT-LIVED TOKEN EXECUTION.
+READY FOR LONG-RUNNING SSH-BACKED READONLY SYNC EXECUTION.
 
-The code path is protected. The next run of `chanjet-readonly-production` should connect through the same SSH/proxy path as production deploy, mint a temporary runtime token, and execute the readonly mirror sync without exposing or storing a long-lived admin token.
+The code path is protected. The next run of `chanjet-readonly-production` should connect through the same SSH/proxy path as production deploy, mint a temporary runtime token, and execute the readonly mirror sync with a long-running sync timeout without exposing or storing a long-lived admin token.
