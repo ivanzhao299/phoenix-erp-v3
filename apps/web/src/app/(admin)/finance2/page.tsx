@@ -98,6 +98,37 @@ interface ReportOverviewData {
   sourceAuthority?:           Record<string, string>;
 }
 
+type AlignmentStatus = 'OK' | 'WARN' | 'MISMATCH' | 'ERP_FALLBACK';
+
+interface ChanjetAlignmentCard {
+  cardKey: string;
+  label: string;
+  displayValue: number;
+  source: string;
+  erpValue: number;
+  chanjetValue: number | null;
+  diff: number;
+  diffAbs: number;
+  diffRate: number;
+  status: AlignmentStatus;
+  covered: boolean;
+  rows: number;
+  latestPeriod: string | null;
+  note: string;
+}
+
+interface ChanjetAlignmentData {
+  generatedAt: string;
+  coverageRate: number;
+  authority: string;
+  cards: ChanjetAlignmentCard[];
+  statusCounts: Partial<Record<AlignmentStatus, number>>;
+  mismatchCount: number;
+  fallbackCount: number;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD' | 'FAIL';
+  conditions: string[];
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 function getToken() {
@@ -118,10 +149,33 @@ function fmt(n: number | string | null | undefined): string {
 
 function sourceLabel(source?: string): string {
   if (!source) return '来源待确认';
+  if (source === 'CHANJET_AR_SNAPSHOT') return '好业财应收汇总';
+  if (source === 'CHANJET_AP_STATISTICS_MIRROR') return '好业财应付汇总';
+  if (source === 'CHANJET_CASH_ACCOUNT_MIRROR') return '好业财资金账户';
+  if (source === 'CHANJET_AR_RECEIPT_MIRROR') return '好业财收款镜像';
+  if (source === 'CHANJET_AP_PAYMENT_MIRROR') return '好业财付款镜像';
+  if (source === 'CHANJET_GL_BALANCE_MIRROR') return '好业财科目余额';
+  if (source === 'CHANJET_BALANCE_SHEET_MIRROR') return '好业财资产负债表';
+  if (source === 'CHANJET_INCOME_STATEMENT_MIRROR') return '好业财利润表';
   if (source.startsWith('CHANJET')) return '好业财口径';
   if (source === 'ERP_FALLBACK') return 'ERP 口径（待好业财同步）';
   if (source.startsWith('ERP')) return 'ERP 辅助明细';
   return source;
+}
+
+function statusLabel(status?: AlignmentStatus): string {
+  if (status === 'OK') return '已对齐';
+  if (status === 'WARN') return '轻微差异';
+  if (status === 'MISMATCH') return '存在差异';
+  if (status === 'ERP_FALLBACK') return '待同步';
+  return '待核对';
+}
+
+function statusTone(status?: AlignmentStatus) {
+  if (status === 'OK') return { bg: 'var(--success-50, #ecfdf3)', fg: 'var(--success, #15803d)', border: 'var(--success-100, #bbf7d0)' };
+  if (status === 'WARN') return { bg: 'var(--warning-50, #fffbeb)', fg: 'var(--warning, #b45309)', border: 'var(--warning-100, #fde68a)' };
+  if (status === 'MISMATCH') return { bg: 'var(--danger-50, #fef2f2)', fg: 'var(--danger, #dc2626)', border: 'var(--danger-100, #fecaca)' };
+  return { bg: 'var(--bg-muted, #f3f4f6)', fg: 'var(--text-muted, #6b7280)', border: 'var(--border, #e5e7eb)' };
 }
 
 // ── 区块标题 ──────────────────────────────────────────────────────────────────
@@ -174,6 +228,7 @@ export default function Finance2DashboardPage() {
   const [shSummary,      setShSummary]      = useState<ShSummaryData | null>(null);
   const [expSummary,     setExpSummary]     = useState<ExpSummaryData | null>(null);
   const [reportOverview, setReportOverview] = useState<ReportOverviewData | null>(null);
+  const [chanjetAlignment, setChanjetAlignment] = useState<ChanjetAlignmentData | null>(null);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
 
@@ -181,13 +236,14 @@ export default function Finance2DashboardPage() {
     setLoading(true);
     setError('');
     try {
-      const [ar, cashSummary, pendingTfr, sh, exp, rpt] = await Promise.allSettled([
+      const [ar, cashSummary, pendingTfr, sh, exp, rpt, alignment] = await Promise.allSettled([
         apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
         apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
         apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
         apiFetch<ShSummaryData>('/api/v2/finance/shareholders/contributions/summary'),
         apiFetch<ExpSummaryData>('/api/v2/finance/expenses/summary'),
         apiFetch<ReportOverviewData>('/api/v2/finance/reports/overview'),
+        apiFetch<ChanjetAlignmentData>('/api/v2/finance/reports/chanjet-alignment'),
       ]);
 
       if (ar.status  === 'fulfilled') setArSummary(ar.value);
@@ -209,6 +265,7 @@ export default function Finance2DashboardPage() {
       }
       if (exp.status === 'fulfilled') setExpSummary(exp.value);
       if (rpt.status === 'fulfilled') setReportOverview(rpt.value);
+      if (alignment.status === 'fulfilled') setChanjetAlignment(alignment.value);
 
       setCashDash({
         summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
@@ -269,14 +326,37 @@ export default function Finance2DashboardPage() {
     return renderMultiCcy(rows);
   })();
 
+  const alignmentByKey = (key: string) => chanjetAlignment?.cards.find((card) => card.cardKey === key);
+  const sourceLine = (key: string, fallbackSource?: string) => {
+    const card = alignmentByKey(key);
+    const source = card?.source ?? fallbackSource;
+    const prefix = `${sourceLabel(source)} · ${statusLabel(card?.status)}`;
+    if (!card || card.status === 'OK' || card.status === 'ERP_FALLBACK') return prefix;
+    return `${prefix} · 差异 ¥${fmt(card.diffAbs)}`;
+  };
+
+  const alignmentSummary = (() => {
+    if (!chanjetAlignment) return null;
+    const covered = chanjetAlignment.cards.filter((card) => card.covered).length;
+    const total = chanjetAlignment.cards.length;
+    return {
+      covered,
+      total,
+      ok: chanjetAlignment.statusCounts.OK ?? 0,
+      warn: chanjetAlignment.statusCounts.WARN ?? 0,
+      mismatch: chanjetAlignment.statusCounts.MISMATCH ?? 0,
+      fallback: chanjetAlignment.statusCounts.ERP_FALLBACK ?? 0,
+    };
+  })();
+
   // ── 6 核心 KPI ─────────────────────────────────────────────────────────
   const kpis = [
     {
       label:       t('fin2.common.cash_balance','现金账户余额'),
       value:       cashBalanceDisplay,
       subValue:    cashDash?.summary
-        ? `${sourceLabel(reportOverview?.sourceAuthority?.cashBalance)} · ERP 账户 ${cashDash.summary.totalAccounts} ${t('fin2.home.accounts_unit','个账户')}`
-        : sourceLabel(reportOverview?.sourceAuthority?.cashBalance),
+        ? `${sourceLine('cashBalance', reportOverview?.sourceAuthority?.cashBalance)} · ERP 账户 ${cashDash.summary.totalAccounts} ${t('fin2.home.accounts_unit','个账户')}`
+        : sourceLine('cashBalance', reportOverview?.sourceAuthority?.cashBalance),
       icon:        Wallet,
       accentColor: 'blue' as AccentColor,
     },
@@ -284,15 +364,15 @@ export default function Finance2DashboardPage() {
       label:       t('fin2.home.ar_receivable','应收待收款'),
       value:       reportOverview ? `¥ ${fmt(reportOverview.arOpen)}` : '—',
       subValue:    arSummary
-        ? `${sourceLabel(reportOverview?.sourceAuthority?.arOpen)} · ERP 明细 ${arSummary.open_invoices} ${t('fin2.home.unpaid_unit','笔未收')} / ${arSummary.overdue_invoices} ${t('fin2.home.overdue_unit','笔逾期')}`
-        : sourceLabel(reportOverview?.sourceAuthority?.arOpen),
+        ? `${sourceLine('arOpen', reportOverview?.sourceAuthority?.arOpen)} · ERP 明细 ${arSummary.open_invoices} ${t('fin2.home.unpaid_unit','笔未收')} / ${arSummary.overdue_invoices} ${t('fin2.home.overdue_unit','笔逾期')}`
+        : sourceLine('arOpen', reportOverview?.sourceAuthority?.arOpen),
       icon:        TrendingUp,
       accentColor: 'green' as AccentColor,
     },
     {
       label:       t('fin2.home.ap_payable','应付待付款'),
       value:       reportOverview ? `¥ ${fmt(reportOverview.apOpen)}` : '—',
-      subValue:    sourceLabel(reportOverview?.sourceAuthority?.apOpen),
+      subValue:    sourceLine('apOpen', reportOverview?.sourceAuthority?.apOpen),
       icon:        TrendingDown,
       accentColor: 'red' as AccentColor,
     },
@@ -307,7 +387,7 @@ export default function Finance2DashboardPage() {
       label:       t('fin2.common.disposable_funds','可支配资金'),
       value:       disposableDisplay,
       subValue:    reportOverview
-        ? `${sourceLabel(reportOverview.sourceAuthority?.todayInflow)} · ${t('fin2.home.today_inflow','今日流入')} ¥${fmt(reportOverview.todayInflow)} / ${t('fin2.home.outflow','流出')} ¥${fmt(reportOverview.todayOutflow)}`
+        ? `${sourceLine('todayInflow', reportOverview.sourceAuthority?.todayInflow)} · ${t('fin2.home.today_inflow','今日流入')} ¥${fmt(reportOverview.todayInflow)} / ${t('fin2.home.outflow','流出')} ¥${fmt(reportOverview.todayOutflow)}`
         : undefined,
       icon:        Activity,
       accentColor: reportOverview?.netOperatingPosition !== undefined && reportOverview.netOperatingPosition >= 0
@@ -381,6 +461,80 @@ export default function Finance2DashboardPage() {
           ))}
         </div>
       </div>
+
+      {!loading && chanjetAlignment && alignmentSummary && (
+        <section
+          className="mb-8"
+          style={{
+            border: '1px solid var(--border, #e5e7eb)',
+            borderRadius: 12,
+            background: 'var(--bg-card, #fff)',
+            padding: 18,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text, #111827)', marginBottom: 4 }}>
+                好业财财务口径对齐
+              </div>
+              <div style={{ color: 'var(--text-muted, #6b7280)', fontSize: 13 }}>
+                好业财可覆盖的财务卡片采用好业财为权威口径；ERP 明细作为辅助差异，不静默覆盖。
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {[
+                [`覆盖 ${alignmentSummary.covered}/${alignmentSummary.total}`, 'OK' as AlignmentStatus],
+                [`一致 ${alignmentSummary.ok}`, 'OK' as AlignmentStatus],
+                [`差异 ${alignmentSummary.mismatch + alignmentSummary.warn}`, alignmentSummary.mismatch > 0 ? 'MISMATCH' as AlignmentStatus : 'WARN' as AlignmentStatus],
+                [`待同步 ${alignmentSummary.fallback}`, 'ERP_FALLBACK' as AlignmentStatus],
+              ].map(([label, status]) => {
+                const tone = statusTone(status as AlignmentStatus);
+                return (
+                  <span key={String(label)} style={{
+                    border: `1px solid ${tone.border}`,
+                    background: tone.bg,
+                    color: tone.fg,
+                    borderRadius: 999,
+                    padding: '5px 10px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}>
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+            {chanjetAlignment.cards.slice(0, 8).map((card) => {
+              const tone = statusTone(card.status);
+              return (
+                <div key={card.cardKey} style={{
+                  border: `1px solid ${tone.border}`,
+                  borderRadius: 10,
+                  padding: 12,
+                  background: card.status === 'OK' ? 'var(--bg-subtle, #fafafa)' : tone.bg,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <strong style={{ fontSize: 13, color: 'var(--text, #111827)' }}>{card.label}</strong>
+                    <span style={{ color: tone.fg, fontSize: 12, fontWeight: 800 }}>{statusLabel(card.status)}</span>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--text, #111827)', marginBottom: 6 }}>
+                    ¥ {fmt(card.displayValue)}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted, #6b7280)', lineHeight: 1.6 }}>
+                    <div>{sourceLabel(card.source)} · {card.rows} 行 · {card.latestPeriod ?? '无期间'}</div>
+                    <div>ERP 辅助 ¥{fmt(card.erpValue)}{card.chanjetValue !== null ? ` / 好业财 ¥${fmt(card.chanjetValue)}` : ''}</div>
+                    {card.status !== 'OK' && card.status !== 'ERP_FALLBACK' && (
+                      <div style={{ color: tone.fg, fontWeight: 700 }}>差异 ¥{fmt(card.diffAbs)}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── 应收账款异常提示（有逾期时高亮） ──────────────────────────── */}
       {!loading && arSummary && arSummary.overdue_invoices > 0 && (

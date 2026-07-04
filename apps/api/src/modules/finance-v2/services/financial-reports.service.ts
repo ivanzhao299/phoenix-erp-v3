@@ -176,11 +176,19 @@ export class FinancialReportsService {
     erpValue: number,
     note: string,
   ) {
+    const authoritativeValue = chanjet.available ? chanjet.value : erpValue;
+    const diff = authoritativeValue - erpValue;
+    const diffAbs = Math.abs(diff);
+    const base = Math.max(Math.abs(authoritativeValue), Math.abs(erpValue), 1);
+    const diffRate = diffAbs / base;
     return {
       source: chanjet.available ? source : 'ERP_FALLBACK',
-      authoritativeValue: chanjet.available ? chanjet.value : erpValue,
+      authoritativeValue,
       erpValue,
-      diff: (chanjet.available ? chanjet.value : erpValue) - erpValue,
+      diff,
+      diffAbs,
+      diffRate,
+      status: !chanjet.available ? 'ERP_FALLBACK' : diffAbs < 0.01 ? 'OK' : diffRate <= 0.01 ? 'WARN' : 'MISMATCH',
       covered: chanjet.available,
       rows: chanjet.rows,
       latestPeriod: chanjet.latestPeriod,
@@ -321,89 +329,52 @@ export class FinancialReportsService {
 
   async getChanjetAlignment(user: any) {
     const overview = await this.getOverview(user);
+    const buildCard = (cardKey: string, label: string, metric: any, source: string, displayValue = metric.authoritativeValue) => ({
+      cardKey,
+      label,
+      displayValue,
+      source,
+      erpValue: metric.erpValue,
+      chanjetValue: metric.covered ? metric.authoritativeValue : null,
+      diff: metric.diff,
+      diffAbs: metric.diffAbs,
+      diffRate: metric.diffRate,
+      status: metric.status,
+      covered: metric.covered,
+      rows: metric.rows,
+      latestPeriod: metric.latestPeriod,
+      note: metric.note,
+    });
+    const cards = [
+      buildCard('arOpen', '应收待收款', overview.chanjetAlignment.metrics.arOpen, overview.sourceAuthority.arOpen, overview.arOpen),
+      buildCard('apOpen', '应付待付款', overview.chanjetAlignment.metrics.apOpen, overview.sourceAuthority.apOpen, overview.apOpen),
+      buildCard('cashBalance', '现金账户余额', overview.chanjetAlignment.metrics.cashBalance, overview.sourceAuthority.cashBalance, overview.cashBalance),
+      buildCard('todayInflow', '今日收款', overview.chanjetAlignment.metrics.todayInflow, overview.sourceAuthority.todayInflow, overview.todayInflow),
+      buildCard('todayOutflow', '今日付款', overview.chanjetAlignment.metrics.todayOutflow, overview.sourceAuthority.todayOutflow, overview.todayOutflow),
+      buildCard('subjectBalance', '科目余额', overview.chanjetAlignment.metrics.subjectBalance, overview.sourceAuthority.subjectBalance),
+      buildCard('balanceSheet', '资产负债表关键项', overview.chanjetAlignment.metrics.balanceSheet, overview.sourceAuthority.balanceSheet),
+      buildCard('incomeStatement', '利润表关键项', overview.chanjetAlignment.metrics.incomeStatement, overview.sourceAuthority.incomeStatement),
+    ];
+    const statusCounts = cards.reduce((acc: Record<string, number>, card) => {
+      acc[card.status] = (acc[card.status] ?? 0) + 1;
+      return acc;
+    }, {});
     return {
       generatedAt: new Date().toISOString(),
       coverageRate: overview.chanjetAlignment.coverageRate,
       authority: overview.chanjetAlignment.authority,
       metrics: overview.chanjetAlignment.metrics,
-      cards: [
-        {
-          cardKey: 'arOpen',
-          label: '应收待收款',
-          displayValue: overview.arOpen,
-          source: overview.sourceAuthority.arOpen,
-          erpValue: overview.chanjetAlignment.metrics.arOpen.erpValue,
-          chanjetValue: overview.chanjetAlignment.metrics.arOpen.covered ? overview.chanjetAlignment.metrics.arOpen.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.arOpen.diff,
-        },
-        {
-          cardKey: 'apOpen',
-          label: '应付待付款',
-          displayValue: overview.apOpen,
-          source: overview.sourceAuthority.apOpen,
-          erpValue: overview.chanjetAlignment.metrics.apOpen.erpValue,
-          chanjetValue: overview.chanjetAlignment.metrics.apOpen.covered ? overview.chanjetAlignment.metrics.apOpen.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.apOpen.diff,
-        },
-        {
-          cardKey: 'cashBalance',
-          label: '现金账户余额',
-          displayValue: overview.cashBalance,
-          source: overview.sourceAuthority.cashBalance,
-          erpValue: overview.chanjetAlignment.metrics.cashBalance.erpValue,
-          chanjetValue: overview.chanjetAlignment.metrics.cashBalance.covered ? overview.chanjetAlignment.metrics.cashBalance.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.cashBalance.diff,
-        },
-        {
-          cardKey: 'todayInflow',
-          label: '今日收款',
-          displayValue: overview.todayInflow,
-          source: overview.sourceAuthority.todayInflow,
-          erpValue: overview.chanjetAlignment.metrics.todayInflow.erpValue,
-          chanjetValue: overview.chanjetAlignment.metrics.todayInflow.covered ? overview.chanjetAlignment.metrics.todayInflow.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.todayInflow.diff,
-        },
-        {
-          cardKey: 'todayOutflow',
-          label: '今日付款',
-          displayValue: overview.todayOutflow,
-          source: overview.sourceAuthority.todayOutflow,
-          erpValue: overview.chanjetAlignment.metrics.todayOutflow.erpValue,
-          chanjetValue: overview.chanjetAlignment.metrics.todayOutflow.covered ? overview.chanjetAlignment.metrics.todayOutflow.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.todayOutflow.diff,
-        },
-        {
-          cardKey: 'subjectBalance',
-          label: '科目余额',
-          displayValue: overview.chanjetAlignment.metrics.subjectBalance.authoritativeValue,
-          source: overview.sourceAuthority.subjectBalance,
-          erpValue: 0,
-          chanjetValue: overview.chanjetAlignment.metrics.subjectBalance.covered ? overview.chanjetAlignment.metrics.subjectBalance.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.subjectBalance.diff,
-        },
-        {
-          cardKey: 'balanceSheet',
-          label: '资产负债表关键项',
-          displayValue: overview.chanjetAlignment.metrics.balanceSheet.authoritativeValue,
-          source: overview.sourceAuthority.balanceSheet,
-          erpValue: 0,
-          chanjetValue: overview.chanjetAlignment.metrics.balanceSheet.covered ? overview.chanjetAlignment.metrics.balanceSheet.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.balanceSheet.diff,
-        },
-        {
-          cardKey: 'incomeStatement',
-          label: '利润表关键项',
-          displayValue: overview.chanjetAlignment.metrics.incomeStatement.authoritativeValue,
-          source: overview.sourceAuthority.incomeStatement,
-          erpValue: 0,
-          chanjetValue: overview.chanjetAlignment.metrics.incomeStatement.covered ? overview.chanjetAlignment.metrics.incomeStatement.authoritativeValue : null,
-          diff: overview.chanjetAlignment.metrics.incomeStatement.diff,
-        },
-      ],
-      decision: overview.chanjetAlignment.coverageRate >= 0.9 ? 'GO' : 'GO_WITH_CONDITIONS',
-      conditions: overview.chanjetAlignment.coverageRate >= 0.9
+      cards,
+      statusCounts,
+      mismatchCount: (statusCounts.MISMATCH ?? 0) + (statusCounts.WARN ?? 0),
+      fallbackCount: statusCounts.ERP_FALLBACK ?? 0,
+      decision: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 ? 'GO' : 'GO_WITH_CONDITIONS',
+      conditions: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0
         ? []
-        : ['当前自动化覆盖率低于 90% 时，未覆盖卡片继续显示 ERP-only 来源，需继续补齐好业财现金/费用/股东资金映射。'],
+        : [
+          '好业财已覆盖的财务卡片以好业财为权威口径；ERP 明细仅作为辅助差异展示。',
+          'MISMATCH/WARN 卡片必须展示差异，不允许静默覆盖；ERP_FALLBACK 卡片需继续补齐好业财映射。',
+        ],
     };
   }
 
