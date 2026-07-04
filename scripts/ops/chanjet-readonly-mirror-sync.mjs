@@ -21,6 +21,8 @@ const token = process.env.PHOENIX_ADMIN_TOKEN || process.env.PHOENIX_AUTH_TOKEN 
 const scope = getArg('--scope', '').split(',').map((item) => item.trim()).filter(Boolean);
 const bookId = getArg('--book-id', '');
 const period = getArg('--period', '');
+const remoteApiOnly = hasArg('--remote-api-only') || /^https?:\/\/(?!localhost(?::|\/|$)|127\.0\.0\.1(?::|\/|$)|\[?::1\]?(?::|\/|$))/i.test(apiBase);
+const includeCoverage = !hasArg('--skip-coverage');
 
 const generatedAt = new Date().toISOString();
 const outputJson = join(outputDir, 'chanjet-readonly-mirror-sync-latest.json');
@@ -137,11 +139,13 @@ function writeReports(result) {
     '',
     '## Preconditions',
     '',
+    `- Remote API only: ${result.plan.remoteApiOnly ? 'yes' : 'no'}`,
     `- DB reachable: ${result.prechecks.dbReachable.status}`,
     `- Mirror tables present: ${result.prechecks.mirrorTables.status}`,
     `- API health: ${result.prechecks.apiHealth.status}`,
     `- Auth token present: ${result.prechecks.authToken.status}`,
     `- Chanjet env present: ${result.prechecks.chanjetEnv.status}`,
+    `- Finance coverage endpoint: ${result.prechecks.financeCoverage.status}`,
     '',
     '## Execution',
     '',
@@ -162,6 +166,12 @@ function writeReports(result) {
     JSON.stringify(result.execution.summary, null, 2),
     '```',
     '',
+    '## Finance Coverage',
+    '',
+    '```json',
+    JSON.stringify(result.coverage?.summary || {}, null, 2),
+    '```',
+    '',
   ];
   writeFileSync(outputMd, lines.join('\n'));
 }
@@ -172,19 +182,24 @@ async function main() {
     bookId,
     period,
     apiBase,
+    remoteApiOnly,
   });
 
-  const dbIdentity = runPsql('select current_database() || \'|\' || current_user;');
-  const tableCheck = runPsql(`
-    select concat_ws('|',
-      coalesce(to_regclass('public.chanjet_read_snapshots')::text, ''),
-      coalesce(to_regclass('public.chanjet_entity_snapshots')::text, ''),
-      coalesce(to_regclass('public.chanjet_erp_field_mapping')::text, '')
-    );
-  `);
+  const dbIdentity = remoteApiOnly
+    ? { ok: true, status: 0, stdout: 'remote-api-only', stderr: '' }
+    : runPsql('select current_database() || \'|\' || current_user;');
+  const tableCheck = remoteApiOnly
+    ? { ok: true, status: 0, stdout: 'remote-api-protected-endpoint', stderr: '' }
+    : runPsql(`
+      select concat_ws('|',
+        coalesce(to_regclass('public.chanjet_read_snapshots')::text, ''),
+        coalesce(to_regclass('public.chanjet_entity_snapshots')::text, ''),
+        coalesce(to_regclass('public.chanjet_erp_field_mapping')::text, '')
+      );
+    `);
 
   const tables = tableCheck.ok ? tableCheck.stdout.split('|').filter(Boolean) : [];
-  const mirrorTablesReady = tables.includes('chanjet_read_snapshots')
+  const mirrorTablesReady = remoteApiOnly || tables.includes('chanjet_read_snapshots')
     && tables.includes('chanjet_entity_snapshots')
     && tables.includes('chanjet_erp_field_mapping');
 
@@ -197,7 +212,16 @@ async function main() {
 
   const chanjetEnvRequired = ['CHANJET_APP_KEY', 'CHANJET_APP_SECRET'];
   const chanjetEnvOk = chanjetEnvRequired.every((key) => Boolean(envValue(key, '')))
-    || apiBase.startsWith('http') && Boolean(token);
+    || remoteApiOnly && Boolean(token);
+
+  let financeCoverage = { ok: false, status: 0, json: null };
+  if (includeCoverage && token) {
+    try {
+      financeCoverage = await fetchJson('/api/chanjet/integration/finance-coverage');
+    } catch (error) {
+      financeCoverage = { ok: false, status: 0, json: { error: error?.name === 'AbortError' ? 'timeout' : String(error?.message || error) } };
+    }
+  }
 
   const blockers = [];
   if (!dbIdentity.ok) blockers.push(`DB precheck failed: ${dbIdentity.stderr || dbIdentity.stdout || 'unknown error'}`);
@@ -205,6 +229,9 @@ async function main() {
   if (!apiHealth.ok) blockers.push(`API health is not OK at ${apiBase}/api/health (status=${apiHealth.status}).`);
   if (!token) blockers.push('No PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN provided for protected mirror API.');
   if (!chanjetEnvOk) blockers.push('Chanjet configuration/token chain is not visible to this runner.');
+  if (includeCoverage && token && !financeCoverage.ok) {
+    blockers.push(`Finance coverage endpoint is not accessible (status=${financeCoverage.status}).`);
+  }
 
   const result = {
     generatedAt,
@@ -218,6 +245,7 @@ async function main() {
       mirrorTables: {
         status: mirrorTablesReady ? 'PASS' : 'HOLD',
         presentTables: tables,
+        checkedBy: remoteApiOnly ? 'remote protected API' : 'local psql',
       },
       apiHealth: {
         status: apiHealth.ok ? 'PASS' : 'HOLD',
@@ -230,8 +258,13 @@ async function main() {
         status: chanjetEnvOk ? 'PASS' : 'HOLD',
         envPresence: plan.chanjetEnv,
       },
+      financeCoverage: {
+        status: !includeCoverage ? 'SKIP' : financeCoverage.ok ? 'PASS' : token ? 'HOLD' : 'SKIP',
+        httpStatus: financeCoverage.status,
+      },
     },
     blockers,
+    coverage: financeCoverage.json?.coverage || null,
     execution: {
       executed: false,
       summary: dryRun ? { dryRun: true, message: 'dry-run only; no mirror sync executed' } : {},
@@ -262,6 +295,22 @@ async function main() {
     result.decision = sync.ok && sync.json?.success !== false ? 'GO_WITH_CONDITIONS' : 'HOLD';
     if (!sync.ok || sync.json?.success === false) {
       result.blockers.push(`mirror sync API failed: status=${sync.status} error=${sync.json?.error || 'unknown'}`);
+    }
+    if (includeCoverage) {
+      try {
+        const afterCoverage = await fetchJson('/api/chanjet/integration/finance-coverage');
+        result.prechecks.financeCoverage = {
+          status: afterCoverage.ok ? 'PASS' : 'HOLD',
+          httpStatus: afterCoverage.status,
+        };
+        result.coverage = afterCoverage.json?.coverage || result.coverage;
+      } catch (error) {
+        result.prechecks.financeCoverage = {
+          status: 'HOLD',
+          httpStatus: 0,
+          error: error?.name === 'AbortError' ? 'timeout' : String(error?.message || error),
+        };
+      }
     }
   }
 

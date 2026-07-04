@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, chanjet-readonly-production'
         required: false
         default: documented-only
   pull_request:
@@ -31,6 +31,7 @@ jobs:
           node --check scripts/ops/alert-human-reachability-smoke.mjs
           node --check scripts/ops/authenticated-business-smoke.mjs
           node --check scripts/ops/role-business-smoke.mjs
+          node --check scripts/ops/chanjet-readonly-mirror-sync.mjs
 
       - name: Document smoke entrypoints
         run: |
@@ -42,6 +43,7 @@ jobs:
           echo "Alert human reachability command: PHOENIX_SMOKE_TOKEN=... node scripts/ops/alert-human-reachability-smoke.mjs --base-url=https://erp.eggslao.com --strict"
           echo "Authenticated smoke command: SMOKE_USER=... SMOKE_PASS=... node scripts/ops/authenticated-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "Role business smoke command: ROLE_SMOKE_CREDENTIALS_JSON=... node scripts/ops/role-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
+          echo "Chanjet readonly sync command: PHOENIX_ADMIN_TOKEN=... node scripts/ops/chanjet-readonly-mirror-sync.mjs --execute --remote-api-only --api-base=https://erp.eggslao.com --output-dir=docs/ops/runs"
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
 
       - name: Validate legacy smoke script exists
@@ -105,3 +107,22 @@ jobs:
             --api-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
             --strict
+
+      - name: Run Chanjet readonly production sync
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
+        env:
+          PHOENIX_ADMIN_TOKEN: ${{ secrets.PHOENIX_ADMIN_TOKEN }}
+        run: |
+          node scripts/ops/chanjet-readonly-mirror-sync.mjs \
+            --execute \
+            --remote-api-only \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - name: Upload runtime smoke artifacts
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-smoke-${{ inputs.target }}-${{ github.run_id }}
+          path: docs/ops/runs/
+          if-no-files-found: ignore
