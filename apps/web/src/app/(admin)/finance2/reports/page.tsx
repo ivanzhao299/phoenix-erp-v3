@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { currencySymbol } from '@/lib/currency';  // G61 多币种符号
 import u from "@/styles/uix-utils.module.css";
 import { PieChart, BarChart2, TrendingDown, TrendingUp, Wallet, Users, Receipt, Building2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight } from 'lucide-react';
@@ -261,18 +261,38 @@ interface OverviewData {
     apOpen: string;
     arOpen: string;
     cashBalance: string;
+    todayInflow: string;
+    todayOutflow: string;
+    subjectBalance: string;
+    balanceSheet: string;
+    incomeStatement: string;
     shareholderBalance: string;
     expensePending: string;
     reimbursementPending: string;
   };
   chanjetAlignment?: {
     coverageRate: number;
-    metrics: {
-      apOpen: { source: string; authoritativeValue: number; erpValue: number; diff: number; covered: boolean; latestPeriod: string | null };
-      arOpen: { source: string; authoritativeValue: number; erpValue: number; diff: number; covered: boolean; latestPeriod: string | null };
-    };
+    metrics: Record<string, AlignmentMetric>;
     guardrail: string;
   };
+}
+
+interface AlignmentMetric {
+  source: string;
+  chanjetSource?: string | null;
+  authoritativeValue: number;
+  erpValue: number;
+  chanjetValue?: number | null;
+  diff: number;
+  diffAbs?: number;
+  diffRate?: number;
+  status: 'OK' | 'WARN' | 'MISMATCH' | 'ERP_FALLBACK' | 'NEEDS_MAPPING' | string;
+  covered: boolean;
+  authorityEligible?: boolean;
+  authorityReason?: string;
+  rows?: number;
+  latestPeriod: string | null;
+  note?: string;
 }
 
 function sourceLabel(source?: string) {
@@ -282,13 +302,78 @@ function sourceLabel(source?: string) {
   return source.replace(/_/g, ' ');
 }
 
-function chanjetSub(data: OverviewData, key: 'arOpen' | 'apOpen') {
+function chanjetSub(data: OverviewData, key: string) {
   const metric = data.chanjetAlignment?.metrics?.[key];
-  const source = data.sourceAuthority?.[key];
+  const source = data.sourceAuthority?.[key as keyof NonNullable<OverviewData['sourceAuthority']>];
   if (!metric) return sourceLabel(source);
+  const status = statusLabel(metric.status);
   const diff = metric.covered ? `差异 ${fmt(metric.diff)}` : '待同步好业财镜像';
   const period = metric.latestPeriod ? ` · 期间 ${metric.latestPeriod}` : '';
-  return `${sourceLabel(source)} · ${diff}${period}`;
+  return `${sourceLabel(source)} · ${status} · ${diff}${period}`;
+}
+
+function statusLabel(status?: string) {
+  if (status === 'OK') return '已对齐';
+  if (status === 'WARN') return '小差异';
+  if (status === 'MISMATCH') return '需对账';
+  if (status === 'NEEDS_MAPPING') return '待字段锁定';
+  if (status === 'ERP_FALLBACK') return 'ERP回退';
+  return status || '未确认';
+}
+
+function statusStyle(status?: string): CSSProperties {
+  if (status === 'OK') return { background: '#e8f5ee', color: '#1f7a3a', borderColor: '#bfe4cc' };
+  if (status === 'WARN') return { background: '#fff7e6', color: '#9a5b00', borderColor: '#ffd591' };
+  if (status === 'MISMATCH') return { background: '#fff1f0', color: '#b42318', borderColor: '#ffccc7' };
+  if (status === 'NEEDS_MAPPING') return { background: '#eef4ff', color: '#1f4f99', borderColor: '#bfd3ff' };
+  return { background: '#f2f4f7', color: '#475467', borderColor: '#d0d5dd' };
+}
+
+function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
+  const metrics = data.chanjetAlignment?.metrics;
+  if (!metrics) return null;
+  const items = [
+    { key: 'arOpen', label: '应收待收' },
+    { key: 'apOpen', label: '应付待付' },
+    { key: 'cashBalance', label: '现金 / 银行余额' },
+    { key: 'todayInflow', label: '今日收款' },
+    { key: 'todayOutflow', label: '今日付款' },
+    { key: 'subjectBalance', label: '科目余额' },
+    { key: 'balanceSheet', label: '资产负债表' },
+    { key: 'incomeStatement', label: '利润表' },
+  ].map((item) => ({ ...item, metric: metrics[item.key] })).filter((item) => item.metric);
+  return (
+    <div style={{ ...tableContainer, padding: 14, marginBottom: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>好业财财务口径对齐</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+            覆盖率 {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}% · ERP 明细保留为辅助对账，不静默覆盖。
+          </div>
+        </div>
+        <span style={{ ...inlineBadge, ...statusStyle(items.some((item) => item.metric.status === 'MISMATCH') ? 'MISMATCH' : items.some((item) => item.metric.status === 'NEEDS_MAPPING') ? 'NEEDS_MAPPING' : 'OK') }}>
+          {items.some((item) => item.metric.status === 'MISMATCH') ? '存在差异' : items.some((item) => item.metric.status === 'NEEDS_MAPPING') ? '待字段锁定' : '可用'}
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+        {items.map(({ key, label, metric }) => (
+          <div key={key} style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 12, background: 'var(--surface-card)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{label}</div>
+              <span style={{ ...inlineBadge, ...statusStyle(metric.status) }}>{statusLabel(metric.status)}</span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              <div>显示来源：{sourceLabel(metric.source)}</div>
+              <div>好业财：{metric.chanjetValue == null ? '未覆盖' : fmtMoney(metric.chanjetValue)}</div>
+              <div>ERP 辅助：{fmtMoney(metric.erpValue)}</div>
+              <div>差异：{metric.covered ? fmtMoney(metric.diff) : '—'}</div>
+              {metric.authorityReason && <div style={{ color: metric.authorityEligible === false ? '#1f4f99' : 'var(--text-secondary)' }}>{metric.authorityReason}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function OverviewTab() {
@@ -337,19 +422,25 @@ function OverviewTab() {
           {[{
             label: t('fin2.reports.today_inflow','今日流入'),
             value: `+¥${fmt(data.todayInflow)}`,
-            color: 'var(--status-success)'
+            color: 'var(--status-success)',
+            sub: chanjetSub(data, 'todayInflow'),
           }, {
             label: t('fin2.reports.today_outflow','今日流出'),
             value: `-¥${fmt(data.todayOutflow)}`,
-            color: 'var(--status-danger)'
+            color: 'var(--status-danger)',
+            sub: chanjetSub(data, 'todayOutflow'),
           }, {
             label: t('fin2.reports.today_net','今日净额'),
             value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
-            color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)'
+            color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)',
+            sub: 'ERP 今日现金流水净额',
           }].map(item => (
-            <div key={item.label} style={{ fontSize: 12 }}>
-              <span style={{ opacity: 0.7 }}>{item.label}</span>
-              <span style={{ marginLeft: 6, fontWeight: 700, color: item.color }}>{item.value}</span>
+            <div key={item.label} style={{ fontSize: 12, maxWidth: 260 }}>
+              <div>
+                <span style={{ opacity: 0.7 }}>{item.label}</span>
+                <span style={{ marginLeft: 6, fontWeight: 700, color: item.color }}>{item.value}</span>
+              </div>
+              <div style={{ opacity: 0.72, marginTop: 3 }}>{item.sub}</div>
             </div>
           ))}
         </div>
@@ -361,7 +452,7 @@ function OverviewTab() {
       gap: 10,
       marginBottom: 20
     }}>
-        <KpiCard label={t('fin2.reports.cash_account_balance','现金账户余额')} value={cashRows.length > 0 ? renderCcyRows(cashRows, 16) : fmtMoney(data.cashBalance)} icon={Wallet} color="var(--color-primary)" />
+        <KpiCard label={t('fin2.reports.cash_account_balance','现金账户余额')} value={cashRows.length > 0 ? renderCcyRows(cashRows, 16) : fmtMoney(data.cashBalance)} sub={chanjetSub(data, 'cashBalance')} icon={Wallet} color="var(--color-primary)" />
         <KpiCard label={t('fin2.reports.ar_open','应收待收款')} value={fmtMoney(data.arOpen)} sub={chanjetSub(data, 'arOpen')} icon={TrendingUp} color="var(--status-success)" />
         <KpiCard label={t('fin2.reports.ap_open','应付待付款')} value={fmtMoney(data.apOpen)} sub={chanjetSub(data, 'apOpen')} icon={TrendingDown} color="var(--status-warning)" />
         <KpiCard label={t('fin2.reports.shareholder_balance','股东资金余额')} value={fmtMoney(data.shareholderBalance)} icon={Users} color="var(--status-info)" />
@@ -371,9 +462,11 @@ function OverviewTab() {
 
       <div style={{ ...inlineAlert('info'), marginBottom: 16 }}>
         <strong>财务数字来源：</strong>
-        应收/应付优先采用好业财只读镜像；未覆盖项明确显示 ERP 回退。当前好业财覆盖率：
+        应收/应付/现金等已证明字段优先采用好业财只读镜像；收付款日口径未锁定前保留 ERP 今日流水。当前好业财覆盖率：
         {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}%。
       </div>
+
+      <FinanceAlignmentPanel data={data} />
 
       {data.byCurrency.length > 0 && <>
           <SectionTitle>{t('fin2.common.cash_balance','现金余额')} — {t('fin2.reports.by_currency','按币种')}</SectionTitle>

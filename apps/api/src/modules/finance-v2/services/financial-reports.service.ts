@@ -175,21 +175,37 @@ export class FinancialReportsService {
     chanjet: { available: boolean; value: number; rows: number; latestPeriod: string | null },
     erpValue: number,
     note: string,
+    options: { authorityEligible?: boolean; authorityReason?: string } = {},
   ) {
-    const authoritativeValue = chanjet.available ? chanjet.value : erpValue;
-    const diff = authoritativeValue - erpValue;
+    const authorityEligible = options.authorityEligible ?? true;
+    const authoritativeValue = chanjet.available && authorityEligible ? chanjet.value : erpValue;
+    const chanjetValue = chanjet.available ? chanjet.value : null;
+    const diff = chanjet.available ? chanjet.value - erpValue : 0;
     const diffAbs = Math.abs(diff);
-    const base = Math.max(Math.abs(authoritativeValue), Math.abs(erpValue), 1);
+    const base = Math.max(Math.abs(chanjetValue ?? authoritativeValue), Math.abs(erpValue), 1);
     const diffRate = diffAbs / base;
+    const status = !chanjet.available
+      ? 'ERP_FALLBACK'
+      : !authorityEligible
+        ? 'NEEDS_MAPPING'
+        : diffAbs < 0.01
+          ? 'OK'
+          : diffRate <= 0.01
+            ? 'WARN'
+            : 'MISMATCH';
     return {
-      source: chanjet.available ? source : 'ERP_FALLBACK',
+      source: chanjet.available && authorityEligible ? source : 'ERP_FALLBACK',
+      chanjetSource: chanjet.available ? source : null,
       authoritativeValue,
       erpValue,
+      chanjetValue,
       diff,
       diffAbs,
       diffRate,
-      status: !chanjet.available ? 'ERP_FALLBACK' : diffAbs < 0.01 ? 'OK' : diffRate <= 0.01 ? 'WARN' : 'MISMATCH',
+      status,
       covered: chanjet.available,
+      authorityEligible,
+      authorityReason: options.authorityReason ?? (authorityEligible ? '好业财字段口径已允许作为该指标权威显示。' : '好业财镜像已覆盖，但字段口径尚未允许覆盖该指标。'),
       rows: chanjet.rows,
       latestPeriod: chanjet.latestPeriod,
       note,
@@ -218,8 +234,26 @@ export class FinancialReportsService {
       arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总优先；ERP 应收发票/总账作为辅助明细。'),
       apOpen: this.metricFromChanjet('CHANJET_AP_STATISTICS_MIRROR', ap, erp.apOpen, '好业财应付汇总优先；ERP 应付发票作为辅助明细。'),
       cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户镜像优先；ERP 现金账户余额作为辅助差异。'),
-      todayInflow: this.metricFromChanjet('CHANJET_AR_RECEIPT_MIRROR', arReceipt, erp.todayInflow, '好业财收款单镜像可用时作为今日收款校验口径；日期字段未映射前保留条件项。'),
-      todayOutflow: this.metricFromChanjet('CHANJET_AP_PAYMENT_MIRROR', apPayment, erp.todayOutflow, '好业财付款单镜像可用时作为今日付款校验口径；日期字段未映射前保留条件项。'),
+      todayInflow: this.metricFromChanjet(
+        'CHANJET_AR_RECEIPT_MIRROR',
+        arReceipt,
+        erp.todayInflow,
+        '好业财收款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日收款仍以 ERP 当日现金流水为显示权威。',
+        {
+          authorityEligible: false,
+          authorityReason: '好业财收款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计收款误显示为今日收款。',
+        },
+      ),
+      todayOutflow: this.metricFromChanjet(
+        'CHANJET_AP_PAYMENT_MIRROR',
+        apPayment,
+        erp.todayOutflow,
+        '好业财付款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日付款仍以 ERP 当日现金流水为显示权威。',
+        {
+          authorityEligible: false,
+          authorityReason: '好业财付款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计付款误显示为今日付款。',
+        },
+      ),
       subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。'),
       balanceSheet: this.metricFromChanjet('CHANJET_BALANCE_SHEET_MIRROR', balanceSheet, 0, '资产负债表关键项用于经营驾驶舱一致性校验。'),
       incomeStatement: this.metricFromChanjet('CHANJET_INCOME_STATEMENT_MIRROR', incomeStatement, 0, '利润表关键项用于经营驾驶舱一致性校验。'),
@@ -334,16 +368,20 @@ export class FinancialReportsService {
       label,
       displayValue,
       source,
+      chanjetSource: metric.chanjetSource,
       erpValue: metric.erpValue,
-      chanjetValue: metric.covered ? metric.authoritativeValue : null,
+      chanjetValue: metric.chanjetValue,
       diff: metric.diff,
       diffAbs: metric.diffAbs,
       diffRate: metric.diffRate,
       status: metric.status,
       covered: metric.covered,
+      authorityEligible: metric.authorityEligible,
+      authorityReason: metric.authorityReason,
       rows: metric.rows,
       latestPeriod: metric.latestPeriod,
       note: metric.note,
+      recommendedAction: this.chanjetMetricRecommendedAction(metric.status),
     });
     const cards = [
       buildCard('arOpen', '应收待收款', overview.chanjetAlignment.metrics.arOpen, overview.sourceAuthority.arOpen, overview.arOpen),
@@ -368,14 +406,24 @@ export class FinancialReportsService {
       statusCounts,
       mismatchCount: (statusCounts.MISMATCH ?? 0) + (statusCounts.WARN ?? 0),
       fallbackCount: statusCounts.ERP_FALLBACK ?? 0,
-      decision: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 ? 'GO' : 'GO_WITH_CONDITIONS',
-      conditions: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0
+      needsMappingCount: statusCounts.NEEDS_MAPPING ?? 0,
+      decision: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 && (statusCounts.NEEDS_MAPPING ?? 0) === 0 ? 'GO' : 'GO_WITH_CONDITIONS',
+      conditions: overview.chanjetAlignment.coverageRate >= 0.9 && (statusCounts.MISMATCH ?? 0) === 0 && (statusCounts.NEEDS_MAPPING ?? 0) === 0
         ? []
         : [
           '好业财已覆盖的财务卡片以好业财为权威口径；ERP 明细仅作为辅助差异展示。',
           'MISMATCH/WARN 卡片必须展示差异，不允许静默覆盖；ERP_FALLBACK 卡片需继续补齐好业财映射。',
+          'NEEDS_MAPPING 卡片表示好业财镜像已读取，但尚缺业务日或字段语义证明，暂不得覆盖 ERP 卡片显示。',
         ],
     };
+  }
+
+  private chanjetMetricRecommendedAction(status: string) {
+    if (status === 'OK') return '保持好业财权威口径，并定期对账。';
+    if (status === 'WARN') return '展示差异并进入月末复核，不静默覆盖。';
+    if (status === 'MISMATCH') return '进入差异对账中心，定位 ERP 明细与好业财科目/往来口径差异。';
+    if (status === 'NEEDS_MAPPING') return '补齐好业财字段语义映射和日期口径证明后，才能作为卡片权威值。';
+    return '继续执行只读同步或字段映射补齐。';
   }
 
   // ── 2. AP 账龄分析 ────────────────────────────────────────────────────────

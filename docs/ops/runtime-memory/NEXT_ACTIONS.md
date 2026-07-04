@@ -203,6 +203,35 @@ Do not start:
 - Production DB manual writes.
 - Silent overwrite of ERP figures with unmatched Chanjet mappings.
 
+## 2026-07-04 — Chanjet P1 Finance Card Alignment Implemented
+
+Current stage: `CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Finance report backend now distinguishes `covered` from `authorityEligible`.
+- Finance metrics support `OK` / `WARN` / `MISMATCH` / `ERP_FALLBACK` / `NEEDS_MAPPING`.
+- `/finance2/reports` now displays a Chanjet alignment panel for eight finance metrics.
+- Today receipt/payment remain ERP current-day cash-flow authority until Chanjet payment business-date semantics are locked.
+- Chanjet payment mirrors are comparison evidence only for now, not silent card overrides.
+
+Evidence:
+
+- Report: `docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md`
+- API: `apps/api/src/modules/finance-v2/services/financial-reports.service.ts`
+- Web: `apps/web/src/app/(admin)/finance2/reports/page.tsx`
+
+Next actions:
+
+1. `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`
+   - Build mapping review for company/account-book, customer/supplier/counterparty, project, cash account, subject, and expense type.
+   - Generate confidence levels and manual-review rows.
+2. `CHANJET_P3_RECONCILIATION_CENTER`
+   - Surface OK/WARN/MISMATCH/HOLD/NEED_MAPPING differences between ERP operational detail and Chanjet financial authority.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until readonly coverage, mapping, and reconciliation are production-stable.
+
 ## Do Not Auto-Start
 
 - production `push main` deployment path.

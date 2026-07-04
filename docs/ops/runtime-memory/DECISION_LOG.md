@@ -1045,3 +1045,34 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P1_FINANCE_CARD_ALIGNMENT`
+
+---
+
+## 2026-07-04 — Chanjet P1 finance card alignment implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Finance report runtime now separates Chanjet mirror coverage from authority eligibility.
+- `NEEDS_MAPPING` was added for metrics that have Chanjet mirror data but cannot yet safely override ERP card values.
+- Today receipt/payment cards keep ERP current-day cash-flow authority because Chanjet payment mirror business-date semantics are not yet locked.
+- Finance report UI now shows eight-card Chanjet alignment status with source, Chanjet value, ERP auxiliary value, difference, and authority reason.
+
+Evidence:
+
+- Report: `docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md`
+- API typecheck: PASS
+- Web typecheck: PASS
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet data modification.
+- No voucher push.
+- No migration.
+- No ERP business-table overwrite.
+
+Next gate:
+
+- `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`
