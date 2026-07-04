@@ -1,0 +1,278 @@
+{
+  "generatedAt": "2026-07-04T13:32:45.090Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "totalChecks": 6,
+    "passedChecks": 6,
+    "failedChecks": 0,
+    "totalCards": 8,
+    "approvedForAuthority": 2,
+    "readyForFinanceConfirmation": 6,
+    "blocked": 0,
+    "hold": 0,
+    "nextGate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION"
+  },
+  "checks": [
+    {
+      "name": "Semantic review runtime method exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Service exposes structured finance card semantic review matrix."
+    },
+    {
+      "name": "Semantic review endpoint exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "GET /api/chanjet/integration/finance-card-semantic-review is available behind MENU_FIN2_AR_LEDGER V."
+    },
+    {
+      "name": "All required cards have review items",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "8/8 cards generated."
+    },
+    {
+      "name": "Unsafe promotions remain blocked",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Non-authority cards remain blocked or finance-confirmation-only."
+    },
+    {
+      "name": "Finance confirmation questions are present",
+      "passed": true,
+      "severity": "P1",
+      "evidence": "Every card has explicit questions for finance/business confirmation."
+    },
+    {
+      "name": "Write boundaries remain explicit",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Review does not write Chanjet, push vouchers, or overwrite ERP business facts."
+    }
+  ],
+  "reviewItems": [
+    {
+      "reviewId": "CHANJET-FIN-CARD-AR_OPEN",
+      "cardKey": "arOpen",
+      "label": "应收待收款",
+      "readModelKey": "AR_OPEN",
+      "reviewStatus": "APPROVED_FOR_AUTHORITY",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 71,
+      "latestPulledAt": "2026-07-04T07:40:11.677Z",
+      "currentAuthorityEnabled": true,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": true,
+      "requiresFinanceConfirmation": false,
+      "financeConfirmationQuestions": [
+        "确认好业财应收统计是否作为集团应收待收卡片权威汇总。",
+        "确认负数余额展示规则。",
+        "确认 ERP 发票级 fin_ar_invoices 仅作为辅助差异。"
+      ],
+      "lockedFields": [],
+      "missingFields": [],
+      "blockers": [],
+      "approvalInstruction": "可保留权威接线；继续展示 ERP 辅助差异。",
+      "recommendedAction": "可作为权威候选，保留 ERP 辅助差异。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-AP_OPEN",
+      "cardKey": "apOpen",
+      "label": "应付待付款",
+      "readModelKey": "AP_OPEN",
+      "reviewStatus": "APPROVED_FOR_AUTHORITY",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 43,
+      "latestPulledAt": "2026-07-04T07:40:10.629Z",
+      "currentAuthorityEnabled": true,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": true,
+      "requiresFinanceConfirmation": false,
+      "financeConfirmationQuestions": [
+        "确认好业财应付统计是否作为集团应付待付卡片权威汇总。",
+        "确认负数余额展示规则。",
+        "确认 ERP 付款/采购明细仅作为辅助差异。"
+      ],
+      "lockedFields": [],
+      "missingFields": [],
+      "blockers": [],
+      "approvalInstruction": "可保留权威接线；继续展示 ERP 辅助差异。",
+      "recommendedAction": "可作为权威候选，保留 ERP 辅助差异。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-CASH_BALANCE",
+      "cardKey": "cashBalance",
+      "label": "现金账户余额",
+      "readModelKey": "CASH_BALANCE",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 47,
+      "latestPulledAt": "2026-07-03T13:05:55.027Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认现金/银行余额字段路径和币种字段路径。",
+        "确认余额时点。",
+        "确认多币种汇总是否折本位币。"
+      ],
+      "lockedFields": [],
+      "missingFields": [
+        "finance_semantic_value_field_confirmation"
+      ],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-TODAY_RECEIPT",
+      "cardKey": "todayInflow",
+      "label": "今日收款",
+      "readModelKey": "TODAY_RECEIPT",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 171,
+      "latestPulledAt": "2026-07-04T10:07:58.371Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认今日口径使用业务日期、入账日期还是审核日期。",
+        "确认只统计已审核/已生效单据。",
+        "确认收款方向、退款/冲销方向和金额正负号规则。"
+      ],
+      "lockedFields": [],
+      "missingFields": [],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-TODAY_PAYMENT",
+      "cardKey": "todayOutflow",
+      "label": "今日付款",
+      "readModelKey": "TODAY_PAYMENT",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 109,
+      "latestPulledAt": "2026-07-04T10:07:51.593Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认今日口径使用业务日期、入账日期还是审核日期。",
+        "确认只统计已审核/已生效单据。",
+        "确认付款方向、退款/冲销方向和金额正负号规则。"
+      ],
+      "lockedFields": [],
+      "missingFields": [],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-SUBJECT_BALANCE",
+      "cardKey": "subjectBalance",
+      "label": "科目余额",
+      "readModelKey": "SUBJECT_BALANCE",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 3,
+      "latestPulledAt": "2026-07-04T10:08:07.427Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认科目余额表字段：科目编码、期间、期初、本期借方、本期贷方、期末。",
+        "确认借贷方向和正负号展示规则。",
+        "确认按账套/公司分别展示还是集团汇总。"
+      ],
+      "lockedFields": [],
+      "missingFields": [
+        "finance_semantic_value_field_confirmation"
+      ],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-BALANCE_SHEET",
+      "cardKey": "balanceSheet",
+      "label": "资产负债表关键项",
+      "readModelKey": "BALANCE_SHEET",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 3,
+      "latestPulledAt": "2026-07-04T10:08:07.921Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认资产负债表字段：报表项目、行次、年初金额、期末金额、期间。",
+        "确认资产/负债/权益项目映射关系。",
+        "确认集团汇总是否可直接使用好业财报表行。"
+      ],
+      "lockedFields": [],
+      "missingFields": [
+        "finance_semantic_value_field_confirmation"
+      ],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    },
+    {
+      "reviewId": "CHANJET-FIN-CARD-INCOME_STATEMENT",
+      "cardKey": "incomeStatement",
+      "label": "利润表关键项",
+      "readModelKey": "INCOME_STATEMENT",
+      "reviewStatus": "READY_FOR_FINANCE_CONFIRMATION",
+      "currentStatus": "READONLY_READY",
+      "sampleRows": 3,
+      "latestPulledAt": "2026-07-04T10:08:08.411Z",
+      "currentAuthorityEnabled": false,
+      "candidateForReadonlyDetail": true,
+      "candidateForAuthorityPromotion": false,
+      "requiresFinanceConfirmation": true,
+      "financeConfirmationQuestions": [
+        "确认利润表字段：报表项目、本期金额、累计金额、期间。",
+        "确认收入/成本/费用/利润项目映射关系。",
+        "确认集团汇总是否可直接使用好业财报表行。"
+      ],
+      "lockedFields": [],
+      "missingFields": [
+        "finance_semantic_value_field_confirmation"
+      ],
+      "blockers": [
+        "finance_confirmation_required"
+      ],
+      "approvalInstruction": "进入财务字段口径确认；确认前不得升权为主卡片。",
+      "recommendedAction": "进入财务字段语义确认，确认前不得升权。"
+    }
+  ],
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "dbWrite": false,
+    "deploy": false,
+    "push": false
+  }
+}

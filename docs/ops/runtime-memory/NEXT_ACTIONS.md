@@ -2,6 +2,32 @@
 
 Last updated: 2026-07-03
 
+## 2026-07-04 — Chanjet P3 Finance Card Semantic Review
+
+Current stage: `CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added readonly review API `GET /api/chanjet/integration/finance-card-semantic-review`.
+2. Added review audit tool `scripts/ops/chanjet-finance-card-semantic-review-audit.mjs`.
+3. Generated finance card semantic review artifacts:
+   - `docs/ops/runs/chanjet-finance-card-semantic-review-latest.json`
+   - `docs/ops/runs/chanjet-finance-card-semantic-review-latest.md`
+4. Generated report `docs/ops/CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_REPORT_20260704.md`.
+5. Review result: 8/8 cards covered, 2 approved for authority candidates, 6 ready for finance confirmation, 0 HOLD.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION`
+   - Finance confirms cash balance, today receipt/payment, subject balance, balance sheet, and income statement field semantics.
+   - Confirm date/status/direction for receipt/payment before primary card authority.
+2. `CHANJET_P4_VOUCHER_DRAFT_PREP`
+   - Prepare ERP voucher draft generation only; still do not push to Chanjet.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
+
 ## 2026-07-04 — Chanjet P3 Finance Card Diff Visual QA
 
 Current stage: `CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA_VERIFIED`

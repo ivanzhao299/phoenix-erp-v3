@@ -777,6 +777,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-card-semantic-review
+   * 财务卡片语义复核矩阵。只读本地中间层，输出财务确认问题、阻断项和升权建议。
+   */
+  @Get('integration/finance-card-semantic-review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCardSemanticReview() {
+    try {
+      const semanticReview = await this.integration.financeCardSemanticReviewOverview();
+      return { success: true, semanticReview };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

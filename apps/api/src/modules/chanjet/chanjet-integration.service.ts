@@ -166,6 +166,34 @@ export interface FinanceCardSemanticExpansionItem {
   recommendedAction: string;
 }
 
+export type FinanceCardSemanticReviewStatus =
+  | 'APPROVED_FOR_AUTHORITY'
+  | 'READY_FOR_FINANCE_CONFIRMATION'
+  | 'BLOCKED'
+  | 'HOLD';
+
+export interface FinanceCardSemanticReviewItem {
+  reviewId: string;
+  cardKey: string;
+  label: string;
+  readModelKey: string;
+  reviewStatus: FinanceCardSemanticReviewStatus;
+  currentStatus: string;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  currentAuthorityEnabled: boolean;
+  candidateForReadonlyDetail: boolean;
+  candidateForAuthorityPromotion: boolean;
+  requiresFinanceConfirmation: boolean;
+  financeConfirmationQuestions: string[];
+  lockedFields: string[];
+  missingFields: string[];
+  blockers: string[];
+  evidence: string[];
+  approvalInstruction: string;
+  recommendedAction: string;
+}
+
 export interface ReceiptPaymentDateStatusLock {
   key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT';
   label: string;
@@ -1854,6 +1882,136 @@ export class ChanjetIntegrationService {
         erpBusinessOverwrite: false,
         migration: false,
         rule: '本接口只扩展财务卡片语义锁判断和晋级建议。未达到 AUTHORITY_READY 的指标不得替换 ERP 主卡片；任何好业财写入仍保持 HOLD。',
+      },
+    };
+  }
+
+  async financeCardSemanticReviewOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalCards: number;
+      approvedForAuthority: number;
+      readyForFinanceConfirmation: number;
+      blocked: number;
+      hold: number;
+      unsafePromotionsPrevented: number;
+      nextGate: string;
+    };
+    reviewItems: FinanceCardSemanticReviewItem[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const expansion = await this.financeCardSemanticLockExpansionOverview();
+    const questionMap: Record<string, string[]> = {
+      AR_OPEN: [
+        '确认好业财应收统计是否作为集团应收待收卡片权威汇总。',
+        '确认负数余额展示规则：保留好业财方向，还是在 UI 侧按借贷方向转换。',
+        '确认 ERP 发票级 fin_ar_invoices 仅作为辅助差异，不由好业财汇总覆盖。',
+      ],
+      AP_OPEN: [
+        '确认好业财应付统计是否作为集团应付待付卡片权威汇总。',
+        '确认负数余额展示规则：保留好业财方向，还是在 UI 侧按借贷方向转换。',
+        '确认 ERP 付款/采购明细仅作为辅助差异，不静默覆盖。',
+      ],
+      CASH_BALANCE: [
+        '确认现金/银行账户余额字段路径及币种字段路径。',
+        '确认余额时点：实时余额、期末余额还是最近拉取批次余额。',
+        '确认多账套/多币种汇总是否需要折本位币。',
+      ],
+      TODAY_RECEIPT: [
+        '确认今日口径使用业务日期、入账日期还是审核日期。',
+        '确认只统计已审核/已生效单据，排除草稿、作废、红冲。',
+        '确认收款方向、退款/冲销方向和金额正负号规则。',
+      ],
+      TODAY_PAYMENT: [
+        '确认今日口径使用业务日期、入账日期还是审核日期。',
+        '确认只统计已审核/已生效单据，排除草稿、作废、红冲。',
+        '确认付款方向、退款/冲销方向和金额正负号规则。',
+      ],
+      SUBJECT_BALANCE: [
+        '确认科目余额表字段：科目编码、期间、期初、本期借方、本期贷方、期末。',
+        '确认借贷方向和正负号展示规则。',
+        '确认是否按账套/公司分别展示，还是集团汇总。',
+      ],
+      BALANCE_SHEET: [
+        '确认资产负债表字段：报表项目、行次、年初金额、期末金额、期间。',
+        '确认资产/负债/权益项目映射关系。',
+        '确认集团汇总是否可直接使用好业财报表行。',
+      ],
+      INCOME_STATEMENT: [
+        '确认利润表字段：报表项目、本期金额、累计金额、期间。',
+        '确认收入/成本/费用/利润项目映射关系。',
+        '确认集团汇总是否可直接使用好业财报表行。',
+      ],
+    };
+
+    const reviewItems = expansion.cards.map((card) => {
+      const reviewStatus: FinanceCardSemanticReviewStatus = card.currentStatus === 'HOLD'
+        ? 'HOLD'
+        : card.currentAuthorityEnabled
+          ? 'APPROVED_FOR_AUTHORITY'
+          : card.requiresFinanceConfirmation
+            ? 'READY_FOR_FINANCE_CONFIRMATION'
+            : 'BLOCKED';
+      const evidence = [
+        `sampleRows=${card.sampleRows}`,
+        `latestPulledAt=${card.latestPulledAt || '-'}`,
+        `sourceEntityTypes=${card.sourceEntityTypes.join(',') || '-'}`,
+        `lockedFields=${card.lockedFields.join(',') || '-'}`,
+        `missingFields=${card.missingFields.join(',') || '-'}`,
+      ];
+      return {
+        reviewId: `CHANJET-FIN-CARD-${card.readModelKey}`,
+        cardKey: card.cardKey,
+        label: card.label,
+        readModelKey: card.readModelKey,
+        reviewStatus,
+        currentStatus: card.currentStatus,
+        sampleRows: card.sampleRows,
+        latestPulledAt: card.latestPulledAt,
+        currentAuthorityEnabled: card.currentAuthorityEnabled,
+        candidateForReadonlyDetail: card.candidateForReadonlyDetail,
+        candidateForAuthorityPromotion: card.candidateForAuthorityPromotion,
+        requiresFinanceConfirmation: card.requiresFinanceConfirmation,
+        financeConfirmationQuestions: questionMap[card.readModelKey] || ['确认该卡片是否可作为财务权威口径。'],
+        lockedFields: card.lockedFields,
+        missingFields: card.missingFields,
+        blockers: card.blockers,
+        evidence,
+        approvalInstruction: reviewStatus === 'APPROVED_FOR_AUTHORITY'
+          ? '可保留当前权威接线；继续展示 ERP 辅助差异和好业财来源。'
+          : reviewStatus === 'READY_FOR_FINANCE_CONFIRMATION'
+            ? '进入财务字段口径确认；确认前不得升权为主卡片。'
+            : reviewStatus === 'HOLD'
+              ? 'HOLD；先处理 read model 或数据样本异常。'
+              : '继续补语义字段或样本；仅可作为只读证据，不得升权。',
+        recommendedAction: card.recommendedAction,
+      };
+    });
+    const hold = reviewItems.filter((item) => item.reviewStatus === 'HOLD').length;
+    const unsafePromotionsPrevented = reviewItems.filter((item) => !item.currentAuthorityEnabled).length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : reviewItems.some((item) => item.reviewStatus !== 'APPROVED_FOR_AUTHORITY') ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalCards: reviewItems.length,
+        approvedForAuthority: reviewItems.filter((item) => item.reviewStatus === 'APPROVED_FOR_AUTHORITY').length,
+        readyForFinanceConfirmation: reviewItems.filter((item) => item.reviewStatus === 'READY_FOR_FINANCE_CONFIRMATION').length,
+        blocked: reviewItems.filter((item) => item.reviewStatus === 'BLOCKED').length,
+        hold,
+        unsafePromotionsPrevented,
+        nextGate: 'CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION',
+      },
+      reviewItems,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        rule: '本复核矩阵只生成财务确认清单和卡片升权建议；未获确认的好业财数字只能展示为只读证据，不得替换 ERP 主值。',
       },
     };
   }

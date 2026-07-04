@@ -1368,3 +1368,34 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW`
+
+## 2026-07-04 — Chanjet P3 finance card semantic review implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-card-semantic-review`.
+- Added `FinanceCardSemanticReviewItem` to turn semantic expansion into a card-by-card finance confirmation matrix.
+- Added `scripts/ops/chanjet-finance-card-semantic-review-audit.mjs`.
+- Generated latest artifacts under `docs/ops/runs/chanjet-finance-card-semantic-review-latest.*`.
+- Generated report `docs/ops/CHANJET_P3_FINANCE_CARD_SEMANTIC_REVIEW_REPORT_20260704.md`.
+
+Key decision:
+
+- 8/8 finance cards now have review items.
+- `AR_OPEN` and `AP_OPEN` may remain authority candidates with ERP auxiliary difference visible.
+- `CASH_BALANCE`, `TODAY_RECEIPT`, `TODAY_PAYMENT`, `SUBJECT_BALANCE`, `BALANCE_SHEET`, and `INCOME_STATEMENT` are ready for finance confirmation but must not become primary card authority yet.
+- No unsafe promotion is allowed from readonly coverage alone.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration or DB write.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_CARD_SEMANTIC_CONFIRMATION`
