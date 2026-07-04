@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FIELD_SEMANTIC_LOCK_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS",
+  "next_gate": "CHANJET_P3_FINANCE_READ_MODEL",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FIELD_SEMANTIC_LOCK_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "implement_semantic_extractors_for_cash_gl_and_financial_statements",
+    "next_action": "build_finance_read_model_from_locked_semantic_extractors",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -149,8 +149,13 @@
       "VOUCHER_LIST"
     ],
     "finance_semantic_lock_next_gate": "CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS",
-    "cash_balance_authority": "blocked_until_real_balance_field_extracted",
-    "statement_zero_amount_guard": "amountSum_zero_is_not_real_statement_zero_until_semantic_extractor_exists"
+    "cash_balance_authority": "blocked_until_extractor_ready_and_read_model_built",
+    "statement_zero_amount_guard": "enforced_by_semantic_extractors_amountSum_zero_not_authority",
+    "finance_semantic_extractors_api": "/api/chanjet/integration/finance-semantic-extractors",
+    "finance_semantic_extractors_ui": "/finance2/chanjet-integration",
+    "finance_semantic_extractors_status": "implemented",
+    "finance_semantic_extractors_next_gate": "CHANJET_P3_FINANCE_READ_MODEL",
+    "finance_authority_guard": "raw_data_semantic_field_candidates_required_before_card_authority"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

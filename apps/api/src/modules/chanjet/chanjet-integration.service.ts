@@ -90,6 +90,36 @@ export interface FinanceSemanticLock {
   nextAction: string;
 }
 
+export type FinanceSemanticExtractorStatus = 'READY' | 'PARTIAL' | 'WAITING_SAMPLE' | 'NEED_EXTRACTION' | 'HOLD';
+
+export interface FinanceSemanticFieldCandidate {
+  semanticField: string;
+  candidatePaths: Array<{
+    path: string;
+    sampleType: SampleType;
+    sampleValue: string | null;
+    observedCount: number;
+  }>;
+  required: boolean;
+  status: 'FOUND' | 'MISSING';
+}
+
+export interface FinanceSemanticExtractor {
+  key: string;
+  label: string;
+  status: FinanceSemanticExtractorStatus;
+  authorityEligible: boolean;
+  sourceEntityTypes: string[];
+  sampleRows: number;
+  latestPulledAt: string | null;
+  fieldCandidates: FinanceSemanticFieldCandidate[];
+  extractedFields: number;
+  requiredFields: number;
+  missingRequiredFields: string[];
+  reason: string;
+  nextAction: string;
+}
+
 export interface FinanceReconciliationItem {
   key: string;
   label: string;
@@ -1331,6 +1361,59 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeSemanticExtractorsOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalExtractors: number;
+      ready: number;
+      partial: number;
+      waitingSample: number;
+      needExtraction: number;
+      hold: number;
+      authorityEligible: number;
+      p0MissingRequiredFields: number;
+      nextGate: string;
+    };
+    extractors: FinanceSemanticExtractor[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const locks = FINANCE_SEMANTIC_LOCKS;
+    const extractors = await Promise.all(locks.map((lock) => this.buildFinanceSemanticExtractor(lock)));
+    const statusCounts = extractors.reduce<Record<FinanceSemanticExtractorStatus, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {} as Record<FinanceSemanticExtractorStatus, number>);
+    const p0Extractors = extractors.filter((item) => !['CASH_FLOW', 'VOUCHER_LIST'].includes(item.key));
+    const p0MissingRequiredFields = p0Extractors.reduce((sum, item) => sum + item.missingRequiredFields.length, 0);
+    const hold = statusCounts.HOLD || 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : p0MissingRequiredFields > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalExtractors: extractors.length,
+        ready: statusCounts.READY || 0,
+        partial: statusCounts.PARTIAL || 0,
+        waitingSample: statusCounts.WAITING_SAMPLE || 0,
+        needExtraction: statusCounts.NEED_EXTRACTION || 0,
+        hold,
+        authorityEligible: extractors.filter((item) => item.authorityEligible).length,
+        p0MissingRequiredFields,
+        nextGate: 'CHANJET_P3_FINANCE_READ_MODEL',
+      },
+      extractors,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '语义提取器只扫描 ERP 中间层 raw_data/raw_payload，输出字段候选和缺口；不会调用好业财写接口，也不会把候选值覆盖到 ERP 业务事实表。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),
@@ -1773,6 +1856,137 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MAPPING') return '补齐字段语义映射和 ERP 对照字段，禁止静默显示为 0。';
     if (status === 'NEED_MANUAL_REVIEW') return '需要财务确认业务日/入账日/审核状态等口径后才能成为卡片权威值。';
     return '存在基础表或查询异常，先修复运行时证据再继续。';
+  }
+
+  private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {
+    const rows = await this.entitySnapshotRepo.find({
+      where: { entityType: In(lock.chanjetEntityTypes.length ? lock.chanjetEntityTypes : ['__none__']) },
+      order: { updatedAt: 'DESC' },
+      take: 50,
+    });
+    const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
+    const latestPulledAt = rows.reduce<string | null>((latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null), null);
+    const fields = lock.pendingFields.length ? lock.pendingFields : lock.lockedFields;
+    const fieldCandidates = fields.map((field) => {
+      const candidates = this.matchSemanticFieldCandidates(field, flattened).slice(0, 8);
+      return {
+        semanticField: field,
+        candidatePaths: candidates,
+        required: true,
+        status: candidates.length ? 'FOUND' as const : 'MISSING' as const,
+      };
+    });
+    const missingRequiredFields = fieldCandidates.filter((field) => field.required && field.status === 'MISSING').map((field) => field.semanticField);
+    const extractedFields = fieldCandidates.filter((field) => field.status === 'FOUND').length;
+    const requiredFields = fieldCandidates.filter((field) => field.required).length;
+    const status: FinanceSemanticExtractorStatus = rows.length === 0
+      ? 'WAITING_SAMPLE'
+      : missingRequiredFields.length === 0
+        ? 'READY'
+        : extractedFields > 0
+          ? 'PARTIAL'
+          : 'NEED_EXTRACTION';
+    return {
+      key: lock.key,
+      label: lock.label,
+      status,
+      authorityEligible: lock.authorityEligible && status === 'READY',
+      sourceEntityTypes: lock.chanjetEntityTypes,
+      sampleRows: rows.length,
+      latestPulledAt,
+      fieldCandidates,
+      extractedFields,
+      requiredFields,
+      missingRequiredFields,
+      reason: status === 'READY'
+        ? 'raw_data 已找到全部必需语义字段候选，可进入只读 read model 设计。'
+        : rows.length === 0
+          ? '中间层缺少该口径样本，需先重跑好业财只读同步。'
+          : '已有部分字段候选，但仍有必需字段未锁定，不能作为权威卡片口径。',
+      nextAction: status === 'READY'
+        ? '建立只读 read model，并在财务卡片中以好业财口径展示。'
+        : rows.length === 0
+          ? '执行全量只读同步，确认该实体类型有 raw_data 样本。'
+          : `补齐字段候选: ${missingRequiredFields.slice(0, 5).join(' / ')}`,
+    };
+  }
+
+  private flattenSemanticValues(value: unknown, prefix: string, depth = 0): Array<{
+    path: string;
+    sampleType: SampleType;
+    sampleValue: string | null;
+    observedCount: number;
+  }> {
+    if (depth > 6) return [];
+    const sampleType = this.sampleType(value);
+    const current = [{ path: prefix, sampleType, sampleValue: this.maskSample(value), observedCount: 1 }];
+    if (Array.isArray(value)) {
+      return [
+        ...current,
+        ...value.slice(0, 5).flatMap((item, index) => this.flattenSemanticValues(item, `${prefix}[${index}]`, depth + 1)),
+      ];
+    }
+    if (this.isRecord(value)) {
+      return [
+        ...current,
+        ...Object.entries(value).flatMap(([key, item]) => this.flattenSemanticValues(item, `${prefix}.${key}`, depth + 1)),
+      ];
+    }
+    return current;
+  }
+
+  private matchSemanticFieldCandidates(
+    semanticField: string,
+    flattened: Array<{ path: string; sampleType: SampleType; sampleValue: string | null; observedCount: number }>,
+  ): Array<{ path: string; sampleType: SampleType; sampleValue: string | null; observedCount: number }> {
+    const keywords = this.semanticFieldKeywords(semanticField);
+    const scored = flattened
+      .filter((item) => !['object', 'array', 'null'].includes(item.sampleType))
+      .map((item) => {
+        const path = item.path.toLowerCase();
+        const sample = `${item.sampleValue || ''}`.toLowerCase();
+        const score = keywords.reduce((sum, keyword) => {
+          const k = keyword.toLowerCase();
+          return sum + (path.includes(k) ? 3 : 0) + (sample.includes(k) ? 1 : 0);
+        }, 0);
+        return { ...item, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+    const deduped = new Map<string, { path: string; sampleType: SampleType; sampleValue: string | null; observedCount: number }>();
+    for (const item of scored) {
+      const normalizedPath = item.path.replace(/\[\d+\]/g, '[]');
+      if (!deduped.has(normalizedPath)) {
+        deduped.set(normalizedPath, {
+          path: normalizedPath,
+          sampleType: item.sampleType,
+          sampleValue: item.sampleValue,
+          observedCount: 1,
+        });
+      } else {
+        const existing = deduped.get(normalizedPath)!;
+        existing.observedCount += 1;
+      }
+    }
+    return [...deduped.values()];
+  }
+
+  private semanticFieldKeywords(field: string): string[] {
+    const normalized = field.toLowerCase();
+    const map: Array<[RegExp, string[]]> = [
+      [/business_date|posted_date|date|period/, ['date', 'bizdate', 'businessdate', 'billdate', 'voucherdate', 'postdate', 'period', 'yearmonth', 'accountperiod', 'createdtime', 'updatedtime']],
+      [/approved_status|void_status|status|state/, ['status', 'state', 'approve', 'audit', 'voucherstate', 'billstate', 'void', 'cancel', 'enable']],
+      [/current_balance|available_balance|balance|opening|closing|ending/, ['balance', 'endbalance', 'beginbalance', 'closing', 'ending', 'available', 'currentbalance', 'remain']],
+      [/debit|jf/, ['debit', 'jf', 'borrow', 'dr']],
+      [/credit|df/, ['credit', 'df', 'lend', 'cr']],
+      [/amount|money|tax|year_to_date|current_period/, ['amount', 'money', 'tax', 'sum', 'total', 'period', 'bq', 'bn', 'current', 'year']],
+      [/subject/, ['subject', 'acct', 'account', 'code', 'name']],
+      [/currency/, ['currency', 'currencycode', 'currencyname', 'origcurrency']],
+      [/line_no|item_name|cash_flow_category/, ['line', 'row', 'item', 'name', 'category', 'project']],
+      [/counterparty|assistant|customer|supplier/, ['customer', 'supplier', 'vendor', 'party', 'assistant', 'custvendor', 'subjectname']],
+    ];
+    const found = map.flatMap(([pattern, keywords]) => pattern.test(normalized) ? keywords : []);
+    return [...new Set([...found, normalized.replace(/_/g, ''), normalized])].filter(Boolean);
   }
 
   private maxIso(left: string | null, right: string | null): string | null {

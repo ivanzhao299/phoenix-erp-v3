@@ -13091,5 +13091,21 @@
   "auto.literal.f7dfc7aebd8d": "中间层对账差异流水",
   "auto.literal.e123904c0f8a": "暂无对账差异流水。",
   "auto.literal.0642fa298891": "未确认",
-  "auto.literal.d5d366170935": "覆盖率"
+  "auto.literal.d5d366170935": "覆盖率",
+  "auto.literal.3e7a4c6dbfe1": "语义提取器",
+  "auto.literal.1ca80f8de914": "财务字段语义提取器",
+  "auto.literal.8506ae84b402": "提取器总数",
+  "auto.literal.6a11b2d72dcc": "下一 Gate:",
+  "auto.literal.e3a4c43a00d0": "可权威候选",
+  "auto.literal.885f80db439c": "缺少 P0 必需字段",
+  "auto.literal.6dc3f4d7552b": "缺口必须进入整改清单",
+  "auto.literal.b73b2acb24a8": "缺样本 / 待提取",
+  "auto.literal.551145c5feff": "业务表覆盖: 否",
+  "auto.literal.610da878ac9f": "样本",
+  "auto.literal.de31f604cb34": "字段锁定",
+  "auto.literal.2597fde526bb": "候选路径",
+  "auto.literal.64bae36d6b7f": "可作权威值",
+  "auto.literal.d0ff9df6fe3c": "缺:",
+  "auto.literal.74869b6ec629": "无候选",
+  "auto.literal.cfd2f31d0d07": "暂无语义提取数据。"
 }

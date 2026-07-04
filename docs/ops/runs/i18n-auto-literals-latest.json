@@ -1,190 +1,118 @@
 {
-  "generated_at": "2026-07-04T11:36:02.414Z",
+  "generated_at": "2026-07-04T11:49:36.204Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1833,
-  "created_keys": 28,
-  "updated_keys": 1805,
+  "unique_hardcoded_literals": 1849,
+  "created_keys": 16,
+  "updated_keys": 1833,
   "locale_counts_before": {
-    "zh": 13065,
-    "en": 13065,
-    "lo": 13065
-  },
-  "locale_counts_after": {
     "zh": 13093,
     "en": 13093,
     "lo": 13093
+  },
+  "locale_counts_after": {
+    "zh": 13109,
+    "en": 13109,
+    "lo": 13109
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.6e12a1f1bbfd",
-      "text": "财务口径对账中心",
-      "en": "Localized UI text 6e12a1f1bbfd",
-      "lo": "Localized UI text 6e12a1f1bbfd"
+      "key": "auto.literal.3e7a4c6dbfe1",
+      "text": "语义提取器",
+      "en": "Localized UI text 3e7a4c6dbfe1",
+      "lo": "Localized UI text 3e7a4c6dbfe1"
     },
     {
-      "key": "auto.literal.14ffc6866ca8",
-      "text": "对账项",
-      "en": "Localized UI text 14ffc6866ca8",
-      "lo": "Localized UI text 14ffc6866ca8"
+      "key": "auto.literal.1ca80f8de914",
+      "text": "财务字段语义提取器",
+      "en": "Localized UI text 1ca80f8de914",
+      "lo": "Localized UI text 1ca80f8de914"
     },
     {
-      "key": "auto.literal.911ea2d5fda8",
-      "text": "P0 未闭环",
-      "en": "Localized UI text 911ea2d5fda8",
-      "lo": "Localized UI text 911ea2d5fda8"
+      "key": "auto.literal.8506ae84b402",
+      "text": "提取器总数",
+      "en": "Localized UI text 8506ae84b402",
+      "lo": "Localized UI text 8506ae84b402"
     },
     {
-      "key": "auto.literal.d5a52a5dee5a",
-      "text": "已对齐 / 轻微差异",
-      "en": "Localized UI text 2ed1fac1c9c1 / Localized UI text 18bc39397a19",
-      "lo": "Localized UI text 2ed1fac1c9c1 / Localized UI text 18bc39397a19"
+      "key": "auto.literal.6a11b2d72dcc",
+      "text": "下一 Gate:",
+      "en": "Localized UI text d3a29f64ce1e:",
+      "lo": "Localized UI text d3a29f64ce1e:"
     },
     {
-      "key": "auto.literal.6e598e9d2798",
-      "text": "待字段映射",
-      "en": "Localized UI text 6e598e9d2798",
-      "lo": "Localized UI text 6e598e9d2798"
+      "key": "auto.literal.e3a4c43a00d0",
+      "text": "可权威候选",
+      "en": "Localized UI text e3a4c43a00d0",
+      "lo": "Localized UI text e3a4c43a00d0"
     },
     {
-      "key": "auto.literal.b50ab9ba33e6",
-      "text": "需人工确认",
-      "en": "Localized UI text b50ab9ba33e6",
-      "lo": "Localized UI text b50ab9ba33e6"
+      "key": "auto.literal.885f80db439c",
+      "text": "缺少 P0 必需字段",
+      "en": "Localized UI text 885f80db439c",
+      "lo": "Localized UI text 885f80db439c"
     },
     {
-      "key": "auto.literal.69caed2473cd",
-      "text": "日期 / 审核状态口径待锁定",
-      "en": "Localized UI text 69caed2473cd",
-      "lo": "Localized UI text 69caed2473cd"
+      "key": "auto.literal.6dc3f4d7552b",
+      "text": "缺口必须进入整改清单",
+      "en": "Localized UI text 6dc3f4d7552b",
+      "lo": "Localized UI text 6dc3f4d7552b"
     },
     {
-      "key": "auto.literal.55c0ac2c6e69",
-      "text": "语义锁进度",
-      "en": "Localized UI text 55c0ac2c6e69",
-      "lo": "Localized UI text 55c0ac2c6e69"
+      "key": "auto.literal.b73b2acb24a8",
+      "text": "缺样本 / 待提取",
+      "en": "Localized UI text b73b2acb24a8",
+      "lo": "Localized UI text b73b2acb24a8"
     },
     {
-      "key": "auto.literal.862785b50178",
-      "text": "可作权威候选",
-      "en": "Localized UI text 862785b50178",
-      "lo": "Localized UI text 862785b50178"
+      "key": "auto.literal.551145c5feff",
+      "text": "业务表覆盖: 否",
+      "en": "Localized UI text 551145c5feff",
+      "lo": "Localized UI text 551145c5feff"
     },
     {
-      "key": "auto.literal.cdb697b7c6fb",
-      "text": "· 待锁",
-      "en": "Localized UI text cdb697b7c6fb",
-      "lo": "Localized UI text cdb697b7c6fb"
+      "key": "auto.literal.610da878ac9f",
+      "text": "样本",
+      "en": "Localized UI text 610da878ac9f",
+      "lo": "Localized UI text 610da878ac9f"
     },
     {
-      "key": "auto.literal.f1537e57516b",
-      "text": "只读边界",
-      "en": "Localized UI text f1537e57516b",
-      "lo": "Localized UI text f1537e57516b"
+      "key": "auto.literal.de31f604cb34",
+      "text": "字段锁定",
+      "en": "FieldLock",
+      "lo": "ຊ່ອງຂໍ້ມູນລັອກ"
     },
     {
-      "key": "auto.literal.d69c749978fc",
-      "text": "ERP 业务覆盖: 否",
-      "en": "Localized UI text d69c749978fc",
-      "lo": "Localized UI text d69c749978fc"
+      "key": "auto.literal.2597fde526bb",
+      "text": "候选路径",
+      "en": "Localized UI text 2597fde526bb",
+      "lo": "Localized UI text 2597fde526bb"
     },
     {
-      "key": "auto.literal.79bd18534539",
-      "text": "migration: 否",
-      "en": "Localized UI text 79bd18534539",
-      "lo": "Localized UI text 79bd18534539"
+      "key": "auto.literal.64bae36d6b7f",
+      "text": "可作权威值",
+      "en": "Localized UI text 64bae36d6b7f",
+      "lo": "Localized UI text 64bae36d6b7f"
     },
     {
-      "key": "auto.literal.de695d830de1",
-      "text": "口径",
-      "en": "Localized UI text de695d830de1",
-      "lo": "Localized UI text de695d830de1"
+      "key": "auto.literal.d0ff9df6fe3c",
+      "text": "缺:",
+      "en": "Localized UI text d0ff9df6fe3c",
+      "lo": "Localized UI text d0ff9df6fe3c"
     },
     {
-      "key": "auto.literal.004191d823ce",
-      "text": "语义锁",
-      "en": "Localized UI text 004191d823ce",
-      "lo": "Localized UI text 004191d823ce"
+      "key": "auto.literal.74869b6ec629",
+      "text": "无候选",
+      "en": "Localized UI text 74869b6ec629",
+      "lo": "Localized UI text 74869b6ec629"
     },
     {
-      "key": "auto.literal.6ff7529a1230",
-      "text": "好业财值",
-      "en": "Localized UI text 6ff7529a1230",
-      "lo": "Localized UI text 6ff7529a1230"
-    },
-    {
-      "key": "auto.literal.d5254b5469d3",
-      "text": "ERP 辅助值",
-      "en": "Localized UI text d5254b5469d3",
-      "lo": "Localized UI text d5254b5469d3"
-    },
-    {
-      "key": "auto.literal.68d4cdfc0935",
-      "text": "证据",
-      "en": "Localized UI text 68d4cdfc0935",
-      "lo": "Localized UI text 68d4cdfc0935"
-    },
-    {
-      "key": "auto.literal.d919e9f1c580",
-      "text": "不可作权威值",
-      "en": "Localized UI text d919e9f1c580",
-      "lo": "Localized UI text d919e9f1c580"
-    },
-    {
-      "key": "auto.literal.be10bd4139e0",
-      "text": "待锁:",
-      "en": "Localized UI text be10bd4139e0",
-      "lo": "Localized UI text be10bd4139e0"
-    },
-    {
-      "key": "auto.literal.0ed61a033535",
-      "text": "好业财行",
-      "en": "Localized UI text 0ed61a033535",
-      "lo": "Localized UI text 0ed61a033535"
-    },
-    {
-      "key": "auto.literal.b9b4e6adb068",
-      "text": "ERP 行",
-      "en": "Localized UI text b9b4e6adb068",
-      "lo": "Localized UI text b9b4e6adb068"
-    },
-    {
-      "key": "auto.literal.24a7c8f0a5b1",
-      "text": "最近同步",
-      "en": "Last Synced",
-      "lo": "ຊິງຄ໌ລ່າສຸດ"
-    },
-    {
-      "key": "auto.literal.67a2d938848d",
-      "text": "暂无运行时财务对账数据。",
-      "en": "Localized UI text 67a2d938848d",
-      "lo": "Localized UI text 67a2d938848d"
-    },
-    {
-      "key": "auto.literal.f7dfc7aebd8d",
-      "text": "中间层对账差异流水",
-      "en": "Localized UI text f7dfc7aebd8d",
-      "lo": "Localized UI text f7dfc7aebd8d"
-    },
-    {
-      "key": "auto.literal.e123904c0f8a",
-      "text": "暂无对账差异流水。",
-      "en": "Localized UI text e123904c0f8a",
-      "lo": "Localized UI text e123904c0f8a"
-    },
-    {
-      "key": "auto.literal.0642fa298891",
-      "text": "未确认",
-      "en": "Unconfirmed",
-      "lo": "ຍັງບໍ່ຢືນຢັນ"
-    },
-    {
-      "key": "auto.literal.d5d366170935",
-      "text": "覆盖率",
-      "en": "Coverage",
-      "lo": "ອັດຕາครອບຄຸມ"
+      "key": "auto.literal.cfd2f31d0d07",
+      "text": "暂无语义提取数据。",
+      "en": "Localized UI text cfd2f31d0d07",
+      "lo": "Localized UI text cfd2f31d0d07"
     }
   ]
 }

@@ -702,6 +702,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-semantic-extractors
+   * 好业财财务字段语义提取器。只扫描 ERP 中间层 raw_data，不调用好业财写接口，不覆盖 ERP 业务表。
+   */
+  @Get('integration/finance-semantic-extractors')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceSemanticExtractors() {
+    try {
+      const semanticExtractors = await this.integration.financeSemanticExtractorsOverview();
+      return { success: true, semanticExtractors };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

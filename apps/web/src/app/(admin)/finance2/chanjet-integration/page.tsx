@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -318,6 +318,52 @@ interface FinanceRuntimeReconciliation {
   };
 }
 
+type FinanceSemanticExtractorStatus = 'READY' | 'PARTIAL' | 'WAITING_SAMPLE' | 'NEED_EXTRACTION' | 'HOLD';
+
+interface FinanceSemanticExtractor {
+  key: string;
+  label: string;
+  status: FinanceSemanticExtractorStatus;
+  authorityEligible: boolean;
+  sourceEntityTypes: string[];
+  sampleRows: number;
+  latestPulledAt: string | null;
+  fieldCandidates: Array<{
+    semanticField: string;
+    candidatePaths: Array<{
+      path: string;
+      sampleType: string;
+      sampleValue: string | null;
+      observedCount: number;
+    }>;
+    required: boolean;
+    status: 'FOUND' | 'MISSING';
+  }>;
+  extractedFields: number;
+  requiredFields: number;
+  missingRequiredFields: string[];
+  reason: string;
+  nextAction: string;
+}
+
+interface FinanceSemanticExtractorsOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalExtractors: number;
+    ready: number;
+    partial: number;
+    waitingSample: number;
+    needExtraction: number;
+    hold: number;
+    authorityEligible: number;
+    p0MissingRequiredFields: number;
+    nextGate: string;
+  };
+  extractors: FinanceSemanticExtractor[];
+  guardrails: { rule: string };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -353,9 +399,9 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 }
 
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
-  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED'].includes(status)) return 'green';
+  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW'].includes(status)) return 'amber';
+  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING'].includes(status)) return 'amber';
   return 'muted';
 }
 
@@ -396,6 +442,7 @@ export default function ChanjetIntegrationPage() {
   const [financeAdapter, setFinanceAdapter] = useState<FinanceAdapterOverview | null>(null);
   const [financeCoverage, setFinanceCoverage] = useState<FinanceReadonlyCoverage | null>(null);
   const [financeRuntimeRecon, setFinanceRuntimeRecon] = useState<FinanceRuntimeReconciliation | null>(null);
+  const [financeSemanticExtractors, setFinanceSemanticExtractors] = useState<FinanceSemanticExtractorsOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -409,7 +456,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -423,6 +470,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; adapter: FinanceAdapterOverview; error?: string }>('/chanjet/integration/finance-adapter/p0'),
         request<{ success: boolean; coverage: FinanceReadonlyCoverage; error?: string }>('/chanjet/integration/finance-coverage'),
         request<{ success: boolean; reconciliation: FinanceRuntimeReconciliation; error?: string }>('/chanjet/integration/finance-reconciliation'),
+        request<{ success: boolean; semanticExtractors: FinanceSemanticExtractorsOverview; error?: string }>('/chanjet/integration/finance-semantic-extractors'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -438,6 +486,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceAdapter(financeAdapterResp.adapter || null);
       setFinanceCoverage(financeCoverageResp.coverage || null);
       setFinanceRuntimeRecon(financeRuntimeReconResp.reconciliation || null);
+      setFinanceSemanticExtractors(financeSemanticExtractorResp.semanticExtractors || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -589,6 +638,7 @@ export default function ChanjetIntegrationPage() {
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
           ['reconciliation', '对账差异'],
+          ['semantic', '语义提取器'],
           ['drafts', '凭证草稿'],
           ['fields', '字段目录'],
           ['jobs', '作业审计'],
@@ -1011,6 +1061,106 @@ export default function ChanjetIntegrationPage() {
               {reconciliation.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无对账差异流水。</td></tr>}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {tab === 'semantic' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>财务字段语义提取器</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                从好业财只读镜像 raw_data 中寻找金额、日期、状态、科目、报表行等字段候选。字段未锁定时，财务卡片不得把 0 或列表合计当真实口径。
+              </div>
+            </div>
+            <Badge tone={financeSemanticExtractors?.decision === 'GO' ? 'green' : financeSemanticExtractors?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {financeSemanticExtractors?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>提取器总数</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeSemanticExtractors?.summary?.totalExtractors ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate: {financeSemanticExtractors?.summary?.nextGate || '—'}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>READY / PARTIAL</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeSemanticExtractors?.summary?.ready ?? 0}/{financeSemanticExtractors?.summary?.partial ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>可权威候选 {financeSemanticExtractors?.summary?.authorityEligible ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺少 P0 必需字段</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeSemanticExtractors?.summary?.p0MissingRequiredFields ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺口必须进入整改清单</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺样本 / 待提取</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(financeSemanticExtractors?.summary?.waitingSample ?? 0) + (financeSemanticExtractors?.summary?.needExtraction ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>先重跑只读同步或补字段规则</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>安全边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{financeSemanticExtractors?.guardrails?.rule || '只读扫描中间层，不写好业财，不覆盖 ERP 业务表。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">业务表覆盖: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">migration: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ ...tableStyle, minWidth: 1120 }}>
+              <thead>
+                <tr>{['口径', '状态', '样本', '字段锁定', '候选路径', '下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {(financeSemanticExtractors?.extractors || []).map((item) => (
+                  <tr key={item.key}>
+                    <td style={cellStyle}>
+                      <strong>{item.label}</strong>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.key}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{item.sourceEntityTypes.join(' / ') || '—'}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                      <div style={{ marginTop: 6 }}>
+                        <Badge tone={item.authorityEligible ? 'green' : 'amber'}>{item.authorityEligible ? '可作权威值' : '不可作权威值'}</Badge>
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      样本 {item.sampleRows}
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{fmtDate(item.latestPulledAt)}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div>{item.extractedFields} / {item.requiredFields}</div>
+                      <div style={{ color: item.missingRequiredFields.length ? 'var(--status-danger)' : 'var(--status-success)', fontSize: 12, marginTop: 4 }}>
+                        缺: {item.missingRequiredFields.slice(0, 5).join(' / ') || '无'}
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      {item.fieldCandidates.slice(0, 4).map((field) => (
+                        <div key={field.semanticField} style={{ marginBottom: 8 }}>
+                          <Badge tone={statusTone(field.status)}>{field.semanticField}</Badge>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>
+                            {field.candidatePaths.slice(0, 3).map((candidate) => `${candidate.path}=${candidate.sampleValue || '—'}`).join('；') || '无候选'}
+                          </div>
+                        </div>
+                      ))}
+                    </td>
+                    <td style={cellStyle}>
+                      {item.nextAction}
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>{item.reason}</div>
+                    </td>
+                  </tr>
+                ))}
+                {!financeSemanticExtractors?.extractors?.length && <tr><td style={cellStyle} colSpan={6}>暂无语义提取数据。</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 

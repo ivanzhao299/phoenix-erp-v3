@@ -371,3 +371,25 @@ Next actions:
    - Extract balance sheet and income statement line amount fields.
 2. Lock receipt/payment business date and approval status filters before using Chanjet values for today receipt/payment cards.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P3 P0 semantic pending items are closed or explicitly accepted.
+
+## 2026-07-04 — Chanjet P3 Field Semantic Extractors Implemented
+
+Current stage: `CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- New readonly API: `GET /api/chanjet/integration/finance-semantic-extractors`.
+- UI entry: `/finance2/chanjet-integration`, tab `语义提取器`.
+- The extractor scans ERP middle-layer `chanjet_entity_snapshots.raw_data` samples and proposes field candidates for each finance reconciliation metric.
+- It does not call Chanjet write APIs, does not push vouchers, and does not overwrite ERP business tables.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_READ_MODEL`
+   - Build a readonly finance read model from READY extractors only.
+   - Keep `CASH_BALANCE`, statements, and today receipt/payment blocked until required fields are confirmed.
+2. `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK`
+   - Lock business date and approval/void status filters before using Chanjet receipt/payment values for daily cards.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until the read model is stable and reviewed.

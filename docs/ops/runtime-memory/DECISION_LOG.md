@@ -1198,3 +1198,31 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_FIELD_SEMANTIC_EXTRACTORS`
+
+## 2026-07-04 — Chanjet P3 field semantic extractors implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-semantic-extractors`.
+- Added a `语义提取器` tab to `/finance2/chanjet-integration`.
+- The extractor scans readonly middle-layer Chanjet raw snapshots and proposes candidate paths for pending finance semantic fields.
+- The finance authority guard is now stricter: a metric can only become an authority value after required semantic fields are found and promoted into a readonly read model.
+
+Key decision:
+
+- Raw mirror coverage is not enough to mark a finance card authoritative.
+- `amountSum=0`, list totals, or missing sample rows remain non-authority evidence until semantic fields are extracted.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_READ_MODEL`
