@@ -30,6 +30,35 @@ function extractRelatedPath(content?: string | null): string | null {
   return safeInternalPath(match?.[1]);
 }
 
+function isDeviceAlertContent(content?: string | null): boolean {
+  if (!content) return false;
+  return /IOT_DEVICE_ALERT|设备预警|设备告警|\/breeding\/device/.test(content);
+}
+
+function mobilePathFromRelatedPath(path: string | null): string | null {
+  if (!path) return null;
+  let url: URL;
+  try {
+    url = new URL(path, "http://phoenix.local");
+  } catch {
+    return null;
+  }
+
+  if (url.pathname === "/breeding/device"
+    || url.pathname === "/breeding/device-alerts"
+    || url.pathname === "/breeding/device-ops") {
+    const params = new URLSearchParams();
+    const house = url.searchParams.get("house");
+    if (house) params.set("house", house);
+    const query = params.toString();
+    return query ? `/mobile/device?${query}` : "/mobile/device";
+  }
+
+  if (url.pathname === "/notifications") return "/mobile/notifications";
+
+  return null;
+}
+
 export function isSystemAlertNotification(n: NotificationRouteLike): boolean {
   const notificationType = n.notificationType ?? n.notification_type;
   const linkType = n.linkType ?? n.link_type;
@@ -109,9 +138,22 @@ export function resolveNotificationHref(
 
   if (isSystemAlertNotification(n)) {
     const alertId = getSystemAlertId(n);
+    const relatedPath = extractRelatedPath(n.content);
+
+    if (options.mobile) {
+      const mobileRelatedPath = mobilePathFromRelatedPath(relatedPath);
+      if (mobileRelatedPath) {
+        const separator = mobileRelatedPath.includes("?") ? "&" : "?";
+        return alertId ? `${mobileRelatedPath}${separator}alertId=${encodeURIComponent(alertId)}` : mobileRelatedPath;
+      }
+      if (isDeviceAlertContent(n.content)) {
+        return alertId ? `/mobile/device?alertId=${encodeURIComponent(alertId)}` : "/mobile/device";
+      }
+      return notificationHome;
+    }
+
     const params = new URLSearchParams();
     if (alertId) params.set("alertId", alertId);
-    const relatedPath = extractRelatedPath(n.content);
     if (relatedPath) params.set("relatedPath", relatedPath);
     const query = params.toString();
     return query ? `/system/alerts?${query}` : "/system/alerts";
