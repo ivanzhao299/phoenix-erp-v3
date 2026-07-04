@@ -298,6 +298,36 @@ Next actions:
    - Prioritize cash-account balance fields, GL balance opening/debit/credit/closing fields, and statement row amount fields.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P3 reconciliation statuses are reviewed and stable.
 
+## 2026-07-04 — Chanjet P3 Reconciliation Center UI Implemented
+
+Current stage: `CHANJET_P3_RECONCILIATION_CENTER_UI_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- UI entry: `/finance2/chanjet-integration`
+- Tab: `对账差异`
+- Runtime API consumed: `GET /api/chanjet/integration/finance-reconciliation`
+- Report: `docs/ops/CHANJET_P3_RECONCILIATION_CENTER_UI_IMPLEMENTATION_REPORT_20260704.md`
+
+Visible fields:
+
+- Chanjet value.
+- ERP auxiliary value.
+- Difference.
+- Status: `OK / WARN / MISMATCH / HOLD / NEED_MAPPING / NEED_MANUAL_REVIEW`.
+- Evidence row counts and latest mirror pull time.
+- Recommended action and reason.
+
+Next actions:
+
+1. `CHANJET_P3_FIELD_SEMANTIC_LOCK`
+   - Lock cash-account balance, GL balance, balance sheet, income statement, and receipt/payment date/status semantics.
+2. `CHANJET_P3_MAPPING_REVIEW_QUEUE`
+   - Convert high-confidence field mappings into reviewed mapping decisions.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P3 has no P0 `NEED_MAPPING` / `NEED_MANUAL_REVIEW`.
+
 ## Do Not Auto-Start
 
 - production `push main` deployment path.

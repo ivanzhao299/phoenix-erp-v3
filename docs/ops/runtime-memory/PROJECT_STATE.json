@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_RECONCILIATION_CENTER_AUDITED",
+  "current_stage": "CHANJET_P3_RECONCILIATION_CENTER_UI_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_RECONCILIATION_CENTER_UI",
+  "next_gate": "CHANJET_P3_FIELD_SEMANTIC_LOCK",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_RECONCILIATION_CENTER_AUDITED",
+    "current_stage": "CHANJET_P3_RECONCILIATION_CENTER_UI_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "build_visible_reconciliation_center_ui_and_lock_finance_field_semantics",
+    "next_action": "lock_finance_field_semantics_and_reduce_need_mapping_items",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -122,7 +122,11 @@
     "finance_reconciliation_p0_open": 8,
     "finance_reconciliation_need_mapping": 6,
     "finance_reconciliation_need_manual_review": 2,
-    "finance_reconciliation_next_gate": "CHANJET_P3_RECONCILIATION_CENTER_UI"
+    "finance_reconciliation_next_gate": "CHANJET_P3_FIELD_SEMANTIC_LOCK",
+    "finance_reconciliation_ui": "/finance2/chanjet-integration",
+    "finance_reconciliation_ui_status": "implemented",
+    "finance_reconciliation_ui_commit": "pending",
+    "finance_reconciliation_ui_purpose": "show Chanjet value, ERP auxiliary value, diff, status, evidence, and recommended action without silent overwrite"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

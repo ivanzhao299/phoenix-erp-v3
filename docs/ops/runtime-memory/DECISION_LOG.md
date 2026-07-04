@@ -1145,3 +1145,27 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_RECONCILIATION_CENTER_UI`
+
+---
+
+## 2026-07-04 — Chanjet P3 reconciliation center UI implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added a visible finance reconciliation center to `/finance2/chanjet-integration`, tab `对账差异`.
+- The UI consumes `GET /api/chanjet/integration/finance-reconciliation`.
+- Users can now see Chanjet value, ERP auxiliary value, diff, status, evidence, and recommended action for each financial metric.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_FIELD_SEMANTIC_LOCK`

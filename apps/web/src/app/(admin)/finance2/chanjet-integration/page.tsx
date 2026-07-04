@@ -245,6 +245,56 @@ interface FinanceReadonlyCoverage {
   guardrails: { rule: string };
 }
 
+type FinanceRuntimeReconciliationStatus = 'OK' | 'WARN' | 'MISMATCH' | 'HOLD' | 'NEED_MAPPING' | 'NEED_MANUAL_REVIEW';
+
+interface FinanceRuntimeReconciliationItem {
+  key: string;
+  label: string;
+  priority: 'P0' | 'P1';
+  chanjetEndpointKeys: string[];
+  chanjetEntityTypes: string[];
+  erpSources: string[];
+  chanjetValue: number | null;
+  erpValue: number | null;
+  diff: number | null;
+  diffRate: number | null;
+  status: FinanceRuntimeReconciliationStatus;
+  evidence: {
+    chanjetRows: number;
+    latestPulledAt: string | null;
+    erpRows: number | null;
+    erpEvidence: string | null;
+  };
+  reason: string;
+  recommendedAction: string;
+}
+
+interface FinanceRuntimeReconciliation {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalItems: number;
+    ok: number;
+    warn: number;
+    mismatch: number;
+    needMapping: number;
+    needManualReview: number;
+    hold: number;
+    p0Open: number;
+    nextGate: string;
+  };
+  items: FinanceRuntimeReconciliationItem[];
+  guardrails: {
+    chanjetWrite: boolean;
+    chanjetDelete: boolean;
+    chanjetModify: boolean;
+    voucherPush: boolean;
+    erpBusinessOverwrite: boolean;
+    migration: boolean;
+    rule: string;
+  };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -282,8 +332,20 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
   if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'DRAFT'].includes(status)) return 'amber';
+  if (['WARN', 'MISMATCH', 'PENDING', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW'].includes(status)) return 'amber';
   return 'muted';
+}
+
+function fmtMoney(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtSignedMoney(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  const n = Number(value);
+  const abs = Math.abs(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n > 0 ? '+' : n < 0 ? '-' : ''}${abs}`;
 }
 
 function fmtDate(value: string | null | undefined) {
@@ -310,6 +372,7 @@ export default function ChanjetIntegrationPage() {
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [financeAdapter, setFinanceAdapter] = useState<FinanceAdapterOverview | null>(null);
   const [financeCoverage, setFinanceCoverage] = useState<FinanceReadonlyCoverage | null>(null);
+  const [financeRuntimeRecon, setFinanceRuntimeRecon] = useState<FinanceRuntimeReconciliation | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -323,7 +386,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -336,6 +399,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; mappings: FieldMapping[]; error?: string }>('/chanjet/integration/field-mappings?limit=300'),
         request<{ success: boolean; adapter: FinanceAdapterOverview; error?: string }>('/chanjet/integration/finance-adapter/p0'),
         request<{ success: boolean; coverage: FinanceReadonlyCoverage; error?: string }>('/chanjet/integration/finance-coverage'),
+        request<{ success: boolean; reconciliation: FinanceRuntimeReconciliation; error?: string }>('/chanjet/integration/finance-reconciliation'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -350,6 +414,7 @@ export default function ChanjetIntegrationPage() {
       setFieldMappings(fieldMapResp.mappings || []);
       setFinanceAdapter(financeAdapterResp.adapter || null);
       setFinanceCoverage(financeCoverageResp.coverage || null);
+      setFinanceRuntimeRecon(financeRuntimeReconResp.reconciliation || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -800,8 +865,96 @@ export default function ChanjetIntegrationPage() {
 
       {tab === 'reconciliation' && (
         <section style={cardStyle}>
-          <strong>中间层对账差异</strong>
-          <table style={{ ...tableStyle, marginTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>财务口径对账中心</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                对比好业财只读镜像与 ERP 财务辅助明细。状态为 NEED_MAPPING / NEED_MANUAL_REVIEW 时，只显示差异和下一步，不静默覆盖 ERP 卡片。
+              </div>
+            </div>
+            <Badge tone={financeRuntimeRecon?.decision === 'GO' ? 'green' : financeRuntimeRecon?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {financeRuntimeRecon?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>对账项</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeRuntimeRecon?.summary?.totalItems ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>P0 未闭环 {financeRuntimeRecon?.summary?.p0Open ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>已对齐 / 轻微差异</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(financeRuntimeRecon?.summary?.ok ?? 0) + (financeRuntimeRecon?.summary?.warn ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>OK {financeRuntimeRecon?.summary?.ok ?? 0} / WARN {financeRuntimeRecon?.summary?.warn ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>待字段映射</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeRuntimeRecon?.summary?.needMapping ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>禁止将未映射金额显示为真实 0</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>需人工确认</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeRuntimeRecon?.summary?.needManualReview ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>日期 / 审核状态口径待锁定</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>只读边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{financeRuntimeRecon?.guardrails?.rule || '只读对账，不写好业财，不覆盖 ERP 业务表。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">ERP 业务覆盖: 否</Badge>
+              <Badge tone="green">migration: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ ...tableStyle, minWidth: 1120 }}>
+              <thead>
+                <tr>{['口径', '状态', '好业财值', 'ERP 辅助值', '差异', '证据', '下一步'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {(financeRuntimeRecon?.items || []).map((item) => (
+                  <tr key={item.key}>
+                    <td style={cellStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <strong>{item.label}</strong>
+                        <Badge tone={item.priority === 'P0' ? 'blue' : 'muted'}>{item.priority}</Badge>
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.key}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>{item.chanjetEndpointKeys.join(' / ')}</div>
+                    </td>
+                    <td style={cellStyle}><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
+                    <td style={{ ...cellStyle, fontWeight: 800 }}>{fmtMoney(item.chanjetValue)}</td>
+                    <td style={cellStyle}>
+                      <div style={{ fontWeight: 700 }}>{fmtMoney(item.erpValue)}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.erpSources.join(' / ')}</div>
+                    </td>
+                    <td style={{ ...cellStyle, color: item.diff == null ? 'var(--text-secondary)' : Math.abs(item.diff) > 0.01 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 800 }}>
+                      {fmtSignedMoney(item.diff)}
+                      {item.diffRate != null && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{Math.round(item.diffRate * 10000) / 100}%</div>}
+                    </td>
+                    <td style={cellStyle}>
+                      好业财行 {item.evidence.chanjetRows}
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>ERP 行 {item.evidence.erpRows ?? '—'}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>最近同步 {fmtDate(item.evidence.latestPulledAt)}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div>{item.recommendedAction}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{item.reason}</div>
+                    </td>
+                  </tr>
+                ))}
+                {!financeRuntimeRecon?.items?.length && <tr><td style={cellStyle} colSpan={7}>暂无运行时财务对账数据。</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ fontWeight: 700, margin: '20px 0 8px' }}>中间层对账差异流水</div>
+          <table style={tableStyle}>
             <thead><tr>{['状态', '对象', '差异', '建议动作', '时间'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
             <tbody>
               {reconciliation.map((r) => (
@@ -813,7 +966,7 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>{fmtDate(r.createdAt)}</td>
                 </tr>
               ))}
-              {reconciliation.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无对账差异。</td></tr>}
+              {reconciliation.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无对账差异流水。</td></tr>}
             </tbody>
           </table>
         </section>
