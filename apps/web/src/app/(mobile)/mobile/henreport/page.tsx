@@ -35,6 +35,8 @@ function HouseCard({ row }: { row: HenReportRow }) {
   const [open, setOpen] = useState(false);
   const layRateNum = parseFloat(row.lay_rate);
   const rateColor = layRateNum >= 85 ? 'var(--status-success)' : layRateNum >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
+  const houseDisplayName = row.house_name?.trim() || row.house_code;
+  const houseTrace = [row.house_code, row.flock_no].filter(Boolean).join(' · ');
 
   return (
     <div style={{
@@ -55,18 +57,28 @@ function HouseCard({ row }: { row: HenReportRow }) {
       >
         {/* House label */}
         <div style={{
-          minWidth: 52, height: 36, borderRadius: 8,
+          minWidth: 62, maxWidth: 82, height: 36, borderRadius: 8,
           background: 'var(--status-warning-bg-medium)',
           border: '1px solid var(--status-warning-bg-strong)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
+          padding: '0 8px',
         }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{row.house_code}</span>
+          <span style={{
+            fontSize: 12,
+            fontWeight: 800,
+            color: 'var(--status-warning)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {houseDisplayName}
+          </span>
         </div>
 
         {/* Flock + age */}
         <div style={{ flex: 1, textAlign: 'left' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{row.flock_no}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{houseTrace}</div>
           <div style={{ fontSize: 11, color: t.textFaint }}>
             {row.age_days != null ? `${tr('mob.brd.age_days', '日龄')} ${row.age_days}${tr('mob.brd.day_unit', '天')}` : ''}
             {row.age_days != null && row.current_qty > 0 ? ' · ' : ''}

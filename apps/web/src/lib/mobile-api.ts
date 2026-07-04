@@ -247,6 +247,7 @@ export interface MedLedgerEntry {
 
 export interface HenReportRow {
   house_code:     string;
+  house_name?:    string | null;
   flock_no:       string;
   current_qty:    number;
   initial_qty:    number;

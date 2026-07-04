@@ -441,11 +441,21 @@ export class FarmService {
     // ── 鸡群查询 ──────────────────────────────────────────────
     const flockParams: any[] = [];
     let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    const flockScope = scopeWhere(scope, flockParams);   // G98：农场/站点/公司多维并集
+    const flockScope = scopeWhere(scope, flockParams, 'f.');   // G98：农场/站点/公司多维并集
     if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flocks = await this.entityManager.query(
-      `SELECT flock_no, house_code, current_qty, initial_qty, placement_date, current_lay_rate
-       FROM brd_flocks ${flockWhere} ORDER BY house_code`,
+      `SELECT
+         f.flock_no,
+         f.house_code,
+         COALESCE(NULLIF(h.house_name, ''), f.house_code) AS house_name,
+         f.current_qty,
+         f.initial_qty,
+         f.placement_date,
+         f.current_lay_rate
+       FROM brd_flocks f
+       LEFT JOIN brd_houses h ON h.house_code = f.house_code
+       ${flockWhere}
+       ORDER BY f.house_code`,
       flockParams,
     );
 
@@ -494,6 +504,7 @@ export class FarmService {
         : null;
       return {
         house_code: f.house_code,
+        house_name: f.house_name || f.house_code,
         flock_no: f.flock_no,
         current_qty: currentQty,
         initial_qty: Number(f.initial_qty ?? 0),
