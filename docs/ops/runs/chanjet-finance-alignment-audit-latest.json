@@ -1,0 +1,415 @@
+{
+  "generatedAt": "2026-07-04T09:35:53.339Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "tableStatus": {
+    "chanjet_read_snapshots": true,
+    "chanjet_entity_snapshots": true,
+    "chanjet_erp_field_mapping": true,
+    "chanjet_sync_jobs": false
+  },
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessTableWrite": false,
+    "migration": false,
+    "deploy": false,
+    "push": false
+  },
+  "coverage": {
+    "endpointCoverageRate": 0,
+    "cardCoverageRate": 0,
+    "fieldCoverageRate": 0,
+    "missingEndpointKeys": [
+      "ACCOUNT_BOOKS",
+      "DEPARTMENT",
+      "CUSTOMER_SUPPLIER",
+      "SUBJECT",
+      "PROJECT",
+      "FIN_ACCOUNT",
+      "PAYABLE_STATISTICS",
+      "RECEIVABLE_STATISTICS",
+      "PAYMENT_AP",
+      "PAYMENT_AR",
+      "PURCHASE_ORDER",
+      "VOUCHER_SEARCH",
+      "GL_BALANCE",
+      "BALANCE_SHEET",
+      "INCOME_STATEMENT",
+      "CASH_FLOW"
+    ],
+    "failedLatestJobs": []
+  },
+  "fieldSummary": {
+    "totalFields": 0,
+    "matched": 0,
+    "transformRequired": 0,
+    "missingInErp": 0,
+    "highOpen": 0,
+    "apiMetadata": 0
+  },
+  "endpointCoverage": [
+    {
+      "key": "ACCOUNT_BOOKS",
+      "label": "账套列表",
+      "entityType": "ACCOUNT_BOOK",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "DEPARTMENT",
+      "label": "部门列表",
+      "entityType": "DEPARTMENT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "CUSTOMER_SUPPLIER",
+      "label": "往来单位",
+      "entityType": "CUSTOMER_SUPPLIER",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "SUBJECT",
+      "label": "科目列表",
+      "entityType": "SUBJECT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "PROJECT",
+      "label": "项目列表",
+      "entityType": "PROJECT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "FIN_ACCOUNT",
+      "label": "资金账户",
+      "entityType": "CASH_ACCOUNT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "PAYABLE_STATISTICS",
+      "label": "应付统计",
+      "entityType": "AP_STATISTICS",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "RECEIVABLE_STATISTICS",
+      "label": "应收统计",
+      "entityType": "AR_STATISTICS",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "PAYMENT_AP",
+      "label": "付款单",
+      "entityType": "AP_PAYMENT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "PAYMENT_AR",
+      "label": "收款单",
+      "entityType": "AR_RECEIPT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "PURCHASE_ORDER",
+      "label": "采购订单",
+      "entityType": "PURCHASE_ORDER",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "VOUCHER_SEARCH",
+      "label": "凭证列表",
+      "entityType": "VOUCHER",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "GL_BALANCE",
+      "label": "科目余额表",
+      "entityType": "GL_BALANCE",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "BALANCE_SHEET",
+      "label": "资产负债表",
+      "entityType": "BALANCE_SHEET",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "INCOME_STATEMENT",
+      "label": "利润表",
+      "entityType": "INCOME_STATEMENT",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    },
+    {
+      "key": "CASH_FLOW",
+      "label": "现金流量表",
+      "entityType": "CASH_FLOW",
+      "covered": false,
+      "snapshotCount": 0,
+      "rowCount": 0,
+      "entityCount": 0,
+      "amountSum": 0,
+      "latestPulledAt": "",
+      "latestJobStatus": "UNAVAILABLE",
+      "latestJobError": ""
+    }
+  ],
+  "cardCoverage": [
+    {
+      "cardKey": "arOpen",
+      "label": "应收待收",
+      "endpoints": [
+        "RECEIVABLE_STATISTICS"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "apOpen",
+      "label": "应付待付",
+      "endpoints": [
+        "PAYABLE_STATISTICS"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "cashBalance",
+      "label": "现金 / 银行余额",
+      "endpoints": [
+        "FIN_ACCOUNT",
+        "GL_BALANCE"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "todayReceipt",
+      "label": "今日收款",
+      "endpoints": [
+        "PAYMENT_AR"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "todayPayment",
+      "label": "今日付款",
+      "endpoints": [
+        "PAYMENT_AP"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "subjectBalance",
+      "label": "科目余额",
+      "endpoints": [
+        "GL_BALANCE"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "balanceSheet",
+      "label": "资产负债表关键项",
+      "endpoints": [
+        "BALANCE_SHEET"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "incomeStatement",
+      "label": "利润表关键项",
+      "endpoints": [
+        "INCOME_STATEMENT"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    },
+    {
+      "cardKey": "counterpartyBalance",
+      "label": "客户 / 供应商往来余额",
+      "endpoints": [
+        "CUSTOMER_SUPPLIER",
+        "RECEIVABLE_STATISTICS",
+        "PAYABLE_STATISTICS"
+      ],
+      "covered": false,
+      "status": "NEED_SYNC_OR_MAPPING",
+      "sourceRule": "暂缺好业财镜像，ERP 显示必须标注 ERP fallback / 待同步。"
+    }
+  ],
+  "entitySummary": [],
+  "fieldRiskSummary": [],
+  "topGaps": [],
+  "conditions": [
+    "chanjet_sync_jobs is unavailable in this database; endpoint job status is marked UNAVAILABLE and coverage is computed from readonly mirror tables."
+  ],
+  "nextTasks": [
+    {
+      "taskId": "CHANJET-P0-READONLY-SYNC-GAPS",
+      "priority": "P0",
+      "title": "补齐未覆盖的好业财只读端点",
+      "evidence": "ACCOUNT_BOOKS, DEPARTMENT, CUSTOMER_SUPPLIER, SUBJECT, PROJECT, FIN_ACCOUNT, PAYABLE_STATISTICS, RECEIVABLE_STATISTICS, PAYMENT_AP, PAYMENT_AR, PURCHASE_ORDER, VOUCHER_SEARCH, GL_BALANCE, BALANCE_SHEET, INCOME_STATEMENT, CASH_FLOW",
+      "owner": "A3-Backend-Critical-Path + A5-Data-Readiness",
+      "allowedPaths": [
+        "apps/api/src/modules/chanjet/**",
+        "docs/ops/**",
+        "scripts/ops/**"
+      ],
+      "forbiddenActions": [
+        "write Chanjet",
+        "delete Chanjet data",
+        "modify Chanjet data",
+        "voucher push"
+      ]
+    },
+    {
+      "taskId": "CHANJET-P1-SYNC-JOB-AUDIT-EVIDENCE",
+      "priority": "P1",
+      "title": "补齐好业财同步任务审计证据或接入生产 job evidence",
+      "evidence": "chanjet_sync_jobs unavailable in current local database",
+      "owner": "A1-CI-Runtime-Gate + A3-Backend-Critical-Path",
+      "allowedPaths": [
+        "docs/ops/**",
+        "scripts/ops/**",
+        "apps/api/src/modules/chanjet/**"
+      ],
+      "forbiddenActions": [
+        "write Chanjet",
+        "run migration without a separate approved Gate"
+      ]
+    },
+    {
+      "taskId": "CHANJET-P1-FINANCE-CARD-SOURCE-BADGES",
+      "priority": "P1",
+      "title": "财务卡片继续补来源、差异与待同步状态",
+      "evidence": "cardCoverageRate=0%",
+      "owner": "A4-Frontend-UIUX-UAT + A1-CI-Runtime-Gate",
+      "allowedPaths": [
+        "apps/web/src/app/(admin)/finance2/**",
+        "docs/ops/**"
+      ],
+      "forbiddenActions": [
+        "hide mismatches",
+        "overwrite ERP detail"
+      ]
+    }
+  ],
+  "blockers": []
+}

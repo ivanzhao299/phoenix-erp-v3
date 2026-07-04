@@ -35,6 +35,38 @@ Last updated: 2026-07-03
    - `docs/ops/CHANJET_READONLY_MIRROR_REAL_TOKEN_SYNC_GATE_REPORT_20260703.md`
 5. 已在生产服务器端使用短时 ERP admin Bearer token 调用受保护只读镜像同步 API。
 6. 本次同步写入 ERP 中间层，不写好业财、不删除好业财数据、不修改好业财数据、不推送凭证。
+## 2026-07-04 — Chanjet Finance Alignment Audit P2
+
+本轮完成了可复跑的好业财财务对齐审计工具:
+
+- `scripts/ops/chanjet-finance-alignment-audit.mjs`
+- `docs/ops/CHANJET_FINANCE_ALIGNMENT_AUDIT_P2_REPORT_20260704.md`
+- `docs/ops/runs/chanjet-finance-alignment-audit-latest.json`
+- `docs/ops/runs/chanjet-finance-alignment-audit-latest.md`
+
+最新本地只读审计结论:
+
+1. Decision: `GO_WITH_CONDITIONS`.
+2. Endpoint coverage: `0%`.
+3. Finance card coverage: `0%`.
+4. Field coverage: `0%`.
+5. Core readonly mirror tables exist, but local mirror rows are absent.
+6. `chanjet_sync_jobs` is optional local audit evidence and is currently unavailable in this database.
+7. ERP finance cards must not claim Chanjet-aligned numbers unless readonly mirror evidence exists.
+
+Next recommended Gate:
+
+1. `CHANJET-P0-READONLY-SYNC-GAPS`.
+   - Run or repair readonly sync for all default Chanjet finance scopes.
+   - Keep Chanjet write / delete / modify / voucher push forbidden.
+   - Rerun `scripts/ops/chanjet-finance-alignment-audit.mjs` after sync.
+2. `CHANJET-P1-SYNC-JOB-AUDIT-EVIDENCE`.
+   - Restore or replace sync job evidence for local/production observability.
+3. `CHANJET-P1-FINANCE-CARD-SOURCE-BADGES`.
+   - Keep finance cards source-labelled and mismatch-visible until coverage reaches business-accepted threshold.
+
+---
+
 7. 生产同步报告:
    - `docs/ops/CHANJET_READONLY_MIRROR_PRODUCTION_SYNC_REPORT_20260703.md`
 

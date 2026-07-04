@@ -855,6 +855,38 @@ Next recommended Gate:
 
 - `APPROVE_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_GATE`
 
+## 2026-07-04 — Chanjet Finance Alignment Audit P2
+
+Decision: GO WITH CONDITIONS.
+
+Artifacts:
+
+- `scripts/ops/chanjet-finance-alignment-audit.mjs`
+- `docs/ops/CHANJET_FINANCE_ALIGNMENT_AUDIT_P2_REPORT_20260704.md`
+- `docs/ops/runs/chanjet-finance-alignment-audit-latest.json`
+- `docs/ops/runs/chanjet-finance-alignment-audit-latest.md`
+
+Rationale:
+
+- Built a repeatable local readonly audit for Chanjet endpoint coverage, finance-card authority coverage, field coverage, and next task generation.
+- Local core mirror tables exist, but the local database currently contains no Chanjet mirror rows.
+- Finance card numbers must therefore remain source-labelled and must not be silently treated as Chanjet-aligned from local evidence.
+- `chanjet_sync_jobs` is absent locally and is treated as optional audit evidence, not a core blocker.
+
+Boundaries:
+
+- No Chanjet write, delete, modify, or voucher push.
+- No ERP business table write.
+- No migration.
+- No deploy.
+- No push.
+
+Next recommended Gate:
+
+- `CHANJET-P0-READONLY-SYNC-GAPS`.
+
+---
+
 ## 2026-06-24 - Menu / Role / DataScope Repair Execution Gate
 
 Decision: GO WITH CONDITIONS.
