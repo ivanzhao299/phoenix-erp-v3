@@ -95,6 +95,7 @@ interface ReportOverviewData {
   todayOutflow:               number;
   reimbursementPendingAmount: number;
   byCurrency?:                { currencyCode: string; cashBalance: number }[];  // G58 可支配资金按币种
+  sourceAuthority?:           Record<string, string>;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -113,6 +114,14 @@ async function apiFetch<T>(url: string): Promise<T> {
 function fmt(n: number | string | null | undefined): string {
   if (n === null || n === undefined) return '0.00';
   return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function sourceLabel(source?: string): string {
+  if (!source) return '来源待确认';
+  if (source.startsWith('CHANJET')) return '好业财口径';
+  if (source === 'ERP_FALLBACK') return 'ERP 口径（待好业财同步）';
+  if (source.startsWith('ERP')) return 'ERP 辅助明细';
+  return source;
 }
 
 // ── 区块标题 ──────────────────────────────────────────────────────────────────
@@ -231,6 +240,9 @@ export default function Finance2DashboardPage() {
 
   // 现金账户余额跨币种：按币种分组展示，避免 USD/THB 账户被贴成人民币符号。
   const cashBalanceDisplay = (() => {
+    if (reportOverview?.sourceAuthority?.cashBalance?.startsWith('CHANJET')) {
+      return `¥ ${fmt(reportOverview.cashBalance)}`;
+    }
     const s = cashDash?.summary;
     if (!s) return '—';
     const rows = (s.byCurrency ?? []).filter(r => Number(r.cnt) > 0)
@@ -262,20 +274,25 @@ export default function Finance2DashboardPage() {
     {
       label:       t('fin2.common.cash_balance','现金账户余额'),
       value:       cashBalanceDisplay,
-      subValue:    cashDash?.summary ? `${cashDash.summary.totalAccounts} ${t('fin2.home.accounts_unit','个账户')}` : undefined,
+      subValue:    cashDash?.summary
+        ? `${sourceLabel(reportOverview?.sourceAuthority?.cashBalance)} · ERP 账户 ${cashDash.summary.totalAccounts} ${t('fin2.home.accounts_unit','个账户')}`
+        : sourceLabel(reportOverview?.sourceAuthority?.cashBalance),
       icon:        Wallet,
       accentColor: 'blue' as AccentColor,
     },
     {
       label:       t('fin2.home.ar_receivable','应收待收款'),
-      value:       arSummary ? `¥ ${fmt(arSummary.balance_amount_original)}` : '—',
-      subValue:    arSummary ? `${arSummary.open_invoices} ${t('fin2.home.unpaid_unit','笔未收')} / ${arSummary.overdue_invoices} ${t('fin2.home.overdue_unit','笔逾期')}` : undefined,
+      value:       reportOverview ? `¥ ${fmt(reportOverview.arOpen)}` : '—',
+      subValue:    arSummary
+        ? `${sourceLabel(reportOverview?.sourceAuthority?.arOpen)} · ERP 明细 ${arSummary.open_invoices} ${t('fin2.home.unpaid_unit','笔未收')} / ${arSummary.overdue_invoices} ${t('fin2.home.overdue_unit','笔逾期')}`
+        : sourceLabel(reportOverview?.sourceAuthority?.arOpen),
       icon:        TrendingUp,
       accentColor: 'green' as AccentColor,
     },
     {
       label:       t('fin2.home.ap_payable','应付待付款'),
       value:       reportOverview ? `¥ ${fmt(reportOverview.apOpen)}` : '—',
+      subValue:    sourceLabel(reportOverview?.sourceAuthority?.apOpen),
       icon:        TrendingDown,
       accentColor: 'red' as AccentColor,
     },
@@ -290,7 +307,7 @@ export default function Finance2DashboardPage() {
       label:       t('fin2.common.disposable_funds','可支配资金'),
       value:       disposableDisplay,
       subValue:    reportOverview
-        ? `${t('fin2.home.today_inflow','今日流入')} ¥${fmt(reportOverview.todayInflow)} / ${t('fin2.home.outflow','流出')} ¥${fmt(reportOverview.todayOutflow)}`
+        ? `${sourceLabel(reportOverview.sourceAuthority?.todayInflow)} · ${t('fin2.home.today_inflow','今日流入')} ¥${fmt(reportOverview.todayInflow)} / ${t('fin2.home.outflow','流出')} ¥${fmt(reportOverview.todayOutflow)}`
         : undefined,
       icon:        Activity,
       accentColor: reportOverview?.netOperatingPosition !== undefined && reportOverview.netOperatingPosition >= 0

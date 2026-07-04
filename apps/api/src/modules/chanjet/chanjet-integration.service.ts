@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -99,11 +99,38 @@ const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
   {
     key: 'CHANJET_PAYMENT_DOCUMENT',
     title: '收付款单',
-    priority: 'P1',
+    priority: 'P0',
     endpointKeys: ['PAYMENT_AP', 'PAYMENT_AR'],
     entityTypes: ['AP_PAYMENT', 'AR_RECEIPT'],
     erpTarget: 'finance-v2 payment readonly adapter',
     adapterScope: '收付款单只读重现和 ERP 单据匹配候选。',
+  },
+  {
+    key: 'CHANJET_CASH_ACCOUNT',
+    title: '现金/银行账户',
+    priority: 'P0',
+    endpointKeys: ['FIN_ACCOUNT'],
+    entityTypes: ['CASH_ACCOUNT'],
+    erpTarget: 'finance-v2 cash readonly authority candidate',
+    adapterScope: '资金账户、币种、账号、启停状态只读重现；财务卡片现金/银行余额必须显式标注来源。',
+  },
+  {
+    key: 'CHANJET_GL_BALANCE',
+    title: '科目余额表',
+    priority: 'P0',
+    endpointKeys: ['GL_BALANCE'],
+    entityTypes: ['GL_BALANCE'],
+    erpTarget: 'finance-v2 subject balance readonly adapter',
+    adapterScope: '科目期初、本期借贷、期末余额等字段进入对账和财务卡片口径判断。',
+  },
+  {
+    key: 'CHANJET_FINANCIAL_STATEMENTS',
+    title: '财务报表',
+    priority: 'P0',
+    endpointKeys: ['BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW'],
+    entityTypes: ['BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW'],
+    erpTarget: 'finance-v2 statement readonly adapter',
+    adapterScope: '资产负债表、利润表、现金流量表关键项只读重现；不反写 ERP 业务明细。',
   },
   {
     key: 'CHANJET_PURCHASE_LINKAGE',
@@ -343,6 +370,8 @@ export class ChanjetIntegrationService {
 
   constructor(
     private readonly auth: ChanjetAuthService,
+    @InjectDataSource()
+    private readonly ds: DataSource,
     @InjectRepository(ChanjetAccountBookEntity)
     private readonly accountBookRepo: Repository<ChanjetAccountBookEntity>,
     @InjectRepository(ChanjetApiFieldCatalogEntity)
@@ -579,6 +608,154 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReadonlyCoverage() {
+    const expectedEndpoints = PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault);
+    const [rawRows, entityRows, fieldRows, recentJobs, books] = await Promise.all([
+      this.readSnapshotRepo
+        .createQueryBuilder('s')
+        .select('s.endpointKey', 'endpointKey')
+        .addSelect('COUNT(*)', 'snapshotCount')
+        .addSelect('COALESCE(SUM(s.rowCount),0)', 'rowCount')
+        .addSelect('MAX(s.pulledAt)', 'latestPulledAt')
+        .groupBy('s.endpointKey')
+        .getRawMany(),
+      this.entitySnapshotRepo
+        .createQueryBuilder('s')
+        .select('s.entityType', 'entityType')
+        .addSelect('COUNT(*)', 'entityCount')
+        .addSelect('COALESCE(SUM(s.amount),0)', 'amountSum')
+        .addSelect('MAX(s.updatedAt)', 'latestUpdatedAt')
+        .groupBy('s.entityType')
+        .getRawMany(),
+      this.fieldMappingRepo
+        .createQueryBuilder('m')
+        .select('m.matchStatus', 'matchStatus')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('m.matchStatus')
+        .getRawMany(),
+      this.jobRepo.find({
+        where: { jobType: 'SNAPSHOT' },
+        order: { createdAt: 'DESC' },
+        take: 300,
+      }),
+      this.listAccountBooks(),
+    ]);
+
+    const rawByEndpoint = new Map(rawRows.map((row: any) => [String(row.endpointKey), row]));
+    const entityByType = new Map(entityRows.map((row: any) => [String(row.entityType), row]));
+    const latestJobByEndpoint = new Map<string, ChanjetSyncJobEntity>();
+    for (const job of recentJobs) {
+      const key = String(job.requestScope?.key || '');
+      if (key && !latestJobByEndpoint.has(key)) latestJobByEndpoint.set(key, job);
+    }
+
+    const endpointCoverage = expectedEndpoints.map((ep) => {
+      const raw = rawByEndpoint.get(ep.key) as any;
+      const entity = ep.entityType ? (entityByType.get(ep.entityType) as any) : null;
+      const latestJob = latestJobByEndpoint.get(ep.key);
+      const covered = Number(raw?.snapshotCount || 0) > 0 || Number(entity?.entityCount || 0) > 0;
+      return {
+        key: ep.key,
+        label: ep.label,
+        apiDomain: ep.apiDomain,
+        entityType: ep.entityType || '',
+        requiredForP0: true,
+        covered,
+        snapshotCount: Number(raw?.snapshotCount || 0),
+        rowCount: Number(raw?.rowCount || 0),
+        entityCount: Number(entity?.entityCount || 0),
+        amountSum: Number(entity?.amountSum || 0),
+        latestPulledAt: raw?.latestPulledAt || entity?.latestUpdatedAt || null,
+        latestJobStatus: latestJob?.status || 'NOT_RUN',
+        latestJobError: latestJob?.errorMessage || null,
+      };
+    });
+
+    const fieldStatusCounts = fieldRows.reduce<Record<string, number>>((acc, row: any) => {
+      acc[String(row.matchStatus || 'UNKNOWN')] = Number(row.count || 0);
+      return acc;
+    }, {});
+    const totalFieldMappings = Object.values(fieldStatusCounts).reduce((sum, count) => sum + count, 0);
+    const coveredFieldMappings = (fieldStatusCounts.MATCHED || 0) + (fieldStatusCounts.PENDING || 0) + (fieldStatusCounts.TRANSFORM_REQUIRED || 0);
+    const endpointCoverageRate = endpointCoverage.length
+      ? endpointCoverage.filter((item) => item.covered).length / endpointCoverage.length
+      : 0;
+
+    const cardDefinitions = [
+      { cardKey: 'arOpen', label: '应收待收', endpoints: ['RECEIVABLE_STATISTICS'], entityTypes: ['AR_STATISTICS'] },
+      { cardKey: 'apOpen', label: '应付待付', endpoints: ['PAYABLE_STATISTICS'], entityTypes: ['AP_STATISTICS'] },
+      { cardKey: 'cashBalance', label: '现金 / 银行余额', endpoints: ['FIN_ACCOUNT', 'GL_BALANCE'], entityTypes: ['CASH_ACCOUNT', 'GL_BALANCE'] },
+      { cardKey: 'todayReceipt', label: '今日收款', endpoints: ['PAYMENT_AR'], entityTypes: ['AR_RECEIPT'] },
+      { cardKey: 'todayPayment', label: '今日付款', endpoints: ['PAYMENT_AP'], entityTypes: ['AP_PAYMENT'] },
+      { cardKey: 'subjectBalance', label: '科目余额', endpoints: ['GL_BALANCE'], entityTypes: ['GL_BALANCE'] },
+      { cardKey: 'incomeStatement', label: '利润表关键项', endpoints: ['INCOME_STATEMENT'], entityTypes: ['INCOME_STATEMENT'] },
+      { cardKey: 'balanceSheet', label: '资产负债表关键项', endpoints: ['BALANCE_SHEET'], entityTypes: ['BALANCE_SHEET'] },
+      { cardKey: 'counterpartyBalance', label: '客户 / 供应商往来余额', endpoints: ['CUSTOMER_SUPPLIER', 'RECEIVABLE_STATISTICS', 'PAYABLE_STATISTICS'], entityTypes: ['CUSTOMER_SUPPLIER', 'AR_STATISTICS', 'AP_STATISTICS'] },
+    ];
+    const coveredEndpointSet = new Set(endpointCoverage.filter((item) => item.covered).map((item) => item.key));
+    const cardCoverage = cardDefinitions.map((card) => {
+      const covered = card.endpoints.every((key) => coveredEndpointSet.has(key));
+      return {
+        ...card,
+        covered,
+        status: covered ? 'COVERED' : 'NEED_SYNC_OR_MAPPING',
+        sourceRule: covered ? '好业财只读镜像优先；ERP 明细作为辅助差异分析。' : '暂缺好业财镜像，ERP 显示必须标注 ERP-only / 待同步。',
+      };
+    });
+    const cardCoverageRate = cardCoverage.length
+      ? cardCoverage.filter((item) => item.covered).length / cardCoverage.length
+      : 0;
+
+    const failedLatestJobs = endpointCoverage.filter((item) => item.latestJobStatus === 'FAIL');
+    return {
+      generatedAt: new Date().toISOString(),
+      writeChanjet: false,
+      writeBusinessTables: false,
+      pushVoucher: false,
+      accountBooks: books.map((book) => ({
+        bookId: book.bookId,
+        bookName: book.bookName,
+        companyCode: book.companyCode,
+        companyName: book.companyName,
+        enabled: book.enabled,
+      })),
+      fullReadonlyScope: expectedEndpoints.map((ep) => ({
+        key: ep.key,
+        label: ep.label,
+        entityType: ep.entityType || '',
+        apiDomain: ep.apiDomain,
+      })),
+      endpointCoverage,
+      cardCoverage,
+      fieldCoverage: {
+        totalFieldMappings,
+        coveredFieldMappings,
+        coverageRate: totalFieldMappings ? coveredFieldMappings / totalFieldMappings : 0,
+        statusCounts: fieldStatusCounts,
+        missingFields: fieldStatusCounts.MISSING_IN_ERP || 0,
+        transformRequired: fieldStatusCounts.TRANSFORM_REQUIRED || 0,
+      },
+      summary: {
+        endpointCoverageRate,
+        cardCoverageRate,
+        fieldCoverageRate: totalFieldMappings ? coveredFieldMappings / totalFieldMappings : 0,
+        missingEndpointKeys: endpointCoverage.filter((item) => !item.covered).map((item) => item.key),
+        failedLatestJobs: failedLatestJobs.map((item) => ({
+          key: item.key,
+          label: item.label,
+          error: item.latestJobError,
+        })),
+        decision: endpointCoverageRate >= 0.9 && cardCoverageRate >= 0.9 ? 'GO' : 'GO_WITH_CONDITIONS',
+      },
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        erpBusinessOverwrite: false,
+        rule: '好业财有数据时财务卡片优先标注好业财口径；ERP 业务明细只做辅助明细和差异解释，不静默覆盖。',
+      },
+    };
+  }
+
   private fieldBelongsToFinanceBucket(mapping: ChanjetErpFieldMappingEntity, bucket: FinanceAdapterBucketDefinition) {
     const endpoint = `${mapping.chanjetEndpoint || ''}`.toLowerCase();
     const fieldPath = `${mapping.chanjetFieldPath || ''}`.toLowerCase();
@@ -696,6 +873,7 @@ export class ChanjetIntegrationService {
         } catch (err) {
           const error = (err as Error).message;
           await this.finishJob(job, 'FAIL', { key: ep.key }, error);
+          await this.recordChanjetApiAlert(ep, path, targetBookId, error);
           results.push({ key: ep.key, bookId: targetBookId, status: 'FAIL', error });
         }
       }
@@ -1322,6 +1500,31 @@ export class ChanjetIntegrationService {
     job.resultSummary = resultSummary;
     job.errorMessage = errorMessage || null;
     await this.jobRepo.save(job);
+  }
+
+  private async recordChanjetApiAlert(ep: ProbeEndpoint, path: string, bookId: string, errorMessage: string): Promise<void> {
+    try {
+      await this.ds.query(
+        `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path)
+         VALUES ($1,$2,$3,$4::jsonb,$5)`,
+        [
+          'CHANJET_API_SYNC_FAILURE',
+          'WARNING',
+          `好业财只读同步失败：${ep.label}`,
+          JSON.stringify({
+            endpointKey: ep.key,
+            apiDomain: ep.apiDomain,
+            path,
+            bookId,
+            error: errorMessage,
+            writeChanjet: false,
+          }),
+          '/finance2/chanjet-integration',
+        ],
+      );
+    } catch (alertError) {
+      this.log.warn(`Chanjet API failure alert skipped: ${(alertError as Error).message}`);
+    }
   }
 
   private mappingIssue(mapping: ChanjetMasterMappingEntity): null | {

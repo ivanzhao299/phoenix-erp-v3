@@ -642,6 +642,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-coverage
+   * 好业财全量只读同步覆盖率与财务卡片口径覆盖率。只读 ERP 中间层，不调用好业财。
+   */
+  @Get('integration/finance-coverage')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCoverage() {
+    try {
+      const coverage = await this.integration.financeReadonlyCoverage();
+      return { success: true, coverage };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

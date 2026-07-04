@@ -130,37 +130,99 @@ export class FinancialReportsService {
     }
   }
 
-  private async getChanjetFinanceAuthority(user: any, erp: { apOpen: number; arOpen: number }) {
+  private async getChanjetEntityAggregate(all: boolean, codes: string[], entityType: string) {
+    if (this.emptyScope(all, codes)) return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    const scopeFilter = all ? '' : 'AND COALESCE(b.company_code, \'\') = ANY($1)';
+    const params = all ? [] : [codes];
+    try {
+      const rows = await this.ds.query(
+        `WITH latest AS (
+           SELECT s.book_id,
+                  COALESCE(s.external_id, s.external_code, s.external_name, '') AS subject_key,
+                  MAX(s.updated_at) AS updated_at
+             FROM chanjet_entity_snapshots s
+             LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
+            WHERE s.entity_type = $${all ? 1 : 2} ${scopeFilter}
+            GROUP BY s.book_id, COALESCE(s.external_id, s.external_code, s.external_name, '')
+         )
+         SELECT COALESCE(SUM(s.amount),0) AS value,
+                COUNT(*) AS rows,
+                MAX(s.period) AS latest_period
+           FROM chanjet_entity_snapshots s
+           JOIN latest l
+             ON l.book_id = s.book_id
+            AND l.subject_key = COALESCE(s.external_id, s.external_code, s.external_name, '')
+            AND l.updated_at = s.updated_at
+           LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
+          WHERE s.entity_type = $${all ? 1 : 2} ${scopeFilter}`,
+        all ? [entityType] : [codes, entityType],
+      );
+      const row = rows[0] || {};
+      return {
+        available: Number(row.rows || 0) > 0,
+        value: Number(row.value || 0),
+        rows: Number(row.rows || 0),
+        latestPeriod: row.latest_period ? String(row.latest_period) : null,
+      };
+    } catch (error) {
+      this.logger.warn(`Chanjet ${entityType} alignment unavailable: ${(error as Error).message}`);
+      return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    }
+  }
+
+  private metricFromChanjet(
+    source: string,
+    chanjet: { available: boolean; value: number; rows: number; latestPeriod: string | null },
+    erpValue: number,
+    note: string,
+  ) {
+    return {
+      source: chanjet.available ? source : 'ERP_FALLBACK',
+      authoritativeValue: chanjet.available ? chanjet.value : erpValue,
+      erpValue,
+      diff: (chanjet.available ? chanjet.value : erpValue) - erpValue,
+      covered: chanjet.available,
+      rows: chanjet.rows,
+      latestPeriod: chanjet.latestPeriod,
+      note,
+    };
+  }
+
+  private async getChanjetFinanceAuthority(user: any, erp: {
+    apOpen: number;
+    arOpen: number;
+    cashBalance: number;
+    todayInflow: number;
+    todayOutflow: number;
+  }) {
     const { all, codes } = this.scope(user);
-    const [ar, ap] = await Promise.all([
+    const [ar, ap, cash, glBalance, arReceipt, apPayment, balanceSheet, incomeStatement] = await Promise.all([
       this.getChanjetArOpen(all, codes),
       this.getChanjetApOpen(all, codes),
+      this.getChanjetEntityAggregate(all, codes, 'CASH_ACCOUNT'),
+      this.getChanjetEntityAggregate(all, codes, 'GL_BALANCE'),
+      this.getChanjetEntityAggregate(all, codes, 'AR_RECEIPT'),
+      this.getChanjetEntityAggregate(all, codes, 'AP_PAYMENT'),
+      this.getChanjetEntityAggregate(all, codes, 'BALANCE_SHEET'),
+      this.getChanjetEntityAggregate(all, codes, 'INCOME_STATEMENT'),
     ]);
     const metrics = {
-      arOpen: {
-        source: ar.available ? 'CHANJET_AR_SNAPSHOT' : 'ERP_FALLBACK',
-        authoritativeValue: ar.available ? ar.value : erp.arOpen,
-        erpValue: erp.arOpen,
-        diff: (ar.available ? ar.value : erp.arOpen) - erp.arOpen,
-        covered: ar.available,
-        rows: ar.rows,
-        latestPeriod: ar.latestPeriod,
-      },
-      apOpen: {
-        source: ap.available ? 'CHANJET_AP_STATISTICS_MIRROR' : 'ERP_FALLBACK',
-        authoritativeValue: ap.available ? ap.value : erp.apOpen,
-        erpValue: erp.apOpen,
-        diff: (ap.available ? ap.value : erp.apOpen) - erp.apOpen,
-        covered: ap.available,
-        rows: ap.rows,
-        latestPeriod: ap.latestPeriod,
-      },
+      arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总优先；ERP 应收发票/总账作为辅助明细。'),
+      apOpen: this.metricFromChanjet('CHANJET_AP_STATISTICS_MIRROR', ap, erp.apOpen, '好业财应付汇总优先；ERP 应付发票作为辅助明细。'),
+      cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户镜像优先；ERP 现金账户余额作为辅助差异。'),
+      todayInflow: this.metricFromChanjet('CHANJET_AR_RECEIPT_MIRROR', arReceipt, erp.todayInflow, '好业财收款单镜像可用时作为今日收款校验口径；日期字段未映射前保留条件项。'),
+      todayOutflow: this.metricFromChanjet('CHANJET_AP_PAYMENT_MIRROR', apPayment, erp.todayOutflow, '好业财付款单镜像可用时作为今日付款校验口径；日期字段未映射前保留条件项。'),
+      subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。'),
+      balanceSheet: this.metricFromChanjet('CHANJET_BALANCE_SHEET_MIRROR', balanceSheet, 0, '资产负债表关键项用于经营驾驶舱一致性校验。'),
+      incomeStatement: this.metricFromChanjet('CHANJET_INCOME_STATEMENT_MIRROR', incomeStatement, 0, '利润表关键项用于经营驾驶舱一致性校验。'),
     };
+    const coveredCount = Object.values(metrics).filter((metric) => metric.covered).length;
+    const metricCount = Object.values(metrics).length;
     return {
-      authority: 'CHANJET_FIRST_FOR_FINANCIAL_AP_AR',
-      coverageRate: [metrics.arOpen.covered, metrics.apOpen.covered].filter(Boolean).length / 2,
+      authority: 'CHANJET_FIRST_FOR_FINANCIAL_CARDS',
+      coverageRate: metricCount ? coveredCount / metricCount : 0,
       metrics,
-      guardrail: 'Chanjet AP/AR aggregates override finance report cards when readonly mirror data exists. ERP invoice tables remain operational detail and are not overwritten.',
+      guardrail: 'Chanjet readonly mirror overrides finance card authority when available. ERP tables remain operational detail and are not overwritten; mismatches must be shown, not silently covered.',
     };
   }
 
@@ -204,15 +266,24 @@ export class FinancialReportsService {
     const erpApOpen = Number(apRow[0]?.v   ?? 0);
     // G61：应收待收 = 发票应收(fin_ar_invoices) + 应收总账OCR快照最新期末(fin_ar_ledger)
     const erpArOpen = Number(arRow[0]?.v   ?? 0) + Number(arLedgerRow[0]?.v ?? 0);
-    const chanjetAlignment = await this.getChanjetFinanceAuthority(user, { apOpen: erpApOpen, arOpen: erpArOpen });
-    const apOpen    = chanjetAlignment.metrics.apOpen.authoritativeValue;
-    const arOpen    = chanjetAlignment.metrics.arOpen.authoritativeValue;
-    const cashBal   = Number(cashRow[0]?.v ?? 0);
+    const erpCashBal = Number(cashRow[0]?.v ?? 0);
     const shBal     = Number(shRow[0]?.v   ?? 0);
     const reimbPend = Number(reimbRow[0]?.v ?? 0);
 
-    const todayIn  = Number(todayRows.find((r: any) => r.direction === 'IN')?.v  ?? 0);
-    const todayOut = Number(todayRows.find((r: any) => r.direction === 'OUT')?.v ?? 0);
+    const erpTodayIn  = Number(todayRows.find((r: any) => r.direction === 'IN')?.v  ?? 0);
+    const erpTodayOut = Number(todayRows.find((r: any) => r.direction === 'OUT')?.v ?? 0);
+    const chanjetAlignment = await this.getChanjetFinanceAuthority(user, {
+      apOpen: erpApOpen,
+      arOpen: erpArOpen,
+      cashBalance: erpCashBal,
+      todayInflow: erpTodayIn,
+      todayOutflow: erpTodayOut,
+    });
+    const apOpen    = chanjetAlignment.metrics.apOpen.authoritativeValue;
+    const arOpen    = chanjetAlignment.metrics.arOpen.authoritativeValue;
+    const cashBal   = chanjetAlignment.metrics.cashBalance.authoritativeValue;
+    const todayIn   = chanjetAlignment.metrics.todayInflow.authoritativeValue;
+    const todayOut  = chanjetAlignment.metrics.todayOutflow.authoritativeValue;
 
     // 经营净头寸 = 现金 + AR - AP - 待报销
     const netOperatingPosition = cashBal + arOpen - apOpen - reimbPend;
@@ -234,7 +305,12 @@ export class FinancialReportsService {
       sourceAuthority: {
         apOpen: chanjetAlignment.metrics.apOpen.source,
         arOpen: chanjetAlignment.metrics.arOpen.source,
-        cashBalance: 'ERP_CASH_ACCOUNT',
+        cashBalance: chanjetAlignment.metrics.cashBalance.source,
+        todayInflow: chanjetAlignment.metrics.todayInflow.source,
+        todayOutflow: chanjetAlignment.metrics.todayOutflow.source,
+        subjectBalance: chanjetAlignment.metrics.subjectBalance.source,
+        balanceSheet: chanjetAlignment.metrics.balanceSheet.source,
+        incomeStatement: chanjetAlignment.metrics.incomeStatement.source,
         shareholderBalance: 'ERP_SHAREHOLDER_LEDGER',
         expensePending: 'ERP_EXPENSE_WORKFLOW',
         reimbursementPending: 'ERP_REIMBURSEMENT_WORKFLOW',
@@ -274,9 +350,54 @@ export class FinancialReportsService {
           label: '现金账户余额',
           displayValue: overview.cashBalance,
           source: overview.sourceAuthority.cashBalance,
-          erpValue: overview.cashBalance,
-          chanjetValue: null,
-          diff: 0,
+          erpValue: overview.chanjetAlignment.metrics.cashBalance.erpValue,
+          chanjetValue: overview.chanjetAlignment.metrics.cashBalance.covered ? overview.chanjetAlignment.metrics.cashBalance.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.cashBalance.diff,
+        },
+        {
+          cardKey: 'todayInflow',
+          label: '今日收款',
+          displayValue: overview.todayInflow,
+          source: overview.sourceAuthority.todayInflow,
+          erpValue: overview.chanjetAlignment.metrics.todayInflow.erpValue,
+          chanjetValue: overview.chanjetAlignment.metrics.todayInflow.covered ? overview.chanjetAlignment.metrics.todayInflow.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.todayInflow.diff,
+        },
+        {
+          cardKey: 'todayOutflow',
+          label: '今日付款',
+          displayValue: overview.todayOutflow,
+          source: overview.sourceAuthority.todayOutflow,
+          erpValue: overview.chanjetAlignment.metrics.todayOutflow.erpValue,
+          chanjetValue: overview.chanjetAlignment.metrics.todayOutflow.covered ? overview.chanjetAlignment.metrics.todayOutflow.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.todayOutflow.diff,
+        },
+        {
+          cardKey: 'subjectBalance',
+          label: '科目余额',
+          displayValue: overview.chanjetAlignment.metrics.subjectBalance.authoritativeValue,
+          source: overview.sourceAuthority.subjectBalance,
+          erpValue: 0,
+          chanjetValue: overview.chanjetAlignment.metrics.subjectBalance.covered ? overview.chanjetAlignment.metrics.subjectBalance.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.subjectBalance.diff,
+        },
+        {
+          cardKey: 'balanceSheet',
+          label: '资产负债表关键项',
+          displayValue: overview.chanjetAlignment.metrics.balanceSheet.authoritativeValue,
+          source: overview.sourceAuthority.balanceSheet,
+          erpValue: 0,
+          chanjetValue: overview.chanjetAlignment.metrics.balanceSheet.covered ? overview.chanjetAlignment.metrics.balanceSheet.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.balanceSheet.diff,
+        },
+        {
+          cardKey: 'incomeStatement',
+          label: '利润表关键项',
+          displayValue: overview.chanjetAlignment.metrics.incomeStatement.authoritativeValue,
+          source: overview.sourceAuthority.incomeStatement,
+          erpValue: 0,
+          chanjetValue: overview.chanjetAlignment.metrics.incomeStatement.covered ? overview.chanjetAlignment.metrics.incomeStatement.authoritativeValue : null,
+          diff: overview.chanjetAlignment.metrics.incomeStatement.diff,
         },
       ],
       decision: overview.chanjetAlignment.coverageRate >= 0.9 ? 'GO' : 'GO_WITH_CONDITIONS',

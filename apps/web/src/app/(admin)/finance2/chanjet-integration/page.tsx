@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -199,6 +199,52 @@ interface FinanceAdapterOverview {
   };
 }
 
+interface FinanceReadonlyCoverage {
+  generatedAt: string;
+  writeChanjet: boolean;
+  writeBusinessTables: boolean;
+  pushVoucher: boolean;
+  fullReadonlyScope: Array<{ key: string; label: string; entityType: string; apiDomain: string }>;
+  endpointCoverage: Array<{
+    key: string;
+    label: string;
+    apiDomain: string;
+    entityType: string;
+    covered: boolean;
+    snapshotCount: number;
+    rowCount: number;
+    entityCount: number;
+    latestPulledAt: string | null;
+    latestJobStatus: string;
+    latestJobError: string | null;
+  }>;
+  cardCoverage: Array<{
+    cardKey: string;
+    label: string;
+    endpoints: string[];
+    covered: boolean;
+    status: string;
+    sourceRule: string;
+  }>;
+  fieldCoverage: {
+    totalFieldMappings: number;
+    coveredFieldMappings: number;
+    coverageRate: number;
+    statusCounts: Record<string, number>;
+    missingFields: number;
+    transformRequired: number;
+  };
+  summary: {
+    endpointCoverageRate: number;
+    cardCoverageRate: number;
+    fieldCoverageRate: number;
+    missingEndpointKeys: string[];
+    failedLatestJobs: Array<{ key: string; label: string; error: string | null }>;
+    decision: string;
+  };
+  guardrails: { rule: string };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -245,6 +291,10 @@ function fmtDate(value: string | null | undefined) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
 }
 
+function pct(value: number | null | undefined) {
+  return `${Math.round((Number(value || 0)) * 100)}%`;
+}
+
 export default function ChanjetIntegrationPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR_LEDGER');
   const [tab, setTab] = useState<TabKey>('adapter');
@@ -259,6 +309,7 @@ export default function ChanjetIntegrationPage() {
   const [entitySnapshots, setEntitySnapshots] = useState<EntitySnapshot[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [financeAdapter, setFinanceAdapter] = useState<FinanceAdapterOverview | null>(null);
+  const [financeCoverage, setFinanceCoverage] = useState<FinanceReadonlyCoverage | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -272,7 +323,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -284,6 +335,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; entities: EntitySnapshot[]; error?: string }>('/chanjet/integration/mirror/entity-snapshots?limit=160'),
         request<{ success: boolean; mappings: FieldMapping[]; error?: string }>('/chanjet/integration/field-mappings?limit=300'),
         request<{ success: boolean; adapter: FinanceAdapterOverview; error?: string }>('/chanjet/integration/finance-adapter/p0'),
+        request<{ success: boolean; coverage: FinanceReadonlyCoverage; error?: string }>('/chanjet/integration/finance-coverage'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -297,6 +349,7 @@ export default function ChanjetIntegrationPage() {
       setEntitySnapshots(entityResp.entities || []);
       setFieldMappings(fieldMapResp.mappings || []);
       setFinanceAdapter(financeAdapterResp.adapter || null);
+      setFinanceCoverage(financeCoverageResp.coverage || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -388,7 +441,7 @@ export default function ChanjetIntegrationPage() {
           <>
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
-            <Button disabled={!canEdit || loading} onClick={() => runAction('只读镜像同步', () => request('/chanjet/integration/mirror/sync', { method: 'POST', body: JSON.stringify({}) }))}>同步镜像</Button>
+            <Button disabled={!canEdit || loading} onClick={() => runAction('全量只读同步', () => request('/chanjet/integration/mirror/sync', { method: 'POST', body: JSON.stringify({ scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [] }) }))}>全量只读同步</Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
           </>
@@ -443,6 +496,7 @@ export default function ChanjetIntegrationPage() {
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 14, flexWrap: 'wrap' }}>
         {[
           ['adapter', 'P0 财务适配'],
+          ['coverage', '覆盖率看板'],
           ['mirror', '只读镜像'],
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
@@ -542,6 +596,91 @@ export default function ChanjetIntegrationPage() {
               {!financeAdapter?.buckets?.length && <tr><td style={cellStyle} colSpan={5}>暂无 P0 适配数据，请先执行只读镜像同步和字段分析。</td></tr>}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {tab === 'coverage' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>好业财全量只读同步覆盖率</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                P0 要求 ERP 能完整重现好业财财务侧数据，并标出财务卡片来源。覆盖率低于 90% 的项进入整改清单。
+              </div>
+            </div>
+            <Badge tone={financeCoverage?.summary?.decision === 'GO' ? 'green' : 'amber'}>{financeCoverage?.summary?.decision || '—'}</Badge>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>接口覆盖率</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{pct(financeCoverage?.summary?.endpointCoverageRate)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{financeCoverage?.endpointCoverage?.filter((item) => item.covered).length || 0} / {financeCoverage?.endpointCoverage?.length || 0} 个 P0 接口已镜像</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>财务卡片覆盖率</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{pct(financeCoverage?.summary?.cardCoverageRate)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{financeCoverage?.cardCoverage?.filter((item) => item.covered).length || 0} / {financeCoverage?.cardCoverage?.length || 0} 张卡有好业财依据</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>字段覆盖率</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{pct(financeCoverage?.fieldCoverage?.coverageRate)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺字段 {financeCoverage?.fieldCoverage?.missingFields || 0} / 转换 {financeCoverage?.fieldCoverage?.transformRequired || 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>同步异常</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeCoverage?.summary?.failedLatestJobs?.length || 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>失败会写入系统告警中心</div>
+            </div>
+          </div>
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>口径规则</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{financeCoverage?.guardrails?.rule || '好业财只读优先，ERP 明细辅助对账。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">ERP 业务表覆盖: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>P0 接口清单</div>
+              <table style={tableStyle}>
+                <thead><tr>{['接口', '覆盖', '快照/实体', '最近作业'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(financeCoverage?.endpointCoverage || []).map((item) => (
+                    <tr key={item.key}>
+                      <td style={cellStyle}><strong>{item.label}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{item.key} · {item.entityType}</div></td>
+                      <td style={cellStyle}><Badge tone={item.covered ? 'green' : 'amber'}>{item.covered ? '已覆盖' : '待同步'}</Badge></td>
+                      <td style={cellStyle}>快照 {item.snapshotCount} / 行 {item.rowCount}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>实体 {item.entityCount}</div></td>
+                      <td style={cellStyle}>
+                        <Badge tone={statusTone(item.latestJobStatus)}>{item.latestJobStatus}</Badge>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{fmtDate(item.latestPulledAt)}</div>
+                        {item.latestJobError && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 4 }}>{item.latestJobError}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                  {!financeCoverage?.endpointCoverage?.length && <tr><td style={cellStyle} colSpan={4}>暂无覆盖率数据。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>财务卡片来源覆盖</div>
+              <table style={tableStyle}>
+                <thead><tr>{['卡片', '状态', '依赖接口', '规则'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(financeCoverage?.cardCoverage || []).map((item) => (
+                    <tr key={item.cardKey}>
+                      <td style={cellStyle}><strong>{item.label}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{item.cardKey}</div></td>
+                      <td style={cellStyle}><Badge tone={item.covered ? 'green' : 'amber'}>{item.status}</Badge></td>
+                      <td style={cellStyle}>{item.endpoints.join(' / ')}</td>
+                      <td style={cellStyle}>{item.sourceRule}</td>
+                    </tr>
+                  ))}
+                  {!financeCoverage?.cardCoverage?.length && <tr><td style={cellStyle} colSpan={4}>暂无卡片覆盖率数据。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
       )}
 
