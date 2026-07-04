@@ -1,262 +1,262 @@
 {
-  "generated_at": "2026-07-02T14:29:06.975Z",
+  "generated_at": "2026-07-04T08:21:02.850Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1626,
-  "created_keys": 1626,
-  "updated_keys": 0,
+  "unique_hardcoded_literals": 1787,
+  "created_keys": 161,
+  "updated_keys": 1626,
   "locale_counts_before": {
-    "zh": 11126,
-    "en": 11126,
-    "lo": 11126
+    "zh": 12848,
+    "en": 12848,
+    "lo": 12848
   },
   "locale_counts_after": {
-    "zh": 12752,
-    "en": 12752,
-    "lo": 12752
+    "zh": 13009,
+    "en": 13009,
+    "lo": 13009
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.b246458f20c8",
-      "text": "暂无数据",
-      "en": "No data",
-      "lo": "ບໍ່ມີຂໍ້ມູນ"
+      "key": "auto.literal.44dbdfb68e89",
+      "text": "[{\"summary\":\"示例摘要\",\"debitSubject\":\"\",\"creditSubject\":\"\",\"amount\":0}]",
+      "en": "Localized UI text 44dbdfb68e89",
+      "lo": "Localized UI text 44dbdfb68e89"
     },
     {
-      "key": "auto.literal.895a8d490063",
-      "text": "暂无明细",
-      "en": "No items",
-      "lo": "ບໍ່ມີລາຍການ"
+      "key": "auto.literal.2d2a8decd383",
+      "text": "总览加载失败",
+      "en": "OverviewLoad failed",
+      "lo": "ພາບລວມໂຫຼດຜິດ"
     },
     {
-      "key": "auto.literal.a54db40b5076",
-      "text": "生产报表",
-      "en": "Production Report",
-      "lo": "ລາຍງານການຜະລິດ"
+      "key": "auto.literal.5db1f310d463",
+      "text": "账套缓存",
+      "en": "Localized UI text 5db1f310d463",
+      "lo": "Localized UI text 5db1f310d463"
     },
     {
-      "key": "auto.literal.c1722f1af92a",
-      "text": "库存周转",
-      "en": "Inventory Turnover",
-      "lo": "ຈຳນວນຮອບສາງ"
+      "key": "auto.literal.2dee2d73011b",
+      "text": "字段目录",
+      "en": "Localized UI text 2dee2d73011b",
+      "lo": "Localized UI text 2dee2d73011b"
     },
     {
-      "key": "auto.literal.726ca8009d88",
-      "text": "价格复盘",
-      "en": "Price review",
-      "lo": "Price review"
+      "key": "auto.literal.da76306921cc",
+      "text": "脱敏字段样本",
+      "en": "Localized UI text da76306921cc",
+      "lo": "Localized UI text da76306921cc"
     },
     {
-      "key": "auto.literal.80b159b1185d",
-      "text": "饲料用量",
-      "en": "Feed usage",
-      "lo": "Feed usage"
+      "key": "auto.literal.0f176fc0f774",
+      "text": "映射候选",
+      "en": "Localized UI text 0f176fc0f774",
+      "lo": "Localized UI text 0f176fc0f774"
     },
     {
-      "key": "auto.literal.2657d0f413a2",
-      "text": "早班",
-      "en": "Morning Shift",
-      "lo": "ຜ່ອນຕອນເຊົ້າ"
+      "key": "auto.literal.f5a2f8f0814d",
+      "text": "凭证草稿",
+      "en": "Localized UI text f5a2f8f0814d",
+      "lo": "Localized UI text f5a2f8f0814d"
     },
     {
-      "key": "auto.literal.c6ba4e7aeaec",
-      "text": "晚班",
-      "en": "Evening Shift",
-      "lo": "ກ່ຽວແລງ"
+      "key": "auto.literal.3ce194108bfb",
+      "text": "镜像实体",
+      "en": "Localized UI text 3ce194108bfb",
+      "lo": "Localized UI text 3ce194108bfb"
     },
     {
-      "key": "auto.literal.3e0b61fa71a9",
-      "text": "夜班",
-      "en": "Night Shift",
-      "lo": "ກ່ຽງກາງຄືນ"
+      "key": "auto.literal.08b82b7e5d11",
+      "text": "字段差异",
+      "en": "Fielddifference",
+      "lo": "ຊ່ອງຂໍ້ມູນຄວາມແຕກຕ່າງ"
     },
     {
-      "key": "auto.literal.79b62069f535",
-      "text": "全天",
-      "en": "All day",
-      "lo": "All day"
+      "key": "auto.literal.16e57e071574",
+      "text": "开放差异",
+      "en": "Localized UI text 16e57e071574",
+      "lo": "Localized UI text 16e57e071574"
     },
     {
-      "key": "auto.literal.05e70cf8098c",
-      "text": "舍内温度",
-      "en": "House temperature",
-      "lo": "House temperature"
+      "key": "auto.literal.3bba60daf793",
+      "text": "映射审核",
+      "en": "Localized UI text 3bba60daf793",
+      "lo": "Localized UI text 3bba60daf793"
     },
     {
-      "key": "auto.literal.a4843645889d",
-      "text": "相对湿度",
-      "en": "Relative humidity",
-      "lo": "Relative humidity"
+      "key": "auto.literal.171268d5d5f2",
+      "text": "凭证草稿审核",
+      "en": "Localized UI text 171268d5d5f2",
+      "lo": "Localized UI text 171268d5d5f2"
     },
     {
-      "key": "auto.literal.3816ab2bfce8",
-      "text": "CO₂浓度",
-      "en": "CO₂ Level",
-      "lo": "ລະດັບ CO₂"
+      "key": "auto.literal.80f595a3aacd",
+      "text": "凭证分录必须为数组",
+      "en": "Localized UI text 80f595a3aacd",
+      "lo": "Localized UI text 80f595a3aacd"
     },
     {
-      "key": "auto.literal.eacc1dc364e9",
-      "text": "氨气浓度",
-      "en": "NH₃ Level",
-      "lo": "NH₃"
+      "key": "auto.literal.ed5e6a2d2089",
+      "text": "凭证草稿创建",
+      "en": "Localized UI text ed5e6a2d2089",
+      "lo": "Localized UI text ed5e6a2d2089"
     },
     {
-      "key": "auto.literal.d3bea9efb1b9",
-      "text": "温度",
-      "en": "Temperature",
-      "lo": "ອຸນຫະພູມ"
+      "key": "auto.literal.717554c5ca87",
+      "text": "人工凭证草稿",
+      "en": "Localized UI text 717554c5ca87",
+      "lo": "Localized UI text 717554c5ca87"
     },
     {
-      "key": "auto.literal.dee19da50fba",
-      "text": "湿度",
-      "en": "Humidity",
-      "lo": "ຄວາມຊຸ່ມ"
+      "key": "auto.literal.b4a2e74dce0c",
+      "text": "好业财中间层",
+      "en": "Localized UI text b4a2e74dce0c",
+      "lo": "Localized UI text b4a2e74dce0c"
     },
     {
-      "key": "auto.literal.5ad3e5443e76",
-      "text": "氨气",
-      "en": "Ammonia",
-      "lo": "ແອມໂມເນຍ"
+      "key": "auto.literal.bc5043c7736f",
+      "text": "无权限访问，需 MENU_FIN2_AR_LEDGER:V",
+      "en": "Localized UI text bc5043c7736f",
+      "lo": "Localized UI text bc5043c7736f"
     },
     {
-      "key": "auto.literal.60d1a171eed8",
-      "text": "设备汇总接口返回异常",
-      "en": "Device summary API returned an error",
-      "lo": "Device summary API returned an error"
+      "key": "auto.literal.64e7e421195f",
+      "text": "无权限访问。",
+      "en": "Localized UI text 64e7e421195f",
+      "lo": "Localized UI text 64e7e421195f"
     },
     {
-      "key": "auto.literal.4675321ec2a7",
-      "text": "网络错误",
-      "en": "Network Error",
-      "lo": "ຂໍ້ຜິດພາດເຄືອຂ່າຍ"
+      "key": "auto.literal.38108eaa1d32",
+      "text": "刷新",
+      "en": "refresh",
+      "lo": "ໂຫຼດຂໍ້ມູນຄືນໃໝ່"
     },
     {
-      "key": "auto.literal.90b74980e435",
-      "text": "未检测",
-      "en": "Not checked",
-      "lo": "ຍັງບໍ່ກວດ"
+      "key": "auto.literal.6d788069a0c6",
+      "text": "账套刷新",
+      "en": "Localized UI text 6d788069a0c6",
+      "lo": "Localized UI text 6d788069a0c6"
     },
     {
-      "key": "auto.literal.3d5c03610012",
-      "text": "当前没有实时采集数据",
-      "en": "No real-time collection data currently",
-      "lo": "No real-time collection data currently"
+      "key": "auto.literal.a26840d37975",
+      "text": "刷新账套",
+      "en": "Localized UI text a26840d37975",
+      "lo": "Localized UI text a26840d37975"
     },
     {
-      "key": "auto.literal.732729befaca",
-      "text": "鸡舍：",
-      "en": "Henhouse:",
-      "lo": "ເລົ້າໄກ່:"
+      "key": "auto.literal.8b59f8bd0877",
+      "text": "全量只读同步",
+      "en": "Localized UI text 8b59f8bd0877",
+      "lo": "Localized UI text 8b59f8bd0877"
     },
     {
-      "key": "auto.literal.898aabd1bd4f",
-      "text": "； 已绑定：",
-      "en": "; Mapped:",
-      "lo": "; ຜູກແລ້ວ:"
+      "key": "auto.literal.48a6c58c9157",
+      "text": "字段探针",
+      "en": "Localized UI text 48a6c58c9157",
+      "lo": "Localized UI text 48a6c58c9157"
     },
     {
-      "key": "auto.literal.3bb782736bc4",
-      "text": "； 快照：",
-      "en": "; Snapshots:",
-      "lo": "; ສະແນັບຊັອດ:"
+      "key": "auto.literal.f1dc2756f625",
+      "text": "运行探针",
+      "en": "Localized UI text f1dc2756f625",
+      "lo": "Localized UI text f1dc2756f625"
     },
     {
-      "key": "auto.literal.cc56227e66c5",
-      "text": "查询错误：",
-      "en": "SearchError:",
-      "lo": "Searchຂໍ້ຜິດພາດ:"
+      "key": "auto.literal.136f88cb129d",
+      "text": "字段差异分析",
+      "en": "Localized UI text 136f88cb129d",
+      "lo": "Localized UI text 136f88cb129d"
     },
     {
-      "key": "auto.literal.625c4db7c0c3",
-      "text": "诊断中…",
-      "en": "Diagnosing…",
-      "lo": "ກຳລັງວິນິໄສ…"
+      "key": "auto.literal.421f18fab2be",
+      "text": "字段分析",
+      "en": "Localized UI text 421f18fab2be",
+      "lo": "Localized UI text 421f18fab2be"
     },
     {
-      "key": "auto.literal.59afcf7824d9",
-      "text": "重新诊断",
-      "en": "Run diagnosis again",
-      "lo": "Run diagnosis again"
+      "key": "auto.literal.8bb38ef00ccc",
+      "text": "未启用",
+      "en": "Localized UI text 8bb38ef00ccc",
+      "lo": "Localized UI text 8bb38ef00ccc"
     },
     {
-      "key": "auto.literal.e381a5763d5f",
-      "text": "已复制",
-      "en": "Copied",
-      "lo": "ສຳເນົາແລ້ວ"
+      "key": "auto.literal.9e566c8beb1d",
+      "text": "未映射公司",
+      "en": "UnmappedCompany",
+      "lo": "ຍັງບໍ່ໄດ້ແມັບCompany"
     },
     {
-      "key": "auto.literal.6dfb2feb93e2",
-      "text": "复制诊断",
-      "en": "Copy diagnostics",
-      "lo": "ສຳເນົາການວິນິໄສ"
+      "key": "auto.literal.add4de87acfb",
+      "text": "P0 财务适配",
+      "en": "Localized UI text add4de87acfb",
+      "lo": "Localized UI text add4de87acfb"
     },
     {
-      "key": "auto.literal.bd1ab15a74f2",
-      "text": "实时",
-      "en": "Live",
-      "lo": "ສົດ"
+      "key": "auto.literal.2e6ae2be10e6",
+      "text": "覆盖率看板",
+      "en": "Localized UI text 2e6ae2be10e6",
+      "lo": "Localized UI text 2e6ae2be10e6"
     },
     {
-      "key": "auto.literal.e9f092148039",
-      "text": "延迟",
-      "en": "Delayed",
-      "lo": "ລ່າຊ້າ"
+      "key": "auto.literal.5250002ef169",
+      "text": "只读镜像",
+      "en": "Localized UI text 5250002ef169",
+      "lo": "Localized UI text 5250002ef169"
     },
     {
-      "key": "auto.literal.ed4331644ead",
-      "text": "陈旧",
-      "en": "Stale",
-      "lo": "ເກົ່າ"
+      "key": "auto.literal.ab6c1667b5d3",
+      "text": "主数据映射",
+      "en": "Localized UI text ab6c1667b5d3",
+      "lo": "Localized UI text ab6c1667b5d3"
     },
     {
-      "key": "auto.literal.6ffa7e6d3530",
-      "text": "无数据",
-      "en": "No data",
-      "lo": "ບໍ່ມີຂໍ້ມູນ"
+      "key": "auto.literal.f187dfe99215",
+      "text": "对账差异",
+      "en": "Reconciledifference",
+      "lo": "ກວດສອບຄວາມແຕກຕ່າງ"
     },
     {
-      "key": "auto.literal.aa3833ea2a46",
-      "text": "环境",
-      "en": "Environment",
-      "lo": "Environment"
+      "key": "auto.literal.fb1e6b9b6980",
+      "text": "作业审计",
+      "en": "Localized UI text fb1e6b9b6980",
+      "lo": "Localized UI text fb1e6b9b6980"
     },
     {
-      "key": "auto.literal.22382630ef61",
-      "text": "控制",
-      "en": "Control",
-      "lo": "Control"
+      "key": "auto.literal.3d1af4456848",
+      "text": "P0 财务只读适配层",
+      "en": "Localized UI text 3d1af4456848",
+      "lo": "Localized UI text 3d1af4456848"
     },
     {
-      "key": "auto.literal.1e9d6e61c188",
-      "text": "饲喂",
-      "en": "Feeding",
-      "lo": "Feeding"
+      "key": "auto.literal.1ac6077012b6",
+      "text": "凭证推送关闭",
+      "en": "Localized UI text 1ac6077012b6",
+      "lo": "Localized UI text 1ac6077012b6"
     },
     {
-      "key": "auto.literal.147afaa1af09",
-      "text": "饮水",
-      "en": "drink water",
-      "lo": "ດື່ມນ້ໍາ"
+      "key": "auto.literal.f58d3f2b2e9d",
+      "text": "P0 桶",
+      "en": "Localized UI text f58d3f2b2e9d",
+      "lo": "Localized UI text f58d3f2b2e9d"
     },
     {
-      "key": "auto.literal.8263f1aee2af",
-      "text": "执行器",
-      "en": "Actuator",
-      "lo": "Actuator"
+      "key": "auto.literal.84cdd6248801",
+      "text": "/ 条件项",
+      "en": "Localized UI text 84cdd6248801",
+      "lo": "Localized UI text 84cdd6248801"
     },
     {
-      "key": "auto.literal.9e636642d6d4",
-      "text": "刚刚",
-      "en": "Just now",
-      "lo": "ຫາກໍ່"
+      "key": "auto.literal.9e16cadbb380",
+      "text": "待镜像同步",
+      "en": "Localized UI text 9e16cadbb380",
+      "lo": "Localized UI text 9e16cadbb380"
     },
     {
-      "key": "auto.literal.5f85a94fb3e6",
-      "text": "超出阈值",
-      "en": "ExceedsThreshold",
-      "lo": "ເກີນຄ່າຂີດຈໍາກັດ"
+      "key": "auto.literal.d3a29f64ce1e",
+      "text": "下一 Gate",
+      "en": "Localized UI text d3a29f64ce1e",
+      "lo": "Localized UI text d3a29f64ce1e"
     }
   ]
 }

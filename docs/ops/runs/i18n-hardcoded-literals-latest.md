@@ -1,11 +1,11 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-03T00:17:46.423Z
+Generated: 2026-07-04T08:22:15.241Z
 
-Total findings: 2654
-Auto-translatable by runtime bridge: 2654
+Total findings: 2864
+Auto-translatable by runtime bridge: 2864
 Still requiring componentization or dictionary modeling: 0
-Affected files: 167
+Affected files: 169
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
 
@@ -14,7 +14,8 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | File | Count | Samples |
 |---|---:|---|
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
-| `apps/web/src/components/layout/Sidebar.tsx` | 156 | 71:运营工作台<br>73:每日工作台<br>80:经营仪表盘<br>83:生产管理<br>85:养殖总览<br>86:鸡舍管理<br>87:鸡群档案<br>88:日生产日报 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 171 | 319:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>340:总览加载失败<br>363:账套缓存<br>364:字段目录<br>364:脱敏字段样本<br>365:映射候选<br>366:凭证草稿<br>367:镜像实体 |
+| `apps/web/src/components/layout/Sidebar.tsx` | 157 | 71:运营工作台<br>73:每日工作台<br>80:经营仪表盘<br>83:生产管理<br>85:养殖总览<br>86:鸡舍管理<br>87:鸡群档案<br>88:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
@@ -24,13 +25,15 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |
 | `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司编码<br>8:基本信息<br>9:账号 |
 | `apps/web/src/app/(admin)/settings/approval-rules/page.tsx` | 38 | 68:采购申请<br>71:采购订单<br>74:付款申请<br>77:股东资金<br>80:费用申请<br>83:报销付款<br>86:销售订单<br>89:销售退货 |
+| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 35 | 280:好业财口径<br>281:ERP回退<br>289:待同步好业财镜像<br>373:财务数字来源：<br>832:差旅<br>833:餐饮<br>834:招待<br>835:办公 |
 | `apps/web/src/app/(mobile)/mobile/home/page.tsx` | 35 | 31:每日看板<br>34:生产·包装·品质·销售<br>42:饲料台账<br>45:出入库登记·库存预警<br>53:死淘快录<br>56:各栋死淘数量快速录入<br>64:包装统计<br>67:班次产出、等级分布 |
 | `apps/web/src/app/login/page.tsx` | 35 | 16:集团管理层<br>25:🔑 系统超管<br>30:👑 集团总裁<br>35:🕵 审计专员<br>40:🖥 运维管理员<br>44:养殖品控线<br>53:🏡 养殖场长<br>58:💉 驻场兽医 |
 | `apps/web/src/app/(admin)/finance2/ar/page.tsx` | 34 | 149:未到期<br>153:逾期≤30天<br>157:逾期31-60<br>161:逾期61-90<br>165:逾期>90天<br>174:手工<br>178:销售订单<br>182:合同 |
+| `apps/web/src/app/(admin)/finance2/page.tsx` | 34 | 151:来源待确认<br>152:好业财应收汇总<br>153:好业财应付汇总<br>154:好业财资金账户<br>155:好业财收款镜像<br>156:好业财付款镜像<br>157:好业财科目余额<br>158:好业财资产负债表 |
 | `apps/web/src/app/(admin)/master-data/products/_fields.ts` | 33 | 5:产品名称<br>5:基本信息<br>6:产品名称(中文)<br>6:基本信息<br>7:产品名称(老挝语)<br>7:基本信息<br>8:品类<br>8:基本信息 |
 | `apps/web/src/app/(admin)/master-data/organizations/page.tsx` | 32 | 97:集团<br>98:事业群<br>99:公司<br>100:场区<br>101:工厂<br>102:项目<br>103:仓库<br>104:门店 |
-| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 31 | 793:差旅<br>794:餐饮<br>795:招待<br>796:办公<br>797:物料<br>798:交通<br>799:其他<br>802:草稿 |
 | `apps/web/src/app/(admin)/master-data/suppliers/_fields.ts` | 31 | 5:供应商名称<br>5:基本信息<br>6:英文名称<br>6:基本信息<br>7:供应商类型<br>7:基本信息<br>9:本地<br>9:海外 |
+| `apps/web/src/app/(admin)/system/alerts/page.tsx` | 31 | 55:API 500 / PG 错误<br>56:定时任务失败<br>56:Cron 失败写入 CRON_FAILURE 告警<br>57:IoT 同步异常<br>58:数据质量风险<br>184:手动处理<br>236:未处理系统告警<br>243:严重告警 |
 | `apps/web/src/app/(admin)/workflow/builder/page.tsx` | 31 | 24:财务会计<br>27:财务负责人<br>30:采购员<br>33:仓储负责人<br>36:品控负责人<br>43:负责人审批<br>49:申请金额<br>54:申请原因 |
 | `apps/web/src/hooks/usePackagingDicts.ts` | 31 | 14:1号蛋<br>15:2号蛋<br>16:3号蛋<br>17:4号蛋<br>18:5号蛋<br>22:脏蛋<br>23:裂缝蛋<br>24:破蛋 |
 | `apps/web/src/app/(admin)/daily-work/page.tsx` | 30 | 43:生产日报录入<br>43:存栏 / 死亡 / 淘汰 / 产蛋 / 产蛋率<br>45:鸡群档案<br>47:死淘快速登记<br>47:紧急死亡 / 淘汰登记 · 含原因<br>49:饲料消耗登记<br>51:兽药使用记录<br>51:日常用药 / 治疗记录 |
@@ -45,7 +48,6 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/components/workflow/WorkflowDataView.tsx` | 25 | 63:数据源匹配中或暂无名称<br>76:金额<br>77:费用类型<br>78:门店<br>79:申请原因<br>80:物料/商品<br>81:数量<br>82:预算金额 |
 | `apps/web/src/app/(admin)/master-data/customers/_fields.ts` | 24 | 5:客户名称<br>5:基本信息<br>6:客户类型<br>6:基本信息<br>7:所属公司<br>7:基本信息<br>8:联系人<br>8:联系方式 |
 | `apps/web/src/app/(admin)/shareholders/capital/import/page.tsx` | 24 | 93:项目<br>93:项目名称<br>94:股东<br>94:股东姓名<br>95:金额<br>95:出资金额<br>96:日期<br>96:出资日期 |
-| `apps/web/src/app/(admin)/system/alerts/page.tsx` | 24 | 54:API 500 / PG 错误<br>55:定时任务失败<br>55:Cron 失败写入 CRON_FAILURE 告警<br>56:IoT 同步异常<br>57:数据质量风险<br>175:手动处理<br>224:未处理系统告警<br>231:严重告警 |
 | `apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx` | 24 | 131:待分配<br>139:暂无待处理节点<br>140:无待处理人<br>141:流程当前无需人工处理<br>143:从发起到当前的运行时长<br>149:等待审批处理<br>150:等待系统流转<br>151:流程已完成 |
 | `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 22:草稿<br>26:审批中<br>30:已批准<br>34:生效中<br>38:已失效<br>42:已取消<br>49:0号蛋<br>50:1号蛋 |
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
@@ -61,5 +63,3 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/sales2/returns/page.tsx` | 18 | 94:草稿<br>98:已提交<br>102:待审批<br>106:质检中<br>110:回库中<br>114:已完成<br>118:已拒绝<br>122:已取消 |
 | `apps/web/src/app/(admin)/procurement2/suppliers/page.tsx` | 17 | 52:集团共享<br>58:公司专用<br>64:项目专用<br>72:老挝 LA<br>75:中国 CN<br>78:泰国 TH<br>81:越南 VN<br>84:美国 US |
 | `apps/web/src/app/(admin)/sales2/delivery/page.tsx` | 17 | 49:待装车<br>55:装车中<br>61:已装车<br>67:已发车<br>73:已到达<br>79:部分签收<br>85:已完成<br>91:已取消 |
-| `apps/web/src/app/(admin)/sales2/orders/page.tsx` | 17 | 47:草稿<br>52:审批中<br>57:已批准<br>62:已分配<br>67:已拣货<br>72:已装车<br>77:已发货<br>82:已送达 |
-| `apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx` | 17 | 30:申请金额<br>35:申请事由<br>41:门店<br>47:文本<br>48:多行文本<br>49:数字<br>50:金额<br>51:日期 |
