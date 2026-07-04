@@ -290,6 +290,9 @@ interface AlignmentMetric {
   covered: boolean;
   authorityEligible?: boolean;
   authorityReason?: string;
+  readModelStatus?: string | null;
+  readModelReason?: string | null;
+  readyForCardAuthority?: boolean | null;
   rows?: number;
   latestPeriod: string | null;
   note?: string;
@@ -318,6 +321,12 @@ function statusLabel(status?: string) {
   if (status === 'MISMATCH') return '需对账';
   if (status === 'NEEDS_MAPPING') return '待字段锁定';
   if (status === 'ERP_FALLBACK') return 'ERP回退';
+  if (status === 'AUTHORITY_READY') return '权威可用';
+  if (status === 'READONLY_READY') return '只读就绪';
+  if (status === 'BLOCKED_MAPPING') return '映射阻断';
+  if (status === 'WAITING_SAMPLE') return '待同步样本';
+  if (status === 'NEED_MANUAL_REVIEW') return '待人工确认';
+  if (status === 'HOLD') return '暂停';
   return status || '未确认';
 }
 
@@ -326,6 +335,10 @@ function statusStyle(status?: string): CSSProperties {
   if (status === 'WARN') return { background: '#fff7e6', color: '#9a5b00', borderColor: '#ffd591' };
   if (status === 'MISMATCH') return { background: '#fff1f0', color: '#b42318', borderColor: '#ffccc7' };
   if (status === 'NEEDS_MAPPING') return { background: '#eef4ff', color: '#1f4f99', borderColor: '#bfd3ff' };
+  if (status === 'AUTHORITY_READY') return { background: '#e8f5ee', color: '#1f7a3a', borderColor: '#bfe4cc' };
+  if (status === 'READONLY_READY') return { background: '#eef4ff', color: '#1f4f99', borderColor: '#bfd3ff' };
+  if (status === 'BLOCKED_MAPPING' || status === 'WAITING_SAMPLE' || status === 'NEED_MANUAL_REVIEW') return { background: '#fff7e6', color: '#9a5b00', borderColor: '#ffd591' };
+  if (status === 'HOLD') return { background: '#fff1f0', color: '#b42318', borderColor: '#ffccc7' };
   return { background: '#f2f4f7', color: '#475467', borderColor: '#d0d5dd' };
 }
 
@@ -346,9 +359,9 @@ function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
     <div style={{ ...tableContainer, padding: 14, marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>好业财财务口径对齐</div>
+          <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>好业财财务卡片权威接线</div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-            覆盖率 {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}% · ERP 明细保留为辅助对账，不静默覆盖。
+            镜像覆盖率 {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}% · 只有 AUTHORITY_READY 可作为主卡片；ERP 明细保留为辅助对账，不静默覆盖。
           </div>
         </div>
         <span style={{ ...inlineBadge, ...statusStyle(items.some((item) => item.metric.status === 'MISMATCH') ? 'MISMATCH' : items.some((item) => item.metric.status === 'NEEDS_MAPPING') ? 'NEEDS_MAPPING' : 'OK') }}>
@@ -363,10 +376,13 @@ function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
               <span style={{ ...inlineBadge, ...statusStyle(metric.status) }}>{statusLabel(metric.status)}</span>
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-              <div>显示来源：{sourceLabel(metric.source)}</div>
+              <div>主值来源：{sourceLabel(metric.source)}</div>
+              <div>权威接线：{metric.authorityEligible ? '已接入好业财主值' : '未接入，保留 ERP 主值'}</div>
+              <div>Read Model：{statusLabel(metric.readModelStatus || metric.status)}</div>
               <div>好业财：{metric.chanjetValue == null ? '未覆盖' : fmtMoney(metric.chanjetValue)}</div>
               <div>ERP 辅助：{fmtMoney(metric.erpValue)}</div>
               <div>差异：{metric.covered ? fmtMoney(metric.diff) : '—'}</div>
+              {metric.readyForCardAuthority === false && <div style={{ color: '#9a5b00' }}>收付款日期/状态/方向未允许进入主卡片。</div>}
               {metric.authorityReason && <div style={{ color: metric.authorityEligible === false ? '#1f4f99' : 'var(--text-secondary)' }}>{metric.authorityReason}</div>}
             </div>
           </div>
@@ -462,7 +478,7 @@ function OverviewTab() {
 
       <div style={{ ...inlineAlert('info'), marginBottom: 16 }}>
         <strong>财务数字来源：</strong>
-        应收/应付/现金等已证明字段优先采用好业财只读镜像；收付款日口径未锁定前保留 ERP 今日流水。当前好业财覆盖率：
+        只有达到 AUTHORITY_READY 的好业财 read model 才能进入主卡片；其余镜像只作为只读对账证据。收付款日口径未锁定前保留 ERP 今日流水。当前好业财镜像覆盖率：
         {Math.round((data.chanjetAlignment?.coverageRate ?? 0) * 100)}%。
       </div>
 

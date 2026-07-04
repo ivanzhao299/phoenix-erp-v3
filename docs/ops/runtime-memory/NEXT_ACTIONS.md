@@ -435,3 +435,24 @@ Next actions:
    - Keep ERP auxiliary values and differences visible.
 2. Finance confirms receipt/payment business date, posting date, approval/void status, and direction semantics.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until card authority wiring and review are complete.
+
+## 2026-07-04 — Chanjet P3 Finance Card Authority Wiring Implemented
+
+Current stage: `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- New readonly API: `GET /api/chanjet/integration/finance-card-authority`.
+- `/api/v2/finance/reports/overview` now uses Chanjet as a primary card value only when the matching read model metric is `AUTHORITY_READY`.
+- `/finance2/reports` now shows card authority wiring, read model status, Chanjet value, ERP auxiliary value, and visible difference.
+- Today receipt/payment remain blocked from Chanjet primary authority until finance confirms business date / posting date / approval status / void status / direction semantics.
+
+Next actions:
+
+1. `CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA`
+   - Smoke the finance report UI and verify each card clearly shows source, status, Chanjet value, ERP auxiliary value, and difference.
+2. `CHANJET_P3_RECEIPT_PAYMENT_FINANCE_CONFIRMATION`
+   - Finance confirms the date/status/direction rules for receipt/payment before today cards can switch authority.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked.

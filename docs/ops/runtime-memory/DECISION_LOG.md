@@ -1281,3 +1281,31 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK`
+
+## 2026-07-04 — Chanjet P3 finance card authority wiring implemented
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-card-authority`.
+- Finance report overview now requires `AUTHORITY_READY` before a Chanjet read model value can become a primary finance card value.
+- `/finance2/reports` now displays card authority state, read model state, Chanjet readonly value, ERP auxiliary value, and difference.
+
+Key decision:
+
+- Raw mirror coverage and `READONLY_READY` are not enough to drive primary cards.
+- Today receipt/payment remain ERP-primary until finance confirms date/status/direction semantics.
+- ERP business facts remain visible and are not overwritten.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA`

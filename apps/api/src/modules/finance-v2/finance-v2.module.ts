@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ChanjetModule } from '../chanjet/chanjet.module';
 import { FinanceV2Controller }  from './controllers/finance-v2.controller';
 import { FinApController }      from './controllers/fin-ap.controller';
 import { FinArController }      from './controllers/fin-ar.controller';
@@ -80,6 +81,7 @@ import {
  */
 @Module({
   imports: [
+    ChanjetModule,
     TypeOrmModule.forFeature([
       FinApInvoiceEntity,
       FinArInvoiceEntity,

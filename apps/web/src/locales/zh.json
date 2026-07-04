@@ -13146,5 +13146,17 @@
   "auto.literal.6a4670fc5937": "缺失:",
   "auto.literal.d6ad8ac46f6a": "必需:",
   "auto.literal.57ec6d6998df": "暂无字段候选",
-  "auto.literal.fb89dc85de96": "暂无收付款语义锁数据。"
+  "auto.literal.fb89dc85de96": "暂无收付款语义锁数据。",
+  "auto.literal.bd8e9febf63d": "权威可用",
+  "auto.literal.690d2c0ec023": "只读就绪",
+  "auto.literal.b52115e81613": "映射阻断",
+  "auto.literal.5f514d1c5976": "待同步样本",
+  "auto.literal.76923ce76370": "待人工确认",
+  "auto.literal.130448bce675": "暂停",
+  "auto.literal.bf35b186a5a9": "好业财财务卡片权威接线",
+  "auto.literal.a4cd857d0ae9": "镜像覆盖率",
+  "auto.literal.9eb1d32fd7bd": "主值来源：",
+  "auto.literal.05a101857579": "权威接线：",
+  "auto.literal.392fab6f6665": "已接入好业财主值",
+  "auto.literal.48e02dc71220": "未接入，保留 ERP 主值"
 }

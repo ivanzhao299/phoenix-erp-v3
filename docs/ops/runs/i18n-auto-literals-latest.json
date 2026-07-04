@@ -1,148 +1,94 @@
 {
-  "generated_at": "2026-07-04T12:20:42.628Z",
+  "generated_at": "2026-07-04T12:38:40.172Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1888,
-  "created_keys": 21,
-  "updated_keys": 1867,
+  "unique_hardcoded_literals": 1898,
+  "created_keys": 12,
+  "updated_keys": 1886,
   "locale_counts_before": {
-    "zh": 13127,
-    "en": 13127,
-    "lo": 13127
-  },
-  "locale_counts_after": {
     "zh": 13148,
     "en": 13148,
     "lo": 13148
+  },
+  "locale_counts_after": {
+    "zh": 13160,
+    "en": 13160,
+    "lo": 13160
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.7e3027986fd9",
-      "text": "收付款日期状态锁",
-      "en": "Localized UI text 7e3027986fd9",
-      "lo": "Localized UI text 7e3027986fd9"
+      "key": "auto.literal.bd8e9febf63d",
+      "text": "权威可用",
+      "en": "Localized UI text bd8e9febf63d",
+      "lo": "Localized UI text bd8e9febf63d"
     },
     {
-      "key": "auto.literal.9ee5631050e2",
-      "text": "今日收款 / 今日付款语义锁",
-      "en": "Today's receipts / Today's paymentsLocalized UI text 004191d823ce",
-      "lo": "ຮັບເງິນມື້ນີ້ / ຈ່າຍເງິນມື້ນີ້Localized UI text 004191d823ce"
+      "key": "auto.literal.690d2c0ec023",
+      "text": "只读就绪",
+      "en": "Localized UI text 690d2c0ec023",
+      "lo": "Localized UI text 690d2c0ec023"
     },
     {
-      "key": "auto.literal.9bb529f0e8fb",
-      "text": "锁定对象",
-      "en": "LockLocalized UI text 539cb3b0a662",
-      "lo": "ລັອກLocalized UI text 539cb3b0a662"
+      "key": "auto.literal.b52115e81613",
+      "text": "映射阻断",
+      "en": "Localized UI text b52115e81613",
+      "lo": "Localized UI text b52115e81613"
     },
     {
-      "key": "auto.literal.c72c1c61d5b7",
-      "text": "可财务复核",
-      "en": "Localized UI text c72c1c61d5b7",
-      "lo": "Localized UI text c72c1c61d5b7"
+      "key": "auto.literal.5f514d1c5976",
+      "text": "待同步样本",
+      "en": "Pending syncLocalized UI text 610da878ac9f",
+      "lo": "ລໍຖ້າຊິ້ງຄ໌Localized UI text 610da878ac9f"
     },
     {
-      "key": "auto.literal.62c91554e4ea",
-      "text": "字段候选已完整才可复核",
-      "en": "Localized UI text 62c91554e4ea",
-      "lo": "Localized UI text 62c91554e4ea"
+      "key": "auto.literal.76923ce76370",
+      "text": "待人工确认",
+      "en": "Localized UI text 76923ce76370",
+      "lo": "Localized UI text 76923ce76370"
     },
     {
-      "key": "auto.literal.c9c777f5c69e",
-      "text": "可切主卡权威",
-      "en": "Localized UI text c9c777f5c69e",
-      "lo": "Localized UI text c9c777f5c69e"
+      "key": "auto.literal.130448bce675",
+      "text": "暂停",
+      "en": "Localized UI text 130448bce675",
+      "lo": "Localized UI text 130448bce675"
     },
     {
-      "key": "auto.literal.3385c560cfbe",
-      "text": "本 Gate 仍不自动切换",
-      "en": "Localized UI text 3385c560cfbe",
-      "lo": "Localized UI text 3385c560cfbe"
+      "key": "auto.literal.bf35b186a5a9",
+      "text": "好业财财务卡片权威接线",
+      "en": "Localized UI text bf35b186a5a9",
+      "lo": "Localized UI text bf35b186a5a9"
     },
     {
-      "key": "auto.literal.06e142902ae6",
-      "text": "缺样本 / HOLD",
-      "en": "Localized UI text 06e142902ae6",
-      "lo": "Localized UI text 06e142902ae6"
+      "key": "auto.literal.a4cd857d0ae9",
+      "text": "镜像覆盖率",
+      "en": "Localized UI text a4cd857d0ae9",
+      "lo": "Localized UI text a4cd857d0ae9"
     },
     {
-      "key": "auto.literal.ccbd1a8a3993",
-      "text": "执行边界",
-      "en": "Localized UI text ccbd1a8a3993",
-      "lo": "Localized UI text ccbd1a8a3993"
+      "key": "auto.literal.9eb1d32fd7bd",
+      "text": "主值来源：",
+      "en": "Localized UI text 9eb1d32fd7bd",
+      "lo": "Localized UI text 9eb1d32fd7bd"
     },
     {
-      "key": "auto.literal.4d67292e1bc3",
-      "text": "今日卡片切换: 否",
-      "en": "Localized UI text 4d67292e1bc3",
-      "lo": "Localized UI text 4d67292e1bc3"
+      "key": "auto.literal.05a101857579",
+      "text": "权威接线：",
+      "en": "Localized UI text 05a101857579",
+      "lo": "Localized UI text 05a101857579"
     },
     {
-      "key": "auto.literal.40924f1e6f4e",
-      "text": "维度锁定",
-      "en": "DimensionLock",
-      "lo": "ມິຕິລັອກ"
+      "key": "auto.literal.392fab6f6665",
+      "text": "已接入好业财主值",
+      "en": "Localized UI text 392fab6f6665",
+      "lo": "Localized UI text 392fab6f6665"
     },
     {
-      "key": "auto.literal.bfecac1184cb",
-      "text": "字段候选 / 下一步",
-      "en": "Localized UI text bfecac1184cb",
-      "lo": "Localized UI text bfecac1184cb"
-    },
-    {
-      "key": "auto.literal.ed64e152a1c8",
-      "text": "等待字段补齐",
-      "en": "Localized UI text ed64e152a1c8",
-      "lo": "Localized UI text ed64e152a1c8"
-    },
-    {
-      "key": "auto.literal.3d89e5052902",
-      "text": "可切权威",
-      "en": "Localized UI text 3d89e5052902",
-      "lo": "Localized UI text 3d89e5052902"
-    },
-    {
-      "key": "auto.literal.c657b678559d",
-      "text": "禁止切权威",
-      "en": "Localized UI text c657b678559d",
-      "lo": "Localized UI text c657b678559d"
-    },
-    {
-      "key": "auto.literal.bea85bf48222",
-      "text": "最近拉取:",
-      "en": "Localized UI text bea85bf48222",
-      "lo": "Localized UI text bea85bf48222"
-    },
-    {
-      "key": "auto.literal.0bf2382cbf39",
-      "text": "已锁:",
-      "en": "Localized UI text 0bf2382cbf39",
-      "lo": "Localized UI text 0bf2382cbf39"
-    },
-    {
-      "key": "auto.literal.6a4670fc5937",
-      "text": "缺失:",
-      "en": "Missing:",
-      "lo": "ຂາດ:"
-    },
-    {
-      "key": "auto.literal.d6ad8ac46f6a",
-      "text": "必需:",
-      "en": "Localized UI text d6ad8ac46f6a",
-      "lo": "Localized UI text d6ad8ac46f6a"
-    },
-    {
-      "key": "auto.literal.57ec6d6998df",
-      "text": "暂无字段候选",
-      "en": "Localized UI text 57ec6d6998df",
-      "lo": "Localized UI text 57ec6d6998df"
-    },
-    {
-      "key": "auto.literal.fb89dc85de96",
-      "text": "暂无收付款语义锁数据。",
-      "en": "Localized UI text fb89dc85de96",
-      "lo": "Localized UI text fb89dc85de96"
+      "key": "auto.literal.48e02dc71220",
+      "text": "未接入，保留 ERP 主值",
+      "en": "Localized UI text 48e02dc71220",
+      "lo": "Localized UI text 48e02dc71220"
     }
   ]
 }

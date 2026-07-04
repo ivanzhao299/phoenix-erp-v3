@@ -747,6 +747,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-card-authority
+   * 财务首页卡片权威接线状态。只读本地中间层，不写好业财、不覆盖 ERP 事实表。
+   */
+  @Get('integration/finance-card-authority')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCardAuthority() {
+    try {
+      const financeCardAuthority = await this.integration.financeCardAuthorityOverview();
+      return { success: true, financeCardAuthority };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

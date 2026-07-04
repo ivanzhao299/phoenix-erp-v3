@@ -1569,6 +1569,101 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeCardAuthorityOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalCards: number;
+      authorityReady: number;
+      readonlyReady: number;
+      blocked: number;
+      hold: number;
+      nextGate: string;
+    };
+    cards: Array<{
+      cardKey: string;
+      label: string;
+      readModelKey: string;
+      status: string;
+      authorityEnabled: boolean;
+      displayValue: number | null;
+      erpAuxiliaryValue: number | null;
+      diff: number | null;
+      sourceEntityTypes: string[];
+      latestPulledAt: string | null;
+      receiptPaymentLockStatus?: string | null;
+      readyForCardAuthority?: boolean | null;
+      reason: string;
+      nextAction: string;
+    }>;
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const [readModel, receiptPaymentLocks] = await Promise.all([
+      this.financeReadModelOverview(),
+      this.financeReceiptPaymentDateStatusLockOverview(),
+    ]);
+    const metricByKey = new Map(readModel.metrics.map((metric) => [metric.key, metric]));
+    const lockByKey = new Map(receiptPaymentLocks.locks.map((lock) => [lock.key, lock]));
+    const definitions = [
+      { cardKey: 'arOpen', label: '应收待收款', readModelKey: 'AR_OPEN' },
+      { cardKey: 'apOpen', label: '应付待付款', readModelKey: 'AP_OPEN' },
+      { cardKey: 'cashBalance', label: '现金账户余额', readModelKey: 'CASH_BALANCE' },
+      { cardKey: 'todayInflow', label: '今日收款', readModelKey: 'TODAY_RECEIPT', lockKey: 'TODAY_RECEIPT' },
+      { cardKey: 'todayOutflow', label: '今日付款', readModelKey: 'TODAY_PAYMENT', lockKey: 'TODAY_PAYMENT' },
+      { cardKey: 'subjectBalance', label: '科目余额', readModelKey: 'SUBJECT_BALANCE' },
+      { cardKey: 'balanceSheet', label: '资产负债表关键项', readModelKey: 'BALANCE_SHEET' },
+      { cardKey: 'incomeStatement', label: '利润表关键项', readModelKey: 'INCOME_STATEMENT' },
+    ];
+    const cards = definitions.map((definition) => {
+      const metric = metricByKey.get(definition.readModelKey);
+      const lock = definition.lockKey ? lockByKey.get(definition.lockKey as 'TODAY_RECEIPT' | 'TODAY_PAYMENT') : null;
+      const authorityEnabled = Boolean(metric?.status === 'AUTHORITY_READY' && (!lock || lock.readyForCardAuthority));
+      return {
+        cardKey: definition.cardKey,
+        label: definition.label,
+        readModelKey: definition.readModelKey,
+        status: metric?.status || 'WAITING_SAMPLE',
+        authorityEnabled,
+        displayValue: authorityEnabled ? metric?.displayValue ?? null : null,
+        erpAuxiliaryValue: metric?.erpAuxiliaryValue ?? null,
+        diff: authorityEnabled ? metric?.diff ?? null : null,
+        sourceEntityTypes: metric?.sourceEntityTypes || [],
+        latestPulledAt: metric?.latestPulledAt || null,
+        receiptPaymentLockStatus: lock?.status || null,
+        readyForCardAuthority: lock?.readyForCardAuthority ?? null,
+        reason: authorityEnabled
+          ? '已达到 AUTHORITY_READY，可接入主卡片，并保留 ERP 辅助差异。'
+          : lock?.reason || metric?.reason || '尚未达到 AUTHORITY_READY，主卡片必须保留 ERP 值。',
+        nextAction: authorityEnabled
+          ? '在财务卡片标明好业财权威口径，并展示 ERP 辅助差异。'
+          : lock?.nextAction || metric?.nextAction || '补齐好业财只读样本、语义锁或财务确认。',
+      };
+    });
+    const hold = cards.filter((card) => card.status === 'HOLD').length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : cards.some((card) => !card.authorityEnabled) ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalCards: cards.length,
+        authorityReady: cards.filter((card) => card.authorityEnabled).length,
+        readonlyReady: cards.filter((card) => card.status === 'READONLY_READY').length,
+        blocked: cards.filter((card) => !card.authorityEnabled && card.status !== 'READONLY_READY').length,
+        hold,
+        nextGate: 'CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA',
+      },
+      cards,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '财务卡片只接受 AUTHORITY_READY 的好业财 read model。未锁定的好业财数据只能作为只读对账证据，不能替换 ERP 主值。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),

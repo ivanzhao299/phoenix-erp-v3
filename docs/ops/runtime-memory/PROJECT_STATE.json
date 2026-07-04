@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING",
+  "next_gate": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -164,7 +164,13 @@
     "receipt_payment_lock_ui": "/finance2/chanjet-integration",
     "receipt_payment_lock_status": "implemented_runtime_readonly",
     "receipt_payment_lock_next_gate": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING",
-    "today_receipt_payment_card_authority": "blocked_until_finance_confirms_date_status_direction_lock"
+    "today_receipt_payment_card_authority": "still_blocked_until_finance_confirms_date_status_direction_lock",
+    "finance_card_authority_api": "/api/chanjet/integration/finance-card-authority",
+    "finance_card_authority_ui": "/finance2/reports",
+    "finance_card_authority_rule": "only_AUTHORITY_READY_read_model_metrics_can_feed_primary_cards",
+    "finance_card_authority_status": "implemented_runtime_readonly",
+    "finance_card_authority_next_gate": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA",
+    "finance_card_primary_values": "chanjet_only_when_AUTHORITY_READY_else_erp_with_visible_chanjet_evidence"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

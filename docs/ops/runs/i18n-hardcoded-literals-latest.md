@@ -1,9 +1,9 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-04T12:20:43.241Z
+Generated: 2026-07-04T12:38:40.752Z
 
-Total findings: 3008
-Auto-translatable by runtime bridge: 3008
+Total findings: 3017
+Auto-translatable by runtime bridge: 3017
 Still requiring componentization or dictionary modeling: 0
 Affected files: 170
 
@@ -20,7 +20,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
 | `apps/web/src/app/(admin)/traceability/page.tsx` | 73 | 19:库存批次<br>24:包装批次<br>29:标签码<br>30:标签号 label_no<br>34:销售单<br>35:SO / 订单号<br>39:客户<br>40:客户编码 |
-| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 60 | 300:好业财口径<br>301:ERP回退<br>310:待同步好业财镜像<br>316:已对齐<br>317:小差异<br>318:需对账<br>319:待字段锁定<br>320:ERP回退 |
+| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 69 | 303:好业财口径<br>304:ERP回退<br>313:待同步好业财镜像<br>319:已对齐<br>320:小差异<br>321:需对账<br>322:待字段锁定<br>323:ERP回退 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 56:蛋鸡养殖场<br>56:肉鸡养殖场<br>56:屠宰加工厂<br>57:食品厂<br>57:有机肥生产厂<br>57:孵化场<br>58:饲料厂<br>58:其他 |
 | `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |

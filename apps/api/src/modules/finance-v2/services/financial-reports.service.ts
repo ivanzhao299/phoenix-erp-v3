@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource }   from '@nestjs/typeorm';
 import { DataSource }         from 'typeorm';
+import { ChanjetIntegrationService } from '../../chanjet/chanjet-integration.service';
 
 /**
  * FinancialReportsService — Finance V2 Phase 6 Financial Reports Runtime
@@ -22,6 +23,7 @@ export class FinancialReportsService {
   constructor(
     @InjectDataSource()
     private readonly ds: DataSource,
+    private readonly chanjetIntegration: ChanjetIntegrationService,
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
@@ -175,9 +177,19 @@ export class FinancialReportsService {
     chanjet: { available: boolean; value: number; rows: number; latestPeriod: string | null },
     erpValue: number,
     note: string,
-    options: { authorityEligible?: boolean; authorityReason?: string } = {},
+    options: {
+      authorityEligible?: boolean;
+      authorityReason?: string;
+      readModelMetric?: any;
+      receiptPaymentLock?: any;
+      requireReceiptPaymentLock?: boolean;
+    } = {},
   ) {
-    const authorityEligible = options.authorityEligible ?? true;
+    const readModelMetric = options.readModelMetric;
+    const receiptPaymentLock = options.receiptPaymentLock;
+    const readModelAuthorityReady = readModelMetric?.status === 'AUTHORITY_READY' && readModelMetric?.authorityEligible === true;
+    const receiptPaymentReady = !options.requireReceiptPaymentLock || receiptPaymentLock?.readyForCardAuthority === true;
+    const authorityEligible = options.authorityEligible ?? (readModelAuthorityReady && receiptPaymentReady);
     const authoritativeValue = chanjet.available && authorityEligible ? chanjet.value : erpValue;
     const chanjetValue = chanjet.available ? chanjet.value : null;
     const diff = chanjet.available ? chanjet.value - erpValue : 0;
@@ -187,7 +199,7 @@ export class FinancialReportsService {
     const status = !chanjet.available
       ? 'ERP_FALLBACK'
       : !authorityEligible
-        ? 'NEEDS_MAPPING'
+        ? (readModelMetric?.status || 'NEEDS_MAPPING')
         : diffAbs < 0.01
           ? 'OK'
           : diffRate <= 0.01
@@ -205,11 +217,35 @@ export class FinancialReportsService {
       status,
       covered: chanjet.available,
       authorityEligible,
-      authorityReason: options.authorityReason ?? (authorityEligible ? '好业财字段口径已允许作为该指标权威显示。' : '好业财镜像已覆盖，但字段口径尚未允许覆盖该指标。'),
+      readModelStatus: readModelMetric?.status || null,
+      readModelReason: readModelMetric?.reason || null,
+      readyForCardAuthority: receiptPaymentLock?.readyForCardAuthority ?? null,
+      authorityReason: options.authorityReason ?? (authorityEligible
+        ? '好业财 read model 已达到 AUTHORITY_READY，可作为该财务卡片主值。'
+        : readModelMetric?.reason || receiptPaymentLock?.reason || '好业财镜像已覆盖，但尚未达到 AUTHORITY_READY，不得覆盖 ERP 主卡片。'),
       rows: chanjet.rows,
       latestPeriod: chanjet.latestPeriod,
       note,
     };
+  }
+
+  private async getChanjetReadModelContext() {
+    try {
+      const [readModel, receiptPaymentLocks] = await Promise.all([
+        this.chanjetIntegration.financeReadModelOverview(),
+        this.chanjetIntegration.financeReceiptPaymentDateStatusLockOverview(),
+      ]);
+      return {
+        readModelByKey: new Map((readModel.metrics || []).map((metric: any) => [metric.key, metric])),
+        receiptPaymentLockByKey: new Map((receiptPaymentLocks.locks || []).map((lock: any) => [lock.key, lock])),
+      };
+    } catch (error) {
+      this.logger.warn(`Chanjet read model context unavailable: ${(error as Error).message}`);
+      return {
+        readModelByKey: new Map<string, any>(),
+        receiptPaymentLockByKey: new Map<string, any>(),
+      };
+    }
   }
 
   private async getChanjetFinanceAuthority(user: any, erp: {
@@ -220,7 +256,7 @@ export class FinancialReportsService {
     todayOutflow: number;
   }) {
     const { all, codes } = this.scope(user);
-    const [ar, ap, cash, glBalance, arReceipt, apPayment, balanceSheet, incomeStatement] = await Promise.all([
+    const [ar, ap, cash, glBalance, arReceipt, apPayment, balanceSheet, incomeStatement, readContext] = await Promise.all([
       this.getChanjetArOpen(all, codes),
       this.getChanjetApOpen(all, codes),
       this.getChanjetEntityAggregate(all, codes, 'CASH_ACCOUNT'),
@@ -229,19 +265,30 @@ export class FinancialReportsService {
       this.getChanjetEntityAggregate(all, codes, 'AP_PAYMENT'),
       this.getChanjetEntityAggregate(all, codes, 'BALANCE_SHEET'),
       this.getChanjetEntityAggregate(all, codes, 'INCOME_STATEMENT'),
+      this.getChanjetReadModelContext(),
     ]);
+    const readMetric = (key: string) => readContext.readModelByKey.get(key);
+    const paymentLock = (key: string) => readContext.receiptPaymentLockByKey.get(key);
     const metrics = {
-      arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总优先；ERP 应收发票/总账作为辅助明细。'),
-      apOpen: this.metricFromChanjet('CHANJET_AP_STATISTICS_MIRROR', ap, erp.apOpen, '好业财应付汇总优先；ERP 应付发票作为辅助明细。'),
-      cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户镜像优先；ERP 现金账户余额作为辅助差异。'),
+      arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应收发票/总账作为辅助差异。', {
+        readModelMetric: readMetric('AR_OPEN'),
+      }),
+      apOpen: this.metricFromChanjet('CHANJET_AP_STATISTICS_MIRROR', ap, erp.apOpen, '好业财应付汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应付发票作为辅助差异。', {
+        readModelMetric: readMetric('AP_OPEN'),
+      }),
+      cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户余额字段达到 AUTHORITY_READY 后才作为主卡片；ERP 现金账户余额作为辅助差异。', {
+        readModelMetric: readMetric('CASH_BALANCE'),
+      }),
       todayInflow: this.metricFromChanjet(
         'CHANJET_AR_RECEIPT_MIRROR',
         arReceipt,
         erp.todayInflow,
         '好业财收款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日收款仍以 ERP 当日现金流水为显示权威。',
         {
-          authorityEligible: false,
-          authorityReason: '好业财收款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计收款误显示为今日收款。',
+          readModelMetric: readMetric('TODAY_RECEIPT'),
+          receiptPaymentLock: paymentLock('TODAY_RECEIPT'),
+          requireReceiptPaymentLock: true,
+          authorityReason: paymentLock('TODAY_RECEIPT')?.reason || '好业财收款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计收款误显示为今日收款。',
         },
       ),
       todayOutflow: this.metricFromChanjet(
@@ -250,21 +297,31 @@ export class FinancialReportsService {
         erp.todayOutflow,
         '好业财付款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日付款仍以 ERP 当日现金流水为显示权威。',
         {
-          authorityEligible: false,
-          authorityReason: '好业财付款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计付款误显示为今日付款。',
+          readModelMetric: readMetric('TODAY_PAYMENT'),
+          receiptPaymentLock: paymentLock('TODAY_PAYMENT'),
+          requireReceiptPaymentLock: true,
+          authorityReason: paymentLock('TODAY_PAYMENT')?.reason || '好业财付款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计付款误显示为今日付款。',
         },
       ),
-      subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。'),
-      balanceSheet: this.metricFromChanjet('CHANJET_BALANCE_SHEET_MIRROR', balanceSheet, 0, '资产负债表关键项用于经营驾驶舱一致性校验。'),
-      incomeStatement: this.metricFromChanjet('CHANJET_INCOME_STATEMENT_MIRROR', incomeStatement, 0, '利润表关键项用于经营驾驶舱一致性校验。'),
+      subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。', {
+        readModelMetric: readMetric('SUBJECT_BALANCE'),
+      }),
+      balanceSheet: this.metricFromChanjet('CHANJET_BALANCE_SHEET_MIRROR', balanceSheet, 0, '资产负债表关键项用于经营驾驶舱一致性校验。', {
+        readModelMetric: readMetric('BALANCE_SHEET'),
+      }),
+      incomeStatement: this.metricFromChanjet('CHANJET_INCOME_STATEMENT_MIRROR', incomeStatement, 0, '利润表关键项用于经营驾驶舱一致性校验。', {
+        readModelMetric: readMetric('INCOME_STATEMENT'),
+      }),
     };
     const coveredCount = Object.values(metrics).filter((metric) => metric.covered).length;
+    const authorityReadyCount = Object.values(metrics).filter((metric) => metric.authorityEligible).length;
     const metricCount = Object.values(metrics).length;
     return {
-      authority: 'CHANJET_FIRST_FOR_FINANCIAL_CARDS',
+      authority: 'CHANJET_AUTHORITY_READY_ONLY_FOR_FINANCIAL_CARDS',
       coverageRate: metricCount ? coveredCount / metricCount : 0,
+      authorityReadyRate: metricCount ? authorityReadyCount / metricCount : 0,
       metrics,
-      guardrail: 'Chanjet readonly mirror overrides finance card authority when available. ERP tables remain operational detail and are not overwritten; mismatches must be shown, not silently covered.',
+      guardrail: 'Only AUTHORITY_READY Chanjet read-model metrics can feed primary finance cards. READONLY_READY/BLOCKED_MAPPING/NEED_MANUAL_REVIEW remain comparison evidence; ERP values stay visible and are never overwritten.',
     };
   }
 
