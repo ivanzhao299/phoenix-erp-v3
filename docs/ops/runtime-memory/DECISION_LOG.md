@@ -1108,3 +1108,40 @@ Boundaries:
 Next gate:
 
 - `CHANJET_P3_RECONCILIATION_CENTER`
+
+---
+
+## 2026-07-04 — Chanjet P3 reconciliation center audited
+
+Decision: `GO_WITH_CONDITIONS`
+
+What changed:
+
+- Added `GET /api/chanjet/integration/finance-reconciliation` as a readonly runtime API for ERP-vs-Chanjet financial aggregate comparison.
+- Added `scripts/ops/chanjet-reconciliation-center-audit.mjs` to generate artifact-first P3 reconciliation reports from production readonly sync evidence.
+- Generated latest P3 outputs under `docs/ops/runs/chanjet-reconciliation-center-latest.*`.
+
+Evidence:
+
+- Endpoint coverage: `100%`
+- Card coverage: `100%`
+- P0 open reconciliation items: `8`
+- `NEED_MAPPING`: `6`
+- `NEED_MANUAL_REVIEW`: `2`
+
+Key decision:
+
+- Payment list totals and statement zero amount sums are not final card values.
+- They must stay visible as `NEED_MAPPING` / `NEED_MANUAL_REVIEW` until field semantics and date/status filters are locked.
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete or modify.
+- No voucher push.
+- No ERP business-table overwrite.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P3_RECONCILIATION_CENTER_UI`

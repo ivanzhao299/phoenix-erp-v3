@@ -267,6 +267,37 @@ Next actions:
    - Optional UI follow-up for reviewing P0 mapping domains.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P2/P3 are stable and separately approved.
 
+## 2026-07-04 — Chanjet P3 Reconciliation Center Audited
+
+Current stage: `CHANJET_P3_RECONCILIATION_CENTER_AUDITED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Runtime API: `GET /api/chanjet/integration/finance-reconciliation`
+- Ops runner: `scripts/ops/chanjet-reconciliation-center-audit.mjs`
+- Report: `docs/ops/CHANJET_P3_RECONCILIATION_CENTER_AUDIT_REPORT_20260704.md`
+- Latest outputs:
+  - `docs/ops/runs/chanjet-reconciliation-center-latest.json`
+  - `docs/ops/runs/chanjet-reconciliation-center-latest.md`
+
+Results:
+
+- P0 reconciliation items open: `8`
+- `NEED_MAPPING`: `6`
+- `NEED_MANUAL_REVIEW`: `2`
+- No Chanjet write, no voucher push, no ERP business-table overwrite.
+
+Next actions:
+
+1. `CHANJET_P3_RECONCILIATION_CENTER_UI`
+   - Surface visible rows for AR/AP, cash balance, today receipt/payment, subject balance, balance sheet, and income statement.
+   - Show `OK / WARN / MISMATCH / HOLD / NEED_MAPPING / NEED_MANUAL_REVIEW` directly on the finance pages.
+2. `CHANJET_P3_FIELD_SEMANTIC_LOCK`
+   - Prioritize cash-account balance fields, GL balance opening/debit/credit/closing fields, and statement row amount fields.
+3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked until P3 reconciliation statuses are reviewed and stable.
+
 ## Do Not Auto-Start
 
 - production `push main` deployment path.

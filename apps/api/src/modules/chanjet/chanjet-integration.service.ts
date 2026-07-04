@@ -70,6 +70,29 @@ interface MasterDataAlignmentDomainDefinition {
   authorityRule: string;
 }
 
+export type FinanceReconciliationStatus = 'OK' | 'WARN' | 'MISMATCH' | 'HOLD' | 'NEED_MAPPING' | 'NEED_MANUAL_REVIEW';
+
+export interface FinanceReconciliationItem {
+  key: string;
+  label: string;
+  priority: 'P0' | 'P1';
+  chanjetEndpointKeys: string[];
+  chanjetEntityTypes: string[];
+  erpSources: string[];
+  chanjetValue: number | null;
+  erpValue: number | null;
+  diff: number | null;
+  diffRate: number | null;
+  status: FinanceReconciliationStatus;
+  evidence: {
+    chanjetRows: number;
+    latestPulledAt: string | null;
+    erpRows: number;
+  };
+  reason: string;
+  recommendedAction: string;
+}
+
 const FINANCE_ADAPTER_BUCKETS: FinanceAdapterBucketDefinition[] = [
   {
     key: 'CHANJET_VOUCHER_HEADER',
@@ -841,6 +864,230 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReconciliationOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalItems: number;
+      ok: number;
+      warn: number;
+      mismatch: number;
+      needMapping: number;
+      needManualReview: number;
+      hold: number;
+      p0Open: number;
+      nextGate: string;
+    };
+    items: FinanceReconciliationItem[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const [
+      erpAr,
+      erpAp,
+      erpCash,
+      erpTodayIn,
+      erpTodayOut,
+      chanjetAr,
+      chanjetAp,
+      chanjetCash,
+      chanjetArReceipt,
+      chanjetApPayment,
+      chanjetGlBalance,
+      chanjetBalanceSheet,
+      chanjetIncomeStatement,
+      chanjetCashFlow,
+      chanjetVoucher,
+    ] = await Promise.all([
+      this.erpFinanceAggregate(
+        `SELECT COALESCE(SUM(balance_amount_base),0) AS value, COUNT(*) AS rows
+           FROM fin_ar_invoices
+          WHERE status NOT IN ('COLLECTED','CANCELLED')`,
+      ),
+      this.erpFinanceAggregate(
+        `SELECT COALESCE(SUM(balance_amount_base),0) AS value, COUNT(*) AS rows
+           FROM fin_ap_invoices
+          WHERE status NOT IN ('PAID','CANCELLED')`,
+      ),
+      this.erpFinanceAggregate(
+        `SELECT COALESCE(SUM(current_balance),0) AS value, COUNT(*) AS rows
+           FROM fin_cash_accounts
+          WHERE status = 'ACTIVE'`,
+      ),
+      this.erpFinanceAggregate(
+        `SELECT COALESCE(SUM(amount),0) AS value, COUNT(*) AS rows
+           FROM fin_cash_transactions
+          WHERE direction = 'IN' AND DATE(created_at) = CURRENT_DATE`,
+      ),
+      this.erpFinanceAggregate(
+        `SELECT COALESCE(SUM(amount),0) AS value, COUNT(*) AS rows
+           FROM fin_cash_transactions
+          WHERE direction = 'OUT' AND DATE(created_at) = CURRENT_DATE`,
+      ),
+      this.chanjetEntityAggregate(['AR_STATISTICS']),
+      this.chanjetEntityAggregate(['AP_STATISTICS']),
+      this.chanjetEntityAggregate(['CASH_ACCOUNT']),
+      this.chanjetEntityAggregate(['AR_RECEIPT']),
+      this.chanjetEntityAggregate(['AP_PAYMENT']),
+      this.chanjetEntityAggregate(['GL_BALANCE']),
+      this.chanjetEntityAggregate(['BALANCE_SHEET']),
+      this.chanjetEntityAggregate(['INCOME_STATEMENT']),
+      this.chanjetEntityAggregate(['CASH_FLOW']),
+      this.chanjetEntityAggregate(['VOUCHER']),
+    ]);
+
+    const items: FinanceReconciliationItem[] = [
+      this.buildFinanceReconciliationItem({
+        key: 'AR_OPEN',
+        label: '应收待收',
+        priority: 'P0',
+        chanjetEndpointKeys: ['RECEIVABLE_STATISTICS'],
+        chanjetEntityTypes: ['AR_STATISTICS'],
+        erpSources: ['fin_ar_invoices.balance_amount_base'],
+        chanjet: chanjetAr,
+        erp: erpAr,
+        reason: '好业财应收统计是客户/往来单位级汇总，ERP 应收发票是业务单据明细；差异必须展示，不得写入 fin_ar_invoices。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'AP_OPEN',
+        label: '应付待付',
+        priority: 'P0',
+        chanjetEndpointKeys: ['PAYABLE_STATISTICS'],
+        chanjetEntityTypes: ['AP_STATISTICS'],
+        erpSources: ['fin_ap_invoices.balance_amount_base'],
+        chanjet: chanjetAp,
+        erp: erpAp,
+        reason: '好业财应付统计是供应商/往来单位级汇总，ERP 应付发票是业务单据明细；差异进入对账中心。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'CASH_BALANCE',
+        label: '现金 / 银行余额',
+        priority: 'P0',
+        chanjetEndpointKeys: ['FIN_ACCOUNT', 'GL_BALANCE'],
+        chanjetEntityTypes: ['CASH_ACCOUNT'],
+        erpSources: ['fin_cash_accounts.current_balance'],
+        chanjet: chanjetCash,
+        erp: erpCash,
+        reason: '资金账户余额以好业财为财务权威候选，ERP 现金账户余额作为经营辅助明细。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'TODAY_RECEIPT',
+        label: '今日收款',
+        priority: 'P0',
+        chanjetEndpointKeys: ['PAYMENT_AR'],
+        chanjetEntityTypes: ['AR_RECEIPT'],
+        erpSources: ['fin_cash_transactions.direction=IN, created_at=current_date'],
+        chanjet: chanjetArReceipt,
+        erp: erpTodayIn,
+        forceStatus: 'NEED_MANUAL_REVIEW',
+        reason: '好业财收款单镜像目前是列表/期间口径，不等同 ERP 今日现金流水；业务日、入账日、审核状态未锁定前不得直接覆盖今日收款卡片。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'TODAY_PAYMENT',
+        label: '今日付款',
+        priority: 'P0',
+        chanjetEndpointKeys: ['PAYMENT_AP'],
+        chanjetEntityTypes: ['AP_PAYMENT'],
+        erpSources: ['fin_cash_transactions.direction=OUT, created_at=current_date'],
+        chanjet: chanjetApPayment,
+        erp: erpTodayOut,
+        forceStatus: 'NEED_MANUAL_REVIEW',
+        reason: '好业财付款单镜像目前是列表/期间口径，不等同 ERP 今日现金流水；业务日、入账日、审核状态未锁定前不得直接覆盖今日付款卡片。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'SUBJECT_BALANCE',
+        label: '科目余额',
+        priority: 'P0',
+        chanjetEndpointKeys: ['GL_BALANCE'],
+        chanjetEntityTypes: ['GL_BALANCE'],
+        erpSources: ['chanjet_entity_snapshots.GL_BALANCE only'],
+        chanjet: chanjetGlBalance,
+        erp: null,
+        forceStatus: 'NEED_MAPPING',
+        reason: '科目余额表已同步，但借贷方向、期初/本期/期末字段尚未结构化为 ERP 可比口径。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'BALANCE_SHEET',
+        label: '资产负债表关键项',
+        priority: 'P0',
+        chanjetEndpointKeys: ['BALANCE_SHEET'],
+        chanjetEntityTypes: ['BALANCE_SHEET'],
+        erpSources: ['chanjet_entity_snapshots.BALANCE_SHEET only'],
+        chanjet: chanjetBalanceSheet,
+        erp: null,
+        forceStatus: 'NEED_MAPPING',
+        reason: '资产负债表已同步，但项目行、行次、期末/年初金额尚需字段语义映射。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'INCOME_STATEMENT',
+        label: '利润表关键项',
+        priority: 'P0',
+        chanjetEndpointKeys: ['INCOME_STATEMENT'],
+        chanjetEntityTypes: ['INCOME_STATEMENT'],
+        erpSources: ['chanjet_entity_snapshots.INCOME_STATEMENT only'],
+        chanjet: chanjetIncomeStatement,
+        erp: null,
+        forceStatus: 'NEED_MAPPING',
+        reason: '利润表已同步，但收入、成本、费用、利润行项目尚需字段语义映射。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'CASH_FLOW',
+        label: '现金流量表关键项',
+        priority: 'P1',
+        chanjetEndpointKeys: ['CASH_FLOW'],
+        chanjetEntityTypes: ['CASH_FLOW'],
+        erpSources: ['chanjet_entity_snapshots.CASH_FLOW only'],
+        chanjet: chanjetCashFlow,
+        erp: null,
+        forceStatus: 'NEED_MAPPING',
+        reason: '现金流量表已同步，但经营/投资/筹资现金流行项目尚需字段语义映射。',
+      }),
+      this.buildFinanceReconciliationItem({
+        key: 'VOUCHER_LIST',
+        label: '凭证列表 / 明细',
+        priority: 'P1',
+        chanjetEndpointKeys: ['VOUCHER_SEARCH'],
+        chanjetEntityTypes: ['VOUCHER'],
+        erpSources: ['chanjet_voucher_drafts only'],
+        chanjet: chanjetVoucher,
+        erp: null,
+        forceStatus: 'NEED_MANUAL_REVIEW',
+        reason: '凭证列表可只读重现，但 ERP→好业财写入仍被关闭；必须先做凭证草稿、人工审核、防重复推送和回执保存。',
+      }),
+    ];
+
+    const statusCounts = items.reduce<Record<FinanceReconciliationStatus, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {} as Record<FinanceReconciliationStatus, number>);
+    const hold = statusCounts.HOLD || 0;
+    const p0Open = items.filter((item) => item.priority === 'P0' && !['OK', 'WARN'].includes(item.status)).length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : p0Open > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalItems: items.length,
+        ok: statusCounts.OK || 0,
+        warn: statusCounts.WARN || 0,
+        mismatch: statusCounts.MISMATCH || 0,
+        needMapping: statusCounts.NEED_MAPPING || 0,
+        needManualReview: statusCounts.NEED_MANUAL_REVIEW || 0,
+        hold,
+        p0Open,
+        nextGate: 'CHANJET_P3_RECONCILIATION_CENTER_UI',
+      },
+      items,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        rule: '本接口只做只读对账。好业财有数据时作为财务权威候选；字段语义未锁定或差异未解释时必须显示 NEED_MAPPING / NEED_MANUAL_REVIEW。',
+      },
+    };
+  }
+
   async financeP0AdapterOverview() {
     const [fieldMappings, books] = await Promise.all([
       this.fieldMappingRepo.find({ take: 5000 }),
@@ -1147,6 +1394,121 @@ export class ChanjetIntegrationService {
       return '完成候选映射人工审核，APPROVED 后才能作为权威映射。';
     }
     return '可进入差异对账中心或写回前校验设计，仍不得直接写好业财。';
+  }
+
+  private async erpFinanceAggregate(sql: string): Promise<{ available: boolean; value: number; rows: number; error?: string }> {
+    try {
+      const rows = await this.ds.query(sql);
+      const row = rows[0] || {};
+      return {
+        available: true,
+        value: Number(row.value || 0),
+        rows: Number(row.rows || 0),
+      };
+    } catch (error) {
+      this.log.warn(`ERP finance aggregate unavailable: ${(error as Error).message}`);
+      return {
+        available: false,
+        value: 0,
+        rows: 0,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  private async chanjetEntityAggregate(entityTypes: string[]): Promise<{
+    available: boolean;
+    value: number;
+    rows: number;
+    latestPulledAt: string | null;
+    error?: string;
+  }> {
+    try {
+      const rows = await this.entitySnapshotRepo
+        .createQueryBuilder('s')
+        .select('COALESCE(SUM(CAST(s.amount AS numeric)),0)', 'value')
+        .addSelect('COUNT(*)', 'rows')
+        .addSelect('MAX(s.updatedAt)', 'latestPulledAt')
+        .where('s.entityType IN (:...entityTypes)', { entityTypes })
+        .getRawMany();
+      const row = rows[0] || {};
+      const count = Number(row.rows || 0);
+      return {
+        available: count > 0,
+        value: Number(row.value || 0),
+        rows: count,
+        latestPulledAt: row.latestPulledAt ? String(row.latestPulledAt) : null,
+      };
+    } catch (error) {
+      this.log.warn(`Chanjet entity aggregate unavailable for ${entityTypes.join(',')}: ${(error as Error).message}`);
+      return {
+        available: false,
+        value: 0,
+        rows: 0,
+        latestPulledAt: null,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  private buildFinanceReconciliationItem(input: {
+    key: string;
+    label: string;
+    priority: 'P0' | 'P1';
+    chanjetEndpointKeys: string[];
+    chanjetEntityTypes: string[];
+    erpSources: string[];
+    chanjet: { available: boolean; value: number; rows: number; latestPulledAt?: string | null; error?: string };
+    erp: { available: boolean; value: number; rows: number; error?: string } | null;
+    reason: string;
+    forceStatus?: FinanceReconciliationStatus;
+  }): FinanceReconciliationItem {
+    const chanjetValue = input.chanjet.available ? input.chanjet.value : null;
+    const erpValue = input.erp?.available ? input.erp.value : null;
+    const diff = chanjetValue !== null && erpValue !== null ? chanjetValue - erpValue : null;
+    const base = Math.max(Math.abs(chanjetValue ?? 0), Math.abs(erpValue ?? 0), 1);
+    const diffRate = diff === null ? null : Math.abs(diff) / base;
+    const status = input.forceStatus
+      || (!input.chanjet.available
+        ? 'NEED_MAPPING'
+        : input.erp && !input.erp.available
+          ? 'HOLD'
+          : diff === null
+            ? 'NEED_MAPPING'
+            : Math.abs(diff) < 0.01
+              ? 'OK'
+              : diffRate !== null && diffRate <= 0.01
+                ? 'WARN'
+                : 'MISMATCH');
+    return {
+      key: input.key,
+      label: input.label,
+      priority: input.priority,
+      chanjetEndpointKeys: input.chanjetEndpointKeys,
+      chanjetEntityTypes: input.chanjetEntityTypes,
+      erpSources: input.erpSources,
+      chanjetValue,
+      erpValue,
+      diff,
+      diffRate,
+      status,
+      evidence: {
+        chanjetRows: input.chanjet.rows,
+        latestPulledAt: input.chanjet.latestPulledAt || null,
+        erpRows: input.erp?.rows || 0,
+      },
+      reason: input.reason,
+      recommendedAction: this.financeReconciliationNextAction(status),
+    };
+  }
+
+  private financeReconciliationNextAction(status: FinanceReconciliationStatus): string {
+    if (status === 'OK') return '保持现有好业财权威口径，并纳入每日对账。';
+    if (status === 'WARN') return '差异较小，显示差异并进入月末复核。';
+    if (status === 'MISMATCH') return '进入差异对账中心，按公司、往来单位、科目、期间拆解差异。';
+    if (status === 'NEED_MAPPING') return '补齐字段语义映射和 ERP 对照字段，禁止静默显示为 0。';
+    if (status === 'NEED_MANUAL_REVIEW') return '需要财务确认业务日/入账日/审核状态等口径后才能成为卡片权威值。';
+    return '存在基础表或查询异常，先修复运行时证据再继续。';
   }
 
   private maxIso(left: string | null, right: string | null): string | null {

@@ -1,0 +1,229 @@
+{
+  "generatedAt": "2026-07-04T11:07:27.581Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "sourceArtifacts": {
+    "syncJsonPath": "docs/ops/runs/chanjet-readonly-mirror-sync-latest.json",
+    "masterJsonPath": "docs/ops/runs/chanjet-master-data-alignment-latest.json",
+    "syncDecision": "GO_WITH_CONDITIONS",
+    "masterDecision": "GO_WITH_CONDITIONS"
+  },
+  "summary": {
+    "endpointCoverageRate": 1,
+    "cardCoverageRate": 1,
+    "fieldCoverageRate": 1,
+    "totalItems": 8,
+    "p0Open": 8,
+    "ok": 0,
+    "warn": 0,
+    "mismatch": 0,
+    "needMapping": 6,
+    "needManualReview": 2,
+    "hold": 0,
+    "nextGate": "CHANJET_P3_RECONCILIATION_CENTER_UI"
+  },
+  "items": [
+    {
+      "key": "AR_OPEN",
+      "label": "应收待收",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "RECEIVABLE_STATISTICS"
+      ],
+      "chanjetEntityTypes": [
+        "AR_STATISTICS"
+      ],
+      "chanjetValue": -10936306.32,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 71,
+        "latestPulledAt": "2026-07-04T07:40:11.677Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "好业财应收统计已同步，但 artifact-only 审计不查询 ERP 业务表；进入运行时对账接口后再拆 ERP 差异。",
+      "recommendedAction": "用运行时 API /api/chanjet/integration/finance-reconciliation 拆解 ERP vs 好业财差异。"
+    },
+    {
+      "key": "AP_OPEN",
+      "label": "应付待付",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "PAYABLE_STATISTICS"
+      ],
+      "chanjetEntityTypes": [
+        "AP_STATISTICS"
+      ],
+      "chanjetValue": -7084274.34,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 43,
+        "latestPulledAt": "2026-07-04T07:40:10.629Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "好业财应付统计已同步，但 artifact-only 审计不查询 ERP 业务表；进入运行时对账接口后再拆 ERP 差异。",
+      "recommendedAction": "用运行时 API /api/chanjet/integration/finance-reconciliation 拆解 ERP vs 好业财差异。"
+    },
+    {
+      "key": "CASH_BALANCE",
+      "label": "现金 / 银行余额",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "FIN_ACCOUNT",
+        "GL_BALANCE"
+      ],
+      "chanjetEntityTypes": [
+        "CASH_ACCOUNT",
+        "GL_BALANCE"
+      ],
+      "chanjetValue": 0,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 47,
+        "latestPulledAt": "2026-07-03T13:05:55.027Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "资金账号镜像已同步，但余额字段尚未证明已被抽取为标准 amount；不得把 0 当真实余额。",
+      "recommendedAction": "优先解析资金账号 rawData 中余额字段，并对齐 ERP fin_cash_accounts。"
+    },
+    {
+      "key": "TODAY_RECEIPT",
+      "label": "今日收款",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "PAYMENT_AR"
+      ],
+      "chanjetEntityTypes": [
+        "AR_RECEIPT"
+      ],
+      "chanjetValue": 5763304971,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MANUAL_REVIEW",
+      "evidence": {
+        "chanjetRows": 171,
+        "latestPulledAt": "2026-07-04T10:07:58.371Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "收款单 amountSum 是列表累计金额，不等同今日收款。",
+      "recommendedAction": "锁定业务日/入账日/审核状态过滤规则后，再允许影响今日收款卡片。"
+    },
+    {
+      "key": "TODAY_PAYMENT",
+      "label": "今日付款",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "PAYMENT_AP"
+      ],
+      "chanjetEntityTypes": [
+        "AP_PAYMENT"
+      ],
+      "chanjetValue": 9003331626.45,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MANUAL_REVIEW",
+      "evidence": {
+        "chanjetRows": 109,
+        "latestPulledAt": "2026-07-04T10:07:51.593Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "付款单 amountSum 是列表累计金额，不等同今日付款。",
+      "recommendedAction": "锁定业务日/入账日/审核状态过滤规则后，再允许影响今日付款卡片。"
+    },
+    {
+      "key": "SUBJECT_BALANCE",
+      "label": "科目余额",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "GL_BALANCE"
+      ],
+      "chanjetEntityTypes": [
+        "GL_BALANCE"
+      ],
+      "chanjetValue": 0,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 3,
+        "latestPulledAt": "2026-07-04T10:08:07.427Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "科目余额表已同步，但期初、本期借贷、期末余额字段尚未拆成可比口径。",
+      "recommendedAction": "建立科目余额字段映射，按科目编码、期间、借贷方向出对账行。"
+    },
+    {
+      "key": "BALANCE_SHEET",
+      "label": "资产负债表关键项",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "BALANCE_SHEET"
+      ],
+      "chanjetEntityTypes": [
+        "BALANCE_SHEET"
+      ],
+      "chanjetValue": 0,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 3,
+        "latestPulledAt": "2026-07-04T10:08:07.921Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "资产负债表已同步，但项目行、行次、年初/期末金额尚未语义映射。",
+      "recommendedAction": "建立报表项目字段映射，禁止把 amountSum=0 当成报表为 0。"
+    },
+    {
+      "key": "INCOME_STATEMENT",
+      "label": "利润表关键项",
+      "priority": "P0",
+      "chanjetEndpointKeys": [
+        "INCOME_STATEMENT"
+      ],
+      "chanjetEntityTypes": [
+        "INCOME_STATEMENT"
+      ],
+      "chanjetValue": 0,
+      "erpValue": null,
+      "diff": null,
+      "diffRate": null,
+      "status": "NEED_MAPPING",
+      "evidence": {
+        "chanjetRows": 3,
+        "latestPulledAt": "2026-07-04T10:08:08.411Z",
+        "erpRows": null,
+        "erpEvidence": "not queried by artifact-only audit"
+      },
+      "reason": "利润表已同步，但收入、成本、费用、利润行项目尚未语义映射。",
+      "recommendedAction": "建立利润表字段映射后，才能让 ERP 经营驾驶舱显示好业财利润口径。"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "deploy": false
+  }
+}
