@@ -1,9 +1,9 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-04T09:07:43.099Z
+Generated: 2026-07-04T10:35:49.454Z
 
-Total findings: 2865
-Auto-translatable by runtime bridge: 2865
+Total findings: 2890
+Auto-translatable by runtime bridge: 2890
 Still requiring componentization or dictionary modeling: 0
 Affected files: 170
 
@@ -20,12 +20,12 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
 | `apps/web/src/app/(admin)/traceability/page.tsx` | 73 | 19:库存批次<br>24:包装批次<br>29:标签码<br>30:标签号 label_no<br>34:销售单<br>35:SO / 订单号<br>39:客户<br>40:客户编码 |
+| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 60 | 300:好业财口径<br>301:ERP回退<br>310:待同步好业财镜像<br>316:已对齐<br>317:小差异<br>318:需对账<br>319:待字段锁定<br>320:ERP回退 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 56:蛋鸡养殖场<br>56:肉鸡养殖场<br>56:屠宰加工厂<br>57:食品厂<br>57:有机肥生产厂<br>57:孵化场<br>58:饲料厂<br>58:其他 |
 | `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |
 | `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司编码<br>8:基本信息<br>9:账号 |
 | `apps/web/src/app/(admin)/settings/approval-rules/page.tsx` | 38 | 68:采购申请<br>71:采购订单<br>74:付款申请<br>77:股东资金<br>80:费用申请<br>83:报销付款<br>86:销售订单<br>89:销售退货 |
-| `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 35 | 280:好业财口径<br>281:ERP回退<br>289:待同步好业财镜像<br>373:财务数字来源：<br>832:差旅<br>833:餐饮<br>834:招待<br>835:办公 |
 | `apps/web/src/app/(mobile)/mobile/home/page.tsx` | 35 | 31:每日看板<br>34:生产·包装·品质·销售<br>42:饲料台账<br>45:出入库登记·库存预警<br>53:死淘快录<br>56:各栋死淘数量快速录入<br>64:包装统计<br>67:班次产出、等级分布 |
 | `apps/web/src/app/login/page.tsx` | 35 | 16:集团管理层<br>25:🔑 系统超管<br>30:👑 集团总裁<br>35:🕵 审计专员<br>40:🖥 运维管理员<br>44:养殖品控线<br>53:🏡 养殖场长<br>58:💉 驻场兽医 |
 | `apps/web/src/app/(admin)/finance2/ar/page.tsx` | 34 | 149:未到期<br>153:逾期≤30天<br>157:逾期31-60<br>161:逾期61-90<br>165:逾期>90天<br>174:手工<br>178:销售订单<br>182:合同 |

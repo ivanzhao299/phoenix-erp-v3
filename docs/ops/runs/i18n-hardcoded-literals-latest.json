@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-04T09:07:43.099Z",
+  "generated_at": "2026-07-04T10:35:49.454Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 2865,
-  "auto_translatable_findings": 2865,
+  "total_findings": 2890,
+  "auto_translatable_findings": 2890,
   "manual_componentization_findings": 0,
   "affected_files": 170,
   "top_files": [
@@ -441,6 +441,68 @@
       ]
     },
     {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "count": 60,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 300,
+          "kind": "string-literal",
+          "text": "好业财口径",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 301,
+          "kind": "string-literal",
+          "text": "ERP回退",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 310,
+          "kind": "string-literal",
+          "text": "待同步好业财镜像",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 316,
+          "kind": "string-literal",
+          "text": "已对齐",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 317,
+          "kind": "string-literal",
+          "text": "小差异",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 318,
+          "kind": "string-literal",
+          "text": "需对账",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 319,
+          "kind": "string-literal",
+          "text": "待字段锁定",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+          "line": 320,
+          "kind": "string-literal",
+          "text": "ERP回退",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
       "file": "apps/web/src/lib/workflow-data-catalog.ts",
       "count": 56,
       "samples": [
@@ -746,68 +808,6 @@
           "line": 89,
           "kind": "string-literal",
           "text": "销售退货",
-          "auto_translatable": true
-        }
-      ]
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "count": 35,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 280,
-          "kind": "string-literal",
-          "text": "好业财口径",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 281,
-          "kind": "string-literal",
-          "text": "ERP回退",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 289,
-          "kind": "string-literal",
-          "text": "待同步好业财镜像",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 373,
-          "kind": "jsx-text",
-          "text": "财务数字来源：",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 832,
-          "kind": "string-literal",
-          "text": "差旅",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 833,
-          "kind": "string-literal",
-          "text": "餐饮",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 834,
-          "kind": "string-literal",
-          "text": "招待",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "line": 835,
-          "kind": "string-literal",
-          "text": "办公",
           "auto_translatable": true
         }
       ]
@@ -6169,245 +6169,420 @@
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 280,
+      "line": 300,
       "kind": "string-literal",
       "text": "好业财口径",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 281,
+      "line": 301,
       "kind": "string-literal",
       "text": "ERP回退",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 289,
+      "line": 310,
       "kind": "string-literal",
       "text": "待同步好业财镜像",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 373,
+      "line": 316,
+      "kind": "string-literal",
+      "text": "已对齐",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 317,
+      "kind": "string-literal",
+      "text": "小差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 318,
+      "kind": "string-literal",
+      "text": "需对账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 319,
+      "kind": "string-literal",
+      "text": "待字段锁定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 320,
+      "kind": "string-literal",
+      "text": "ERP回退",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 321,
+      "kind": "string-literal",
+      "text": "未确认",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 336,
+      "kind": "string-literal",
+      "text": "应收待收",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 337,
+      "kind": "string-literal",
+      "text": "应付待付",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 338,
+      "kind": "string-literal",
+      "text": "现金 / 银行余额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 339,
+      "kind": "string-literal",
+      "text": "今日收款",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 340,
+      "kind": "string-literal",
+      "text": "今日付款",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 341,
+      "kind": "string-literal",
+      "text": "科目余额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 342,
+      "kind": "string-literal",
+      "text": "资产负债表",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 343,
+      "kind": "string-literal",
+      "text": "利润表",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 349,
+      "kind": "jsx-text",
+      "text": "好业财财务口径对齐",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 351,
+      "kind": "jsx-text",
+      "text": "覆盖率",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 355,
+      "kind": "string-literal",
+      "text": "存在差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 355,
+      "kind": "string-literal",
+      "text": "待字段锁定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 355,
+      "kind": "string-literal",
+      "text": "可用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 366,
+      "kind": "jsx-text",
+      "text": "显示来源：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 367,
+      "kind": "jsx-text",
+      "text": "好业财：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 367,
+      "kind": "string-literal",
+      "text": "未覆盖",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 368,
+      "kind": "jsx-text",
+      "text": "ERP 辅助：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 369,
+      "kind": "jsx-text",
+      "text": "差异：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 436,
+      "kind": "string-literal",
+      "text": "ERP 今日现金流水净额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "line": 464,
       "kind": "jsx-text",
       "text": "财务数字来源：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 832,
+      "line": 925,
       "kind": "string-literal",
       "text": "差旅",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 833,
+      "line": 926,
       "kind": "string-literal",
       "text": "餐饮",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 834,
+      "line": 927,
       "kind": "string-literal",
       "text": "招待",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 835,
+      "line": 928,
       "kind": "string-literal",
       "text": "办公",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 836,
+      "line": 929,
       "kind": "string-literal",
       "text": "物料",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 837,
+      "line": 930,
       "kind": "string-literal",
       "text": "交通",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 838,
+      "line": 931,
       "kind": "string-literal",
       "text": "其他",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 841,
+      "line": 934,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 842,
+      "line": 935,
       "kind": "string-literal",
       "text": "已提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 843,
+      "line": 936,
       "kind": "string-literal",
       "text": "审批中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 844,
+      "line": 937,
       "kind": "string-literal",
       "text": "已审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 845,
+      "line": 938,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 846,
+      "line": 939,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 847,
+      "line": 940,
       "kind": "string-literal",
       "text": "已报销",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 848,
+      "line": 941,
       "kind": "string-literal",
       "text": "待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 849,
+      "line": 942,
       "kind": "string-literal",
       "text": "已付款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1208,
+      "line": 1301,
       "kind": "string-literal",
       "text": "总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1212,
+      "line": 1305,
       "kind": "string-literal",
       "text": "应付",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1216,
+      "line": 1309,
       "kind": "string-literal",
       "text": "应收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1220,
+      "line": 1313,
       "kind": "string-literal",
       "text": "资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1224,
+      "line": 1317,
       "kind": "string-literal",
       "text": "费用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1228,
+      "line": 1321,
       "kind": "string-literal",
       "text": "股东",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1232,
+      "line": 1325,
       "kind": "string-literal",
       "text": "项目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1236,
+      "line": 1329,
       "kind": "string-literal",
       "text": "公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1255,
+      "line": 1348,
       "kind": "string-literal",
       "text": "应付账龄",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1256,
+      "line": 1349,
       "kind": "string-literal",
       "text": "应收账龄",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1257,
+      "line": 1350,
       "kind": "string-literal",
       "text": "资金日报",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1258,
+      "line": 1351,
       "kind": "string-literal",
       "text": "费用统计",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1259,
+      "line": 1352,
       "kind": "string-literal",
       "text": "股东资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1260,
+      "line": 1353,
       "kind": "string-literal",
       "text": "项目维度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-      "line": 1261,
+      "line": 1354,
       "kind": "string-literal",
       "text": "公司维度",
       "auto_translatable": true
