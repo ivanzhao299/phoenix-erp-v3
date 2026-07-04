@@ -1,71 +1,1024 @@
 {
-  "generatedAt": "2026-07-03T12:54:05.013Z",
-  "decision": "HOLD",
+  "generatedAt": "2026-07-04T10:07:42.126Z",
+  "decision": "GO_WITH_CONDITIONS",
   "plan": {
     "requestedScope": [],
     "bookId": "",
     "period": "",
     "apiBase": "https://erp.eggslao.com",
-    "tokenPresent": false,
+    "remoteApiOnly": true,
+    "timeouts": {
+      "healthTimeoutMs": 30000,
+      "coverageTimeoutMs": 120000,
+      "syncTimeoutMs": 300000
+    },
+    "tokenPresent": true,
     "chanjetEnv": {
-      "CHANJET_APP_KEY": false,
-      "CHANJET_APP_SECRET": false,
-      "CHANJET_CERT": false,
+      "CHANJET_APP_KEY": true,
+      "CHANJET_APP_SECRET": true,
+      "CHANJET_CERT": true,
       "CHANJET_ACCESS_TOKEN": false,
-      "CHANJET_ORG_ID": false,
+      "CHANJET_ORG_ID": true,
       "CHANJET_ORG_IDS": false,
-      "CHANJET_MSG_SECRET": false
+      "CHANJET_MSG_SECRET": true
     },
     "db": {
       "host": "127.0.0.1",
       "port": "5432",
       "user": "mac",
       "name": "phoenix_erp",
-      "passwordPresent": false
+      "passwordPresent": true
     }
   },
   "prechecks": {
     "dbReachable": {
       "status": "PASS",
-      "identity": "phoenix_erp|mac"
+      "identity": "remote-api-only"
     },
     "mirrorTables": {
       "status": "PASS",
       "presentTables": [
-        "chanjet_read_snapshots",
-        "chanjet_entity_snapshots",
-        "chanjet_erp_field_mapping"
-      ]
+        "remote-api-protected-endpoint"
+      ],
+      "checkedBy": "remote protected API"
     },
     "apiHealth": {
       "status": "PASS",
       "httpStatus": 200
     },
     "authToken": {
-      "status": "HOLD"
+      "status": "PASS"
     },
     "chanjetEnv": {
-      "status": "HOLD",
+      "status": "PASS",
       "envPresence": {
-        "CHANJET_APP_KEY": false,
-        "CHANJET_APP_SECRET": false,
-        "CHANJET_CERT": false,
+        "CHANJET_APP_KEY": true,
+        "CHANJET_APP_SECRET": true,
+        "CHANJET_CERT": true,
         "CHANJET_ACCESS_TOKEN": false,
-        "CHANJET_ORG_ID": false,
+        "CHANJET_ORG_ID": true,
         "CHANJET_ORG_IDS": false,
-        "CHANJET_MSG_SECRET": false
+        "CHANJET_MSG_SECRET": true
       }
+    },
+    "financeCoverage": {
+      "status": "PASS",
+      "httpStatus": 200
     }
   },
-  "blockers": [
-    "No PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN provided for protected mirror API.",
-    "Chanjet configuration/token chain is not visible to this runner."
-  ],
-  "execution": {
-    "executed": false,
+  "blockers": [],
+  "coverage": {
+    "generatedAt": "2026-07-04T10:08:11.114Z",
+    "writeChanjet": false,
+    "writeBusinessTables": false,
+    "pushVoucher": false,
+    "accountBooks": [],
+    "fullReadonlyScope": [
+      {
+        "key": "ACCOUNT_BOOKS",
+        "label": "账套列表",
+        "entityType": "ACCOUNT_BOOK",
+        "apiDomain": "account-book"
+      },
+      {
+        "key": "DEPARTMENT",
+        "label": "部门列表",
+        "entityType": "DEPARTMENT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "CUSTOMER_SUPPLIER",
+        "label": "往来单位",
+        "entityType": "CUSTOMER_SUPPLIER",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "SUBJECT",
+        "label": "科目列表",
+        "entityType": "SUBJECT",
+        "apiDomain": "accounting"
+      },
+      {
+        "key": "PROJECT",
+        "label": "项目列表",
+        "entityType": "PROJECT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "FIN_ACCOUNT",
+        "label": "资金账号",
+        "entityType": "CASH_ACCOUNT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "PAYABLE_STATISTICS",
+        "label": "应付统计",
+        "entityType": "AP_STATISTICS",
+        "apiDomain": "ap"
+      },
+      {
+        "key": "RECEIVABLE_STATISTICS",
+        "label": "应收统计",
+        "entityType": "AR_STATISTICS",
+        "apiDomain": "ar"
+      },
+      {
+        "key": "PAYMENT_AP",
+        "label": "付款单列表",
+        "entityType": "AP_PAYMENT",
+        "apiDomain": "payment"
+      },
+      {
+        "key": "PAYMENT_AR",
+        "label": "收款单列表",
+        "entityType": "AR_RECEIPT",
+        "apiDomain": "payment"
+      },
+      {
+        "key": "PURCHASE_ORDER",
+        "label": "采购订单列表",
+        "entityType": "PURCHASE_ORDER",
+        "apiDomain": "procurement"
+      },
+      {
+        "key": "VOUCHER_SEARCH",
+        "label": "凭证列表",
+        "entityType": "VOUCHER",
+        "apiDomain": "voucher"
+      },
+      {
+        "key": "GL_BALANCE",
+        "label": "科目余额表",
+        "entityType": "GL_BALANCE",
+        "apiDomain": "gl"
+      },
+      {
+        "key": "BALANCE_SHEET",
+        "label": "资产负债表",
+        "entityType": "BALANCE_SHEET",
+        "apiDomain": "report"
+      },
+      {
+        "key": "INCOME_STATEMENT",
+        "label": "利润表",
+        "entityType": "INCOME_STATEMENT",
+        "apiDomain": "report"
+      },
+      {
+        "key": "CASH_FLOW",
+        "label": "现金流量表",
+        "entityType": "CASH_FLOW",
+        "apiDomain": "report"
+      }
+    ],
+    "endpointCoverage": [
+      {
+        "key": "ACCOUNT_BOOKS",
+        "label": "账套列表",
+        "apiDomain": "account-book",
+        "entityType": "ACCOUNT_BOOK",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 1,
+        "rowCount": 3,
+        "entityCount": 6,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-03T13:05:49.928Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "DEPARTMENT",
+        "label": "部门列表",
+        "apiDomain": "master-data",
+        "entityType": "DEPARTMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:07:43.210Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "CUSTOMER_SUPPLIER",
+        "label": "往来单位",
+        "apiDomain": "master-data",
+        "entityType": "CUSTOMER_SUPPLIER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 11,
+        "rowCount": 1440,
+        "entityCount": 292,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:07:43.808Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "SUBJECT",
+        "label": "科目列表",
+        "apiDomain": "accounting",
+        "entityType": "SUBJECT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:07:45.597Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PROJECT",
+        "label": "项目列表",
+        "apiDomain": "master-data",
+        "entityType": "PROJECT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 54,
+        "entityCount": 6,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:07:46.225Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "FIN_ACCOUNT",
+        "label": "资金账号",
+        "apiDomain": "master-data",
+        "entityType": "CASH_ACCOUNT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 3,
+        "rowCount": 47,
+        "entityCount": 47,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-03T13:05:55.027Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYABLE_STATISTICS",
+        "label": "应付统计",
+        "apiDomain": "ap",
+        "entityType": "AP_STATISTICS",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 5,
+        "rowCount": 86,
+        "entityCount": 43,
+        "amountSum": -7084274.34,
+        "latestPulledAt": "2026-07-04T07:40:10.629Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "RECEIVABLE_STATISTICS",
+        "label": "应收统计",
+        "apiDomain": "ar",
+        "entityType": "AR_STATISTICS",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 5,
+        "rowCount": 142,
+        "entityCount": 71,
+        "amountSum": -10936306.32,
+        "latestPulledAt": "2026-07-04T07:40:11.677Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYMENT_AP",
+        "label": "付款单列表",
+        "apiDomain": "payment",
+        "entityType": "AP_PAYMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 900,
+        "entityCount": 109,
+        "amountSum": 9003331626.45,
+        "latestPulledAt": "2026-07-04T10:07:51.593Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYMENT_AR",
+        "label": "收款单列表",
+        "apiDomain": "payment",
+        "entityType": "AR_RECEIPT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 900,
+        "entityCount": 171,
+        "amountSum": 5763304971,
+        "latestPulledAt": "2026-07-04T10:07:58.371Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PURCHASE_ORDER",
+        "label": "采购订单列表",
+        "apiDomain": "procurement",
+        "entityType": "PURCHASE_ORDER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 378,
+        "entityCount": 42,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:07:59.273Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "VOUCHER_SEARCH",
+        "label": "凭证列表",
+        "apiDomain": "voucher",
+        "entityType": "VOUCHER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 3,
+        "rowCount": 1242,
+        "entityCount": 1242,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-03T13:06:13.390Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "GL_BALANCE",
+        "label": "科目余额表",
+        "apiDomain": "gl",
+        "entityType": "GL_BALANCE",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:08:07.427Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "BALANCE_SHEET",
+        "label": "资产负债表",
+        "apiDomain": "report",
+        "entityType": "BALANCE_SHEET",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:08:07.921Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "INCOME_STATEMENT",
+        "label": "利润表",
+        "apiDomain": "report",
+        "entityType": "INCOME_STATEMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:08:08.411Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "CASH_FLOW",
+        "label": "现金流量表",
+        "apiDomain": "report",
+        "entityType": "CASH_FLOW",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 27,
+        "rowCount": 27,
+        "entityCount": 3,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-04T10:08:08.897Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      }
+    ],
+    "cardCoverage": [
+      {
+        "cardKey": "arOpen",
+        "label": "应收待收",
+        "endpoints": [
+          "RECEIVABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "AR_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "apOpen",
+        "label": "应付待付",
+        "endpoints": [
+          "PAYABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "AP_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "cashBalance",
+        "label": "现金 / 银行余额",
+        "endpoints": [
+          "FIN_ACCOUNT",
+          "GL_BALANCE"
+        ],
+        "entityTypes": [
+          "CASH_ACCOUNT",
+          "GL_BALANCE"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "todayReceipt",
+        "label": "今日收款",
+        "endpoints": [
+          "PAYMENT_AR"
+        ],
+        "entityTypes": [
+          "AR_RECEIPT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "todayPayment",
+        "label": "今日付款",
+        "endpoints": [
+          "PAYMENT_AP"
+        ],
+        "entityTypes": [
+          "AP_PAYMENT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "subjectBalance",
+        "label": "科目余额",
+        "endpoints": [
+          "GL_BALANCE"
+        ],
+        "entityTypes": [
+          "GL_BALANCE"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "incomeStatement",
+        "label": "利润表关键项",
+        "endpoints": [
+          "INCOME_STATEMENT"
+        ],
+        "entityTypes": [
+          "INCOME_STATEMENT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "balanceSheet",
+        "label": "资产负债表关键项",
+        "endpoints": [
+          "BALANCE_SHEET"
+        ],
+        "entityTypes": [
+          "BALANCE_SHEET"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "counterpartyBalance",
+        "label": "客户 / 供应商往来余额",
+        "endpoints": [
+          "CUSTOMER_SUPPLIER",
+          "RECEIVABLE_STATISTICS",
+          "PAYABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "CUSTOMER_SUPPLIER",
+          "AR_STATISTICS",
+          "AP_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      }
+    ],
+    "fieldCoverage": {
+      "totalFieldMappings": 1684,
+      "coveredFieldMappings": 1684,
+      "coverageRate": 1,
+      "statusCounts": {
+        "MATCHED": 183,
+        "PENDING": 1501
+      },
+      "missingFields": 0,
+      "transformRequired": 0
+    },
     "summary": {
-      "dryRun": true,
-      "message": "dry-run only; no mirror sync executed"
+      "endpointCoverageRate": 1,
+      "cardCoverageRate": 1,
+      "fieldCoverageRate": 1,
+      "missingEndpointKeys": [],
+      "failedLatestJobs": [],
+      "decision": "GO"
+    },
+    "guardrails": {
+      "chanjetWrite": false,
+      "chanjetDelete": false,
+      "erpBusinessOverwrite": false,
+      "rule": "好业财有数据时财务卡片优先标注好业财口径；ERP 业务明细只做辅助明细和差异解释，不静默覆盖。"
+    }
+  },
+  "execution": {
+    "executed": true,
+    "summary": {
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "writeChanjet": false,
+        "requestedScope": [
+          "ACCOUNT_BOOKS",
+          "DEPARTMENT",
+          "CUSTOMER_SUPPLIER",
+          "SUBJECT",
+          "PROJECT",
+          "FIN_ACCOUNT",
+          "PAYABLE_STATISTICS",
+          "RECEIVABLE_STATISTICS",
+          "PAYMENT_AP",
+          "PAYMENT_AR",
+          "PURCHASE_ORDER",
+          "VOUCHER_SEARCH",
+          "GL_BALANCE",
+          "BALANCE_SHEET",
+          "INCOME_STATEMENT",
+          "CASH_FLOW"
+        ],
+        "books": [
+          "3533914511118750",
+          "3537748712226818",
+          "3539743721526654"
+        ],
+        "results": [
+          {
+            "key": "ACCOUNT_BOOKS",
+            "bookId": "",
+            "status": "SUCCESS",
+            "fields": 106,
+            "rows": 3,
+            "rawSnapshotId": "1",
+            "entityRows": 3
+          },
+          {
+            "key": "DEPARTMENT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "370",
+            "entityRows": 1
+          },
+          {
+            "key": "DEPARTMENT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "371",
+            "entityRows": 1
+          },
+          {
+            "key": "DEPARTMENT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "372",
+            "entityRows": 1
+          },
+          {
+            "key": "CUSTOMER_SUPPLIER",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 138,
+            "rows": 209,
+            "rawSnapshotId": "373",
+            "entityRows": 209
+          },
+          {
+            "key": "CUSTOMER_SUPPLIER",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 136,
+            "rows": 82,
+            "rawSnapshotId": "328",
+            "entityRows": 82
+          },
+          {
+            "key": "CUSTOMER_SUPPLIER",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 38,
+            "rows": 1,
+            "rawSnapshotId": "7",
+            "entityRows": 1
+          },
+          {
+            "key": "SUBJECT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "376",
+            "entityRows": 1
+          },
+          {
+            "key": "SUBJECT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "377",
+            "entityRows": 1
+          },
+          {
+            "key": "SUBJECT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 6,
+            "rows": 1,
+            "rawSnapshotId": "378",
+            "entityRows": 1
+          },
+          {
+            "key": "PROJECT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 77,
+            "rows": 4,
+            "rawSnapshotId": "379",
+            "entityRows": 4
+          },
+          {
+            "key": "PROJECT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 57,
+            "rows": 2,
+            "rawSnapshotId": "380",
+            "entityRows": 2
+          },
+          {
+            "key": "PROJECT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 11,
+            "rows": 0,
+            "rawSnapshotId": "381",
+            "entityRows": 0
+          },
+          {
+            "key": "FIN_ACCOUNT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 27,
+            "rows": 31,
+            "rawSnapshotId": "14",
+            "entityRows": 31
+          },
+          {
+            "key": "FIN_ACCOUNT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 27,
+            "rows": 12,
+            "rawSnapshotId": "15",
+            "entityRows": 12
+          },
+          {
+            "key": "FIN_ACCOUNT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 18,
+            "rows": 4,
+            "rawSnapshotId": "16",
+            "entityRows": 4
+          },
+          {
+            "key": "PAYABLE_STATISTICS",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 55,
+            "rows": 28,
+            "rawSnapshotId": "201",
+            "entityRows": 28
+          },
+          {
+            "key": "PAYABLE_STATISTICS",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 55,
+            "rows": 15,
+            "rawSnapshotId": "202",
+            "entityRows": 15
+          },
+          {
+            "key": "PAYABLE_STATISTICS",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 1,
+            "rows": 0,
+            "rawSnapshotId": "19",
+            "entityRows": 0
+          },
+          {
+            "key": "RECEIVABLE_STATISTICS",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 55,
+            "rows": 49,
+            "rawSnapshotId": "204",
+            "entityRows": 49
+          },
+          {
+            "key": "RECEIVABLE_STATISTICS",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 55,
+            "rows": 22,
+            "rawSnapshotId": "205",
+            "entityRows": 22
+          },
+          {
+            "key": "RECEIVABLE_STATISTICS",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 1,
+            "rows": 0,
+            "rawSnapshotId": "22",
+            "entityRows": 0
+          },
+          {
+            "key": "PAYMENT_AP",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 73,
+            "rows": 50,
+            "rawSnapshotId": "391",
+            "entityRows": 50
+          },
+          {
+            "key": "PAYMENT_AP",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 74,
+            "rows": 50,
+            "rawSnapshotId": "392",
+            "entityRows": 50
+          },
+          {
+            "key": "PAYMENT_AP",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 11,
+            "rows": 0,
+            "rawSnapshotId": "393",
+            "entityRows": 0
+          },
+          {
+            "key": "PAYMENT_AR",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 83,
+            "rows": 50,
+            "rawSnapshotId": "394",
+            "entityRows": 50
+          },
+          {
+            "key": "PAYMENT_AR",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 84,
+            "rows": 50,
+            "rawSnapshotId": "395",
+            "entityRows": 50
+          },
+          {
+            "key": "PAYMENT_AR",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 11,
+            "rows": 0,
+            "rawSnapshotId": "396",
+            "entityRows": 0
+          },
+          {
+            "key": "PURCHASE_ORDER",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 94,
+            "rows": 41,
+            "rawSnapshotId": "397",
+            "entityRows": 41
+          },
+          {
+            "key": "PURCHASE_ORDER",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 39,
+            "rows": 1,
+            "rawSnapshotId": "398",
+            "entityRows": 1
+          },
+          {
+            "key": "PURCHASE_ORDER",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 11,
+            "rows": 0,
+            "rawSnapshotId": "399",
+            "entityRows": 0
+          },
+          {
+            "key": "VOUCHER_SEARCH",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 210,
+            "rows": 639,
+            "rawSnapshotId": "32",
+            "entityRows": 639
+          },
+          {
+            "key": "VOUCHER_SEARCH",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 229,
+            "rows": 396,
+            "rawSnapshotId": "33",
+            "entityRows": 396
+          },
+          {
+            "key": "VOUCHER_SEARCH",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 195,
+            "rows": 207,
+            "rawSnapshotId": "34",
+            "entityRows": 207
+          },
+          {
+            "key": "GL_BALANCE",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "403",
+            "entityRows": 1
+          },
+          {
+            "key": "GL_BALANCE",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "404",
+            "entityRows": 1
+          },
+          {
+            "key": "GL_BALANCE",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "405",
+            "entityRows": 1
+          },
+          {
+            "key": "BALANCE_SHEET",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "406",
+            "entityRows": 1
+          },
+          {
+            "key": "BALANCE_SHEET",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "407",
+            "entityRows": 1
+          },
+          {
+            "key": "BALANCE_SHEET",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "408",
+            "entityRows": 1
+          },
+          {
+            "key": "INCOME_STATEMENT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "409",
+            "entityRows": 1
+          },
+          {
+            "key": "INCOME_STATEMENT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "410",
+            "entityRows": 1
+          },
+          {
+            "key": "INCOME_STATEMENT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "411",
+            "entityRows": 1
+          },
+          {
+            "key": "CASH_FLOW",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "412",
+            "entityRows": 1
+          },
+          {
+            "key": "CASH_FLOW",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "413",
+            "entityRows": 1
+          },
+          {
+            "key": "CASH_FLOW",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 12,
+            "rows": 1,
+            "rawSnapshotId": "414",
+            "entityRows": 1
+          }
+        ],
+        "fieldGapSummary": {
+          "scanned": 2163,
+          "upserted": 1684,
+          "statusCounts": {
+            "PENDING": 1501,
+            "MATCHED": 183
+          }
+        }
+      }
     }
   },
   "boundaries": {

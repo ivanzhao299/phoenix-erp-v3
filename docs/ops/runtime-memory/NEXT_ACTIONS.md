@@ -166,6 +166,43 @@ Next recommended Gate:
 12. Do not enter Store Payment remote business UAT until a narrow UAT fixture/data setup Gate is approved and re-smoked.
 13. Do not claim rollback/restore readiness until P1-007 owner-correct git status, backup evidence, compose evidence, and rollback/restore dry-run plan are complete.
 
+## 2026-07-04 — Chanjet P0 Readonly Sync Evidence Ready
+
+Current stage: `CHANJET_P0_READONLY_SYNC_EVIDENCE_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Evidence:
+
+- Production readonly sync workflow run: `28702850632`
+- Report: `docs/ops/CHANJET_P0_READONLY_SYNC_GAPS_EXECUTION_REPORT_20260704.md`
+- Latest JSON: `docs/ops/runs/chanjet-readonly-mirror-sync-latest.json`
+- Latest Markdown: `docs/ops/runs/chanjet-readonly-mirror-sync-latest.md`
+
+Results:
+
+- P0 readonly endpoint coverage: `16/16`
+- Field mapping coverage: `1684/1684`
+- Matched mappings: `183`
+- Pending semantic mapping review: `1501`
+
+Next actions:
+
+1. `CHANJET_P1_FINANCE_CARD_ALIGNMENT`
+   - Align ERP financial dashboard/card figures to Chanjet readonly mirror口径.
+   - Do not mix ERP business detail totals into financial-authority figures without a visible difference state.
+2. `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`
+   - Review pending company/customer/supplier/project/cash-account/subject mappings.
+3. `CHANJET_P3_RECONCILIATION_CENTER`
+   - Build visible OK/WARN/MISMATCH/HOLD/NEED_MAPPING statuses for ERP vs Chanjet figures.
+
+Do not start:
+
+- Chanjet writes.
+- Voucher push.
+- Production DB manual writes.
+- Silent overwrite of ERP figures with unmatched Chanjet mappings.
+
 ## Do Not Auto-Start
 
 - production `push main` deployment path.

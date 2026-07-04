@@ -1006,3 +1006,42 @@ Boundaries:
 Post-deploy pending:
 - 5 主体重登冒烟(perms_version 已 bump);W4 前端 D1/D2;W5-W8 各 Gate。
 - 清单:docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md
+
+---
+
+## 2026-07-04 — Chanjet P0 readonly sync evidence collected
+
+Decision: `GO_WITH_CONDITIONS`
+
+What happened:
+
+- Triggered `AI Delivery CI Smoke` with target `chanjet-readonly-production`.
+- Production readonly sync executed successfully.
+- CI artifact collection was hardened so the runner now pulls the current production `chanjet-readonly-mirror-sync-latest.*` files instead of uploading stale local artifacts.
+
+Evidence:
+
+- Workflow run: `28702850632`
+- Commit: `6e2072de`
+- Report: `docs/ops/CHANJET_P0_READONLY_SYNC_GAPS_EXECUTION_REPORT_20260704.md`
+- JSON: `docs/ops/runs/chanjet-readonly-mirror-sync-latest.json`
+
+Result:
+
+- P0 endpoint coverage: `16/16`
+- Field mapping coverage: `1684/1684`
+- Matched mappings: `183`
+- Pending semantic mappings: `1501`
+
+Boundaries:
+
+- No Chanjet write.
+- No Chanjet delete.
+- No Chanjet data modification.
+- No voucher push.
+- No ERP business-table write.
+- No migration.
+
+Next gate:
+
+- `CHANJET_P1_FINANCE_CARD_ALIGNMENT`
