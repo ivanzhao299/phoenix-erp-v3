@@ -1,9 +1,9 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-04T10:35:49.454Z
+Generated: 2026-07-04T11:36:03.006Z
 
-Total findings: 2890
-Auto-translatable by runtime bridge: 2890
+Total findings: 2920
+Auto-translatable by runtime bridge: 2920
 Still requiring componentization or dictionary modeling: 0
 Affected files: 170
 
@@ -13,8 +13,8 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 
 | File | Count | Samples |
 |---|---:|---|
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 201 | 405:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>427:总览加载失败<br>451:账套缓存<br>452:字段目录<br>452:脱敏字段样本<br>453:映射候选<br>454:凭证草稿<br>455:镜像实体 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 171 | 319:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>340:总览加载失败<br>363:账套缓存<br>364:字段目录<br>364:脱敏字段样本<br>365:映射候选<br>366:凭证草稿<br>367:镜像实体 |
 | `apps/web/src/components/layout/Sidebar.tsx` | 157 | 71:运营工作台<br>73:每日工作台<br>80:经营仪表盘<br>83:生产管理<br>85:养殖总览<br>86:鸡舍管理<br>87:鸡群档案<br>88:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
