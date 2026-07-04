@@ -574,3 +574,20 @@ Next actions:
 2. `CHANJET_P3_RECEIPT_PAYMENT_FINANCE_CONFIRMATION`
    - Finance confirms the date/status/direction rules for receipt/payment before today cards can switch authority.
 3. Keep `CHANJET_P4_WRITEBACK_PREP` blocked.
+
+## 2026-07-04 — Chanjet P3 Finance Card Source Switch Audit
+
+Current gate: `CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_IMPLEMENTED`.
+
+System-enforced source switch rule:
+
+1. `AR_OPEN` and `AP_OPEN` are the only cards allowed to use Chanjet primary values.
+2. `CASH_BALANCE`, `TODAY_RECEIPT`, and `TODAY_PAYMENT` must remain ERP-primary until field/date/status/direction semantics are locked.
+3. `SUBJECT_BALANCE`, `BALANCE_SHEET`, and `INCOME_STATEMENT` are Chanjet readonly report sources, not ERP operational primary cards.
+4. Finance reports must show source, pulled time, ERP auxiliary value, diff, and blocker reason where applicable.
+
+Next action:
+
+1. `CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA`
+2. Verify `/finance2/reports` source badges and diff display.
+3. Verify no page silently treats blocked Chanjet values as primary values.

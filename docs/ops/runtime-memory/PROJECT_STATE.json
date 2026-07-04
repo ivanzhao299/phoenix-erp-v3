@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-04",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT",
+  "next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FINANCE_CARD_SYSTEM_CONFIRMATION_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "audit_finance_card_source_switch_after_system_confirmation",
+    "next_action": "qa_finance_card_source_switch_ui_and_production_smoke",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -215,7 +215,29 @@
       "TODAY_PAYMENT"
     ],
     "finance_card_manual_finance_confirmation_required": 0,
-    "finance_card_system_confirmation_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT"
+    "finance_card_system_confirmation_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT",
+    "finance_card_source_switch_audit_api": "/api/chanjet/integration/finance-card-source-switch-audit",
+    "finance_card_source_switch_audit_script": "scripts/ops/chanjet-finance-card-source-switch-audit.mjs",
+    "finance_card_source_switch_audit_json": "docs/ops/runs/chanjet-finance-card-source-switch-audit-latest.json",
+    "finance_card_source_switch_audit_md": "docs/ops/runs/chanjet-finance-card-source-switch-audit-latest.md",
+    "finance_card_source_switch_audit_report": "docs/ops/CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_REPORT_20260704.md",
+    "finance_card_source_switch_audit_status": "verified_7_of_7",
+    "finance_card_source_switch_ready_cards": [
+      "AR_OPEN",
+      "AP_OPEN"
+    ],
+    "finance_card_source_switch_readonly_report_cards": [
+      "SUBJECT_BALANCE",
+      "BALANCE_SHEET",
+      "INCOME_STATEMENT"
+    ],
+    "finance_card_source_switch_blocked_cards": [
+      "CASH_BALANCE",
+      "TODAY_RECEIPT",
+      "TODAY_PAYMENT"
+    ],
+    "finance_card_source_switch_primary_rule": "read_model_AUTHORITY_READY_and_SYSTEM_CONFIRMED_AUTHORITY_required",
+    "finance_card_source_switch_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

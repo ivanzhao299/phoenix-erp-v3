@@ -183,13 +183,17 @@ export class FinancialReportsService {
       readModelMetric?: any;
       receiptPaymentLock?: any;
       requireReceiptPaymentLock?: boolean;
+      systemConfirmation?: any;
     } = {},
   ) {
     const readModelMetric = options.readModelMetric;
     const receiptPaymentLock = options.receiptPaymentLock;
+    const systemConfirmation = options.systemConfirmation;
     const readModelAuthorityReady = readModelMetric?.status === 'AUTHORITY_READY' && readModelMetric?.authorityEligible === true;
     const receiptPaymentReady = !options.requireReceiptPaymentLock || receiptPaymentLock?.readyForCardAuthority === true;
-    const authorityEligible = options.authorityEligible ?? (readModelAuthorityReady && receiptPaymentReady);
+    const systemAllowsAuthority = systemConfirmation?.confirmationStatus === 'SYSTEM_CONFIRMED_AUTHORITY'
+      && systemConfirmation?.authorityAllowed === true;
+    const authorityEligible = options.authorityEligible ?? (systemAllowsAuthority && readModelAuthorityReady && receiptPaymentReady);
     const authoritativeValue = chanjet.available && authorityEligible ? chanjet.value : erpValue;
     const chanjetValue = chanjet.available ? chanjet.value : null;
     const diff = chanjet.available ? chanjet.value - erpValue : 0;
@@ -217,12 +221,17 @@ export class FinancialReportsService {
       status,
       covered: chanjet.available,
       authorityEligible,
+      systemConfirmationStatus: systemConfirmation?.confirmationStatus || null,
+      sourceSwitchAllowed: systemAllowsAuthority,
+      sourceSwitchDecision: systemConfirmation?.displayRule || null,
       readModelStatus: readModelMetric?.status || null,
       readModelReason: readModelMetric?.reason || null,
       readyForCardAuthority: receiptPaymentLock?.readyForCardAuthority ?? null,
       authorityReason: options.authorityReason ?? (authorityEligible
-        ? '好业财 read model 已达到 AUTHORITY_READY，可作为该财务卡片主值。'
-        : readModelMetric?.reason || receiptPaymentLock?.reason || '好业财镜像已覆盖，但尚未达到 AUTHORITY_READY，不得覆盖 ERP 主卡片。'),
+        ? '好业财 read model 已达到 AUTHORITY_READY，且系统确认允许作为该财务卡片主值。'
+        : systemConfirmation && !systemAllowsAuthority
+          ? systemConfirmation.displayRule || '系统确认矩阵未允许该卡片升权为好业财主值。'
+          : readModelMetric?.reason || receiptPaymentLock?.reason || '好业财镜像已覆盖，但尚未达到 AUTHORITY_READY，不得覆盖 ERP 主卡片。'),
       rows: chanjet.rows,
       latestPeriod: chanjet.latestPeriod,
       note,
@@ -231,19 +240,22 @@ export class FinancialReportsService {
 
   private async getChanjetReadModelContext() {
     try {
-      const [readModel, receiptPaymentLocks] = await Promise.all([
+      const [readModel, receiptPaymentLocks, systemConfirmation] = await Promise.all([
         this.chanjetIntegration.financeReadModelOverview(),
         this.chanjetIntegration.financeReceiptPaymentDateStatusLockOverview(),
+        this.chanjetIntegration.financeCardSystemConfirmationOverview(),
       ]);
       return {
         readModelByKey: new Map((readModel.metrics || []).map((metric: any) => [metric.key, metric])),
         receiptPaymentLockByKey: new Map((receiptPaymentLocks.locks || []).map((lock: any) => [lock.key, lock])),
+        systemConfirmationByKey: new Map((systemConfirmation.confirmations || []).map((item: any) => [item.readModelKey, item])),
       };
     } catch (error) {
       this.logger.warn(`Chanjet read model context unavailable: ${(error as Error).message}`);
       return {
         readModelByKey: new Map<string, any>(),
         receiptPaymentLockByKey: new Map<string, any>(),
+        systemConfirmationByKey: new Map<string, any>(),
       };
     }
   }
@@ -269,15 +281,19 @@ export class FinancialReportsService {
     ]);
     const readMetric = (key: string) => readContext.readModelByKey.get(key);
     const paymentLock = (key: string) => readContext.receiptPaymentLockByKey.get(key);
+    const systemConfirmation = (key: string) => readContext.systemConfirmationByKey.get(key);
     const metrics = {
       arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应收发票/总账作为辅助差异。', {
         readModelMetric: readMetric('AR_OPEN'),
+        systemConfirmation: systemConfirmation('AR_OPEN'),
       }),
       apOpen: this.metricFromChanjet('CHANJET_AP_STATISTICS_MIRROR', ap, erp.apOpen, '好业财应付汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应付发票作为辅助差异。', {
         readModelMetric: readMetric('AP_OPEN'),
+        systemConfirmation: systemConfirmation('AP_OPEN'),
       }),
       cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户余额字段达到 AUTHORITY_READY 后才作为主卡片；ERP 现金账户余额作为辅助差异。', {
         readModelMetric: readMetric('CASH_BALANCE'),
+        systemConfirmation: systemConfirmation('CASH_BALANCE'),
       }),
       todayInflow: this.metricFromChanjet(
         'CHANJET_AR_RECEIPT_MIRROR',
@@ -287,6 +303,7 @@ export class FinancialReportsService {
         {
           readModelMetric: readMetric('TODAY_RECEIPT'),
           receiptPaymentLock: paymentLock('TODAY_RECEIPT'),
+          systemConfirmation: systemConfirmation('TODAY_RECEIPT'),
           requireReceiptPaymentLock: true,
           authorityReason: paymentLock('TODAY_RECEIPT')?.reason || '好业财收款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计收款误显示为今日收款。',
         },
@@ -299,18 +316,22 @@ export class FinancialReportsService {
         {
           readModelMetric: readMetric('TODAY_PAYMENT'),
           receiptPaymentLock: paymentLock('TODAY_PAYMENT'),
+          systemConfirmation: systemConfirmation('TODAY_PAYMENT'),
           requireReceiptPaymentLock: true,
           authorityReason: paymentLock('TODAY_PAYMENT')?.reason || '好业财付款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计付款误显示为今日付款。',
         },
       ),
       subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。', {
         readModelMetric: readMetric('SUBJECT_BALANCE'),
+        systemConfirmation: systemConfirmation('SUBJECT_BALANCE'),
       }),
       balanceSheet: this.metricFromChanjet('CHANJET_BALANCE_SHEET_MIRROR', balanceSheet, 0, '资产负债表关键项用于经营驾驶舱一致性校验。', {
         readModelMetric: readMetric('BALANCE_SHEET'),
+        systemConfirmation: systemConfirmation('BALANCE_SHEET'),
       }),
       incomeStatement: this.metricFromChanjet('CHANJET_INCOME_STATEMENT_MIRROR', incomeStatement, 0, '利润表关键项用于经营驾驶舱一致性校验。', {
         readModelMetric: readMetric('INCOME_STATEMENT'),
+        systemConfirmation: systemConfirmation('INCOME_STATEMENT'),
       }),
     };
     const coveredCount = Object.values(metrics).filter((metric) => metric.covered).length;

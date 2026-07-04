@@ -1,0 +1,160 @@
+{
+  "generatedAt": "2026-07-04T14:34:11.430Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "totalChecks": 7,
+    "passedChecks": 7,
+    "failedChecks": 0,
+    "totalCards": 8,
+    "switchReady": 2,
+    "readonlyReportReady": 3,
+    "switchBlocked": 3,
+    "unsafeSwitchesPrevented": 6,
+    "nextGate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA"
+  },
+  "checks": [
+    {
+      "name": "Source switch audit runtime method exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "ChanjetIntegrationService exposes structured source switch audit."
+    },
+    {
+      "name": "Source switch audit endpoint exists",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "GET /api/chanjet/integration/finance-card-source-switch-audit exists behind MENU_FIN2_AR_LEDGER:V."
+    },
+    {
+      "name": "Finance report primary value path is guarded by system confirmation",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "FinancialReportsService now requires both read-model AUTHORITY_READY and SYSTEM_CONFIRMED_AUTHORITY before using Chanjet authoritativeValue."
+    },
+    {
+      "name": "Only AR/AP are allowed to feed primary finance cards",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "System-confirmed primary switch set is AR_OPEN and AP_OPEN only."
+    },
+    {
+      "name": "Blocked and readonly cards cannot feed primary finance cards",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Cash, today receipt/payment, subject balance, balance sheet, and income statement are not primary-card switches."
+    },
+    {
+      "name": "Finance UI displays source, ERP auxiliary, diff, and no silent overwrite warning",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Finance report page visibly exposes source and difference context."
+    },
+    {
+      "name": "Write boundaries remain closed",
+      "passed": true,
+      "severity": "P0",
+      "evidence": "Source switch audit is readonly and does not write Chanjet or ERP business facts."
+    }
+  ],
+  "switchItems": [
+    {
+      "readModelKey": "AR_OPEN",
+      "cardKey": "arOpen",
+      "label": "应收待收款",
+      "expectedSourceSwitchStatus": "SWITCH_READY",
+      "expectedPrimaryValueSource": "CHANJET",
+      "expectedCanFeedPrimaryFinanceCard": true,
+      "confirmationStatus": "SYSTEM_CONFIRMED_AUTHORITY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "AP_OPEN",
+      "cardKey": "apOpen",
+      "label": "应付待付款",
+      "expectedSourceSwitchStatus": "SWITCH_READY",
+      "expectedPrimaryValueSource": "CHANJET",
+      "expectedCanFeedPrimaryFinanceCard": true,
+      "confirmationStatus": "SYSTEM_CONFIRMED_AUTHORITY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "CASH_BALANCE",
+      "cardKey": "cashBalance",
+      "label": "现金账户余额",
+      "expectedSourceSwitchStatus": "SWITCH_BLOCKED",
+      "expectedPrimaryValueSource": "ERP",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "TODAY_RECEIPT",
+      "cardKey": "todayInflow",
+      "label": "今日收款",
+      "expectedSourceSwitchStatus": "SWITCH_BLOCKED",
+      "expectedPrimaryValueSource": "ERP",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "TODAY_PAYMENT",
+      "cardKey": "todayOutflow",
+      "label": "今日付款",
+      "expectedSourceSwitchStatus": "SWITCH_BLOCKED",
+      "expectedPrimaryValueSource": "ERP",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_BLOCKED_FROM_AUTHORITY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "SUBJECT_BALANCE",
+      "cardKey": "subjectBalance",
+      "label": "科目余额",
+      "expectedSourceSwitchStatus": "READONLY_REPORT_READY",
+      "expectedPrimaryValueSource": "CHANJET_READONLY_REPORT",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "BALANCE_SHEET",
+      "cardKey": "balanceSheet",
+      "label": "资产负债表关键项",
+      "expectedSourceSwitchStatus": "READONLY_REPORT_READY",
+      "expectedPrimaryValueSource": "CHANJET_READONLY_REPORT",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "actualPolicyInService": true,
+      "evidence": []
+    },
+    {
+      "readModelKey": "INCOME_STATEMENT",
+      "cardKey": "incomeStatement",
+      "label": "利润表关键项",
+      "expectedSourceSwitchStatus": "READONLY_REPORT_READY",
+      "expectedPrimaryValueSource": "CHANJET_READONLY_REPORT",
+      "expectedCanFeedPrimaryFinanceCard": false,
+      "confirmationStatus": "SYSTEM_CONFIRMED_READONLY",
+      "actualPolicyInService": true,
+      "evidence": []
+    }
+  ],
+  "boundaries": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "dbWrite": false,
+    "deploy": false,
+    "push": false
+  }
+}

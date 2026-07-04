@@ -220,6 +220,31 @@ export interface FinanceCardSystemConfirmationItem {
   nextAction: string;
 }
 
+export type FinanceCardSourceSwitchStatus =
+  | 'SWITCH_READY'
+  | 'READONLY_REPORT_READY'
+  | 'SWITCH_BLOCKED'
+  | 'HOLD';
+
+export interface FinanceCardSourceSwitchAuditItem {
+  switchId: string;
+  cardKey: string;
+  label: string;
+  readModelKey: string;
+  confirmationStatus: FinanceCardSystemConfirmationStatus;
+  sourceSwitchStatus: FinanceCardSourceSwitchStatus;
+  primaryValueSource: 'CHANJET' | 'ERP' | 'CHANJET_READONLY_REPORT';
+  financePageBehavior: string;
+  requiredUiEvidence: string[];
+  mustShowErpAuxiliaryValue: boolean;
+  mustShowDiff: boolean;
+  canFeedPrimaryFinanceCard: boolean;
+  canFeedReadonlyReport: boolean;
+  blockerReason: string | null;
+  validationRule: string;
+  evidence: string[];
+}
+
 export interface ReceiptPaymentDateStatusLock {
   key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT';
   label: string;
@@ -2231,6 +2256,112 @@ export class ChanjetIntegrationService {
         dbWrite: false,
         manualFinanceConfirmationRequired: 0,
         rule: '本接口由 ERP 系统建设方完成口径确认。只能把 SYSTEM_CONFIRMED_AUTHORITY 的卡片接入好业财主值；SYSTEM_CONFIRMED_READONLY 仅做只读报表/对账；SYSTEM_BLOCKED_FROM_AUTHORITY 继续保留 ERP 主值。',
+      },
+    };
+  }
+
+  async financeCardSourceSwitchAuditOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalCards: number;
+      switchReady: number;
+      readonlyReportReady: number;
+      switchBlocked: number;
+      hold: number;
+      unsafeSwitchesPrevented: number;
+      nextGate: string;
+    };
+    sourceSwitches: FinanceCardSourceSwitchAuditItem[];
+    guardrails: Record<string, boolean | string | number>;
+  }> {
+    const systemConfirmation = await this.financeCardSystemConfirmationOverview();
+    const sourceSwitches = systemConfirmation.confirmations.map((item): FinanceCardSourceSwitchAuditItem => {
+      if (item.confirmationStatus === 'SYSTEM_CONFIRMED_AUTHORITY') {
+        return {
+          switchId: `CHANJET-FIN-CARD-SOURCE-SWITCH-${item.readModelKey}`,
+          cardKey: item.cardKey,
+          label: item.label,
+          readModelKey: item.readModelKey,
+          confirmationStatus: item.confirmationStatus,
+          sourceSwitchStatus: 'SWITCH_READY',
+          primaryValueSource: 'CHANJET',
+          financePageBehavior: '主卡片可显示好业财权威值；ERP 值必须作为辅助值和差异解释保留。',
+          requiredUiEvidence: ['sourceBadge', 'latestPulledAt', 'erpAuxiliaryValue', 'diff', 'fieldMappingDecision'],
+          mustShowErpAuxiliaryValue: true,
+          mustShowDiff: true,
+          canFeedPrimaryFinanceCard: true,
+          canFeedReadonlyReport: true,
+          blockerReason: null,
+          validationRule: '只有该状态的卡片允许在 /finance2 主卡片用好业财作为 authoritativeValue。',
+          evidence: item.evidence,
+        };
+      }
+      if (item.confirmationStatus === 'SYSTEM_CONFIRMED_READONLY') {
+        return {
+          switchId: `CHANJET-FIN-CARD-SOURCE-SWITCH-${item.readModelKey}`,
+          cardKey: item.cardKey,
+          label: item.label,
+          readModelKey: item.readModelKey,
+          confirmationStatus: item.confirmationStatus,
+          sourceSwitchStatus: 'READONLY_REPORT_READY',
+          primaryValueSource: 'CHANJET_READONLY_REPORT',
+          financePageBehavior: '可作为只读报表/对账行展示；不得伪装成 ERP 运营主卡片金额。',
+          requiredUiEvidence: ['sourceBadge', 'latestPulledAt', 'reportPeriod', 'fieldMappingDecision', 'readonlyNotice'],
+          mustShowErpAuxiliaryValue: false,
+          mustShowDiff: false,
+          canFeedPrimaryFinanceCard: false,
+          canFeedReadonlyReport: true,
+          blockerReason: 'system_confirmation_readonly_only',
+          validationRule: '只读报表类数据不能被聚合卡片当作 ERP 经营事实或静默覆盖本地指标。',
+          evidence: item.evidence,
+        };
+      }
+      return {
+        switchId: `CHANJET-FIN-CARD-SOURCE-SWITCH-${item.readModelKey}`,
+        cardKey: item.cardKey,
+        label: item.label,
+        readModelKey: item.readModelKey,
+        confirmationStatus: item.confirmationStatus,
+        sourceSwitchStatus: item.confirmationStatus === 'HOLD' ? 'HOLD' : 'SWITCH_BLOCKED',
+        primaryValueSource: 'ERP',
+        financePageBehavior: '主卡片必须保留 ERP 主值；好业财只能显示为只读证据、差异或阻断原因。',
+        requiredUiEvidence: ['sourceBadge', 'erpPrimaryValue', 'chanjetReadonlyValue', 'blockerReason'],
+        mustShowErpAuxiliaryValue: false,
+        mustShowDiff: true,
+        canFeedPrimaryFinanceCard: false,
+        canFeedReadonlyReport: true,
+        blockerReason: item.blockers.join('; ') || item.displayRule,
+        validationRule: '该卡片不允许切到好业财主值，即使好业财有镜像数据也必须 fail-closed 到 ERP 主值。',
+        evidence: item.evidence,
+      };
+    });
+    const hold = sourceSwitches.filter((item) => item.sourceSwitchStatus === 'HOLD').length;
+    const switchBlocked = sourceSwitches.filter((item) => item.sourceSwitchStatus === 'SWITCH_BLOCKED').length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : switchBlocked > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalCards: sourceSwitches.length,
+        switchReady: sourceSwitches.filter((item) => item.sourceSwitchStatus === 'SWITCH_READY').length,
+        readonlyReportReady: sourceSwitches.filter((item) => item.sourceSwitchStatus === 'READONLY_REPORT_READY').length,
+        switchBlocked,
+        hold,
+        unsafeSwitchesPrevented: sourceSwitches.filter((item) => !item.canFeedPrimaryFinanceCard).length,
+        nextGate: 'CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA',
+      },
+      sourceSwitches,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        manualFinanceConfirmationRequired: 0,
+        primarySwitchAllowedOnlyFor: 'SYSTEM_CONFIRMED_AUTHORITY',
+        rule: '来源切换只允许 AR/AP 等 SYSTEM_CONFIRMED_AUTHORITY 卡片进入好业财主值；只读报表不进运营主卡片；阻断项继续 ERP 主值。',
       },
     };
   }

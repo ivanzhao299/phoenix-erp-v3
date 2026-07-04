@@ -807,6 +807,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/finance-card-source-switch-audit
+   * 财务卡片来源切换审计。只读输出哪些卡片可接好业财主值、哪些只能只读、哪些必须保留 ERP 主值。
+   */
+  @Get('integration/finance-card-source-switch-audit')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFinanceCardSourceSwitchAudit() {
+    try {
+      const sourceSwitchAudit = await this.integration.financeCardSourceSwitchAuditOverview();
+      return { success: true, sourceSwitchAudit };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

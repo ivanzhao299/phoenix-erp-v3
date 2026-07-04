@@ -1432,3 +1432,28 @@ Next actions:
 1. CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT.
 2. CHANJET_P3_READONLY_STATEMENT_UI.
 3. CHANJET_WRITE_BACK_HOLD.
+
+## 2026-07-04 — Chanjet Finance Card Source Switch Audit Implemented
+
+Decision: `GO_WITH_CONDITIONS`.
+
+The ERP system now enforces the source switch policy in code. A Chanjet value can feed a primary finance card only when both the read model is `AUTHORITY_READY` and the system confirmation matrix is `SYSTEM_CONFIRMED_AUTHORITY`.
+
+System-confirmed primary switch cards:
+
+- `AR_OPEN`
+- `AP_OPEN`
+
+Readonly report-only cards:
+
+- `SUBJECT_BALANCE`
+- `BALANCE_SHEET`
+- `INCOME_STATEMENT`
+
+Blocked from primary switch:
+
+- `CASH_BALANCE`
+- `TODAY_RECEIPT`
+- `TODAY_PAYMENT`
+
+No Chanjet write, voucher push, ERP business overwrite, migration, or DB write was introduced by this gate.
