@@ -32,6 +32,7 @@ jobs:
           node --check scripts/ops/authenticated-business-smoke.mjs
           node --check scripts/ops/role-business-smoke.mjs
           node --check scripts/ops/chanjet-readonly-mirror-sync.mjs
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
 
       - name: Document smoke entrypoints
         run: |
@@ -43,7 +44,7 @@ jobs:
           echo "Alert human reachability command: PHOENIX_SMOKE_TOKEN=... node scripts/ops/alert-human-reachability-smoke.mjs --base-url=https://erp.eggslao.com --strict"
           echo "Authenticated smoke command: SMOKE_USER=... SMOKE_PASS=... node scripts/ops/authenticated-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
           echo "Role business smoke command: ROLE_SMOKE_CREDENTIALS_JSON=... node scripts/ops/role-business-smoke.mjs --base-url=https://erp.eggslao.com --api-url=https://erp.eggslao.com --strict"
-          echo "Chanjet readonly sync command: PHOENIX_ADMIN_TOKEN=... node scripts/ops/chanjet-readonly-mirror-sync.mjs --execute --remote-api-only --api-base=https://erp.eggslao.com --output-dir=docs/ops/runs"
+          echo "Chanjet readonly sync command: workflow target chanjet-readonly-production mints a short-lived token inside the production API container and runs the protected readonly sync API."
           echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
 
       - name: Validate legacy smoke script exists
@@ -108,10 +109,22 @@ jobs:
             --output-dir=docs/ops/runs \
             --strict
 
-      - name: Run Chanjet readonly production sync
+      - name: Mint short-lived production admin token for Chanjet sync
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
         env:
-          PHOENIX_ADMIN_TOKEN: ${{ secrets.PHOENIX_ADMIN_TOKEN }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          echo "::add-mask::$TOKEN"
+          echo "PHOENIX_ADMIN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run Chanjet readonly production sync
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
         run: |
           node scripts/ops/chanjet-readonly-mirror-sync.mjs \
             --execute \
