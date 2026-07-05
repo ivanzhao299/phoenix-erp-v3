@@ -65,6 +65,18 @@ function firstMatch(text, patterns) {
   return '';
 }
 
+function normalizeConclusion(value) {
+  const text = String(value || '').toUpperCase();
+  if (!text) return '';
+  if (/\bHOLD\b/.test(text)) return 'HOLD';
+  if (/\bFAIL\b/.test(text)) return 'FAIL';
+  if (/PASS WITH CONDITIONS|PASS_WITH_CONDITIONS/.test(text)) return 'PASS WITH CONDITIONS';
+  if (/\bPASS\b/.test(text)) return 'PASS';
+  if (/\bGO WITH CONDITIONS\b|GO_WITH_CONDITIONS/.test(text)) return 'PASS WITH CONDITIONS';
+  if (/\bGO\b/.test(text)) return 'PASS';
+  return text.trim();
+}
+
 function parseChangedFiles(text, json) {
   if (Array.isArray(json?.changed_files)) return json.changed_files;
   if (Array.isArray(json?.changedFiles)) return json.changedFiles;
@@ -89,9 +101,9 @@ function parsePayload(args) {
   const parsedConclusion = json?.conclusion || json?.final_conclusion || firstMatch(raw, [
     /当前结论[:：]\s*([A-Z_ ]+)/i,
     /最终结论[:：]\s*([A-Z_ ]+)/i,
-    /conclusion[:：]\s*([A-Z_ ]+)/i,
+    /conclusion[:：]\s*([A-Z_ /]+)/i,
   ]);
-  const conclusion = parsedConclusion || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
+  const conclusion = normalizeConclusion(parsedConclusion) || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
   const commitHash = json?.commit_hash || json?.commitHash || firstMatch(raw, [
     /commit hash[:：]\s*([0-9a-f]{7,40})/i,
     /commit[:：]\s*([0-9a-f]{7,40})/i,

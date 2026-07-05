@@ -1868,7 +1868,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "Codex-Orchestrator",
-    "status": "HOLD",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -1887,10 +1887,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "branch": "codex/orchestrator-main-sync-20260701",
     "dependencies": [],
-    "claimed_by": "Codex-Orchestrator",
-    "claimed_at": "2026-07-05T14:32:08.822Z",
-    "completed_at": "2026-07-05T14:33:16.787Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A2-Security-Regression-Gate",
@@ -1901,13 +1901,11 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "baseline_autopilot_exit_code": 1,
-    "updated_at": "2026-07-05T14:27:28.139Z",
+    "baseline_autopilot_exit_code": null,
+    "updated_at": "2026-07-05T14:34:54.286Z",
     "result": null,
     "hold_reason": null,
     "failure_reason": null,
-    "baseline_autopilot": null,
-    "baseline_autopilot_command": "node scripts/ops/agent-baseline-autopilot.mjs --agent Codex-Orchestrator --branch codex/orchestrator-main-sync-20260701 --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --max-retries 3 --yes",
-    "reason": "baseline autopilot failed with 1"
+    "baseline_autopilot": null
   }
 ]

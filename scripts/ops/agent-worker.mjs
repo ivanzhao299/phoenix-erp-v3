@@ -146,6 +146,7 @@ function runBaselineAutopilot(task) {
 }
 
 function shouldRunBaselineAutopilot(task) {
+  if (task.source === 'bug-intake' && task.agent === 'Codex-Orchestrator') return false;
   return BASELINE_MERGE_AGENTS.has(task.agent);
 }
 
