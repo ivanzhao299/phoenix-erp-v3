@@ -14,7 +14,7 @@
   "reporterUsername": "zhaoyongwei",
   "reporterName": "赵永伟",
   "createdAt": "2026-07-05T13:32:08.674Z",
-  "updatedAt": "2026-07-05T14:02:40.046Z",
+  "updatedAt": "2026-07-05T14:04:15.519Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "集团总部精英驾驶舱，聚合卡片上面的数字不对，鸡蛋能有小数点吗？",
@@ -155,10 +155,10 @@
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: Codex-Orchestrator\nWorktree: /Users/mac/phoenix-erp-worktrees/codex-orchestrator\nBranch: codex/orchestrator-main-sync-20260701\nPrompt: docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md\nAssembled prompt chars: 5618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/codex-orchestrator --sandbox workspace-write -\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-05T14-04-14-242Z-Codex-Orchestrator.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nError: spawn /Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:286:19)\n    at onErrorNT (node:internal/child_process:484:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\n  errno: -2,\n  code: 'ENOENT',\n  syscall: 'spawn /Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex',\n  path: '/Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-05T14:02:40.045Z"
+        "recordedAt": "2026-07-05T14:04:15.517Z"
       }
     ],
     "suggestedOwner": "",
@@ -176,10 +176,10 @@
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: Codex-Orchestrator\nWorktree: /Users/mac/phoenix-erp-worktrees/codex-orchestrator\nBranch: codex/orchestrator-main-sync-20260701\nPrompt: docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md\nAssembled prompt chars: 5618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/codex-orchestrator --sandbox workspace-write -\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-05T14-04-14-242Z-Codex-Orchestrator.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nError: spawn /Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:286:19)\n    at onErrorNT (node:internal/child_process:484:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\n  errno: -2,\n  code: 'ENOENT',\n  syscall: 'spawn /Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex',\n  path: '/Users/mac/.npm-global/lib/node_modules/@openai/codex/node_modules",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-05T14:02:40.045Z"
+      "recordedAt": "2026-07-05T14:04:15.517Z"
     },
     "acceptanceCriteria": "",
     "agentPlanGeneratedAt": "2026-07-05T13:34:10.095Z",
