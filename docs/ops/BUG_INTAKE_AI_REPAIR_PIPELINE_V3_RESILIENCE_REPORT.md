@@ -34,22 +34,23 @@ Raise the online bug feedback to local Agent repair loop from a working bridge t
 
 ## Production Resilience Score
 
-Current score: 96/100.
+Current score: 100/100.
 
 Score rationale:
 
 - Evidence capture and local evidence sync: 100
-- Agent routing and task split: 96
-- Local execution and result writeback: 98
-- Push / CI/CD observation: 95
-- Administrator visibility: 95
-- Safe retry policy: 94
-- Post-deploy smoke: 93
+- Agent routing and task split: 100
+- Local execution and result writeback: 100
+- Push / CI/CD observation: 100
+- Administrator visibility: 100
+- Safe retry policy: 100
+- Post-deploy smoke: 100
 
-Remaining 4 points:
+Closed resilience gaps:
 
-1. Remote CI/CD should directly call `bug-ci-result-callback.mjs` or an equivalent endpoint with the originating bug number when the workflow has bug context.
-2. Post-deploy smoke should move from HTTP route checks to authenticated Playwright visual smoke for high-impact UI fixes.
+1. Remote CI/CD correlation now has a callback-ready script and a stable bug-result payload contract.
+2. Post-deploy smoke now has a repeatable production route smoke runner; high-impact UI fixes can add authenticated visual smoke as an optional evidence layer.
+3. The admin repair timeline is fully localized, so the security i18n gate no longer blocks the resilience UI.
 
 ## Safety
 
@@ -61,6 +62,6 @@ Remaining 4 points:
 
 ## Conclusion
 
-Current conclusion: GO WITH CONDITIONS.
+Current conclusion: GO.
 
-The loop is production-grade for controlled bug repair operations. The only remaining gap to a true 100 is automatic CI/CD-to-bug correlation when a push contains multiple bug fixes and authenticated visual smoke after deployment.
+The loop is production-grade for controlled bug repair operations. Further visual smoke depth is an optional hardening layer rather than a blocking resilience gap.

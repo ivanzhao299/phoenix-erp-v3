@@ -103,7 +103,7 @@ function repairPayload(detail: BugReportDetail) {
   return detail.repairTaskPayload && typeof detail.repairTaskPayload === "object" ? detail.repairTaskPayload : {};
 }
 
-function BugRepairTimeline({ detail }: { detail: BugReportDetail }) {
+function BugRepairTimeline({ detail, t }: { detail: BugReportDetail; t: (key: string, fallback?: string) => string }) {
   const payload = repairPayload(detail);
   const agentPlan = payload.agentPlan && typeof payload.agentPlan === "object" ? payload.agentPlan as Record<string, unknown> : null;
   const approval = payload.agentExecutionApproval && typeof payload.agentExecutionApproval === "object" ? payload.agentExecutionApproval as Record<string, unknown> : null;
@@ -113,46 +113,46 @@ function BugRepairTimeline({ detail }: { detail: BugReportDetail }) {
   const workerResults = agentResults.filter(item => item.agent !== "BugIntakeLocalRunner");
   const items = [
     {
-      label: "用户提报",
+      label: t("system.bugIntake.timelineUserReport", "用户提报"),
       status: "DONE",
       meta: `${detail.reporterName || detail.reporterUsername || "—"} · ${new Date(detail.createdAt).toLocaleString("zh-CN")}`,
       detail: detail.route || detail.url || "—",
     },
     {
-      label: "管理员受理",
+      label: t("system.bugIntake.timelineAdminTriage", "管理员受理"),
       status: detail.status,
-      meta: `${detail.priority || "P2"} · ${detail.moduleCode || "未填模块"}`,
-      detail: detail.assigneeName || detail.assigneeUsername || "未分派负责人",
+      meta: `${detail.priority || "P2"} · ${detail.moduleCode || t("system.bugIntake.unassignedModule", "未填模块")}`,
+      detail: detail.assigneeName || detail.assigneeUsername || t("system.bugIntake.unassignedOwner", "未分派负责人"),
     },
     {
-      label: "修复任务包",
+      label: t("system.bugIntake.timelineRepairTask", "修复任务包"),
       status: detail.repairTaskNo ? detail.repairTaskStatus || "READY" : "PENDING",
-      meta: detail.repairTaskNo || "未生成",
-      detail: detail.repairTaskNo ? "已生成本地 Agent 可消费的 repair task payload" : "等待管理员生成修复任务包",
+      meta: detail.repairTaskNo || t("system.bugIntake.notGenerated", "未生成"),
+      detail: detail.repairTaskNo ? t("system.bugIntake.repairTaskPayloadReady", "已生成本地 Agent 可消费的 repair task payload") : t("system.bugIntake.waitingRepairTask", "等待管理员生成修复任务包"),
     },
     {
-      label: "Agent 分工",
+      label: t("system.bugIntake.timelineAgentSplit", "Agent 分工"),
       status: agentPlan ? String(agentPlan.route_decision || "PLAN_READY") : "PENDING",
-      meta: selectedAgents.length ? selectedAgents.join(" / ") : "未生成",
-      detail: agentPlan ? "已生成 selected_agents 与 split_strategy" : "等待生成 Agent 修复计划",
+      meta: selectedAgents.length ? selectedAgents.join(" / ") : t("system.bugIntake.notGenerated", "未生成"),
+      detail: agentPlan ? t("system.bugIntake.agentPlanReady", "已生成 selected_agents 与 split_strategy") : t("system.bugIntake.waitingAgentPlan", "等待生成 Agent 修复计划"),
     },
     {
-      label: "执行批准",
+      label: t("system.bugIntake.timelineApproval", "执行批准"),
       status: approval?.approved ? "APPROVED" : "PENDING",
-      meta: approval?.approvedBy ? `批准人：${String(approval.approvedBy)}` : "未批准",
-      detail: approval?.approvalScope ? String(approval.approvalScope) : "未进入本地队列",
+      meta: approval?.approvedBy ? `${t("system.bugIntake.approvedBy", "批准人：")}${String(approval.approvedBy)}` : t("system.bugIntake.notApproved", "未批准"),
+      detail: approval?.approvalScope ? String(approval.approvalScope) : t("system.bugIntake.notQueued", "未进入本地队列"),
     },
     {
-      label: "Worker 结果",
+      label: t("system.bugIntake.timelineWorkerResult", "Worker 结果"),
       status: workerResults.length ? (workerResults.some(r => /HOLD|FAIL/.test(String(r.conclusion || ""))) ? "HOLD" : "COMPLETED") : "PENDING",
-      meta: workerResults.length ? `${workerResults.length} 条 Agent 结果` : "等待本地 worker",
-      detail: workerResults.map(r => `${r.agent || "Agent"}: ${r.conclusion || "—"}`).join("；") || "暂无",
+      meta: workerResults.length ? t("system.bugIntake.agentResultCount", "{count} 条 Agent 结果").replace("{count}", String(workerResults.length)) : t("system.bugIntake.waitingLocalWorker", "等待本地 worker"),
+      detail: workerResults.map(r => `${r.agent || "Agent"}: ${r.conclusion || "—"}`).join("；") || t("system.bugIntake.noAgentResult", "暂无"),
     },
     {
-      label: "Runner / Push / CI",
+      label: t("system.bugIntake.timelineRunnerCi", "Runner / Push / CI"),
       status: lifecycle.length ? String(lifecycle.at(-1)?.conclusion || "RECORDED") : "PENDING",
-      meta: lifecycle.at(-1)?.commitHash ? `commit ${lifecycle.at(-1)?.commitHash}` : "等待 runner lifecycle",
-      detail: lifecycle.at(-1)?.summary ? String(lifecycle.at(-1)?.summary).slice(0, 240) : "暂无本地 runner lifecycle 回写",
+      meta: lifecycle.at(-1)?.commitHash ? `commit ${lifecycle.at(-1)?.commitHash}` : t("system.bugIntake.waitingRunnerLifecycle", "等待 runner lifecycle"),
+      detail: lifecycle.at(-1)?.summary ? String(lifecycle.at(-1)?.summary).slice(0, 240) : t("system.bugIntake.noRunnerLifecycle", "暂无本地 runner lifecycle 回写"),
     },
   ];
 
@@ -418,7 +418,7 @@ export default function BugReportsPage() {
           <div style={{ width: 720, maxWidth: "94vw", height: "100%", background: "var(--bg-card)", overflowY: "auto", borderLeft: "1px solid var(--border)" }} onMouseDown={e => e.stopPropagation()}>
             <div style={{ padding: 22, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div style={{ color: "var(--color-primary)", fontWeight: 800, fontFamily: "monospace" }}>{detail?.bugNo ?? "加载中"}</div>
+                <div style={{ color: "var(--color-primary)", fontWeight: 800, fontFamily: "monospace" }}>{detail?.bugNo ?? t("common.loading", "加载中")}</div>
                 <h3 style={{ margin: "6px 0 0", fontSize: 18 }}>{detail?.title ?? t("system.bugIntake.detailTitle", "问题详情")}</h3>
               </div>
               <button type="button" onClick={() => setDetail(null)} style={{ border: "none", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
@@ -437,7 +437,7 @@ export default function BugReportsPage() {
 
                 <section>
                   <h4>{t("system.bugIntake.timeline", "闭环时间线")}</h4>
-                  <BugRepairTimeline detail={detail} />
+                  <BugRepairTimeline detail={detail} t={t} />
                 </section>
 
                 <section>
