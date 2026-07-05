@@ -246,6 +246,24 @@ export class DataScopeService {
     const extraProjects = await this.userProjRepo.find({ where: { userId: userIdNum } });
     extraProjects.forEach((ep) => projectCodes.add(ep.projectCode));
 
+    // G201 修复：仓储角色通常绑定到公司/场站组织，而不是逐仓库写 sys_user_warehouse_scopes。
+    // 如果只把显式 warehouse_code 视作仓库范围，仓管员会出现"能新建入库单，但列表看不到
+    // 自己刚建的单"；如果空仓库范围又放行全部，则会越权。这里把已授权 company_code 下
+    // 的 ACTIVE 仓库展开到 allowedWarehouseCodes，后续 WMS 查询/写入统一用仓库范围过滤。
+    if (companyCodes.size > 0) {
+      const companyWarehouseRows: Array<{ warehouse_code: string | null }> =
+        await this.orgRepo.manager.query(`
+          SELECT warehouse_code
+          FROM wms_warehouses
+          WHERE company_code = ANY($1)
+            AND warehouse_code IS NOT NULL
+            AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+        `, [[...companyCodes]]).catch(() => []);
+      for (const row of companyWarehouseRows) {
+        if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
+      }
+    }
+
     const extraWarehouses = await this.userWhRepo.find({ where: { userId: userIdNum } });
     extraWarehouses.forEach((ew) => warehouseCodes.add(ew.warehouseCode));
 

@@ -124,7 +124,8 @@ export class CashAccountsService {
     this.assertOwnership(dto.companyCode, user);
     const u = user;
 
-    const code = dto.accountCode ?? await this.genAccountCode();
+    const manualCode = typeof dto.accountCode === 'string' ? dto.accountCode.trim() : '';
+    const code = manualCode || await this.genAccountCode();
     const exists = await this.repo.findOne({ where: { accountCode: code } });
     if (exists) throw new BadRequestException(`账户编号 ${code} 已存在`);
 

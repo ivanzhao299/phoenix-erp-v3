@@ -16,11 +16,15 @@ import { GenericCrudService } from './generic-crud.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ALLOWED_TABLES } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
+import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
 export class GenericCrudController {
-  constructor(private readonly crudService: GenericCrudService) {}
+  constructor(
+    private readonly crudService: GenericCrudService,
+    private readonly dataScopeService: DataScopeService,
+  ) {}
 
   /**
    * V2 Runtime 表前缀黑名单 — 禁止通过 Generic CRUD 直接访问。
@@ -118,6 +122,69 @@ export class GenericCrudController {
     return [];
   }
 
+  private readonly WAREHOUSE_SCOPED_TABLES = new Set([
+    'inv_batches',
+    'inv_ledger',
+    'wms_inbound',
+    'wms_outbound',
+    'wms_stocktake',
+    'wms_loss',
+    'wms_transfer',
+  ]);
+
+  private async resolveTableScope(table: string, req: any): Promise<DataScopeContext | null> {
+    const menu = this.tableToFallbackMenu(table);
+    const userId = String(req.user?.userId ?? req.user?.id ?? '');
+    if (!menu || !userId) return null;
+    const roles = Array.isArray(req.user?.roles) ? req.user.roles : (req.user?.role ? [req.user.role] : []);
+    return this.dataScopeService.resolve(userId, roles, menu);
+  }
+
+  private applyWarehouseScope(table: string, query: any, scope: DataScopeContext | null) {
+    if (!this.WAREHOUSE_SCOPED_TABLES.has(table)) return query;
+    if (scope?.isGlobal) return query;
+    const warehouses = scope?.allowedWarehouseCodes ?? [];
+    if (warehouses.length === 0) return { ...query, warehouse_code: [] };
+    return { ...query, warehouse_code: warehouses };
+  }
+
+  private assertWarehouseWriteScope(table: string, body: any, scope: DataScopeContext | null, requireWarehouse = true) {
+    if (!this.WAREHOUSE_SCOPED_TABLES.has(table)) return;
+    if (scope?.isGlobal) return;
+
+    const warehouses = scope?.allowedWarehouseCodes ?? [];
+    if (warehouses.length === 0) {
+      throw new ForbiddenException(`无权写入 [${table}]（未配置仓库范围）`);
+    }
+
+    const warehouseCode = typeof body.warehouse_code === 'string' ? body.warehouse_code.trim() : '';
+    if (!warehouseCode && !requireWarehouse) return;
+    if (!warehouseCode && warehouses.length === 1) {
+      body.warehouse_code = warehouses[0];
+      return;
+    }
+    if (!warehouseCode) {
+      throw new ForbiddenException(`无权写入 [${table}]（缺少仓库归属）`);
+    }
+    if (!warehouses.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权写入 [${table}]（仓库范围不匹配）`);
+    }
+  }
+
+  private assertWarehouseRowScope(table: string, row: any, scope: DataScopeContext | null) {
+    if (!this.WAREHOUSE_SCOPED_TABLES.has(table)) return;
+    if (scope?.isGlobal) return;
+
+    const warehouses = scope?.allowedWarehouseCodes ?? [];
+    if (warehouses.length === 0) {
+      throw new ForbiddenException(`无权操作 [${table}]（未配置仓库范围）`);
+    }
+    const warehouseCode = typeof row?.warehouse_code === 'string' ? row.warehouse_code.trim() : '';
+    if (!warehouseCode || !warehouses.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权操作 [${table}]（仓库范围不匹配）`);
+    }
+  }
+
   /**
    * 表名 → 业务菜单 menu_code 映射（与 sidebar perm 一致）
    * 用于 RBAC fallback：持有该菜单对应操作权限即可访问该表。
@@ -213,6 +280,7 @@ export class GenericCrudController {
   @Get(':table')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'GET');
+    const tableScope = await this.resolveTableScope(table, req);
 
     // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
     const userStoreCode: string | undefined = req.user?.storeCode;
@@ -242,10 +310,12 @@ export class GenericCrudController {
       brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
       brd_flocks:       null,
     };
-    // G17：WMS / INV 类表按 site_code 隔离（与 SITE-* storeCode 同维度）
+    // G17：历史 WMS / INV 类表曾按 site_code 隔离，但库存事实表真实口径是 warehouse_code。
+    //   若继续用 site_code，仓储角色会出现“自己新建后列表看不到，admin 能看到”的假象。
+    //   现在 WMS/INV 统一由 DataScopeService 派生 allowedWarehouseCodes，并在下方 applyWarehouseScope 收口。
     const WMS_SCOPE_FIELD: Record<string, string | null> = {
-      wms_outbound: 'site_code',
-      wms_inbound:  'site_code',
+      wms_outbound: null,
+      wms_inbound:  null,
       // 其余 wms_* 默认 store_code（不在 map 走默认）
     };
     // G21-NEW：sys_* / mst_* / 字典/产品/等级等全局系统表无 store_code 列 → scopeField=null 不做行级过滤
@@ -270,9 +340,10 @@ export class GenericCrudController {
       scopeField = 'store_code';
     }
 
-    const effectiveQuery = (isGlobal || !scopeField)
+    const baseQuery = (isGlobal || !scopeField)
       ? query
       : { ...query, [scopeField]: userStoreCode };
+    const effectiveQuery = this.applyWarehouseScope(table, baseQuery, tableScope);
 
     const data = await this.crudService.findAll(table, effectiveQuery);
     return { code: 200, data };
@@ -281,6 +352,7 @@ export class GenericCrudController {
   @Post(':table')
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
+    const tableScope = await this.resolveTableScope(table, req);
     
     // Auto populate store_code if not present, and auto populated created_by
     if (!body.store_code && req.user?.storeCode) {
@@ -291,6 +363,7 @@ export class GenericCrudController {
     if ((table === 'wms_outbound' || table === 'wms_inbound') && !body.site_code && sc && sc.startsWith('SITE-')) {
       body.site_code = sc;
     }
+    this.assertWarehouseWriteScope(table, body, tableScope);
 
     // G31：自动注入 operator/picker/auditor/executor 默认 = 当前登录用户
     //   业务方原话："谁操作不就应该默认是谁吗？"
@@ -335,7 +408,14 @@ export class GenericCrudController {
     @Req() req: any,
   ) {
     this.checkTableAccess(table, req, 'PUT');
+    const tableScope = await this.resolveTableScope(table, req);
+    const existing = await this.crudService.findOneByColumn(table, idColumn, id);
+    if (!existing) {
+      throw new BadRequestException('Record not found');
+    }
+    this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
+    this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
     
     const fields = Object.keys(safeBody);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f)) || !/^[a-zA-Z0-9_]+$/.test(idColumn)) {
@@ -368,6 +448,12 @@ export class GenericCrudController {
     if (!/^[a-zA-Z0-9_]+$/.test(idColumn)) {
       throw new BadRequestException('Security Violation: Invalid primary key column');
     }
+    const tableScope = await this.resolveTableScope(table, req);
+    const existing = await this.crudService.findOneByColumn(table, idColumn, id);
+    if (!existing) {
+      throw new BadRequestException('Record not found');
+    }
+    this.assertWarehouseRowScope(table, existing, tableScope);
     const result = await this.crudService.remove(table, idColumn, id);
     return { code: 200, msg: result.msg };
   }

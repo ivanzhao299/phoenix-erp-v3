@@ -168,8 +168,9 @@ export const MENU: MenuItem[] = [
     { id: "s2-reports",     path: "/sales2/reports",     Icon: BarChart2,       label: "销售分析",   perm: "MENU_SALES2_REPORT"    },
   ]},
 
-  // 6. 财务管理 — 应收 + 应付 + 资金 + 费用 + 报表
-  { id: "finance", Icon: Wallet, label: "财务管理", perm: "MENU_FIN2", children: [
+  // 6. 财务结算中心 — 应收 + 应付 + 资金 + 费用 + 报表
+  // fallback label 与 zh.json 的 menu.finance 保持一致，避免 i18n 未命中时不同用户看到不同父菜单名。
+  { id: "finance", Icon: Wallet, label: "财务结算中心", perm: "MENU_FIN2", children: [
     { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2_DASHBOARD"  },
     { id: "f2-ar",        path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收账款",   perm: "MENU_FIN2_AR"         },
     { id: "f2-ar-ledger", path: "/finance2/ar-ledger",          Icon: BookOpen,        label: "应收总账",   perm: "MENU_FIN2_AR_LEDGER"  },

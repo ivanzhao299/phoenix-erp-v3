@@ -4,8 +4,9 @@ import { Type } from 'class-transformer';
 // ── 创建资金账户 ──────────────────────────────────────────────────────────
 
 export class CreateCashAccountDto {
+  @IsOptional()
   @IsString()
-  accountCode: string;
+  accountCode?: string;
 
   @IsString()
   accountName: string;

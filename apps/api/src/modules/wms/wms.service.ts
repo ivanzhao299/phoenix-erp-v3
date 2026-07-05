@@ -18,9 +18,10 @@ export class WmsService {
 
   private warehouseScope(column = 'warehouse_code', paramOffset = 0): { sql: string; params: unknown[] } {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) {
+    if (scope?.isGlobal) {
       return { sql: '1=1', params: [] };
     }
+    if (!scope || scope.allowedWarehouseCodes.length === 0) return { sql: '1=0', params: [] };
     return {
       sql: `(${column} = ANY($${paramOffset + 1}) OR ${column} IS NULL)`,
       params: [scope.allowedWarehouseCodes],
@@ -29,7 +30,10 @@ export class WmsService {
 
   private assertWritableWarehouse(warehouseCode: string | null | undefined, label: string): void {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
+    if (scope?.isGlobal) return;
+    if (!scope || scope.allowedWarehouseCodes.length === 0) {
+      throw new ForbiddenException(`无权写入该${label}（未配置仓库范围）`);
+    }
     if (!warehouseCode) {
       throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
     }

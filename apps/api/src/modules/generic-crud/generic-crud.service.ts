@@ -2153,6 +2153,16 @@ export class GenericCrudService implements OnModuleInit {
         continue;
       }
       if (!SAFE_KEY.test(key)) continue;
+      if (Array.isArray(val)) {
+        if (val.length === 0) {
+          whereClauses.push('1=0');
+          continue;
+        }
+        whereClauses.push(`"${key}" = ANY($${paramIndex})`);
+        queryValues.push(val);
+        paramIndex++;
+        continue;
+      }
       whereClauses.push(`"${key}" = $${paramIndex}`);
       queryValues.push(val);
       paramIndex++;
@@ -2199,6 +2209,20 @@ export class GenericCrudService implements OnModuleInit {
       }
     }
     throw new InternalServerErrorException('Max auto-repair retries exceeded');
+  }
+
+  async findOneByColumn(table: string, pkName: string, id: any) {
+    const SAFE_KEY = /^[a-zA-Z0-9_]+$/;
+    if (!SAFE_KEY.test(pkName)) {
+      throw new BadRequestException('Security Violation: Invalid primary key column');
+    }
+    const sql = `SELECT * FROM "${table}" WHERE "${pkName}" = $1 LIMIT 1`;
+    try {
+      const rows = await this.entityManager.query(sql, [id]);
+      return rows[0] ?? null;
+    } catch (e) {
+      throw new InternalServerErrorException((e as Error).message);
+    }
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
