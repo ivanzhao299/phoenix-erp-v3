@@ -1,9 +1,9 @@
 {
-  "last_updated": "2026-07-04",
+  "last_updated": "2026-07-05",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_IMPLEMENTED",
+  "current_stage": "CHANJET_P3_CASH_BALANCE_FIELD_LOCK_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA",
+  "next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUE",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_AUDIT_IMPLEMENTED",
+    "current_stage": "CHANJET_P3_CASH_BALANCE_FIELD_LOCK_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "qa_finance_card_source_switch_ui_and_production_smoke",
+    "next_action": "continue_receipt_payment_date_status_direction_lock_and_subject_balance_readonly_report",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -237,7 +237,16 @@
       "TODAY_PAYMENT"
     ],
     "finance_card_source_switch_primary_rule": "read_model_AUTHORITY_READY_and_SYSTEM_CONFIRMED_AUTHORITY_required",
-    "finance_card_source_switch_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA"
+    "finance_card_source_switch_next_gate": "CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA",
+    "cash_balance_field_lock_api": "/api/chanjet/integration/cash-balance-field-lock",
+    "cash_balance_field_lock_script": "scripts/ops/chanjet-cash-balance-field-lock-audit.mjs",
+    "cash_balance_field_lock_json": "docs/ops/runs/chanjet-cash-balance-field-lock-latest.json",
+    "cash_balance_field_lock_md": "docs/ops/runs/chanjet-cash-balance-field-lock-latest.md",
+    "cash_balance_field_lock_report": "docs/ops/CHANJET_CASH_BALANCE_FIELD_LOCK_REPORT_20260705.md",
+    "cash_balance_amount_sum_zero_guard": "enforced",
+    "cash_balance_primary_authority": "blocked_until_raw_balance_fields_currency_status_and_balance_date_locked",
+    "cash_balance_card_primary_source": "ERP_cash_account_until_chanjet_cash_balance_authority_ready",
+    "cash_balance_field_lock_next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUE"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

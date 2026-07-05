@@ -220,6 +220,23 @@ export interface FinanceCardSystemConfirmationItem {
   nextAction: string;
 }
 
+export interface CashBalanceFieldLock {
+  key: 'CASH_BALANCE';
+  label: string;
+  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  sampleRows: number;
+  latestPulledAt: string | null;
+  amountSum: number;
+  amountSumSafeAsBalance: false;
+  rawBalanceCandidateCount: number;
+  requiredFields: string[];
+  missingFields: string[];
+  fieldCandidates: FinanceSemanticFieldCandidate[];
+  blockerReasons: string[];
+  displayRule: string;
+  nextAction: string;
+}
+
 export type FinanceCardSourceSwitchStatus =
   | 'SWITCH_READY'
   | 'READONLY_REPORT_READY'
@@ -1560,6 +1577,89 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeCashBalanceFieldLockOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+    lock: CashBalanceFieldLock;
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const rows = await this.entitySnapshotRepo.find({
+      where: { entityType: In(['CASH_ACCOUNT', 'GL_BALANCE']) },
+      order: { updatedAt: 'DESC' },
+      take: 80,
+    });
+    const aggregate = await this.chanjetEntityAggregate(['CASH_ACCOUNT', 'GL_BALANCE']);
+    const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
+    const latestPulledAt = rows.reduce<string | null>(
+      (latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null),
+      null,
+    );
+    const requiredFields = [
+      'current_balance',
+      'available_balance',
+      'currency',
+      'account_status',
+      'balance_date',
+    ];
+    const fieldCandidates = requiredFields.map((field) => {
+      const candidates = this.matchSemanticFieldCandidates(field, flattened).slice(0, 8);
+      return {
+        semanticField: field,
+        candidatePaths: candidates,
+        required: true,
+        status: candidates.length ? 'FOUND' as const : 'MISSING' as const,
+      };
+    });
+    const missingFields = fieldCandidates
+      .filter((field) => field.status === 'MISSING')
+      .map((field) => field.semanticField);
+    const rawBalanceCandidateCount = fieldCandidates
+      .filter((field) => ['current_balance', 'available_balance'].includes(field.semanticField))
+      .reduce((sum, field) => sum + field.candidatePaths.length, 0);
+    const blockerReasons = [
+      ...(rows.length === 0 ? ['missing_cash_account_or_gl_balance_samples'] : []),
+      ...(missingFields.length ? [`missing_required_fields:${missingFields.join('/')}`] : []),
+      ...(aggregate.rows > 0 && Math.abs(aggregate.value) < 0.01
+        ? ['amountSum_zero_is_not_authoritative_cash_balance']
+        : []),
+      'system_confirmation_blocks_cash_balance_primary_authority',
+    ];
+    const lock: CashBalanceFieldLock = {
+      key: 'CASH_BALANCE',
+      label: '现金 / 银行余额',
+      decision: rows.length === 0 ? 'HOLD' : 'GO_WITH_CONDITIONS',
+      sampleRows: rows.length,
+      latestPulledAt,
+      amountSum: aggregate.value,
+      amountSumSafeAsBalance: false,
+      rawBalanceCandidateCount,
+      requiredFields,
+      missingFields,
+      fieldCandidates,
+      blockerReasons,
+      displayRule: '现金/银行余额主卡片继续使用 ERP 资金账户余额；好业财 amountSum=0 或未锁定 raw 余额字段时只能显示为阻断证据，不得当作真实余额。',
+      nextAction: missingFields.length
+        ? `继续锁定好业财资金账户字段: ${missingFields.join(' / ')}。`
+        : '字段候选已出现，但仍需按账套、币种、余额时点和账户状态做只读对账，不得自动升权为主卡片。',
+    };
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: lock.decision,
+      lock,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        amountSumZeroAsBusinessZero: false,
+        rule: '本接口只读 ERP 好业财中间层，专门防止资金账户 amountSum=0 被误当作现金/银行真实余额。',
+      },
+    };
+  }
+
   async financeReadModelOverview(): Promise<{
     generatedAt: string;
     decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
@@ -2818,7 +2918,13 @@ export class ChanjetIntegrationService {
     const hasMirrorValue = item.chanjetValue !== null;
     const waitingSample = !extractor || extractor.status === 'WAITING_SAMPLE';
     const needManualReview = item.status === 'NEED_MANUAL_REVIEW';
-    const blockedMapping = !extractor || ['PARTIAL', 'NEED_EXTRACTION'].includes(extractor.status) || item.status === 'NEED_MAPPING';
+    const cashAmountSumZeroPlaceholder = item.key === 'CASH_BALANCE'
+      && item.chanjetValue === 0
+      && item.evidence.chanjetRows > 0;
+    const blockedMapping = !extractor
+      || ['PARTIAL', 'NEED_EXTRACTION'].includes(extractor.status)
+      || item.status === 'NEED_MAPPING'
+      || cashAmountSumZeroPlaceholder;
     const hold = item.status === 'HOLD' || extractor?.status === 'HOLD';
     const authorityReady = Boolean(
       extractor?.authorityEligible
@@ -2833,6 +2939,7 @@ export class ChanjetIntegrationService {
       && !authorityReady
       && hasMirrorValue
       && !needManualReview
+      && !cashAmountSumZeroPlaceholder
       && !hold,
     );
     const status: FinanceReadModelStatus = hold
@@ -2858,7 +2965,9 @@ export class ChanjetIntegrationService {
       diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
       valueSource: displayValue !== null
         ? 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
-        : 'blocked_until_semantic_extractor_ready',
+        : cashAmountSumZeroPlaceholder
+          ? 'blocked_cash_balance_amountSum_zero_not_business_balance'
+          : 'blocked_until_semantic_extractor_ready',
       sourceEntityTypes: item.chanjetEntityTypes,
       sampleRows: extractor?.sampleRows || item.evidence.chanjetRows,
       latestPulledAt: extractor?.latestPulledAt || item.evidence.latestPulledAt,
@@ -2892,6 +3001,9 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MANUAL_REVIEW') return '日期、审核状态、作废状态或方向口径仍需财务确认。';
     if (status === 'WAITING_SAMPLE') return '该指标缺少好业财 raw_data 样本，需要先重跑只读同步。';
     if (status === 'HOLD') return '存在基础查询或安全边界异常，必须停止进入人工处理。';
+    if (item.key === 'CASH_BALANCE' && item.chanjetValue === 0 && item.evidence.chanjetRows > 0) {
+      return '好业财资金账户镜像 amountSum=0 只表示余额字段尚未抽取/汇总，不得显示为真实现金余额。';
+    }
     return extractor?.missingRequiredFields.length
       ? `必需字段未锁定: ${extractor.missingRequiredFields.slice(0, 6).join(' / ')}。`
       : item.reason;
@@ -2907,6 +3019,9 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MANUAL_REVIEW') return '锁定业务日/入账日/审核状态/作废过滤，再进入下一轮 read model。';
     if (status === 'WAITING_SAMPLE') return '执行好业财全量只读同步，补齐该实体 raw_data 样本。';
     if (status === 'HOLD') return '停止接入卡片，先修复 HOLD 原因。';
+    if (item.key === 'CASH_BALANCE' && item.chanjetValue === 0 && item.evidence.chanjetRows > 0) {
+      return '继续锁定好业财资金账户 current/available balance、币种、余额时点和账户状态字段；锁定前主卡片保留 ERP 资金账户口径。';
+    }
     return extractor?.missingRequiredFields.length
       ? `补齐字段候选: ${extractor.missingRequiredFields.slice(0, 5).join(' / ')}`
       : item.recommendedAction;

@@ -1,6 +1,28 @@
 # Next Actions
 
-Last updated: 2026-07-03
+Last updated: 2026-07-05
+
+## 2026-07-05 — Chanjet Cash Balance Field Lock
+
+Current stage: `CHANJET_P3_CASH_BALANCE_FIELD_LOCK_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added readonly API `GET /api/chanjet/integration/cash-balance-field-lock`.
+2. Added `scripts/ops/chanjet-cash-balance-field-lock-audit.mjs`.
+3. Locked `CASH_BALANCE` read model so Chanjet `amountSum=0` is not treated as real cash / bank balance.
+4. Kept cash / bank balance card ERP-primary until raw balance fields, currency, account status, and balance date are locked.
+
+Next actions:
+
+1. `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUE`
+   - Continue locking receipt/payment business date, posted date, approval status, void status, direction, and amount semantics.
+2. `CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT`
+   - Expose subject balance as a readonly Chanjet report with clear field coverage and blocker reasons.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
 
 ## 2026-07-04 — Chanjet P3 Finance Card Semantic Review
 

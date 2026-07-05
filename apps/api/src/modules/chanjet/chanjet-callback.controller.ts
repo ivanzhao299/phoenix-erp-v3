@@ -747,6 +747,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/cash-balance-field-lock
+   * 现金/银行余额字段锁。防止好业财 amountSum=0 在余额字段未锁定时被误当作真实现金余额。
+   */
+  @Get('integration/cash-balance-field-lock')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationCashBalanceFieldLock() {
+    try {
+      const cashBalanceFieldLock = await this.integration.financeCashBalanceFieldLockOverview();
+      return { success: true, cashBalanceFieldLock };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * GET /api/chanjet/integration/finance-card-authority
    * 财务首页卡片权威接线状态。只读本地中间层，不写好业财、不覆盖 ERP 事实表。
    */
