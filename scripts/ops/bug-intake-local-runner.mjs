@@ -301,7 +301,13 @@ async function runCycle(args, cycle) {
     if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
       writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
     }
+    const postWorkerCommit = commitOpsRuntimeArtifacts(args);
     workerRuns.push({ task, worker, finalTask, writeback });
+    if (!postWorkerCommit.skipped && postWorkerCommit.ok === false) {
+      workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
+      break;
+    }
+    workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
   }
 
   const push = runPushIfReady(args, workerRuns);
@@ -321,6 +327,7 @@ async function runCycle(args, cycle) {
       worker: { status: item.worker.status, stdout: item.worker.stdout, stderr: item.worker.stderr },
       finalTask: item.finalTask ? { status: item.finalTask.status, result_file: item.finalTask.result_file, baseline_autopilot_exit_code: item.finalTask.baseline_autopilot_exit_code } : null,
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
+      postWorkerCommit: item.postWorkerCommit ?? null,
     })),
     push,
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
