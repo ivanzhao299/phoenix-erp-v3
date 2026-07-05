@@ -63,6 +63,18 @@ interface BugAgentApprovalPayload {
   approvalScope?: string;
 }
 
+interface BugAgentResultPayload {
+  taskId?: string;
+  agent?: string;
+  conclusion?: string;
+  resultFile?: string;
+  commitHash?: string;
+  changedFiles?: unknown[];
+  validationResults?: unknown;
+  summary?: string;
+  nextAction?: string;
+}
+
 @Injectable()
 export class BugIntakeService {
   constructor(
@@ -293,6 +305,63 @@ export class BugIntakeService {
 
     const saved = await this.repo.save(report);
     await this.writeAudit('APPROVE_AGENT_EXECUTION', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+    return this.toDto(saved);
+  }
+
+  async recordAgentResult(
+    bugNo: string,
+    body: BugAgentResultPayload,
+    user: BugReportUser,
+    reqMeta: { ip?: string; userAgent?: string },
+  ) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    if (!report.repairTaskNo) throw new BadRequestException('请先生成修复任务包');
+
+    const payload = report.repairTaskPayload && typeof report.repairTaskPayload === 'object'
+      ? report.repairTaskPayload as Record<string, unknown>
+      : {};
+    const before = this.toWorkflowSnapshot(report);
+    const normalizedConclusion = this.normalizeAgentConclusion(body.conclusion);
+    const agentResult = {
+      taskId: this.safeCode(body.taskId ?? ''),
+      agent: this.safeText(body.agent ?? '', 128),
+      conclusion: normalizedConclusion,
+      resultFile: this.safeText(body.resultFile ?? '', 512),
+      commitHash: this.safeText(body.commitHash ?? '', 64),
+      changedFiles: this.limitArray(body.changedFiles),
+      validationResults: body.validationResults ?? null,
+      summary: this.safeText(body.summary ?? '', 4000),
+      nextAction: this.safeText(body.nextAction ?? '', 1000),
+      recordedBy: this.safeText(user.username ?? user.name ?? 'agent-result-sync', 128),
+      recordedAt: new Date().toISOString(),
+    };
+    const existing = Array.isArray(payload.agentResults) ? payload.agentResults as Record<string, unknown>[] : [];
+    const agentResults = [
+      ...existing.filter((item) => item.taskId !== agentResult.taskId || !agentResult.taskId),
+      agentResult,
+    ];
+
+    report.repairTaskPayload = {
+      ...payload,
+      agentResults,
+      latestAgentResult: agentResult,
+    };
+    if (['HOLD', 'FAIL'].includes(normalizedConclusion)) {
+      report.repairTaskStatus = 'HOLD';
+      report.status = 'IN_PROGRESS';
+    } else if (this.agentPlanCompleted(payload.agentPlan, agentResults)) {
+      report.repairTaskStatus = 'AGENT_COMPLETED';
+      report.status = 'RESOLVED';
+      report.resolutionNote = report.resolutionNote || 'Agent 修复任务已完成，等待业务验收。';
+    } else {
+      report.repairTaskStatus = 'AGENT_RUNNING';
+      report.status = report.status === 'OPEN' ? 'TRIAGED' : 'IN_PROGRESS';
+    }
+    report.updatedBy = this.safeText(user.username ?? user.name ?? 'agent-result-sync', 128);
+
+    const saved = await this.repo.save(report);
+    await this.writeAudit('RECORD_AGENT_RESULT', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
     return this.toDto(saved);
   }
 
@@ -561,5 +630,25 @@ export class BugIntakeService {
 
   private safeCode(value: unknown) {
     return String(value ?? '').trim().replace(/[^\w:.-]/g, '_').slice(0, 128);
+  }
+
+  private normalizeAgentConclusion(value: unknown) {
+    const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '_');
+    if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS', 'HOLD', 'FAIL'].includes(normalized)) {
+      return normalized;
+    }
+    return 'HOLD';
+  }
+
+  private agentPlanCompleted(agentPlan: unknown, agentResults: Record<string, unknown>[]) {
+    const plan = agentPlan && typeof agentPlan === 'object' ? agentPlan as Record<string, unknown> : {};
+    const selectedAgents = Array.isArray(plan.selected_agents) ? plan.selected_agents.map((item) => String(item)) : [];
+    if (selectedAgents.length === 0) return false;
+    const completedAgents = new Set(
+      agentResults
+        .filter((item) => ['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS'].includes(String(item.conclusion ?? '')))
+        .map((item) => String(item.agent ?? '')),
+    );
+    return selectedAgents.every((agent) => completedAgents.has(agent));
   }
 }

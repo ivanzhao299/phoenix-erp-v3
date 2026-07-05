@@ -416,6 +416,12 @@ export default function BugReportsPage() {
                   <p style={{ margin: "8px 0 0", color: "var(--text-secondary)", fontSize: 12 }}>
                     {t("system.bugIntake.agentApprovalNote", "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。")}
                   </p>
+                  {Array.isArray(detail.repairTaskPayload?.agentResults) && (
+                    <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12 }}>
+                      <strong>{t("system.bugIntake.agentResults", "Agent 执行结果")}</strong>
+                      <JsonBlock value={detail.repairTaskPayload.agentResults} />
+                    </div>
+                  )}
                   {detail.repairTaskPayload && Object.keys(detail.repairTaskPayload).length > 0 && <JsonBlock value={detail.repairTaskPayload} />}
                 </section>
 

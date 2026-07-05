@@ -86,6 +86,13 @@ This keeps the first closed loop inside the ERP database. The agent queue can co
   - Sets `repair_task_status = AGENT_APPROVED`.
   - This still does not execute Codex CLI, does not modify code, and does not deploy.
 
+- `POST /api/bug-intake/reports/:bugNo/agent-result`
+  - Requires `MENU_BUG_REPORT:E`.
+  - Records one Agent subtask result back into `repair_task_payload.agentResults`.
+  - Updates `repair_task_status` to `AGENT_RUNNING`, `AGENT_COMPLETED`, or `HOLD`.
+  - When every selected Agent has a GO/PASS style result, the report moves to `RESOLVED`.
+  - HOLD/FAIL keeps the report in progress and preserves the blocking result.
+
 - `GET /api/bug-intake/reports/:bugNo/attachments/:fileName`
   - Requires `MENU_BUG_REPORT:V`.
   - Serves stored screenshots through a guarded endpoint, not a raw filesystem path.
@@ -159,7 +166,22 @@ An AI repair worker can read approved repair task packages by:
    The script will HOLD if `repair_task_payload.agentExecutionApproval.approved` is not true.
 
 6. Worker agents claim their own subtasks from `docs/ops/agent-queue/tasks.json`.
-7. A1/A2 gates verify fixes before merge/deploy.
+7. Worker results are written back to the bug report:
+
+   ```bash
+   node scripts/ops/bug-agent-result-to-report.mjs \
+     --bug-no BUG-YYYYMMDD-0001 \
+     --task-id BUGTASK-YYYYMMDD-0001-01-A4 \
+     --agent A4-Frontend-UAT-Smoke \
+     --result-file docs/ops/runs/<agent-result>.md \
+     --api-base http://localhost:3100 \
+     --token <jwt> \
+     --dry-run
+   ```
+
+   Use `--apply` only when the target API and token are correct.
+
+8. A1/A2 gates verify fixes before merge/deploy.
 
 The worker must not directly mutate business code or deploy without an explicit human approval gate.
 

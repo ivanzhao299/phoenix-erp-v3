@@ -13231,5 +13231,6 @@
   "system.bugIntake.agentApprovalPlaceholder": "ຕົວຢ່າງ: ອະນຸຍາດໃຫ້ຂຽນແຜນນີ້ເຂົ້າ queue ເທົ່ານັ້ນ, dry-run ກ່ອນ, ບໍ່ deploy ອັດຕະໂນມັດ",
   "system.bugIntake.approveAgentQueue": "ອະນຸມັດສົ່ງເຂົ້າ Agent Queue",
   "system.bugIntake.agentApprovalNote": "ການອະນຸມັດແມ່ນບັນທຶກສິດເທົ່ານັ້ນ; script Agent Factory ໃນເຄື່ອງຈະຂຽນ queue ພາຍໃຕ້ dry-run / apply ແລະ safety gates.",
+  "system.bugIntake.agentResults": "ຜົນການເຮັດວຽກ Agent",
   "common.done": "ສໍາເລັດ"
 }

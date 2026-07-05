@@ -114,6 +114,26 @@ export class BugIntakeController {
     return this.service.approveAgentExecution(bugNo, body, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('reports/:bugNo/agent-result')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async recordAgentResult(
+    @Param('bugNo') bugNo: string,
+    @Body() body: {
+      taskId?: string;
+      agent?: string;
+      conclusion?: string;
+      resultFile?: string;
+      commitHash?: string;
+      changedFiles?: unknown[];
+      validationResults?: unknown;
+      summary?: string;
+      nextAction?: string;
+    },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.recordAgentResult(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports/:bugNo/attachments/:fileName')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   @Header('Cache-Control', 'private, max-age=60')
