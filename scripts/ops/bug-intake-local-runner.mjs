@@ -11,6 +11,7 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
+const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 
 function usage(code = 1) {
@@ -228,14 +229,14 @@ function pushCommand(args) {
 function canPush(args, workerRuns) {
   if (args.dryRun || !args.pushAfterSuccess) return false;
   if (!workerRuns.length) return false;
-  return workerRuns.every((item) => item.finalTask && FINISHED_STATUSES.has(item.finalTask.status) && item.finalTask.status === 'COMPLETED_MERGED');
+  return workerRuns.every((item) => item.finalTask && FINISHED_STATUSES.has(item.finalTask.status) && SUCCESS_STATUSES.has(item.finalTask.status));
 }
 
 function runPushIfReady(args, workerRuns) {
   if (!canPush(args, workerRuns)) {
     return {
       skipped: true,
-      reason: args.pushAfterSuccess ? 'no successful COMPLETED_MERGED worker run in this cycle' : 'push-after-success disabled',
+      reason: args.pushAfterSuccess ? 'no successful completed worker run in this cycle' : 'push-after-success disabled',
     };
   }
   const branch = safeGit(['branch', '--show-current'], args.mainRoot);

@@ -7,6 +7,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const RUN_DIR = 'docs/ops/runs';
+const BASELINE_MERGE_AGENTS = new Set([
+  'Codex-Orchestrator',
+  'A3-Backend-Critical-Path',
+  'A4-Frontend-UAT-Smoke',
+  'A6-Staging-Deploy-Runbook',
+  'A7-Final-QA-Gate',
+]);
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -138,6 +145,10 @@ function runBaselineAutopilot(task) {
   };
 }
 
+function shouldRunBaselineAutopilot(task) {
+  return BASELINE_MERGE_AGENTS.has(task.agent);
+}
+
 function writeWorkerLog(task, payload) {
   mkdirSync(RUN_DIR, { recursive: true });
   const file = path.join(RUN_DIR, `${task.task_id}-worker-log.md`);
@@ -227,7 +238,7 @@ function runOne(args) {
   task.result_file = path.relative(process.cwd(), log);
   task.status = (result.status ?? 1) === 0 ? 'completed' : 'failed';
   task.completed_at = new Date().toISOString();
-  if ((result.status ?? 1) === 0) {
+  if ((result.status ?? 1) === 0 && shouldRunBaselineAutopilot(task)) {
     const baseline = runBaselineAutopilot(task);
     if (baseline.stdout) process.stdout.write(baseline.stdout);
     if (baseline.stderr) process.stderr.write(baseline.stderr);
@@ -235,6 +246,9 @@ function runOne(args) {
     task.baseline_autopilot_command = baseline.command.join(' ');
     task.status = baseline.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
     if (baseline.status !== 0) task.reason = `baseline autopilot failed with ${baseline.status}`;
+  } else if ((result.status ?? 1) === 0) {
+    task.baseline_autopilot_exit_code = 0;
+    task.baseline_autopilot_skipped = 'read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts';
   }
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);

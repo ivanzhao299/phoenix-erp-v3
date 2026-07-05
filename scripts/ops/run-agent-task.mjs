@@ -372,7 +372,7 @@ const result = spawnSync(codexCli, command.slice(1), {
   timeout: timeoutMs,
 });
 const timedOut = result.error?.code === 'ETIMEDOUT';
-const exitCode = result.status ?? (timedOut ? 124 : 1);
+const exitCode = timedOut ? 124 : result.status ?? 1;
 
 const logFile = writeRunLog({
   agent: args.agent,
