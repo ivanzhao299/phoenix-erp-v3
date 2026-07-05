@@ -12,6 +12,7 @@ const MAX_SCREENSHOT_COUNT = 5;
 const MAX_JSON_ITEMS = 30;
 const BUG_STORAGE_ROOT = 'storage/bug-reports';
 const VALID_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'] as const;
+const VALID_PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const;
 
 export interface BugReportPayload {
   title?: string;
@@ -42,6 +43,20 @@ interface BugAttachment {
   originalName?: string;
   mimeType?: string;
   relativePath?: string;
+}
+
+interface BugRepairTaskPayload {
+  acceptanceCriteria?: string;
+  suggestedOwner?: string;
+}
+
+interface BugTriagePayload {
+  status?: string;
+  priority?: string;
+  moduleCode?: string;
+  assigneeUsername?: string;
+  assigneeName?: string;
+  resolutionNote?: string;
 }
 
 @Injectable()
@@ -133,6 +148,87 @@ export class BugIntakeService {
     return this.toDto(saved);
   }
 
+  async updateTriage(bugNo: string, body: BugTriagePayload, user: BugReportUser, reqMeta: { ip?: string; userAgent?: string }) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+
+    const nextStatus = body.status || report.status;
+    if (!(VALID_STATUSES as readonly string[]).includes(nextStatus)) {
+      throw new BadRequestException(`无效状态: ${nextStatus}`);
+    }
+    const nextPriority = body.priority || report.priority || 'P2';
+    if (!(VALID_PRIORITIES as readonly string[]).includes(nextPriority)) {
+      throw new BadRequestException(`无效优先级: ${nextPriority}`);
+    }
+
+    const before = this.toWorkflowSnapshot(report);
+    report.status = nextStatus;
+    report.priority = nextPriority;
+    report.moduleCode = this.safeCode(body.moduleCode ?? report.moduleCode ?? '').slice(0, 64);
+    report.assigneeUsername = this.safeCode(body.assigneeUsername ?? report.assigneeUsername ?? '').slice(0, 128);
+    report.assigneeName = this.safeText(body.assigneeName ?? report.assigneeName ?? '', 128);
+    report.resolutionNote = this.safeText(body.resolutionNote ?? report.resolutionNote ?? '', 10_000);
+    report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
+    if (['RESOLVED', 'CLOSED', 'REJECTED'].includes(nextStatus)) {
+      report.closedAt = report.closedAt ?? new Date();
+    } else {
+      report.closedAt = null;
+    }
+
+    const saved = await this.repo.save(report);
+    await this.writeAudit('TRIAGE', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+    return this.toDto(saved);
+  }
+
+  async createRepairTask(bugNo: string, body: BugRepairTaskPayload, user: BugReportUser, reqMeta: { ip?: string; userAgent?: string }) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    const taskNo = report.repairTaskNo || await this.nextRepairTaskNo();
+    const before = this.toWorkflowSnapshot(report);
+    const payload = {
+      taskNo,
+      bugNo: report.bugNo,
+      title: report.title,
+      severity: report.severity,
+      priority: report.priority || 'P2',
+      moduleCode: report.moduleCode,
+      route: report.route,
+      url: report.url,
+      reporter: {
+        username: report.reporterUsername,
+        name: report.reporterName,
+        roles: report.roles,
+        companyCode: report.companyCode,
+        projectCode: report.projectCode,
+      },
+      context: {
+        consoleErrors: report.consoleErrors,
+        failedRequests: report.failedRequests,
+        clientContext: report.clientContext,
+        attachments: report.attachments,
+      },
+      repairGuardrails: {
+        autoRepairExecuted: false,
+        requiresHumanApproval: true,
+        noProductionDeploy: true,
+        noDbWriteWithoutGate: true,
+      },
+      acceptanceCriteria: this.safeText(body.acceptanceCriteria ?? '', 4000),
+      suggestedOwner: this.safeText(body.suggestedOwner ?? report.assigneeUsername ?? '', 128),
+      createdBy: this.safeText(user.username ?? user.name ?? '', 128),
+      createdAt: new Date().toISOString(),
+    };
+
+    report.repairTaskNo = taskNo;
+    report.repairTaskStatus = 'READY';
+    report.repairTaskPayload = payload;
+    report.status = report.status === 'OPEN' ? 'TRIAGED' : report.status;
+    report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
+    const saved = await this.repo.save(report);
+    await this.writeAudit('CREATE_REPAIR_TASK', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+    return this.toDto(saved);
+  }
+
   async getAttachment(bugNo: string, fileName: string) {
     const report = await this.repo.findOne({ where: { bugNo } });
     if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
@@ -163,6 +259,22 @@ export class BugIntakeService {
       if (!exists) return candidate;
     }
     return `BUG-${dateStr}-${randomUUID().slice(0, 8).toUpperCase()}`;
+  }
+
+  private async nextRepairTaskNo() {
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    for (let i = 0; i < 5; i++) {
+      const rows = await this.ds.query<{ repair_task_no: string }[]>(
+        `SELECT repair_task_no FROM bug_reports WHERE repair_task_no LIKE $1 ORDER BY repair_task_no DESC LIMIT 1`,
+        [`BUGTASK-${dateStr}-%`],
+      );
+      const last = rows[0]?.repair_task_no?.split('-').pop() ?? '0000';
+      const seq = String(Number(last) + 1 + i).padStart(4, '0');
+      const candidate = `BUGTASK-${dateStr}-${seq}`;
+      const exists = await this.repo.exist({ where: { repairTaskNo: candidate } });
+      if (!exists) return candidate;
+    }
+    return `BUGTASK-${dateStr}-${randomUUID().slice(0, 8).toUpperCase()}`;
   }
 
   private saveAttachments(bugNo: string, files: Express.Multer.File[]) {
@@ -245,11 +357,18 @@ export class BugIntakeService {
       title: report.title,
       severity: report.severity,
       status: report.status,
+      priority: report.priority,
+      moduleCode: report.moduleCode,
+      assigneeUsername: report.assigneeUsername,
+      assigneeName: report.assigneeName,
+      repairTaskNo: report.repairTaskNo,
+      repairTaskStatus: report.repairTaskStatus,
       route: report.route,
       reporterUsername: report.reporterUsername,
       reporterName: report.reporterName,
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
+      closedAt: report.closedAt,
       attachmentCount: Array.isArray(report.attachments) ? report.attachments.length : 0,
     };
   }
@@ -268,7 +387,22 @@ export class BugIntakeService {
       attachments: report.attachments,
       clientContext: report.clientContext,
       resolutionNote: report.resolutionNote,
+      repairTaskPayload: report.repairTaskPayload,
       updatedBy: report.updatedBy,
+    };
+  }
+
+  private toWorkflowSnapshot(report: BugReportEntity) {
+    return {
+      status: report.status,
+      priority: report.priority,
+      moduleCode: report.moduleCode,
+      assigneeUsername: report.assigneeUsername,
+      assigneeName: report.assigneeName,
+      repairTaskNo: report.repairTaskNo,
+      repairTaskStatus: report.repairTaskStatus,
+      resolutionNote: report.resolutionNote,
+      closedAt: report.closedAt,
     };
   }
 

@@ -68,6 +68,33 @@ export class BugIntakeController {
     return this.service.updateStatus(bugNo, body, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Patch('reports/:bugNo/triage')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async updateTriage(
+    @Param('bugNo') bugNo: string,
+    @Body() body: {
+      status?: string;
+      priority?: string;
+      moduleCode?: string;
+      assigneeUsername?: string;
+      assigneeName?: string;
+      resolutionNote?: string;
+    },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.updateTriage(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
+  @Post('reports/:bugNo/repair-task')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async createRepairTask(
+    @Param('bugNo') bugNo: string,
+    @Body() body: { acceptanceCriteria?: string; suggestedOwner?: string },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.createRepairTask(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports/:bugNo/attachments/:fileName')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   @Header('Cache-Control', 'private, max-age=60')

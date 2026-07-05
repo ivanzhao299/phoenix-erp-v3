@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-05T04:59:13.901Z",
+  "generated_at": "2026-07-05T06:21:09.764Z",
   "scope": "apps/web/src app/components/lib/hooks",
   "total_findings": 3028,
   "auto_translatable_findings": 3028,
@@ -3628,7 +3628,7 @@
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 222,
+      "line": 281,
       "kind": "string-literal",
       "text": "加载中",
       "auto_translatable": true

@@ -13,8 +13,11 @@ import {
 @Unique('UQ_bug_reports_bug_no', ['bugNo'])
 @Check('CHK_bug_reports_status', `"status" IN ('OPEN','TRIAGED','IN_PROGRESS','RESOLVED','CLOSED','REJECTED')`)
 @Check('CHK_bug_reports_severity', `"severity" IN ('LOW','MEDIUM','HIGH','CRITICAL')`)
+@Check('CHK_bug_reports_priority', `"priority" IN ('P0','P1','P2','P3')`)
 @Index('IDX_bug_reports_status_created', ['status', 'createdAt'])
 @Index('IDX_bug_reports_reporter', ['reporterUsername'])
+@Index('IDX_bug_reports_priority_status', ['priority', 'status'])
+@Index('IDX_bug_reports_assignee', ['assigneeUsername'])
 export class BugReportEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
@@ -33,6 +36,27 @@ export class BugReportEntity {
 
   @Column({ type: 'varchar', length: 24, default: 'OPEN' })
   status: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'P2' })
+  priority: string;
+
+  @Column({ name: 'module_code', type: 'varchar', length: 64, default: '' })
+  moduleCode: string;
+
+  @Column({ name: 'assignee_username', type: 'varchar', length: 128, default: '' })
+  assigneeUsername: string;
+
+  @Column({ name: 'assignee_name', type: 'varchar', length: 128, default: '' })
+  assigneeName: string;
+
+  @Column({ name: 'repair_task_no', type: 'varchar', length: 48, default: '' })
+  repairTaskNo: string;
+
+  @Column({ name: 'repair_task_status', type: 'varchar', length: 24, default: '' })
+  repairTaskStatus: string;
+
+  @Column({ name: 'repair_task_payload', type: 'jsonb', default: () => "'{}'::jsonb" })
+  repairTaskPayload: Record<string, unknown>;
 
   @Column({ type: 'varchar', length: 255, default: '' })
   route: string;
@@ -75,6 +99,9 @@ export class BugReportEntity {
 
   @Column({ name: 'updated_by', type: 'varchar', length: 128, default: '' })
   updatedBy: string;
+
+  @Column({ name: 'closed_at', type: 'timestamptz', nullable: true })
+  closedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

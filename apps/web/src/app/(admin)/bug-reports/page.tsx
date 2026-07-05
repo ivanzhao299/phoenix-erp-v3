@@ -12,11 +12,18 @@ type BugReportListItem = {
   title: string;
   severity: string;
   status: string;
+  priority: string;
+  moduleCode: string;
+  assigneeUsername: string;
+  assigneeName: string;
+  repairTaskNo: string;
+  repairTaskStatus: string;
   route: string;
   reporterUsername: string;
   reporterName: string;
   createdAt: string;
   updatedAt: string;
+  closedAt: string | null;
   attachmentCount: number;
 };
 
@@ -40,10 +47,12 @@ type BugReportDetail = BugReportListItem & {
   attachments: Attachment[];
   clientContext: Record<string, unknown>;
   resolutionNote: string;
+  repairTaskPayload: Record<string, unknown>;
   updatedBy: string;
 };
 
 const STATUSES = ["OPEN", "TRIAGED", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"];
+const PRIORITIES = ["P0", "P1", "P2", "P3"];
 const PAGE_SIZE = 20;
 
 function token() {
@@ -78,6 +87,14 @@ export default function BugReportsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
+  const [triage, setTriage] = useState({
+    status: "OPEN",
+    priority: "P2",
+    moduleCode: "",
+    assigneeUsername: "",
+    assigneeName: "",
+  });
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
 
   const fetchList = useCallback(async (nextPage = 1) => {
     setLoading(true);
@@ -106,25 +123,58 @@ export default function BugReportsPage() {
     setDetailLoading(true);
     setDetail(null);
     setNote("");
+    setAcceptanceCriteria("");
     try {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}`, { headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) {
         const data = await res.json() as BugReportDetail;
         setDetail(data);
         setNote(data.resolutionNote ?? "");
+        setTriage({
+          status: data.status || "OPEN",
+          priority: data.priority || "P2",
+          moduleCode: data.moduleCode || "",
+          assigneeUsername: data.assigneeUsername || "",
+          assigneeName: data.assigneeName || "",
+        });
       }
     } finally {
       setDetailLoading(false);
     }
   };
 
-  const updateStatus = async (bugNo: string, nextStatus: string) => {
+  const saveTriage = async (bugNo: string) => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/bug-intake/reports/${bugNo}/status`, {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/triage`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus, resolutionNote: note }),
+        body: JSON.stringify({ ...triage, resolutionNote: note }),
+      });
+      if (res.ok) {
+        const data = await res.json() as BugReportDetail;
+        setDetail(data);
+        setTriage({
+          status: data.status || "OPEN",
+          priority: data.priority || "P2",
+          moduleCode: data.moduleCode || "",
+          assigneeUsername: data.assigneeUsername || "",
+          assigneeName: data.assigneeName || "",
+        });
+        await fetchList(page);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const createRepairTask = async (bugNo: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/repair-task`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ acceptanceCriteria, suggestedOwner: triage.assigneeUsername }),
       });
       if (res.ok) {
         const data = await res.json() as BugReportDetail;
@@ -172,8 +222,12 @@ export default function BugReportsPage() {
               {[
                 t("system.bugIntake.bugNo", "编号"),
                 t("system.bugIntake.title", "标题"),
+                t("system.bugIntake.priority", "优先级"),
                 t("system.bugIntake.severity", "严重程度"),
                 t("common.status", "状态"),
+                t("system.bugIntake.module", "模块"),
+                t("system.bugIntake.assignee", "负责人"),
+                t("system.bugIntake.repairTask", "修复任务"),
                 t("system.bugIntake.page", "页面"),
                 t("system.bugIntake.reporter", "提报人"),
                 t("system.bugIntake.screenshots", "截图"),
@@ -183,18 +237,23 @@ export default function BugReportsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} style={{ textAlign: "center", padding: 48 }}><Loader2 size={22} className="animate-spin" /></td></tr>
+              <tr><td colSpan={12} style={{ textAlign: "center", padding: 48 }}><Loader2 size={22} className="animate-spin" /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>{t("system.bugIntake.empty", "暂无问题反馈")}</p></td></tr>
+              <tr><td colSpan={12} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>{t("system.bugIntake.empty", "暂无问题反馈")}</p></td></tr>
             ) : rows.map(row => {
               const sev = badgeColor(row.severity);
               const st = badgeColor(row.status);
+              const priority = badgeColor(row.priority);
               return (
                 <tr key={row.bugNo} onClick={() => openDetail(row.bugNo)} style={{ cursor: "pointer" }}>
                   <td style={{ fontFamily: "monospace", color: "var(--color-primary)", fontWeight: 800 }}>{row.bugNo}</td>
                   <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</td>
+                  <td><span style={{ ...priority, padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 800 }}>{row.priority || "P2"}</span></td>
                   <td><span style={{ ...sev, padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 800 }}>{row.severity}</span></td>
                   <td><span style={{ ...st, padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 800 }}>{row.status}</span></td>
+                  <td>{row.moduleCode || "—"}</td>
+                  <td>{row.assigneeName || row.assigneeUsername || "—"}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.repairTaskNo || "—"}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-secondary)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.route || "—"}</td>
                   <td>{row.reporterName || row.reporterUsername || "—"}</td>
                   <td>{row.attachmentCount}</td>
@@ -237,16 +296,66 @@ export default function BugReportsPage() {
                 </section>
 
                 <section>
-                  <h4>{t("system.bugIntake.processingStatus", "处理状态")}</h4>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <select value={detail.status} onChange={e => updateStatus(detail.bugNo, e.target.value)} disabled={saving}
-                      style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-                      {STATUSES.map(item => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                    {saving && <Loader2 size={16} className="animate-spin" />}
+                  <h4>{t("system.bugIntake.triageTitle", "受理与分派")}</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.processingStatus", "处理状态")}</span>
+                      <select value={triage.status} onChange={e => setTriage(prev => ({ ...prev, status: e.target.value }))} disabled={saving}
+                        style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+                        {STATUSES.map(item => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.priority", "优先级")}</span>
+                      <select value={triage.priority} onChange={e => setTriage(prev => ({ ...prev, priority: e.target.value }))} disabled={saving}
+                        style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+                        {PRIORITIES.map(item => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.module", "模块")}</span>
+                      <input value={triage.moduleCode} onChange={e => setTriage(prev => ({ ...prev, moduleCode: e.target.value }))}
+                        placeholder={t("system.bugIntake.modulePlaceholder", "例如 PROCUREMENT / FINANCE / MOBILE")}
+                        style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }} />
+                    </label>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.assignee", "负责人")}</span>
+                      <input value={triage.assigneeUsername} onChange={e => setTriage(prev => ({ ...prev, assigneeUsername: e.target.value }))}
+                        placeholder={t("system.bugIntake.assigneePlaceholder", "负责人用户名")}
+                        style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }} />
+                    </label>
+                    <label style={{ display: "grid", gap: 6, gridColumn: "1 / -1" }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.assigneeName", "负责人姓名")}</span>
+                      <input value={triage.assigneeName} onChange={e => setTriage(prev => ({ ...prev, assigneeName: e.target.value }))}
+                        placeholder={t("system.bugIntake.assigneeNamePlaceholder", "可选")}
+                        style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }} />
+                    </label>
                   </div>
                   <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t("system.bugIntake.resolutionPlaceholder", "处理备注 / 复现结论")}
                     style={{ width: "100%", minHeight: 80, marginTop: 10, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }} />
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
+                    <button type="button" onClick={() => saveTriage(detail.bugNo)} disabled={saving}
+                      style={{ padding: "8px 14px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving ? "not-allowed" : "pointer" }}>
+                      {t("system.bugIntake.saveTriage", "保存受理信息")}
+                    </button>
+                    {saving && <Loader2 size={16} className="animate-spin" />}
+                  </div>
+                </section>
+
+                <section>
+                  <h4>{t("system.bugIntake.repairTaskTitle", "修复任务包")}</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, fontSize: 13, marginBottom: 10 }}>
+                    <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.repairTask", "修复任务")}</span><strong>{detail.repairTaskNo || "—"}</strong>
+                    <span style={{ color: "var(--text-secondary)" }}>{t("common.status", "状态")}</span><strong>{detail.repairTaskStatus || "—"}</strong>
+                  </div>
+                  <textarea value={acceptanceCriteria} onChange={e => setAcceptanceCriteria(e.target.value)}
+                    placeholder={t("system.bugIntake.acceptancePlaceholder", "验收标准：例如复现路径、期望结果、必须通过的检查")}
+                    style={{ width: "100%", minHeight: 72, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }} />
+                  <button type="button" onClick={() => createRepairTask(detail.bugNo)} disabled={saving}
+                    style={{ marginTop: 10, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving ? "not-allowed" : "pointer" }}>
+                    {detail.repairTaskNo ? t("system.bugIntake.refreshRepairTask", "更新修复任务包") : t("system.bugIntake.createRepairTask", "生成修复任务包")}
+                  </button>
+                  {detail.repairTaskPayload && Object.keys(detail.repairTaskPayload).length > 0 && <JsonBlock value={detail.repairTaskPayload} />}
                 </section>
 
                 <section>
