@@ -44,10 +44,13 @@ export class IotV3Controller {
       `);
 
       // 2. 实时快照（最近一条）
+      //   name_zh/unit/system_category 在字典表 mon_device_property_dict 上，快照表并无这些列——
+      //   必须 JOIN 字典取，直接从快照表 SELECT 会报 column "name_zh" does not exist → 整个总览取数吞成空 → 0/0。
       const snapshots = await safeQuery('mon_device_realtime_snapshot', `
-        SELECT erp_house_code, property_code, value, is_alarm, collect_time, updated_at,
-               name_zh, unit, system_category
-        FROM mon_device_realtime_snapshot
+        SELECT s.erp_house_code, s.property_code, s.value, s.is_alarm, s.collect_time, s.updated_at,
+               d.name_zh, d.unit, d.system_category
+        FROM mon_device_realtime_snapshot s
+        LEFT JOIN mon_device_property_dict d ON d.property_code = s.property_code
       `);
 
       // 3. 未处理告警数
