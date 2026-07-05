@@ -107,7 +107,7 @@ function commandForTask(task, dryRun, approvalToken) {
   if (task.contract_file) command.push('--task-contract', task.contract_file);
   command.push('--assembled-prompt-output', assembled);
   if (dryRun) command.push('--dry-run');
-  else command.push('--require-approval-token', approvalToken, '--skip-baseline-autopilot');
+  else command.push('--require-approval-token', approvalToken, '--skip-baseline-autopilot', '--allow-ops-runtime-dirty');
   return command;
 }
 

@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260705-0003",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260705-0003/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260705-0003-01-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260705-0003-02-ORCH",
+    "agent": "Codex-Orchestrator",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-01-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\nAgent: A1-CI-Runtime-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate\nBranch: w5-a1-ci-runtime-gate\nPrompt: docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md\nAssembled prompt chars: 5220\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --sandbox workspace-write -\n\n```\n\n## Stderr\n\n```text\nERROR: codex CLI not found in PATH\n\n```\n",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```\n",
     "nextAction": ""
   }
 }

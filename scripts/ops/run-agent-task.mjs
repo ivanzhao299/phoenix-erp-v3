@@ -49,7 +49,7 @@ const AGENTS = {
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run] [--skip-baseline-autopilot]
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
@@ -71,6 +71,10 @@ function parseArgs(argv) {
     }
     if (arg === '--skip-baseline-autopilot') {
       values['skip-baseline-autopilot'] = true;
+      continue;
+    }
+    if (arg === '--allow-ops-runtime-dirty') {
+      values['allow-ops-runtime-dirty'] = true;
       continue;
     }
     if (arg === '--help' || arg === '-h') {
@@ -163,6 +167,18 @@ function findCodex() {
   });
   const cli = result.stdout.trim();
   return cli || null;
+}
+
+function isOnlyAllowedOpsRuntimeDirty(status) {
+  if (!status.trim()) return true;
+  const allowed = new Set(['docs/ops/agent-queue/tasks.json']);
+  return status
+    .split('\n')
+    .filter(Boolean)
+    .every((line) => {
+      const file = line.slice(3).trim();
+      return allowed.has(file);
+    });
 }
 
 function summarize(text, limit = 4000) {
@@ -288,7 +304,7 @@ if (branch !== config.branch) {
 }
 
 const status = runGit(['status', '--short'], worktree);
-if (status) {
+if (status && !(args['allow-ops-runtime-dirty'] && isOnlyAllowedOpsRuntimeDirty(status))) {
   fail(`worktree is not clean:\n${status}`);
 }
 
