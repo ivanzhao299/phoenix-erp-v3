@@ -104,6 +104,16 @@ export class BugIntakeController {
     return this.service.generateAgentPlan(bugNo, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('reports/:bugNo/agent-approval')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async approveAgentExecution(
+    @Param('bugNo') bugNo: string,
+    @Body() body: { approvalScope?: string },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.approveAgentExecution(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports/:bugNo/attachments/:fileName')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   @Header('Cache-Control', 'private, max-age=60')

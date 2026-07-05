@@ -13227,5 +13227,9 @@
   "system.bugIntake.captureFailed": "Capture failed. Please try again.",
   "system.bugIntake.attachmentLimit": "You can attach up to 5 screenshots/files.",
   "system.bugIntake.generateAgentPlan": "Generate Agent repair plan",
+  "system.bugIntake.agentApprovalScope": "Agent execution approval scope",
+  "system.bugIntake.agentApprovalPlaceholder": "Example: only write the current plan to the queue, dry-run first, no automatic deploy",
+  "system.bugIntake.approveAgentQueue": "Approve Agent queue handoff",
+  "system.bugIntake.agentApprovalNote": "Approval only records authorization; the local Agent Factory script still performs queue writes under dry-run/apply and safety gates.",
   "common.done": "Done"
 }

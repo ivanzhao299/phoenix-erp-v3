@@ -66,6 +66,15 @@ function extractPayload(input) {
   return input;
 }
 
+function getApproval(payload) {
+  const approval = payload.agentExecutionApproval || payload.agent_execution_approval;
+  return approval && typeof approval === 'object' ? approval : null;
+}
+
+function isAgentExecutionApproved(payload) {
+  return getApproval(payload)?.approved === true;
+}
+
 function buildRouteText(payload) {
   return [
     payload.title,
@@ -170,12 +179,19 @@ function main() {
     process.exit(2);
   }
 
+  if (args.apply && !isAgentExecutionApproved(payload)) {
+    console.error('HOLD: --apply requires repair_task_payload.agentExecutionApproval.approved = true.');
+    console.error('Generate an Agent plan in ERP, then approve "投入 Agent 队列" before applying queue tasks.');
+    process.exit(2);
+  }
+
   const tasks = buildTasks(payload, routePlan, dispatchMap);
   const summary = {
     decision: 'BUG_TASK_QUEUE_PLAN_READY',
     source_repair_task_no: payload.taskNo || payload.task_no || routePlan.source_repair_task_no,
     selected_agents: routePlan.selected_agents,
     generated_tasks: tasks.map((task) => task.task_id),
+    agent_execution_approval: getApproval(payload),
     apply: Boolean(args.apply),
   };
 

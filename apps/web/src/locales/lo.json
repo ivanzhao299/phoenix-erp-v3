@@ -13227,5 +13227,9 @@
   "system.bugIntake.captureFailed": "ຈັບພາບບໍ່ສໍາເລັດ, ກະລຸນາລອງໃໝ່.",
   "system.bugIntake.attachmentLimit": "ແນບຮູບໜ້າຈໍ/ໄຟລ໌ໄດ້ສູງສຸດ 5 ລາຍການ.",
   "system.bugIntake.generateAgentPlan": "ສ້າງແຜນສ້ອມແປງ Agent",
+  "system.bugIntake.agentApprovalScope": "ຂອບເຂດອະນຸມັດການເຮັດວຽກ Agent",
+  "system.bugIntake.agentApprovalPlaceholder": "ຕົວຢ່າງ: ອະນຸຍາດໃຫ້ຂຽນແຜນນີ້ເຂົ້າ queue ເທົ່ານັ້ນ, dry-run ກ່ອນ, ບໍ່ deploy ອັດຕະໂນມັດ",
+  "system.bugIntake.approveAgentQueue": "ອະນຸມັດສົ່ງເຂົ້າ Agent Queue",
+  "system.bugIntake.agentApprovalNote": "ການອະນຸມັດແມ່ນບັນທຶກສິດເທົ່ານັ້ນ; script Agent Factory ໃນເຄື່ອງຈະຂຽນ queue ພາຍໃຕ້ dry-run / apply ແລະ safety gates.",
   "common.done": "ສໍາເລັດ"
 }

@@ -13227,5 +13227,9 @@
   "system.bugIntake.captureFailed": "截图失败，请重试。",
   "system.bugIntake.attachmentLimit": "最多只能附加 5 个截图/文件。",
   "system.bugIntake.generateAgentPlan": "生成 Agent 修复计划",
+  "system.bugIntake.agentApprovalScope": "Agent 执行批准范围",
+  "system.bugIntake.agentApprovalPlaceholder": "例如：仅允许按当前计划写入队列，先 dry-run，不自动部署",
+  "system.bugIntake.approveAgentQueue": "批准投入 Agent 队列",
+  "system.bugIntake.agentApprovalNote": "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。",
   "common.done": "完成"
 }

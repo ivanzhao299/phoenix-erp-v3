@@ -59,6 +59,10 @@ interface BugTriagePayload {
   resolutionNote?: string;
 }
 
+interface BugAgentApprovalPayload {
+  approvalScope?: string;
+}
+
 @Injectable()
 export class BugIntakeService {
   constructor(
@@ -247,6 +251,48 @@ export class BugIntakeService {
     report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
     const saved = await this.repo.save(report);
     await this.writeAudit('GENERATE_AGENT_PLAN', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+    return this.toDto(saved);
+  }
+
+  async approveAgentExecution(
+    bugNo: string,
+    body: BugAgentApprovalPayload,
+    user: BugReportUser,
+    reqMeta: { ip?: string; userAgent?: string },
+  ) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    if (!report.repairTaskNo) throw new BadRequestException('请先生成修复任务包');
+
+    const payload = report.repairTaskPayload && typeof report.repairTaskPayload === 'object'
+      ? report.repairTaskPayload as Record<string, unknown>
+      : {};
+    if (!payload.agentPlan) throw new BadRequestException('请先生成 Agent 修复计划');
+
+    const before = this.toWorkflowSnapshot(report);
+    const approval = {
+      approved: true,
+      approvedBy: this.safeText(user.username ?? user.name ?? '', 128),
+      approvedAt: new Date().toISOString(),
+      approvalScope: this.safeText(body.approvalScope ?? 'approve agent queue handoff for generated agentPlan only', 1000),
+      forbiddenActions: [
+        'production deploy without separate approval',
+        'database write without separate gate',
+        'migration execution without separate gate',
+        'push without release approval',
+        'force push',
+      ],
+    };
+    report.repairTaskPayload = {
+      ...payload,
+      agentExecutionApproval: approval,
+    };
+    report.repairTaskStatus = 'AGENT_APPROVED';
+    report.status = report.status === 'OPEN' ? 'TRIAGED' : report.status;
+    report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
+
+    const saved = await this.repo.save(report);
+    await this.writeAudit('APPROVE_AGENT_EXECUTION', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
     return this.toDto(saved);
   }
 

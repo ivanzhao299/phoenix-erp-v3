@@ -4,7 +4,7 @@
 
 Phase 1 collects bug reports and runtime context.
 
-Phase 2 adds triage, assignment, and repair-task handoff. It still does not run AI repair, does not auto-modify code, and does not deploy.
+Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and an explicit Agent queue approval gate. It still does not run AI repair by itself, does not auto-modify code, and does not deploy.
 
 ## User Flow
 
@@ -20,6 +20,8 @@ Phase 2 adds triage, assignment, and repair-task handoff. It still does not run 
 5. Administrators can review reports at `/bug-reports`.
 6. Administrators triage the report with priority, module, assignee, and a handling note.
 7. Administrators can generate a guarded repair task package for a later human or AI repair worker.
+8. Administrators generate an Agent repair plan and explicitly approve the queue handoff.
+9. The local Agent Factory script refuses `--apply` unless the repair task payload contains that approval record.
 
 ## Closed Loop
 
@@ -43,7 +45,7 @@ The handoff payload is stored on the same report:
 - `repair_task_payload`
 - `closed_at`
 
-This keeps the first closed loop inside the ERP database. A future agent queue can consume `repair_task_payload` after an explicit approval gate.
+This keeps the first closed loop inside the ERP database. The agent queue can consume `repair_task_payload` only after the explicit `agentExecutionApproval` gate is recorded.
 
 ## Backend API
 
@@ -75,6 +77,13 @@ This keeps the first closed loop inside the ERP database. A future agent queue c
   - Requires `MENU_BUG_REPORT:E`.
   - Splits the repair task into recommended A1-A7 agent responsibilities.
   - Writes the plan into `repair_task_payload.agentPlan`.
+  - This still does not execute Codex CLI, does not modify code, and does not deploy.
+
+- `POST /api/bug-intake/reports/:bugNo/agent-approval`
+  - Requires `MENU_BUG_REPORT:E`.
+  - Requires an existing repair task and Agent plan.
+  - Writes `repair_task_payload.agentExecutionApproval`.
+  - Sets `repair_task_status = AGENT_APPROVED`.
   - This still does not execute Codex CLI, does not modify code, and does not deploy.
 
 - `GET /api/bug-intake/reports/:bugNo/attachments/:fileName`
@@ -146,6 +155,8 @@ An AI repair worker can read approved repair task packages by:
      --repair-task-json docs/ops/runs/<bugtask-export>.json \
      --apply
    ```
+
+   The script will HOLD if `repair_task_payload.agentExecutionApproval.approved` is not true.
 
 6. Worker agents claim their own subtasks from `docs/ops/agent-queue/tasks.json`.
 7. A1/A2 gates verify fixes before merge/deploy.

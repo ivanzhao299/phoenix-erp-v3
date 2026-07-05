@@ -95,6 +95,7 @@ export default function BugReportsPage() {
     assigneeName: "",
   });
   const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
+  const [approvalScope, setApprovalScope] = useState("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
 
   const fetchList = useCallback(async (nextPage = 1) => {
     setLoading(true);
@@ -124,6 +125,7 @@ export default function BugReportsPage() {
     setDetail(null);
     setNote("");
     setAcceptanceCriteria("");
+    setApprovalScope("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
     try {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}`, { headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) {
@@ -192,6 +194,24 @@ export default function BugReportsPage() {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}/agent-plan`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json() as BugReportDetail;
+        setDetail(data);
+        await fetchList(page);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approveAgentExecution = async (bugNo: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/agent-approval`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalScope }),
       });
       if (res.ok) {
         const data = await res.json() as BugReportDetail;
@@ -376,6 +396,26 @@ export default function BugReportsPage() {
                     style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}>
                     {t("system.bugIntake.generateAgentPlan", "生成 Agent 修复计划")}
                   </button>
+                  <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.agentApprovalScope", "Agent 执行批准范围")}</span>
+                    <textarea
+                      value={approvalScope}
+                      onChange={e => setApprovalScope(e.target.value)}
+                      placeholder={t("system.bugIntake.agentApprovalPlaceholder", "例如：仅允许按当前计划写入队列，先 dry-run，不自动部署")}
+                      style={{ width: "100%", minHeight: 64, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => approveAgentExecution(detail.bugNo)}
+                    disabled={saving || !detail.repairTaskPayload?.agentPlan}
+                    style={{ marginTop: 10, padding: "8px 14px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success)", color: "white", cursor: saving || !detail.repairTaskPayload?.agentPlan ? "not-allowed" : "pointer" }}
+                  >
+                    {t("system.bugIntake.approveAgentQueue", "批准投入 Agent 队列")}
+                  </button>
+                  <p style={{ margin: "8px 0 0", color: "var(--text-secondary)", fontSize: 12 }}>
+                    {t("system.bugIntake.agentApprovalNote", "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。")}
+                  </p>
                   {detail.repairTaskPayload && Object.keys(detail.repairTaskPayload).length > 0 && <JsonBlock value={detail.repairTaskPayload} />}
                 </section>
 
