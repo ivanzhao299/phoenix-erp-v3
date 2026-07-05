@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { AlertTriangle, Bug, Loader2, RefreshCw, X } from "lucide-react";
@@ -66,6 +67,7 @@ function JsonBlock({ value }: { value: unknown }) {
 }
 
 export default function BugReportsPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<BugReportListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -134,25 +136,30 @@ export default function BugReportsPage() {
     }
   };
 
+  const openProtectedAttachment = (endpoint: string) => {
+    if (!endpoint) return;
+    window.location.assign(endpoint);
+  };
+
   const pages = Math.ceil(total / PAGE_SIZE) || 1;
 
   return (
     <div>
       <PageHeader
-        title="问题反馈"
-        subtitle={`Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 ${total} 条`}
+        title={t("system.bugIntake.adminTitle", "问题反馈")}
+        subtitle={`${t("system.bugIntake.adminSubtitle", "Bug Intake 台账 · 用户页面提报 + 自动上下文采集")} · ${t("ui.共", "共")} ${total} ${t("ui.条", "条")}`}
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select value={status} onChange={e => setStatus(e.target.value)}
               style={{ padding: "7px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-              <option value="">全部状态</option>
+              <option value="">{t("system.bugIntake.allStatuses", "全部状态")}</option>
               {STATUSES.map(item => <option key={item} value={item}>{item}</option>)}
             </select>
-            <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索编号 / 标题 / 页面 / 用户"
+            <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder={t("system.bugIntake.searchPlaceholder", "搜索编号 / 标题 / 页面 / 用户")}
               style={{ padding: "7px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", width: 240 }} />
             <button type="button" onClick={() => fetchList(1)} disabled={loading}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: loading ? "not-allowed" : "pointer" }}>
-              <RefreshCw size={14} /> 刷新
+              <RefreshCw size={14} /> {t("common.refresh", "刷新")}
             </button>
           </div>
         }
@@ -161,13 +168,24 @@ export default function BugReportsPage() {
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>
           <thead>
-            <tr>{["编号", "标题", "严重程度", "状态", "页面", "提报人", "截图", "创建时间"].map(h => <th key={h} className={u.nowrap}>{h}</th>)}</tr>
+            <tr>
+              {[
+                t("system.bugIntake.bugNo", "编号"),
+                t("system.bugIntake.title", "标题"),
+                t("system.bugIntake.severity", "严重程度"),
+                t("common.status", "状态"),
+                t("system.bugIntake.page", "页面"),
+                t("system.bugIntake.reporter", "提报人"),
+                t("system.bugIntake.screenshots", "截图"),
+                t("system.bugIntake.createdAt", "创建时间"),
+              ].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+            </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td colSpan={8} style={{ textAlign: "center", padding: 48 }}><Loader2 size={22} className="animate-spin" /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>暂无问题反馈</p></td></tr>
+              <tr><td colSpan={8} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>{t("system.bugIntake.empty", "暂无问题反馈")}</p></td></tr>
             ) : rows.map(row => {
               const sev = badgeColor(row.severity);
               const st = badgeColor(row.status);
@@ -190,9 +208,9 @@ export default function BugReportsPage() {
 
       {pages > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-          <button disabled={page <= 1} onClick={() => fetchList(page - 1)}>上一页</button>
-          <span style={{ lineHeight: "28px", color: "var(--text-secondary)" }}>第 {page} / {pages} 页</span>
-          <button disabled={page >= pages} onClick={() => fetchList(page + 1)}>下一页</button>
+          <button disabled={page <= 1} onClick={() => fetchList(page - 1)}>{t("ui.上一页", "上一页")}</button>
+          <span style={{ lineHeight: "28px", color: "var(--text-secondary)" }}>{t("ui.第", "第")} {page} / {pages} {t("ui.页", "页")}</span>
+          <button disabled={page >= pages} onClick={() => fetchList(page + 1)}>{t("ui.下一页", "下一页")}</button>
         </div>
       )}
 
@@ -202,7 +220,7 @@ export default function BugReportsPage() {
             <div style={{ padding: 22, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ color: "var(--color-primary)", fontWeight: 800, fontFamily: "monospace" }}>{detail?.bugNo ?? "加载中"}</div>
-                <h3 style={{ margin: "6px 0 0", fontSize: 18 }}>{detail?.title ?? "问题详情"}</h3>
+                <h3 style={{ margin: "6px 0 0", fontSize: 18 }}>{detail?.title ?? t("system.bugIntake.detailTitle", "问题详情")}</h3>
               </div>
               <button type="button" onClick={() => setDetail(null)} style={{ border: "none", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}><X size={20} /></button>
             </div>
@@ -212,14 +230,14 @@ export default function BugReportsPage() {
             ) : detail && (
               <div style={{ padding: 22, display: "grid", gap: 18 }}>
                 <section style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, fontSize: 13 }}>
-                  <span style={{ color: "var(--text-secondary)" }}>页面地址</span><strong style={{ wordBreak: "break-all" }}>{detail.url || detail.route || "—"}</strong>
-                  <span style={{ color: "var(--text-secondary)" }}>用户 / 角色</span><strong>{detail.reporterName || detail.reporterUsername} · {(detail.roles ?? []).join(", ") || "—"}</strong>
-                  <span style={{ color: "var(--text-secondary)" }}>公司 / 项目</span><strong>{detail.companyCode || "—"} / {detail.projectCode || "—"}</strong>
-                  <span style={{ color: "var(--text-secondary)" }}>说明</span><span style={{ whiteSpace: "pre-wrap" }}>{detail.description || "—"}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.pageUrl", "页面地址")}</span><strong style={{ wordBreak: "break-all" }}>{detail.url || detail.route || "—"}</strong>
+                  <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.userRoles", "用户 / 角色")}</span><strong>{detail.reporterName || detail.reporterUsername} · {(detail.roles ?? []).join(", ") || "—"}</strong>
+                  <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.companyProject", "公司 / 项目")}</span><strong>{detail.companyCode || "—"} / {detail.projectCode || "—"}</strong>
+                  <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.description", "说明")}</span><span style={{ whiteSpace: "pre-wrap" }}>{detail.description || "—"}</span>
                 </section>
 
                 <section>
-                  <h4>处理状态</h4>
+                  <h4>{t("system.bugIntake.processingStatus", "处理状态")}</h4>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <select value={detail.status} onChange={e => updateStatus(detail.bugNo, e.target.value)} disabled={saving}
                       style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
@@ -227,17 +245,23 @@ export default function BugReportsPage() {
                     </select>
                     {saving && <Loader2 size={16} className="animate-spin" />}
                   </div>
-                  <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="处理备注 / 复现结论"
+                  <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t("system.bugIntake.resolutionPlaceholder", "处理备注 / 复现结论")}
                     style={{ width: "100%", minHeight: 80, marginTop: 10, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }} />
                 </section>
 
                 <section>
-                  <h4>截图 / 附件</h4>
+                  <h4>{t("system.bugIntake.attachments", "截图 / 附件")}</h4>
                   {detail.attachments?.length ? (
                     <div style={{ display: "grid", gap: 10 }}>
                       {detail.attachments.map(file => (
                         <div key={file.fileName} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10 }}>
-                          <a href={file.previewEndpoint} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", fontWeight: 700 }}>{file.originalName}</a>
+                          <button
+                            type="button"
+                            onClick={() => openProtectedAttachment(file.previewEndpoint)}
+                            style={{ border: 0, background: "transparent", color: "var(--color-primary)", fontWeight: 700, cursor: "pointer", padding: 0 }}
+                          >
+                            {file.originalName}
+                          </button>
                           <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{file.mimeType} · {Math.round(file.sizeBytes / 1024)} KB</div>
                           {file.mimeType?.startsWith("image/") && (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -246,19 +270,19 @@ export default function BugReportsPage() {
                         </div>
                       ))}
                     </div>
-                  ) : <p style={{ color: "var(--text-secondary)" }}>未上传截图。</p>}
+                  ) : <p style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.noScreenshots", "未上传截图。")}</p>}
                 </section>
 
                 <section>
-                  <h4><AlertTriangle size={16} /> 最近 Console Error</h4>
+                  <h4><AlertTriangle size={16} /> {t("system.bugIntake.recentConsoleErrors", "最近 Console Error")}</h4>
                   <JsonBlock value={detail.consoleErrors} />
                 </section>
                 <section>
-                  <h4>最近失败接口</h4>
+                  <h4>{t("system.bugIntake.recentFailedRequests", "最近失败接口")}</h4>
                   <JsonBlock value={detail.failedRequests} />
                 </section>
                 <section>
-                  <h4>客户端上下文</h4>
+                  <h4>{t("system.bugIntake.clientContext", "客户端上下文")}</h4>
                   <JsonBlock value={detail.clientContext} />
                 </section>
               </div>

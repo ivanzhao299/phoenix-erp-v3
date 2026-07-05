@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-04T15:38:39.515Z",
+  "generated_at": "2026-07-05T04:59:13.901Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3026,
-  "auto_translatable_findings": 3026,
+  "total_findings": 3028,
+  "auto_translatable_findings": 3028,
   "manual_componentization_findings": 0,
-  "affected_files": 170,
+  "affected_files": 171,
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -132,60 +132,60 @@
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "count": 157,
+      "count": 158,
       "samples": [
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 71,
+          "line": 72,
           "kind": "string-literal",
           "text": "运营工作台",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 73,
+          "line": 74,
           "kind": "string-literal",
           "text": "每日工作台",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 80,
+          "line": 81,
           "kind": "string-literal",
           "text": "经营仪表盘",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 83,
+          "line": 84,
           "kind": "string-literal",
           "text": "生产管理",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 85,
+          "line": 86,
           "kind": "string-literal",
           "text": "养殖总览",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 86,
+          "line": 87,
           "kind": "string-literal",
           "text": "鸡舍管理",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 87,
+          "line": 88,
           "kind": "string-literal",
           "text": "鸡群档案",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/layout/Sidebar.tsx",
-          "line": 88,
+          "line": 89,
           "kind": "string-literal",
           "text": "日生产日报",
           "auto_translatable": true
@@ -3624,6 +3624,13 @@
       "line": 417,
       "kind": "string-literal",
       "text": "数量变动",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 222,
+      "kind": "string-literal",
+      "text": "加载中",
       "auto_translatable": true
     },
     {
@@ -7737,7 +7744,7 @@
     },
     {
       "file": "apps/web/src/app/(admin)/layout.tsx",
-      "line": 229,
+      "line": 231,
       "kind": "jsx-text",
       "text": "🇨🇳 中文",
       "auto_translatable": true
@@ -18062,1099 +18069,1106 @@
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 71,
+      "line": 72,
       "kind": "string-literal",
       "text": "运营工作台",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 73,
+      "line": 74,
       "kind": "string-literal",
       "text": "每日工作台",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 80,
+      "line": 81,
       "kind": "string-literal",
       "text": "经营仪表盘",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 83,
+      "line": 84,
       "kind": "string-literal",
       "text": "生产管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 85,
+      "line": 86,
       "kind": "string-literal",
       "text": "养殖总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 86,
+      "line": 87,
       "kind": "string-literal",
       "text": "鸡舍管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 87,
+      "line": 88,
       "kind": "string-literal",
       "text": "鸡群档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 88,
+      "line": 89,
       "kind": "string-literal",
       "text": "日生产日报",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 89,
+      "line": 90,
       "kind": "string-literal",
       "text": "免疫计划",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 90,
+      "line": 91,
       "kind": "string-literal",
       "text": "用药记录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 91,
+      "line": 92,
       "kind": "string-literal",
       "text": "设备监控",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 92,
+      "line": 93,
       "kind": "string-literal",
       "text": "环境预警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 93,
+      "line": 94,
       "kind": "string-literal",
       "text": "设备运维",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 96,
+      "line": 97,
       "kind": "string-literal",
       "text": "日产蛋入库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 98,
+      "line": 99,
       "kind": "string-literal",
       "text": "包装作业",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 99,
+      "line": 100,
       "kind": "string-literal",
       "text": "包装批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 100,
+      "line": 101,
       "kind": "string-literal",
       "text": "包装日报",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 101,
+      "line": 102,
       "kind": "string-literal",
       "text": "异常处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 102,
+      "line": 103,
       "kind": "string-literal",
       "text": "补打日志",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 104,
+      "line": 105,
       "kind": "string-literal",
       "text": "质检总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 105,
+      "line": 106,
       "kind": "string-literal",
       "text": "场端质检",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 106,
+      "line": 107,
       "kind": "string-literal",
       "text": "成品质检",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 107,
+      "line": 108,
       "kind": "string-literal",
       "text": "不合格品处置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 108,
+      "line": 109,
       "kind": "string-literal",
       "text": "正向追溯",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 109,
+      "line": 110,
       "kind": "string-literal",
       "text": "反向追溯",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 110,
+      "line": 111,
       "kind": "string-literal",
       "text": "质量标准",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 114,
+      "line": 115,
       "kind": "string-literal",
       "text": "库存管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 115,
+      "line": 116,
       "kind": "string-literal",
       "text": "库存总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 116,
+      "line": 117,
       "kind": "string-literal",
       "text": "成品批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 117,
+      "line": 118,
       "kind": "string-literal",
       "text": "库存来源模式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 118,
+      "line": 119,
       "kind": "string-literal",
       "text": "手工入库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 119,
+      "line": 120,
       "kind": "string-literal",
       "text": "出库管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 120,
+      "line": 121,
       "kind": "string-literal",
       "text": "调拨管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 121,
+      "line": 122,
       "kind": "string-literal",
       "text": "盘点管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 122,
+      "line": 123,
       "kind": "string-literal",
       "text": "出入库流水",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 123,
+      "line": 124,
       "kind": "string-literal",
       "text": "库存查询",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 124,
+      "line": 125,
       "kind": "string-literal",
       "text": "临期库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 125,
+      "line": 126,
       "kind": "string-literal",
       "text": "日结对账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 126,
+      "line": 127,
       "kind": "string-literal",
       "text": "损耗管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 127,
+      "line": 128,
       "kind": "string-literal",
       "text": "仓库主档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 128,
+      "line": 129,
       "kind": "string-literal",
       "text": "库区管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 129,
+      "line": 130,
       "kind": "string-literal",
       "text": "库位管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 133,
+      "line": 134,
       "kind": "string-literal",
       "text": "全链追溯",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 136,
+      "line": 137,
       "kind": "string-literal",
       "text": "采购管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 137,
+      "line": 138,
       "kind": "string-literal",
       "text": "采购看板",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 138,
-      "kind": "string-literal",
-      "text": "供应商档案",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 139,
       "kind": "string-literal",
-      "text": "采购项目",
+      "text": "供应商档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 140,
       "kind": "string-literal",
-      "text": "采购申请",
+      "text": "采购项目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 141,
       "kind": "string-literal",
-      "text": "采购订单",
+      "text": "采购申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 142,
       "kind": "string-literal",
-      "text": "物流管理",
+      "text": "采购订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 143,
       "kind": "string-literal",
-      "text": "收货管理",
+      "text": "物流管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 144,
       "kind": "string-literal",
-      "text": "付款管理",
+      "text": "收货管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 145,
       "kind": "string-literal",
-      "text": "股东资金",
+      "text": "付款管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 146,
       "kind": "string-literal",
-      "text": "历史初始化",
+      "text": "股东资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 150,
+      "line": 147,
       "kind": "string-literal",
-      "text": "销售管理",
+      "text": "历史初始化",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 151,
       "kind": "string-literal",
-      "text": "销售总览",
+      "text": "销售管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 152,
       "kind": "string-literal",
-      "text": "客户管理",
+      "text": "销售总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 153,
       "kind": "string-literal",
-      "text": "渠道管理",
+      "text": "客户管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 154,
       "kind": "string-literal",
-      "text": "价格管理",
+      "text": "渠道管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 155,
       "kind": "string-literal",
-      "text": "销售订单",
+      "text": "价格管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 156,
       "kind": "string-literal",
-      "text": "配送管理",
+      "text": "销售订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 157,
       "kind": "string-literal",
-      "text": "退货管理",
+      "text": "配送管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 158,
       "kind": "string-literal",
-      "text": "信用管理",
+      "text": "退货管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 159,
       "kind": "string-literal",
-      "text": "直营店收银",
+      "text": "信用管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 160,
       "kind": "string-literal",
-      "text": "统一收款",
+      "text": "直营店收银",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 161,
       "kind": "string-literal",
-      "text": "门店工作台",
+      "text": "统一收款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 162,
       "kind": "string-literal",
-      "text": "收货验收",
+      "text": "门店工作台",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 163,
       "kind": "string-literal",
-      "text": "门店库存",
+      "text": "收货验收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 164,
       "kind": "string-literal",
-      "text": "补货申请",
+      "text": "门店库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 165,
       "kind": "string-literal",
-      "text": "损耗记录",
+      "text": "补货申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 166,
       "kind": "string-literal",
-      "text": "门店日结",
+      "text": "损耗记录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 167,
       "kind": "string-literal",
-      "text": "鸡蛋库存",
+      "text": "门店日结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 168,
       "kind": "string-literal",
+      "text": "鸡蛋库存",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 169,
+      "kind": "string-literal",
       "text": "销售分析",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 172,
-      "kind": "string-literal",
-      "text": "财务管理",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 173,
-      "kind": "string-literal",
-      "text": "财务总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 174,
       "kind": "string-literal",
-      "text": "应收账款",
+      "text": "财务结算中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 175,
       "kind": "string-literal",
-      "text": "应收总账",
+      "text": "财务总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 176,
       "kind": "string-literal",
-      "text": "应收三方对账",
+      "text": "应收账款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 177,
       "kind": "string-literal",
-      "text": "好业财同步",
+      "text": "应收总账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 178,
       "kind": "string-literal",
-      "text": "好业财中间层",
+      "text": "应收三方对账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 179,
       "kind": "string-literal",
-      "text": "应付账款",
+      "text": "好业财同步",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 180,
       "kind": "string-literal",
-      "text": "资金账户",
+      "text": "好业财中间层",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 181,
       "kind": "string-literal",
-      "text": "资金调拨",
+      "text": "应付账款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 182,
       "kind": "string-literal",
-      "text": "股东资金",
+      "text": "资金账户",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 183,
       "kind": "string-literal",
-      "text": "费用管理",
+      "text": "资金调拨",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 184,
       "kind": "string-literal",
-      "text": "报销管理",
+      "text": "股东资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 185,
       "kind": "string-literal",
+      "text": "费用管理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 186,
+      "kind": "string-literal",
+      "text": "报销管理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 187,
+      "kind": "string-literal",
       "text": "财务报表",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 189,
-      "kind": "string-literal",
-      "text": "股东权益中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 190,
-      "kind": "string-literal",
-      "text": "股东驾驶舱",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 191,
       "kind": "string-literal",
-      "text": "资本流管理",
+      "text": "股东权益中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 192,
       "kind": "string-literal",
-      "text": "股东项目",
+      "text": "股东驾驶舱",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 193,
       "kind": "string-literal",
-      "text": "股权结构",
+      "text": "资本流管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 194,
       "kind": "string-literal",
-      "text": "出资台账",
+      "text": "股东项目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 195,
       "kind": "string-literal",
+      "text": "股权结构",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 196,
+      "kind": "string-literal",
+      "text": "出资台账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 197,
+      "kind": "string-literal",
       "text": "查看范围",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 199,
-      "kind": "string-literal",
-      "text": "审批中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 200,
-      "kind": "string-literal",
-      "text": "我的待办",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 201,
       "kind": "string-literal",
-      "text": "我的已办",
+      "text": "审批中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 202,
       "kind": "string-literal",
-      "text": "通知中心",
+      "text": "我的待办",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 203,
       "kind": "string-literal",
-      "text": "流程配置",
+      "text": "我的已办",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 204,
       "kind": "string-literal",
-      "text": "审批规则",
+      "text": "通知中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 205,
       "kind": "string-literal",
-      "text": "表单管理",
+      "text": "流程配置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 206,
       "kind": "string-literal",
+      "text": "审批规则",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 207,
+      "kind": "string-literal",
+      "text": "表单管理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 208,
+      "kind": "string-literal",
       "text": "审批看板",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 210,
-      "kind": "string-literal",
-      "text": "经营分析",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 211,
-      "kind": "string-literal",
-      "text": "经营总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 212,
       "kind": "string-literal",
-      "text": "销售分析",
+      "text": "经营分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 213,
       "kind": "string-literal",
-      "text": "渠道分析",
+      "text": "经营总览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 214,
       "kind": "string-literal",
-      "text": "库存分析",
+      "text": "销售分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 215,
       "kind": "string-literal",
-      "text": "配送分析",
+      "text": "渠道分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 216,
       "kind": "string-literal",
-      "text": "财务分析",
+      "text": "库存分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 217,
       "kind": "string-literal",
+      "text": "配送分析",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 218,
+      "kind": "string-literal",
+      "text": "财务分析",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 219,
+      "kind": "string-literal",
       "text": "信用分析",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 225,
-      "kind": "string-literal",
-      "text": "主数据中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 226,
-      "kind": "string-literal",
-      "text": "主数据概览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 227,
       "kind": "string-literal",
-      "text": "组织架构",
+      "text": "主数据中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 228,
       "kind": "string-literal",
-      "text": "事业群",
+      "text": "主数据概览",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 229,
       "kind": "string-literal",
-      "text": "公司档案",
+      "text": "组织架构",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 230,
       "kind": "string-literal",
-      "text": "项目档案",
+      "text": "事业群",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 231,
       "kind": "string-literal",
-      "text": "客户档案",
+      "text": "公司档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 232,
       "kind": "string-literal",
-      "text": "供应商档案",
+      "text": "项目档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 233,
       "kind": "string-literal",
-      "text": "物料档案",
+      "text": "客户档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 234,
       "kind": "string-literal",
-      "text": "产品档案",
+      "text": "供应商档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 235,
       "kind": "string-literal",
-      "text": "等级档案",
+      "text": "物料档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 236,
       "kind": "string-literal",
-      "text": "包装规格",
+      "text": "产品档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 237,
       "kind": "string-literal",
-      "text": "SKU档案",
+      "text": "等级档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 238,
       "kind": "string-literal",
-      "text": "仓库档案",
+      "text": "包装规格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 239,
       "kind": "string-literal",
-      "text": "门店档案",
+      "text": "SKU档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 240,
       "kind": "string-literal",
-      "text": "司机档案",
+      "text": "仓库档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 241,
       "kind": "string-literal",
-      "text": "车辆档案",
+      "text": "门店档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 242,
       "kind": "string-literal",
-      "text": "资金账户档案",
+      "text": "司机档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 243,
       "kind": "string-literal",
-      "text": "银行账户中心",
+      "text": "车辆档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 244,
       "kind": "string-literal",
-      "text": "数据字典中心",
+      "text": "资金账户档案",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 245,
       "kind": "string-literal",
+      "text": "银行账户中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 246,
+      "kind": "string-literal",
+      "text": "数据字典中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 247,
+      "kind": "string-literal",
       "text": "主数据待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 251,
+      "line": 253,
       "kind": "string-literal",
       "text": "数据质量中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 256,
+      "line": 258,
       "kind": "string-literal",
       "text": "系统设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 257,
+      "line": 259,
       "kind": "string-literal",
       "text": "用户管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 258,
+      "line": 260,
       "kind": "string-literal",
       "text": "角色与权限",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 259,
+      "line": 261,
       "kind": "string-literal",
       "text": "权限集",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 260,
+      "line": 262,
       "kind": "string-literal",
       "text": "数据范围规则",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 261,
+      "line": 263,
       "kind": "string-literal",
       "text": "系统参数",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 262,
+      "line": 264,
       "kind": "string-literal",
       "text": "安全策略",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 263,
+      "line": 265,
       "kind": "string-literal",
       "text": "审计日志",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 264,
+      "line": 266,
       "kind": "string-literal",
       "text": "品牌配置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 265,
+      "line": 267,
       "kind": "string-literal",
       "text": "终端配置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 266,
+      "line": 268,
       "kind": "string-literal",
       "text": "收银配置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 267,
+      "line": 269,
       "kind": "string-literal",
       "text": "库存分账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 268,
+      "line": 270,
       "kind": "string-literal",
       "text": "通知设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 269,
+      "line": 271,
       "kind": "string-literal",
       "text": "在线用户",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 273,
+      "line": 275,
       "kind": "string-literal",
       "text": "验收试运行",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 274,
+      "line": 276,
       "kind": "string-literal",
       "text": "验收管理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 275,
+      "line": 277,
       "kind": "string-literal",
       "text": "试运行项目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 279,
+      "line": 281,
       "kind": "string-literal",
       "text": "系统运维",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 280,
+      "line": 282,
       "kind": "string-literal",
       "text": "系统健康",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 281,
+      "line": 283,
       "kind": "string-literal",
       "text": "告警中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 282,
+      "line": 284,
       "kind": "string-literal",
       "text": "错误日志",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 283,
+      "line": 285,
+      "kind": "string-literal",
+      "text": "问题反馈",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "line": 286,
       "kind": "string-literal",
       "text": "配置治理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 284,
+      "line": 287,
       "kind": "string-literal",
       "text": "备份策略",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 420,
+      "line": 423,
       "kind": "string-literal",
       "text": "金凤凰 ERP",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/layout/Sidebar.tsx",
-      "line": 514,
+      "line": 517,
       "kind": "string-literal",
       "text": "包装作业台",
       "auto_translatable": true
