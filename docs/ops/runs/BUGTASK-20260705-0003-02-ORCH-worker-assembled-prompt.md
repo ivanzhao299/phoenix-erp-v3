@@ -10,7 +10,7 @@ You are `Codex-Orchestrator`, the Phoenix ERP AI Delivery Factory commander.
 
 Worktree: `/Users/mac/phoenix-erp-worktrees/codex-orchestrator`
 
-Branch: `w5-codex-orchestrator`
+Branch: `codex/orchestrator-main-sync-20260701`
 
 ## Execution Checks
 
@@ -24,6 +24,13 @@ git log --oneline --decorate -8
 ```
 
 Stop if the directory or branch is wrong, or if the worktree is not clean unless the user explicitly approves the exact dirty files.
+
+When launched by the local bug-intake runner through `agent-worker.mjs` / `run-agent-task.mjs --allow-ops-runtime-dirty`, runner-owned runtime files are approved dirty files:
+
+- `docs/ops/agent-queue/tasks.json`
+- `docs/ops/runs/**`
+
+Any other dirty file still requires HOLD.
 
 ## Allowed Scope
 
