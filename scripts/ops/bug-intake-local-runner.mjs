@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
-const MAIN_ROOT = '/Users/mac/phoenix-erp';
+const MAIN_ROOT = process.cwd();
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
@@ -223,7 +223,7 @@ function writebackCommand(task, finalTask, args) {
 }
 
 function pushCommand(args) {
-  return ['git', 'push', 'origin', 'main'];
+  return ['git', 'push', 'origin', 'HEAD:main'];
 }
 
 function canPush(args, workerRuns) {
@@ -241,7 +241,7 @@ function runPushIfReady(args, workerRuns) {
   }
   const branch = safeGit(['branch', '--show-current'], args.mainRoot);
   const status = safeGit(['status', '--short'], args.mainRoot);
-  if (!branch.ok || branch.output !== 'main') return { skipped: true, reason: `main root is not on main: ${branch.output || branch.output}` };
+  if (!branch.ok) return { skipped: true, reason: `cannot read branch: ${branch.output}` };
   if (!status.ok || status.output !== '') return { skipped: true, reason: `main root dirty: ${status.output}` };
   return run(pushCommand(args), { cwd: args.mainRoot });
 }
