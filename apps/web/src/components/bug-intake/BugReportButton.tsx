@@ -1,14 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { ClipboardEvent, MouseEvent } from "react";
 import { usePathname } from "next/navigation";
-import { Bug, Camera, CheckCircle2, Loader2, X } from "lucide-react";
+import { Bug, Camera, CheckCircle2, Clipboard, Crop, Loader2, Trash2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getBugIntakeSnapshot } from "@/lib/bug-intake-telemetry";
 import styles from "./bug-intake.module.css";
 
 type SubmitResult = { bugNo?: string; bug_no?: string };
+type CaptureMode = "viewport" | "area";
+type SelectionBox = { left: number; top: number; width: number; height: number };
+
+type SelectionState = {
+  active: boolean;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+};
 
 function currentToken() {
   if (typeof window === "undefined") return "";
@@ -34,6 +45,9 @@ export function BugReportButton() {
   const [files, setFiles] = useState<File[]>([]);
   const [capturing, setCapturing] = useState(false);
   const [hideForCapture, setHideForCapture] = useState(false);
+  const [selecting, setSelecting] = useState<SelectionState | null>(null);
+  const [pasteActive, setPasteActive] = useState(false);
+  const selectionRef = useRef<CaptureMode>("viewport");
   const [submitting, setSubmitting] = useState(false);
   const [resultNo, setResultNo] = useState("");
   const [error, setError] = useState("");
@@ -55,54 +69,118 @@ export function BugReportButton() {
     setError("");
   };
 
-  const captureCurrentPage = async () => {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setError(t("system.bugIntake.captureUnsupported", "当前浏览器不支持直接截图，请继续使用上传截图。"));
-      return;
-    }
+  const appendFiles = (nextFiles: File[]) => {
+    if (nextFiles.length === 0) return;
+    setError("");
+    setFiles(prev => {
+      const merged = [...prev, ...nextFiles].slice(0, 5);
+      if (prev.length + nextFiles.length > 5) {
+        window.setTimeout(() => setError(t("system.bugIntake.attachmentLimit", "最多只能附加 5 个截图/文件。")), 0);
+      }
+      return merged;
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const waitForHiddenModal = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+  const captureDom = async (mode: CaptureMode, box?: SelectionBox) => {
     if (files.length >= 5) {
       setError(t("system.bugIntake.attachmentLimit", "最多只能附加 5 个截图/文件。"));
       return;
     }
-
     setCapturing(true);
     setError("");
     setHideForCapture(true);
-    let stream: MediaStream | null = null;
     try {
-      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" } as MediaTrackConstraints,
-        audio: false,
+      await waitForHiddenModal();
+      const { default: html2canvas } = await import("html2canvas");
+      const crop = box && box.width > 8 && box.height > 8
+        ? box
+        : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+      const canvas = await html2canvas(document.body, {
+        backgroundColor: null,
+        useCORS: true,
+        logging: false,
+        scale: Math.min(2, window.devicePixelRatio || 1),
+        x: crop.left + window.scrollX,
+        y: crop.top + window.scrollY,
+        width: crop.width,
+        height: crop.height,
+        windowWidth: document.documentElement.scrollWidth,
+        windowHeight: document.documentElement.scrollHeight,
+        ignoreElements: (element) => element instanceof HTMLElement && element.dataset.bugIntakeIgnore === "true",
       });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.muted = true;
-      await video.play();
-      await new Promise<void>(resolve => {
-        if (video.videoWidth > 0) resolve();
-        else video.onloadedmetadata = () => resolve();
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || window.innerWidth;
-      canvas.height = video.videoHeight || window.innerHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error(t("system.bugIntake.captureFailed", "截图失败，请重试。"));
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 0.92));
       if (!blob) throw new Error(t("system.bugIntake.captureFailed", "截图失败，请重试。"));
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const screenshot = new File([blob], `page-screenshot-${stamp}.png`, { type: "image/png" });
-      setFiles(prev => [...prev, screenshot].slice(0, 5));
+      appendFiles([new File([blob], `${mode}-screenshot-${stamp}.png`, { type: "image/png" })]);
     } catch (e) {
-      const name = e instanceof DOMException ? e.name : "";
-      if (name !== "NotAllowedError") {
-        setError(e instanceof Error ? e.message : t("system.bugIntake.captureFailed", "截图失败，请重试。"));
-      }
+      setError(e instanceof Error ? e.message : t("system.bugIntake.captureFailed", "截图失败，请重试。"));
     } finally {
-      stream?.getTracks().forEach(track => track.stop());
       setHideForCapture(false);
       setCapturing(false);
+      setSelecting(null);
+    }
+  };
+
+  const captureCurrentPage = async () => captureDom("viewport");
+
+  const startAreaCapture = () => {
+    if (files.length >= 5) {
+      setError(t("system.bugIntake.attachmentLimit", "最多只能附加 5 个截图/文件。"));
+      return;
+    }
+    selectionRef.current = "area";
+    setError("");
+    setHideForCapture(true);
+    setSelecting({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
+  };
+
+  const selectionBox = selecting
+    ? {
+        left: Math.min(selecting.startX, selecting.currentX),
+        top: Math.min(selecting.startY, selecting.currentY),
+        width: Math.abs(selecting.currentX - selecting.startX),
+        height: Math.abs(selecting.currentY - selecting.startY),
+      }
+    : null;
+
+  const onSelectionMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    setSelecting({ active: true, startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
+  };
+
+  const onSelectionMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    setSelecting(prev => prev?.active ? { ...prev, currentX: e.clientX, currentY: e.clientY } : prev);
+  };
+
+  const finishSelection = async () => {
+    const box = selectionBox;
+    if (!box) return;
+    if (box.width < 12 || box.height < 12) {
+      setHideForCapture(false);
+      setSelecting(null);
+      return;
+    }
+    await captureDom(selectionRef.current, box);
+  };
+
+  const onPasteFiles = (e: ClipboardEvent<HTMLElement>) => {
+    const imageFiles = Array.from(e.clipboardData?.items || [])
+      .filter(item => item.kind === "file" && item.type.startsWith("image/"))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => Boolean(file))
+      .map((file, index) => {
+        const ext = file.type.includes("jpeg") ? "jpg" : file.type.split("/")[1] || "png";
+        return new File([file], `pasted-screenshot-${Date.now()}-${index + 1}.${ext}`, { type: file.type || "image/png" });
+      });
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      appendFiles(imageFiles);
+      setPasteActive(false);
     }
   };
 
@@ -160,8 +238,25 @@ export function BugReportButton() {
         <Bug size={15} />
         <span>{t("system.bugIntake.feedbackButton", "反馈问题")}</span>
       </button>
+      {selecting && (
+        <div
+          className={styles.selectionOverlay}
+          onMouseDown={onSelectionMouseDown}
+          onMouseMove={onSelectionMouseMove}
+          onMouseUp={() => void finishSelection()}
+          data-bug-intake-ignore="true"
+        >
+          <div className={styles.selectionHint}>{t("system.bugIntake.selectionHint", "拖动框选要截取的问题区域，松开完成")}</div>
+          {selectionBox && selectionBox.width > 0 && selectionBox.height > 0 && (
+            <div
+              className={styles.selectionBox}
+              style={{ left: selectionBox.left, top: selectionBox.top, width: selectionBox.width, height: selectionBox.height }}
+            />
+          )}
+        </div>
+      )}
       {open && (
-        <div className={`${styles.overlay} ${hideForCapture ? styles.captureHidden : ""}`} onMouseDown={() => setOpen(false)}>
+        <div className={`${styles.overlay} ${hideForCapture ? styles.captureHidden : ""}`} onMouseDown={() => setOpen(false)} data-bug-intake-ignore="true">
           <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div>
@@ -203,23 +298,49 @@ export function BugReportButton() {
                 </label>
                 <label className={styles.field}>
                   <span>{t("system.bugIntake.description", "问题说明")}</span>
-                  <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t("system.bugIntake.descriptionPlaceholder", "请描述你刚才做了什么、期望结果、实际结果。")} rows={4} />
+                  <textarea value={description} onChange={e => setDescription(e.target.value)} onPaste={onPasteFiles} placeholder={t("system.bugIntake.descriptionPlaceholder", "请描述你刚才做了什么、期望结果、实际结果。可直接 Ctrl/Cmd+V 粘贴截图。")} rows={4} />
                 </label>
                 <label className={styles.field}>
                   <span>{t("system.bugIntake.attachmentsLabel", "截图 / PDF（最多 5 个，单个 ≤15MB）")}</span>
-                  <button type="button" className={styles.captureButton} onClick={captureCurrentPage} disabled={capturing || files.length >= 5}>
-                    {capturing ? <Loader2 size={15} className={styles.spin} /> : <Camera size={15} />}
-                    {capturing ? t("system.bugIntake.capturing", "正在截图…") : t("system.bugIntake.capturePage", "截取当前页面")}
-                  </button>
+                  <div className={styles.attachmentTools}>
+                    <button type="button" className={styles.captureButton} onClick={captureCurrentPage} disabled={capturing || files.length >= 5}>
+                      {capturing ? <Loader2 size={15} className={styles.spin} /> : <Camera size={15} />}
+                      {capturing ? t("system.bugIntake.capturing", "正在截图…") : t("system.bugIntake.captureViewport", "全屏截图")}
+                    </button>
+                    <button type="button" className={styles.captureButton} onClick={startAreaCapture} disabled={capturing || files.length >= 5}>
+                      <Crop size={15} />
+                      {t("system.bugIntake.captureArea", "框选区域截图")}
+                    </button>
+                  </div>
+                  <div
+                    className={`${styles.pasteZone} ${pasteActive ? styles.pasteZoneActive : ""}`}
+                    tabIndex={0}
+                    onPaste={onPasteFiles}
+                    onFocus={() => setPasteActive(true)}
+                    onBlur={() => setPasteActive(false)}
+                  >
+                    <Clipboard size={17} />
+                    <div>
+                      <strong>{t("system.bugIntake.pasteTitle", "直接粘贴截图")}</strong>
+                      <span>{t("system.bugIntake.pasteHint", "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。")}</span>
+                    </div>
+                  </div>
                   <input
                     type="file"
                     accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf"
                     multiple
-                    onChange={e => setFiles(Array.from(e.target.files ?? []).slice(0, 5))}
+                    onChange={e => appendFiles(Array.from(e.target.files ?? []).slice(0, 5))}
                   />
                 </label>
                 {files.length > 0 && (
-                  <div className={styles.fileList}>{files.map(file => <span key={`${file.name}-${file.size}`}>{file.name}</span>)}</div>
+                  <div className={styles.fileList}>{files.map((file, index) => (
+                    <span key={`${file.name}-${file.size}-${index}`}>
+                      {file.name}
+                      <button type="button" onClick={() => removeFile(index)} aria-label={t("system.bugIntake.removeAttachment", "移除附件")}>
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  ))}</div>
                 )}
                 {error && <div className={styles.error}>{error}</div>}
                 <div className={styles.actions}>

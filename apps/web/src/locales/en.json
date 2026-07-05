@@ -13232,5 +13232,11 @@
   "system.bugIntake.approveAgentQueue": "Approve Agent queue handoff",
   "system.bugIntake.agentApprovalNote": "Approval only records authorization; the local Agent Factory script still performs queue writes under dry-run/apply and safety gates.",
   "system.bugIntake.agentResults": "Agent execution results",
-  "common.done": "Done"
+  "common.done": "Done",
+  "system.bugIntake.captureViewport": "Full screen capture",
+  "system.bugIntake.captureArea": "Select area to capture",
+  "system.bugIntake.pasteTitle": "Paste screenshot directly",
+  "system.bugIntake.pasteHint": "Copy an image, click here, then press Ctrl/Cmd+V. You can also paste into the description box.",
+  "system.bugIntake.selectionHint": "Drag to select the problem area; release to capture",
+  "system.bugIntake.removeAttachment": "Remove attachment"
 }

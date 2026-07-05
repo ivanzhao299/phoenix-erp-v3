@@ -1,21 +1,39 @@
 .feedbackButton {
-  height: 38px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  color: var(--text-primary);
+  height: 40px;
+  border: 1px solid color-mix(in srgb, var(--status-danger) 42%, var(--color-primary));
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff6b35 0%, #ef4444 54%, #b91c1c 100%);
+  color: #fff;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 0 15px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 900;
   cursor: pointer;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.24), 0 0 0 4px rgba(239, 68, 68, 0.08);
+  transform: translateZ(0);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
 
 .feedbackButton:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: #fff;
+  transform: translateY(-1px);
+  filter: saturate(1.08);
+  box-shadow: 0 14px 30px rgba(239, 68, 68, 0.3), 0 0 0 5px rgba(239, 68, 68, 0.1);
+}
+
+.feedbackButton:active {
+  transform: translateY(0);
+}
+
+.feedbackButton::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
 }
 
 .overlay {
@@ -31,6 +49,39 @@
 
 .captureHidden {
   opacity: 0;
+  pointer-events: none;
+}
+
+.selectionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  cursor: crosshair;
+  background: rgba(15, 23, 42, 0.18);
+  user-select: none;
+}
+
+.selectionHint {
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.88);
+  color: #fff;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.selectionBox {
+  position: fixed;
+  border: 2px solid #2563eb;
+  background: rgba(37, 99, 235, 0.14);
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.34);
+  border-radius: 6px;
   pointer-events: none;
 }
 
@@ -138,6 +189,50 @@
   cursor: not-allowed;
 }
 
+.attachmentTools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pasteZone {
+  border: 1.5px dashed color-mix(in srgb, var(--color-primary) 40%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--bg-card));
+  color: var(--text-secondary);
+  min-height: 70px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  outline: none;
+  cursor: text;
+}
+
+.pasteZone svg {
+  color: var(--color-primary);
+  flex: 0 0 auto;
+}
+
+.pasteZone strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.pasteZone span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.pasteZoneActive {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
 .field textarea {
   resize: vertical;
 }
@@ -156,6 +251,26 @@
   color: var(--text-secondary);
   padding: 4px 8px;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fileList button {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fileList button:hover {
+  color: var(--status-danger);
 }
 
 .error {

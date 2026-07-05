@@ -13232,5 +13232,11 @@
   "system.bugIntake.approveAgentQueue": "ອະນຸມັດສົ່ງເຂົ້າ Agent Queue",
   "system.bugIntake.agentApprovalNote": "ການອະນຸມັດແມ່ນບັນທຶກສິດເທົ່ານັ້ນ; script Agent Factory ໃນເຄື່ອງຈະຂຽນ queue ພາຍໃຕ້ dry-run / apply ແລະ safety gates.",
   "system.bugIntake.agentResults": "ຜົນການເຮັດວຽກ Agent",
-  "common.done": "ສໍາເລັດ"
+  "common.done": "ສໍາເລັດ",
+  "system.bugIntake.captureViewport": "ຈັບພາບເຕັມໜ້າຈໍ",
+  "system.bugIntake.captureArea": "ເລືອກພື້ນທີ່ເພື່ອຈັບພາບ",
+  "system.bugIntake.pasteTitle": "ວາງຮູບໜ້າຈໍໂດຍກົງ",
+  "system.bugIntake.pasteHint": "ຄັດລອກຮູບ ແລ້ວຄລິກບ່ອນນີ້ ກົດ Ctrl/Cmd+V ຫຼືວາງໃນກ່ອງອະທິບາຍ.",
+  "system.bugIntake.selectionHint": "ລາກເພື່ອເລືອກພື້ນທີ່ປັນຫາ ແລ້ວປ່ອຍເພື່ອຈັບພາບ",
+  "system.bugIntake.removeAttachment": "ລຶບໄຟລ໌ແນບ"
 }

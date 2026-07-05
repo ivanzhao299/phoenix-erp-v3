@@ -13232,5 +13232,11 @@
   "system.bugIntake.approveAgentQueue": "批准投入 Agent 队列",
   "system.bugIntake.agentApprovalNote": "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。",
   "system.bugIntake.agentResults": "Agent 执行结果",
-  "common.done": "完成"
+  "common.done": "完成",
+  "system.bugIntake.captureViewport": "全屏截图",
+  "system.bugIntake.captureArea": "框选区域截图",
+  "system.bugIntake.pasteTitle": "直接粘贴截图",
+  "system.bugIntake.pasteHint": "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+  "system.bugIntake.selectionHint": "拖动框选要截取的问题区域，松开完成",
+  "system.bugIntake.removeAttachment": "移除附件"
 }
