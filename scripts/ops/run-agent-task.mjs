@@ -49,7 +49,7 @@ const AGENTS = {
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty]
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--timeout-ms <ms>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
@@ -183,6 +183,11 @@ function isOnlyAllowedOpsRuntimeDirty(status) {
 function summarize(text, limit = 4000) {
   if (!text) return '';
   return text.length <= limit ? text : `${text.slice(0, limit)}\n...<truncated ${text.length - limit} chars>`;
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function timestamp() {
@@ -328,6 +333,7 @@ const prompt = buildAssembledPrompt({
   taskContractPath: taskContractFile,
 });
 const command = ['codex', 'exec', '-C', worktree, '--sandbox', 'workspace-write', '-'];
+const timeoutMs = parsePositiveInt(args['timeout-ms'] ?? process.env.PHOENIX_ERP_AGENT_TIMEOUT_MS, 600000);
 
 let assembledPromptFile = null;
 if (assembledPromptOutput) {
@@ -343,6 +349,7 @@ if (taskContractFile) console.log(`Task contract: ${path.relative(process.cwd(),
 if (assembledPromptFile) console.log(`Assembled prompt: ${path.relative(process.cwd(), assembledPromptFile)}`);
 console.log(`Assembled prompt chars: ${prompt.length}`);
 console.log(`Codex command: ${command.join(' ')}`);
+console.log(`Codex timeout ms: ${timeoutMs}`);
 
 if (args.dryRun) {
   console.log('Dry run: command not executed.');
@@ -362,7 +369,10 @@ const result = spawnSync(codexCli, command.slice(1), {
   input: prompt,
   encoding: 'utf8',
   cwd: process.cwd(),
+  timeout: timeoutMs,
 });
+const timedOut = result.error?.code === 'ETIMEDOUT';
+const exitCode = result.status ?? (timedOut ? 124 : 1);
 
 const logFile = writeRunLog({
   agent: args.agent,
@@ -375,14 +385,15 @@ const logFile = writeRunLog({
   approvalTokenProvided: args['require-approval-token'] === 'APPROVE_AGENT_EXECUTION',
   codexActuallyExecuted: true,
   command: [codexCli, ...command.slice(1)],
-  exitCode: result.status ?? 1,
-  stdout: result.stdout ?? '',
-  stderr: result.stderr ?? '',
+  exitCode,
+  stdout: `${result.stdout ?? ''}${timedOut ? `\nERROR: codex execution timed out after ${timeoutMs} ms.\n` : ''}`,
+  stderr: `${result.stderr ?? ''}${result.error && !timedOut ? `\n${result.error.message}\n` : ''}`,
 });
 
 console.log(`Run log: ${logFile}`);
 if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
+if (timedOut) console.error(`ERROR: codex execution timed out after ${timeoutMs} ms.`);
 let baselineExitCode = 0;
 if (!args['skip-baseline-autopilot']) {
   console.log('Running baseline autopilot after agent completion...');
@@ -393,4 +404,4 @@ if (!args['skip-baseline-autopilot']) {
 } else {
   console.log('Baseline autopilot skipped by caller; caller must run lifecycle hook.');
 }
-process.exit((result.status ?? 1) !== 0 ? result.status ?? 1 : baselineExitCode);
+process.exit(exitCode !== 0 ? exitCode : baselineExitCode);
