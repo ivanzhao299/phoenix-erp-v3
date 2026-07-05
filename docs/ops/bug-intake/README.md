@@ -185,6 +185,18 @@ An AI repair worker can read approved repair task packages by:
 
 The worker must not directly mutate business code or deploy without an explicit human approval gate.
 
+## Local Inbox Sync
+
+Production bug reports do not automatically appear in a developer worktree unless the local inbox sync is run.
+
+Use:
+
+- `scripts/ops/bug-intake-sync-from-api.mjs` to pull approved production reports into `docs/ops/runs/bug-intake-inbox/`.
+- `scripts/ops/bug-task-to-agent-queue.mjs` to convert approved repair payloads into local Agent queue tasks.
+- `scripts/ops/bug-agent-result-to-report.mjs` to write local Agent results back to ERP.
+
+Detailed SOP: `docs/ops/bug-intake/LOCAL_AGENT_INBOX_SYNC.md`.
+
 ## Split Repair Policy
 
 - Frontend/UI/page issues route to `A4-Frontend-UAT-Smoke` plus `A1`.
