@@ -197,6 +197,23 @@ Use:
 
 Detailed SOP: `docs/ops/bug-intake/LOCAL_AGENT_INBOX_SYNC.md`.
 
+## Always-on Local Runner
+
+The production-grade handoff is:
+
+- `scripts/ops/bug-intake-local-runner.mjs`
+- SOP: `docs/ops/bug-intake/LOCAL_AGENT_RUNNER_SERVICE.md`
+
+It can run locally as a supervised long-running process. It polls ERP for administrator-approved bug reports, applies only approved tasks into the local Agent queue, starts local Agent workers, writes results back to ERP, and can push `main` after successful gates when explicitly started with `--push-after-success`.
+
+Default mode is still dry-run. Real execution requires:
+
+- `--execute-approved`
+- `--approval-token APPROVE_AGENT_EXECUTION`
+- `--apply-queue`
+
+This means the administrator can approve from the ERP page, while the local factory does the repository work without another manual terminal session.
+
 ## Split Repair Policy
 
 - Frontend/UI/page issues route to `A4-Frontend-UAT-Smoke` plus `A1`.

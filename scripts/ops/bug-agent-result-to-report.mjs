@@ -12,7 +12,7 @@ function usage(code = 1) {
     --task-id BUGTASK-...-01-A4 \\
     --agent A4-Frontend-UAT-Smoke \\
     --result-file docs/ops/runs/<agent-result>.md \\
-    [--api-base http://localhost:3100] [--token <jwt>] [--dry-run] [--apply]
+    [--api-base http://localhost:3100] [--token <jwt>] [--token-env PHOENIX_ERP_TOKEN] [--dry-run] [--apply]
 
 Dry-run writes docs/ops/runs/bug-agent-result-writeback-latest.json.
 Apply posts to /api/bug-intake/reports/:bugNo/agent-result.`);
@@ -120,12 +120,13 @@ function writeJson(file, value) {
 
 async function postResult(args, payload) {
   if (!args.apiBase) throw new Error('--apply requires --api-base');
-  if (!args.token) throw new Error('--apply requires --token');
+  const token = args.token || (args.tokenEnv ? process.env[args.tokenEnv] : '');
+  if (!token) throw new Error('--apply requires --token or --token-env with a populated environment variable');
   const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(args.bugNo)}/agent-result`;
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${args.token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
