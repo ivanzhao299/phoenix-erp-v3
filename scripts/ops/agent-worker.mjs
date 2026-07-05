@@ -149,6 +149,37 @@ function shouldRunBaselineAutopilot(task) {
   return BASELINE_MERGE_AGENTS.has(task.agent);
 }
 
+function shouldUseLocalValidation(task) {
+  return task.agent === 'A1-CI-Runtime-Gate' && task.source === 'bug-intake';
+}
+
+function runLocalA1Validation(task) {
+  const commands = [
+    ['git', '-C', task.worktree, 'status', '--short'],
+    ['node', '--check', 'scripts/ops/run-agent-task.mjs'],
+    ['node', '--check', 'scripts/ops/agent-worker.mjs'],
+    ['node', '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
+  ];
+  const sections = [];
+  let failed = false;
+  for (const command of commands) {
+    const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8', timeout: 120000 });
+    const status = result.status ?? 1;
+    if (status !== 0) failed = true;
+    sections.push(`$ ${command.join(' ')}
+exit: ${status}
+stdout:
+${result.stdout || ''}
+stderr:
+${result.stderr || ''}`);
+  }
+  return {
+    status: failed ? 1 : 0,
+    stdout: `LOCAL_A1_VALIDATION\n${sections.join('\n---\n')}`,
+    stderr: '',
+  };
+}
+
 function writeWorkerLog(task, payload) {
   mkdirSync(RUN_DIR, { recursive: true });
   const file = path.join(RUN_DIR, `${task.task_id}-worker-log.md`);
@@ -227,11 +258,14 @@ function runOne(args) {
   task.claimed_by = args.agent;
   task.claimed_at = new Date().toISOString();
   writeTasks(tasks);
-  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
+  const useLocalValidation = shouldUseLocalValidation(task);
+  const result = useLocalValidation
+    ? runLocalA1Validation(task)
+    : spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
   const log = writeWorkerLog(task, {
     dryRun: false,
     exitCode: result.status ?? 1,
-    command,
+    command: useLocalValidation ? ['local-a1-validation', task.task_id] : command,
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   });
