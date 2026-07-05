@@ -13221,5 +13221,10 @@
   "system.bugIntake.acceptancePlaceholder": "ເກນຮັບວຽກ: ເສັ້ນທາງທົດລອງຊໍ້າ, ຜົນທີ່ຄາດຫວັງ, ການກວດທີ່ຕ້ອງຜ່ານ",
   "system.bugIntake.createRepairTask": "ສ້າງແພັກເກດວຽກສ້ອມແປງ",
   "system.bugIntake.refreshRepairTask": "ອັບເດດແພັກເກດວຽກສ້ອມແປງ",
+  "system.bugIntake.capturePage": "ຈັບພາບໜ້າປັດຈຸບັນ",
+  "system.bugIntake.capturing": "ກໍາລັງຈັບພາບ…",
+  "system.bugIntake.captureUnsupported": "ບຣາວເຊີນີ້ບໍ່ຮອງຮັບການຈັບພາບໂດຍກົງ, ກະລຸນາອັບໂຫຼດຮູບໜ້າຈໍ.",
+  "system.bugIntake.captureFailed": "ຈັບພາບບໍ່ສໍາເລັດ, ກະລຸນາລອງໃໝ່.",
+  "system.bugIntake.attachmentLimit": "ແນບຮູບໜ້າຈໍ/ໄຟລ໌ໄດ້ສູງສຸດ 5 ລາຍການ.",
   "common.done": "ສໍາເລັດ"
 }

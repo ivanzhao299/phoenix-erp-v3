@@ -29,6 +29,11 @@
   padding: 96px 16px 32px;
 }
 
+.captureHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .modal {
   width: min(620px, 100%);
   max-height: calc(100vh - 128px);
@@ -111,6 +116,26 @@
   padding: 10px 12px;
   font: inherit;
   font-weight: 500;
+}
+
+.captureButton {
+  width: fit-content;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-card));
+  color: var(--color-primary);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.captureButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .field textarea {

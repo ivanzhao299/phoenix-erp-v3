@@ -13221,5 +13221,10 @@
   "system.bugIntake.acceptancePlaceholder": "Acceptance criteria: reproduction path, expected result, required checks",
   "system.bugIntake.createRepairTask": "Create repair task package",
   "system.bugIntake.refreshRepairTask": "Refresh repair task package",
+  "system.bugIntake.capturePage": "Capture current page",
+  "system.bugIntake.capturing": "Capturing…",
+  "system.bugIntake.captureUnsupported": "This browser does not support direct page capture. Please continue uploading a screenshot.",
+  "system.bugIntake.captureFailed": "Capture failed. Please try again.",
+  "system.bugIntake.attachmentLimit": "You can attach up to 5 screenshots/files.",
   "common.done": "Done"
 }

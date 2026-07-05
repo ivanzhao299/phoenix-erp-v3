@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bug, CheckCircle2, Loader2, X } from "lucide-react";
+import { Bug, Camera, CheckCircle2, Loader2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getBugIntakeSnapshot } from "@/lib/bug-intake-telemetry";
@@ -32,6 +32,8 @@ export function BugReportButton() {
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState("MEDIUM");
   const [files, setFiles] = useState<File[]>([]);
+  const [capturing, setCapturing] = useState(false);
+  const [hideForCapture, setHideForCapture] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resultNo, setResultNo] = useState("");
   const [error, setError] = useState("");
@@ -47,8 +49,61 @@ export function BugReportButton() {
     setDescription("");
     setSeverity("MEDIUM");
     setFiles([]);
+    setCapturing(false);
+    setHideForCapture(false);
     setResultNo("");
     setError("");
+  };
+
+  const captureCurrentPage = async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setError(t("system.bugIntake.captureUnsupported", "当前浏览器不支持直接截图，请继续使用上传截图。"));
+      return;
+    }
+    if (files.length >= 5) {
+      setError(t("system.bugIntake.attachmentLimit", "最多只能附加 5 个截图/文件。"));
+      return;
+    }
+
+    setCapturing(true);
+    setError("");
+    setHideForCapture(true);
+    let stream: MediaStream | null = null;
+    try {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "browser" } as MediaTrackConstraints,
+        audio: false,
+      });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      await video.play();
+      await new Promise<void>(resolve => {
+        if (video.videoWidth > 0) resolve();
+        else video.onloadedmetadata = () => resolve();
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || window.innerWidth;
+      canvas.height = video.videoHeight || window.innerHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error(t("system.bugIntake.captureFailed", "截图失败，请重试。"));
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png", 0.92));
+      if (!blob) throw new Error(t("system.bugIntake.captureFailed", "截图失败，请重试。"));
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const screenshot = new File([blob], `page-screenshot-${stamp}.png`, { type: "image/png" });
+      setFiles(prev => [...prev, screenshot].slice(0, 5));
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : "";
+      if (name !== "NotAllowedError") {
+        setError(e instanceof Error ? e.message : t("system.bugIntake.captureFailed", "截图失败，请重试。"));
+      }
+    } finally {
+      stream?.getTracks().forEach(track => track.stop());
+      setHideForCapture(false);
+      setCapturing(false);
+    }
   };
 
   const submit = async () => {
@@ -106,7 +161,7 @@ export function BugReportButton() {
         <span>{t("system.bugIntake.feedbackButton", "反馈问题")}</span>
       </button>
       {open && (
-        <div className={styles.overlay} onMouseDown={() => setOpen(false)}>
+        <div className={`${styles.overlay} ${hideForCapture ? styles.captureHidden : ""}`} onMouseDown={() => setOpen(false)}>
           <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div>
@@ -152,6 +207,10 @@ export function BugReportButton() {
                 </label>
                 <label className={styles.field}>
                   <span>{t("system.bugIntake.attachmentsLabel", "截图 / PDF（最多 5 个，单个 ≤15MB）")}</span>
+                  <button type="button" className={styles.captureButton} onClick={captureCurrentPage} disabled={capturing || files.length >= 5}>
+                    {capturing ? <Loader2 size={15} className={styles.spin} /> : <Camera size={15} />}
+                    {capturing ? t("system.bugIntake.capturing", "正在截图…") : t("system.bugIntake.capturePage", "截取当前页面")}
+                  </button>
                   <input
                     type="file"
                     accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf"

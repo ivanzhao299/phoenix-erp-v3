@@ -13221,5 +13221,10 @@
   "system.bugIntake.acceptancePlaceholder": "验收标准：例如复现路径、期望结果、必须通过的检查",
   "system.bugIntake.createRepairTask": "生成修复任务包",
   "system.bugIntake.refreshRepairTask": "更新修复任务包",
+  "system.bugIntake.capturePage": "截取当前页面",
+  "system.bugIntake.capturing": "正在截图…",
+  "system.bugIntake.captureUnsupported": "当前浏览器不支持直接截图，请继续使用上传截图。",
+  "system.bugIntake.captureFailed": "截图失败，请重试。",
+  "system.bugIntake.attachmentLimit": "最多只能附加 5 个截图/文件。",
   "common.done": "完成"
 }
