@@ -1,0 +1,28 @@
+{
+  "decision": "BUG_CI_RESULT_CALLBACK_DRY_RUN",
+  "bugNo": "BUG-20260706-DRYRUN",
+  "payload": {
+    "taskId": "CICD-testcommit",
+    "agent": "BugIntakeCICD",
+    "conclusion": "PASS",
+    "resultFile": "https://github.com/ivanzhao299/phoenix-erp-v3/actions",
+    "commitHash": "testcommit",
+    "changedFiles": [],
+    "validationResults": {
+      "githubRunUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions",
+      "githubRunId": "",
+      "deployEnvironment": "production",
+      "deployMode": "",
+      "conclusion": "success",
+      "deployed": true
+    },
+    "summary": "CI/CD result: success\nCommit: testcommit\nRun: https://github.com/ivanzhao299/phoenix-erp-v3/actions\nEnvironment: production",
+    "nextAction": "Business owner validates the production fix."
+  },
+  "safety": {
+    "deployed_by_this_script": false,
+    "pushed_by_this_script": false,
+    "database_written_by_this_script": false,
+    "migration_executed_by_this_script": false
+  }
+}
