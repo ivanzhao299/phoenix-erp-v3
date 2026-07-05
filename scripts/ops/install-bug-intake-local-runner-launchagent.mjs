@@ -52,7 +52,8 @@ if [ -f ${shellQuote(ENV_FILE)} ]; then
   source ${shellQuote(ENV_FILE)}
   set +a
 fi
-export PATH="\${PHOENIX_ERP_RUNNER_PATH:-/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
+export PATH="\${PHOENIX_ERP_RUNNER_PATH:-/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
+export PHOENIX_ERP_CODEX_BIN="\${PHOENIX_ERP_CODEX_BIN:-/Users/mac/.npm-global/bin/codex}"
 NODE_BIN="\${PHOENIX_ERP_NODE_BIN:-$(command -v node || true)}"
 if [ -z "$NODE_BIN" ]; then
   echo "node binary not found; set PHOENIX_ERP_NODE_BIN in ${shellQuote(ENV_FILE)}" >&2
@@ -109,6 +110,8 @@ PHOENIX_ERP_RUNNER_PASS=
 PHOENIX_ERP_RUNNER_INTERVAL=300
 PHOENIX_ERP_RUNNER_MAX_TASKS=3
 PHOENIX_ERP_RUNNER_MAX_CYCLES=999999
+PHOENIX_ERP_RUNNER_PATH=/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+PHOENIX_ERP_CODEX_BIN=/Users/mac/.npm-global/bin/codex
 `;
 }
 

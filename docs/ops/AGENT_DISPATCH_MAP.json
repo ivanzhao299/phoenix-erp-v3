@@ -5,8 +5,8 @@
     "default_role": "总控、需求理解、任务分发、验收汇总",
     "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
-    "branch": "w5-codex-orchestrator",
-    "canonical_branch": "w5-codex-orchestrator",
+    "branch": "codex/orchestrator-main-sync-20260701",
+    "canonical_branch": "codex/orchestrator-main-sync-20260701",
     "prompt_file": "docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",

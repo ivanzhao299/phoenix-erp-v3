@@ -1,0 +1,189 @@
+{
+  "id": "3",
+  "bugNo": "BUG-20260705-0003",
+  "title": "驾驶舱卡片问题",
+  "severity": "MEDIUM",
+  "status": "IN_PROGRESS",
+  "priority": "P2",
+  "moduleCode": "",
+  "assigneeUsername": "",
+  "assigneeName": "",
+  "repairTaskNo": "BUGTASK-20260705-0003",
+  "repairTaskStatus": "HOLD",
+  "route": "/dashboard",
+  "reporterUsername": "zhaoyongwei",
+  "reporterName": "赵永伟",
+  "createdAt": "2026-07-05T13:32:08.674Z",
+  "updatedAt": "2026-07-05T13:35:04.388Z",
+  "closedAt": null,
+  "attachmentCount": 1,
+  "description": "集团总部精英驾驶舱，聚合卡片上面的数字不对，鸡蛋能有小数点吗？",
+  "url": "https://erp.eggslao.com/dashboard",
+  "reporterUserId": "25",
+  "roles": [
+    "ROLE_ADMIN",
+    "ROLE_CEO",
+    "ROLE_REGION_MGR"
+  ],
+  "companyCode": "",
+  "projectCode": "",
+  "consoleErrors": [],
+  "failedRequests": [],
+  "attachments": [
+    {
+      "sha256": "81ff1839bff3238bd205113e5716023f2add4c4615eef7532eb6177ac513cc4a",
+      "fileName": "01-1783258328672-32c6fb39.png",
+      "mimeType": "image/png",
+      "sizeBytes": 1072280,
+      "originalName": "page-screenshot-2026-07-05T13-31-29-674Z.png",
+      "relativePath": "storage/bug-reports/2026/07/05/BUG-20260705-0003/01-1783258328672-32c6fb39.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260705-0003/attachments/01-1783258328672-32c6fb39.png"
+    }
+  ],
+  "clientContext": {
+    "language": "en",
+    "timezone": "Asia/Shanghai",
+    "viewport": {
+      "width": 1512,
+      "height": 862
+    },
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+    "capturedAt": "2026-07-05T13:32:08.673Z",
+    "devicePixelRatio": 2
+  },
+  "resolutionNote": "",
+  "repairTaskPayload": {
+    "url": "https://erp.eggslao.com/dashboard",
+    "bugNo": "BUG-20260705-0003",
+    "route": "/dashboard",
+    "title": "驾驶舱卡片问题",
+    "taskNo": "BUGTASK-20260705-0003",
+    "context": {
+      "attachments": [
+        {
+          "sha256": "81ff1839bff3238bd205113e5716023f2add4c4615eef7532eb6177ac513cc4a",
+          "fileName": "01-1783258328672-32c6fb39.png",
+          "mimeType": "image/png",
+          "sizeBytes": 1072280,
+          "originalName": "page-screenshot-2026-07-05T13-31-29-674Z.png",
+          "relativePath": "storage/bug-reports/2026/07/05/BUG-20260705-0003/01-1783258328672-32c6fb39.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260705-0003/attachments/01-1783258328672-32c6fb39.png"
+        }
+      ],
+      "clientContext": {
+        "language": "en",
+        "timezone": "Asia/Shanghai",
+        "viewport": {
+          "width": 1512,
+          "height": 862
+        },
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+        "capturedAt": "2026-07-05T13:32:08.673Z",
+        "devicePixelRatio": 2
+      },
+      "consoleErrors": [],
+      "failedRequests": []
+    },
+    "priority": "P2",
+    "reporter": {
+      "name": "赵永伟",
+      "roles": [
+        "ROLE_ADMIN",
+        "ROLE_CEO",
+        "ROLE_REGION_MGR"
+      ],
+      "username": "zhaoyongwei",
+      "companyCode": "",
+      "projectCode": ""
+    },
+    "severity": "MEDIUM",
+    "agentPlan": {
+      "source_bug_no": "BUG-20260705-0003",
+      "route_decision": "ROUTE_REVIEW",
+      "split_strategy": [
+        {
+          "agent": "A1-CI-Runtime-Gate",
+          "reasons": [
+            "required validation after repair"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
+        },
+        {
+          "agent": "Codex-Orchestrator",
+          "reasons": [
+            "low-confidence route review required"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
+        }
+      ],
+      "selected_agents": [
+        "A1-CI-Runtime-Gate",
+        "Codex-Orchestrator"
+      ],
+      "hard_constraints": [
+        "no automatic production deploy",
+        "no automatic DB write",
+        "no automatic migration",
+        "human approval required before code repair execution"
+      ],
+      "source_repair_task_no": "BUGTASK-20260705-0003"
+    },
+    "createdAt": "2026-07-05T13:34:07.517Z",
+    "createdBy": "zhaoyongwei",
+    "moduleCode": "",
+    "suggestedOwner": "",
+    "repairGuardrails": {
+      "autoRepairExecuted": false,
+      "noProductionDeploy": true,
+      "noDbWriteWithoutGate": true,
+      "requiresHumanApproval": true
+    },
+    "acceptanceCriteria": "",
+    "agentPlanGeneratedAt": "2026-07-05T13:34:10.095Z",
+    "agentPlanGeneratedBy": "zhaoyongwei",
+    "agentExecutionApproval": {
+      "approved": true,
+      "approvedAt": "2026-07-05T13:34:19.055Z",
+      "approvedBy": "zhaoyongwei",
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "forbiddenActions": [
+        "production deploy without separate approval",
+        "database write without separate gate",
+        "migration execution without separate gate",
+        "push without release approval",
+        "force push"
+      ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260705-0003-01-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-01-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\nAgent: A1-CI-Runtime-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate\nBranch: w5-a1-ci-runtime-gate\nPrompt: docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md\nAssembled prompt chars: 5220\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --sandbox workspace-write -\n\n```\n\n## Stderr\n\n```text\nERROR: codex CLI not found in PATH\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-05T13:35:04.387Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260705-0003-01-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-01-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\nAgent: A1-CI-Runtime-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate\nBranch: w5-a1-ci-runtime-gate\nPrompt: docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260705-0003-01-A1-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-assembled-prompt.md\nAssembled prompt chars: 5220\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --sandbox workspace-write -\n\n```\n\n## Stderr\n\n```text\nERROR: codex CLI not found in PATH\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-05T13:35:04.387Z"
+    }
+  },
+  "updatedBy": "bug_intake_runner"
+}

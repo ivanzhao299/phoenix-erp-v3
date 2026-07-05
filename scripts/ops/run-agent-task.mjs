@@ -6,7 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 const AGENTS = {
   'Codex-Orchestrator': {
-    branch: 'w5-codex-orchestrator',
+    branch: 'codex/orchestrator-main-sync-20260701',
     worktree: '/Users/mac/phoenix-erp-worktrees/codex-orchestrator',
     prompt: 'docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md',
   },
@@ -138,7 +138,26 @@ function resolvePrompt(promptPath) {
   return absolute;
 }
 
+function isExecutable(file) {
+  if (!file) return false;
+  try {
+    return existsSync(file);
+  } catch {
+    return false;
+  }
+}
+
 function findCodex() {
+  const candidates = [
+    process.env.PHOENIX_ERP_CODEX_BIN,
+    process.env.CODEX_BIN,
+    '/Users/mac/.npm-global/bin/codex',
+    '/opt/homebrew/bin/codex',
+    '/usr/local/bin/codex',
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (isExecutable(candidate)) return candidate;
+  }
   const result = spawnSync('which', ['codex'], {
     encoding: 'utf8',
   });
@@ -321,7 +340,7 @@ if (args.dryRun) {
 
 const codexCli = findCodex();
 if (!codexCli) {
-  fail('codex CLI not found in PATH');
+  fail('codex CLI not found. Set PHOENIX_ERP_CODEX_BIN or CODEX_BIN, or include codex in PATH.');
 }
 
 const result = spawnSync(codexCli, command.slice(1), {

@@ -11,6 +11,7 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
+const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -116,6 +117,22 @@ function safeGit(args, cwd) {
   } catch (error) {
     return { ok: false, output: error.stderr?.toString() || error.message };
   }
+}
+
+function commitOpsRuntimeArtifacts(args) {
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  const status = safeGit(['status', '--short', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+  if (!status.ok) return { skipped: false, ok: false, step: 'git status', error: status.output };
+  if (!status.output.trim()) return { skipped: true, reason: 'no ops runtime artifacts changed' };
+  const add = safeGit(['add', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+  if (!add.ok) return { skipped: false, ok: false, step: 'git add', error: add.output };
+  const staged = safeGit(['diff', '--cached', '--name-only', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+  if (!staged.ok) return { skipped: false, ok: false, step: 'git diff --cached', error: staged.output };
+  if (!staged.output.trim()) return { skipped: true, reason: 'no staged ops runtime artifacts' };
+  const commit = safeGit(['commit', '-m', 'docs(ops): record bug intake runner artifacts'], args.mainRoot);
+  return commit.ok
+    ? { skipped: false, ok: true, files: staged.output.split('\n').filter(Boolean), output: commit.output }
+    : { skipped: false, ok: false, step: 'git commit', error: commit.output };
 }
 
 function tokenAvailable(args) {
@@ -271,6 +288,7 @@ async function runCycle(args, cycle) {
   const token = await loginToken(args);
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
   const sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  const preWorkerCommit = sync.status === 0 ? commitOpsRuntimeArtifacts(args) : { skipped: true, reason: 'sync failed' };
   const runnableTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
   const workerRuns = [];
 
@@ -295,6 +313,7 @@ async function runCycle(args, cycle) {
     executeApproved: Boolean(args.executeApproved),
     pushAfterSuccess: Boolean(args.pushAfterSuccess),
     sync,
+    preWorkerCommit,
     runnableTasks: runnableTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
     workerRuns: workerRuns.map((item) => ({
       task: { task_id: item.task.task_id, agent: item.task.agent, source_bug_no: item.task.source_bug_no },

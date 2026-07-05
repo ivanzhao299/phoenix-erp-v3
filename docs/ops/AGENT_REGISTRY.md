@@ -8,7 +8,7 @@ This registry defines the eight controlled workspaces used by Phoenix ERP AI Del
 
 | Agent | Role | Worktree | Branch | Prompt | Parallel Group |
 | --- | --- | --- | --- | --- | --- |
-| Codex-Orchestrator | 总控、需求理解、任务分发、验收汇总 | `/Users/mac/phoenix-erp-worktrees/codex-orchestrator` | `w5-codex-orchestrator` | `docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md` | control |
+| Codex-Orchestrator | 总控、需求理解、任务分发、验收汇总 | `/Users/mac/phoenix-erp-worktrees/codex-orchestrator` | `codex/orchestrator-main-sync-20260701` | `docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md` | control |
 | A1-CI-Runtime-Gate | CI、typecheck、build、startup、post-merge validation | `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate` | `w5-a1-ci-runtime-gate` | `docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md` | readonly-validation |
 | A2-Security-Regression-Gate | RBAC、DataScope、audit、JWT、附件 ACL、日志脱敏、安全回归 | `/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate` | `w5-a2-security-regression-gate` | `docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md` | readonly-validation |
 | A3-Backend-Critical-Path | 后端实现、controller/service/module、关键路径 | `/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path` | `w5-a3-backend-critical-path` | `docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md` | code-path-exclusive |
