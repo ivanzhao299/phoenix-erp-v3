@@ -11,6 +11,7 @@ const HOME = os.homedir();
 const CONFIG_DIR = path.join(HOME, '.phoenix-erp');
 const ENV_FILE = path.join(CONFIG_DIR, 'bug-intake-runner.env');
 const WRAPPER = path.join(CONFIG_DIR, 'bug-intake-runner.sh');
+const RUN_DIR = path.join(CONFIG_DIR, 'runs');
 const LOG_DIR = path.join(HOME, 'Library', 'Logs', 'phoenix-erp');
 const PLIST = path.join(HOME, 'Library', 'LaunchAgents', `${LABEL}.plist`);
 
@@ -64,6 +65,8 @@ exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs \\
   --interval "\${PHOENIX_ERP_RUNNER_INTERVAL:-300}" \\
   --max-cycles "\${PHOENIX_ERP_RUNNER_MAX_CYCLES:-999999}" \\
   --max-tasks "\${PHOENIX_ERP_RUNNER_MAX_TASKS:-3}" \\
+  --output-dir "\${PHOENIX_ERP_RUNNER_OUTPUT_DIR:-${path.join(RUN_DIR, 'bug-intake-local-runner')}}" \\
+  --sync-output-dir "\${PHOENIX_ERP_RUNNER_SYNC_OUTPUT_DIR:-${path.join(RUN_DIR, 'bug-intake-inbox')}}" \\
   --apply-queue \\
   --execute-approved \\
   --approval-token "APPROVE_AGENT_EXECUTION" \\
