@@ -1,7 +1,7 @@
 {
   "last_updated": "2026-07-05",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUED",
+  "current_stage": "BUG_INTAKE_PIPELINE_V3_RESILIENCE",
   "active_decision": "GO_WITH_CONDITIONS",
   "next_gate": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT",
   "page_entry": "/store-payment",
@@ -775,7 +775,7 @@
   "agent_inbox_last_route_decision": "PLAN_READY",
   "agent_inbox_last_remote_write": false,
   "bug_intake_pipeline": {
-    "version": "V2",
+    "version": "V3_RESILIENCE",
     "enabled": true,
     "online_feedback_to_local_runner": true,
     "evidence_download_to_local_inbox": true,
@@ -785,11 +785,19 @@
     "optional_ci_wait_after_push": true,
     "direct_db_write": false,
     "direct_deploy": false,
-    "current_decision": "GO_WITH_CONDITIONS"
+    "current_decision": "GO_WITH_CONDITIONS",
+    "admin_timeline_enabled": true,
+    "safe_ui_retry_once": true,
+    "ci_cd_callback_script": true,
+    "production_route_smoke": true,
+    "current_score": 96,
+    "remaining_to_100": [
+      "CI/CD direct bug correlation callback",
+      "authenticated Playwright visual smoke after deploy"
+    ]
   },
   "next_action": [
-    "BUG_REPORT_ADMIN_TIMELINE_UI",
-    "CI_CD_DEPLOY_CALLBACK_TO_BUG_REPORT",
-    "BUG_INTAKE_RETRY_POLICY_FOR_SAFE_UI_FIXES"
+    "CI_CD_DIRECT_BUG_CORRELATION_CALLBACK",
+    "AUTHENTICATED_PLAYWRIGHT_POST_DEPLOY_SMOKE"
   ]
 }

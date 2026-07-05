@@ -8,6 +8,8 @@ Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and 
 
 Phase 3 closes the local factory loop: approved reports are pulled into the local repository, screenshots are downloaded into the local inbox, Agent tasks are generated, local workers execute, results are written back to ERP, and successful runs can push `main` to trigger CI/CD when the runner is started with the release flags.
 
+Phase 4 hardens the loop for production resilience: administrators can see a closed-loop timeline, low-risk A4/A1 repairs can be retried once, CI/CD results can be written back through a dedicated callback script, and production route smoke can be recorded after deployment.
+
 ## User Flow
 
 1. The tester clicks the top-right "反馈问题" button from any ERP page.
@@ -212,6 +214,8 @@ Use:
 - `scripts/ops/bug-intake-sync-from-api.mjs` to pull approved production reports into `docs/ops/runs/bug-intake-inbox/`.
 - `scripts/ops/bug-task-to-agent-queue.mjs` to convert approved repair payloads into local Agent queue tasks.
 - `scripts/ops/bug-agent-result-to-report.mjs` to write local Agent results back to ERP.
+- `scripts/ops/bug-ci-result-callback.mjs` to write CI/CD deploy results back to ERP.
+- `scripts/ops/bug-production-route-smoke.mjs` to run read-only post-deploy route checks.
 
 Detailed SOP: `docs/ops/bug-intake/LOCAL_AGENT_INBOX_SYNC.md`.
 
@@ -239,8 +243,25 @@ Default mode is still dry-run. Real execution requires:
 Optional production loop flag:
 
 - `--wait-ci-after-push`
+- `--retry-safe-ui-once`
 
 This means the administrator can approve from the ERP page, while the local factory does the repository work without another manual terminal session.
+
+## Production Resilience Scorecard
+
+Current target score: 100/100.
+
+Required capabilities:
+
+- Evidence captured: route, user, roles, errors, failed requests, page snapshot, screenshot/PDF.
+- Evidence synced: guarded attachments downloaded into the local inbox.
+- Agent split: UI/API/security/data tasks routed to concrete Agents.
+- Admin visibility: report detail includes closed-loop timeline.
+- Local execution: queue apply and worker execution require explicit approval.
+- Retry control: only A4/A1 low-risk UI validation tasks can retry once.
+- Result writeback: worker, runner lifecycle, push, and CI/CD results can be posted back.
+- Post-deploy confidence: production route smoke can be recorded.
+- Safety: no DB write, migration, deploy, or push unless the runner is started with the corresponding explicit flags.
 
 ## Split Repair Policy
 

@@ -51,6 +51,17 @@ type BugReportDetail = BugReportListItem & {
   updatedBy: string;
 };
 
+type AgentResult = {
+  taskId?: string;
+  agent?: string;
+  conclusion?: string;
+  commitHash?: string;
+  recordedAt?: string;
+  resultFile?: string;
+  validationResults?: unknown;
+  summary?: string;
+};
+
 const STATUSES = ["OPEN", "TRIAGED", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"];
 const PRIORITIES = ["P0", "P1", "P2", "P3"];
 const PAGE_SIZE = 20;
@@ -72,6 +83,98 @@ function JsonBlock({ value }: { value: unknown }) {
     <pre style={{ background: "var(--bg-muted)", borderRadius: "var(--radius-md)", padding: 12, fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 260, overflow: "auto" }}>
       {JSON.stringify(value ?? null, null, 2)}
     </pre>
+  );
+}
+
+function asAgentResults(value: unknown): AgentResult[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is AgentResult => Boolean(item && typeof item === "object"));
+}
+
+function timelineStatusColor(value: string) {
+  const text = value.toUpperCase();
+  if (/FAIL|HOLD|REJECT|ERROR/.test(text)) return "var(--status-danger)";
+  if (/PASS|GO|DONE|COMPLETED|RESOLVED|SUCCESS/.test(text)) return "var(--status-success)";
+  if (/APPROVED|RUNNING|IN_PROGRESS|TRIAGED|READY|ROUTED/.test(text)) return "var(--status-warning)";
+  return "var(--text-secondary)";
+}
+
+function repairPayload(detail: BugReportDetail) {
+  return detail.repairTaskPayload && typeof detail.repairTaskPayload === "object" ? detail.repairTaskPayload : {};
+}
+
+function BugRepairTimeline({ detail }: { detail: BugReportDetail }) {
+  const payload = repairPayload(detail);
+  const agentPlan = payload.agentPlan && typeof payload.agentPlan === "object" ? payload.agentPlan as Record<string, unknown> : null;
+  const approval = payload.agentExecutionApproval && typeof payload.agentExecutionApproval === "object" ? payload.agentExecutionApproval as Record<string, unknown> : null;
+  const agentResults = asAgentResults(payload.agentResults);
+  const selectedAgents = Array.isArray(agentPlan?.selected_agents) ? agentPlan.selected_agents.map(String) : [];
+  const lifecycle = agentResults.filter(item => item.agent === "BugIntakeLocalRunner");
+  const workerResults = agentResults.filter(item => item.agent !== "BugIntakeLocalRunner");
+  const items = [
+    {
+      label: "用户提报",
+      status: "DONE",
+      meta: `${detail.reporterName || detail.reporterUsername || "—"} · ${new Date(detail.createdAt).toLocaleString("zh-CN")}`,
+      detail: detail.route || detail.url || "—",
+    },
+    {
+      label: "管理员受理",
+      status: detail.status,
+      meta: `${detail.priority || "P2"} · ${detail.moduleCode || "未填模块"}`,
+      detail: detail.assigneeName || detail.assigneeUsername || "未分派负责人",
+    },
+    {
+      label: "修复任务包",
+      status: detail.repairTaskNo ? detail.repairTaskStatus || "READY" : "PENDING",
+      meta: detail.repairTaskNo || "未生成",
+      detail: detail.repairTaskNo ? "已生成本地 Agent 可消费的 repair task payload" : "等待管理员生成修复任务包",
+    },
+    {
+      label: "Agent 分工",
+      status: agentPlan ? String(agentPlan.route_decision || "PLAN_READY") : "PENDING",
+      meta: selectedAgents.length ? selectedAgents.join(" / ") : "未生成",
+      detail: agentPlan ? "已生成 selected_agents 与 split_strategy" : "等待生成 Agent 修复计划",
+    },
+    {
+      label: "执行批准",
+      status: approval?.approved ? "APPROVED" : "PENDING",
+      meta: approval?.approvedBy ? `批准人：${String(approval.approvedBy)}` : "未批准",
+      detail: approval?.approvalScope ? String(approval.approvalScope) : "未进入本地队列",
+    },
+    {
+      label: "Worker 结果",
+      status: workerResults.length ? (workerResults.some(r => /HOLD|FAIL/.test(String(r.conclusion || ""))) ? "HOLD" : "COMPLETED") : "PENDING",
+      meta: workerResults.length ? `${workerResults.length} 条 Agent 结果` : "等待本地 worker",
+      detail: workerResults.map(r => `${r.agent || "Agent"}: ${r.conclusion || "—"}`).join("；") || "暂无",
+    },
+    {
+      label: "Runner / Push / CI",
+      status: lifecycle.length ? String(lifecycle.at(-1)?.conclusion || "RECORDED") : "PENDING",
+      meta: lifecycle.at(-1)?.commitHash ? `commit ${lifecycle.at(-1)?.commitHash}` : "等待 runner lifecycle",
+      detail: lifecycle.at(-1)?.summary ? String(lifecycle.at(-1)?.summary).slice(0, 240) : "暂无本地 runner lifecycle 回写",
+    },
+  ];
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {items.map((item, index) => (
+        <div key={`${item.label}-${index}`} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 10 }}>
+          <div style={{ display: "grid", justifyItems: "center" }}>
+            <span style={{ width: 11, height: 11, borderRadius: 99, background: timelineStatusColor(item.status), marginTop: 4 }} />
+            {index < items.length - 1 && <span style={{ width: 1, minHeight: 42, background: "var(--border)" }} />}
+          </div>
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, background: "var(--bg-muted)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+              <strong>{item.label}</strong>
+              <span style={{ color: timelineStatusColor(item.status), fontSize: 12, fontWeight: 800 }}>{item.status}</span>
+            </div>
+            <div style={{ color: "var(--text-secondary)", fontSize: 12, marginTop: 4 }}>{item.meta}</div>
+            <div style={{ fontSize: 12, marginTop: 6, wordBreak: "break-word" }}>{item.detail}</div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -330,6 +433,11 @@ export default function BugReportsPage() {
                   <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.userRoles", "用户 / 角色")}</span><strong>{detail.reporterName || detail.reporterUsername} · {(detail.roles ?? []).join(", ") || "—"}</strong>
                   <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.companyProject", "公司 / 项目")}</span><strong>{detail.companyCode || "—"} / {detail.projectCode || "—"}</strong>
                   <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.description", "说明")}</span><span style={{ whiteSpace: "pre-wrap" }}>{detail.description || "—"}</span>
+                </section>
+
+                <section>
+                  <h4>{t("system.bugIntake.timeline", "闭环时间线")}</h4>
+                  <BugRepairTimeline detail={detail} />
                 </section>
 
                 <section>

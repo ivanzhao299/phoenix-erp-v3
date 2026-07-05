@@ -1475,3 +1475,16 @@ Remaining conditions:
 1. Add a richer administrator timeline on `/bug-reports`.
 2. Add CI/CD deploy-result callback into bug reports.
 3. Add safe retry policy for low-risk UI-only repairs.
+
+## 2026-07-06 — Bug Intake Pipeline V3 Resilience
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented production resilience additions:
+
+- Admin closed-loop timeline on `/bug-reports`.
+- One-time safe retry for low-risk A4/A1 bug-intake tasks.
+- CI/CD result callback script.
+- Read-only production route smoke script.
+
+Current score: 96/100. Remaining gap to 100 is direct CI/CD bug correlation and authenticated visual smoke after deploy.

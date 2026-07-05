@@ -32,6 +32,8 @@ Default mode is dry-run. Real execution requires both:
 
 Queue writes require `--apply-queue`. Production push requires `--push-after-success`. CI observation after push requires `--wait-ci-after-push` and an authenticated `gh` CLI session.
 
+Low-risk retry requires `--retry-safe-ui-once`. It applies only to bug-intake A4/A1 tasks that do not mention backend, DB, migration, deploy, RBAC, DataScope, Auth, Finance, or Chanjet scope.
+
 ## Authentication
 
 The runner supports two safe token modes:
@@ -58,7 +60,8 @@ node scripts/ops/bug-intake-local-runner.mjs \
   --execute-approved \
   --approval-token APPROVE_AGENT_EXECUTION \
   --push-after-success \
-  --wait-ci-after-push
+  --wait-ci-after-push \
+  --retry-safe-ui-once
 ```
 
 For a managed macOS deployment, install it under `launchd`:
@@ -85,6 +88,7 @@ Credentials are intentionally stored outside git in `~/.phoenix-erp/bug-intake-r
 - Deployment is only triggered indirectly by pushing `main`, and only when `--push-after-success` is enabled.
 - CI/CD observation is best-effort. If `gh` is unavailable or unauthenticated, the runner records the skip reason in the bug report.
 - Worker execution still requires the fixed approval token.
+- Safe retry is limited to one retry and only for low-risk A4/A1 tasks.
 - Result writeback uses `--token-env` so the production token does not appear in repo files.
 
 ## Outputs
@@ -126,5 +130,7 @@ The ERP bug report should show three layers of progress:
 - Agent subtask results: A1/A2/A3/A4/A5 worker result reports.
 - Local runner lifecycle result: sync, worker, push, and CI observation summary.
 - Final report status: `AGENT_RUNNING`, `AGENT_COMPLETED`, or `HOLD`.
+- CI/CD result: optional `BugIntakeCICD` result written by `scripts/ops/bug-ci-result-callback.mjs`.
+- Route smoke: optional readonly route probe written by `scripts/ops/bug-production-route-smoke.mjs`.
 
 If the report is `HOLD`, the latest Agent result or runner lifecycle result is the source of truth for the reason.

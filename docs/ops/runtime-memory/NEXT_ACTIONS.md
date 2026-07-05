@@ -648,3 +648,14 @@ Next actions:
    - Let remote CI/CD write deployment result back into the originating bug report when available.
 3. `BUG_INTAKE_RETRY_POLICY_FOR_SAFE_UI_FIXES`
    - Add a controlled retry policy for safe A4/A1 UI-only repairs.
+
+## 2026-07-06 — Bug Intake Pipeline V3 Resilience
+
+Decision: `GO_WITH_CONDITIONS`
+
+Next actions:
+
+1. `CI_CD_DIRECT_BUG_CORRELATION_CALLBACK`
+   - When a deployment can identify one or more source bug numbers, CI/CD should write `BugIntakeCICD` results directly to those reports.
+2. `AUTHENTICATED_PLAYWRIGHT_POST_DEPLOY_SMOKE`
+   - Upgrade HTTP route smoke to authenticated browser smoke for high-impact UI fixes.

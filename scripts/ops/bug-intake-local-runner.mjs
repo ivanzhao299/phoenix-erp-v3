@@ -21,7 +21,7 @@ function usage(code = 1) {
     [--token-env PHOENIX_ERP_TOKEN | --login-user-env PHOENIX_ERP_RUNNER_USER --login-password-env PHOENIX_ERP_RUNNER_PASS] \\
     [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 3] \\
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
-    [--push-after-success] [--wait-ci-after-push] [--dry-run]
+    [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] [--dry-run]
 
 Fixture test:
   node scripts/ops/bug-intake-local-runner.mjs --fixture-json /tmp/bug.json --once --dry-run`);
@@ -47,7 +47,7 @@ function parseArgs(argv) {
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       continue;
@@ -197,6 +197,20 @@ function workerCommand(task, args) {
   if (args.dryRun) command.push('--dry-run');
   else command.push('--approval-token', args.approvalToken);
   return command;
+}
+
+function isSafeRetryTask(task) {
+  if (task.source !== 'bug-intake') return false;
+  if (!['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'].includes(task.agent)) return false;
+  const forbidden = JSON.stringify([task.title, task.allowed_paths, task.forbidden_paths, task.risk_level]).toLowerCase();
+  return !/migration|db write|database|deploy|push|apps\/api|rbac|datascope|auth|permission|finance|chanjet/.test(forbidden);
+}
+
+function shouldRetryWorker(task, worker, finalTask, args) {
+  if (!args.retrySafeUiOnce || args.dryRun) return false;
+  if (!isSafeRetryTask(task)) return false;
+  if ((worker.status ?? 1) !== 0) return true;
+  return finalTask && ['HOLD', 'hold', 'failed'].includes(finalTask.status);
 }
 
 function writebackCommand(task, finalTask, args) {
@@ -363,6 +377,7 @@ function summaryMarkdown(summary) {
 | Queue apply | ${summary.queueApply} |
 | Runnable tasks | ${summary.runnableTasks.length} |
 | Worker runs | ${summary.workerRuns.length} |
+| Safe retry | ${summary.retrySafeUiOnce ? 'Enabled for A4/A1 low-risk tasks' : 'Disabled'} |
 | Push after success | ${summary.pushAfterSuccess ? 'Enabled' : 'Disabled'} |
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
 | CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
@@ -374,7 +389,7 @@ ${summary.runnableTasks.map((task) => `- ${task.task_id} -> ${task.agent}`).join
 
 ## Worker Runs
 
-${summary.workerRuns.map((item) => `- ${item.task.task_id}: worker=${item.worker.status}, final=${item.finalTask?.status || 'unknown'}, writeback=${item.writeback?.status ?? 'skipped'}`).join('\n') || '- None'}
+${summary.workerRuns.map((item) => `- ${item.task.task_id}: worker=${item.worker.status}, final=${item.finalTask?.status || 'unknown'}, writeback=${item.writeback?.status ?? 'skipped'}, retries=${item.retryRuns?.length || 0}`).join('\n') || '- None'}
 
 ## Safety
 
@@ -401,15 +416,21 @@ async function runCycle(args, cycle) {
   const workerRuns = [];
 
   for (const task of runnableTasks) {
-    const worker = run(workerCommand(task, args));
-    const finalTask = findTask(task.task_id);
+    let worker = run(workerCommand(task, args));
+    let finalTask = findTask(task.task_id);
+    const retryRuns = [];
+    if (shouldRetryWorker(task, worker, finalTask, args)) {
+      retryRuns.push({ reason: 'safe-ui-once retry', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
+      worker = run(workerCommand(task, args));
+      finalTask = findTask(task.task_id);
+    }
     let writeback = null;
     const wbCommand = writebackCommand(task, finalTask, args);
     if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
       writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
     }
     const postWorkerCommit = commitOpsRuntimeArtifacts(args);
-    workerRuns.push({ task, worker, finalTask, writeback });
+    workerRuns.push({ task, worker, finalTask, writeback, retryRuns });
     if (!postWorkerCommit.skipped && postWorkerCommit.ok === false) {
       workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
       break;
@@ -427,6 +448,7 @@ async function runCycle(args, cycle) {
     queueApply: args.applyQueue && !args.dryRun ? 'applied-approved-only' : 'dry-run-no-queue-write',
     executeApproved: Boolean(args.executeApproved),
     pushAfterSuccess: Boolean(args.pushAfterSuccess),
+    retrySafeUiOnce: Boolean(args.retrySafeUiOnce),
     sync,
     preWorkerCommit,
     runnableTasks: runnableTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
@@ -435,6 +457,7 @@ async function runCycle(args, cycle) {
       worker: { status: item.worker.status, stdout: item.worker.stdout, stderr: item.worker.stderr },
       finalTask: item.finalTask ? { status: item.finalTask.status, result_file: item.finalTask.result_file, baseline_autopilot_exit_code: item.finalTask.baseline_autopilot_exit_code } : null,
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
+      retryRuns: item.retryRuns || [],
       postWorkerCommit: item.postWorkerCommit ?? null,
     })),
     push,

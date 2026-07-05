@@ -1,0 +1,34 @@
+{
+  "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
+  "generated_at": "2026-07-05T16:32:59.500Z",
+  "base_url": "https://erp.eggslao.com",
+  "routes": [
+    "/",
+    "/bug-reports"
+  ],
+  "results": [
+    {
+      "route": "/",
+      "url": "https://erp.eggslao.com/",
+      "status": 307,
+      "ok": true,
+      "elapsedMs": 1297,
+      "excerpt": "/login"
+    },
+    {
+      "route": "/bug-reports",
+      "url": "https://erp.eggslao.com/bug-reports",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1438,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    }
+  ],
+  "safety": {
+    "readonly": true,
+    "deployed": false,
+    "pushed": false,
+    "database_written": false,
+    "migration_executed": false
+  }
+}
