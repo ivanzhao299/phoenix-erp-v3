@@ -16,7 +16,7 @@ function usage(code = 1) {
   console.log(`Usage:
   node scripts/ops/bug-intake-local-runner.mjs \\
     --api-base https://erp.eggslao.com \\
-    --token-env PHOENIX_ERP_TOKEN \\
+    [--token-env PHOENIX_ERP_TOKEN | --login-user-env PHOENIX_ERP_RUNNER_USER --login-password-env PHOENIX_ERP_RUNNER_PASS] \\
     [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 3] \\
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
     [--push-after-success] [--dry-run]
@@ -37,6 +37,9 @@ function parseArgs(argv) {
     outputDir: RUN_DIR,
     syncOutputDir: DEFAULT_SYNC_OUTPUT,
     mainRoot: MAIN_ROOT,
+    loginUserEnv: 'PHOENIX_ERP_RUNNER_USER',
+    loginPasswordEnv: 'PHOENIX_ERP_RUNNER_PASS',
+    childTokenEnv: 'PHOENIX_ERP_RUNNER_TOKEN',
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   for (let i = 0; i < normalized.length; i += 1) {
@@ -87,15 +90,19 @@ function run(command, options = {}) {
   const result = spawnSync(command[0], command.slice(1), {
     cwd: options.cwd || process.cwd(),
     encoding: 'utf8',
-    env: process.env,
+    env: { ...process.env, ...(options.env || {}) },
   });
+  const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
+    .filter(Boolean)
+    .map(String);
+  const redact = (value) => secretValues.reduce((next, secret) => next.split(secret).join('<redacted>'), String(value));
   return {
-    command: command.map((part) => (String(part).includes(process.env[options.tokenEnv] || '\0') ? '<redacted>' : part)),
+    command: command.map(redact),
     startedAt,
     finishedAt: new Date().toISOString(),
     status: result.status ?? 1,
-    stdout: (result.stdout || '').slice(-12000),
-    stderr: (result.stderr || '').slice(-12000),
+    stdout: redact(result.stdout || '').slice(-12000),
+    stderr: redact(result.stderr || '').slice(-12000),
   };
 }
 
@@ -113,7 +120,32 @@ function safeGit(args, cwd) {
 
 function tokenAvailable(args) {
   if (args.fixtureJson) return true;
-  return Boolean(args.token || (args.tokenEnv && process.env[args.tokenEnv]));
+  return Boolean(
+    args.token ||
+    (args.tokenEnv && process.env[args.tokenEnv]) ||
+    (args.loginUserEnv && args.loginPasswordEnv && process.env[args.loginUserEnv] && process.env[args.loginPasswordEnv]),
+  );
+}
+
+async function loginToken(args) {
+  if (args.fixtureJson) return '';
+  if (args.token) return args.token;
+  if (args.tokenEnv && process.env[args.tokenEnv]) return process.env[args.tokenEnv];
+  const username = process.env[args.loginUserEnv];
+  const password = process.env[args.loginPasswordEnv];
+  if (!username || !password) return '';
+  if (!args.apiBase) throw new Error('--api-base is required for runner login');
+  const res = await fetch(`${args.apiBase.replace(/\/$/, '')}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`runner login failed HTTP ${res.status}: ${text.slice(0, 300)}`);
+  const data = text ? JSON.parse(text) : {};
+  const token = data.token || data.accessToken || data.access_token;
+  if (!token) throw new Error('runner login response did not include token');
+  return token;
 }
 
 function syncCommand(args) {
@@ -121,8 +153,7 @@ function syncCommand(args) {
   if (args.fixtureJson) command.push('--fixture-json', args.fixtureJson);
   else {
     command.push('--api-base', args.apiBase || '');
-    if (args.token) command.push('--token', args.token);
-    if (args.tokenEnv) command.push('--token-env', args.tokenEnv);
+    command.push('--token-env', args.childTokenEnv);
   }
   if (args.applyQueue && !args.dryRun) command.push('--apply-queue');
   else command.push('--dry-run');
@@ -168,8 +199,7 @@ function writebackCommand(task, finalTask, args) {
     '--api-base',
     args.apiBase,
   ];
-  if (args.token) command.push('--token', args.token);
-  if (args.tokenEnv) command.push('--token-env', args.tokenEnv);
+  command.push('--token-env', args.childTokenEnv);
   command.push(args.dryRun ? '--dry-run' : '--apply');
   return command;
 }
@@ -238,7 +268,9 @@ async function runCycle(args, cycle) {
   if (!tokenAvailable(args)) throw new Error('--api-base with --token/--token-env is required unless --fixture-json is used');
   if (!args.dryRun && args.approvalToken !== APPROVAL_TOKEN) throw new Error('real execution requires --approval-token APPROVE_AGENT_EXECUTION');
 
-  const sync = run(syncCommand(args), { tokenEnv: args.tokenEnv });
+  const token = await loginToken(args);
+  const childEnv = token ? { [args.childTokenEnv]: token } : {};
+  const sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
   const runnableTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
   const workerRuns = [];
 
@@ -248,7 +280,7 @@ async function runCycle(args, cycle) {
     let writeback = null;
     const wbCommand = writebackCommand(task, finalTask, args);
     if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
-      writeback = run(wbCommand, { tokenEnv: args.tokenEnv });
+      writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
     }
     workerRuns.push({ task, worker, finalTask, writeback });
   }
@@ -271,6 +303,7 @@ async function runCycle(args, cycle) {
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
     })),
     push,
+    tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
   };
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));

@@ -31,14 +31,24 @@ Default mode is dry-run. Real execution requires both:
 
 Queue writes require `--apply-queue`. Production push requires `--push-after-success`.
 
+## Authentication
+
+The runner supports two safe token modes:
+
+- `PHOENIX_ERP_TOKEN`: use an already issued JWT.
+- `PHOENIX_ERP_RUNNER_USER` / `PHOENIX_ERP_RUNNER_PASS`: login at the start of each cycle and refresh the JWT automatically.
+
+The second mode is preferred for long-running operation because JWTs expire.
+
 ## Production Operating Command
 
 The intended long-running local command is:
 
 ```bash
-PHOENIX_ERP_TOKEN=<jwt> node scripts/ops/bug-intake-local-runner.mjs \
+PHOENIX_ERP_RUNNER_USER=<service-user> \
+PHOENIX_ERP_RUNNER_PASS=<service-password> \
+node scripts/ops/bug-intake-local-runner.mjs \
   --api-base https://erp.eggslao.com \
-  --token-env PHOENIX_ERP_TOKEN \
   --watch \
   --interval 300 \
   --max-cycles 999999 \
@@ -49,7 +59,20 @@ PHOENIX_ERP_TOKEN=<jwt> node scripts/ops/bug-intake-local-runner.mjs \
   --push-after-success
 ```
 
-For a managed macOS deployment, run it under `launchd` or a supervised process manager. Do not leave an unmanaged interactive terminal as the production runner.
+For a managed macOS deployment, install it under `launchd`:
+
+```bash
+node scripts/ops/install-bug-intake-local-runner-launchagent.mjs --apply
+```
+
+This creates:
+
+- `~/Library/LaunchAgents/com.phoenix.erp.bug-intake-runner.plist`
+- `~/.phoenix-erp/bug-intake-runner.sh`
+- `~/.phoenix-erp/bug-intake-runner.env`
+- `~/Library/Logs/phoenix-erp/bug-intake-runner.*.log`
+
+Credentials are intentionally stored outside git in `~/.phoenix-erp/bug-intake-runner.env`.
 
 ## Safety Rules
 

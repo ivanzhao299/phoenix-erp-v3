@@ -206,6 +206,10 @@ The production-grade handoff is:
 
 It can run locally as a supervised long-running process. It polls ERP for administrator-approved bug reports, applies only approved tasks into the local Agent queue, starts local Agent workers, writes results back to ERP, and can push `main` after successful gates when explicitly started with `--push-after-success`.
 
+For always-on mode, install the macOS LaunchAgent with:
+
+- `scripts/ops/install-bug-intake-local-runner-launchagent.mjs`
+
 Default mode is still dry-run. Real execution requires:
 
 - `--execute-approved`
