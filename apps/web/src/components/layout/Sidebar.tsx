@@ -19,6 +19,7 @@ import {
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
   Rocket, Server, ShieldAlert, Settings2, Landmark, Scale,
+  Bug,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -281,6 +282,7 @@ export const MENU: MenuItem[] = [
     { id: "sysops-monitor", path: "/system/health",      Icon: Activity,    label: "系统健康",   perm: "MENU_SYS_MONITOR" },
     { id: "sysops-alerts",  path: "/system/alerts",      Icon: ShieldAlert, label: "告警中心",   perm: "MENU_SYS_MONITOR" },
     { id: "sysops-errors",  path: "/system/error-logs",  Icon: FileWarning, label: "错误日志",   perm: "MENU_SYS_MONITOR" },
+    { id: "sysops-bugs",    path: "/bug-reports",        Icon: Bug,         label: "问题反馈",   perm: "MENU_BUG_REPORT" },
     { id: "sysops-configs", path: "/system/configs",     Icon: Settings2,   label: "配置治理",   perm: "MENU_SETTINGS_CONFIG"  },
     { id: "sysops-backup",  path: "/system/backup",      Icon: Database,    label: "备份策略",   perm: "MENU_SETTINGS_CONFIG"  },
   ]},

@@ -14,6 +14,7 @@
  */
 import { useEffect } from 'react';
 import { dispatchAuthExpired } from '@/lib/auth-dispatch';
+import { recordFailedRequest } from '@/lib/bug-intake-telemetry';
 
 const INSTALLED_KEY = '__phx_fetch_interceptor_installed__';
 
@@ -48,6 +49,26 @@ export function AuthFetchInterceptor() {
         } catch { /* ignore parse error */ }
         // 通过共享防抖函数派发（与 api-client.ts 共用同一个冷却锁）
         dispatchAuthExpired(reason);
+      }
+
+      if (res.status >= 400 && path.startsWith('/api')) {
+        let responseExcerpt = '';
+        let requestId = res.headers.get('x-request-id') ?? res.headers.get('x-correlation-id') ?? '';
+        try {
+          const text = await res.clone().text();
+          responseExcerpt = text.slice(0, 1200);
+          if (!requestId && text) {
+            const body = JSON.parse(text) as { requestId?: string; request_id?: string };
+            requestId = body.requestId ?? body.request_id ?? '';
+          }
+        } catch { /* ignore parse */ }
+        recordFailedRequest({
+          url: path,
+          method: String(init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase(),
+          status: res.status,
+          requestId,
+          responseExcerpt,
+        });
       }
 
       return res;

@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthFetchInterceptor } from "@/components/AuthFetchInterceptor";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { BugIntakeProvider } from "@/components/bug-intake/BugIntakeProvider";
 
 // ── Page title: path → locale key → Chinese fallback ─────────────
 // 使用 menu.<childId> 作为 key，与 Sidebar 共享同一翻译源
@@ -112,6 +113,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/system/alerts":                "menu.sysops-alerts",
   "/system/backup":                "menu.sysops-backup",
   "/system/error-logs":            "menu.sysops-errors",
+  "/bug-reports":                  "menu.sysops-bugs",
 };
 
 const RAIL_W = "56px";
@@ -248,6 +250,8 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
 
             {/* G167/G171：消息中心 — 铃铛 + 红点未读数 + 下拉消息列表（新消息弹横幅 + 声音） */}
             <ApprovalNotifier />
+
+            <BugIntakeProvider />
 
             {/* User info — 点击进入个人中心 /profile（主题切换迁移到个人中心，topbar 不再放）*/}
             <div
