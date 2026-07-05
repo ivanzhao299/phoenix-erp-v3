@@ -171,13 +171,12 @@ function findCodex() {
 
 function isOnlyAllowedOpsRuntimeDirty(status) {
   if (!status.trim()) return true;
-  const allowed = new Set(['docs/ops/agent-queue/tasks.json']);
   return status
     .split('\n')
     .filter(Boolean)
     .every((line) => {
-      const file = line.slice(3).trim();
-      return allowed.has(file);
+      const file = line.replace(/^..[\t ]+/, '').trim();
+      return file === 'docs/ops/agent-queue/tasks.json' || file.startsWith('docs/ops/runs/');
     });
 }
 

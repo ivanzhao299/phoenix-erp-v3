@@ -14,7 +14,7 @@
   "reporterUsername": "zhaoyongwei",
   "reporterName": "赵永伟",
   "createdAt": "2026-07-05T13:32:08.674Z",
-  "updatedAt": "2026-07-05T13:58:42.061Z",
+  "updatedAt": "2026-07-05T14:01:00.516Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "集团总部精英驾驶舱，聚合卡片上面的数字不对，鸡蛋能有小数点吗？",
@@ -155,10 +155,10 @@
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-05T13:58:42.059Z"
+        "recordedAt": "2026-07-05T14:01:00.514Z"
       }
     ],
     "suggestedOwner": "",
@@ -176,10 +176,10 @@
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-02-ORCH |\n| Agent | Codex-Orchestrator |\n| Dry run | No |\n| Exit code | 1 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent Codex-Orchestrator --worktree /Users/mac/phoenix-erp-worktrees/codex-orchestrator --prompt docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\nM docs/ops/agent-queue/tasks.json\n\n```",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-05T13:58:42.059Z"
+      "recordedAt": "2026-07-05T14:01:00.514Z"
     },
     "acceptanceCriteria": "",
     "agentPlanGeneratedAt": "2026-07-05T13:34:10.095Z",
