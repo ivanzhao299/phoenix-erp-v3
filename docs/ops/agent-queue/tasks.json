@@ -1861,7 +1861,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "Codex-Orchestrator",
-    "status": "pending",
+    "status": "running",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -1880,8 +1880,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "branch": "codex/orchestrator-main-sync-20260701",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
+    "claimed_by": "Codex-Orchestrator",
+    "claimed_at": "2026-07-05T14:08:06.959Z",
     "completed_at": null,
     "result_file": null,
     "next_agents": [
