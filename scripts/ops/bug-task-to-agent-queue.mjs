@@ -89,6 +89,66 @@ function buildRouteText(payload) {
   ].filter(Boolean).join('\n');
 }
 
+function collectSearchText(payload) {
+  const context = payload.context && typeof payload.context === 'object' ? payload.context : {};
+  return [
+    payload.title,
+    payload.description,
+    payload.moduleCode || payload.module_code,
+    payload.route,
+    payload.url,
+    payload.acceptanceCriteria,
+    JSON.stringify(context.consoleErrors || []),
+    JSON.stringify(context.failedRequests || []),
+    JSON.stringify(context.clientContext || {}),
+    JSON.stringify(context.localEvidence || {}),
+  ].filter(Boolean).join('\n').toLowerCase();
+}
+
+function refineRoutePlan(payload, routePlan) {
+  const text = collectSearchText(payload);
+  const selected = new Set(routePlan.selected_agents || []);
+  const reasons = { ...(routePlan.bug_intake_policy_reasons || {}) };
+  const add = (agent, reason) => {
+    selected.add(agent);
+    reasons[agent] = [...(reasons[agent] || []), reason];
+  };
+
+  if (/dashboard|卡片|页面|ui|ux|样式|按钮|弹窗|抽屉|表格|表单|前端|mobile|手机端|web|截图|视觉|不好看|丑/.test(text)) {
+    add('A4-Frontend-UAT-Smoke', 'bug-intake policy: UI/visual/page evidence requires A4');
+  }
+  if (/500|http 5|pg|sql|unhandled|api\/|接口|后端|controller|service|patch |post |get |delete /.test(text)) {
+    add('A3-Backend-Critical-Path', 'bug-intake policy: API/server/runtime evidence requires A3');
+  }
+  if (/401|403|rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|门禁|permission/.test(text)) {
+    add('A2-Security-Regression-Gate', 'bug-intake policy: RBAC/DataScope/auth evidence requires A2');
+  }
+  if (/数据|字典|主数据|映射|mapping|readiness|公司|项目|供应商|客户|账户|好业财|chanjet/.test(text)) {
+    add('A5-Data-Readiness', 'bug-intake policy: data/readiness/mapping evidence requires A5');
+  }
+  add('A1-CI-Runtime-Gate', 'bug-intake policy: every repair requires A1 validation');
+
+  if (selected.size > 1) selected.delete('Codex-Orchestrator');
+  const order = [
+    'A2-Security-Regression-Gate',
+    'A3-Backend-Critical-Path',
+    'A4-Frontend-UAT-Smoke',
+    'A5-Data-Readiness',
+    'A1-CI-Runtime-Gate',
+    'A6-Staging-Deploy-Runbook',
+    'A7-Final-QA-Gate',
+    'Codex-Orchestrator',
+  ];
+  const selectedAgents = order.filter((agent) => selected.has(agent));
+  return {
+    ...routePlan,
+    route_decision: routePlan.route_decision === 'HOLD' ? 'HOLD' : (selectedAgents.length ? 'PLAN_READY' : routePlan.route_decision),
+    selected_agents: selectedAgents,
+    selected_agents_after_bug_intake_policy: selectedAgents,
+    bug_intake_policy_reasons: reasons,
+  };
+}
+
 function agentShort(agent) {
   const match = agent.match(/^A(\d)/);
   return match ? `A${match[1]}` : 'ORCH';
@@ -123,6 +183,12 @@ function taskContract(payload, agent) {
     '```json',
     JSON.stringify(payload, null, 2),
     '```',
+    ``,
+    `## Local Evidence`,
+    ``,
+    ...((payload.context?.localEvidence?.localAttachmentPaths || payload.localEvidence?.localAttachmentPaths || []).length
+      ? (payload.context?.localEvidence?.localAttachmentPaths || payload.localEvidence?.localAttachmentPaths || []).map((file) => `- ${file}`)
+      : ['- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.']),
     ``,
   ].join('\n');
 }
@@ -172,7 +238,7 @@ function main() {
   const input = readJson(args.repairTaskJson);
   const payload = extractPayload(input);
   const dispatchMap = readJson(DISPATCH_MAP_FILE);
-  const routePlan = payload.agentPlan || routeRequest(buildRouteText(payload));
+  const routePlan = refineRoutePlan(payload, payload.agentPlan || routeRequest(buildRouteText(payload)));
   if (routePlan.route_decision === 'HOLD') {
     console.log('HOLD: route plan is HOLD; no agent queue tasks generated.');
     console.log(JSON.stringify(routePlan.held_reasons || [], null, 2));

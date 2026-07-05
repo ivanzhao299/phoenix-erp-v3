@@ -557,6 +557,8 @@ export class BugIntakeService {
       `severity: ${report.severity}`,
       `failed requests: ${failedRequests}`,
       `console errors: ${consoleErrors}`,
+      `attachments: ${JSON.stringify(report.attachments || [])}`,
+      `client context: ${JSON.stringify(report.clientContext || {})}`,
       '需要生成修复计划并执行 A1 验证。',
     ].filter(Boolean).join('\n');
   }
@@ -570,7 +572,7 @@ export class BugIntakeService {
       reasons[agent] = [...(reasons[agent] || []), reason];
     };
 
-    if (/apps\/web|frontend|前端|页面|ui|ux|样式|按钮|弹窗|抽屉|移动端|web/.test(text)) {
+    if (/apps\/web|frontend|前端|页面|ui|ux|样式|按钮|弹窗|抽屉|移动端|web|dashboard|卡片|截图|视觉|不好看|丑|layout|style/.test(text)) {
       add('A4-Frontend-UAT-Smoke', 'frontend/UI route or wording matched');
     }
     if (/apps\/api|backend|后端|api|500|sql|pg|controller|service|接口|unhandled|http 5/.test(text)) {
@@ -579,7 +581,7 @@ export class BugIntakeService {
     if (/rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|401|403/.test(text)) {
       add('A2-Security-Regression-Gate', 'security/RBAC/DataScope signal matched');
     }
-    if (/数据|字典|主数据|mapping|readiness|门店|公司|供应商|客户|项目|账户/.test(text)) {
+    if (/数据|字典|主数据|mapping|readiness|门店|公司|供应商|客户|项目|账户|好业财|chanjet/.test(text)) {
       add('A5-Data-Readiness', 'data readiness/master data signal matched');
     }
     if (/deploy|部署|staging|production|上线|rollback|回滚/.test(text)) {

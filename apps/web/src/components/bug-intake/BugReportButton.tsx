@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bug, Camera, CheckCircle2, Clipboard, Crop, Loader2, Trash2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getBugIntakeSnapshot } from "@/lib/bug-intake-telemetry";
+import { getBugIntakePageSnapshot, getBugIntakeSnapshot } from "@/lib/bug-intake-telemetry";
 import styles from "./bug-intake.module.css";
 
 type SubmitResult = { bugNo?: string; bug_no?: string };
@@ -209,6 +209,7 @@ export function BugReportButton() {
           devicePixelRatio: window.devicePixelRatio,
           language: navigator.language,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          pageSnapshot: getBugIntakePageSnapshot(),
         },
       };
       const form = new FormData();

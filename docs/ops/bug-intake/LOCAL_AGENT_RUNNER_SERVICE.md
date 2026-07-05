@@ -11,8 +11,9 @@ Target flow:
 3. A local always-on runner syncs approved reports from ERP.
 4. Approved reports enter the local Agent queue.
 5. Local Agent workers repair in worktrees, run verification, and baseline merge.
-6. Runner writes the Agent result back to the ERP bug report.
-7. If enabled and every local gate succeeds, runner pushes `main` to trigger CI/CD deployment.
+6. Runner writes each Agent result back to the ERP bug report.
+7. Runner writes a lifecycle result back to the ERP bug report with local execution, push, and optional CI wait status.
+8. If enabled and every local gate succeeds, runner pushes `main` to trigger CI/CD deployment.
 
 The production server does not edit code by itself. Code repair still happens in the controlled local repository and worktrees.
 
@@ -29,7 +30,7 @@ Default mode is dry-run. Real execution requires both:
 - `--execute-approved`
 - `--approval-token APPROVE_AGENT_EXECUTION`
 
-Queue writes require `--apply-queue`. Production push requires `--push-after-success`.
+Queue writes require `--apply-queue`. Production push requires `--push-after-success`. CI observation after push requires `--wait-ci-after-push` and an authenticated `gh` CLI session.
 
 ## Authentication
 
@@ -56,7 +57,8 @@ node scripts/ops/bug-intake-local-runner.mjs \
   --apply-queue \
   --execute-approved \
   --approval-token APPROVE_AGENT_EXECUTION \
-  --push-after-success
+  --push-after-success \
+  --wait-ci-after-push
 ```
 
 For a managed macOS deployment, install it under `launchd`:
@@ -81,6 +83,7 @@ Credentials are intentionally stored outside git in `~/.phoenix-erp/bug-intake-r
 - Runner never writes ERP business data directly.
 - Runner never deploys directly.
 - Deployment is only triggered indirectly by pushing `main`, and only when `--push-after-success` is enabled.
+- CI/CD observation is best-effort. If `gh` is unavailable or unauthenticated, the runner records the skip reason in the bug report.
 - Worker execution still requires the fixed approval token.
 - Result writeback uses `--token-env` so the production token does not appear in repo files.
 
@@ -115,3 +118,13 @@ The local runner picks it up on the next polling cycle.
 ## Current Boundary
 
 This is still a controlled repair pipeline. High-risk tasks can still HOLD during Agent worktree checks, verification, or baseline autopilot. HOLD is expected behavior when the task needs human review instead of blind automatic deployment.
+
+## What the Administrator Sees
+
+The ERP bug report should show three layers of progress:
+
+- Agent subtask results: A1/A2/A3/A4/A5 worker result reports.
+- Local runner lifecycle result: sync, worker, push, and CI observation summary.
+- Final report status: `AGENT_RUNNING`, `AGENT_COMPLETED`, or `HOLD`.
+
+If the report is `HOLD`, the latest Agent result or runner lifecycle result is the source of truth for the reason.

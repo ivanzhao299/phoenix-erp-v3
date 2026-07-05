@@ -21,7 +21,7 @@ function usage(code = 1) {
     [--token-env PHOENIX_ERP_TOKEN | --login-user-env PHOENIX_ERP_RUNNER_USER --login-password-env PHOENIX_ERP_RUNNER_PASS] \\
     [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 3] \\
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
-    [--push-after-success] [--dry-run]
+    [--push-after-success] [--wait-ci-after-push] [--dry-run]
 
 Fixture test:
   node scripts/ops/bug-intake-local-runner.mjs --fixture-json /tmp/bug.json --once --dry-run`);
@@ -47,7 +47,7 @@ function parseArgs(argv) {
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       continue;
@@ -226,6 +226,11 @@ function pushCommand(args) {
   return ['git', 'push', 'origin', 'HEAD:main'];
 }
 
+function currentHead(cwd) {
+  const sha = safeGit(['rev-parse', 'HEAD'], cwd);
+  return sha.ok ? sha.output : '';
+}
+
 function canPush(args, workerRuns) {
   if (args.dryRun || !args.pushAfterSuccess) return false;
   if (!workerRuns.length) return false;
@@ -246,6 +251,106 @@ function runPushIfReady(args, workerRuns) {
   return run(pushCommand(args), { cwd: args.mainRoot });
 }
 
+async function waitForGithubActionsIfRequested(args, push) {
+  if (!args.waitCiAfterPush) return { skipped: true, reason: 'wait-ci-after-push disabled' };
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  if (push?.skipped || push?.status !== 0) return { skipped: true, reason: 'push did not complete successfully' };
+  const ghCheck = spawnSync('gh', ['--version'], { cwd: args.mainRoot, encoding: 'utf8' });
+  if ((ghCheck.status ?? 1) !== 0) return { skipped: true, reason: 'gh CLI unavailable' };
+  const headSha = currentHead(args.mainRoot);
+  if (!headSha) return { skipped: true, reason: 'cannot resolve HEAD sha' };
+  const startedAt = Date.now();
+  const timeoutMs = Number(args.ciTimeoutMs || 900000);
+  const pollMs = Number(args.ciPollMs || 15000);
+  let lastRuns = [];
+  while (Date.now() - startedAt < timeoutMs) {
+    const list = spawnSync('gh', [
+      'run',
+      'list',
+      '--branch',
+      'main',
+      '--limit',
+      '20',
+      '--json',
+      'headSha,status,conclusion,name,url',
+    ], { cwd: args.mainRoot, encoding: 'utf8' });
+    if ((list.status ?? 1) !== 0) {
+      return { skipped: false, ok: false, step: 'gh run list', error: list.stderr || list.stdout };
+    }
+    lastRuns = JSON.parse(list.stdout || '[]').filter((run) => run.headSha === headSha);
+    if (lastRuns.length > 0 && lastRuns.every((run) => run.status === 'completed')) {
+      const failed = lastRuns.filter((run) => run.conclusion !== 'success');
+      return {
+        skipped: false,
+        ok: failed.length === 0,
+        headSha,
+        runs: lastRuns,
+        conclusion: failed.length === 0 ? 'PASS' : 'HOLD',
+      };
+    }
+    await sleep(pollMs);
+  }
+  return {
+    skipped: false,
+    ok: false,
+    headSha,
+    runs: lastRuns,
+    conclusion: 'HOLD',
+    error: `CI wait timed out after ${timeoutMs}ms`,
+  };
+}
+
+async function postAgentResult(args, childEnv, bugNo, payload) {
+  const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
+  if (!args.apiBase || !token || !bugNo) return { skipped: true, reason: 'missing api-base/token/bug-no' };
+  const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(bugNo)}/agent-result`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  if (!res.ok) return { skipped: false, ok: false, status: res.status, body: text.slice(0, 1000) };
+  return { skipped: false, ok: true, status: res.status, body: text.slice(0, 1000) };
+}
+
+async function writebackRunnerLifecycle(args, childEnv, summary) {
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  const bugNos = [...new Set(summary.workerRuns.map((item) => item.task.source_bug_no).filter(Boolean))];
+  const pushOk = !summary.push?.skipped && summary.push?.status === 0;
+  const ciOk = summary.ci?.skipped || summary.ci?.ok === true;
+  const conclusion = pushOk && ciOk ? 'PASS WITH CONDITIONS' : 'HOLD';
+  const payload = {
+    taskId: `LOCAL-RUNNER-${summary.generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+    agent: 'BugIntakeLocalRunner',
+    conclusion,
+    resultFile: `${args.outputDir}/latest-summary.md`,
+    commitHash: summary.headSha || '',
+    changedFiles: [],
+    validationResults: {
+      sync: summary.sync.status === 0 ? 'PASS' : 'FAIL',
+      workerRuns: summary.workerRuns.map((item) => ({
+        taskId: item.task.task_id,
+        agent: item.task.agent,
+        finalStatus: item.finalTask?.status || 'unknown',
+        writebackStatus: item.writeback?.status ?? 'skipped',
+      })),
+      push: summary.push?.skipped ? `SKIPPED: ${summary.push.reason}` : (summary.push?.status === 0 ? 'PASS' : 'FAIL'),
+      ci: summary.ci?.skipped ? `SKIPPED: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD'),
+    },
+    summary: summaryMarkdown(summary).slice(0, 3900),
+    nextAction: conclusion === 'HOLD' ? 'Review runner lifecycle HOLD reason before closing bug.' : 'Business owner validates the fix in production.',
+  };
+  const results = [];
+  for (const bugNo of bugNos) {
+    results.push({ bugNo, ...(await postAgentResult(args, childEnv, bugNo, payload)) });
+  }
+  return { skipped: false, results };
+}
+
 function summaryMarkdown(summary) {
   return `# Bug Intake Local Runner Summary
 
@@ -260,6 +365,8 @@ function summaryMarkdown(summary) {
 | Worker runs | ${summary.workerRuns.length} |
 | Push after success | ${summary.pushAfterSuccess ? 'Enabled' : 'Disabled'} |
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
+| CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
+| Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
 
 ## Runnable Tasks
 
@@ -311,6 +418,7 @@ async function runCycle(args, cycle) {
   }
 
   const push = runPushIfReady(args, workerRuns);
+  const ci = await waitForGithubActionsIfRequested(args, push);
   const summary = {
     decision: args.dryRun ? 'BUG_INTAKE_LOCAL_RUNNER_DRY_RUN' : 'BUG_INTAKE_LOCAL_RUNNER_EXECUTED',
     generatedAt: new Date().toISOString(),
@@ -330,8 +438,11 @@ async function runCycle(args, cycle) {
       postWorkerCommit: item.postWorkerCommit ?? null,
     })),
     push,
+    ci,
+    headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
   };
+  summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
   console.log(JSON.stringify({

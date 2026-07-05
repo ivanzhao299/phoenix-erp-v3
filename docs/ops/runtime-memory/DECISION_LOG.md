@@ -1457,3 +1457,21 @@ Blocked from primary switch:
 - `TODAY_PAYMENT`
 
 No Chanjet write, voucher push, ERP business overwrite, migration, or DB write was introduced by this gate.
+
+## 2026-07-05 — Bug Intake AI Repair Pipeline V2
+
+Decision: `GO_WITH_CONDITIONS`
+
+The bug feedback loop was strengthened from simple intake to a production repair pipeline:
+
+- Production bug screenshots/PDF evidence are downloaded into the local inbox.
+- Page snapshot context is captured on submit.
+- Bug tasks apply a policy layer that routes UI/API/security/data issues to concrete Agents.
+- The local runner writes sync, worker, push, and optional CI observation status back to the ERP bug report.
+- The runner still does not write DB, run migrations, or deploy directly.
+
+Remaining conditions:
+
+1. Add a richer administrator timeline on `/bug-reports`.
+2. Add CI/CD deploy-result callback into bug reports.
+3. Add safe retry policy for low-risk UI-only repairs.

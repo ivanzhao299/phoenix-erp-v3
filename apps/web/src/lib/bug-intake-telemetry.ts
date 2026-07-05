@@ -104,3 +104,57 @@ export function getBugIntakeSnapshot() {
     failedRequests: [...s.failedRequests],
   };
 }
+
+function cleanText(value: string | null | undefined) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+function visibleText(element: Element) {
+  if (!(element instanceof HTMLElement)) return "";
+  const style = window.getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return "";
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return "";
+  return cleanText(element.innerText || element.textContent || element.getAttribute("aria-label") || "");
+}
+
+export function getBugIntakePageSnapshot() {
+  if (typeof window === "undefined") return null;
+  const buttons = Array.from(document.querySelectorAll("button,[role='button'],a,input,select,textarea"))
+    .map((el) => {
+      const element = el as HTMLElement;
+      const rect = element.getBoundingClientRect();
+      const label = cleanText(
+        element.getAttribute("aria-label") ||
+        element.getAttribute("placeholder") ||
+        element.innerText ||
+        element.textContent ||
+        (element as HTMLInputElement).value ||
+        element.getAttribute("href") ||
+        "",
+      );
+      if (!label) return null;
+      return {
+        tag: element.tagName.toLowerCase(),
+        label,
+        disabled: Boolean((element as HTMLButtonElement).disabled || element.getAttribute("aria-disabled") === "true"),
+        path: element.id ? `#${element.id}` : (element.className ? `.${String(element.className).split(/\s+/).slice(0, 2).join(".")}` : ""),
+        rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 80);
+  const textBlocks = Array.from(document.querySelectorAll("h1,h2,h3,h4,p,li,td,th,label,span"))
+    .map(visibleText)
+    .filter(Boolean)
+    .filter((text, index, arr) => arr.indexOf(text) === index)
+    .slice(0, 120);
+  return {
+    title: document.title,
+    route: window.location.pathname,
+    scroll: { x: Math.round(window.scrollX), y: Math.round(window.scrollY) },
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    interactiveElements: buttons,
+    visibleText: textBlocks,
+  };
+}

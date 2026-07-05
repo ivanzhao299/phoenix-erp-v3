@@ -86,6 +86,19 @@ async function apiGet(args, endpoint) {
   return text ? JSON.parse(text) : {};
 }
 
+async function apiDownload(args, endpoint) {
+  const token = getToken(args);
+  if (!args.apiBase) throw new Error('--api-base is required without --fixture-json');
+  if (!token) throw new Error('--token or --token-env is required without --fixture-json');
+  const url = `${args.apiBase.replace(/\/$/, '')}${endpoint}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 300)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
 async function fetchReports(args) {
   if (args.fixtureJson) {
     const fixture = readJson(args.fixtureJson);
@@ -122,19 +135,80 @@ function safeBugFileName(bugNo) {
   return String(bugNo || 'BUG-UNKNOWN').replace(/[^\w.-]/g, '_');
 }
 
-function writeInboxReports(args, reports, batchDir) {
+async function downloadAttachments(args, report, bugDir) {
+  if (args.fixtureJson || args.dryRunNoAttachments) return [];
+  const attachments = Array.isArray(report.attachments) ? report.attachments : [];
+  const local = [];
+  for (const attachment of attachments) {
+    const endpoint = attachment?.previewEndpoint || attachment?.preview_endpoint;
+    const fileName = attachment?.fileName || attachment?.file_name;
+    if (!endpoint || !fileName) continue;
+    const safeName = String(fileName).replace(/[^\w.,@()+ -]/g, '_');
+    const relativeFile = path.join(bugDir, 'attachments', safeName);
+    try {
+      const body = await apiDownload(args, endpoint);
+      const target = resolveFile(relativeFile);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, body);
+      local.push({
+        fileName,
+        originalName: attachment.originalName || attachment.original_name || '',
+        mimeType: attachment.mimeType || attachment.mime_type || '',
+        sourceEndpoint: endpoint,
+        localPath: relativeFile,
+        sizeBytes: body.length,
+      });
+    } catch (error) {
+      local.push({
+        fileName,
+        sourceEndpoint: endpoint,
+        downloadError: error.message,
+      });
+    }
+  }
+  return local;
+}
+
+function withLocalEvidence(report, localAttachments) {
+  if (!localAttachments.length) return report;
+  const evidence = {
+    localAttachments,
+    localAttachmentPaths: localAttachments.map((item) => item.localPath).filter(Boolean),
+  };
+  const next = {
+    ...report,
+    localEvidence: evidence,
+  };
+  if (next.repairTaskPayload && typeof next.repairTaskPayload === 'object') {
+    next.repairTaskPayload = {
+      ...next.repairTaskPayload,
+      context: {
+        ...(next.repairTaskPayload.context || {}),
+        localEvidence: evidence,
+      },
+    };
+  }
+  return next;
+}
+
+async function writeInboxReports(args, reports, batchDir) {
   const files = [];
+  const enrichedReports = [];
   for (const report of reports) {
-    const file = path.join(batchDir, `${safeBugFileName(report.bugNo)}.json`);
-    writeJson(file, report);
+    const bugDir = path.join(batchDir, safeBugFileName(report.bugNo));
+    const localAttachments = await downloadAttachments(args, report, bugDir);
+    const enriched = withLocalEvidence(report, localAttachments);
+    const file = path.join(bugDir, 'report.json');
+    writeJson(file, enriched);
     files.push(file);
+    enrichedReports.push(enriched);
   }
   writeJson(path.join(args.outputDir, 'latest-index.json'), {
     generated_at: new Date().toISOString(),
     batch_dir: batchDir,
     files,
   });
-  return files;
+  return { files, reports: enrichedReports };
 }
 
 function queueHandoff(file, apply) {
@@ -184,10 +258,12 @@ async function main() {
   const reports = await fetchReports(args);
   const batchDir = path.join(args.outputDir, stamp());
   mkdirSync(resolveFile(batchDir), { recursive: true });
-  const files = writeInboxReports(args, reports, batchDir);
-  const fileByBugNo = new Map(files.map((file, index) => [reports[index]?.bugNo, file]));
-  const queueCandidates = reports.filter(isQueueCandidate);
-  const notReady = reports
+  const inbox = await writeInboxReports(args, reports, batchDir);
+  const files = inbox.files;
+  const enrichedReports = inbox.reports;
+  const fileByBugNo = new Map(files.map((file, index) => [enrichedReports[index]?.bugNo, file]));
+  const queueCandidates = enrichedReports.filter(isQueueCandidate);
+  const notReady = enrichedReports
     .filter((report) => !isQueueCandidate(report))
     .map((report) => ({
       bugNo: report.bugNo,
@@ -231,6 +307,7 @@ async function main() {
       title: report.title,
       repairTaskNo: report.repairTaskNo,
       repairTaskStatus: report.repairTaskStatus,
+      localAttachmentPaths: report.localEvidence?.localAttachmentPaths || [],
     })),
     not_ready: notReady,
     queue_results: queueResults,

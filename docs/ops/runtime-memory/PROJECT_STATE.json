@@ -773,5 +773,23 @@
     "A5-Data-Readiness"
   ],
   "agent_inbox_last_route_decision": "PLAN_READY",
-  "agent_inbox_last_remote_write": false
+  "agent_inbox_last_remote_write": false,
+  "bug_intake_pipeline": {
+    "version": "V2",
+    "enabled": true,
+    "online_feedback_to_local_runner": true,
+    "evidence_download_to_local_inbox": true,
+    "page_snapshot_enabled": true,
+    "agent_task_split_policy": "bug-intake-policy-after-router",
+    "runner_lifecycle_writeback": true,
+    "optional_ci_wait_after_push": true,
+    "direct_db_write": false,
+    "direct_deploy": false,
+    "current_decision": "GO_WITH_CONDITIONS"
+  },
+  "next_action": [
+    "BUG_REPORT_ADMIN_TIMELINE_UI",
+    "CI_CD_DEPLOY_CALLBACK_TO_BUG_REPORT",
+    "BUG_INTAKE_RETRY_POLICY_FOR_SAFE_UI_FIXES"
+  ]
 }

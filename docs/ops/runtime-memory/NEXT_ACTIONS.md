@@ -635,3 +635,16 @@ Next action:
 1. `CHANJET_P3_FINANCE_CARD_SOURCE_SWITCH_UI_QA`
 2. Verify `/finance2/reports` source badges and diff display.
 3. Verify no page silently treats blocked Chanjet values as primary values.
+
+## 2026-07-05 — Bug Intake AI Repair Pipeline V2
+
+Decision: `GO_WITH_CONDITIONS`
+
+Next actions:
+
+1. `BUG_REPORT_ADMIN_TIMELINE_UI`
+   - Show user report, triage, Agent plan, queue state, worker result, local runner lifecycle, push and CI/CD result in one timeline.
+2. `CI_CD_DEPLOY_CALLBACK_TO_BUG_REPORT`
+   - Let remote CI/CD write deployment result back into the originating bug report when available.
+3. `BUG_INTAKE_RETRY_POLICY_FOR_SAFE_UI_FIXES`
+   - Add a controlled retry policy for safe A4/A1 UI-only repairs.

@@ -4,7 +4,9 @@
 
 Phase 1 collects bug reports and runtime context.
 
-Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and an explicit Agent queue approval gate. It still does not run AI repair by itself, does not auto-modify code, and does not deploy.
+Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and an explicit Agent queue approval gate.
+
+Phase 3 closes the local factory loop: approved reports are pulled into the local repository, screenshots are downloaded into the local inbox, Agent tasks are generated, local workers execute, results are written back to ERP, and successful runs can push `main` to trigger CI/CD when the runner is started with the release flags.
 
 ## User Flow
 
@@ -14,6 +16,7 @@ Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and 
    - current user, roles, company and project context when available
    - recent `console.error`, `window.error`, and `unhandledrejection`
    - recent failed API requests with method, URL, status, requestId when present, and a short response excerpt
+   - a lightweight page snapshot with visible text and interactive controls
    - manually uploaded screenshots or PDFs
 3. The backend creates a `BUG-YYYYMMDD-0001` style bug number.
 4. Screenshots are stored under `storage/bug-reports/YYYY/MM/DD/<bug_no>/`.
@@ -22,6 +25,8 @@ Phase 2 adds triage, assignment, repair-task handoff, Agent split planning, and 
 7. Administrators can generate a guarded repair task package for a later human or AI repair worker.
 8. Administrators generate an Agent repair plan and explicitly approve the queue handoff.
 9. The local Agent Factory script refuses `--apply` unless the repair task payload contains that approval record.
+10. The local runner downloads guarded screenshot attachments into `docs/ops/runs/bug-intake-inbox/<batch>/<bug_no>/attachments/` and injects those paths into the Agent contract.
+11. Worker and runner lifecycle results are written back to `repair_task_payload.agentResults`.
 
 ## Closed Loop
 
@@ -183,6 +188,19 @@ An AI repair worker can read approved repair task packages by:
 
 8. A1/A2 gates verify fixes before merge/deploy.
 
+## Evidence Contract
+
+Every approved Agent task should include:
+
+- original report title, route, URL, reporter and roles
+- console errors and unhandled promise rejections
+- failed API requests with requestId and response excerpt
+- page snapshot: visible labels, controls, scroll position and viewport
+- guarded screenshot/PDF metadata from production
+- local attachment paths downloaded by `bug-intake-sync-from-api.mjs`
+
+If a visual/UI issue has no usable screenshot or page snapshot, the Agent must HOLD with a clear evidence request instead of guessing.
+
 The worker must not directly mutate business code or deploy without an explicit human approval gate.
 
 ## Local Inbox Sync
@@ -206,6 +224,8 @@ The production-grade handoff is:
 
 It can run locally as a supervised long-running process. It polls ERP for administrator-approved bug reports, applies only approved tasks into the local Agent queue, starts local Agent workers, writes results back to ERP, and can push `main` after successful gates when explicitly started with `--push-after-success`.
 
+When started with `--wait-ci-after-push`, it also attempts to observe GitHub Actions through `gh run list` and writes the CI wait result back to the bug report. If `gh` is unavailable, the runner records that CI observation was skipped instead of pretending it passed.
+
 For always-on mode, install the macOS LaunchAgent with:
 
 - `scripts/ops/install-bug-intake-local-runner-launchagent.mjs`
@@ -215,6 +235,10 @@ Default mode is still dry-run. Real execution requires:
 - `--execute-approved`
 - `--approval-token APPROVE_AGENT_EXECUTION`
 - `--apply-queue`
+
+Optional production loop flag:
+
+- `--wait-ci-after-push`
 
 This means the administrator can approve from the ERP page, while the local factory does the repository work without another manual terminal session.
 
