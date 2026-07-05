@@ -1822,7 +1822,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "failed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -1842,16 +1842,22 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-05T13:35:03.024Z",
-    "completed_at": "2026-07-05T13:35:03.113Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "updated_at": "2026-07-05T14:12:02.548Z",
+    "result": null,
+    "hold_reason": null,
+    "failure_reason": null,
+    "baseline_autopilot": null,
+    "baseline_autopilot_exit_code": null
   },
   {
     "task_id": "BUGTASK-20260705-0003-02-ORCH",
@@ -1861,7 +1867,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "Codex-Orchestrator",
-    "status": "running",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -1880,8 +1886,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "branch": "codex/orchestrator-main-sync-20260701",
     "dependencies": [],
-    "claimed_by": "Codex-Orchestrator",
-    "claimed_at": "2026-07-05T14:08:06.959Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": null,
     "result_file": null,
     "next_agents": [
@@ -1893,6 +1899,12 @@
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "baseline_autopilot_exit_code": null,
+    "updated_at": "2026-07-05T14:12:02.548Z",
+    "result": null,
+    "hold_reason": null,
+    "failure_reason": null,
+    "baseline_autopilot": null
   }
 ]
