@@ -122,6 +122,11 @@ export interface FinanceSemanticExtractor {
 
 export type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
 export type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
+export type ReceiptPaymentSystemConfirmationStatus =
+  | 'SYSTEM_CONFIRMED_LOCK_CANDIDATE'
+  | 'SYSTEM_CONFIRMED_PARTIAL'
+  | 'SYSTEM_WAITING_SAMPLE'
+  | 'HOLD';
 
 export interface FinanceReadModelMetric {
   key: string;
@@ -267,6 +272,7 @@ export interface ReceiptPaymentDateStatusLock {
   label: string;
   entityType: 'AR_RECEIPT' | 'AP_PAYMENT';
   status: ReceiptPaymentLockStatus;
+  systemConfirmationStatus: ReceiptPaymentSystemConfirmationStatus;
   sampleRows: number;
   latestPulledAt: string | null;
   requiredDimensions: string[];
@@ -277,6 +283,16 @@ export interface ReceiptPaymentDateStatusLock {
   statusRule: string;
   directionRule: string;
   amountRule: string;
+  safeQueryFilter: {
+    businessDate: string;
+    postedDate: string;
+    approvedStatus: string;
+    voidStatus: string;
+    direction: string;
+    amount: string;
+  };
+  blockedFromPrimaryReason: string;
+  amountSumSafeForTodayCard: false;
   readyForFinanceReview: boolean;
   readyForCardAuthority: boolean;
   reason: string;
@@ -3058,12 +3074,23 @@ export class ChanjetIntegrationService {
         : lockedDimensions.length > 0
           ? 'PARTIAL'
           : 'HOLD';
+    const systemConfirmationStatus: ReceiptPaymentSystemConfirmationStatus = rows.length === 0
+      ? 'SYSTEM_WAITING_SAMPLE'
+      : status === 'LOCKED'
+        ? 'SYSTEM_CONFIRMED_LOCK_CANDIDATE'
+        : status === 'PARTIAL'
+          ? 'SYSTEM_CONFIRMED_PARTIAL'
+          : 'HOLD';
     const readyForFinanceReview = status === 'LOCKED';
+    const blockedFromPrimaryReason = status === 'LOCKED'
+      ? '系统已找到日期、状态、方向和金额候选字段，但今日卡片仍需单独对账验证；本 Gate 不允许自动切主值。'
+      : '收付款日期、状态、方向或金额维度未完整锁定，禁止进入今日收款/付款主卡片。';
     return {
       key,
       label,
       entityType,
       status,
+      systemConfirmationStatus,
       sampleRows: rows.length,
       latestPulledAt,
       requiredDimensions,
@@ -3076,17 +3103,29 @@ export class ChanjetIntegrationService {
         ? '仅允许收款方向；退款/冲销/反向单必须排除或单列差异。'
         : '仅允许付款方向；退款/冲销/反向单必须排除或单列差异。',
       amountRule: '金额字段必须来自好业财单据实收/实付金额候选，不能使用列表累计或 amount=0 占位。',
+      safeQueryFilter: {
+        businessDate: lockedDimensions.includes('business_date') ? 'candidate_required' : 'blocked_missing_candidate',
+        postedDate: lockedDimensions.includes('posted_date') ? 'candidate_required' : 'blocked_missing_candidate',
+        approvedStatus: lockedDimensions.includes('approved_status') ? 'approved_or_audited_only' : 'blocked_missing_candidate',
+        voidStatus: lockedDimensions.includes('void_status') ? 'exclude_void_cancel_reversal' : 'blocked_missing_candidate',
+        direction: lockedDimensions.includes('direction')
+          ? (key === 'TODAY_RECEIPT' ? 'receipt_direction_only' : 'payment_direction_only')
+          : 'blocked_missing_candidate',
+        amount: lockedDimensions.includes('amount') ? 'actual_receipt_payment_amount_only' : 'blocked_missing_candidate',
+      },
+      blockedFromPrimaryReason,
+      amountSumSafeForTodayCard: false,
       readyForFinanceReview,
       readyForCardAuthority: false,
       reason: rows.length === 0
         ? `${entityType} 暂无中间层样本，需先重跑只读同步。`
         : missingDimensions.length === 0
-          ? '日期、状态、方向和金额候选字段均已识别，可进入财务人工确认；尚未自动切换卡片权威值。'
+          ? '日期、状态、方向和金额候选字段均已识别，可进入系统侧对账验证；尚未自动切换卡片权威值。'
           : `仍缺少候选维度: ${missingDimensions.join(' / ')}。`,
       nextAction: rows.length === 0
         ? '执行好业财全量只读同步，补齐收付款单 raw_data。'
         : missingDimensions.length === 0
-          ? '由财务确认业务日/入账日/审核/作废枚举后，再进入财务卡片权威接线 Gate。'
+          ? '执行收付款日期/状态/方向只读对账脚本，确认今日口径后再申请财务卡片权威接线 Gate。'
           : `补齐字段候选: ${missingDimensions.join(' / ')}`,
     };
   }

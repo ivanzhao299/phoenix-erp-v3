@@ -2,6 +2,28 @@
 
 Last updated: 2026-07-05
 
+## 2026-07-05 — Chanjet Receipt / Payment Date Status Lock Continue
+
+Current stage: `CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Extended receipt/payment locks with system-side confirmation status.
+2. Added safe query filter metadata for business date, posted date, approval status, void status, direction, and amount.
+3. Explicitly kept `TODAY_RECEIPT` and `TODAY_PAYMENT` blocked from finance card primary authority.
+4. Added `scripts/ops/chanjet-receipt-payment-lock-audit.mjs`.
+
+Next actions:
+
+1. `CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT`
+   - Expose subject balance and statement rows as readonly Chanjet reports with clear evidence, missing fields, and blocker reasons.
+2. `CHANJET_P4_VOUCHER_DRAFT_PREP`
+   - Prepare ERP voucher draft generation only; do not push to Chanjet.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
+
 ## 2026-07-05 — Chanjet Cash Balance Field Lock
 
 Current stage: `CHANJET_P3_CASH_BALANCE_FIELD_LOCK_IMPLEMENTED`

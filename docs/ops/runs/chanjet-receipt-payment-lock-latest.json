@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-07-05T01:55:02.899Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "scope": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUE",
+  "passed": 5,
+  "total": 5,
+  "failed": [],
+  "checks": [
+    {
+      "id": "receipt-payment-lock-api",
+      "description": "Controller exposes protected readonly receipt/payment lock endpoint.",
+      "passed": true,
+      "evidence": "apps/api/src/modules/chanjet/chanjet-callback.controller.ts"
+    },
+    {
+      "id": "system-confirmation-status",
+      "description": "Receipt/payment lock includes system-side confirmation status.",
+      "passed": true,
+      "evidence": "apps/api/src/modules/chanjet/chanjet-integration.service.ts"
+    },
+    {
+      "id": "safe-query-filter",
+      "description": "Receipt/payment lock exposes safe query filter dimensions.",
+      "passed": true,
+      "evidence": "apps/api/src/modules/chanjet/chanjet-integration.service.ts"
+    },
+    {
+      "id": "today-card-amount-guard",
+      "description": "Receipt/payment amountSum cannot feed today finance cards in this gate.",
+      "passed": true,
+      "evidence": "apps/api/src/modules/chanjet/chanjet-integration.service.ts"
+    },
+    {
+      "id": "readonly-ui-tab",
+      "description": "Chanjet integration UI keeps receipt/payment locks visible as readonly evidence.",
+      "passed": true,
+      "evidence": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx"
+    }
+  ],
+  "lockedMetrics": [
+    "TODAY_RECEIPT",
+    "TODAY_PAYMENT"
+  ],
+  "cardAuthority": {
+    "readyForCardAuthority": false,
+    "reason": "This gate locks fields and safe filters only; it does not switch today receipt/payment cards to Chanjet authority."
+  },
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "erpBusinessOverwrite": false,
+    "dbWrite": false,
+    "migration": false,
+    "deploy": false,
+    "push": false
+  }
+}
