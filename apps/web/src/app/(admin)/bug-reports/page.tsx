@@ -186,6 +186,23 @@ export default function BugReportsPage() {
     }
   };
 
+  const generateAgentPlan = async (bugNo: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/agent-plan`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json() as BugReportDetail;
+        setDetail(data);
+        await fetchList(page);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openProtectedAttachment = (endpoint: string) => {
     if (!endpoint) return;
     window.location.assign(endpoint);
@@ -354,6 +371,10 @@ export default function BugReportsPage() {
                   <button type="button" onClick={() => createRepairTask(detail.bugNo)} disabled={saving}
                     style={{ marginTop: 10, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving ? "not-allowed" : "pointer" }}>
                     {detail.repairTaskNo ? t("system.bugIntake.refreshRepairTask", "更新修复任务包") : t("system.bugIntake.createRepairTask", "生成修复任务包")}
+                  </button>
+                  <button type="button" onClick={() => generateAgentPlan(detail.bugNo)} disabled={saving || !detail.repairTaskNo}
+                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}>
+                    {t("system.bugIntake.generateAgentPlan", "生成 Agent 修复计划")}
                   </button>
                   {detail.repairTaskPayload && Object.keys(detail.repairTaskPayload).length > 0 && <JsonBlock value={detail.repairTaskPayload} />}
                 </section>

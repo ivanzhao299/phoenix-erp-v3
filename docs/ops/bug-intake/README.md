@@ -71,6 +71,12 @@ This keeps the first closed loop inside the ERP database. A future agent queue c
   - Generates a `BUGTASK-YYYYMMDD-0001` style repair task package.
   - This does not run AI, does not modify code, and does not deploy.
 
+- `POST /api/bug-intake/reports/:bugNo/agent-plan`
+  - Requires `MENU_BUG_REPORT:E`.
+  - Splits the repair task into recommended A1-A7 agent responsibilities.
+  - Writes the plan into `repair_task_payload.agentPlan`.
+  - This still does not execute Codex CLI, does not modify code, and does not deploy.
+
 - `GET /api/bug-intake/reports/:bugNo/attachments/:fileName`
   - Requires `MENU_BUG_REPORT:V`.
   - Serves stored screenshots through a guarded endpoint, not a raw filesystem path.
@@ -122,10 +128,35 @@ Create and status update operations write to `sys_audit_log` with `entity_type =
 
 An AI repair worker can read approved repair task packages by:
 
-1. Querying `bug_reports WHERE repair_task_status = 'READY'`.
-2. Reading `repair_task_payload`, `route`, `console_errors`, `failed_requests`, and guarded attachments.
-3. Reproducing the issue locally.
-4. Creating a repair plan and implementation branch.
-5. Writing progress back to `resolution_note` or a future dedicated AI repair event table.
+1. Querying `bug_reports WHERE repair_task_status IN ('READY','ROUTED')`.
+2. Reading `repair_task_payload`, `repair_task_payload.agentPlan`, `route`, `console_errors`, `failed_requests`, and guarded attachments.
+3. Running the local queue handoff:
+
+   ```bash
+   node scripts/ops/bug-task-to-agent-queue.mjs \
+     --repair-task-json docs/ops/runs/<bugtask-export>.json \
+     --dry-run
+   ```
+
+4. Reviewing the generated contracts under `docs/ops/runs/`.
+5. Applying the queue handoff only after approval:
+
+   ```bash
+   node scripts/ops/bug-task-to-agent-queue.mjs \
+     --repair-task-json docs/ops/runs/<bugtask-export>.json \
+     --apply
+   ```
+
+6. Worker agents claim their own subtasks from `docs/ops/agent-queue/tasks.json`.
+7. A1/A2 gates verify fixes before merge/deploy.
 
 The worker must not directly mutate business code or deploy without an explicit human approval gate.
+
+## Split Repair Policy
+
+- Frontend/UI/page issues route to `A4-Frontend-UAT-Smoke` plus `A1`.
+- API/500/SQL/backend issues route to `A3-Backend-Critical-Path` plus `A1`.
+- RBAC/DataScope/Auth/ACL issues route to `A2-Security-Regression-Gate`.
+- Master data/readiness/mapping issues route to `A5-Data-Readiness`.
+- Deployment or release issues route to `A6` and `A7`.
+- Mixed issues split into multiple subtasks; each task carries its own allowed and forbidden paths from `AGENT_DISPATCH_MAP.json`.

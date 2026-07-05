@@ -13226,5 +13226,6 @@
   "system.bugIntake.captureUnsupported": "ບຣາວເຊີນີ້ບໍ່ຮອງຮັບການຈັບພາບໂດຍກົງ, ກະລຸນາອັບໂຫຼດຮູບໜ້າຈໍ.",
   "system.bugIntake.captureFailed": "ຈັບພາບບໍ່ສໍາເລັດ, ກະລຸນາລອງໃໝ່.",
   "system.bugIntake.attachmentLimit": "ແນບຮູບໜ້າຈໍ/ໄຟລ໌ໄດ້ສູງສຸດ 5 ລາຍການ.",
+  "system.bugIntake.generateAgentPlan": "ສ້າງແຜນສ້ອມແປງ Agent",
   "common.done": "ສໍາເລັດ"
 }

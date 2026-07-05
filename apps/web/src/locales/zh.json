@@ -13226,5 +13226,6 @@
   "system.bugIntake.captureUnsupported": "当前浏览器不支持直接截图，请继续使用上传截图。",
   "system.bugIntake.captureFailed": "截图失败，请重试。",
   "system.bugIntake.attachmentLimit": "最多只能附加 5 个截图/文件。",
+  "system.bugIntake.generateAgentPlan": "生成 Agent 修复计划",
   "common.done": "完成"
 }

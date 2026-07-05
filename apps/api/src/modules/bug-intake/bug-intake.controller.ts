@@ -95,6 +95,15 @@ export class BugIntakeController {
     return this.service.createRepairTask(bugNo, body, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('reports/:bugNo/agent-plan')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async generateAgentPlan(
+    @Param('bugNo') bugNo: string,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.generateAgentPlan(bugNo, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports/:bugNo/attachments/:fileName')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   @Header('Cache-Control', 'private, max-age=60')

@@ -229,6 +229,27 @@ export class BugIntakeService {
     return this.toDto(saved);
   }
 
+  async generateAgentPlan(bugNo: string, user: BugReportUser, reqMeta: { ip?: string; userAgent?: string }) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    if (!report.repairTaskNo) throw new BadRequestException('请先生成修复任务包');
+    const before = this.toWorkflowSnapshot(report);
+    const routeText = this.buildAgentRouteText(report);
+    const agentPlan = this.buildAgentPlan(routeText, report);
+    const payload = {
+      ...(report.repairTaskPayload || {}),
+      agentPlan,
+      agentPlanGeneratedAt: new Date().toISOString(),
+      agentPlanGeneratedBy: this.safeText(user.username ?? user.name ?? '', 128),
+    };
+    report.repairTaskPayload = payload;
+    report.repairTaskStatus = agentPlan.route_decision === 'HOLD' ? 'HOLD' : 'ROUTED';
+    report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
+    const saved = await this.repo.save(report);
+    await this.writeAudit('GENERATE_AGENT_PLAN', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+    return this.toDto(saved);
+  }
+
   async getAttachment(bugNo: string, fileName: string) {
     const report = await this.repo.findOne({ where: { bugNo } });
     if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
@@ -403,6 +424,88 @@ export class BugIntakeService {
       repairTaskStatus: report.repairTaskStatus,
       resolutionNote: report.resolutionNote,
       closedAt: report.closedAt,
+    };
+  }
+
+  private buildAgentRouteText(report: BugReportEntity) {
+    const failedRequests = Array.isArray(report.failedRequests)
+      ? report.failedRequests.map((item) => JSON.stringify(item)).join('\n')
+      : '';
+    const consoleErrors = Array.isArray(report.consoleErrors)
+      ? report.consoleErrors.map((item) => JSON.stringify(item)).join('\n')
+      : '';
+    return [
+      report.title,
+      report.description,
+      `route: ${report.route}`,
+      `module: ${report.moduleCode}`,
+      `severity: ${report.severity}`,
+      `failed requests: ${failedRequests}`,
+      `console errors: ${consoleErrors}`,
+      '需要生成修复计划并执行 A1 验证。',
+    ].filter(Boolean).join('\n');
+  }
+
+  private buildAgentPlan(routeText: string, report: BugReportEntity) {
+    const text = routeText.toLowerCase();
+    const selected = new Set<string>();
+    const reasons: Record<string, string[]> = {};
+    const add = (agent: string, reason: string) => {
+      selected.add(agent);
+      reasons[agent] = [...(reasons[agent] || []), reason];
+    };
+
+    if (/apps\/web|frontend|前端|页面|ui|ux|样式|按钮|弹窗|抽屉|移动端|web/.test(text)) {
+      add('A4-Frontend-UAT-Smoke', 'frontend/UI route or wording matched');
+    }
+    if (/apps\/api|backend|后端|api|500|sql|pg|controller|service|接口|unhandled|http 5/.test(text)) {
+      add('A3-Backend-Critical-Path', 'backend/API/error route matched');
+    }
+    if (/rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|401|403/.test(text)) {
+      add('A2-Security-Regression-Gate', 'security/RBAC/DataScope signal matched');
+    }
+    if (/数据|字典|主数据|mapping|readiness|门店|公司|供应商|客户|项目|账户/.test(text)) {
+      add('A5-Data-Readiness', 'data readiness/master data signal matched');
+    }
+    if (/deploy|部署|staging|production|上线|rollback|回滚/.test(text)) {
+      add('A6-Staging-Deploy-Runbook', 'deploy/runbook signal matched');
+      add('A7-Final-QA-Gate', 'release gate signal matched');
+    }
+    add('A1-CI-Runtime-Gate', 'required validation after repair');
+
+    if (selected.size === 1 && selected.has('A1-CI-Runtime-Gate')) {
+      add('Codex-Orchestrator', 'low-confidence route review required');
+    }
+
+    const order = [
+      'A2-Security-Regression-Gate',
+      'A3-Backend-Critical-Path',
+      'A4-Frontend-UAT-Smoke',
+      'A5-Data-Readiness',
+      'A1-CI-Runtime-Gate',
+      'A6-Staging-Deploy-Runbook',
+      'A7-Final-QA-Gate',
+      'Codex-Orchestrator',
+    ];
+    const selectedAgents = order.filter((agent) => selected.has(agent));
+    const routeDecision = selectedAgents.includes('Codex-Orchestrator') && selectedAgents.length <= 2 ? 'ROUTE_REVIEW' : 'PLAN_READY';
+    return {
+      route_decision: routeDecision,
+      source_bug_no: report.bugNo,
+      source_repair_task_no: report.repairTaskNo,
+      selected_agents: selectedAgents,
+      split_strategy: selectedAgents.map((agent) => ({
+        agent,
+        reasons: reasons[agent] || [],
+        approval_required: true,
+        execution_mode: 'dry-run-first',
+      })),
+      hard_constraints: [
+        'no automatic production deploy',
+        'no automatic DB write',
+        'no automatic migration',
+        'human approval required before code repair execution',
+      ],
     };
   }
 

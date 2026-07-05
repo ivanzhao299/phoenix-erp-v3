@@ -13226,5 +13226,6 @@
   "system.bugIntake.captureUnsupported": "This browser does not support direct page capture. Please continue uploading a screenshot.",
   "system.bugIntake.captureFailed": "Capture failed. Please try again.",
   "system.bugIntake.attachmentLimit": "You can attach up to 5 screenshots/files.",
+  "system.bugIntake.generateAgentPlan": "Generate Agent repair plan",
   "common.done": "Done"
 }
