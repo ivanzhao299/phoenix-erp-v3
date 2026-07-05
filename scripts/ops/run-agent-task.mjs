@@ -175,7 +175,7 @@ function isOnlyAllowedOpsRuntimeDirty(status) {
     .split('\n')
     .filter(Boolean)
     .every((line) => {
-      const file = line.replace(/^..[\t ]+/, '').trim();
+      const file = line.match(/docs\/ops\/.+$/)?.[0] || line.trim();
       return file === 'docs/ops/agent-queue/tasks.json' || file.startsWith('docs/ops/runs/');
     });
 }
