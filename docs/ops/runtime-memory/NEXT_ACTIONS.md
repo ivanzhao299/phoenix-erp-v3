@@ -1,6 +1,34 @@
 # Next Actions
 
-Last updated: 2026-07-05
+Last updated: 2026-07-06
+
+## 2026-07-06 — Chanjet P0 Remote Readonly Coverage and Alignment
+
+Current stage: `CHANJET_P0_REMOTE_READONLY_COVERAGE_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added remote readonly audit tool `scripts/ops/chanjet-remote-readonly-coverage-audit.mjs`.
+2. Verified production middle-layer mirror coverage:
+   - Endpoint coverage: `100%`.
+   - Finance card dependency coverage: `100%`.
+   - Field classification coverage: `10.9%`.
+   - HIGH / CRITICAL open fields: `1348`.
+3. Fixed finance AR runtime alignment so AR comparison reads `chanjet_entity_snapshots` / `AR_STATISTICS` first, with legacy `chanjet_ar_snapshot` fallback.
+4. Confirmed local DB 0% coverage is a local mirror-state issue, not proof that production Chanjet mirror is empty.
+
+Next actions:
+
+1. `CHANJET-FIELD-GAP-REVIEW-GATE`
+   - Convert HIGH / CRITICAL pending fields into ERP mapping, transform, ignore, or manual-review decisions.
+2. `CHANJET-LOCAL-PROD-MIRROR-STATE-RECONCILE`
+   - Make future audits explicitly separate local development DB evidence from production mirror evidence.
+3. `CHANJET-FINANCE-CARD-AUTHORITY-VERIFY`
+   - Re-verify which finance cards may safely use Chanjet as the primary display authority.
+4. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a dedicated approved write-back Gate.
 
 ## 2026-07-05 — Chanjet Receipt / Payment Date Status Lock Continue
 

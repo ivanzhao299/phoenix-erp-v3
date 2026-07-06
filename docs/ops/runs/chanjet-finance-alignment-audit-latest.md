@@ -1,6 +1,6 @@
 # Chanjet Finance Alignment Audit
 
-Generated at: 2026-07-06T11:39:32.354Z
+Generated at: 2026-07-06T11:58:52.254Z
 Decision: GO_WITH_CONDITIONS
 
 ## Boundaries

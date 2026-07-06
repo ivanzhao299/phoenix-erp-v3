@@ -1,6 +1,6 @@
 # Chanjet Remote Readonly Coverage Audit
 
-Generated at: 2026-07-06T11:54:40.606Z
+Generated at: 2026-07-06T11:58:27.104Z
 Decision: GO_WITH_CONDITIONS
 
 ## Scope

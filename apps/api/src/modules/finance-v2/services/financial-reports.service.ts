@@ -59,7 +59,50 @@ export class FinancialReportsService {
     return !all && codes.length === 0;
   }
 
-  private async getChanjetArOpen(all: boolean, codes: string[]) {
+  private async getChanjetStatsOpenFromEntity(
+    all: boolean,
+    codes: string[],
+    entityType: 'AR_STATISTICS' | 'AP_STATISTICS',
+  ) {
+    if (this.emptyScope(all, codes)) return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    const scopeFilter = all ? '' : 'AND COALESCE(b.company_code, \'\') = ANY($1)';
+    const entityTypeParam = all ? 1 : 2;
+    const params = all ? [entityType] : [codes, entityType];
+    try {
+      const rows = await this.ds.query(
+        `WITH latest AS (
+           SELECT s.book_id, COALESCE(s.external_id, s.external_code, s.external_name, '') AS subject_key, MAX(s.updated_at) AS updated_at
+           FROM chanjet_entity_snapshots s
+           LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
+           WHERE s.entity_type = $${entityTypeParam} ${scopeFilter}
+           GROUP BY s.book_id, COALESCE(s.external_id, s.external_code, s.external_name, '')
+         )
+         SELECT COALESCE(SUM(s.amount),0) AS value,
+                COUNT(*) AS rows,
+                MAX(s.period) AS latest_period
+         FROM chanjet_entity_snapshots s
+         JOIN latest l
+           ON l.book_id = s.book_id
+          AND l.subject_key = COALESCE(s.external_id, s.external_code, s.external_name, '')
+          AND l.updated_at = s.updated_at
+         LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
+         WHERE s.entity_type = $${entityTypeParam} ${scopeFilter}`,
+        params,
+      );
+      const row = rows[0] || {};
+      return {
+        available: Number(row.rows || 0) > 0,
+        value: Number(row.value || 0),
+        rows: Number(row.rows || 0),
+        latestPeriod: row.latest_period ? String(row.latest_period) : null,
+      };
+    } catch (error) {
+      this.logger.warn(`Chanjet ${entityType} alignment unavailable: ${(error as Error).message}`);
+      return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    }
+  }
+
+  private async getLegacyChanjetArOpen(all: boolean, codes: string[]) {
     if (this.emptyScope(all, codes)) return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
     const scopeFilter = all ? '' : 'AND s.company_code = ANY($1)';
     const params = all ? [] : [codes];
@@ -89,47 +132,18 @@ export class FinancialReportsService {
         latestPeriod: row.latest_period ? String(row.latest_period) : null,
       };
     } catch (error) {
-      this.logger.warn(`Chanjet AR alignment unavailable: ${(error as Error).message}`);
+      this.logger.warn(`Legacy Chanjet AR alignment unavailable: ${(error as Error).message}`);
       return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
     }
   }
 
+  private async getChanjetArOpen(all: boolean, codes: string[]) {
+    const mirror = await this.getChanjetStatsOpenFromEntity(all, codes, 'AR_STATISTICS');
+    return mirror.available ? mirror : this.getLegacyChanjetArOpen(all, codes);
+  }
+
   private async getChanjetApOpen(all: boolean, codes: string[]) {
-    if (this.emptyScope(all, codes)) return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
-    const scopeFilter = all ? '' : 'AND COALESCE(b.company_code, \'\') = ANY($1)';
-    const params = all ? [] : [codes];
-    try {
-      const rows = await this.ds.query(
-        `WITH latest AS (
-           SELECT s.book_id, COALESCE(s.external_id, s.external_code, s.external_name, '') AS subject_key, MAX(s.updated_at) AS updated_at
-           FROM chanjet_entity_snapshots s
-           LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
-           WHERE s.entity_type = 'AP_STATISTICS' ${scopeFilter}
-           GROUP BY s.book_id, COALESCE(s.external_id, s.external_code, s.external_name, '')
-         )
-         SELECT COALESCE(SUM(s.amount),0) AS value,
-                COUNT(*) AS rows,
-                MAX(s.period) AS latest_period
-         FROM chanjet_entity_snapshots s
-         JOIN latest l
-           ON l.book_id = s.book_id
-          AND l.subject_key = COALESCE(s.external_id, s.external_code, s.external_name, '')
-          AND l.updated_at = s.updated_at
-         LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
-         WHERE s.entity_type = 'AP_STATISTICS' ${scopeFilter}`,
-        params,
-      );
-      const row = rows[0] || {};
-      return {
-        available: Number(row.rows || 0) > 0,
-        value: Number(row.value || 0),
-        rows: Number(row.rows || 0),
-        latestPeriod: row.latest_period ? String(row.latest_period) : null,
-      };
-    } catch (error) {
-      this.logger.warn(`Chanjet AP alignment unavailable: ${(error as Error).message}`);
-      return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
-    }
+    return this.getChanjetStatsOpenFromEntity(all, codes, 'AP_STATISTICS');
   }
 
   private async getChanjetEntityAggregate(all: boolean, codes: string[], entityType: string) {
@@ -283,7 +297,7 @@ export class FinancialReportsService {
     const paymentLock = (key: string) => readContext.receiptPaymentLockByKey.get(key);
     const systemConfirmation = (key: string) => readContext.systemConfirmationByKey.get(key);
     const metrics = {
-      arOpen: this.metricFromChanjet('CHANJET_AR_SNAPSHOT', ar, erp.arOpen, '好业财应收汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应收发票/总账作为辅助差异。', {
+      arOpen: this.metricFromChanjet('CHANJET_AR_STATISTICS_MIRROR', ar, erp.arOpen, '好业财应收汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应收发票/总账作为辅助差异。', {
         readModelMetric: readMetric('AR_OPEN'),
         systemConfirmation: systemConfirmation('AR_OPEN'),
       }),

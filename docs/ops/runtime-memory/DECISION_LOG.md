@@ -1,5 +1,30 @@
 # Decision Log
 
+## 2026-07-06 - Chanjet P0 Remote Readonly Coverage and Alignment
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- Production middle-layer readonly audit confirms all 16 P0 Chanjet scopes are covered.
+- Finance card dependency coverage is 100%.
+- Field classification coverage is only 10.9%, with 1348 HIGH open fields still pending.
+- Local mirror audit still shows 0% because the local database does not contain production mirror rows.
+- The finance AR runtime was still reading the legacy `chanjet_ar_snapshot`; it now reads `chanjet_entity_snapshots` / `AR_STATISTICS` first and falls back to the legacy snapshot only if mirror evidence is unavailable.
+- No Chanjet write, delete, modify, voucher push, ERP DB write, migration, deploy, or push was executed by the audit.
+
+Conditions:
+
+- Do not treat local 0% mirror coverage as production sync failure.
+- Do not silently upgrade all finance cards to Chanjet authority until field semantics and system confirmation gates pass.
+- Keep Chanjet write-back on HOLD until a separate approved Gate.
+
+Next actions:
+
+1. `CHANJET-FIELD-GAP-REVIEW-GATE`
+2. `CHANJET-LOCAL-PROD-MIRROR-STATE-RECONCILE`
+3. `CHANJET-FINANCE-CARD-AUTHORITY-VERIFY`
+
 ## 2026-07-03 - Chanjet Readonly Mirror Middle Layer Phase 1
 
 Decision: GO WITH CONDITIONS.
