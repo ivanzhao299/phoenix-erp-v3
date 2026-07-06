@@ -43,6 +43,7 @@ export class SysAlertsController {
     @Query('alertType')                                          alertType?: string,
     @Query('severity')                                           severity?:  string,
     @Query('resolved')                                           resolved?:  string,
+    @Query('relatedPath')                                        relatedPath?: string,
     @Query('page',  new DefaultValuePipe(1),  ParseIntPipe)     page?:      number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe)     limit?:     number,
   ) {
@@ -51,6 +52,7 @@ export class SysAlertsController {
       alertType,
       severity,
       resolved: resolved === 'true' ? true : resolved === 'false' ? false : undefined,
+      relatedPath: relatedPath?.trim() || undefined,
       page,
       limit,
     });

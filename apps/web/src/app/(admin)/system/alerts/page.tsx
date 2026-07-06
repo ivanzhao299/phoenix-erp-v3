@@ -77,6 +77,14 @@ const MONITORED_SOURCES = [
   { label: "数据质量风险", desc: "主数据、字典、权限、库存等问题进入数据质量中心" },
 ];
 
+function safeInternalPath(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  if (/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
 function toneColor(tone: "success" | "warning" | "danger" | "info") {
   if (tone === "success") return "var(--status-success)";
   if (tone === "warning") return "var(--status-warning)";
@@ -125,6 +133,7 @@ export default function SystemAlertsPage() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const selectedAlertId = searchParams.get("alertId");
+  const selectedRelatedPath = safeInternalPath(searchParams.get("relatedPath"));
   const [alerts,    setAlerts]    = useState<Alert[]>([]);
   const [total,     setTotal]     = useState(0);
   const [health,    setHealth]    = useState<HealthSummary | null>(null);
@@ -148,6 +157,7 @@ export default function SystemAlertsPage() {
       const query = new URLSearchParams();
       if (filterResolved !== "") query.set("resolved", filterResolved);
       if (selectedAlertId && /^\d+$/.test(selectedAlertId)) query.set("alertId", selectedAlertId);
+      if (selectedRelatedPath) query.set("relatedPath", selectedRelatedPath);
       const params = query.toString() ? `?${query.toString()}` : "";
       const headers = { Authorization: `Bearer ${tok()}` };
       const [alertsRes, healthRes, errorsRes, qualityRes, deliveryRes, backlogRes] = await Promise.allSettled([
@@ -162,8 +172,8 @@ export default function SystemAlertsPage() {
         const d = await alertsRes.value.json();
         setAlerts(d.items ?? []);
         setTotal(d.total ?? 0);
-        if (selectedAlertId && (d.items ?? []).length === 0) {
-          setLoadError(`未找到告警 #${selectedAlertId}。可能已被清理权限过滤，或通知引用了不存在的告警。`);
+        if ((selectedAlertId || selectedRelatedPath) && (d.items ?? []).length === 0) {
+          setLoadError(`未找到匹配告警${selectedAlertId ? ` #${selectedAlertId}` : ""}${selectedRelatedPath ? `（相关路径 ${selectedRelatedPath}）` : ""}。可能已处理归档、权限过滤，或通知引用了不存在的告警。`);
         }
       } else {
         setAlerts([]);
@@ -198,7 +208,7 @@ export default function SystemAlertsPage() {
         setBacklog(null);
       }
     } finally { setLoading(false); }
-  }, [filterResolved, selectedAlertId]);
+  }, [filterResolved, selectedAlertId, selectedRelatedPath]);
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
@@ -265,6 +275,7 @@ export default function SystemAlertsPage() {
   const selectedAlert = selectedAlertId
     ? alerts.find(a => String(a.id) === selectedAlertId)
     : null;
+  const selectedPath = safeInternalPath(selectedAlert?.related_path) ?? selectedRelatedPath;
 
   return (
     <div>
@@ -438,6 +449,25 @@ export default function SystemAlertsPage() {
         </div>
       )}
 
+      {selectedRelatedPath && (
+        <div style={{
+          marginBottom: 14,
+          padding: "10px 14px",
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--status-info-bg)",
+          background: "var(--status-info-bg)",
+          color: "var(--text-secondary)",
+          fontSize: 13,
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}>
+          <span>当前按相关路径过滤：<strong style={{ color: "var(--text-primary)" }}>{selectedRelatedPath}</strong></span>
+          <Link href="/system/alerts" style={{ color: "var(--color-accent)", fontWeight: 800 }}>清除过滤</Link>
+        </div>
+      )}
+
       {selectedAlert && (
         <div style={{
           background: "var(--bg-card)",
@@ -473,6 +503,12 @@ export default function SystemAlertsPage() {
             <div><strong style={{ color: "var(--text-primary)" }}>创建时间：</strong>{new Date(selectedAlert.created_at).toLocaleString("zh-CN")}</div>
             <div><strong style={{ color: "var(--text-primary)" }}>相关路径：</strong>{selectedAlert.related_path ?? "—"}</div>
           </div>
+          {selectedPath && (
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link href={selectedPath} style={primaryActionButton}>打开相关页面</Link>
+              <Link href="/system/alerts" style={secondaryActionButton}>返回告警台账</Link>
+            </div>
+          )}
           {selectedAlert.detail && (
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
               {Object.entries(selectedAlert.detail).map(([key, value]) => (

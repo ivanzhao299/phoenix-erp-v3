@@ -805,6 +805,29 @@ for (const file of trackedFiles()) {
   }
 }
 
+const notificationRoutingFile = 'apps/web/src/lib/notification-routing.ts';
+const approvalNotifierFile = 'apps/web/src/components/layout/ApprovalNotifier.tsx';
+const notificationsPageFile = 'apps/web/src/app/(admin)/notifications/page.tsx';
+const notificationRoutingText = readFileSync(notificationRoutingFile, 'utf8');
+const approvalNotifierText = readFileSync(approvalNotifierFile, 'utf8');
+const notificationsPageText = readFileSync(notificationsPageFile, 'utf8');
+
+if (
+  !/isSystemAlertNotification/.test(notificationRoutingText)
+  || !/\/system\/alerts/.test(notificationRoutingText)
+  || /SYSTEM_ALERT[\s\S]{0,260}\/workflow\/todos/.test(notificationRoutingText)
+) {
+  add(notificationRoutingFile, 1, 'System alert station notifications must route to /system/alerts or mobile device pages, never approval todos.', notificationRoutingText.split(/\r?\n/)[0] || notificationRoutingFile);
+}
+
+if (!/resolveNotificationHref/.test(approvalNotifierText)) {
+  add(approvalNotifierFile, 1, 'Topbar bell notification list must use resolveNotificationHref so system alerts do not fall through to approval todos.', approvalNotifierText.split(/\r?\n/)[0] || approvalNotifierFile);
+}
+
+if (!/resolveNotificationHref/.test(notificationsPageText)) {
+  add(notificationsPageFile, 1, 'Notification center rows must use resolveNotificationHref so system alerts open the alert center with alertId/relatedPath.', notificationsPageText.split(/\r?\n/)[0] || notificationsPageFile);
+}
+
 console.log(`check-menu-permission-atomicity: inspected ${trackedFiles().length} frontend/backend source file(s)`);
 console.log(`Menu permission atomicity findings: ${findings.length}`);
 

@@ -50,6 +50,7 @@ interface HealthSummary {
     mode: string;
     healthy: boolean;
   };
+  sources?: Record<string, string>;
   operations?: {
     alertsPage: string;
     errorLogsPage: string;
@@ -261,6 +262,11 @@ export default function SystemHealthPage() {
       ? summary.cpu.userMs + summary.cpu.systemMs
       : undefined;
   const memoryPressure = hasMemoryPressure(summary?.memory);
+  const databaseValue = summary ? (summary.database.connected ? t('ui.在线','在线') : t('ui.离线','离线')) : "—";
+  const databaseBorder = summary ? (summary.database.connected ? "var(--status-success)" : "var(--status-danger)") : "var(--status-info)";
+  const databaseSub = summary
+    ? `连接池 total: ${summary.database.pool?.total ?? "—"} / idle: ${summary.database.pool?.idle ?? "—"}`
+    : "监控接口未返回；不判定数据库离线";
   return <div>
       <PageHeader
         title={t('ui.系统监控','系统监控')}
@@ -304,7 +310,7 @@ export default function SystemHealthPage() {
       gap: 16,
       marginBottom: 24
     }}>
-        <MetricCard icon={<Database size={16} />} title={t('ui.数据库连接','数据库连接')} value={summary?.database.connected ? t('ui.在线','在线') : t('ui.离线','离线')} borderColor={summary?.database.connected ? "var(--status-success)" : "var(--status-danger)"} sub={`连接池 total: ${summary?.database.pool?.total ?? "—"} / idle: ${summary?.database.pool?.idle ?? "—"}`} />
+        <MetricCard icon={<Database size={16} />} title={t('ui.数据库连接','数据库连接')} value={databaseValue} borderColor={databaseBorder} sub={databaseSub} />
         <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={memoryPressure ? "var(--status-warning)" : "var(--status-success)"} sub={`V8 上限占用 ${summary?.memory.usedPct ?? "—"}%；已分配堆 ${summary?.memory.heapAllocatedPct ?? "—"}%；RSS ${summary?.memory.rssMB ?? "—"} MB`} />
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
@@ -331,6 +337,37 @@ export default function SystemHealthPage() {
         <OpsLinkCard href="/system/error-logs" title="错误日志" desc={`近 1 小时 500/PG 错误 ${summary?.recentErrors ?? "—"} 条，点击查看 request、用户、IP 与堆栈。`} />
         <OpsLinkCard href="/system/backup" title="备份与恢复" desc="查看备份记录、计划配置、手动发起备份请求。恢复动作仍需人工 Gate。" />
         <OpsLinkCard href="/system/configs" title="系统配置" desc="集中管理运行配置，避免散落到多个脆弱页面。" />
+      </div>
+
+      <div style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "16px 18px",
+        marginBottom: 24,
+      }}>
+        <div style={{ fontWeight: 800, color: "var(--text-primary)", marginBottom: 10 }}>监控数据来源</div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 10,
+        }}>
+          {Object.entries(summary?.sources ?? {
+            health: "GET /api/system/monitor/health",
+            errors: "GET /api/system/monitor/errors",
+            alerts: "GET /api/system/alerts/backlog-summary",
+          }).map(([key, value]) => (
+            <div key={key} style={{
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-page)",
+              padding: "10px 12px",
+            }}>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{key}</div>
+              <div style={{ fontSize: 12, color: "var(--text-primary)", fontFamily: "monospace", wordBreak: "break-word" }}>{value}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 24h 错误类型分布 */}

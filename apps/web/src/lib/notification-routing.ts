@@ -8,6 +8,8 @@ export interface NotificationRouteLike {
   link_id?: string | null;
   bizType?: string | null;
   biz_type?: string | null;
+  bizId?: string | null;
+  biz_id?: string | null;
   bizNo?: string | null;
   biz_no?: string | null;
 }
@@ -70,7 +72,7 @@ export function isSystemAlertNotification(n: NotificationRouteLike): boolean {
 
 export function getSystemAlertId(n: NotificationRouteLike): string | null {
   if (!isSystemAlertNotification(n)) return null;
-  const raw = n.linkId ?? n.link_id ?? n.bizNo ?? n.biz_no ?? null;
+  const raw = n.linkId ?? n.link_id ?? n.bizId ?? n.biz_id ?? n.bizNo ?? n.biz_no ?? null;
   if (!raw) return null;
   const trimmed = raw.trim();
   return /^\d+$/.test(trimmed) ? trimmed : null;

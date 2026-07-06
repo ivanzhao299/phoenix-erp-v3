@@ -244,6 +244,7 @@ export class SysAlertsService {
     alertType?: string;
     severity?:  string;
     resolved?:  boolean;
+    relatedPath?: string;
     page?:      number;
     limit?:     number;
   }) {
@@ -259,6 +260,10 @@ export class SysAlertsService {
     if (params.alertType !== undefined) { conditions.push(`alert_type = $${idx++}`); values.push(params.alertType); }
     if (params.severity  !== undefined) { conditions.push(`severity   = $${idx++}`); values.push(params.severity);  }
     if (params.resolved  !== undefined) { conditions.push(`resolved   = $${idx++}`); values.push(params.resolved);  }
+    if (params.relatedPath !== undefined) {
+      conditions.push(`COALESCE(related_path, '') = $${idx++}`);
+      values.push(params.relatedPath);
+    }
 
     const where = conditions.join(' AND ');
     const [rows, countRow] = await Promise.all([

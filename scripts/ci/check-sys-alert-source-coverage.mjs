@@ -15,6 +15,9 @@ const files = {
   iotSync: 'apps/api/src/modules/iot/iot-sync.service.ts',
   sysAlertsService: 'apps/api/src/modules/system-monitor/services/sys-alerts.service.ts',
   sysAlertsController: 'apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts',
+  notificationRouting: 'apps/web/src/lib/notification-routing.ts',
+  systemAlertsPage: 'apps/web/src/app/(admin)/system/alerts/page.tsx',
+  systemHealthPage: 'apps/web/src/app/(admin)/system/health/page.tsx',
 };
 
 function read(file) {
@@ -34,6 +37,9 @@ function buildChecks() {
   const iotSync = read(files.iotSync);
   const sysAlertsService = read(files.sysAlertsService);
   const sysAlertsController = read(files.sysAlertsController);
+  const notificationRouting = read(files.notificationRouting);
+  const systemAlertsPage = read(files.systemAlertsPage);
+  const systemHealthPage = read(files.systemHealthPage);
 
   return [
     {
@@ -108,6 +114,36 @@ function buildChecks() {
       pass: has(sysAlertsController, "RequireMenu('MENU_SYS_MONITOR', 'V')")
         && has(sysAlertsController, "RequireMenu('MENU_SYS_MONITOR', 'A')")
         && has(sysAlertsController, "@UseGuards(AuthGuard('jwt'), MenuGuard)"),
+    },
+    {
+      id: 'ALERT_RELATED_PATH_FILTER',
+      description: 'Alert center can resolve notification relatedPath into exact sys_alerts filtering.',
+      file: `${files.sysAlertsController}; ${files.sysAlertsService}; ${files.systemAlertsPage}`,
+      pass: has(sysAlertsController, "@Query('relatedPath')")
+        && has(sysAlertsService, 'relatedPath?: string')
+        && has(sysAlertsService, "COALESCE(related_path, '')")
+        && has(systemAlertsPage, 'selectedRelatedPath')
+        && has(systemAlertsPage, 'relatedPath'),
+    },
+    {
+      id: 'ALERT_NOTIFICATION_ROUTING',
+      description: 'System alert notifications route to the alert center or mobile device page, not approval todos.',
+      file: files.notificationRouting,
+      pass: has(notificationRouting, 'isSystemAlertNotification')
+        && has(notificationRouting, 'getSystemAlertId')
+        && has(notificationRouting, 'bizId')
+        && has(notificationRouting, '/system/alerts')
+        && has(notificationRouting, '/mobile/device')
+        && !/SYSTEM_ALERT[\s\S]{0,260}workflow\/todos/.test(notificationRouting),
+    },
+    {
+      id: 'SYSTEM_MONITOR_UNKNOWN_NOT_OFFLINE',
+      description: 'System monitor keeps unknown/no-response separate from database offline.',
+      file: files.systemHealthPage,
+      pass: has(systemHealthPage, '不判定数据库离线')
+        && has(systemHealthPage, 'databaseValue')
+        && has(systemHealthPage, 'summary ?')
+        && has(systemHealthPage, '监控数据来源'),
     },
   ];
 }

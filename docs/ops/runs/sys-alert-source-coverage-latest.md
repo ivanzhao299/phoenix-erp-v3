@@ -1,6 +1,6 @@
 # Sys Alert Source Coverage Gate
 
-- Generated At: 2026-07-02T08:40:12.608Z
+- Generated At: 2026-07-06T09:57:09.980Z
 - Decision: PASS
 
 | Check | Result | File | Description |
@@ -14,5 +14,8 @@
 | ALERT_DELIVERY_HEALTH | PASS | apps/api/src/modules/system-monitor/services/sys-alerts.service.ts | System alerts expose delivery health and station notification evidence. |
 | ALERT_APPEND_ONLY | PASS | apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts | Alert center remains append-only: no DELETE endpoint; resolve is one-way. |
 | ALERT_MENU_GUARD | PASS | apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts | Alert center is guarded by MENU_SYS_MONITOR view/action permissions. |
+| ALERT_RELATED_PATH_FILTER | PASS | apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts; apps/api/src/modules/system-monitor/services/sys-alerts.service.ts; apps/web/src/app/(admin)/system/alerts/page.tsx | Alert center can resolve notification relatedPath into exact sys_alerts filtering. |
+| ALERT_NOTIFICATION_ROUTING | PASS | apps/web/src/lib/notification-routing.ts | System alert notifications route to the alert center or mobile device page, not approval todos. |
+| SYSTEM_MONITOR_UNKNOWN_NOT_OFFLINE | PASS | apps/web/src/app/(admin)/system/health/page.tsx | System monitor keeps unknown/no-response separate from database offline. |
 
 All required alert sources and delivery constraints are present.

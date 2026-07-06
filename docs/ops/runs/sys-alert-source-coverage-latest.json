@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T08:40:12.608Z",
+  "generatedAt": "2026-07-06T09:57:09.980Z",
   "decision": "PASS",
   "checks": [
     {
@@ -54,6 +54,24 @@
       "id": "ALERT_MENU_GUARD",
       "description": "Alert center is guarded by MENU_SYS_MONITOR view/action permissions.",
       "file": "apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts",
+      "pass": true
+    },
+    {
+      "id": "ALERT_RELATED_PATH_FILTER",
+      "description": "Alert center can resolve notification relatedPath into exact sys_alerts filtering.",
+      "file": "apps/api/src/modules/system-monitor/controllers/sys-alerts.controller.ts; apps/api/src/modules/system-monitor/services/sys-alerts.service.ts; apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "pass": true
+    },
+    {
+      "id": "ALERT_NOTIFICATION_ROUTING",
+      "description": "System alert notifications route to the alert center or mobile device page, not approval todos.",
+      "file": "apps/web/src/lib/notification-routing.ts",
+      "pass": true
+    },
+    {
+      "id": "SYSTEM_MONITOR_UNKNOWN_NOT_OFFLINE",
+      "description": "System monitor keeps unknown/no-response separate from database offline.",
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
       "pass": true
     }
   ],
