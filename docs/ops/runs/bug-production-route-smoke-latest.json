@@ -1,10 +1,10 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-05T16:49:41.434Z",
+  "generated_at": "2026-07-06T01:38:07.945Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
     "/",
-    "/bug-reports"
+    "/finance2/chanjet-integration"
   ],
   "results": [
     {
@@ -12,16 +12,16 @@
       "url": "https://erp.eggslao.com/",
       "status": 307,
       "ok": true,
-      "elapsedMs": 1336,
+      "elapsedMs": 1364,
       "excerpt": "/login"
     },
     {
-      "route": "/bug-reports",
-      "url": "https://erp.eggslao.com/bug-reports",
-      "status": 200,
+      "route": "/finance2/chanjet-integration",
+      "url": "https://erp.eggslao.com/finance2/chanjet-integration",
+      "status": 307,
       "ok": true,
-      "elapsedMs": 1470,
-      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+      "elapsedMs": 1209,
+      "excerpt": "/login?return=%2Ffinance2%2Fchanjet-integration"
     }
   ],
   "safety": {
