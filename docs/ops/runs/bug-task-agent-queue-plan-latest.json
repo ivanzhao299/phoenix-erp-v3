@@ -18,7 +18,7 @@
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-06T02:25:14.175Z",
+      "approvedAt": "2026-07-06T02:45:50.935Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
