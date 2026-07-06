@@ -414,13 +414,13 @@ export class FarmService {
     if (!date) throw new BadRequestException('date 参数必填');
 
     const params: any[] = [date];
-    const where: string[] = [`log_date = $1`, `eggs_by_grade IS NOT NULL`];
-    if (houseCode) { params.push(houseCode); where.push(`house_code = $${params.length}`); }
-    const ebScope = scopeWhere(scope, params);   // G98：农场/站点/公司多维并集
+    const where: string[] = [`dl.log_date = $1`, `dl.eggs_by_grade IS NOT NULL`];
+    if (houseCode) { params.push(houseCode); where.push(`dl.house_code = $${params.length}`); }
+    const ebScope = scopeWhere(scope, params, 'dl.');   // G98：农场/站点/公司多维并集
     if (ebScope) where.push(ebScope);
 
     const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
-      `SELECT eggs_by_grade FROM brd_daily_logs WHERE ${where.join(' AND ')}`,
+      `SELECT dl.eggs_by_grade FROM brd_daily_logs dl WHERE ${where.join(' AND ')}`,
       params,
     );
 
@@ -461,25 +461,25 @@ export class FarmService {
 
     // ── 日报查询 ──────────────────────────────────────────────
     const logParams: any[] = [date];
-    let logWhere = `WHERE log_date = $1`;
-    const logScope = scopeWhere(scope, logParams);   // G98：农场/站点/公司多维并集
+    let logWhere = `WHERE dl.log_date = $1`;
+    const logScope = scopeWhere(scope, logParams, 'dl.');   // G98：农场/站点/公司多维并集
     if (logScope) logWhere += ` AND ${logScope}`;
     const logs = await this.entityManager.query(
       `SELECT
-         COALESCE(house_code, flock_no) AS house_code,
-         flock_no,
-         SUM(eggs_produced)::int           AS eggs,
-         SUM(mortality_qty)::int           AS mortality,
-         SUM(COALESCE(elimination_qty,0))::int AS elimination,
-         SUM(feed_consumed)::numeric(12,2) AS feed,
-         string_agg(DISTINCT culling_reason, '；')
-           FILTER (WHERE culling_reason IS NOT NULL AND culling_reason <> '') AS culling_reason,
+         COALESCE(dl.house_code, dl.flock_no) AS house_code,
+         dl.flock_no,
+         SUM(dl.eggs_produced)::int           AS eggs,
+         SUM(dl.mortality_qty)::int           AS mortality,
+         SUM(COALESCE(dl.elimination_qty,0))::int AS elimination,
+         SUM(dl.feed_consumed)::numeric(12,2) AS feed,
+         string_agg(DISTINCT dl.culling_reason, '；')
+           FILTER (WHERE dl.culling_reason IS NOT NULL AND dl.culling_reason <> '') AS culling_reason,
          -- G27-D：mobile/henreport 显示 mortality_reason（G19-A 字段同步）
-         string_agg(DISTINCT mortality_reason, '；')
-           FILTER (WHERE mortality_reason IS NOT NULL AND mortality_reason <> '') AS mortality_reason
-       FROM brd_daily_logs
+         string_agg(DISTINCT dl.mortality_reason, '；')
+           FILTER (WHERE dl.mortality_reason IS NOT NULL AND dl.mortality_reason <> '') AS mortality_reason
+       FROM brd_daily_logs dl
        ${logWhere}
-       GROUP BY COALESCE(house_code, flock_no), flock_no`,
+       GROUP BY COALESCE(dl.house_code, dl.flock_no), dl.flock_no`,
       logParams,
     );
 
@@ -542,22 +542,22 @@ export class FarmService {
     const safeDays = Math.min(Math.max(Number(days) || 7, 1), 90);
 
     const trendParams: any[] = [safeDays];
-    let trendWhere = `WHERE log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
+    let trendWhere = `WHERE dl.log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
     if (!scope.isGlobal) {
-      if (scope.farmCode) { trendParams.push(scope.farmCode); trendWhere += ` AND farm_code = $${trendParams.length}`; }
-      if (scope.siteCode) { trendParams.push(scope.siteCode); trendWhere += ` AND site_code = $${trendParams.length}`; }
+      if (scope.farmCode) { trendParams.push(scope.farmCode); trendWhere += ` AND dl.farm_code = $${trendParams.length}`; }
+      if (scope.siteCode) { trendParams.push(scope.siteCode); trendWhere += ` AND dl.site_code = $${trendParams.length}`; }
     }
     const rows = await this.entityManager.query(
       `SELECT
-         log_date::text                           AS date,
-         SUM(eggs_produced)::int                  AS eggs,
-         SUM(mortality_qty)::int                  AS mortality,
-         SUM(COALESCE(elimination_qty,0))::int    AS elimination,
-         SUM(COALESCE(feed_consumed,0))::numeric  AS feed
-       FROM brd_daily_logs
+         dl.log_date::text                           AS date,
+         SUM(dl.eggs_produced)::int                  AS eggs,
+         SUM(dl.mortality_qty)::int                  AS mortality,
+         SUM(COALESCE(dl.elimination_qty,0))::int    AS elimination,
+         SUM(COALESCE(dl.feed_consumed,0))::numeric  AS feed
+       FROM brd_daily_logs dl
        ${trendWhere}
-       GROUP BY log_date
-       ORDER BY log_date ASC`,
+       GROUP BY dl.log_date
+       ORDER BY dl.log_date ASC`,
       trendParams,
     );
 
