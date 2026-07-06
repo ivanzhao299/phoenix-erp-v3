@@ -2738,6 +2738,150 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeFieldGapReviewGate() {
+    const [fieldMappings, adapter, masterAlignment, readModel] = await Promise.all([
+      this.fieldMappingRepo.find({
+        order: { riskLevel: 'DESC', chanjetEndpoint: 'ASC', chanjetFieldPath: 'ASC' },
+        take: 12000,
+      }),
+      this.financeP0AdapterOverview(),
+      this.masterDataAlignmentOverview(),
+      this.financeReadModelOverview(),
+    ]);
+
+    const openFields = fieldMappings.filter((mapping) => (
+      mapping.erpDomain !== 'api_metadata'
+      && mapping.matchStatus !== 'MATCHED'
+      && mapping.decisionStatus !== 'REJECTED'
+    ));
+    const highOpenFields = openFields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
+    const bucketReviews = FINANCE_ADAPTER_BUCKETS.map((bucket) => {
+      const fields = openFields.filter((mapping) => this.fieldBelongsToFinanceBucket(mapping, bucket));
+      const highFields = fields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
+      const entityReady = adapter.buckets.find((item) => item.key === bucket.key);
+      const adapterStatus = entityReady?.adapterStatus || 'WAITING_MIRROR_SYNC';
+      const blockingReasons = [
+        ...(adapterStatus === 'WAITING_MIRROR_SYNC' ? ['mirror_data_not_ready'] : []),
+        ...(highFields.length ? [`high_or_critical_open_fields:${highFields.length}`] : []),
+        ...(bucket.key === 'CHANJET_VOUCHER_LINE' ? ['voucher_writeback_remains_disabled'] : []),
+        ...(bucket.key === 'CHANJET_COUNTERPARTY'
+          && masterAlignment.summary.approvedCoverageRate < 0.9
+          ? ['master_mapping_review_not_90_percent_approved']
+          : []),
+      ];
+      const canImplementReadonly = Boolean(entityReady)
+        && adapterStatus !== 'WAITING_MIRROR_SYNC'
+        && bucket.key !== 'CHANJET_COUNTERPARTY';
+      return {
+        reviewId: `FIELD-GAP-${bucket.key}`,
+        priority: bucket.priority,
+        bucketKey: bucket.key,
+        title: bucket.title,
+        endpointKeys: bucket.endpointKeys,
+        entityTypes: bucket.entityTypes,
+        erpTarget: bucket.erpTarget,
+        adapterScope: bucket.adapterScope,
+        status: blockingReasons.length ? 'GO_WITH_CONDITIONS' : 'READY',
+        canImplementReadonly,
+        canPromoteToFinanceCard: readModel.metrics
+          .some((metric) => metric.status === 'AUTHORITY_READY' && bucket.entityTypes.some((type) => metric.sourceEntityTypes.includes(type))),
+        openFieldCount: fields.length,
+        highOrCriticalOpenFieldCount: highFields.length,
+        riskCounts: fields.reduce<Record<string, number>>((acc, mapping) => {
+          acc[mapping.riskLevel] = (acc[mapping.riskLevel] || 0) + 1;
+          return acc;
+        }, {}),
+        matchStatusCounts: fields.reduce<Record<string, number>>((acc, mapping) => {
+          acc[mapping.matchStatus] = (acc[mapping.matchStatus] || 0) + 1;
+          return acc;
+        }, {}),
+        blockingReasons,
+        implementationContract: {
+          allowedPaths: [
+            'apps/api/src/modules/chanjet/**',
+            'apps/api/src/modules/finance-v2/**',
+            'apps/web/src/app/(admin)/**/chanjet/**',
+            'docs/ops/**',
+          ],
+          forbiddenActions: [
+            'write_chanjet',
+            'delete_chanjet',
+            'modify_chanjet',
+            'voucher_push',
+            'production_migration_without_gate',
+            'silent_overwrite_erp_business_facts',
+            'link_chanjet_aggregate_to_fin_ar_invoices',
+          ],
+          validationCommands: [
+            'cd apps/api && ./node_modules/.bin/tsc --noEmit',
+            'cd apps/web && ./node_modules/.bin/tsc --noEmit',
+            'node scripts/ci/check-w5-closeout-gate.mjs',
+          ],
+          acceptanceCriteria: this.financeFieldGapAcceptanceCriteria(bucket.key),
+        },
+        sampleFields: highFields.slice(0, 12).map((mapping) => ({
+          endpoint: mapping.chanjetEndpoint,
+          fieldPath: mapping.chanjetFieldPath,
+          chanjetType: mapping.chanjetType,
+          erpDomain: mapping.erpDomain,
+          erpTarget: [mapping.erpTable, mapping.erpField].filter(Boolean).join('.'),
+          erpType: mapping.erpType,
+          transformRule: mapping.transformRule,
+          riskLevel: mapping.riskLevel,
+          matchStatus: mapping.matchStatus,
+          decisionStatus: mapping.decisionStatus,
+          analysisNote: mapping.analysisNote,
+        })),
+      };
+    });
+
+    const p0OpenBuckets = bucketReviews.filter((item) => item.priority === 'P0' && item.highOrCriticalOpenFieldCount > 0);
+    const readyReadonlyBuckets = bucketReviews.filter((item) => item.canImplementReadonly);
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: p0OpenBuckets.length ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalFields: fieldMappings.length,
+        openFields: openFields.length,
+        highOrCriticalOpenFields: highOpenFields.length,
+        buckets: bucketReviews.length,
+        p0Buckets: bucketReviews.filter((item) => item.priority === 'P0').length,
+        p0OpenBuckets: p0OpenBuckets.length,
+        readyReadonlyBuckets: readyReadonlyBuckets.length,
+        nextGate: readyReadonlyBuckets.length
+          ? 'CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION'
+          : 'CHANJET_MASTER_MAPPING_AND_FIELD_REVIEW',
+      },
+      bucketReviews,
+      recommendedExecutionOrder: bucketReviews
+        .filter((item) => item.canImplementReadonly || item.priority === 'P0')
+        .sort((a, b) => {
+          const priority = { P0: 0, P1: 1 } as Record<string, number>;
+          return (priority[a.priority] ?? 9) - (priority[b.priority] ?? 9)
+            || b.highOrCriticalOpenFieldCount - a.highOrCriticalOpenFieldCount;
+        })
+        .map((item) => ({
+          gateId: item.reviewId,
+          title: item.title,
+          recommendedAgent: item.bucketKey === 'CHANJET_COUNTERPARTY' ? 'A5-Data-Readiness + A2-Security-Regression-Gate' : 'A3-Backend-Critical-Path + A2-Security-Regression-Gate',
+          action: item.canImplementReadonly
+            ? 'implement_readonly_adapter_and_review_ui'
+            : 'complete_mapping_review_before_code',
+          approvalRequired: true,
+        })),
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        productionDeploy: false,
+        note: '字段缺口 Review Gate 只给出只读适配合同和实施顺序，不调用好业财写接口，不自动修改业务事实表。',
+      },
+    };
+  }
+
   async financeReadonlyCoverage() {
     const expectedEndpoints = PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault);
     const [rawRows, entityRows, fieldRows, recentJobs, books] = await Promise.all([
@@ -2915,6 +3059,41 @@ export class ChanjetIntegrationService {
     if (unresolvedHighRisk > 0) return '先由财务/A2 审核高风险字段映射，再进入 UI/差异分析。';
     if (priority === 'P0') return '可进入 P0 只读财务适配展示与人工映射复核。';
     return 'P1 可排队进入后续采购/收付款链路适配。';
+  }
+
+  private financeFieldGapAcceptanceCriteria(bucketKey: string): string[] {
+    const common = [
+      '只读读取 ERP 好业财中间层，不调用好业财写接口。',
+      '展示字段必须标注账套、期间、拉取时间和来源实体类型。',
+      '字段缺失或类型不确定时显示 NEED_MAPPING，不得伪造默认值。',
+      'ERP 业务明细作为辅助差异，不被好业财镜像静默覆盖。',
+    ];
+    const map: Record<string, string[]> = {
+      CHANJET_VOUCHER_HEADER: [
+        '凭证头保留凭证号、期间、日期、制单人、状态、来源单据候选。',
+        '凭证写回、推送、反审核继续关闭。',
+      ],
+      CHANJET_VOUCHER_LINE: [
+        '凭证明细保留摘要、科目、借方、贷方、数量核算和辅助核算候选。',
+        '金额以 Decimal 字符串处理，不使用 JS 浮点重算财务金额。',
+      ],
+      CHANJET_COUNTERPARTY: [
+        '往来单位必须区分客户、供应商和双重属性。',
+        '未审核映射不得进入凭证草稿、收付款匹配或主数据覆盖。',
+      ],
+      CHANJET_AP_AR_AGGREGATE: [
+        '应收/应付统计保持汇总粒度，不写入 fin_ar_invoices / fin_ap_invoices。',
+        '卡片必须同时显示好业财主值与 ERP 辅助差异。',
+      ],
+      CHANJET_PAYMENT_DOCUMENT: [
+        '收付款单必须锁定业务日、入账日、审核状态、作废状态和方向。',
+        '未锁定日期/状态前不得影响今日收款/今日付款主卡片。',
+      ],
+      CHANJET_PURCHASE_LINKAGE: [
+        '采购链路只做只读差异对照，不自动生成采购单、入库单或付款单。',
+      ],
+    };
+    return [...common, ...(map[bucketKey] || [])];
   }
 
   private masterDataFieldDomains(domainKey: string): string[] {

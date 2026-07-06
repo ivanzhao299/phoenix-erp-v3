@@ -852,6 +852,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/field-gap-review-gate
+   * 好业财字段缺口执行批次。只读输出 P0/P1 适配合同、阻断项和实施顺序。
+   */
+  @Get('integration/field-gap-review-gate')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationFieldGapReviewGate() {
+    try {
+      const fieldGapReviewGate = await this.integration.financeFieldGapReviewGate();
+      return { success: true, fieldGapReviewGate };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

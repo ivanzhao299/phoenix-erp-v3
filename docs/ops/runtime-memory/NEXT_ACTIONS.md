@@ -2,6 +2,34 @@
 
 Last updated: 2026-07-06
 
+## 2026-07-06 — Chanjet Field Gap Review Gate
+
+Current stage: `CHANJET_FIELD_GAP_REVIEW_GATE_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added readonly API `GET /api/chanjet/integration/field-gap-review-gate`.
+2. Added executable review tool `scripts/ops/chanjet-field-gap-review-gate.mjs`.
+3. Converted Chanjet open high-risk fields into 7 implementation buckets.
+4. Generated review artifacts:
+   - `docs/ops/runs/chanjet-field-gap-review-gate-latest.json`
+   - `docs/ops/runs/chanjet-field-gap-review-gate-latest.md`
+5. Locked the next implementation gate as `CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION`.
+
+Next actions:
+
+1. `FIELD-GAP-CHANJET_VOUCHER_LINE`
+   - Implement readonly voucher line adapter.
+   - Keep voucher push forbidden.
+2. `FIELD-GAP-CHANJET_VOUCHER_HEADER`
+   - Implement readonly voucher header adapter.
+   - Lock voucher date/status semantics.
+3. `FIELD-GAP-CHANJET_COUNTERPARTY`
+   - Complete customer/supplier/current-account mapping review.
+4. Keep `CHANJET_WRITE_BACK_HOLD`.
+
 ## 2026-07-06 — Chanjet P0 Remote Readonly Coverage and Alignment
 
 Current stage: `CHANJET_P0_REMOTE_READONLY_COVERAGE_VERIFIED`

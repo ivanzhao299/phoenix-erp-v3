@@ -1,5 +1,40 @@
 # Decision Log
 
+## 2026-07-06 - Chanjet Field Gap Review Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The production readonly mirror coverage gate already proves all 16 P0 Chanjet scopes are available.
+- The remaining problem is not endpoint reachability; it is field-level semantic coverage.
+- This gate grouped open high-risk fields into 7 implementation buckets and produced a safe execution order.
+- The next implementation gate is `CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION`.
+
+Prioritized implementation order:
+
+1. `FIELD-GAP-CHANJET_VOUCHER_LINE`
+2. `FIELD-GAP-CHANJET_VOUCHER_HEADER`
+3. `FIELD-GAP-CHANJET_COUNTERPARTY`
+4. `FIELD-GAP-CHANJET_AP_AR_AGGREGATE`
+5. `FIELD-GAP-CHANJET_PAYMENT_DOCUMENT`
+6. `FIELD-GAP-CHANJET_REPORTING`
+7. `FIELD-GAP-CHANJET_PURCHASE_LINKAGE`
+
+Guardrails:
+
+- Chanjet write: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- Migration: false.
+- Silent finance-card authority switch: false.
+
+Next actions:
+
+1. Implement the readonly voucher line/header adapters.
+2. Complete counterparty mapping review.
+3. Keep Chanjet write-back on HOLD until a separate approved write gate.
+
 ## 2026-07-06 - Chanjet P0 Remote Readonly Coverage and Alignment
 
 Decision: GO WITH CONDITIONS.
