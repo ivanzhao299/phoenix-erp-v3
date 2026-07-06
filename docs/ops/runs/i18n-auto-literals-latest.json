@@ -1,64 +1,262 @@
 {
-  "generated_at": "2026-07-04T15:38:38.902Z",
+  "generated_at": "2026-07-06T10:01:30.185Z",
   "apply": true,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 1905,
-  "created_keys": 7,
-  "updated_keys": 1898,
+  "unique_hardcoded_literals": 1952,
+  "created_keys": 48,
+  "updated_keys": 1904,
   "locale_counts_before": {
-    "zh": 13160,
-    "en": 13160,
-    "lo": 13160
+    "zh": 13301,
+    "en": 13301,
+    "lo": 13301
   },
   "locale_counts_after": {
-    "zh": 13167,
-    "en": 13167,
-    "lo": 13167
+    "zh": 13349,
+    "en": 13349,
+    "lo": 13349
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
   "sample_created": [
     {
-      "key": "auto.literal.d12f1f667e0f",
-      "text": "可作为权威",
-      "en": "Localized UI text d12f1f667e0f",
-      "lo": "Localized UI text d12f1f667e0f"
+      "key": "auto.literal.de553bdb7978",
+      "text": "科目/报表只读",
+      "en": "Subject/report readonly",
+      "lo": "ລາຍງານບັນຊີ/ງົບອ່ານຢ່າງດຽວ"
     },
     {
-      "key": "auto.literal.f5e36ac30649",
-      "text": "只读可用",
-      "en": "Read-onlyAvailable",
-      "lo": "ອ່ານຢ່າງດຽວທີ່ໃຊ້ໄດ້"
+      "key": "auto.literal.b2408a339777",
+      "text": "只读报表",
+      "en": "Readonly reports",
+      "lo": "ລາຍງານອ່ານຢ່າງດຽວ"
     },
     {
-      "key": "auto.literal.ddca83ec2178",
-      "text": "字段阻断",
-      "en": "Localized UI text ddca83ec2178",
-      "lo": "Localized UI text ddca83ec2178"
+      "key": "auto.literal.59bc6c20675d",
+      "text": "行级证据",
+      "en": "Row evidence",
+      "lo": "ຫຼັກຖານລະດັບແຖວ"
     },
     {
-      "key": "auto.literal.9b9c4e4980ad",
-      "text": "待口径复核",
-      "en": "Localized UI text 9b9c4e4980ad",
-      "lo": "Localized UI text 9b9c4e4980ad"
+      "key": "auto.literal.7b9ee12e5445",
+      "text": "来自 chanjet_entity_snapshots",
+      "en": "From chanjet_entity_snapshots",
+      "lo": "ມາຈາກ chanjet_entity_snapshots"
     },
     {
-      "key": "auto.literal.6234f9606943",
-      "text": "待样本",
-      "en": "Localized UI text 6234f9606943",
-      "lo": "Localized UI text 6234f9606943"
+      "key": "auto.literal.0daf6469356e",
+      "text": "缺字段时不能喂主卡片",
+      "en": "Missing fields cannot feed primary cards",
+      "lo": "ຂາດຟິວບໍ່ສາມາດປ້ອນກາດຫຼັກ"
     },
     {
-      "key": "auto.literal.7d863483c39f",
-      "text": "暂停升权",
-      "en": "Localized UI text 7d863483c39f",
-      "lo": "Localized UI text 7d863483c39f"
+      "key": "auto.literal.3b2d336359d1",
+      "text": "继续只读同步补证据",
+      "en": "Continue readonly sync for evidence",
+      "lo": "ສືບຕໍ່ sync ອ່ານຢ່າງດຽວເພື່ອເພີ່ມຫຼັກຖານ"
     },
     {
-      "key": "auto.literal.7dd1aaef4213",
-      "text": "仅只读可用",
-      "en": "Localized UI text 7dd1aaef4213",
-      "lo": "Localized UI text 7dd1aaef4213"
+      "key": "auto.literal.9cd866577220",
+      "text": "主卡片切换: 否",
+      "en": "Primary card switch: no",
+      "lo": "ສະຫຼັບກາດຫຼັກ: ບໍ່"
+    },
+    {
+      "key": "auto.literal.c7e00f8c87b4",
+      "text": "· 样本",
+      "en": "· samples",
+      "lo": "· ຕົວຢ່າງ"
+    },
+    {
+      "key": "auto.literal.a02ddf4eb1dd",
+      "text": "· 最近拉取",
+      "en": "· latest pull",
+      "lo": "· ດຶງຂໍ້ມູນຫຼ້າສຸດ"
+    },
+    {
+      "key": "auto.literal.3c48d274b098",
+      "text": "金额字段候选",
+      "en": "Amount field candidates",
+      "lo": "ຕົວເລືອກຟິວຈຳນວນເງິນ"
+    },
+    {
+      "key": "auto.literal.5dbd015496af",
+      "text": "暂无",
+      "en": "None",
+      "lo": "ບໍ່ມີ"
+    },
+    {
+      "key": "auto.literal.8064e9e08ac4",
+      "text": "缺失字段",
+      "en": "Missing fields",
+      "lo": "ຟິວທີ່ຂາດ"
+    },
+    {
+      "key": "auto.literal.05f3b958e78d",
+      "text": "阻断原因",
+      "en": "Blocker reasons",
+      "lo": "ເຫດຜົນບລັອກ"
+    },
+    {
+      "key": "auto.literal.75a4a7734ee3",
+      "text": "行键",
+      "en": "Row key",
+      "lo": "ຄີແຖວ"
+    },
+    {
+      "key": "auto.literal.1be7ae4fc257",
+      "text": "名称",
+      "en": "Name",
+      "lo": "ຊື່"
+    },
+    {
+      "key": "auto.literal.faba5fe50674",
+      "text": "账套 / 期间",
+      "en": "Book / period",
+      "lo": "ຊຸດບັນຊີ / ງວດ"
+    },
+    {
+      "key": "auto.literal.61b899384fc4",
+      "text": "证据摘录",
+      "en": "Evidence excerpt",
+      "lo": "ຂໍ້ມູນຫຼັກຖານຫຍໍ້"
+    },
+    {
+      "key": "auto.literal.8af9bae8790c",
+      "text": "暂无科目/报表只读报告。",
+      "en": "No subject/report readonly report yet.",
+      "lo": "ຍັງບໍ່ມີລາຍງານອ່ານຢ່າງດຽວ."
+    },
+    {
+      "key": "auto.literal.fbb50314b6bc",
+      "text": "当前值班待办",
+      "en": "Current Ops Queue",
+      "lo": "ວຽກປະຈຳການປັດຈຸບັນ"
+    },
+    {
+      "key": "auto.literal.e019a618fa78",
+      "text": "30 天沉积",
+      "en": "30-day backlog",
+      "lo": "ຄ້າງ 30 ມື້"
+    },
+    {
+      "key": "auto.literal.6d08204d169c",
+      "text": "告警生成源",
+      "en": "Alert sources",
+      "lo": "ແຫຼ່ງການເຕືອນ"
+    },
+    {
+      "key": "auto.literal.b7d08c033a5a",
+      "text": "预览沉积归档",
+      "en": "Preview backlog archive",
+      "lo": "ເບິ່ງກ່ອນຈັດເກັບຄ້າງ"
+    },
+    {
+      "key": "auto.literal.87f89cabc491",
+      "text": "· 最后",
+      "en": "· Last",
+      "lo": "· ຫຼ້າສຸດ"
+    },
+    {
+      "key": "auto.literal.aa2a619a41c1",
+      "text": "当前没有未处理告警源。",
+      "en": "No unresolved alert sources right now.",
+      "lo": "ຕອນນີ້ບໍ່ມີແຫຼ່ງເຕືອນທີ່ຍັງບໍ່ໄດ້ຈັດການ."
+    },
+    {
+      "key": "auto.literal.8e44618fbf7c",
+      "text": "重复噪音源",
+      "en": "Repeated noise sources",
+      "lo": "ແຫຼ່ງສຽງລົບກວນຊ້ຳ"
+    },
+    {
+      "key": "auto.literal.0d31dea78f54",
+      "text": "暂未发现重复噪音源。",
+      "en": "No repeated noise sources found yet.",
+      "lo": "ຍັງບໍ່ພົບແຫຼ່ງສຽງລົບກວນຊ້ຳ."
+    },
+    {
+      "key": "auto.literal.5d7eb1c2d15c",
+      "text": "归档预览：",
+      "en": "Archive preview:",
+      "lo": "ເບິ່ງກ່ອນຈັດເກັບ:"
+    },
+    {
+      "key": "auto.literal.709fb9f67949",
+      "text": "天前非 CRITICAL 老旧告警",
+      "en": "days old non-CRITICAL alerts",
+      "lo": "ມື້ ການເຕືອນເກົ່າທີ່ບໍ່ແມ່ນ CRITICAL"
+    },
+    {
+      "key": "auto.literal.d758f34cd96f",
+      "text": "条。",
+      "en": "items.",
+      "lo": "ລາຍການ."
+    },
+    {
+      "key": "auto.literal.1f3798720098",
+      "text": "执行安全归档",
+      "en": "Run safe archive",
+      "lo": "ດຳເນີນການຈັດເກັບປອດໄພ"
+    },
+    {
+      "key": "auto.literal.3afe332185bc",
+      "text": "当前按相关路径过滤：",
+      "en": "Localized UI text 3afe332185bc",
+      "lo": "Localized UI text 3afe332185bc"
+    },
+    {
+      "key": "auto.literal.2a5fd31dece9",
+      "text": "清除过滤",
+      "en": "Localized UI text 2a5fd31dece9",
+      "lo": "Localized UI text 2a5fd31dece9"
+    },
+    {
+      "key": "auto.literal.0db28bef9138",
+      "text": "打开相关页面",
+      "en": "Localized UI text 0db28bef9138",
+      "lo": "Localized UI text 0db28bef9138"
+    },
+    {
+      "key": "auto.literal.0176b680a4cb",
+      "text": "返回告警台账",
+      "en": "BackAlert Ledger",
+      "lo": "Backບັນຊີການເຕືອນ"
+    },
+    {
+      "key": "auto.literal.9e25ed4ded7b",
+      "text": "24h 错误总量",
+      "en": "24h total errors",
+      "lo": "ຂໍ້ຜິດພາດ 24h ທັງໝົດ"
+    },
+    {
+      "key": "auto.literal.e77f182c303a",
+      "text": "500 / PG 错误",
+      "en": "500 / PG errors",
+      "lo": "ຂໍ້ຜິດພາດ 500 / PG"
+    },
+    {
+      "key": "auto.literal.c1566ccdbbc0",
+      "text": "403 / 客户端错误",
+      "en": "403 / client errors",
+      "lo": "ຂໍ້ຜິດພາດ 403 / client"
+    },
+    {
+      "key": "auto.literal.b2ffe43ae5a8",
+      "text": "影响路径",
+      "en": "Affected paths",
+      "lo": "ເສັ້ນທາງທີ່ກະທົບ"
+    },
+    {
+      "key": "auto.literal.4093568828f6",
+      "text": "24h 根因聚合",
+      "en": "24h root-cause grouping",
+      "lo": "ຈັດກຸ່ມສາເຫດ 24h"
+    },
+    {
+      "key": "auto.literal.fef7be56b223",
+      "text": "近 24 小时暂无错误聚合。",
+      "en": "No error groups in the last 24 hours.",
+      "lo": "ບໍ່ມີກຸ່ມຂໍ້ຜິດພາດໃນ 24 ຊົ່ວໂມງຜ່ານມາ."
     }
   ]
 }
