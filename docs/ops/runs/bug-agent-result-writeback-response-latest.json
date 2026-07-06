@@ -1,42 +1,65 @@
 {
-  "id": "4",
-  "bugNo": "BUG-20260706-0001",
-  "title": "账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本”",
+  "id": "5",
+  "bugNo": "BUG-20260706-0002",
+  "title": "运营工作台不显示今日饲料消耗、今日用水",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "______",
+  "moduleCode": "_____",
   "assigneeUsername": "_____",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260706-0001",
-  "repairTaskStatus": "AGENT_RUNNING",
-  "route": "/finance2/cash-accounts",
-  "reporterUsername": "wangweihua",
-  "reporterName": "王玮华",
-  "createdAt": "2026-07-06T02:21:55.439Z",
-  "updatedAt": "2026-07-06T02:40:30.755Z",
+  "repairTaskNo": "BUGTASK-20260706-0002",
+  "repairTaskStatus": "HOLD",
+  "route": "/home",
+  "reporterUsername": "admin",
+  "reporterName": "金凤凰总控",
+  "createdAt": "2026-07-06T07:50:31.817Z",
+  "updatedAt": "2026-07-06T07:56:57.533Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "财务结算中心/资金账户，点击右上角“新建账户”按钮，账户编号备注留空自动生成，但是留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本”，手动填写编号可以正常创建",
-  "url": "https://erp.eggslao.com/finance2/cash-accounts",
-  "reporterUserId": "3",
+  "description": "日生产日报录入了产蛋数、饲料和用水量，今日产蛋可以正常显示，但是今日饲料消耗、今日用水在运营工作台显示0",
+  "url": "https://erp.eggslao.com/home",
+  "reporterUserId": "96",
   "roles": [
-    "ROLE_MENGSAI_DONGPENG_TREASURER",
-    "ROLE_FIN_ACCT"
+    "ROLE_ADMIN",
+    "ROLE_MASTER_DATA_APPROVER"
   ],
   "companyCode": "",
   "projectCode": "",
-  "consoleErrors": [],
-  "failedRequests": [],
+  "consoleErrors": [
+    {
+      "type": "console.error",
+      "message": "useCrud [brd_houses] Error: 「brd_houses」存在重复值，请检查后重试",
+      "timestamp": "2026-07-06T07:00:56.780Z"
+    }
+  ],
+  "failedRequests": [
+    {
+      "url": "/api/farm-device/cabins/daily-report/generate",
+      "method": "POST",
+      "status": 404,
+      "requestId": "",
+      "timestamp": "2026-07-06T06:41:01.990Z",
+      "responseExcerpt": "{\"code\":404,\"message\":\"Cannot POST /api/farm-device/cabins/daily-report/generate\",\"error\":\"Not Found\",\"statusCode\":404}"
+    },
+    {
+      "url": "/api/crud/brd_houses",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-06T07:00:56.779Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「brd_houses」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    }
+  ],
   "attachments": [
     {
-      "sha256": "3058fc3356598a3717a0751ec2b6249dd76c772b9408b345a9c758e68586389d",
-      "fileName": "01-1783304515430-880ef3e1.png",
+      "sha256": "93350645acbe845fe9c43daf43fcd5af48a2c794a4380b5d71d066fe06a74ab0",
+      "fileName": "01-1783324231815-108b018c.png",
       "mimeType": "image/png",
-      "sizeBytes": 683083,
-      "originalName": "pasted-screenshot-1783304446655-1.png",
-      "relativePath": "storage/bug-reports/2026/07/06/BUG-20260706-0001/01-1783304515430-880ef3e1.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260706-0001/attachments/01-1783304515430-880ef3e1.png"
+      "sizeBytes": 1115335,
+      "originalName": "pasted-screenshot-1783324080138-1.png",
+      "relativePath": "storage/bug-reports/2026/07/06/BUG-20260706-0002/01-1783324231815-108b018c.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260706-0002/attachments/01-1783324231815-108b018c.png"
     }
   ],
   "clientContext": {
@@ -47,9 +70,9 @@
       "height": 865
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-06T02:21:55.434Z",
+    "capturedAt": "2026-07-06T07:50:31.817Z",
     "pageSnapshot": {
-      "route": "/finance2/cash-accounts",
+      "route": "/home",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -63,31 +86,44 @@
         "运营工作台",
         "每日工作台",
         "经营仪表盘",
+        "生产管理",
+        "🖥️ 进入包装作业台",
+        "养殖场总览",
+        "鸡舍管理",
+        "鸡群档案",
+        "日生产日报",
+        "免疫计划",
+        "用药记录",
+        "设备监控",
+        "环境预警",
+        "设备运维",
+        "日产蛋入库",
+        "包装管理",
+        "批次管理",
+        "包装日报",
+        "异常处理",
+        "补打日志",
+        "质检总览",
+        "场端质检",
+        "成品质检",
+        "不合格品处置",
+        "正向追溯",
+        "反向追溯",
+        "质量标准",
         "库存管理",
+        "全链追溯",
         "采购管理",
         "销售管理",
         "财务结算中心",
-        "财务总览",
-        "应收账款",
-        "应收总账",
-        "应收三方对账",
-        "好业财同步",
-        "好业财中间层",
-        "应付账款",
-        "资金账户",
-        "资金调拨",
-        "股东资金",
-        "费用管理",
-        "报销管理",
-        "财务报表",
         "股东权益中心",
         "审批中心",
         "经营分析",
         "主数据中心",
+        "系统设置",
+        "验收试运行",
+        "系统运维",
         "个人中心 / 修改密码",
-        "⚠️",
-        "影子模式：正在以 王玮华 身份查看（由 admin 发起）— 仅用于测试/排障，操作会以该用户身份执行",
-        "1",
+        "99+",
         "反馈问题",
         "反馈页面问题",
         "页面",
@@ -100,23 +136,49 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783304446655-1.png",
+        "pasted-screenshot-1783324080138-1.png",
         "退出",
-        "财务管理",
-        "/资金账户",
-        "/",
-        "资金账户中心",
-        "·资金账户管理 · 流水账本 · 转账审批",
         "·",
-        "正常",
-        "银行账户",
-        "现金账户",
-        "电子钱包"
+        "2026年7月6日星期一",
+        "下午好，金凤凰总控",
+        "今天没有紧急事项，可以专注做事。",
+        "待办",
+        "超时",
+        "高危告警",
+        "羽",
+        "枚",
+        "%",
+        "kg",
+        "L",
+        "条",
+        "事务流 · 我的待办",
+        "共 0 单",
+        "经营概览",
+        "· 业务全景（4）",
+        "销售",
+        "订单 · 收款",
+        "现金",
+        "账户 · 流水",
+        "应收",
+        "发票 · 账龄",
+        "应付",
+        "账期 · 付款",
+        "数据质量驾驶舱",
+        "综合评分",
+        "需整改 · 7 维加权",
+        "主数据健康 98/100",
+        "主数据健康度",
+        "/ 100",
+        "在管 798 条",
+        "风险 3 条",
+        "业务中心",
+        "· 一键直达（8）",
+        "01:00"
       ],
       "interactiveElements": [
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
             "w": 215,
@@ -159,7 +221,283 @@
             "x": 0,
             "y": 233
           },
-          "label": "库存管理",
+          "label": "生产管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": "",
+          "rect": {
+            "h": 38,
+            "w": 199,
+            "x": 8,
+            "y": 277
+          },
+          "label": "🖥️ 进入包装作业台",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 317
+          },
+          "label": "养殖场总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 349
+          },
+          "label": "鸡舍管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 381
+          },
+          "label": "鸡群档案",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 413
+          },
+          "label": "日生产日报",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 445
+          },
+          "label": "免疫计划",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 477
+          },
+          "label": "用药记录",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 509
+          },
+          "label": "设备监控",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 541
+          },
+          "label": "环境预警",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 573
+          },
+          "label": "设备运维",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 605
+          },
+          "label": "日产蛋入库",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 637
+          },
+          "label": "包装管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 669
+          },
+          "label": "批次管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 701
+          },
+          "label": "包装日报",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 733
+          },
+          "label": "异常处理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 765
+          },
+          "label": "补打日志",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 797
+          },
+          "label": "质检总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 829
+          },
+          "label": "场端质检",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 861
+          },
+          "label": "成品质检",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 893
+          },
+          "label": "不合格品处置",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 925
+          },
+          "label": "正向追溯",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 957
+          },
+          "label": "反向追溯",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 989
+          },
+          "label": "质量标准",
           "disabled": false
         },
         {
@@ -169,7 +507,31 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 271
+            "y": 1021
+          },
+          "label": "库存管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1059
+          },
+          "label": "全链追溯",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1097
           },
           "label": "采购管理",
           "disabled": false
@@ -181,177 +543,9 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 309
+            "y": 1135
           },
           "label": "销售管理",
-          "disabled": false
-        },
-        {
-          "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
-          "rect": {
-            "h": 38,
-            "w": 215,
-            "x": 0,
-            "y": 347
-          },
-          "label": "财务结算中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 385
-          },
-          "label": "财务总览",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 417
-          },
-          "label": "应收账款",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 449
-          },
-          "label": "应收总账",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 481
-          },
-          "label": "应收三方对账",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 513
-          },
-          "label": "好业财同步",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 545
-          },
-          "label": "好业财中间层",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 577
-          },
-          "label": "应付账款",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 609
-          },
-          "label": "资金账户",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 641
-          },
-          "label": "资金调拨",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 673
-          },
-          "label": "股东资金",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 705
-          },
-          "label": "费用管理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 737
-          },
-          "label": "报销管理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 769
-          },
-          "label": "财务报表",
           "disabled": false
         },
         {
@@ -361,7 +555,19 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 801
+            "y": 1173
+          },
+          "label": "财务结算中心",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1211
           },
           "label": "股东权益中心",
           "disabled": false
@@ -373,7 +579,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 839
+            "y": 1249
           },
           "label": "审批中心",
           "disabled": false
@@ -385,7 +591,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 877
+            "y": 1287
           },
           "label": "经营分析",
           "disabled": false
@@ -397,9 +603,45 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 915
+            "y": 1325
           },
           "label": "主数据中心",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1363
+          },
+          "label": "系统设置",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1401
+          },
+          "label": "验收试运行",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1439
+          },
+          "label": "系统运维",
           "disabled": false
         },
         {
@@ -415,25 +657,13 @@
           "disabled": false
         },
         {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 100,
-            "x": 1482,
-            "y": 7
-          },
-          "label": "退出影子模式",
-          "disabled": false
-        },
-        {
           "tag": "select",
           "path": ".admin-module__uYgI-a__headerSelect",
           "rect": {
             "h": 30,
             "w": 96,
-            "x": 1021,
-            "y": 53
+            "x": 938,
+            "y": 13
           },
           "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
           "disabled": false
@@ -443,11 +673,23 @@
           "path": "",
           "rect": {
             "h": 34,
-            "w": 34,
-            "x": 1178,
-            "y": 51
+            "w": 95,
+            "x": 1095,
+            "y": 11
           },
-          "label": "1",
+          "label": "在线 0",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 34,
+            "w": 34,
+            "x": 1204,
+            "y": 11
+          },
+          "label": "99+",
           "disabled": false
         },
         {
@@ -456,8 +698,8 @@
           "rect": {
             "h": 40,
             "w": 122,
-            "x": 1226,
-            "y": 48
+            "x": 1252,
+            "y": 8
           },
           "label": "反馈问题",
           "disabled": false
@@ -540,7 +782,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 770,
+            "x": 767,
             "y": 715
           },
           "label": "移除附件",
@@ -575,11 +817,11 @@
           "path": ".admin-module__uYgI-a__userChip",
           "rect": {
             "h": 32,
-            "w": 136,
-            "x": 1362,
-            "y": 52
+            "w": 110,
+            "x": 1388,
+            "y": 12
           },
-          "label": "王 王玮华 孟赛/东鹏蛋鸡场 出纳",
+          "label": "金 金凤凰总控 集团超级管理员",
           "disabled": false
         },
         {
@@ -589,512 +831,248 @@
             "h": 30,
             "w": 68,
             "x": 1512,
-            "y": 53
+            "y": 13
           },
           "label": "退出",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
             "h": 36,
-            "w": 83,
-            "x": 1280,
-            "y": 128
+            "w": 148,
+            "x": 293,
+            "y": 204
           },
-          "label": "收款",
+          "label": "进入采购中心",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
             "h": 36,
-            "w": 83,
-            "x": 1371,
-            "y": 128
+            "w": 117,
+            "x": 449,
+            "y": 204
           },
-          "label": "付款",
+          "label": "主数据中心",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 36,
-            "w": 109,
-            "x": 1462,
-            "y": 128
+            "h": 18,
+            "w": 38,
+            "x": 995,
+            "y": 387
           },
-          "label": "新建账户",
+          "label": "全部",
           "disabled": false
         },
         {
-          "tag": "input",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 38,
-            "w": 254,
-            "x": 261,
-            "y": 347
+            "h": 74,
+            "w": 180,
+            "x": 283,
+            "y": 631
           },
-          "label": "搜索账户名称/编号…",
+          "label": "销售 订单 · 收款",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 525,
-            "y": 351
+            "h": 74,
+            "w": 180,
+            "x": 473,
+            "y": 631
           },
-          "label": "全部类型",
+          "label": "现金 账户 · 流水",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 613,
-            "y": 351
+            "h": 74,
+            "w": 180,
+            "x": 663,
+            "y": 631
           },
-          "label": "银行账户",
+          "label": "应收 发票 · 账龄",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 701,
-            "y": 351
+            "h": 74,
+            "w": 180,
+            "x": 853,
+            "y": 631
           },
-          "label": "现金账户",
+          "label": "应付 账期 · 付款",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 789,
-            "y": 351
+            "h": 162,
+            "w": 487,
+            "x": 1060,
+            "y": 367
           },
-          "label": "电子钱包",
+          "label": "数据质量驾驶舱 79 / 100 综合评分 需整改 · 7 维加权 主数据健康 98/100",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 877,
-            "y": 351
+            "h": 158,
+            "w": 487,
+            "x": 1060,
+            "y": 541
           },
-          "label": "虚拟账户",
+          "label": "需立即关注 2 项高危告警 · 共 4 条",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 965,
-            "y": 351
+            "h": 147,
+            "w": 487,
+            "x": 1060,
+            "y": 710
           },
-          "label": "股东账户",
+          "label": "主数据健康度 93 / 100 在管 798 条 风险 3 条",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 1053,
-            "y": 351
+            "h": 58,
+            "w": 172,
+            "x": 283,
+            "y": 922
           },
-          "label": "内部账户",
+          "label": "客户中心",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 102,
-            "x": 1141,
-            "y": 351
+            "h": 58,
+            "w": 172,
+            "x": 463,
+            "y": 922
           },
-          "label": "个人代收代付",
+          "label": "供应商中心",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 78,
-            "x": 1272,
-            "y": 351
+            "h": 58,
+            "w": 172,
+            "x": 642,
+            "y": 922
           },
-          "label": "全部状态",
+          "label": "采购中心",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 54,
+            "h": 58,
+            "w": 172,
+            "x": 822,
+            "y": 922
+          },
+          "label": "销售中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": "",
+          "rect": {
+            "h": 58,
+            "w": 172,
+            "x": 1001,
+            "y": 922
+          },
+          "label": "财务中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": "",
+          "rect": {
+            "h": 58,
+            "w": 172,
+            "x": 1181,
+            "y": 922
+          },
+          "label": "库存中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": "",
+          "rect": {
+            "h": 58,
+            "w": 172,
             "x": 1360,
-            "y": 351
+            "y": 922
           },
-          "label": "正常",
+          "label": "审批工作台",
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "a",
           "path": "",
           "rect": {
-            "h": 31,
-            "w": 54,
-            "x": 1424,
-            "y": 351
+            "h": 58,
+            "w": 172,
+            "x": 283,
+            "y": 988
           },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 31,
-            "w": 66,
-            "x": 1488,
-            "y": 351
-          },
-          "label": "已关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 265,
-            "y": 608
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 361,
-            "y": 608
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 452,
-            "y": 608
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 265,
-            "y": 641
-          },
-          "label": "关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 600,
-            "y": 608
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 696,
-            "y": 608
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 787,
-            "y": 608
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 600,
-            "y": 641
-          },
-          "label": "关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 936,
-            "y": 608
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 1031,
-            "y": 608
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 1122,
-            "y": 608
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 936,
-            "y": 641
-          },
-          "label": "关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 1271,
-            "y": 608
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 1366,
-            "y": 608
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 1457,
-            "y": 608
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 1271,
-            "y": 641
-          },
-          "label": "关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 265,
-            "y": 852
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 361,
-            "y": 852
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 452,
-            "y": 852
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 265,
-            "y": 885
-          },
-          "label": "关闭",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 90,
-            "x": 600,
-            "y": 852
-          },
-          "label": "编辑/期初",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 85,
-            "x": 696,
-            "y": 852
-          },
-          "label": "重算余额",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 787,
-            "y": 852
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 61,
-            "x": 600,
-            "y": 885
-          },
-          "label": "关闭",
+          "label": "数据质量",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 2
   },
-  "resolutionNote": "让账户编号留空时保存自动生成",
+  "resolutionNote": "要求今日饲料消耗、今日用水在运营工作台正常显示",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/finance2/cash-accounts",
-    "bugNo": "BUG-20260706-0001",
-    "route": "/finance2/cash-accounts",
-    "title": "账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本”",
-    "taskNo": "BUGTASK-20260706-0001",
+    "url": "https://erp.eggslao.com/home",
+    "bugNo": "BUG-20260706-0002",
+    "route": "/home",
+    "title": "运营工作台不显示今日饲料消耗、今日用水",
+    "taskNo": "BUGTASK-20260706-0002",
     "context": {
       "attachments": [
         {
-          "sha256": "3058fc3356598a3717a0751ec2b6249dd76c772b9408b345a9c758e68586389d",
-          "fileName": "01-1783304515430-880ef3e1.png",
+          "sha256": "93350645acbe845fe9c43daf43fcd5af48a2c794a4380b5d71d066fe06a74ab0",
+          "fileName": "01-1783324231815-108b018c.png",
           "mimeType": "image/png",
-          "sizeBytes": 683083,
-          "originalName": "pasted-screenshot-1783304446655-1.png",
-          "relativePath": "storage/bug-reports/2026/07/06/BUG-20260706-0001/01-1783304515430-880ef3e1.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260706-0001/attachments/01-1783304515430-880ef3e1.png"
+          "sizeBytes": 1115335,
+          "originalName": "pasted-screenshot-1783324080138-1.png",
+          "relativePath": "storage/bug-reports/2026/07/06/BUG-20260706-0002/01-1783324231815-108b018c.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260706-0002/attachments/01-1783324231815-108b018c.png"
         }
       ],
       "clientContext": {
@@ -1105,9 +1083,9 @@
           "height": 865
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-06T02:21:55.434Z",
+        "capturedAt": "2026-07-06T07:50:31.817Z",
         "pageSnapshot": {
-          "route": "/finance2/cash-accounts",
+          "route": "/home",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -1121,31 +1099,44 @@
             "运营工作台",
             "每日工作台",
             "经营仪表盘",
+            "生产管理",
+            "🖥️ 进入包装作业台",
+            "养殖场总览",
+            "鸡舍管理",
+            "鸡群档案",
+            "日生产日报",
+            "免疫计划",
+            "用药记录",
+            "设备监控",
+            "环境预警",
+            "设备运维",
+            "日产蛋入库",
+            "包装管理",
+            "批次管理",
+            "包装日报",
+            "异常处理",
+            "补打日志",
+            "质检总览",
+            "场端质检",
+            "成品质检",
+            "不合格品处置",
+            "正向追溯",
+            "反向追溯",
+            "质量标准",
             "库存管理",
+            "全链追溯",
             "采购管理",
             "销售管理",
             "财务结算中心",
-            "财务总览",
-            "应收账款",
-            "应收总账",
-            "应收三方对账",
-            "好业财同步",
-            "好业财中间层",
-            "应付账款",
-            "资金账户",
-            "资金调拨",
-            "股东资金",
-            "费用管理",
-            "报销管理",
-            "财务报表",
             "股东权益中心",
             "审批中心",
             "经营分析",
             "主数据中心",
+            "系统设置",
+            "验收试运行",
+            "系统运维",
             "个人中心 / 修改密码",
-            "⚠️",
-            "影子模式：正在以 王玮华 身份查看（由 admin 发起）— 仅用于测试/排障，操作会以该用户身份执行",
-            "1",
+            "99+",
             "反馈问题",
             "反馈页面问题",
             "页面",
@@ -1158,23 +1149,49 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783304446655-1.png",
+            "pasted-screenshot-1783324080138-1.png",
             "退出",
-            "财务管理",
-            "/资金账户",
-            "/",
-            "资金账户中心",
-            "·资金账户管理 · 流水账本 · 转账审批",
             "·",
-            "正常",
-            "银行账户",
-            "现金账户",
-            "电子钱包"
+            "2026年7月6日星期一",
+            "下午好，金凤凰总控",
+            "今天没有紧急事项，可以专注做事。",
+            "待办",
+            "超时",
+            "高危告警",
+            "羽",
+            "枚",
+            "%",
+            "kg",
+            "L",
+            "条",
+            "事务流 · 我的待办",
+            "共 0 单",
+            "经营概览",
+            "· 业务全景（4）",
+            "销售",
+            "订单 · 收款",
+            "现金",
+            "账户 · 流水",
+            "应收",
+            "发票 · 账龄",
+            "应付",
+            "账期 · 付款",
+            "数据质量驾驶舱",
+            "综合评分",
+            "需整改 · 7 维加权",
+            "主数据健康 98/100",
+            "主数据健康度",
+            "/ 100",
+            "在管 798 条",
+            "风险 3 条",
+            "业务中心",
+            "· 一键直达（8）",
+            "01:00"
           ],
           "interactiveElements": [
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
                 "w": 215,
@@ -1217,7 +1234,283 @@
                 "x": 0,
                 "y": 233
               },
-              "label": "库存管理",
+              "label": "生产管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": "",
+              "rect": {
+                "h": 38,
+                "w": 199,
+                "x": 8,
+                "y": 277
+              },
+              "label": "🖥️ 进入包装作业台",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 317
+              },
+              "label": "养殖场总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 349
+              },
+              "label": "鸡舍管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 381
+              },
+              "label": "鸡群档案",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 413
+              },
+              "label": "日生产日报",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 445
+              },
+              "label": "免疫计划",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 477
+              },
+              "label": "用药记录",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 509
+              },
+              "label": "设备监控",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 541
+              },
+              "label": "环境预警",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 573
+              },
+              "label": "设备运维",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 605
+              },
+              "label": "日产蛋入库",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 637
+              },
+              "label": "包装管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 669
+              },
+              "label": "批次管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 701
+              },
+              "label": "包装日报",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 733
+              },
+              "label": "异常处理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 765
+              },
+              "label": "补打日志",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 797
+              },
+              "label": "质检总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 829
+              },
+              "label": "场端质检",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 861
+              },
+              "label": "成品质检",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 893
+              },
+              "label": "不合格品处置",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 925
+              },
+              "label": "正向追溯",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 957
+              },
+              "label": "反向追溯",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 989
+              },
+              "label": "质量标准",
               "disabled": false
             },
             {
@@ -1227,7 +1520,31 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 271
+                "y": 1021
+              },
+              "label": "库存管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1059
+              },
+              "label": "全链追溯",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1097
               },
               "label": "采购管理",
               "disabled": false
@@ -1239,177 +1556,9 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 309
+                "y": 1135
               },
               "label": "销售管理",
-              "disabled": false
-            },
-            {
-              "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
-              "rect": {
-                "h": 38,
-                "w": 215,
-                "x": 0,
-                "y": 347
-              },
-              "label": "财务结算中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 385
-              },
-              "label": "财务总览",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 417
-              },
-              "label": "应收账款",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 449
-              },
-              "label": "应收总账",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 481
-              },
-              "label": "应收三方对账",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 513
-              },
-              "label": "好业财同步",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 545
-              },
-              "label": "好业财中间层",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 577
-              },
-              "label": "应付账款",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 609
-              },
-              "label": "资金账户",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 641
-              },
-              "label": "资金调拨",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 673
-              },
-              "label": "股东资金",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 705
-              },
-              "label": "费用管理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 737
-              },
-              "label": "报销管理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 769
-              },
-              "label": "财务报表",
               "disabled": false
             },
             {
@@ -1419,7 +1568,19 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 801
+                "y": 1173
+              },
+              "label": "财务结算中心",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1211
               },
               "label": "股东权益中心",
               "disabled": false
@@ -1431,7 +1592,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 839
+                "y": 1249
               },
               "label": "审批中心",
               "disabled": false
@@ -1443,7 +1604,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 877
+                "y": 1287
               },
               "label": "经营分析",
               "disabled": false
@@ -1455,9 +1616,45 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 915
+                "y": 1325
               },
               "label": "主数据中心",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1363
+              },
+              "label": "系统设置",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1401
+              },
+              "label": "验收试运行",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1439
+              },
+              "label": "系统运维",
               "disabled": false
             },
             {
@@ -1473,25 +1670,13 @@
               "disabled": false
             },
             {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 100,
-                "x": 1482,
-                "y": 7
-              },
-              "label": "退出影子模式",
-              "disabled": false
-            },
-            {
               "tag": "select",
               "path": ".admin-module__uYgI-a__headerSelect",
               "rect": {
                 "h": 30,
                 "w": 96,
-                "x": 1021,
-                "y": 53
+                "x": 938,
+                "y": 13
               },
               "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
               "disabled": false
@@ -1501,11 +1686,23 @@
               "path": "",
               "rect": {
                 "h": 34,
-                "w": 34,
-                "x": 1178,
-                "y": 51
+                "w": 95,
+                "x": 1095,
+                "y": 11
               },
-              "label": "1",
+              "label": "在线 0",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 34,
+                "w": 34,
+                "x": 1204,
+                "y": 11
+              },
+              "label": "99+",
               "disabled": false
             },
             {
@@ -1514,8 +1711,8 @@
               "rect": {
                 "h": 40,
                 "w": 122,
-                "x": 1226,
-                "y": 48
+                "x": 1252,
+                "y": 8
               },
               "label": "反馈问题",
               "disabled": false
@@ -1598,7 +1795,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 770,
+                "x": 767,
                 "y": 715
               },
               "label": "移除附件",
@@ -1633,11 +1830,11 @@
               "path": ".admin-module__uYgI-a__userChip",
               "rect": {
                 "h": 32,
-                "w": 136,
-                "x": 1362,
-                "y": 52
+                "w": 110,
+                "x": 1388,
+                "y": 12
               },
-              "label": "王 王玮华 孟赛/东鹏蛋鸡场 出纳",
+              "label": "金 金凤凰总控 集团超级管理员",
               "disabled": false
             },
             {
@@ -1647,512 +1844,271 @@
                 "h": 30,
                 "w": 68,
                 "x": 1512,
-                "y": 53
+                "y": 13
               },
               "label": "退出",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
                 "h": 36,
-                "w": 83,
-                "x": 1280,
-                "y": 128
+                "w": 148,
+                "x": 293,
+                "y": 204
               },
-              "label": "收款",
+              "label": "进入采购中心",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
                 "h": 36,
-                "w": 83,
-                "x": 1371,
-                "y": 128
+                "w": 117,
+                "x": 449,
+                "y": 204
               },
-              "label": "付款",
+              "label": "主数据中心",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 36,
-                "w": 109,
-                "x": 1462,
-                "y": 128
+                "h": 18,
+                "w": 38,
+                "x": 995,
+                "y": 387
               },
-              "label": "新建账户",
+              "label": "全部",
               "disabled": false
             },
             {
-              "tag": "input",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 38,
-                "w": 254,
-                "x": 261,
-                "y": 347
+                "h": 74,
+                "w": 180,
+                "x": 283,
+                "y": 631
               },
-              "label": "搜索账户名称/编号…",
+              "label": "销售 订单 · 收款",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 525,
-                "y": 351
+                "h": 74,
+                "w": 180,
+                "x": 473,
+                "y": 631
               },
-              "label": "全部类型",
+              "label": "现金 账户 · 流水",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 613,
-                "y": 351
+                "h": 74,
+                "w": 180,
+                "x": 663,
+                "y": 631
               },
-              "label": "银行账户",
+              "label": "应收 发票 · 账龄",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 701,
-                "y": 351
+                "h": 74,
+                "w": 180,
+                "x": 853,
+                "y": 631
               },
-              "label": "现金账户",
+              "label": "应付 账期 · 付款",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 789,
-                "y": 351
+                "h": 162,
+                "w": 487,
+                "x": 1060,
+                "y": 367
               },
-              "label": "电子钱包",
+              "label": "数据质量驾驶舱 79 / 100 综合评分 需整改 · 7 维加权 主数据健康 98/100",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 877,
-                "y": 351
+                "h": 158,
+                "w": 487,
+                "x": 1060,
+                "y": 541
               },
-              "label": "虚拟账户",
+              "label": "需立即关注 2 项高危告警 · 共 4 条",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 965,
-                "y": 351
+                "h": 147,
+                "w": 487,
+                "x": 1060,
+                "y": 710
               },
-              "label": "股东账户",
+              "label": "主数据健康度 93 / 100 在管 798 条 风险 3 条",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 1053,
-                "y": 351
+                "h": 58,
+                "w": 172,
+                "x": 283,
+                "y": 922
               },
-              "label": "内部账户",
+              "label": "客户中心",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 102,
-                "x": 1141,
-                "y": 351
+                "h": 58,
+                "w": 172,
+                "x": 463,
+                "y": 922
               },
-              "label": "个人代收代付",
+              "label": "供应商中心",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 78,
-                "x": 1272,
-                "y": 351
+                "h": 58,
+                "w": 172,
+                "x": 642,
+                "y": 922
               },
-              "label": "全部状态",
+              "label": "采购中心",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 54,
+                "h": 58,
+                "w": 172,
+                "x": 822,
+                "y": 922
+              },
+              "label": "销售中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": "",
+              "rect": {
+                "h": 58,
+                "w": 172,
+                "x": 1001,
+                "y": 922
+              },
+              "label": "财务中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": "",
+              "rect": {
+                "h": 58,
+                "w": 172,
+                "x": 1181,
+                "y": 922
+              },
+              "label": "库存中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": "",
+              "rect": {
+                "h": 58,
+                "w": 172,
                 "x": 1360,
-                "y": 351
+                "y": 922
               },
-              "label": "正常",
+              "label": "审批工作台",
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "a",
               "path": "",
               "rect": {
-                "h": 31,
-                "w": 54,
-                "x": 1424,
-                "y": 351
+                "h": 58,
+                "w": 172,
+                "x": 283,
+                "y": 988
               },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 31,
-                "w": 66,
-                "x": 1488,
-                "y": 351
-              },
-              "label": "已关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 265,
-                "y": 608
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 361,
-                "y": 608
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 452,
-                "y": 608
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 265,
-                "y": 641
-              },
-              "label": "关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 600,
-                "y": 608
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 696,
-                "y": 608
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 787,
-                "y": 608
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 600,
-                "y": 641
-              },
-              "label": "关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 936,
-                "y": 608
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 1031,
-                "y": 608
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 1122,
-                "y": 608
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 936,
-                "y": 641
-              },
-              "label": "关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 1271,
-                "y": 608
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 1366,
-                "y": 608
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 1457,
-                "y": 608
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 1271,
-                "y": 641
-              },
-              "label": "关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 265,
-                "y": 852
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 361,
-                "y": 852
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 452,
-                "y": 852
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 265,
-                "y": 885
-              },
-              "label": "关闭",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 90,
-                "x": 600,
-                "y": 852
-              },
-              "label": "编辑/期初",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 85,
-                "x": 696,
-                "y": 852
-              },
-              "label": "重算余额",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 787,
-                "y": 852
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 61,
-                "x": 600,
-                "y": 885
-              },
-              "label": "关闭",
+              "label": "数据质量",
               "disabled": false
             }
           ]
         },
         "devicePixelRatio": 2
       },
-      "consoleErrors": [],
-      "failedRequests": []
+      "consoleErrors": [
+        {
+          "type": "console.error",
+          "message": "useCrud [brd_houses] Error: 「brd_houses」存在重复值，请检查后重试",
+          "timestamp": "2026-07-06T07:00:56.780Z"
+        }
+      ],
+      "failedRequests": [
+        {
+          "url": "/api/farm-device/cabins/daily-report/generate",
+          "method": "POST",
+          "status": 404,
+          "requestId": "",
+          "timestamp": "2026-07-06T06:41:01.990Z",
+          "responseExcerpt": "{\"code\":404,\"message\":\"Cannot POST /api/farm-device/cabins/daily-report/generate\",\"error\":\"Not Found\",\"statusCode\":404}"
+        },
+        {
+          "url": "/api/crud/brd_houses",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-06T07:00:56.779Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「brd_houses」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        }
+      ]
     },
     "priority": "P2",
     "reporter": {
-      "name": "王玮华",
+      "name": "金凤凰总控",
       "roles": [
-        "ROLE_MENGSAI_DONGPENG_TREASURER",
-        "ROLE_FIN_ACCT"
+        "ROLE_ADMIN",
+        "ROLE_MASTER_DATA_APPROVER"
       ],
-      "username": "wangweihua",
+      "username": "admin",
       "companyCode": "",
       "projectCode": ""
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260706-0001",
+      "source_bug_no": "BUG-20260706-0002",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -2209,193 +2165,11 @@
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "source_repair_task_no": "BUGTASK-20260706-0001"
+      "source_repair_task_no": "BUGTASK-20260706-0002"
     },
-    "createdAt": "2026-07-06T02:24:56.953Z",
+    "createdAt": "2026-07-06T07:51:46.230Z",
     "createdBy": "admin",
-    "moduleCode": "______",
-    "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260706-0001-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0001-01-A2-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0001-01-A2-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A2-Security-Regression-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate\nBranch: w5-a2-security-regression-gate\nPrompt: docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0001-01-A2-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0001-01-A2-worker-assembled-prompt.md\nAssembled prompt chars: 31148\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T02-31-56-155Z-A2-Security-Regression-Gate.md\nPASS WITH CONDITIONS.\n\nA2 security review is complete and committed locally:\n\n- Report: [2026-07-06-A2-security-regression-gate-BUG-20260706-0001.md](/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate/docs/ops/runs/2026-07-06-A2-security-regression-gate-BUG-20260706-0001.md)\n- Commit: `4ef76aa2 docs(ops): record a2 security gate for cash account bug`\n- Worktree: clean\n- No code, DB, migration, deploy, push, or task-board changes performed.\n\nKey conclusion: the bug is a DTO validation mismatch, not an RBAC/DataScope bypass. Frontend omits blank `accountCode`, service intends to auto-generate it, but `CreateCashAccountDto.accountCode` is currentl",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-06T02:31:57.459Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-01-A2-worker-log.md",
-        "changedFiles": [
-          "apps/api/src/modules/finance-v2/services/expense-requests.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-invoices.service.ts",
-          "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
-          "apps/api/src/modules/finance-v2/services/reimbursements.service.ts",
-          "apps/api/src/modules/finance-v2/services/fund-transfers.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-receipts.service.ts",
-          "apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts",
-          "apps/api/src/modules/finance-v2/services/cash-transactions.service.ts",
-          "apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts",
-          "apps/api/src/modules/finance-v2/dto/shareholder.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/expense.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/ap-invoice.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/ar-invoice.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/ar-receipt.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/fund-transfer.dto.ts",
-          "apps/api/src/modules/finance-v2/dto/cash-account.dto.ts",
-          "apps/api/src/modules/analytics/services/finance-analytics.service.ts",
-          "apps/web/src/components/finance/LegacyFreezeBanner.tsx",
-          "apps/api/src/modules/sales-v2/adapters/finance-credit-note.adapter.ts",
-          "apps/api/src/modules/sales-v2/adapters/finance-ar.adapter.ts"
-        ],
-        "validationResults": null
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260706-0001-02-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0001-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0001-02-A3-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nBranch: w5-a3-backend-critical-path\nPrompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0001-02-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0001-02-A3-worker-assembled-prompt.md\nAssembled prompt chars: 31137\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T02-34-53-057Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\n修复已完成：`POST /api/v2/finance/cash/accounts` 的创建 DTO 现在会把 `accountCode: null`、空字符串、纯空格归一化为未填写，放行到现有 `CashAccountsService.create()` 自动生成 `CA-YYYYMM-xxxxx` 的逻辑。\n\n变更文件：\n- [cash-account.dto.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/finance-v2/dto/cash-account.dto.ts)\n- [cash-account.dto.spec.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/finance-v2/dto/cash-account.dto.spec.ts)\n- [BUG-20260706-0001_CASH_ACCOUNT_AUTOCODE_BACKEND_REPORT.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260706-0001_CASH_ACCOUNT_AUTOCODE_BACKEND_REPORT.md)\n\n验证已跑：\n- `cd apps/api && pnpm",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-06T02:34:54.634Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-02-A3-worker-log.md",
-        "changedFiles": [
-          "apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts",
-          "apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts",
-          "apps/api/src/modules/finance-v2/services",
-          "apps/api/src/modules/finance-v2/services/cash-transactions.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts",
-          "apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-receipts.service.ts",
-          "apps/api/src/modules/finance-v2/services/fund-transfers.service.ts",
-          "apps/api/src/modules/finance-v2/services/reimbursements.service.ts",
-          "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-invoices.service.ts",
-          "apps/api/src/modules/finance-v2/services/expense-requests.service.ts",
-          "apps/api/src/modules/finance-v2/services/financial-reports.service.ts",
-          "apps/api/src/modules/finance-v2/services/ar-ledger.service.ts",
-          "apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts",
-          "apps/api/src/modules/finance-v2/services/cash-accounts.service.ts",
-          "apps/api/src/modules/finance-v2/services/ap-adapter.service.ts",
-          "apps/api/src/modules/finance-v2/entities",
-          "apps/api/src/modules/finance-v2/entities/fin-exchange-rate.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-ar-receipt-allocation.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-ar-receipt.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-reimbursement.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-fund-transfer.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-cash-account.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-expense-request.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-ap-invoice.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-shareholder-settlement.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-cash-transaction.entity.ts",
-          "apps/api/src/modules/finance-v2/entities/fin-ar-invoice.entity.ts"
-        ],
-        "validationResults": null
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260706-0001-03-A4",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0001-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0001-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0001-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0001-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 31928\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T02-37-39-781Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend fix for BUG-20260706-0001.\n\nChanged [cash-accounts/page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx:215): blank `accountCode` is now still submitted as a string (`\"\"`) instead of being omitted, so the backend can pass text validation and continue its auto-code generation path.\n\nReport written at [BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md).\n\nValidation status: `PASS WITH CONDITIONS`.\n`git diff --check` passed. Full `tsc`/browser UAT could not run because this worktree has no `node_modules`; `apps/w",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-06T02:37:41.374Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-03-A4-worker-log.md",
-        "changedFiles": [
-          "apps/web/src/app/(admin)/finance2/reports/page.tsx",
-          "apps/web/src/app/(admin)/finance2/page.tsx",
-          "apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx",
-          "apps/web/src/app/(admin)/finance2/loading.tsx",
-          "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-          "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx",
-          "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-          "apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx",
-          "apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx",
-          "apps/web/src/app/(admin)/finance2/expenses/page.tsx",
-          "apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx",
-          "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-          "apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx",
-          "apps/web/src/app/(admin)/master-data/bank-accounts/page.tsx",
-          "apps/web/src/app/(admin)/master-data/bank-accounts/new/page.tsx",
-          "apps/web/src/app/(admin)/master-data/cash-accounts/page.tsx",
-          "apps/web/src/app/(admin)/master-data/cash-accounts/new/page.tsx",
-          "apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx",
-          "apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx",
-          "apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts",
-          "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts"
-        ],
-        "validationResults": null
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260706-0001-04-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0001-04-A5-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0001-04-A5-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A5-Data-Readiness\nWorktree: /Users/mac/phoenix-erp-worktrees/a5-data-readiness\nBranch: w5-a5-data-readiness\nPrompt: docs/ops/prompts/A5_DATA_READINESS_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0001-04-A5-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0001-04-A5-worker-assembled-prompt.md\nAssembled prompt chars: 30915\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a5-data-readiness --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T02-40-27-581Z-A5-Data-Readiness.md\nA5 数据就绪诊断已完成并提交报告：\n\n[docs/ops/BUGTASK-20260706-0001_A5_DATA_READINESS_REPORT.md](/Users/mac/phoenix-erp-worktrees/a5-data-readiness/docs/ops/BUGTASK-20260706-0001_A5_DATA_READINESS_REPORT.md)\n\n结论：`PASS WITH CONDITIONS`。根因是后端 DTO 把 `accountCode` 声明成必填 `@IsString()`，而前端空编号时已经不发送该字段，service 也已有自动编号逻辑，所以请求在进入 service 前被 ValidationPipe 拦截。该问题不需要迁移、schema/entity/table/column 变更，也不需要数据写入。\n\n阻塞条件：本地 `psql` 只读 DB 检查被沙箱拦截，报 `Operation not permitted`，因此 live DB 的空值/重复值基线未能取得。建议 A3 做最小 DTO 修复，A1 做 CI/typecheck，发布前在有 DB socket 权限的环境补跑只读基线。\n\n提交：`4837848f docs(ops): record cash account data readiness report`  \n当前工作区：干净，未 push。\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-06T02:40:28.884Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-04-A5-worker-log.md",
-        "changedFiles": [
-          "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_PLAN.md",
-          "docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md",
-          "docs/ops/A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md",
-          "docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md",
-          "docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md",
-          "docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md",
-          "docs/ops/AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md",
-          "docs/ops/AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md",
-          "docs/ops/AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md",
-          "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md",
-          "docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md",
-          "docs/uat2-screenshots/01-master-data-overview.png",
-          "docs/master-data-workflow-runtime-phase-g3b.md",
-          "docs/master-data-governance-phase-g2-dictionary-reference-governance.md",
-          "docs/g55c-master-data-center-completion-and-ux-standardization.md",
-          "docs/workflow-hardening-p0-report.md",
-          "docs/master-data-governance-phase-g1-master-data-center.md",
-          "docs/g92-master-data-approval-layering.md",
-          "docs/g55a-master-data-center-full-audit.md",
-          "docs/master-data-governance-phase-g0-blueprint.md",
-          "docs/mdm-1-implementation-report.md",
-          "docs/score-9-phase-r1-report.md",
-          "docs/role-runtime-phase-a-report.md",
-          "docs/g5-data-quality-center-enhancement.md",
-          "docs/v3-final-readiness-audit.md",
-          "docs/g120-masterdata-role-grants.md",
-          "docs/production-deployment-reconciliation-report.md",
-          "docs/master-data-initialization-m6-1-readiness-gate.md",
-          "docs/master-data-runtime-phase-g3a.md",
-          "docs/role-runtime-phase-c-recovery-report.md"
-        ],
-        "validationResults": null
-      },
-      {
-        "taskId": "BUGTASK-20260706-0001-05-A1",
-        "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "PASS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-05-A1-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260706-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_A1_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-06T02:40:30.752Z"
-      }
-    ],
+    "moduleCode": "_____",
     "suggestedOwner": "_____",
     "repairGuardrails": {
       "autoRepairExecuted": false,
@@ -2403,25 +2177,12 @@
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
     },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260706-0001-05-A1",
-      "agent": "A1-CI-Runtime-Gate",
-      "conclusion": "PASS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260706-0001-05-A1-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260706-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_A1_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-06T02:40:30.752Z"
-    },
-    "acceptanceCriteria": "让账户编号留空时保存自动生成",
-    "agentPlanGeneratedAt": "2026-07-06T02:24:59.929Z",
+    "acceptanceCriteria": "",
+    "agentPlanGeneratedAt": "2026-07-06T07:51:48.241Z",
     "agentPlanGeneratedBy": "admin",
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-06T02:25:14.175Z",
+      "approvedAt": "2026-07-06T07:51:51.270Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -2431,6 +2192,96 @@
         "push without release approval",
         "force push"
       ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260706-0002-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/shareholders/dashboard/page.tsx",
+          "apps/api/src/modules/org/entities/sys-user-farm-scope.entity.ts",
+          "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+          "apps/api/src/modules/uat/services/uat-feedback.service.ts",
+          "apps/api/src/modules/uat/services/pilot-run-dashboard.service.ts",
+          "apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts",
+          "apps/api/src/modules/uat/controllers/uat-feedback.controller.ts",
+          "apps/api/src/modules/farm/farm-sales.controller.ts",
+          "apps/api/src/modules/farm/farm.cron.ts",
+          "apps/api/src/modules/farm/farm-medicine.service.ts",
+          "apps/api/src/modules/farm/farm.controller.ts",
+          "apps/api/src/modules/farm/farm-egg.controller.ts",
+          "apps/api/src/modules/farm/farm-egg.service.ts",
+          "apps/api/src/modules/farm/farm.module.ts",
+          "apps/api/src/modules/farm/farm.service.ts",
+          "apps/api/src/modules/farm/farm-sales.service.ts",
+          "apps/api/src/modules/farm/farm-feed.controller.ts",
+          "apps/api/src/modules/farm/farm-feed.service.ts",
+          "apps/api/src/modules/farm/farm-medicine.controller.ts",
+          "apps/web/src/app/(admin)/home/page.tsx",
+          "apps/web/src/app/(admin)/quality/farm/page.tsx",
+          "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
+          "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx",
+          "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+          "apps/web/src/app/(mobile)/mobile/home/page.tsx",
+          "apps/web/src/app/(admin)/packaging/daily-report/page.tsx",
+          "apps/web/src/app/(admin)/daily-work/page.tsx",
+          "apps/web/src/app/(admin)/dashboard/page.tsx",
+          "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+          "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx"
+        ],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-01-A2-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A2-Security-Regression-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate\nBranch: w5-a2-security-regression-gate\nPrompt: docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-01-A2-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-assembled-prompt.md\nAssembled prompt chars: 31322\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T07-56-56-257Z-A2-Security-Regression-Gate.md\nFAIL / HOLD.\n\n已完成 A2 安全回归门禁报告，并按允许范围只提交了 docs/ops 报告：\n\n[docs/ops/BUG-20260706-0002_A2-Security-Regression-Gate_REPORT.md](/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate/docs/ops/BUG-20260706-0002_A2-Security-Regression-Gate_REPORT.md)\n\n核心结论：`/home` 今日饲料消耗/今日用水依赖 `/api/v3/iot/devices/all-summary`，但该 IoT 汇总链路只有 JWT Guard，缺少后端菜单 RBAC 和 DataScope 过滤；同时存在两个同路径 `all-summary` 实现，其中一个把 `feedToday/waterToday` 固定为 `null`。因此不建议放行显示修复，需先由后端消除路由歧义并补齐 RBAC/DataScope。\n\n提交：`beefce6e docs(ops): record a2 security gate for home kpi bug`\n\n验证：已运行合同要求的 `pwd`、分支、状态、日志检查，以及只读 `rg/sed/nl` 证据定位。未改代码、未跑迁移、未写数据库、未部署、未推送。工作区最终干净。\nBaseline autopilot skipped by caller;",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-06T07:56:57.531Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260706-0002-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/shareholders/dashboard/page.tsx",
+        "apps/api/src/modules/org/entities/sys-user-farm-scope.entity.ts",
+        "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+        "apps/api/src/modules/uat/services/uat-feedback.service.ts",
+        "apps/api/src/modules/uat/services/pilot-run-dashboard.service.ts",
+        "apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts",
+        "apps/api/src/modules/uat/controllers/uat-feedback.controller.ts",
+        "apps/api/src/modules/farm/farm-sales.controller.ts",
+        "apps/api/src/modules/farm/farm.cron.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.ts",
+        "apps/api/src/modules/farm/farm.controller.ts",
+        "apps/api/src/modules/farm/farm-egg.controller.ts",
+        "apps/api/src/modules/farm/farm-egg.service.ts",
+        "apps/api/src/modules/farm/farm.module.ts",
+        "apps/api/src/modules/farm/farm.service.ts",
+        "apps/api/src/modules/farm/farm-sales.service.ts",
+        "apps/api/src/modules/farm/farm-feed.controller.ts",
+        "apps/api/src/modules/farm/farm-feed.service.ts",
+        "apps/api/src/modules/farm/farm-medicine.controller.ts",
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/app/(admin)/quality/farm/page.tsx",
+        "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
+        "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx",
+        "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+        "apps/web/src/app/(mobile)/mobile/home/page.tsx",
+        "apps/web/src/app/(admin)/packaging/daily-report/page.tsx",
+        "apps/web/src/app/(admin)/daily-work/page.tsx",
+        "apps/web/src/app/(admin)/dashboard/page.tsx",
+        "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+        "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx"
+      ],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nnode scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-01-A2-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A2-Security-Regression-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate\nBranch: w5-a2-security-regression-gate\nPrompt: docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-01-A2-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-01-A2-worker-assembled-prompt.md\nAssembled prompt chars: 31322\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-06T07-56-56-257Z-A2-Security-Regression-Gate.md\nFAIL / HOLD.\n\n已完成 A2 安全回归门禁报告，并按允许范围只提交了 docs/ops 报告：\n\n[docs/ops/BUG-20260706-0002_A2-Security-Regression-Gate_REPORT.md](/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate/docs/ops/BUG-20260706-0002_A2-Security-Regression-Gate_REPORT.md)\n\n核心结论：`/home` 今日饲料消耗/今日用水依赖 `/api/v3/iot/devices/all-summary`，但该 IoT 汇总链路只有 JWT Guard，缺少后端菜单 RBAC 和 DataScope 过滤；同时存在两个同路径 `all-summary` 实现，其中一个把 `feedToday/waterToday` 固定为 `null`。因此不建议放行显示修复，需先由后端消除路由歧义并补齐 RBAC/DataScope。\n\n提交：`beefce6e docs(ops): record a2 security gate for home kpi bug`\n\n验证：已运行合同要求的 `pwd`、分支、状态、日志检查，以及只读 `rg/sed/nl` 证据定位。未改代码、未跑迁移、未写数据库、未部署、未推送。工作区最终干净。\nBaseline autopilot skipped by caller;",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-06T07:56:57.531Z"
     }
   },
   "updatedBy": "bug_intake_runner"
