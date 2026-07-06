@@ -471,7 +471,9 @@ export class FarmService {
          SUM(dl.eggs_produced)::int           AS eggs,
          SUM(dl.mortality_qty)::int           AS mortality,
          SUM(COALESCE(dl.elimination_qty,0))::int AS elimination,
-         SUM(dl.feed_consumed)::numeric(12,2) AS feed,
+         SUM(COALESCE(dl.feed_consumed,0))::numeric(12,2) AS feed,
+         SUM(COALESCE(dl.water_consumed,0))::numeric(12,2) AS water,
+         COUNT(*)::int AS log_count,
          string_agg(DISTINCT dl.culling_reason, '；')
            FILTER (WHERE dl.culling_reason IS NOT NULL AND dl.culling_reason <> '') AS culling_reason,
          -- G27-D：mobile/henreport 显示 mortality_reason（G19-A 字段同步）
@@ -496,6 +498,7 @@ export class FarmService {
       const mortality = Number(log?.mortality ?? 0);
       const elimination = Number(log?.elimination ?? 0);
       const feed = Number(log?.feed ?? 0);
+      const water = Number(log?.water ?? 0);
       const currentQty = Number(f.current_qty ?? 0);
       const layRate = currentQty > 0 ? ((eggs / currentQty) * 100).toFixed(2) : '0.00';
       const placementDate = f.placement_date ? new Date(f.placement_date) : null;
@@ -516,6 +519,8 @@ export class FarmService {
         total_loss: mortality + elimination,
         culling_reason: log?.culling_reason ?? null,
         feed,
+        water,
+        has_daily_log: Number(log?.log_count ?? 0) > 0,
       };
     });
 
@@ -527,13 +532,16 @@ export class FarmService {
         acc.elimination += r.elimination;
         acc.total_loss += r.total_loss;
         acc.feed += r.feed;
+        acc.water += r.water;
+        if (r.has_daily_log) acc.logged_houses += 1;
         return acc;
       },
-      { current_qty: 0, eggs: 0, mortality: 0, elimination: 0, total_loss: 0, feed: 0 },
+      { current_qty: 0, eggs: 0, mortality: 0, elimination: 0, total_loss: 0, feed: 0, water: 0, logged_houses: 0 },
     );
     totals.lay_rate =
       totals.current_qty > 0 ? ((totals.eggs / totals.current_qty) * 100).toFixed(2) : '0.00';
     totals.feed = Number(totals.feed.toFixed(2));
+    totals.water = Number(totals.water.toFixed(2));
 
     return { code: 200, date, rows, totals };
   }

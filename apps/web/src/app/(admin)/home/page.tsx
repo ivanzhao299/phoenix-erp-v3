@@ -113,7 +113,14 @@ export default function HomePage() {
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [todoList, setTodoList] = useState<TodoTask[]>([]);
   // G19-E：养殖运营 KPI（拼合现有 farm/iot endpoint，不新建后端）
-  const [farmKpi, setFarmKpi] = useState<{ totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number; waterToday?: number; alarmCount?: number } | null>(null);
+  const [farmKpi, setFarmKpi] = useState<{
+    totalStock?: number;
+    layRate?: number;
+    eggsToday?: number;
+    feedToday?: number | null;
+    waterToday?: number | null;
+    alarmCount?: number;
+  } | null>(null);
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
@@ -144,13 +151,32 @@ export default function HomePage() {
         request<any>(`/v3/iot/devices/all-summary`).catch(() => null),
       ]).then(([hen, iot]) => {
         const rows = hen?.data || hen?.rows || hen || [];
+        const totals = hen?.totals || hen?.data?.totals || null;
         const totalStock = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.current_qty) || Number(r.total_qty) || 0), 0) : 0;
         const eggsToday  = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.eggs) || 0), 0) : 0;
         const layRate    = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
         const summary    = iot?.data?.summary;
         const houses     = iot?.data?.houses || [];
-        const feedToday  = Array.isArray(houses) ? houses.reduce((s: number, h: any) => s + (Number(h.feedToday) || 0), 0) : 0;
-        const waterToday = Array.isArray(houses) ? houses.reduce((s: number, h: any) => s + (Number(h.waterToday) || 0), 0) : 0;
+        const sumKnown = (field: 'feedToday' | 'waterToday') => {
+          if (!Array.isArray(houses)) return null;
+          let hasKnown = false;
+          const total = houses.reduce((s: number, h: any) => {
+            const raw = h?.[field];
+            if (raw == null || raw === '') return s;
+            const n = Number(raw);
+            if (!Number.isFinite(n)) return s;
+            hasKnown = true;
+            return s + n;
+          }, 0);
+          return hasKnown ? total : null;
+        };
+        const hasDailyLog = Number(totals?.logged_houses ?? 0) > 0;
+        const feedToday = hasDailyLog
+          ? Number(totals?.feed ?? 0)
+          : sumKnown('feedToday');
+        const waterToday = hasDailyLog
+          ? Number(totals?.water ?? 0)
+          : sumKnown('waterToday');
         const alarmCount = summary?.totalAlarms ?? 0;
         setFarmKpi({ totalStock, layRate, eggsToday, feedToday, waterToday, alarmCount });
       });
