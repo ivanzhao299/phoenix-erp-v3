@@ -13261,5 +13261,21 @@
   "system.bugIntake.waitingLocalWorker": "Waiting for local worker",
   "system.bugIntake.noAgentResult": "None",
   "system.bugIntake.waitingRunnerLifecycle": "Waiting for runner lifecycle",
-  "system.bugIntake.noRunnerLifecycle": "No local runner lifecycle writeback yet"
+  "system.bugIntake.noRunnerLifecycle": "No local runner lifecycle writeback yet",
+  "auto.literal.chanjet.statementReports.tab": "Subject/report readonly",
+  "auto.literal.chanjet.statementReports.readonlyReports": "Readonly reports",
+  "auto.literal.chanjet.statementReports.rowEvidence": "Row evidence",
+  "auto.literal.chanjet.statementReports.snapshotSource": "From chanjet_entity_snapshots",
+  "auto.literal.chanjet.statementReports.blockPrimaryCard": "Missing fields cannot feed primary cards",
+  "auto.literal.chanjet.statementReports.continueReadonlySync": "Continue readonly sync for evidence",
+  "auto.literal.chanjet.statementReports.primarySwitchNo": "Primary card switch: no",
+  "auto.literal.chanjet.statementReports.samplePrefix": "· samples",
+  "auto.literal.chanjet.statementReports.latestPulledPrefix": "· latest pull",
+  "auto.literal.chanjet.statementReports.amountFieldCandidates": "Amount field candidates",
+  "auto.literal.chanjet.statementReports.missingFields": "Missing fields",
+  "auto.literal.chanjet.statementReports.blockers": "Blocker reasons",
+  "auto.literal.chanjet.statementReports.rowKey": "Row key",
+  "auto.literal.chanjet.statementReports.bookPeriod": "Book / period",
+  "auto.literal.chanjet.statementReports.evidenceExcerpt": "Evidence excerpt",
+  "auto.literal.chanjet.statementReports.noReport": "No subject/report readonly report yet."
 }

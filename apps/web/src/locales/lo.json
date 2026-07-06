@@ -13261,5 +13261,21 @@
   "system.bugIntake.waitingLocalWorker": "ລໍຖ້າ local worker",
   "system.bugIntake.noAgentResult": "ບໍ່ມີ",
   "system.bugIntake.waitingRunnerLifecycle": "ລໍຖ້າ runner lifecycle",
-  "system.bugIntake.noRunnerLifecycle": "ຍັງບໍ່ມີ local runner lifecycle writeback"
+  "system.bugIntake.noRunnerLifecycle": "ຍັງບໍ່ມີ local runner lifecycle writeback",
+  "auto.literal.chanjet.statementReports.tab": "ລາຍງານບັນຊີ/ງົບອ່ານຢ່າງດຽວ",
+  "auto.literal.chanjet.statementReports.readonlyReports": "ລາຍງານອ່ານຢ່າງດຽວ",
+  "auto.literal.chanjet.statementReports.rowEvidence": "ຫຼັກຖານລະດັບແຖວ",
+  "auto.literal.chanjet.statementReports.snapshotSource": "ມາຈາກ chanjet_entity_snapshots",
+  "auto.literal.chanjet.statementReports.blockPrimaryCard": "ຂາດຟິວບໍ່ສາມາດປ້ອນກາດຫຼັກ",
+  "auto.literal.chanjet.statementReports.continueReadonlySync": "ສືບຕໍ່ sync ອ່ານຢ່າງດຽວເພື່ອເພີ່ມຫຼັກຖານ",
+  "auto.literal.chanjet.statementReports.primarySwitchNo": "ສະຫຼັບກາດຫຼັກ: ບໍ່",
+  "auto.literal.chanjet.statementReports.samplePrefix": "· ຕົວຢ່າງ",
+  "auto.literal.chanjet.statementReports.latestPulledPrefix": "· ດຶງຂໍ້ມູນຫຼ້າສຸດ",
+  "auto.literal.chanjet.statementReports.amountFieldCandidates": "ຕົວເລືອກຟິວຈຳນວນເງິນ",
+  "auto.literal.chanjet.statementReports.missingFields": "ຟິວທີ່ຂາດ",
+  "auto.literal.chanjet.statementReports.blockers": "ເຫດຜົນບລັອກ",
+  "auto.literal.chanjet.statementReports.rowKey": "ຄີແຖວ",
+  "auto.literal.chanjet.statementReports.bookPeriod": "ຊຸດບັນຊີ / ງວດ",
+  "auto.literal.chanjet.statementReports.evidenceExcerpt": "ຂໍ້ມູນຫຼັກຖານຫຍໍ້",
+  "auto.literal.chanjet.statementReports.noReport": "ຍັງບໍ່ມີລາຍງານອ່ານຢ່າງດຽວ."
 }

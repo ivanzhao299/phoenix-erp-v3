@@ -13261,5 +13261,21 @@
   "system.bugIntake.waitingLocalWorker": "等待本地 worker",
   "system.bugIntake.noAgentResult": "暂无",
   "system.bugIntake.waitingRunnerLifecycle": "等待 runner lifecycle",
-  "system.bugIntake.noRunnerLifecycle": "暂无本地 runner lifecycle 回写"
+  "system.bugIntake.noRunnerLifecycle": "暂无本地 runner lifecycle 回写",
+  "auto.literal.chanjet.statementReports.tab": "科目/报表只读",
+  "auto.literal.chanjet.statementReports.readonlyReports": "只读报表",
+  "auto.literal.chanjet.statementReports.rowEvidence": "行级证据",
+  "auto.literal.chanjet.statementReports.snapshotSource": "来自 chanjet_entity_snapshots",
+  "auto.literal.chanjet.statementReports.blockPrimaryCard": "缺字段时不能喂主卡片",
+  "auto.literal.chanjet.statementReports.continueReadonlySync": "继续只读同步补证据",
+  "auto.literal.chanjet.statementReports.primarySwitchNo": "主卡片切换: 否",
+  "auto.literal.chanjet.statementReports.samplePrefix": "· 样本",
+  "auto.literal.chanjet.statementReports.latestPulledPrefix": "· 最近拉取",
+  "auto.literal.chanjet.statementReports.amountFieldCandidates": "金额字段候选",
+  "auto.literal.chanjet.statementReports.missingFields": "缺失字段",
+  "auto.literal.chanjet.statementReports.blockers": "阻断原因",
+  "auto.literal.chanjet.statementReports.rowKey": "行键",
+  "auto.literal.chanjet.statementReports.bookPeriod": "账套 / 期间",
+  "auto.literal.chanjet.statementReports.evidenceExcerpt": "证据摘录",
+  "auto.literal.chanjet.statementReports.noReport": "暂无科目/报表只读报告。"
 }
