@@ -37,12 +37,12 @@ export default function SecurityPolicyPage() {
       return;
     }
     const auditRequest = auditPerm.canView
-      ? fetch("/api/crud/sys_approval_log?limit=50&sort=id&order=desc", {
+      ? fetch("/api/audit/logs?limit=50", {
         headers: hdr()
       }).then(r => r.json()).catch(() => ({}))
       : Promise.resolve({ data: [] });
     const usersRequest = userPerm.canView
-      ? fetch("/api/crud/sys_users?limit=500", {
+      ? fetch("/api/users", {
         headers: hdr()
       }).then(r => r.json()).catch(() => ({
         data: []

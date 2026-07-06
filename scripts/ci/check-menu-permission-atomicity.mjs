@@ -766,11 +766,11 @@ for (const file of trackedFiles()) {
     if (!/usePermission\(["']MENU_SETTINGS_SECURITY["']\)/.test(text) || !/securityPerm\.canView/.test(text)) {
       add(file, 1, 'Security settings page must gate route rendering with MENU_SETTINGS_SECURITY before showing policy content.', lines[0] || file);
     }
-    if (!/usePermission\(["']MENU_SETTINGS_USER["']\)/.test(text) || !/userPerm\.canView[\s\S]*\/api\/crud\/sys_users/.test(text)) {
-      add(file, 1, 'Security settings page must only call sys_users when MENU_SETTINGS_USER is available.', lines[0] || file);
+    if (!/usePermission\(["']MENU_SETTINGS_USER["']\)/.test(text) || !/userPerm\.canView[\s\S]*\/api\/users/.test(text)) {
+      add(file, 1, 'Security settings page must only call the managed users API when MENU_SETTINGS_USER is available.', lines[0] || file);
     }
-    if (!/usePermission\(["']MENU_SETTINGS_AUDIT["']\)/.test(text) || !/auditPerm\.canView[\s\S]*\/api\/crud\/sys_approval_log/.test(text)) {
-      add(file, 1, 'Security settings page must only call audit logs when MENU_SETTINGS_AUDIT is available.', lines[0] || file);
+    if (!/usePermission\(["']MENU_SETTINGS_AUDIT["']\)/.test(text) || !/auditPerm\.canView[\s\S]*\/api\/audit\/logs/.test(text)) {
+      add(file, 1, 'Security settings page must only call the managed audit API when MENU_SETTINGS_AUDIT is available.', lines[0] || file);
     }
   }
 

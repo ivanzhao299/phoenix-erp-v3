@@ -147,10 +147,10 @@ export default function AuditLogPage() {
       const params = buildParams(pg);
       const metricParams = buildParams(1, 1000);
       const [r, mr] = await Promise.all([
-        fetch(`/api/crud/sys_approval_log?${params}`, {
+        fetch(`/api/audit/logs?${params}`, {
           headers: hdr()
         }),
-        fetch(`/api/crud/sys_approval_log?${metricParams}`, {
+        fetch(`/api/audit/logs?${metricParams}`, {
           headers: hdr()
         })
       ]);

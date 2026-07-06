@@ -1105,6 +1105,59 @@ export class AnalyticsBffController {
 export class AuditBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
+  @Get('logs')
+  async getLogs(
+    @Query('limit') limitRaw = '50',
+    @Query('offset') offsetRaw = '0',
+    @Query('action') action = '',
+    @Query('q') q = '',
+    @Query('date_from') dateFrom = '',
+    @Query('date_to') dateTo = '',
+  ) {
+    const limit = Math.min(Math.max(Number(limitRaw) || 50, 1), 1000);
+    const offset = Math.max(Number(offsetRaw) || 0, 0);
+    const where: string[] = [];
+    const params: any[] = [];
+    const addParam = (value: any) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+
+    if (action && action !== 'ALL') {
+      where.push(`action = ${addParam(action)}`);
+    }
+    if (q.trim()) {
+      const p = addParam(`%${q.trim()}%`);
+      where.push(`(doc_type ILIKE ${p} OR action ILIKE ${p} OR comment ILIKE ${p} OR approver_role ILIKE ${p})`);
+    }
+    if (dateFrom) {
+      where.push(`created_at >= ${addParam(dateFrom)}`);
+    }
+    if (dateTo) {
+      where.push(`created_at < (${addParam(dateTo)}::date + INTERVAL '1 day')`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const countParams = [...params];
+    const rowsParams = [...params, limit, offset];
+    try {
+      const [countRows, data] = await Promise.all([
+        this.em.query(`SELECT COUNT(*)::int AS total FROM sys_approval_log ${whereSql}`, countParams),
+        this.em.query(
+          `SELECT id, doc_type, doc_id, approver_role, approver_id, action, comment, created_at
+             FROM sys_approval_log
+             ${whereSql}
+            ORDER BY created_at DESC, id DESC
+            LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+          rowsParams,
+        ),
+      ]);
+      return { code: 200, data, total: Number(countRows[0]?.total || 0) };
+    } catch (e: any) {
+      return { code: 200, data: [], total: 0, error: e?.message };
+    }
+  }
+
   @Get('workbench')
   async getWorkbench() {
     try {
