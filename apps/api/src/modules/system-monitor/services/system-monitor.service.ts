@@ -34,13 +34,16 @@ export class SystemMonitorService {
     const [dbOk, poolInfo] = await this.checkDb();
     const mem  = this.getMemoryUsage();
     const cpu  = this.getCpuUsage();
-    const [errorCount, alertCount] = await Promise.all([
+    const [errorCount, alertSummary, errorStats, alertDelivery] = await Promise.all([
       this.getRecentErrorCount(),
-      this.getUnresolvedAlertCount(),
+      this.getAlertSummary(),
+      this.getErrorStats().catch(() => ({ summary: [], recent: [] })),
+      this.getAlertDeliverySummary(),
     ]);
+    const status = !dbOk || mem.pressure || errorCount > 0 || alertSummary.actionableOpen > 0 ? 'DEGRADED' : 'HEALTHY';
 
     return {
-      status:     dbOk && !mem.pressure ? 'HEALTHY' : 'DEGRADED',
+      status,
       timestamp:  new Date().toISOString(),
       database: {
         connected: dbOk,
@@ -49,7 +52,27 @@ export class SystemMonitorService {
       memory:       mem,
       cpu:          cpu,
       recentErrors: errorCount,
-      openAlerts:   alertCount,
+      openAlerts:   alertSummary.unresolvedTotal,
+      alerts:       alertSummary,
+      errors: {
+        summary24h: errorStats.summary,
+        recent1h: errorStats.recent,
+      },
+      alertDelivery,
+      sources: {
+        health: 'api/system/monitor/health',
+        errors: 'sys_error_logs',
+        alerts: 'sys_alerts',
+        notifications: 'sys_notifications',
+        database: 'pg_stat_database + TypeORM DataSource',
+        runtime: 'Node.js process metrics',
+      },
+      operations: {
+        alertsPage: '/system/alerts?resolved=false',
+        errorLogsPage: '/system/error-logs',
+        backupPage: '/system/backup',
+        configPage: '/system/configs',
+      },
     };
   }
 
@@ -221,5 +244,113 @@ export class SystemMonitorService {
       );
       return Number(r[0]?.c ?? 0);
     } catch { return 0; }
+  }
+
+  private async getAlertSummary() {
+    try {
+      const rows = await this.ds.query<any[]>(
+        `SELECT
+           COUNT(*) FILTER (WHERE resolved = FALSE)::int AS unresolved_total,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND severity IN ('CRITICAL','WARNING')
+               AND created_at > NOW() - INTERVAL '7 days'
+           )::int AS actionable_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND severity = 'CRITICAL'
+               AND created_at > NOW() - INTERVAL '7 days'
+           )::int AS critical_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND created_at <= NOW() - INTERVAL '7 days'
+           )::int AS stale_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND alert_type = 'IOT_DEVICE_ALERT'
+               AND created_at <= NOW() - INTERVAL '7 days'
+           )::int AS stale_iot_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND created_at > NOW() - INTERVAL '24 hours'
+           )::int AS opened_24h
+         FROM sys_alerts`,
+      );
+      const byType = await this.ds.query<any[]>(
+        `SELECT alert_type, severity, COUNT(*)::int AS count, MAX(created_at) AS last_seen
+           FROM sys_alerts
+          WHERE resolved = FALSE
+          GROUP BY alert_type, severity
+          ORDER BY count DESC, last_seen DESC
+          LIMIT 10`,
+      );
+      const row = rows[0] ?? {};
+      return {
+        unresolvedTotal: Number(row.unresolved_total ?? 0),
+        actionableOpen: Number(row.actionable_open ?? 0),
+        criticalOpen: Number(row.critical_open ?? 0),
+        staleOpen: Number(row.stale_open ?? 0),
+        staleIotOpen: Number(row.stale_iot_open ?? 0),
+        opened24h: Number(row.opened_24h ?? 0),
+        byType,
+        semantics: {
+          unresolvedTotal: '历史未处理告警总量，包含早期沉积，不直接等同当前故障。',
+          actionableOpen: '近 7 天 CRITICAL/WARNING 未处理告警，作为当前值班待办口径。',
+          staleOpen: '超过 7 天仍未处理的告警，需批量归档或重新生成有效告警。',
+        },
+      };
+    } catch {
+      return {
+        unresolvedTotal: 0,
+        actionableOpen: 0,
+        criticalOpen: 0,
+        staleOpen: 0,
+        staleIotOpen: 0,
+        opened24h: 0,
+        byType: [],
+        semantics: {
+          unresolvedTotal: 'sys_alerts 不可读。',
+          actionableOpen: 'sys_alerts 不可读。',
+          staleOpen: 'sys_alerts 不可读。',
+        },
+      };
+    }
+  }
+
+  private async getAlertDeliverySummary() {
+    try {
+      const [recipientRow, notificationRow] = await Promise.all([
+        this.ds.query<any[]>(
+          `SELECT COUNT(DISTINCT u.user_id)::int AS recipient_count
+             FROM sys_user u
+             JOIN sys_user_role ur ON ur.user_id = u.user_id
+             JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
+             JOIN sys_menu m ON m.menu_id = rmp.menu_id
+            WHERE u.status = 1
+              AND m.menu_code = 'MENU_SYS_MONITOR'
+              AND (rmp.perm_codes = '*' OR 'V' = ANY(string_to_array(COALESCE(rmp.perm_codes, ''), ',')))`,
+        ),
+        this.ds.query<any[]>(
+          `SELECT COUNT(*)::int AS notification_count
+             FROM sys_notifications
+            WHERE notification_type = 'SYSTEM_ALERT'
+              AND biz_type = 'SYS_ALERT'
+              AND created_at > NOW() - INTERVAL '24 hours'`,
+        ),
+      ]);
+      return {
+        monitorRecipients: Number(recipientRow[0]?.recipient_count ?? 0),
+        alertNotificationsLast24h: Number(notificationRow[0]?.notification_count ?? 0),
+        mode: 'STATION_NOTIFICATION',
+        healthy: Number(recipientRow[0]?.recipient_count ?? 0) > 0,
+      };
+    } catch {
+      return {
+        monitorRecipients: 0,
+        alertNotificationsLast24h: 0,
+        mode: 'UNKNOWN',
+        healthy: false,
+      };
+    }
   }
 }

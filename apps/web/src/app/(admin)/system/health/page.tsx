@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { Activity, Database, Cpu, Server, AlertTriangle, RefreshCw, CheckCircle, XCircle, Clock, TrendingUp, ShieldAlert } from "lucide-react";
@@ -33,6 +34,28 @@ interface HealthSummary {
   };
   recentErrors: number;
   openAlerts: number;
+  alerts?: {
+    unresolvedTotal: number;
+    actionableOpen: number;
+    criticalOpen: number;
+    staleOpen: number;
+    staleIotOpen: number;
+    opened24h: number;
+    byType?: Array<{ alert_type: string; severity: string; count: number; last_seen: string }>;
+    semantics?: Record<string, string>;
+  };
+  alertDelivery?: {
+    monitorRecipients: number;
+    alertNotificationsLast24h: number;
+    mode: string;
+    healthy: boolean;
+  };
+  operations?: {
+    alertsPage: string;
+    errorLogsPage: string;
+    backupPage: string;
+    configPage: string;
+  };
 }
 interface ErrorStat {
   error_type: string;
@@ -72,7 +95,9 @@ function getHealthReasons(summary: HealthSummary | null): string[] {
     reasons.push(`进程内存压力偏高：heap ${summary.memory.heapUsedMB}MB / RSS ${summary.memory.rssMB}MB`);
   }
   if (summary.recentErrors > 0) reasons.push(`近 1 小时存在 ${summary.recentErrors} 条系统错误，需查看错误分布`);
-  if (summary.openAlerts > 0) reasons.push(`存在 ${summary.openAlerts} 条未处理告警`);
+  if ((summary.alerts?.actionableOpen ?? 0) > 0) reasons.push(`存在 ${summary.alerts?.actionableOpen} 条当前值班待办告警`);
+  if ((summary.alerts?.staleOpen ?? 0) > 0) reasons.push(`${summary.alerts?.staleOpen} 条历史未处理告警需要归档复核，不等同当前故障`);
+  if (summary.alertDelivery && !summary.alertDelivery.healthy) reasons.push("系统告警触达对象为空，需要给值班角色配置 MENU_SYS_MONITOR");
   if (reasons.length === 0) reasons.push("核心探针正常，未发现阻断项");
   return reasons;
 }
@@ -152,17 +177,48 @@ function MetricCard({
     }}>{sub}</div>}
     </div>;
 }
+
+function OpsLinkCard({
+  href,
+  title,
+  desc,
+}: {
+  href: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        display: "block",
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "14px 16px",
+        color: "inherit",
+        textDecoration: "none",
+      }}
+    >
+      <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>{desc}</div>
+    </Link>
+  );
+}
+
 export default function SystemHealthPage() {
   const {
     t
   } = useLanguage();
   const [summary, setSummary] = useState<HealthSummary | null>(null);
   const [errorStats, setErrorStats] = useState<ErrorStat[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>("");
   const tok = () => typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") ?? "" : "";
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const headers = {
         Authorization: `Bearer ${tok()}`
@@ -174,10 +230,15 @@ export default function SystemHealthPage() {
       })]);
       if (healthRes.status === "fulfilled" && healthRes.value.ok) {
         setSummary(await healthRes.value.json());
+      } else {
+        setSummary(null);
+        setLoadError("系统监控摘要接口读取失败：请检查 MENU_SYS_MONITOR 权限、登录状态或 API 可用性。");
       }
       if (errRes.status === "fulfilled" && errRes.value.ok) {
         const d = await errRes.value.json();
         setErrorStats(d.summary ?? []);
+      } else {
+        setErrorStats([]);
       }
     } finally {
       setLoading(false);
@@ -191,6 +252,9 @@ export default function SystemHealthPage() {
   }, [fetchData]);
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
   const healthReasons = getHealthReasons(summary);
+  const actionableAlerts = summary?.alerts?.actionableOpen ?? 0;
+  const staleAlerts = summary?.alerts?.staleOpen ?? 0;
+  const unresolvedTotal = summary?.alerts?.unresolvedTotal ?? summary?.openAlerts ?? 0;
   const cpuTotal = typeof summary?.cpu.totalMs === "number"
     ? summary.cpu.totalMs
     : typeof summary?.cpu.userMs === "number" && typeof summary?.cpu.systemMs === "number"
@@ -225,6 +289,11 @@ export default function SystemHealthPage() {
           <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
             {healthReasons.join("；")}
           </div>
+          {loadError && (
+            <div style={{ fontSize: 12, color: "var(--status-danger)", lineHeight: 1.6 }}>
+              {loadError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -239,7 +308,7 @@ export default function SystemHealthPage() {
         <MetricCard icon={<Cpu size={16} />} title={t('ui.堆内存占用','堆内存占用')} value={summary?.memory.heapUsedMB ?? "—"} unit="MB" borderColor={memoryPressure ? "var(--status-warning)" : "var(--status-success)"} sub={`V8 上限占用 ${summary?.memory.usedPct ?? "—"}%；已分配堆 ${summary?.memory.heapAllocatedPct ?? "—"}%；RSS ${summary?.memory.rssMB ?? "—"} MB`} />
         <MetricCard icon={<Server size={16} />} title={t('ui.进程内存 (RSS)','进程内存 (RSS)')} value={summary?.memory.rssMB ?? "—"} unit="MB" borderColor="var(--color-purple-600)" sub={t('ui.Node.js 进程驻留集','Node.js 进程驻留集')} />
         <MetricCard icon={<AlertTriangle size={16} />} title={t('ui.近 1h 错误数','近 1h 错误数')} value={summary?.recentErrors ?? "—"} borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"} sub={t('ui.系统 500/PG 错误','系统 500/PG 错误')} />
-        <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.未处理告警','未处理告警')} value={summary?.openAlerts ?? "—"} borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={t('ui.点击告警页面处理','点击告警页面处理')} />
+        <MetricCard icon={<ShieldAlert size={16} />} title={t('ui.当前值班待办','当前值班待办')} value={summary ? actionableAlerts : "—"} borderColor={actionableAlerts > 0 ? "var(--status-warning)" : "var(--status-success)"} sub={`近 7 天 CRITICAL/WARNING；历史未处理 ${summary ? unresolvedTotal.toLocaleString() : "—"} 条`} />
         <MetricCard icon={<Activity size={16} />} title={t('ui.CPU 平均占用','CPU 平均占用')} value={summary?.cpu.avgCpuPct != null ? `${summary.cpu.avgCpuPct}%` : "—"} borderColor="var(--status-info)" sub={`启动 ${formatDuration(summary?.cpu.uptimeSec)}；累计 ${formatMs(cpuTotal)}（用户态 ${formatMs(summary?.cpu.userMs)} / 系统态 ${formatMs(summary?.cpu.systemMs)}）`} />
       </div>
 
@@ -247,9 +316,21 @@ export default function SystemHealthPage() {
         <Clock size={16} />
         <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
           <strong style={{ color: "var(--text-primary)" }}>页面价值：</strong>
-          这里用于值班人员判断生产 API 是否可用、数据库是否在线、进程内存是否异常、近 1 小时是否有 500/PG 错误，以及是否有未处理系统告警。
-          CPU 展示为进程启动以来平均占用，累计时间只是排障参考，不代表当前请求延迟。
+          这里统一系统运维的入口：先看 API/DB/内存/错误/告警触达是否正常，再进入错误日志、告警台账、备份与配置。
+          “当前值班待办”只统计近 7 天需要处理的严重/警告告警；历史未处理沉积单独展示，避免把过期 IoT 告警误当成当前故障。
         </div>
+      </div>
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+        gap: 14,
+        marginBottom: 24,
+      }}>
+        <OpsLinkCard href="/system/alerts?resolved=false" title="告警台账" desc={`当前待办 ${summary ? actionableAlerts : "—"} 条；历史沉积 ${summary ? staleAlerts.toLocaleString() : "—"} 条，处理后保留审计。`} />
+        <OpsLinkCard href="/system/error-logs" title="错误日志" desc={`近 1 小时 500/PG 错误 ${summary?.recentErrors ?? "—"} 条，点击查看 request、用户、IP 与堆栈。`} />
+        <OpsLinkCard href="/system/backup" title="备份与恢复" desc="查看备份记录、计划配置、手动发起备份请求。恢复动作仍需人工 Gate。" />
+        <OpsLinkCard href="/system/configs" title="系统配置" desc="集中管理运行配置，避免散落到多个脆弱页面。" />
       </div>
 
       {/* 24h 错误类型分布 */}
