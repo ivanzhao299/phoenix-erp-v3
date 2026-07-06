@@ -659,3 +659,24 @@ Next actions:
    - When a deployment can identify one or more source bug numbers, CI/CD should write `BugIntakeCICD` results directly to those reports.
 2. `AUTHENTICATED_PLAYWRIGHT_POST_DEPLOY_SMOKE`
    - Upgrade HTTP route smoke to authenticated browser smoke for high-impact UI fixes.
+
+## 2026-07-06 — Chanjet P3 Subject Balance Readonly Report
+
+Current stage: `CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Backend API: `GET /api/chanjet/integration/subject-balance-readonly-report`.
+- UI entry: `/finance2/chanjet-integration`, tab `科目/报表只读`.
+- Readonly report coverage: `SUBJECT_BALANCE`, `BALANCE_SHEET`, `INCOME_STATEMENT`.
+- Audit artifact: `docs/ops/runs/chanjet-subject-balance-readonly-report-latest.*`.
+
+Next actions:
+
+1. `CHANJET_P4_VOUCHER_DRAFT_PREP`
+   - Generate ERP voucher drafts from approved readonly evidence only.
+   - Keep Chanjet writeback and voucher push blocked.
+2. Keep finance-card primary source switches gated by explicit authority rules.
+3. Continue data mapping cleanup for subject, project, cash account, counterparty, and report-line fields.

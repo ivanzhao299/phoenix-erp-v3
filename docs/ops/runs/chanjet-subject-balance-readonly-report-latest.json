@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-07-06T01:21:34.436Z",
+  "taskId": "CHANJET-P3-SUBJECT-BALANCE-READONLY-REPORT",
+  "decision": "GO_WITH_CONDITIONS",
+  "checks": [
+    {
+      "id": "api_service_method",
+      "title": "Backend readonly statement report service exists",
+      "pass": true
+    },
+    {
+      "id": "api_endpoint",
+      "title": "Backend endpoint is exposed behind Chanjet menu guard",
+      "pass": true
+    },
+    {
+      "id": "web_tab",
+      "title": "Frontend Chanjet integration page includes readonly report tab",
+      "pass": true
+    },
+    {
+      "id": "web_endpoint_call",
+      "title": "Frontend loads subject balance readonly report endpoint",
+      "pass": true
+    },
+    {
+      "id": "readonly_guardrails",
+      "title": "Readonly guardrails forbid Chanjet write, voucher push, ERP overwrite, and migration",
+      "pass": true
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "deploy": false
+  },
+  "nextAction": "Run API/Web typecheck and W5 gate, then keep Chanjet data readonly while finance cards are reconciled."
+}

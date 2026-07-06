@@ -1488,3 +1488,19 @@ Implemented production resilience additions:
 - Read-only production route smoke script.
 
 Current score: 96/100. Remaining gap to 100 is direct CI/CD bug correlation and authenticated visual smoke after deploy.
+
+## 2026-07-06 — Chanjet P3 Subject Balance Readonly Report
+
+Decision: `GO_WITH_CONDITIONS`
+
+The ERP now exposes Chanjet subject balance, balance sheet, and income statement rows as readonly report evidence through `GET /api/chanjet/integration/subject-balance-readonly-report` and the `/finance2/chanjet-integration` `科目/报表只读` tab.
+
+Guardrails remain active:
+
+- Chanjet write: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- Migration: false.
+- Finance-card primary source switch: false.
+
+Next decision point: `CHANJET_P4_VOUCHER_DRAFT_PREP`.

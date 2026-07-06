@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-06",
   "active_module": "Chanjet Integration",
-  "current_stage": "BUG_INTAKE_PIPELINE_V3_PRODUCTION_RESILIENCE_GO",
-  "active_decision": "GO",
-  "next_gate": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT",
+  "current_stage": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT_IMPLEMENTED",
+  "active_decision": "GO_WITH_CONDITIONS",
+  "next_gate": "CHANJET_P4_VOUCHER_DRAFT_PREP",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUED",
+    "current_stage": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "build_subject_balance_and_statement_readonly_reports_without_chanjet_writeback",
+    "next_action": "prepare_voucher_draft_readonly_mapping_without_chanjet_writeback",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -254,7 +254,17 @@
     "receipt_payment_system_confirmation": "implemented_lock_candidate_only",
     "receipt_payment_amount_sum_today_card_guard": "enforced_false",
     "receipt_payment_primary_authority": "blocked_until_readonly_reconciliation_and_authority_gate",
-    "receipt_payment_lock_continue_next_gate": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT"
+    "receipt_payment_lock_continue_next_gate": "CHANJET_P3_SUBJECT_BALANCE_READONLY_REPORT",
+    "subject_balance_readonly_report_api": "/api/chanjet/integration/subject-balance-readonly-report",
+    "subject_balance_readonly_report_ui": "/finance2/chanjet-integration#statementReports",
+    "subject_balance_readonly_report_script": "scripts/ops/chanjet-subject-balance-readonly-report-audit.mjs",
+    "subject_balance_readonly_report_json": "docs/ops/runs/chanjet-subject-balance-readonly-report-latest.json",
+    "subject_balance_readonly_report_md": "docs/ops/runs/chanjet-subject-balance-readonly-report-latest.md",
+    "readonly_statement_reports": [
+      "SUBJECT_BALANCE",
+      "BALANCE_SHEET",
+      "INCOME_STATEMENT"
+    ]
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -408,6 +408,50 @@ interface FinanceReadModelOverview {
   guardrails: { rule: string };
 }
 
+type FinanceReadonlyStatementReportStatus = 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'HOLD';
+
+interface FinanceReadonlyStatementReport {
+  reportKey: 'SUBJECT_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT';
+  reportLabel: string;
+  entityType: 'GL_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT';
+  status: FinanceReadonlyStatementReportStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  displayRule: string;
+  selectedValueFields: FinanceReadModelMetric['selectedValueFields'];
+  missingRequiredFields: string[];
+  blockerReasons: string[];
+  rows: Array<{
+    rowId: string;
+    rowKey: string;
+    rowName: string;
+    bookId: string;
+    period: string;
+    status: string;
+    amount: number | null;
+    currency: string;
+    latestPulledAt: string | null;
+    rawEvidenceExcerpt: Record<string, unknown>;
+  }>;
+  nextAction: string;
+}
+
+interface FinanceReadonlyStatementReportOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalReports: number;
+    readonlyReady: number;
+    blockedMapping: number;
+    waitingSample: number;
+    hold: number;
+    totalRows: number;
+    nextGate: string;
+  };
+  reports: FinanceReadonlyStatementReport[];
+  guardrails: { rule: string };
+}
+
 type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
 
 interface ReceiptPaymentDateStatusLock {
@@ -538,6 +582,7 @@ export default function ChanjetIntegrationPage() {
   const [financeRuntimeRecon, setFinanceRuntimeRecon] = useState<FinanceRuntimeReconciliation | null>(null);
   const [financeSemanticExtractors, setFinanceSemanticExtractors] = useState<FinanceSemanticExtractorsOverview | null>(null);
   const [financeReadModel, setFinanceReadModel] = useState<FinanceReadModelOverview | null>(null);
+  const [financeReadonlyReports, setFinanceReadonlyReports] = useState<FinanceReadonlyStatementReportOverview | null>(null);
   const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
@@ -552,7 +597,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, receiptPaymentLocksResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -568,6 +613,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; reconciliation: FinanceRuntimeReconciliation; error?: string }>('/chanjet/integration/finance-reconciliation'),
         request<{ success: boolean; semanticExtractors: FinanceSemanticExtractorsOverview; error?: string }>('/chanjet/integration/finance-semantic-extractors'),
         request<{ success: boolean; readModel: FinanceReadModelOverview; error?: string }>('/chanjet/integration/finance-read-model'),
+        request<{ success: boolean; readonlyReport: FinanceReadonlyStatementReportOverview; error?: string }>('/chanjet/integration/subject-balance-readonly-report'),
         request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
@@ -586,6 +632,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceRuntimeRecon(financeRuntimeReconResp.reconciliation || null);
       setFinanceSemanticExtractors(financeSemanticExtractorResp.semanticExtractors || null);
       setFinanceReadModel(financeReadModelResp.readModel || null);
+      setFinanceReadonlyReports(financeReadonlyReportResp.readonlyReport || null);
       setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
     } catch (e) {
       setError((e as Error).message);
@@ -740,6 +787,7 @@ export default function ChanjetIntegrationPage() {
           ['reconciliation', '对账差异'],
           ['semantic', '语义提取器'],
           ['readModel', '财务 Read Model'],
+          ['statementReports', '科目/报表只读'],
           ['receiptPaymentLocks', '收付款日期状态锁'],
           ['drafts', '凭证草稿'],
           ['fields', '字段目录'],
@@ -1359,6 +1407,137 @@ export default function ChanjetIntegrationPage() {
                 {!financeReadModel?.metrics?.length && <tr><td style={cellStyle} colSpan={6}>暂无财务 read model 数据。</td></tr>}
               </tbody>
             </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'statementReports' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <strong>科目余额 / 资产负债 / 利润表只读报表行</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                只展示好业财中间层行级证据；不写好业财，不推凭证，不把报表数静默覆盖到 ERP 财务卡片。
+              </div>
+            </div>
+            <Badge tone={financeReadonlyReports?.decision === 'GO' ? 'green' : financeReadonlyReports?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {financeReadonlyReports?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>只读报表</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadonlyReports?.summary?.readonlyReady ?? 0}/{financeReadonlyReports?.summary?.totalReports ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate: {financeReadonlyReports?.summary?.nextGate || '—'}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>行级证据</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadonlyReports?.summary?.totalRows ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>来自 chanjet_entity_snapshots</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>字段阻断</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{financeReadonlyReports?.summary?.blockedMapping ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺字段时不能喂主卡片</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺样本 / HOLD</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(financeReadonlyReports?.summary?.waitingSample ?? 0) + (financeReadonlyReports?.summary?.hold ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>继续只读同步补证据</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>只读边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{financeReadonlyReports?.guardrails?.rule || '本页只读 ERP 好业财中间层，不写好业财，不覆盖 ERP 业务表。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">ERP 业务表覆盖: 否</Badge>
+              <Badge tone="green">主卡片切换: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 14 }}>
+            {(financeReadonlyReports?.reports || []).map((report) => (
+              <div key={report.reportKey} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <strong>{report.reportLabel}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                      {report.reportKey} · {report.entityType} · 样本 {report.sampleRows} · 最近拉取 {fmtDate(report.latestPulledAt)}
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>{report.displayRule}</div>
+                  </div>
+                  <Badge tone={statusTone(report.status)}>{report.status}</Badge>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginBottom: 12 }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>金额字段候选</div>
+                    <div style={{ marginTop: 6, fontSize: 12 }}>
+                      {report.selectedValueFields.slice(0, 4).map((field) => `${field.semanticField}: ${field.candidatePath}`).join('；') || '暂无'}
+                    </div>
+                  </div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺失字段</div>
+                    <div style={{ marginTop: 6, color: report.missingRequiredFields.length ? 'var(--status-danger)' : 'var(--status-success)', fontSize: 12 }}>
+                      {report.missingRequiredFields.join(' / ') || '无'}
+                    </div>
+                  </div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>阻断原因</div>
+                    <div style={{ marginTop: 6, color: report.blockerReasons.length ? 'var(--status-warning)' : 'var(--status-success)', fontSize: 12 }}>
+                      {report.blockerReasons.join(' / ') || '无'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ ...tableStyle, minWidth: 1120 }}>
+                    <thead>
+                      <tr>{['行键', '名称', '账套 / 期间', '金额', '状态', '证据摘录'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {report.rows.slice(0, 25).map((row) => (
+                        <tr key={row.rowId}>
+                          <td style={cellStyle}>
+                            <strong>{row.rowKey}</strong>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>#{row.rowId}</div>
+                          </td>
+                          <td style={cellStyle}>{row.rowName || '—'}</td>
+                          <td style={cellStyle}>
+                            <div>{row.bookId || '—'}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{row.period || '—'}</div>
+                          </td>
+                          <td style={cellStyle}>
+                            <strong>{fmtMoney(row.amount)}</strong>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{row.currency || '—'}</div>
+                          </td>
+                          <td style={cellStyle}>
+                            <Badge tone={statusTone(row.status)}>{row.status || '—'}</Badge>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{fmtDate(row.latestPulledAt)}</div>
+                          </td>
+                          <td style={{ ...cellStyle, maxWidth: 420 }}>
+                            <code style={{ whiteSpace: 'normal', color: 'var(--text-secondary)', fontSize: 12 }}>
+                              {JSON.stringify(row.rawEvidenceExcerpt)}
+                            </code>
+                          </td>
+                        </tr>
+                      ))}
+                      {report.rows.length === 0 && <tr><td style={cellStyle} colSpan={6}>暂无只读报表行，请先执行好业财只读同步。</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                {report.rows.length > 25 && (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>仅展示最近 25 行；完整数据请走只读镜像审计。</div>
+                )}
+              </div>
+            ))}
+            {!financeReadonlyReports?.reports?.length && (
+              <div style={{ ...cardStyle, color: 'var(--text-secondary)' }}>暂无科目/报表只读报告。</div>
+            )}
           </div>
         </section>
       )}

@@ -732,6 +732,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/subject-balance-readonly-report
+   * 好业财科目余额表/资产负债表/利润表只读报表行。只读 ERP 中间层，不写好业财，不推凭证。
+   */
+  @Get('integration/subject-balance-readonly-report')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationSubjectBalanceReadonlyReport() {
+    try {
+      const readonlyReport = await this.integration.financeSubjectBalanceReadonlyReportOverview();
+      return { success: true, readonlyReport };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * GET /api/chanjet/integration/receipt-payment-locks
    * 好业财收/付款业务日、入账日、审核状态、作废状态和方向候选锁。只读 ERP 中间层。
    */

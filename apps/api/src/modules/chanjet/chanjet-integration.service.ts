@@ -121,6 +121,7 @@ export interface FinanceSemanticExtractor {
 }
 
 export type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
+export type FinanceReadonlyStatementReportStatus = 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'HOLD';
 export type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
 export type ReceiptPaymentSystemConfirmationStatus =
   | 'SYSTEM_CONFIRMED_LOCK_CANDIDATE'
@@ -149,6 +150,34 @@ export interface FinanceReadModelMetric {
     sampleValue: string | null;
   }>;
   reason: string;
+  nextAction: string;
+}
+
+export interface FinanceReadonlyStatementReportRow {
+  rowId: string;
+  rowKey: string;
+  rowName: string;
+  bookId: string;
+  period: string;
+  status: string;
+  amount: number | null;
+  currency: string;
+  latestPulledAt: string | null;
+  rawEvidenceExcerpt: Record<string, unknown>;
+}
+
+export interface FinanceReadonlyStatementReport {
+  reportKey: 'SUBJECT_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT';
+  reportLabel: string;
+  entityType: 'GL_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT';
+  status: FinanceReadonlyStatementReportStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  displayRule: string;
+  selectedValueFields: FinanceReadModelMetric['selectedValueFields'];
+  missingRequiredFields: string[];
+  blockerReasons: string[];
+  rows: FinanceReadonlyStatementReportRow[];
   nextAction: string;
 }
 
@@ -1732,6 +1761,130 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeSubjectBalanceReadonlyReportOverview(): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    summary: {
+      totalReports: number;
+      readonlyReady: number;
+      blockedMapping: number;
+      waitingSample: number;
+      hold: number;
+      totalRows: number;
+      nextGate: string;
+    };
+    reports: FinanceReadonlyStatementReport[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const readModel = await this.financeReadModelOverview();
+    const metricByKey = new Map(readModel.metrics.map((metric) => [metric.key, metric]));
+    const definitions: Array<{
+      reportKey: FinanceReadonlyStatementReport['reportKey'];
+      reportLabel: string;
+      entityType: FinanceReadonlyStatementReport['entityType'];
+      displayRule: string;
+      nextAction: string;
+    }> = [
+      {
+        reportKey: 'SUBJECT_BALANCE',
+        reportLabel: '科目余额表',
+        entityType: 'GL_BALANCE',
+        displayRule: '按账套、期间、科目维度展示好业财只读科目余额行；只作为财务对账证据，不覆盖 ERP 业务明细。',
+        nextAction: '继续对齐 ERP 科目、费用类型、现金账户与好业财科目编码，形成差异对账中心。',
+      },
+      {
+        reportKey: 'BALANCE_SHEET',
+        reportLabel: '资产负债表',
+        entityType: 'BALANCE_SHEET',
+        displayRule: '按账套、期间、报表项目展示资产负债表只读行；只用于管理报表校验，不写 ERP 事实表。',
+        nextAction: '锁定行次、报表项目、期初/期末金额字段后，再进入财务首页关键项对齐。',
+      },
+      {
+        reportKey: 'INCOME_STATEMENT',
+        reportLabel: '利润表',
+        entityType: 'INCOME_STATEMENT',
+        displayRule: '按账套、期间、利润表项目展示只读行；只作为经营报表证据，不替代 ERP 销售/POS 明细。',
+        nextAction: '锁定本期金额、累计金额、期间字段后，再进入利润表关键项对齐。',
+      },
+    ];
+
+    const reports = await Promise.all(definitions.map(async (definition) => {
+      const metric = metricByKey.get(definition.reportKey);
+      const rows = await this.entitySnapshotRepo.find({
+        where: { entityType: definition.entityType },
+        order: { updatedAt: 'DESC' },
+        take: 100,
+      });
+      const latestPulledAt = rows.reduce<string | null>(
+        (latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null),
+        metric?.latestPulledAt || null,
+      );
+      const status = this.buildReadonlyStatementReportStatus(metric, rows.length);
+      const blockerReasons = [
+        ...(rows.length === 0 ? ['missing_chanjet_report_samples'] : []),
+        ...((metric?.missingRequiredFields || []).length ? [`missing_required_fields:${metric?.missingRequiredFields.slice(0, 8).join('/')}`] : []),
+        ...(!metric || ['BLOCKED_MAPPING', 'NEED_MANUAL_REVIEW'].includes(metric.status) ? ['read_model_not_ready_for_primary_finance_card'] : []),
+        ...(metric?.status === 'HOLD' ? ['read_model_hold'] : []),
+      ];
+      return {
+        reportKey: definition.reportKey,
+        reportLabel: definition.reportLabel,
+        entityType: definition.entityType,
+        status,
+        sampleRows: rows.length,
+        latestPulledAt,
+        displayRule: definition.displayRule,
+        selectedValueFields: metric?.selectedValueFields || [],
+        missingRequiredFields: metric?.missingRequiredFields || [],
+        blockerReasons,
+        rows: rows.map((row) => ({
+          rowId: row.id,
+          rowKey: row.externalCode || row.externalId || row.externalName || `${row.entityType}-${row.id}`,
+          rowName: row.externalName || row.externalCode || row.externalId || row.entityType,
+          bookId: row.bookId,
+          period: row.period,
+          status: row.status,
+          amount: Number.isFinite(Number(row.amount)) ? Number(row.amount) : null,
+          currency: row.currency,
+          latestPulledAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+          rawEvidenceExcerpt: this.compactChanjetRawEvidence(row.rawData),
+        })),
+        nextAction: blockerReasons.length ? metric?.nextAction || definition.nextAction : definition.nextAction,
+      };
+    }));
+
+    const statusCounts = reports.reduce<Record<FinanceReadonlyStatementReportStatus, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {} as Record<FinanceReadonlyStatementReportStatus, number>);
+    const hold = statusCounts.HOLD || 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : reports.every((item) => item.status === 'READONLY_READY') ? 'GO' : 'GO_WITH_CONDITIONS',
+      summary: {
+        totalReports: reports.length,
+        readonlyReady: statusCounts.READONLY_READY || 0,
+        blockedMapping: statusCounts.BLOCKED_MAPPING || 0,
+        waitingSample: statusCounts.WAITING_SAMPLE || 0,
+        hold,
+        totalRows: reports.reduce((sum, item) => sum + item.rows.length, 0),
+        nextGate: 'CHANJET_P4_VOUCHER_DRAFT_PREP',
+      },
+      reports,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        primaryFinanceCardSwitch: false,
+        rule: '本接口只读 ERP 好业财中间层，展示科目余额表/资产负债表/利润表行级证据；不得写好业财，不得推凭证，不得静默覆盖 ERP 财务卡片。',
+      },
+    };
+  }
+
   async financeReceiptPaymentDateStatusLockOverview(): Promise<{
     generatedAt: string;
     decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
@@ -3005,6 +3158,33 @@ export class ChanjetIntegrationService {
         candidatePath: field.candidatePaths[0].path,
         sampleValue: field.candidatePaths[0].sampleValue,
       }));
+  }
+
+  private buildReadonlyStatementReportStatus(
+    metric: FinanceReadModelMetric | undefined,
+    sampleRows: number,
+  ): FinanceReadonlyStatementReportStatus {
+    if (metric?.status === 'HOLD') return 'HOLD';
+    if (sampleRows === 0 || !metric || metric.status === 'WAITING_SAMPLE') return 'WAITING_SAMPLE';
+    if (['AUTHORITY_READY', 'READONLY_READY'].includes(metric.status)) return 'READONLY_READY';
+    return 'BLOCKED_MAPPING';
+  }
+
+  private compactChanjetRawEvidence(rawData: Record<string, unknown> | null | undefined): Record<string, unknown> {
+    if (!rawData || !this.isRecord(rawData)) return {};
+    const evidence: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawData).slice(0, 12)) {
+      if (/certificate|authCode|appTicket|openToken|accessToken|appSecret|secret|token|password/i.test(key)) {
+        evidence[key] = '[REDACTED]';
+      } else if (Array.isArray(value)) {
+        evidence[key] = `[array:${value.length}]`;
+      } else if (this.isRecord(value)) {
+        evidence[key] = `{object:${Object.keys(value).slice(0, 8).join(',')}}`;
+      } else {
+        evidence[key] = this.maskSample(value);
+      }
+    }
+    return evidence;
   }
 
   private financeReadModelReason(
