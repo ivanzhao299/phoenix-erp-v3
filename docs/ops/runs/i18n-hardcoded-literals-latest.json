@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-06T10:01:30.765Z",
+  "generated_at": "2026-07-06T15:49:45.454Z",
   "scope": "apps/web/src app/components/lib/hooks",
   "total_findings": 3084,
-  "auto_translatable_findings": 3084,
-  "manual_componentization_findings": 0,
+  "auto_translatable_findings": 3083,
+  "manual_componentization_findings": 1,
   "affected_files": 170,
   "top_files": [
     {
@@ -4701,8 +4701,8 @@
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 712,
       "kind": "string-literal",
-      "text": "无权限访问，需 MENU_FIN2_AR_LEDGER:V",
-      "auto_translatable": true
+      "text": "管理员治理控制台，需 MENU_SETTINGS_CHANJET:V",
+      "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -4722,7 +4722,7 @@
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 723,
       "kind": "string-literal",
-      "text": "财务管理",
+      "text": "系统设置",
       "auto_translatable": true
     },
     {
