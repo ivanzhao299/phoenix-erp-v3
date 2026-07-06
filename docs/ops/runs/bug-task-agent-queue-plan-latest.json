@@ -1,35 +1,114 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260705-FIXTURE",
+    "source_repair_task_no": "BUGTASK-20260706-0001",
     "selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
+      "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260705-FIXTURE-01-A4",
-      "BUGTASK-20260705-FIXTURE-02-A1"
+      "BUGTASK-20260706-0001-01-A2",
+      "BUGTASK-20260706-0001-02-A3",
+      "BUGTASK-20260706-0001-03-A4",
+      "BUGTASK-20260706-0001-04-A5",
+      "BUGTASK-20260706-0001-05-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedBy": "fixture",
-      "approvedAt": "2026-07-05T15:20:56.790Z"
+      "approvedAt": "2026-07-06T02:25:14.175Z",
+      "approvedBy": "admin",
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "forbiddenActions": [
+        "production deploy without separate approval",
+        "database write without separate gate",
+        "migration execution without separate gate",
+        "push without release approval",
+        "force push"
+      ]
     },
-    "apply": false
+    "apply": true
   },
   "routePlan": {
+    "source_bug_no": "BUG-20260706-0001",
     "route_decision": "PLAN_READY",
+    "split_strategy": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "reasons": [
+          "security/RBAC/DataScope signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "reasons": [
+          "backend/API/error route matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "reasons": [
+          "frontend/UI route or wording matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "reasons": [
+          "data readiness/master data signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "reasons": [
+          "required validation after repair"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      }
+    ],
     "selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
+      "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
+    "hard_constraints": [
+      "no automatic production deploy",
+      "no automatic DB write",
+      "no automatic migration",
+      "human approval required before code repair execution"
+    ],
+    "source_repair_task_no": "BUGTASK-20260706-0001",
     "selected_agents_after_bug_intake_policy": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
+      "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
     "bug_intake_policy_reasons": {
       "A4-Frontend-UAT-Smoke": [
         "bug-intake policy: UI/visual/page evidence requires A4"
+      ],
+      "A3-Backend-Critical-Path": [
+        "bug-intake policy: API/server/runtime evidence requires A3"
+      ],
+      "A2-Security-Regression-Gate": [
+        "bug-intake policy: RBAC/DataScope/auth evidence requires A2"
+      ],
+      "A5-Data-Readiness": [
+        "bug-intake policy: data/readiness/mapping evidence requires A5"
       ],
       "A1-CI-Runtime-Gate": [
         "bug-intake policy: every repair requires A1 validation"
@@ -38,15 +117,92 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260705-FIXTURE-01-A4",
-      "request_id": "BUGTASK-20260705-FIXTURE",
-      "title": "Repair BUG-20260705-FIXTURE: 库存管理页面卡片样式异常，截图显示卡片很丑 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260705-FIXTURE",
-      "source_repair_task_no": "BUGTASK-20260705-FIXTURE",
+      "task_id": "BUGTASK-20260706-0001-01-A2",
+      "request_id": "BUGTASK-20260706-0001",
+      "title": "Repair BUG-20260706-0001: 账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本” (A2-Security-Regression-Gate)",
+      "source_bug_no": "BUG-20260706-0001",
+      "source_repair_task_no": "BUGTASK-20260706-0001",
+      "source": "bug-intake",
+      "agent": "A2-Security-Regression-Gate",
+      "status": "pending",
+      "priority": "P2",
+      "risk_level": "LOW/MEDIUM",
+      "allowed_paths": [
+        "docs/ops/**",
+        "scripts/ci/**",
+        "scripts/ops/**"
+      ],
+      "forbidden_paths": [
+        "apps/api/src/database/migrations/**",
+        "schema/entity/table/column",
+        "production deploy"
+      ],
+      "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260706-0001-01-A2-contract.md",
+      "request_spec": "",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "dependencies": [],
+      "claimed_by": null,
+      "claimed_at": null,
+      "completed_at": null,
+      "result_file": null,
+      "next_agents": [
+        "A1-CI-Runtime-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A7-Final-QA-Gate"
+      ],
+      "approval_required": true
+    },
+    {
+      "task_id": "BUGTASK-20260706-0001-02-A3",
+      "request_id": "BUGTASK-20260706-0001",
+      "title": "Repair BUG-20260706-0001: 账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本” (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260706-0001",
+      "source_repair_task_no": "BUGTASK-20260706-0001",
+      "source": "bug-intake",
+      "agent": "A3-Backend-Critical-Path",
+      "status": "pending",
+      "priority": "P2",
+      "risk_level": "MEDIUM/HIGH",
+      "allowed_paths": [
+        "apps/api/**",
+        "docs/ops/**"
+      ],
+      "forbidden_paths": [
+        "apps/web/**",
+        "apps/api/src/database/migrations/** unless schema gate approved",
+        "schema/entity/table/column unless schema gate approved",
+        "production deploy"
+      ],
+      "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260706-0001-02-A3-contract.md",
+      "request_spec": "",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+      "branch": "w5-a3-backend-critical-path",
+      "dependencies": [],
+      "claimed_by": null,
+      "claimed_at": null,
+      "completed_at": null,
+      "result_file": null,
+      "next_agents": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A4-Frontend-UAT-Smoke"
+      ],
+      "approval_required": true
+    },
+    {
+      "task_id": "BUGTASK-20260706-0001-03-A4",
+      "request_id": "BUGTASK-20260706-0001",
+      "title": "Repair BUG-20260706-0001: 账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本” (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260706-0001",
+      "source_repair_task_no": "BUGTASK-20260706-0001",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
-      "priority": "P1",
+      "priority": "P2",
       "risk_level": "MEDIUM/HIGH",
       "allowed_paths": [
         "apps/web/**",
@@ -61,7 +217,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260705-FIXTURE-01-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260706-0001-03-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
       "branch": "w5-a4-frontend-uat-smoke",
@@ -79,15 +235,53 @@
       "approval_required": true
     },
     {
-      "task_id": "BUGTASK-20260705-FIXTURE-02-A1",
-      "request_id": "BUGTASK-20260705-FIXTURE",
-      "title": "Repair BUG-20260705-FIXTURE: 库存管理页面卡片样式异常，截图显示卡片很丑 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260705-FIXTURE",
-      "source_repair_task_no": "BUGTASK-20260705-FIXTURE",
+      "task_id": "BUGTASK-20260706-0001-04-A5",
+      "request_id": "BUGTASK-20260706-0001",
+      "title": "Repair BUG-20260706-0001: 账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本” (A5-Data-Readiness)",
+      "source_bug_no": "BUG-20260706-0001",
+      "source_repair_task_no": "BUGTASK-20260706-0001",
+      "source": "bug-intake",
+      "agent": "A5-Data-Readiness",
+      "status": "pending",
+      "priority": "P2",
+      "risk_level": "LOW/MEDIUM",
+      "allowed_paths": [
+        "docs/ops/**",
+        "scripts/ops/**"
+      ],
+      "forbidden_paths": [
+        "apps/api/**",
+        "apps/web/**",
+        "apps/api/src/database/migrations/**",
+        "schema/entity/table/column",
+        "DB write"
+      ],
+      "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260706-0001-04-A5-contract.md",
+      "request_spec": "",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "dependencies": [],
+      "claimed_by": null,
+      "claimed_at": null,
+      "completed_at": null,
+      "result_file": null,
+      "next_agents": [
+        "A3-Backend-Critical-Path",
+        "A2-Security-Regression-Gate"
+      ],
+      "approval_required": true
+    },
+    {
+      "task_id": "BUGTASK-20260706-0001-05-A1",
+      "request_id": "BUGTASK-20260706-0001",
+      "title": "Repair BUG-20260706-0001: 账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本” (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260706-0001",
+      "source_repair_task_no": "BUGTASK-20260706-0001",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
-      "priority": "P0",
+      "priority": "P2",
       "risk_level": "LOW/MEDIUM",
       "allowed_paths": [
         "docs/ops/**",
@@ -101,7 +295,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260705-FIXTURE-02-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260706-0001-05-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
