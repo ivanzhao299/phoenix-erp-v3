@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermission } from '@/hooks/usePermission';
 import { Button } from '@/components/ui/button';
 import {
@@ -565,6 +566,7 @@ function pct(value: number | null | undefined) {
 }
 
 export default function ChanjetIntegrationPage() {
+  const { t } = useLanguage();
   const { canView, canEdit } = usePermission('MENU_SETTINGS_CHANJET');
   const [tab, setTab] = useState<TabKey>('adapter');
   const [loading, setLoading] = useState(false);
@@ -709,7 +711,7 @@ export default function ChanjetIntegrationPage() {
   if (!canView) {
     return (
       <div style={{ padding: 32 }}>
-        <PageHeader title="好业财中间层" subtitle="管理员治理控制台，需 MENU_SETTINGS_CHANJET:V" />
+        <PageHeader title="好业财中间层" subtitle={t('finance.chanjet_integration.admin_console_required', '管理员治理控制台，需 MENU_SETTINGS_CHANJET:V')} />
         <div style={{ color: 'var(--status-danger)' }}>无权限访问。</div>
       </div>
     );

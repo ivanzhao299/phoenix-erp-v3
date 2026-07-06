@@ -13347,5 +13347,6 @@
   "auto.literal.dddaeefb0e7b": "备份与恢复",
   "auto.literal.3c71dca8a08c": "系统配置",
   "auto.literal.7f3098441ab0": "监控数据来源",
-  "auto.literal.14f2de336f7e": "财务结算中心"
+  "auto.literal.14f2de336f7e": "财务结算中心",
+  "finance.chanjet_integration.admin_console_required": "管理员治理控制台，需 MENU_SETTINGS_CHANJET:V"
 }

@@ -13347,5 +13347,6 @@
   "auto.literal.dddaeefb0e7b": "ສຳຮອງ ແລະ ກູ້ຄືນ",
   "auto.literal.3c71dca8a08c": "ການຕັ້ງຄ່າລະບົບ",
   "auto.literal.7f3098441ab0": "Localized UI text 7f3098441ab0",
-  "auto.literal.14f2de336f7e": "ສູນການຊໍາລະທາງດ້ານການເງິນ"
+  "auto.literal.14f2de336f7e": "ສູນການຊໍາລະທາງດ້ານການເງິນ",
+  "finance.chanjet_integration.admin_console_required": "ຄອນໂຊນການຄຸ້ມຄອງສໍາລັບຜູ້ດູແລ. ຕ້ອງມີ MENU_SETTINGS_CHANJET:V"
 }

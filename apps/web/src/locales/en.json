@@ -13347,5 +13347,6 @@
   "auto.literal.dddaeefb0e7b": "Backup & Recovery",
   "auto.literal.3c71dca8a08c": "System Configuration",
   "auto.literal.7f3098441ab0": "Localized UI text 7f3098441ab0",
-  "auto.literal.14f2de336f7e": "Financial Settlement Center"
+  "auto.literal.14f2de336f7e": "Financial Settlement Center",
+  "finance.chanjet_integration.admin_console_required": "Admin governance console. Requires MENU_SETTINGS_CHANJET:V"
 }
