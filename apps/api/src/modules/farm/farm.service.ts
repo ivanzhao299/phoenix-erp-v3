@@ -440,7 +440,7 @@ export class FarmService {
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
     // ── 鸡群查询 ──────────────────────────────────────────────
     const flockParams: any[] = [];
-    let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
+    let flockWhere = `WHERE f.status IN ('LAYING','ACTIVE','laying','active')`;
     const flockScope = scopeWhere(scope, flockParams, 'f.');   // G98：农场/站点/公司多维并集
     if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flocks = await this.entityManager.query(
@@ -577,11 +577,11 @@ export class FarmService {
 
     // flock 存栏数也按农场/场区过滤
     const flockParams: any[] = [];
-    let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    const flockScope = scopeWhere(scope, flockParams);   // G98：农场/站点/公司多维并集
+    let flockWhere = `WHERE f.status IN ('LAYING','ACTIVE','laying','active')`;
+    const flockScope = scopeWhere(scope, flockParams, 'f.');   // G98：农场/站点/公司多维并集
     if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flockSum = await this.entityManager.query(
-      `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks ${flockWhere}`,
+      `SELECT COALESCE(SUM(f.current_qty),0)::int AS total FROM brd_flocks f ${flockWhere}`,
       flockParams,
     );
     const totalQty = Number(flockSum[0]?.total ?? 0);
