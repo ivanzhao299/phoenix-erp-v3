@@ -1,0 +1,1423 @@
+{
+  "generatedAt": "2026-07-06T11:54:40.606Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "remote": {
+    "host": "47.236.122.224",
+    "user": "ops",
+    "deployPath": "/opt/phoenix-erp"
+  },
+  "boundaries": {
+    "remoteReadOnly": true,
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpDbWrite": false,
+    "deploy": false,
+    "push": false
+  },
+  "identity": {
+    "now": "2026-07-06T11:54:41.948331+00:00",
+    "user": "phoenix_v3",
+    "database": "phoenix_erp"
+  },
+  "tableStatus": {
+    "chanjet_sync_jobs": "chanjet_sync_jobs",
+    "chanjet_read_snapshots": "chanjet_read_snapshots",
+    "chanjet_entity_snapshots": "chanjet_entity_snapshots",
+    "chanjet_erp_field_mapping": "chanjet_erp_field_mapping"
+  },
+  "counts": {
+    "field_mapping": 1684,
+    "read_snapshots": 337,
+    "entity_snapshots": 2124
+  },
+  "coverage": {
+    "endpointCoverageRate": 1,
+    "cardCoverageRate": 1,
+    "fieldClassificationRate": 0.10866983372921615,
+    "highOpen": 1348,
+    "localAuditCoverage": {
+      "decision": "GO_WITH_CONDITIONS",
+      "endpointCoverageRate": 0,
+      "cardCoverageRate": 0,
+      "fieldCoverageRate": 0
+    },
+    "localRemoteMismatch": true
+  },
+  "endpointCoverage": [
+    {
+      "key": "ACCOUNT_BOOKS",
+      "label": "账套列表",
+      "covered": true,
+      "rowCount": 3,
+      "amountSum": 0,
+      "entityType": "ACCOUNT_BOOK",
+      "entityCount": 6,
+      "snapshotCount": 1,
+      "latestPulledAt": "2026-07-03 13:05:49.92819+00"
+    },
+    {
+      "key": "BALANCE_SHEET",
+      "label": "资产负债表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "BALANCE_SHEET",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:19:01.298683+00"
+    },
+    {
+      "key": "CASH_FLOW",
+      "label": "现金流量表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "CASH_FLOW",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:19:02.306865+00"
+    },
+    {
+      "key": "CUSTOMER_SUPPLIER",
+      "label": "往来单位",
+      "covered": true,
+      "rowCount": 1731,
+      "amountSum": 0,
+      "entityType": "CUSTOMER_SUPPLIER",
+      "entityCount": 292,
+      "snapshotCount": 13,
+      "latestPulledAt": "2026-07-05 06:18:37.904268+00"
+    },
+    {
+      "key": "DEPARTMENT",
+      "label": "部门列表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "DEPARTMENT",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:36.322137+00"
+    },
+    {
+      "key": "FIN_ACCOUNT",
+      "label": "资金账户",
+      "covered": true,
+      "rowCount": 78,
+      "amountSum": 0,
+      "entityType": "CASH_ACCOUNT",
+      "entityCount": 47,
+      "snapshotCount": 4,
+      "latestPulledAt": "2026-07-05 06:18:40.284389+00"
+    },
+    {
+      "key": "GL_BALANCE",
+      "label": "科目余额表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "GL_BALANCE",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:19:00.528983+00"
+    },
+    {
+      "key": "INCOME_STATEMENT",
+      "label": "利润表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "INCOME_STATEMENT",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:19:01.808707+00"
+    },
+    {
+      "key": "PAYABLE_STATISTICS",
+      "label": "应付统计",
+      "covered": true,
+      "rowCount": 129,
+      "amountSum": -7084274.34,
+      "entityType": "AP_STATISTICS",
+      "entityCount": 43,
+      "snapshotCount": 7,
+      "latestPulledAt": "2026-07-05 06:18:41.572434+00"
+    },
+    {
+      "key": "PAYMENT_AP",
+      "label": "付款单",
+      "covered": true,
+      "rowCount": 1000,
+      "amountSum": 9089599662.45,
+      "entityType": "AP_PAYMENT",
+      "entityCount": 117,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:45.657118+00"
+    },
+    {
+      "key": "PAYMENT_AR",
+      "label": "收款单",
+      "covered": true,
+      "rowCount": 1000,
+      "amountSum": 6267908725,
+      "entityType": "AR_RECEIPT",
+      "entityCount": 235,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:53.072748+00"
+    },
+    {
+      "key": "PROJECT",
+      "label": "项目列表",
+      "covered": true,
+      "rowCount": 60,
+      "amountSum": 0,
+      "entityType": "PROJECT",
+      "entityCount": 6,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:40.048058+00"
+    },
+    {
+      "key": "PURCHASE_ORDER",
+      "label": "采购订单",
+      "covered": true,
+      "rowCount": 420,
+      "amountSum": 0,
+      "entityType": "PURCHASE_ORDER",
+      "entityCount": 42,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:53.997455+00"
+    },
+    {
+      "key": "RECEIVABLE_STATISTICS",
+      "label": "应收统计",
+      "covered": true,
+      "rowCount": 213,
+      "amountSum": -10936306.32,
+      "entityType": "AR_STATISTICS",
+      "entityCount": 71,
+      "snapshotCount": 7,
+      "latestPulledAt": "2026-07-05 06:18:42.500944+00"
+    },
+    {
+      "key": "SUBJECT",
+      "label": "科目列表",
+      "covered": true,
+      "rowCount": 30,
+      "amountSum": 0,
+      "entityType": "SUBJECT",
+      "entityCount": 3,
+      "snapshotCount": 30,
+      "latestPulledAt": "2026-07-05 06:18:39.304873+00"
+    },
+    {
+      "key": "VOUCHER_SEARCH",
+      "label": "凭证列表",
+      "covered": true,
+      "rowCount": 2092,
+      "amountSum": 0,
+      "entityType": "VOUCHER",
+      "entityCount": 1247,
+      "snapshotCount": 5,
+      "latestPulledAt": "2026-07-05 06:18:59.486682+00"
+    }
+  ],
+  "cardCoverage": [
+    {
+      "cardKey": "arOpen",
+      "label": "应收待收",
+      "endpoints": [
+        "RECEIVABLE_STATISTICS"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "apOpen",
+      "label": "应付待付",
+      "endpoints": [
+        "PAYABLE_STATISTICS"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "cashBalance",
+      "label": "现金 / 银行余额",
+      "endpoints": [
+        "FIN_ACCOUNT",
+        "GL_BALANCE"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "todayReceipt",
+      "label": "今日收款",
+      "endpoints": [
+        "PAYMENT_AR"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "todayPayment",
+      "label": "今日付款",
+      "endpoints": [
+        "PAYMENT_AP"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "subjectBalance",
+      "label": "科目余额",
+      "endpoints": [
+        "GL_BALANCE"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "balanceSheet",
+      "label": "资产负债表关键项",
+      "endpoints": [
+        "BALANCE_SHEET"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "incomeStatement",
+      "label": "利润表关键项",
+      "endpoints": [
+        "INCOME_STATEMENT"
+      ],
+      "covered": true
+    },
+    {
+      "cardKey": "counterpartyBalance",
+      "label": "客户 / 供应商往来余额",
+      "endpoints": [
+        "CUSTOMER_SUPPLIER",
+        "RECEIVABLE_STATISTICS",
+        "PAYABLE_STATISTICS"
+      ],
+      "covered": true
+    }
+  ],
+  "fieldRiskSummary": [
+    {
+      "count": 57,
+      "risk_level": "MEDIUM",
+      "match_status": "PENDING"
+    },
+    {
+      "count": 183,
+      "risk_level": "LOW",
+      "match_status": "MATCHED"
+    },
+    {
+      "count": 96,
+      "risk_level": "LOW",
+      "match_status": "PENDING"
+    },
+    {
+      "count": 1348,
+      "risk_level": "HIGH",
+      "match_status": "PENDING"
+    }
+  ],
+  "entitySummary": [
+    {
+      "rows": 6,
+      "books": 1,
+      "amount_sum": "0.00",
+      "entity_type": "ACCOUNT_BOOK",
+      "latest_updated_at": "2026-07-05 06:18:35.831292+00"
+    },
+    {
+      "rows": 117,
+      "books": 2,
+      "amount_sum": "9089599662.45",
+      "entity_type": "AP_PAYMENT",
+      "latest_updated_at": "2026-07-05 06:18:45.475522+00"
+    },
+    {
+      "rows": 43,
+      "books": 2,
+      "amount_sum": "-7084274.34",
+      "entity_type": "AP_STATISTICS",
+      "latest_updated_at": "2026-07-05 06:18:41.592985+00"
+    },
+    {
+      "rows": 235,
+      "books": 2,
+      "amount_sum": "6267908725.00",
+      "entity_type": "AR_RECEIPT",
+      "latest_updated_at": "2026-07-05 06:18:52.891927+00"
+    },
+    {
+      "rows": 71,
+      "books": 2,
+      "amount_sum": "-10936306.32",
+      "entity_type": "AR_STATISTICS",
+      "latest_updated_at": "2026-07-05 06:18:42.530132+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "BALANCE_SHEET",
+      "latest_updated_at": "2026-07-05 06:19:01.300402+00"
+    },
+    {
+      "rows": 47,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "CASH_ACCOUNT",
+      "latest_updated_at": "2026-07-05 06:18:40.849901+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "CASH_FLOW",
+      "latest_updated_at": "2026-07-05 06:19:02.308554+00"
+    },
+    {
+      "rows": 292,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "CUSTOMER_SUPPLIER",
+      "latest_updated_at": "2026-07-05 06:18:38.899437+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "DEPARTMENT",
+      "latest_updated_at": "2026-07-05 06:18:36.32415+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "GL_BALANCE",
+      "latest_updated_at": "2026-07-05 06:19:00.531083+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "INCOME_STATEMENT",
+      "latest_updated_at": "2026-07-05 06:19:01.810379+00"
+    },
+    {
+      "rows": 6,
+      "books": 2,
+      "amount_sum": "0.00",
+      "entity_type": "PROJECT",
+      "latest_updated_at": "2026-07-05 06:18:39.849938+00"
+    },
+    {
+      "rows": 42,
+      "books": 2,
+      "amount_sum": "0.00",
+      "entity_type": "PURCHASE_ORDER",
+      "latest_updated_at": "2026-07-05 06:18:53.812808+00"
+    },
+    {
+      "rows": 3,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "SUBJECT",
+      "latest_updated_at": "2026-07-05 06:18:39.307096+00"
+    },
+    {
+      "rows": 1247,
+      "books": 3,
+      "amount_sum": "0.00",
+      "entity_type": "VOUCHER",
+      "latest_updated_at": "2026-07-05 06:18:59.852376+00"
+    }
+  ],
+  "topGaps": [
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longName",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.longName"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "name",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].acctgTransCategoryId.name"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "boName",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].boName"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "createdStamp",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].createdStamp"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].createdUserId.id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].basePostedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].basePostedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "comments",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].comments"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasQtyAccounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].hasQtyAccounting"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longText",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].longText"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedCrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].postedDrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "sequenceNum",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[0].sequenceNum"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].basePostedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].basePostedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "comments",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].comments"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasQtyAccounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].hasQtyAccounting"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longText",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].longText"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedCrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].postedDrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "sequenceNum",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].details[1].sequenceNum"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasAdjusted",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].hasAdjusted"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasEditAuth",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].hasEditAuth"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].ownerUserId.id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "period",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].period"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "refBoName",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].refBoName"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "refVoucherCode",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].refVoucherCode"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "uploadAttachmentCount",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].uploadAttachmentCount"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "voucherDate",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].voucherDate"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "voucherNo",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].voucherNo"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "writtenPerson",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[0].writtenPerson"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "accessoryNo",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].accessoryNo"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].acctgTransCategoryId.id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longName",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].acctgTransCategoryId.longName"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "name",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].acctgTransCategoryId.name"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "attachementCount",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].attachementCount"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "auditPerson",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].auditPerson"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "boName",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].boName"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "carryForwardTemplateEnum",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].carryForwardTemplateEnum"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "comments",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].comments"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "createdStamp",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].createdStamp"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].createdUserId.id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].basePostedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].basePostedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "comments",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].comments"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "currencyId",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].currencyId"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "exchangeRate",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].exchangeRate"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "gl_sub_account_id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].gl_sub_account_id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasQtyAccounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].hasQtyAccounting"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longText",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].longText"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].postedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].postedCrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].postedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].postedDrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "sequenceNum",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[0].sequenceNum"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].basePostedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "basePostedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].basePostedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "comments",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].comments"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "currencyId",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].currencyId"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "exchangeRate",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].exchangeRate"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasQtyAccounting",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].hasQtyAccounting"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].id"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "longText",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "string",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].longText"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].postedCr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedCrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].postedCrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDr",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].postedDr"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "postedDrQty",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].postedDrQty"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "sequenceNum",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].details[1].sequenceNum"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasAdjusted",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].hasAdjusted"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "hasEditAuth",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "boolean",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].hasEditAuth"
+    },
+    {
+      "erp_type": "varchar",
+      "erp_field": "id",
+      "erp_table": "chanjet_master_mapping",
+      "erp_domain": "accounting",
+      "risk_level": "HIGH",
+      "chanjet_type": "number",
+      "match_status": "PENDING",
+      "analysis_note": "自动识别为候选映射，需人工复核后固化。",
+      "chanjet_endpoint": "/accounting/gl/AcctgTrans/acctgTransFuzzySearch/3533914511118750",
+      "chanjet_field_path": "$.result[1].id"
+    }
+  ],
+  "conditions": [
+    "生产端好业财只读镜像已覆盖 P0 端点，但 HIGH/CRITICAL 字段映射仍有大量 PENDING，不能直接静默升权所有 ERP 财务卡片。",
+    "本脚本只读生产中间层镜像表，不写好业财、不写 ERP DB、不部署、不推送。",
+    "本地数据库镜像覆盖率为 0，生产端覆盖率已达标；后续审计必须区分 local runtime 与 production mirror evidence。"
+  ],
+  "nextTasks": [
+    {
+      "taskId": "CHANJET-FIELD-GAP-REVIEW-GATE",
+      "priority": "P0",
+      "title": "把 HIGH/CRITICAL 字段映射从 PENDING 拆成 ERP 字段适配或人工确认清单"
+    },
+    {
+      "taskId": "CHANJET-LOCAL-PROD-MIRROR-STATE-RECONCILE",
+      "priority": "P0",
+      "title": "把本地/生产好业财镜像审计口径拆开，避免本地 0 覆盖误判生产已同步状态"
+    },
+    {
+      "taskId": "CHANJET-FINANCE-CARD-AUTHORITY-VERIFY",
+      "priority": "P1",
+      "title": "逐卡复核 AUTHORITY_READY 语义锁，允许好业财权威口径的卡片升权"
+    }
+  ]
+}
