@@ -3847,6 +3847,7 @@
   "ui.搜索审批": "ຄົ້ນຫາ…",
   "ui.环境设备": "ອຸປະກອນສິ່ງແວດລ້ອມ",
   "ui.未处理告警": "ເຕືອນທີ່ຍັງບໍ່ດຳເນີນ",
+  "ui.当前值班待办": "ວຽກປະຈຳການປັດຈຸບັນ",
   "ui.暂无计划": "ບໍ່ມີແຜນ",
   "ui.规划栋数": "ຈຳນວນຫ້ອງ",
   "ui.总设计容量": "ຄວາມຈຸທັງໝົດ",
@@ -13277,5 +13278,7 @@
   "auto.literal.chanjet.statementReports.rowKey": "ຄີແຖວ",
   "auto.literal.chanjet.statementReports.bookPeriod": "ຊຸດບັນຊີ / ງວດ",
   "auto.literal.chanjet.statementReports.evidenceExcerpt": "ຂໍ້ມູນຫຼັກຖານຫຍໍ້",
-  "auto.literal.chanjet.statementReports.noReport": "ຍັງບໍ່ມີລາຍງານອ່ານຢ່າງດຽວ."
+  "auto.literal.chanjet.statementReports.noReport": "ຍັງບໍ່ມີລາຍງານອ່ານຢ່າງດຽວ.",
+  "auto.literal.system.alertLedger": "ບັນຊີການເຕືອນ",
+  "auto.literal.system.backupRecovery": "ສຳຮອງ ແລະ ກູ້ຄືນ"
 }

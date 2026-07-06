@@ -3847,6 +3847,7 @@
   "ui.搜索审批": "搜索审批单号、提交人、事由…",
   "ui.环境设备": "环境设备",
   "ui.未处理告警": "未处理告警",
+  "ui.当前值班待办": "当前值班待办",
   "ui.暂无计划": "暂无计划",
   "ui.规划栋数": "规划栋数",
   "ui.总设计容量": "总设计容量",
@@ -13277,5 +13278,7 @@
   "auto.literal.chanjet.statementReports.rowKey": "行键",
   "auto.literal.chanjet.statementReports.bookPeriod": "账套 / 期间",
   "auto.literal.chanjet.statementReports.evidenceExcerpt": "证据摘录",
-  "auto.literal.chanjet.statementReports.noReport": "暂无科目/报表只读报告。"
+  "auto.literal.chanjet.statementReports.noReport": "暂无科目/报表只读报告。",
+  "auto.literal.system.alertLedger": "告警台账",
+  "auto.literal.system.backupRecovery": "备份与恢复"
 }

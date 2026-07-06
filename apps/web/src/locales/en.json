@@ -3847,6 +3847,7 @@
   "ui.搜索审批": "Search No./submitter/reason…",
   "ui.环境设备": "Environment",
   "ui.未处理告警": "Open Alerts",
+  "ui.当前值班待办": "Current Ops Queue",
   "ui.暂无计划": "No plan",
   "ui.规划栋数": "Planned Houses",
   "ui.总设计容量": "Total Capacity (birds)",
@@ -13277,5 +13278,7 @@
   "auto.literal.chanjet.statementReports.rowKey": "Row key",
   "auto.literal.chanjet.statementReports.bookPeriod": "Book / period",
   "auto.literal.chanjet.statementReports.evidenceExcerpt": "Evidence excerpt",
-  "auto.literal.chanjet.statementReports.noReport": "No subject/report readonly report yet."
+  "auto.literal.chanjet.statementReports.noReport": "No subject/report readonly report yet.",
+  "auto.literal.system.alertLedger": "Alert Ledger",
+  "auto.literal.system.backupRecovery": "Backup & Recovery"
 }
