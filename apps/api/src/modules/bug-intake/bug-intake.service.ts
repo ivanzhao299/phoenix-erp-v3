@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
-import { createReadStream, mkdirSync, writeFileSync } from 'fs';
+import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from 'fs';
 import { basename, extname, join, resolve } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { BugReportEntity } from './bug-report.entity';
@@ -373,7 +373,16 @@ export class BugIntakeService {
     if (!target?.relativePath) throw new NotFoundException('附件不存在');
     const root = resolve(process.cwd(), BUG_STORAGE_ROOT);
     const filePath = resolve(process.cwd(), target.relativePath);
-    if (!filePath.startsWith(root)) throw new BadRequestException('附件路径非法');
+    if (filePath !== root && !filePath.startsWith(`${root}/`)) {
+      throw new BadRequestException('附件路径非法');
+    }
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('附件文件不存在');
+    }
+    const stat = statSync(filePath);
+    if (!stat.isFile()) {
+      throw new NotFoundException('附件文件不存在');
+    }
     return {
       stream: createReadStream(filePath),
       mimeType: this.safeText(target.mimeType ?? 'application/octet-stream', 128),

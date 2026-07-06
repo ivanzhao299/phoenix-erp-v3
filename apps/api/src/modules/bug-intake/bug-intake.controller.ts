@@ -145,6 +145,13 @@ export class BugIntakeController {
     const file = await this.service.getAttachment(bugNo, decodeURIComponent(fileName));
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
+    file.stream.on('error', (error) => {
+      if (!res.headersSent) {
+        res.status(404).end('Attachment file not found');
+        return;
+      }
+      res.destroy(error);
+    });
     file.stream.pipe(res);
   }
 
