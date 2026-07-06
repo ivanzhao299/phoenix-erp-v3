@@ -2,6 +2,29 @@
 
 Last updated: 2026-07-06
 
+## 2026-07-06 — Chanjet / ERP Fusion Admin Boundary
+
+Current stage: `CHANJET_ADMIN_BOUNDARY_LOCKED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Locked Chanjet middle-layer governance UI behind `MENU_SETTINGS_CHANJET`.
+2. Updated `/finance2/chanjet-sync` and `/finance2/chanjet-integration` entry permissions so ordinary finance users do not see the middle layer.
+3. Updated backend Chanjet proxy / integration-control permission constant to `MENU_SETTINGS_CHANJET`.
+4. Added architecture plan:
+   - `docs/ops/CHANJET_ERP_FUSION_ADMIN_BOUNDARY_PLAN_20260706.md`
+
+Next actions:
+
+1. `CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION`
+   - Implement voucher line, voucher header, and counterparty readonly adapters.
+2. `CHANJET_BUSINESS_FUSION_UI_PASS`
+   - Keep ordinary business pages focused on business metrics, source badges, and reconciliation states; do not expose raw middle-layer details.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet write/delete/modify/voucher push until a separate approved Gate.
+
 ## 2026-07-06 — Chanjet Field Gap Review Gate
 
 Current stage: `CHANJET_FIELD_GAP_REVIEW_GATE_READY`

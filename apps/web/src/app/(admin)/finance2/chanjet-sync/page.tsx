@@ -105,7 +105,7 @@ interface ImportResult {
 
 export default function ChanjetSyncPage() {
   const { t } = useLanguage();
-  const { canView, canEdit } = usePermission('MENU_FIN2_AR');
+  const { canView, canEdit } = usePermission('MENU_SETTINGS_CHANJET');
   const { canView: canViewLedger, canEdit: canEditLedger } = usePermission('MENU_FIN2_AR_LEDGER');
 
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -234,7 +234,7 @@ export default function ChanjetSyncPage() {
     return (
       <div style={{ padding: 32 }}>
         <PageHeader title={t('fin2.chanjet.page_title','好业财应收同步')} />
-        <div style={{ color: '#ef4444' }}>{t('fin2.chanjet.no_perm','无权限访问(需 MENU_FIN2_AR:V)')}</div>
+        <div style={{ color: '#ef4444' }}>{t('fin2.chanjet.no_perm','无权限访问(需 MENU_SETTINGS_CHANJET:V)')}</div>
       </div>
     );
   }

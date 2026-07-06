@@ -14,7 +14,7 @@ const CHANJET_PROXY_ALLOWED_PATHS = [
   '/accounting/openapi/cc/department/',
   '/accounting/gl/statistics/receive/',
 ];
-const CHANJET_PROXY_MENU = 'MENU_FIN2_AR_LEDGER';
+const CHANJET_PROXY_MENU = 'MENU_SETTINGS_CHANJET';
 const CHANJET_CONFIG_MENU = 'MENU_SETTINGS_CHANJET';
 
 @Controller('api/chanjet')

@@ -74,3 +74,7 @@ Last updated: 2026-06-24
 70. `scripts/ops/agent-inbox-runner.mjs` must default to dry-run unless a matching active approval exists in `docs/ops/agent-inbox/APPROVALS.md`.
 71. Agent Inbox must read runtime memory, next-gate recommendation, guardrails, and task board before expanding a short command.
 72. Agent Inbox must not authorize DB write, migration, deploy, restart, push, business-code change, remote server change, cleanup, or reset by itself.
+73. Chanjet / 好业财 middle-layer consoles are admin-only and require `MENU_SETTINGS_CHANJET`.
+74. Ordinary users must consume Chanjet-aligned data only through business pages, source badges, reconciliation states, and approved finance cards.
+75. Do not expose Chanjet mirror tables, raw payloads, field catalogs, proxy calls, sync jobs, or voucher-draft plumbing to ordinary users.
+76. Business pages may show `好业财口径`, `ERP口径`, `差异`, or `待映射`, but must not require users to understand the middle layer.

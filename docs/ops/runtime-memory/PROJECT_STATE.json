@@ -100,6 +100,13 @@
     "field_gap_review_bucket_count": 7,
     "field_gap_review_high_open_fields": 80,
     "field_gap_review_next_gate": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION",
+    "admin_boundary_plan": "docs/ops/CHANJET_ERP_FUSION_ADMIN_BOUNDARY_PLAN_20260706.md",
+    "middle_layer_visibility": "admin_only_MENU_SETTINGS_CHANJET",
+    "ordinary_user_chanjet_mode": "business_fusion_only_no_middle_layer_console",
+    "ordinary_user_hidden_pages": [
+      "/finance2/chanjet-sync",
+      "/finance2/chanjet-integration"
+    ],
     "field_gap_review_first_batch": [
       "FIELD-GAP-CHANJET_VOUCHER_LINE",
       "FIELD-GAP-CHANJET_VOUCHER_HEADER",

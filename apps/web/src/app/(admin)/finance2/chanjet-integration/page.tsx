@@ -565,7 +565,7 @@ function pct(value: number | null | undefined) {
 }
 
 export default function ChanjetIntegrationPage() {
-  const { canView, canEdit } = usePermission('MENU_FIN2_AR_LEDGER');
+  const { canView, canEdit } = usePermission('MENU_SETTINGS_CHANJET');
   const [tab, setTab] = useState<TabKey>('adapter');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -709,7 +709,7 @@ export default function ChanjetIntegrationPage() {
   if (!canView) {
     return (
       <div style={{ padding: 32 }}>
-        <PageHeader title="好业财中间层" subtitle="无权限访问，需 MENU_FIN2_AR_LEDGER:V" />
+        <PageHeader title="好业财中间层" subtitle="管理员治理控制台，需 MENU_SETTINGS_CHANJET:V" />
         <div style={{ color: 'var(--status-danger)' }}>无权限访问。</div>
       </div>
     );
@@ -719,8 +719,8 @@ export default function ChanjetIntegrationPage() {
     <div style={{ padding: '24px 32px', maxWidth: 1800 }}>
       <PageHeader
         title="好业财中间层"
-        subtitle="账套 · 字段目录 · 主数据映射 · 对账差异 · 凭证草稿"
-        breadcrumb={['财务管理', '好业财中间层']}
+        subtitle="管理员治理控制台 · 账套 · 字段目录 · 主数据映射 · 对账差异 · 凭证草稿"
+        breadcrumb={['系统设置', '好业财中间层']}
         actions={(
           <>
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
