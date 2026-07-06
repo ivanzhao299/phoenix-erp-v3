@@ -7,7 +7,7 @@
  *   - 只允许将 resolved = false → true（单向）
  *   - 所有 resolved 操作必须记录 resolved_by / resolved_at / resolved_remark
  */
-import { Injectable, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
@@ -24,6 +24,18 @@ export interface ResolveAlertDto {
   resolvedRemark?: string;
 }
 
+export interface BulkResolveStaleAlertsDto {
+  resolvedBy: string;
+  olderThanDays?: number;
+  alertType?: string;
+  severity?: string;
+  reason?: string;
+  dryRun?: boolean;
+  confirm?: string;
+  maxRows?: number;
+  includeCritical?: boolean;
+}
+
 @Injectable()
 export class SysAlertsService {
   private readonly logger = new Logger(SysAlertsService.name);
@@ -34,6 +46,22 @@ export class SysAlertsService {
 
   /** 新建告警（由 SystemMonitorService / AllExceptionsFilter 调用） */
   async createAlert(dto: CreateAlertDto): Promise<number> {
+    const [recentDuplicate] = await this.ds.query<any[]>(
+      `SELECT id
+         FROM sys_alerts
+        WHERE resolved = FALSE
+          AND alert_type = $1
+          AND title = $2
+          AND COALESCE(related_path, '') = COALESCE($3, '')
+          AND created_at > NOW() - INTERVAL '10 minutes'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [dto.alertType, dto.title, dto.relatedPath ?? null],
+    );
+    if (recentDuplicate?.id) {
+      return Number(recentDuplicate.id);
+    }
+
     const rows = await this.ds.query<any[]>(
       `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path)
        VALUES ($1, $2, $3, $4, $5)
@@ -51,6 +79,90 @@ export class SysAlertsService {
       this.logger.warn(`[sys-alerts] notification delivery failed alert=${alertId}: ${e?.message ?? e}`);
     });
     return alertId;
+  }
+
+  async getBacklogSummary() {
+    const [summaryRows, typeRows, noisyRows, staleRows] = await Promise.all([
+      this.ds.query<any[]>(
+        `SELECT
+           COUNT(*) FILTER (WHERE resolved = FALSE)::int AS unresolved_total,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND severity IN ('CRITICAL','WARNING')
+               AND created_at > NOW() - INTERVAL '7 days'
+           )::int AS actionable_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND created_at <= NOW() - INTERVAL '7 days'
+           )::int AS stale_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND created_at <= NOW() - INTERVAL '30 days'
+           )::int AS stale_30d_open,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND alert_type = 'IOT_DEVICE_ALERT'
+           )::int AS unresolved_iot,
+           COUNT(*) FILTER (
+             WHERE resolved = FALSE
+               AND severity = 'CRITICAL'
+           )::int AS unresolved_critical,
+           MIN(created_at) FILTER (WHERE resolved = FALSE) AS oldest_unresolved_at,
+           MAX(created_at) FILTER (WHERE resolved = FALSE) AS newest_unresolved_at
+         FROM sys_alerts`,
+      ),
+      this.ds.query<any[]>(
+        `SELECT alert_type, severity, COUNT(*)::int AS count, MAX(created_at) AS last_seen
+           FROM sys_alerts
+          WHERE resolved = FALSE
+          GROUP BY alert_type, severity
+          ORDER BY count DESC, last_seen DESC
+          LIMIT 12`,
+      ),
+      this.ds.query<any[]>(
+        `SELECT alert_type, severity, title, COALESCE(related_path, '') AS related_path,
+                COUNT(*)::int AS count,
+                MIN(created_at) AS first_seen,
+                MAX(created_at) AS last_seen
+           FROM sys_alerts
+          WHERE resolved = FALSE
+          GROUP BY alert_type, severity, title, COALESCE(related_path, '')
+         HAVING COUNT(*) >= 3
+          ORDER BY count DESC, last_seen DESC
+          LIMIT 12`,
+      ),
+      this.ds.query<any[]>(
+        `SELECT id, alert_type, severity, title, related_path, created_at
+           FROM sys_alerts
+          WHERE resolved = FALSE
+            AND created_at <= NOW() - INTERVAL '7 days'
+          ORDER BY created_at ASC
+          LIMIT 10`,
+      ),
+    ]);
+    const row = summaryRows[0] ?? {};
+    return {
+      unresolvedTotal: Number(row.unresolved_total ?? 0),
+      actionableOpen: Number(row.actionable_open ?? 0),
+      staleOpen: Number(row.stale_open ?? 0),
+      stale30dOpen: Number(row.stale_30d_open ?? 0),
+      unresolvedIot: Number(row.unresolved_iot ?? 0),
+      unresolvedCritical: Number(row.unresolved_critical ?? 0),
+      oldestUnresolvedAt: row.oldest_unresolved_at ?? null,
+      newestUnresolvedAt: row.newest_unresolved_at ?? null,
+      byType: typeRows,
+      noisyGroups: noisyRows,
+      staleSamples: staleRows,
+      operations: {
+        safeBulkArchive: 'POST /api/system/alerts/bulk-resolve-stale with dryRun=true by default',
+        resolveOne: 'PATCH /api/system/alerts/:id/resolve',
+      },
+      semantics: {
+        actionableOpen: '近 7 天 CRITICAL/WARNING 未处理告警，作为当前值班待办。',
+        staleOpen: '超过 7 天仍未处理的历史沉积，应复核后批量归档，不等同当前故障。',
+        noisyGroups: '同类型、同标题、同路径重复出现的告警源，用于治理噪音。',
+      },
+    };
   }
 
   async getDeliveryHealth() {
@@ -181,6 +293,97 @@ export class SysAlertsService {
        WHERE id = $1`,
       [id, dto.resolvedBy, dto.resolvedRemark ?? null],
     );
+  }
+
+  async bulkResolveStaleAlerts(dto: BulkResolveStaleAlertsDto) {
+    const olderThanDays = Math.max(7, Math.min(3650, Math.floor(dto.olderThanDays ?? 30)));
+    const maxRows = Math.max(1, Math.min(5000, Math.floor(dto.maxRows ?? 1000)));
+    const dryRun = dto.dryRun !== false;
+
+    const conditions = [
+      'resolved = FALSE',
+      `created_at <= NOW() - ($1::int * INTERVAL '1 day')`,
+    ];
+    const values: any[] = [olderThanDays];
+    let idx = 2;
+    if (dto.alertType) {
+      conditions.push(`alert_type = $${idx++}`);
+      values.push(dto.alertType);
+    }
+    if (dto.severity) {
+      conditions.push(`severity = $${idx++}`);
+      values.push(dto.severity);
+    }
+    if (!dto.includeCritical) {
+      conditions.push(`severity <> 'CRITICAL'`);
+    }
+    const where = conditions.join(' AND ');
+
+    const previewRows = await this.ds.query<any[]>(
+      `SELECT COUNT(*)::int AS candidate_count,
+              MIN(created_at) AS oldest_at,
+              MAX(created_at) AS newest_at
+         FROM sys_alerts
+        WHERE ${where}`,
+      values,
+    );
+    const samples = await this.ds.query<any[]>(
+      `SELECT id, alert_type, severity, title, related_path, created_at
+         FROM sys_alerts
+        WHERE ${where}
+        ORDER BY created_at ASC
+        LIMIT 10`,
+      values,
+    );
+    const preview = {
+      dryRun,
+      olderThanDays,
+      maxRows,
+      alertType: dto.alertType ?? null,
+      severity: dto.severity ?? null,
+      includeCritical: dto.includeCritical === true,
+      candidateCount: Number(previewRows[0]?.candidate_count ?? 0),
+      oldestAt: previewRows[0]?.oldest_at ?? null,
+      newestAt: previewRows[0]?.newest_at ?? null,
+      samples,
+    };
+
+    if (dryRun) return { ...preview, resolvedCount: 0 };
+    if (dto.confirm !== 'RESOLVE_STALE_ALERTS') {
+      throw new BadRequestException('执行老旧告警归档必须传 confirm=RESOLVE_STALE_ALERTS');
+    }
+    if (!dto.reason || dto.reason.trim().length < 6) {
+      throw new BadRequestException('执行老旧告警归档必须填写不少于 6 个字符的 reason');
+    }
+
+    const updateValues = [...values, maxRows, dto.resolvedBy, `批量归档老旧告警：${dto.reason.trim()}`];
+    const limitParam = idx;
+    const resolvedByParam = idx + 1;
+    const remarkParam = idx + 2;
+    const rows = await this.ds.query<any[]>(
+      `WITH candidates AS (
+         SELECT id
+           FROM sys_alerts
+          WHERE ${where}
+          ORDER BY created_at ASC
+          LIMIT $${limitParam}
+       )
+       UPDATE sys_alerts a
+          SET resolved = TRUE,
+              resolved_at = NOW(),
+              resolved_by = $${resolvedByParam},
+              resolved_remark = $${remarkParam}
+         FROM candidates c
+        WHERE a.id = c.id
+        RETURNING a.id, a.alert_type, a.severity, a.title`,
+      updateValues,
+    );
+    return {
+      ...preview,
+      dryRun: false,
+      resolvedCount: rows.length,
+      resolvedSamples: rows.slice(0, 10),
+    };
   }
 
   private async notifySystemMonitorWatchers(alertId: number, dto: CreateAlertDto): Promise<void> {

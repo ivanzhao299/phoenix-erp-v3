@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
-import { CheckCircle, RefreshCw, AlertTriangle, Activity, Database, ShieldAlert, ListChecks } from "lucide-react";
+import { CheckCircle, RefreshCw, AlertTriangle, Activity, Database, ShieldAlert, ListChecks, Archive, Layers } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton } from "@/components/design-system/cockpit-styles";
@@ -43,6 +43,25 @@ interface DeliveryHealth {
   alertNotificationsLast24h: number;
   deliveryMode: string;
   failClosed: boolean;
+}
+interface AlertBacklogSummary {
+  unresolvedTotal: number;
+  actionableOpen: number;
+  staleOpen: number;
+  stale30dOpen: number;
+  unresolvedIot: number;
+  unresolvedCritical: number;
+  oldestUnresolvedAt: string | null;
+  byType: { alert_type: string; severity: string; count: number; last_seen: string }[];
+  noisyGroups: { alert_type: string; severity: string; title: string; related_path: string; count: number; first_seen: string; last_seen: string }[];
+  staleSamples: Alert[];
+}
+interface BulkPreview {
+  dryRun: boolean;
+  olderThanDays: number;
+  candidateCount: number;
+  resolvedCount: number;
+  samples: Alert[];
 }
 
 const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
@@ -112,9 +131,12 @@ export default function SystemAlertsPage() {
   const [errorStats,setErrorStats]= useState<ErrorStat[]>([]);
   const [qualityAlerts, setQualityAlerts] = useState<QualityAlert[]>([]);
   const [deliveryHealth, setDeliveryHealth] = useState<DeliveryHealth | null>(null);
+  const [backlog, setBacklog] = useState<AlertBacklogSummary | null>(null);
+  const [bulkPreview, setBulkPreview] = useState<BulkPreview | null>(null);
   const [loadError, setLoadError] = useState("");
   const [loading,   setLoading]   = useState(false);
   const [resolving, setResolving] = useState<number | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [filterResolved, setFilterResolved] = useState<"" | "true" | "false">("");
 
   const tok = () => sessionStorage.getItem("phoenix_token") ?? "";
@@ -128,12 +150,13 @@ export default function SystemAlertsPage() {
       if (selectedAlertId && /^\d+$/.test(selectedAlertId)) query.set("alertId", selectedAlertId);
       const params = query.toString() ? `?${query.toString()}` : "";
       const headers = { Authorization: `Bearer ${tok()}` };
-      const [alertsRes, healthRes, errorsRes, qualityRes, deliveryRes] = await Promise.allSettled([
+      const [alertsRes, healthRes, errorsRes, qualityRes, deliveryRes, backlogRes] = await Promise.allSettled([
         fetch(`/api/system/alerts${params}`, { headers }),
         fetch("/api/system/monitor/health", { headers }),
         fetch("/api/system/monitor/errors", { headers }),
         fetch("/api/data-quality/alerts", { headers }),
         fetch("/api/system/alerts/delivery-health", { headers }),
+        fetch("/api/system/alerts/backlog-summary", { headers }),
       ]);
       if (alertsRes.status === "fulfilled" && alertsRes.value.ok) {
         const d = await alertsRes.value.json();
@@ -169,6 +192,11 @@ export default function SystemAlertsPage() {
       } else {
         setDeliveryHealth(null);
       }
+      if (backlogRes.status === "fulfilled" && backlogRes.value.ok) {
+        setBacklog(await backlogRes.value.json());
+      } else {
+        setBacklog(null);
+      }
     } finally { setLoading(false); }
   }, [filterResolved, selectedAlertId]);
 
@@ -188,8 +216,48 @@ export default function SystemAlertsPage() {
     } finally { setResolving(null); }
   };
 
-  const unresolvedCount = alerts.filter(a => !a.resolved).length;
-  const criticalCount = alerts.filter(a => a.severity === "CRITICAL" && !a.resolved).length;
+  const previewBulkArchive = async () => {
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/system/alerts/stale-resolve-preview?olderThanDays=30&maxRows=1000", {
+        headers: { Authorization: `Bearer ${tok()}` },
+      });
+      if (res.ok) setBulkPreview(await res.json());
+      else alert("老旧告警归档预览失败，请检查 MENU_SYS_MONITOR:V 权限");
+    } finally { setBulkLoading(false); }
+  };
+
+  const executeBulkArchive = async () => {
+    const candidateCount = bulkPreview?.candidateCount ?? 0;
+    if (candidateCount <= 0) return;
+    const reason = prompt(`将批量归档 ${candidateCount} 条 30 天前非 CRITICAL 老旧告警。请输入归档原因：`);
+    if (!reason) return;
+    if (!confirm("确认执行老旧告警归档？此操作只会标记已处理，不会删除台账。")) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/system/alerts/bulk-resolve-stale", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tok()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          olderThanDays: 30,
+          dryRun: false,
+          maxRows: 1000,
+          reason,
+          confirm: "RESOLVE_STALE_ALERTS",
+        }),
+      });
+      if (res.ok) {
+        setBulkPreview(await res.json());
+        fetchAlerts();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert(body?.message ?? "老旧告警归档失败，请检查权限和确认参数");
+      }
+    } finally { setBulkLoading(false); }
+  };
+
+  const unresolvedCount = backlog?.actionableOpen ?? alerts.filter(a => !a.resolved).length;
+  const criticalCount = backlog?.unresolvedCritical ?? alerts.filter(a => a.severity === "CRITICAL" && !a.resolved).length;
   const recentErrorCount = health?.recentErrors ?? errorStats.reduce((sum, row) => sum + Number(row.count || 0), 0);
   const highQualityCount = qualityAlerts.filter(a => a.severity === "HIGH").length;
   const healthTone = health?.status === "HEALTHY" ? "success" : health?.status === "DEGRADED" ? "warning" : "info";
@@ -233,9 +301,9 @@ export default function SystemAlertsPage() {
       }}>
         <SummaryCard
           icon={<ShieldAlert size={16} />}
-          label="未处理系统告警"
+          label="当前值班待办"
           value={unresolvedCount}
-          hint="来自 sys_alerts，处理后仍保留审计记录"
+          hint={`近 7 天 CRITICAL/WARNING；历史沉积 ${backlog ? backlog.staleOpen.toLocaleString() : "—"} 条`}
           tone={unresolvedCount > 0 ? "warning" : "success"}
         />
         <SummaryCard
@@ -258,6 +326,13 @@ export default function SystemAlertsPage() {
           value={qualityAlerts.length}
           hint={highQualityCount > 0 ? `${highQualityCount} 条高风险，进入数据质量中心处理` : "主数据、字典、权限、库存等质量检查"}
           tone={highQualityCount > 0 ? "warning" : "info"}
+        />
+        <SummaryCard
+          icon={<Archive size={16} />}
+          label="30 天沉积"
+          value={backlog ? backlog.stale30dOpen.toLocaleString() : "—"}
+          hint="可先预览，再按审计原因批量归档；不会物理删除"
+          tone={(backlog?.stale30dOpen ?? 0) > 0 ? "warning" : "success"}
         />
         <SummaryCard
           icon={<Database size={16} />}
@@ -299,6 +374,63 @@ export default function SystemAlertsPage() {
           <Link href="/data-quality" style={secondaryActionButton}>查看数据质量</Link>
         </div>
       </div>
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
+        gap: 14,
+        marginBottom: 18,
+      }}>
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, color: "var(--text-primary)" }}>
+              <Layers size={16} /> 告警生成源
+            </div>
+            <button onClick={previewBulkArchive} disabled={bulkLoading} style={{ ...secondaryActionButton, opacity: bulkLoading ? 0.6 : 1 }}>
+              {bulkLoading ? "处理中" : "预览沉积归档"}
+            </button>
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(backlog?.byType ?? []).slice(0, 5).map(row => (
+              <div key={`${row.alert_type}-${row.severity}`} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)" }}>
+                <div>
+                  <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-primary)", fontWeight: 800 }}>{row.alert_type}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.severity} · 最后 {new Date(row.last_seen).toLocaleString("zh-CN")}</div>
+                </div>
+                <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 900, color: "var(--text-primary)" }}>{Number(row.count).toLocaleString()}</div>
+              </div>
+            ))}
+            {(backlog?.byType?.length ?? 0) === 0 && <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>当前没有未处理告警源。</div>}
+          </div>
+        </div>
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16 }}>
+          <div style={{ fontWeight: 800, color: "var(--text-primary)", marginBottom: 12 }}>重复噪音源</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(backlog?.noisyGroups ?? []).slice(0, 5).map(row => (
+              <div key={`${row.alert_type}-${row.title}-${row.related_path}`} style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 800 }}>{row.title}</span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--status-warning)", fontWeight: 900 }}>{Number(row.count).toLocaleString()} 次</span>
+                </div>
+                <div style={{ marginTop: 4, fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.related_path || row.alert_type}</div>
+              </div>
+            ))}
+            {(backlog?.noisyGroups?.length ?? 0) === 0 && <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>暂未发现重复噪音源。</div>}
+          </div>
+        </div>
+      </div>
+
+      {bulkPreview && (
+        <div style={{ marginBottom: 18, padding: 14, borderRadius: "var(--radius-lg)", border: "1px solid var(--status-warning-bg-light)", background: "var(--status-warning-bg-faint)", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ color: "var(--text-primary)", fontSize: 13, lineHeight: 1.6 }}>
+            归档预览：{bulkPreview.olderThanDays} 天前非 CRITICAL 老旧告警 {bulkPreview.candidateCount.toLocaleString()} 条。
+            {bulkPreview.resolvedCount > 0 ? ` 已归档 ${bulkPreview.resolvedCount.toLocaleString()} 条。` : " 真实执行需填写原因并保留 resolved 审计。"}
+          </div>
+          <button onClick={executeBulkArchive} disabled={bulkLoading || bulkPreview.candidateCount <= 0} style={{ ...primaryActionButton, opacity: bulkLoading || bulkPreview.candidateCount <= 0 ? 0.55 : 1 }}>
+            执行安全归档
+          </button>
+        </div>
+      )}
 
       {loadError && (
         <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: "var(--radius-md)", border: "1px solid var(--status-danger-bg-light)", color: "var(--status-danger)", background: "var(--status-danger-bg-faint)", fontSize: 13 }}>

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-06T01:25:14.598Z",
+  "generated_at": "2026-07-06T05:57:28.461Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3054,
-  "auto_translatable_findings": 3038,
-  "manual_componentization_findings": 16,
+  "total_findings": 3079,
+  "auto_translatable_findings": 3060,
+  "manual_componentization_findings": 19,
   "affected_files": 170,
   "top_files": [
     {
@@ -627,6 +627,68 @@
       ]
     },
     {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "count": 43,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 74,
+          "kind": "string-literal",
+          "text": "API 500 / PG 错误",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 75,
+          "kind": "string-literal",
+          "text": "定时任务失败",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 75,
+          "kind": "string-literal",
+          "text": "Cron 失败写入 CRON_FAILURE 告警",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 76,
+          "kind": "string-literal",
+          "text": "IoT 同步异常",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 77,
+          "kind": "string-literal",
+          "text": "数据质量风险",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 212,
+          "kind": "string-literal",
+          "text": "手动处理",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 304,
+          "kind": "string-literal",
+          "text": "当前值班待办",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+          "line": 311,
+          "kind": "string-literal",
+          "text": "严重告警",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
       "count": 41,
       "samples": [
@@ -1242,68 +1304,6 @@
           "line": 9,
           "kind": "string-literal",
           "text": "海外",
-          "auto_translatable": true
-        }
-      ]
-    },
-    {
-      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "count": 31,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 55,
-          "kind": "string-literal",
-          "text": "API 500 / PG 错误",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 56,
-          "kind": "string-literal",
-          "text": "定时任务失败",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 56,
-          "kind": "string-literal",
-          "text": "Cron 失败写入 CRON_FAILURE 告警",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 57,
-          "kind": "string-literal",
-          "text": "IoT 同步异常",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 58,
-          "kind": "string-literal",
-          "text": "数据质量风险",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 184,
-          "kind": "string-literal",
-          "text": "手动处理",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 236,
-          "kind": "string-literal",
-          "text": "未处理系统告警",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-          "line": 243,
-          "kind": "string-literal",
-          "text": "严重告警",
           "auto_translatable": true
         }
       ]
@@ -4884,7 +4884,7 @@
       "line": 790,
       "kind": "string-literal",
       "text": "科目/报表只读",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6172,7 +6172,7 @@
       "line": 1430,
       "kind": "jsx-text",
       "text": "只读报表",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6186,14 +6186,14 @@
       "line": 1435,
       "kind": "jsx-text",
       "text": "行级证据",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1437,
       "kind": "jsx-text",
       "text": "来自 chanjet_entity_snapshots",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6207,7 +6207,7 @@
       "line": 1442,
       "kind": "jsx-text",
       "text": "缺字段时不能喂主卡片",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6221,7 +6221,7 @@
       "line": 1447,
       "kind": "jsx-text",
       "text": "继续只读同步补证据",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6256,28 +6256,28 @@
       "line": 1458,
       "kind": "jsx-text",
       "text": "主卡片切换: 否",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1469,
       "kind": "jsx-text",
       "text": "· 样本",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1469,
       "kind": "jsx-text",
       "text": "· 最近拉取",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1478,
       "kind": "jsx-text",
       "text": "金额字段候选",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6291,21 +6291,21 @@
       "line": 1484,
       "kind": "jsx-text",
       "text": "缺失字段",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1490,
       "kind": "jsx-text",
       "text": "阻断原因",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1500,
       "kind": "string-literal",
       "text": "行键",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6319,7 +6319,7 @@
       "line": 1500,
       "kind": "string-literal",
       "text": "账套 / 期间",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -6340,14 +6340,14 @@
       "line": 1500,
       "kind": "string-literal",
       "text": "证据摘录",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1539,
       "kind": "jsx-text",
       "text": "暂无科目/报表只读报告。",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -13148,217 +13148,301 @@
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 55,
+      "line": 74,
       "kind": "string-literal",
       "text": "API 500 / PG 错误",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 56,
+      "line": 75,
       "kind": "string-literal",
       "text": "定时任务失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 56,
+      "line": 75,
       "kind": "string-literal",
       "text": "Cron 失败写入 CRON_FAILURE 告警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 57,
+      "line": 76,
       "kind": "string-literal",
       "text": "IoT 同步异常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 58,
+      "line": 77,
       "kind": "string-literal",
       "text": "数据质量风险",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 184,
+      "line": 212,
       "kind": "string-literal",
       "text": "手动处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 236,
+      "line": 304,
       "kind": "string-literal",
-      "text": "未处理系统告警",
+      "text": "当前值班待办",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 243,
+      "line": 311,
       "kind": "string-literal",
       "text": "严重告警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 245,
+      "line": 313,
       "kind": "string-literal",
       "text": "API 500、Cron 失败、IoT 同步失败等会标为 CRITICAL",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 250,
+      "line": 318,
       "kind": "string-literal",
       "text": "近 1 小时错误",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 257,
+      "line": 325,
       "kind": "string-literal",
       "text": "数据质量告警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 264,
+      "line": 332,
+      "kind": "string-literal",
+      "text": "30 天沉积",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 339,
       "kind": "string-literal",
       "text": "系统健康探针",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 265,
+      "line": 340,
       "kind": "string-literal",
       "text": "正常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 265,
+      "line": 340,
       "kind": "string-literal",
       "text": "降级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 265,
+      "line": 340,
       "kind": "string-literal",
       "text": "未知",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 266,
+      "line": 341,
       "kind": "string-literal",
       "text": "数据库连接不可用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 266,
+      "line": 341,
       "kind": "string-literal",
       "text": "等待监控接口返回",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 271,
+      "line": 346,
       "kind": "string-literal",
       "text": "值班触达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 273,
+      "line": 348,
       "kind": "string-literal",
       "text": "等待触达自检接口返回",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 291,
+      "line": 366,
       "kind": "jsx-text",
       "text": "这个页面的用途",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 297,
+      "line": 372,
       "kind": "jsx-text",
       "text": "查看系统监控",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 298,
+      "line": 373,
       "kind": "jsx-text",
       "text": "查看错误日志",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 299,
+      "line": 374,
       "kind": "jsx-text",
       "text": "查看数据质量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 320,
+      "line": 387,
+      "kind": "jsx-text",
+      "text": "告警生成源",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 390,
+      "kind": "string-literal",
+      "text": "处理中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 390,
+      "kind": "string-literal",
+      "text": "预览沉积归档",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 398,
+      "kind": "jsx-text",
+      "text": "· 最后",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 403,
+      "kind": "jsx-text",
+      "text": "当前没有未处理告警源。",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 407,
+      "kind": "jsx-text",
+      "text": "重复噪音源",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 418,
+      "kind": "jsx-text",
+      "text": "暂未发现重复噪音源。",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 426,
+      "kind": "jsx-text",
+      "text": "归档预览：",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 426,
+      "kind": "jsx-text",
+      "text": "天前非 CRITICAL 老旧告警",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 426,
+      "kind": "jsx-text",
+      "text": "条。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 430,
+      "kind": "jsx-text",
+      "text": "执行安全归档",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "line": 452,
       "kind": "jsx-text",
       "text": "通知关联的告警详情",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 339,
+      "line": 471,
       "kind": "jsx-text",
       "text": "类型：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 340,
+      "line": 472,
       "kind": "jsx-text",
       "text": "状态：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 340,
+      "line": 472,
       "kind": "string-literal",
       "text": "已处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 340,
+      "line": 472,
       "kind": "string-literal",
       "text": "待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 341,
+      "line": 473,
       "kind": "jsx-text",
       "text": "创建时间：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 342,
+      "line": 474,
       "kind": "jsx-text",
       "text": "相关路径：",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
-      "line": 376,
+      "line": 508,
       "kind": "string-literal",
       "text": "当前没有已处理告警记录",
       "auto_translatable": true
@@ -13393,51 +13477,142 @@
     },
     {
       "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
-      "line": 136,
+      "line": 132,
+      "kind": "string-literal",
+      "text": "24h 错误总量",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 133,
+      "kind": "string-literal",
+      "text": "500 / PG 错误",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 134,
+      "kind": "string-literal",
+      "text": "403 / 客户端错误",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 135,
+      "kind": "string-literal",
+      "text": "影响路径",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 146,
+      "kind": "jsx-text",
+      "text": "24h 根因聚合",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 150,
+      "kind": "jsx-text",
+      "text": "近 24 小时暂无错误聚合。",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 189,
+      "kind": "jsx-text",
+      "text": "优先处理：",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 189,
+      "kind": "jsx-text",
+      "text": "，近 24h 出现",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 189,
+      "kind": "jsx-text",
+      "text": "次。",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "line": 231,
       "kind": "jsx-text",
       "text": "页 · 共",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 68,
+      "line": 91,
       "kind": "string-literal",
       "text": "监控接口暂未返回数据",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 70,
+      "line": 93,
       "kind": "string-literal",
       "text": "数据库连接不可用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 87,
+      "line": 112,
       "kind": "string-literal",
       "text": "正常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 87,
+      "line": 112,
       "kind": "string-literal",
       "text": "降级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 87,
+      "line": 112,
       "kind": "string-literal",
       "text": "未知",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/system/health/page.tsx",
-      "line": 249,
+      "line": 318,
       "kind": "jsx-text",
       "text": "页面价值：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "line": 330,
+      "kind": "string-literal",
+      "text": "告警台账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "line": 331,
+      "kind": "string-literal",
+      "text": "错误日志",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "line": 332,
+      "kind": "string-literal",
+      "text": "备份与恢复",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "line": 333,
+      "kind": "string-literal",
+      "text": "系统配置",
       "auto_translatable": true
     },
     {

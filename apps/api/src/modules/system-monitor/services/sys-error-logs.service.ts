@@ -109,4 +109,67 @@ export class SysErrorLogsService {
     );
     return rows[0] ?? null;
   }
+
+  /** 根因聚合：把一屏重复 500/PG 错误压缩成可处理事项 */
+  async getGroupedSummary(params: { hours?: number; limit?: number }) {
+    const hours = Math.max(1, Math.min(168, Math.floor(params.hours ?? 24)));
+    const limit = Math.max(5, Math.min(100, Math.floor(params.limit ?? 20)));
+    const groups = await this.ds.query<any[]>(
+      `WITH normalized AS (
+         SELECT
+           id,
+           error_type,
+           http_status,
+           pg_error_code,
+           request_method,
+           regexp_replace(COALESCE(request_path, ''), '\\?.*$', '') AS path_key,
+           LEFT(COALESCE(error_message, ''), 220) AS message_key,
+           username,
+           created_at
+          FROM sys_error_logs
+         WHERE created_at > NOW() - ($1::int * INTERVAL '1 hour')
+       )
+       SELECT
+         error_type,
+         http_status,
+         pg_error_code,
+         request_method,
+         path_key,
+         message_key,
+         COUNT(*)::int AS count,
+         COUNT(DISTINCT username)::int AS affected_users,
+         MIN(created_at) AS first_seen,
+         MAX(created_at) AS last_seen,
+         MAX(id)::int AS latest_id
+        FROM normalized
+       GROUP BY error_type, http_status, pg_error_code, request_method, path_key, message_key
+       ORDER BY count DESC, last_seen DESC
+       LIMIT $2`,
+      [hours, limit],
+    );
+    const totals = await this.ds.query<any[]>(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE http_status >= 500)::int AS server_errors,
+         COUNT(*) FILTER (WHERE http_status BETWEEN 400 AND 499)::int AS permission_or_client_errors,
+         COUNT(DISTINCT regexp_replace(COALESCE(request_path, ''), '\\?.*$', ''))::int AS affected_paths
+        FROM sys_error_logs
+       WHERE created_at > NOW() - ($1::int * INTERVAL '1 hour')`,
+      [hours],
+    );
+    const top = groups[0] ?? null;
+    return {
+      windowHours: hours,
+      total: Number(totals[0]?.total ?? 0),
+      serverErrors: Number(totals[0]?.server_errors ?? 0),
+      permissionOrClientErrors: Number(totals[0]?.permission_or_client_errors ?? 0),
+      affectedPaths: Number(totals[0]?.affected_paths ?? 0),
+      topRootCause: top,
+      groups,
+      semantics: {
+        groupKey: 'error_type + http_status + pg_error_code + method + normalized path + error message excerpt',
+        latestId: '点击 latest_id 可查看完整堆栈，避免在重复行里人工翻找。',
+      },
+    };
+  }
 }

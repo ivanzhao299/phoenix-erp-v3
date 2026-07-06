@@ -18,6 +18,16 @@ import { SysErrorLogsService } from '../services/sys-error-logs.service';
 export class SysErrorLogsController {
   constructor(private readonly errorLogService: SysErrorLogsService) {}
 
+  /** 根因聚合摘要：用于运维页直接定位反复 500 / PG 错误 */
+  @Get('summary')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  async summary(
+    @Query('hours', new DefaultValuePipe(24), ParseIntPipe) hours?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.errorLogService.getGroupedSummary({ hours, limit });
+  }
+
   /** 错误列表（不含 stack_trace） */
   @Get()
   @RequireMenu('MENU_SYS_MONITOR', 'V')

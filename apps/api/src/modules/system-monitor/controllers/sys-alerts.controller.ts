@@ -63,6 +63,54 @@ export class SysAlertsController {
     return this.alertsService.getDeliveryHealth();
   }
 
+  /** 告警积压与噪音源摘要：区分当前待办、历史沉积、重复生成源 */
+  @Get('backlog-summary')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  async backlogSummary() {
+    return this.alertsService.getBacklogSummary();
+  }
+
+  /** 老旧告警批量归档：默认 dry-run；真实执行需 MENU_SYS_MONITOR:A + confirm token */
+  @Get('stale-resolve-preview')
+  @RequireMenu('MENU_SYS_MONITOR', 'V')
+  async staleResolvePreview(
+    @Query('olderThanDays', new DefaultValuePipe(30), ParseIntPipe) olderThanDays?: number,
+    @Query('alertType') alertType?: string,
+    @Query('severity') severity?: string,
+    @Query('maxRows', new DefaultValuePipe(1000), ParseIntPipe) maxRows?: number,
+  ) {
+    const user = this.cls.get('user');
+    return this.alertsService.bulkResolveStaleAlerts({
+      resolvedBy: user?.name ?? user?.username ?? 'PREVIEW',
+      olderThanDays,
+      alertType,
+      severity,
+      maxRows,
+      dryRun: true,
+    });
+  }
+
+  @Post('bulk-resolve-stale')
+  @RequireMenu('MENU_SYS_MONITOR', 'A')
+  async bulkResolveStale(@Body() body: {
+    olderThanDays?: number;
+    alertType?: string;
+    severity?: string;
+    reason?: string;
+    dryRun?: boolean;
+    confirm?: string;
+    maxRows?: number;
+    includeCritical?: boolean;
+  }) {
+    const user = this.cls.get('user');
+    const resolvedBy = user?.name ?? user?.username ?? 'ADMIN';
+    return this.alertsService.bulkResolveStaleAlerts({
+      ...body,
+      resolvedBy,
+      dryRun: body?.dryRun !== false,
+    });
+  }
+
   /** 处理告警（单向操作，无法撤销） */
   @Patch(':id/resolve')
   @RequireMenu('MENU_SYS_MONITOR', 'A')

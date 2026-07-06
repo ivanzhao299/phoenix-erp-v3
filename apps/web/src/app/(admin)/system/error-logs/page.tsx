@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import PageHeader from "@/components/PageHeader";
-import { FileWarning, RefreshCw, X, Loader2 } from "lucide-react";
+import { FileWarning, RefreshCw, X, Loader2, AlertTriangle, Layers } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ErrorRow {
@@ -24,6 +24,28 @@ interface ErrorRow {
   ip_address:     string | null;
   created_at:     string;
   stack_trace?:   string | null;
+}
+interface ErrorGroup {
+  error_type: string;
+  http_status: number | null;
+  pg_error_code: string | null;
+  request_method: string | null;
+  path_key: string | null;
+  message_key: string | null;
+  count: number;
+  affected_users: number;
+  first_seen: string;
+  last_seen: string;
+  latest_id: number;
+}
+interface ErrorSummary {
+  windowHours: number;
+  total: number;
+  serverErrors: number;
+  permissionOrClientErrors: number;
+  affectedPaths: number;
+  topRootCause: ErrorGroup | null;
+  groups: ErrorGroup[];
 }
 
 const tok = () => (typeof window === "undefined" ? "" : sessionStorage.getItem("phoenix_token") ?? "");
@@ -43,6 +65,7 @@ export default function ErrorLogsPage() {
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(1);
   const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<ErrorSummary | null>(null);
   const [errorType, setErrorType]   = useState("");
   const [httpStatus, setHttpStatus] = useState("");
 
@@ -62,6 +85,9 @@ export default function ErrorLogsPage() {
         setTotal(d.total ?? 0);
         setPage(p);
       }
+      const summaryRes = await fetch("/api/system/error-logs/summary?hours=24&limit=12", { headers: { Authorization: `Bearer ${tok()}` } });
+      if (summaryRes.ok) setSummary(await summaryRes.json());
+      else setSummary(null);
     } finally { setLoading(false); }
   }, [errorType, httpStatus]);
 
@@ -81,7 +107,7 @@ export default function ErrorLogsPage() {
     <div>
       <PageHeader
         title={t('ui.错误日志','错误日志')}
-        subtitle={`共 ${total} 条 · 系统异常记录 / 错误追踪（只读 append-only）`}
+        subtitle={`共 ${total} 条 · 先看根因聚合，再看原始明细 · append-only`}
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input value={errorType} onChange={e => setErrorType(e.target.value)} placeholder={t('ui.错误类型','错误类型')}
@@ -95,6 +121,75 @@ export default function ErrorLogsPage() {
           </div>
         }
       />
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+        gap: 12,
+        marginBottom: 16,
+      }}>
+        {[
+          { label: "24h 错误总量", value: summary ? summary.total.toLocaleString() : "—", tone: (summary?.total ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)" },
+          { label: "500 / PG 错误", value: summary ? summary.serverErrors.toLocaleString() : "—", tone: (summary?.serverErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)" },
+          { label: "403 / 客户端错误", value: summary ? summary.permissionOrClientErrors.toLocaleString() : "—", tone: (summary?.permissionOrClientErrors ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)" },
+          { label: "影响路径", value: summary ? summary.affectedPaths.toLocaleString() : "—", tone: "var(--color-accent)" },
+        ].map(card => (
+          <div key={card.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderLeft: `var(--card-accent-width) solid ${card.tone}`, borderRadius: "var(--radius-lg)", padding: 14 }}>
+            <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800 }}>{card.label}</div>
+            <div style={{ color: "var(--text-primary)", fontSize: 28, fontWeight: 900, marginTop: 10 }}>{card.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 900, color: "var(--text-primary)", marginBottom: 12 }}>
+          <Layers size={16} /> 24h 根因聚合
+        </div>
+        {(summary?.groups?.length ?? 0) === 0 ? (
+          <div style={{ color: "var(--status-success)", display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <FileWarning size={18} /> 近 24 小时暂无错误聚合。
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {summary!.groups.slice(0, 8).map(group => {
+              const sty = statusStyle(group.http_status);
+              return (
+                <button
+                  key={`${group.latest_id}-${group.path_key}-${group.message_key}`}
+                  onClick={() => openDetail(group.latest_id)}
+                  style={{
+                    textAlign: "left",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--bg-page)",
+                    padding: "10px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "start" }}>
+                    <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 800, ...sty }}>{group.http_status ?? "—"}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-primary)", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {group.request_method ?? "—"} {group.path_key || "—"}
+                      </div>
+                      <div style={{ marginTop: 4, color: "var(--text-secondary)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {group.message_key || "—"}
+                      </div>
+                    </div>
+                    <div style={{ color: "var(--status-danger)", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{Number(group.count).toLocaleString()} 次</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {summary?.topRootCause && (
+          <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--status-warning-bg-faint)", color: "var(--text-secondary)", fontSize: 13, display: "flex", gap: 8 }}>
+            <AlertTriangle size={16} style={{ color: "var(--status-warning)", flexShrink: 0 }} />
+            优先处理：{summary.topRootCause.request_method} {summary.topRootCause.path_key}，近 24h 出现 {Number(summary.topRootCause.count).toLocaleString()} 次。
+          </div>
+        )}
+      </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>

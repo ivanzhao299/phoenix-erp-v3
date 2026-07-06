@@ -1,10 +1,10 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-06T01:25:14.598Z
+Generated: 2026-07-06T05:57:28.461Z
 
-Total findings: 3054
-Auto-translatable by runtime bridge: 3038
-Still requiring componentization or dictionary modeling: 16
+Total findings: 3079
+Auto-translatable by runtime bridge: 3060
+Still requiring componentization or dictionary modeling: 19
 Affected files: 170
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
@@ -23,6 +23,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 71 | 303:好业财口径<br>304:ERP回退<br>313:待同步好业财镜像<br>319:已对齐<br>320:小差异<br>321:需对账<br>322:待字段锁定<br>323:ERP回退 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 56:蛋鸡养殖场<br>56:肉鸡养殖场<br>56:屠宰加工厂<br>57:食品厂<br>57:有机肥生产厂<br>57:孵化场<br>58:饲料厂<br>58:其他 |
+| `apps/web/src/app/(admin)/system/alerts/page.tsx` | 43 | 74:API 500 / PG 错误<br>75:定时任务失败<br>75:Cron 失败写入 CRON_FAILURE 告警<br>76:IoT 同步异常<br>77:数据质量风险<br>212:手动处理<br>304:当前值班待办<br>311:严重告警 |
 | `apps/web/src/app/(admin)/finance2/page.tsx` | 41 | 162:来源待确认<br>163:好业财应收汇总<br>164:好业财应付汇总<br>165:好业财资金账户<br>166:好业财收款镜像<br>167:好业财付款镜像<br>168:好业财科目余额<br>169:好业财资产负债表 |
 | `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |
 | `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司编码<br>8:基本信息<br>9:账号 |
@@ -33,7 +34,6 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/master-data/products/_fields.ts` | 33 | 5:产品名称<br>5:基本信息<br>6:产品名称(中文)<br>6:基本信息<br>7:产品名称(老挝语)<br>7:基本信息<br>8:品类<br>8:基本信息 |
 | `apps/web/src/app/(admin)/master-data/organizations/page.tsx` | 32 | 97:集团<br>98:事业群<br>99:公司<br>100:场区<br>101:工厂<br>102:项目<br>103:仓库<br>104:门店 |
 | `apps/web/src/app/(admin)/master-data/suppliers/_fields.ts` | 31 | 5:供应商名称<br>5:基本信息<br>6:英文名称<br>6:基本信息<br>7:供应商类型<br>7:基本信息<br>9:本地<br>9:海外 |
-| `apps/web/src/app/(admin)/system/alerts/page.tsx` | 31 | 55:API 500 / PG 错误<br>56:定时任务失败<br>56:Cron 失败写入 CRON_FAILURE 告警<br>57:IoT 同步异常<br>58:数据质量风险<br>184:手动处理<br>236:未处理系统告警<br>243:严重告警 |
 | `apps/web/src/app/(admin)/workflow/builder/page.tsx` | 31 | 24:财务会计<br>27:财务负责人<br>30:采购员<br>33:仓储负责人<br>36:品控负责人<br>43:负责人审批<br>49:申请金额<br>54:申请原因 |
 | `apps/web/src/hooks/usePackagingDicts.ts` | 31 | 14:1号蛋<br>15:2号蛋<br>16:3号蛋<br>17:4号蛋<br>18:5号蛋<br>22:脏蛋<br>23:裂缝蛋<br>24:破蛋 |
 | `apps/web/src/app/(admin)/daily-work/page.tsx` | 30 | 43:生产日报录入<br>43:存栏 / 死亡 / 淘汰 / 产蛋 / 产蛋率<br>45:鸡群档案<br>47:死淘快速登记<br>47:紧急死亡 / 淘汰登记 · 含原因<br>49:饲料消耗登记<br>51:兽药使用记录<br>51:日常用药 / 治疗记录 |
