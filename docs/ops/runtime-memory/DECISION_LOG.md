@@ -1,5 +1,31 @@
 # Decision Log
 
+## 2026-07-07 - Chanjet Readonly Field Adapter Implementation
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The first field-gap batch required ERP-readable contracts for voucher headers, voucher lines, and counterparties.
+- The backend now exposes `GET /api/chanjet/integration/readonly-field-adapters` from ERP middle-layer snapshots only.
+- The admin UI now has a `只读适配器` tab that shows adapter readiness, sample rows, missing critical fields, and next actions.
+- The audit script `scripts/ops/chanjet-readonly-field-adapter-audit.mjs` can persist JSON / Markdown artifacts from the same API.
+
+Guardrails:
+
+- Chanjet write: false.
+- Chanjet delete / modify: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- Migration / DB write: false.
+- Ordinary-user middle-layer visibility: false.
+
+Next actions:
+
+1. Run production readonly adapter audit with an admin token.
+2. Wire validated adapter rows into reconciliation views and business-facing source badges.
+3. Keep write-back and voucher push on HOLD until a separate approved Gate.
+
 ## 2026-07-06 - Chanjet Field Gap Review Gate
 
 Decision: GO WITH CONDITIONS.

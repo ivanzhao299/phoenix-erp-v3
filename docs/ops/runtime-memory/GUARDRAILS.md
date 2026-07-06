@@ -1,6 +1,6 @@
 # Runtime Memory Guardrails
 
-Last updated: 2026-06-24
+Last updated: 2026-07-07
 
 1. Do not rely on long-lived chat context for Store Payment project state.
 2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.
@@ -78,3 +78,7 @@ Last updated: 2026-06-24
 74. Ordinary users must consume Chanjet-aligned data only through business pages, source badges, reconciliation states, and approved finance cards.
 75. Do not expose Chanjet mirror tables, raw payloads, field catalogs, proxy calls, sync jobs, or voucher-draft plumbing to ordinary users.
 76. Business pages may show `好业财口径`, `ERP口径`, `差异`, or `待映射`, but must not require users to understand the middle layer.
+77. Chanjet readonly field adapters may only consume ERP-owned mirror snapshots and master mapping rows; they must not call Chanjet write APIs.
+78. Voucher header / line adapters are read-only evidence for reconciliation and review; they do not authorize voucher draft push.
+79. Counterparty adapter rows require approved CUSTOMER / SUPPLIER mapping before they can influence ordinary business pages.
+80. If a readonly adapter is `PARTIAL`, `WAITING_SAMPLE`, or `HOLD`, ordinary finance pages must fail closed to ERP source plus difference/mapping notice.

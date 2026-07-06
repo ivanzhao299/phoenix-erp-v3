@@ -867,6 +867,21 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/readonly-field-adapters
+   * 好业财只读字段适配器。输出凭证头、凭证明细、往来单位的 ERP 可消费合同。
+   */
+  @Get('integration/readonly-field-adapters')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationReadonlyFieldAdapters() {
+    try {
+      const readonlyFieldAdapters = await this.integration.financeReadonlyFieldAdaptersOverview();
+      return { success: true, readonlyFieldAdapters };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/field-mappings/analyze
    * 从字段 catalog 生成 ERP 字段适配候选。只写 ERP 中间层。
    */

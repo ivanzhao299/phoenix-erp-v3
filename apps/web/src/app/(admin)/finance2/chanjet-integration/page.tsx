@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -503,6 +503,45 @@ interface ReceiptPaymentLocksOverview {
   guardrails: { rule: string };
 }
 
+type ReadonlyAdapterStatus = 'READY' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
+
+interface ReadonlyFieldAdapterRow {
+  rowId: string;
+  [key: string]: unknown;
+}
+
+interface ReadonlyFieldAdapter {
+  adapterKey: 'CHANJET_VOUCHER_HEADER' | 'CHANJET_VOUCHER_LINE' | 'CHANJET_COUNTERPARTY';
+  title: string;
+  status: ReadonlyAdapterStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  mappedFields: string[];
+  missingCriticalFields: string[];
+  sourceEntityTypes: string[];
+  endpointKeys: string[];
+  nextAction: string;
+  rows: ReadonlyFieldAdapterRow[];
+}
+
+interface ReadonlyFieldAdaptersOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalAdapters: number;
+    ready: number;
+    partial: number;
+    waitingSample: number;
+    hold: number;
+    voucherHeaderRows: number;
+    voucherLineRows: number;
+    counterpartyRows: number;
+    nextGate: string;
+  };
+  adapters: ReadonlyFieldAdapter[];
+  guardrails: { rule: string };
+}
+
 const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
@@ -586,6 +625,7 @@ export default function ChanjetIntegrationPage() {
   const [financeReadModel, setFinanceReadModel] = useState<FinanceReadModelOverview | null>(null);
   const [financeReadonlyReports, setFinanceReadonlyReports] = useState<FinanceReadonlyStatementReportOverview | null>(null);
   const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
+  const [readonlyFieldAdapters, setReadonlyFieldAdapters] = useState<ReadonlyFieldAdaptersOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -599,7 +639,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -617,6 +657,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; readModel: FinanceReadModelOverview; error?: string }>('/chanjet/integration/finance-read-model'),
         request<{ success: boolean; readonlyReport: FinanceReadonlyStatementReportOverview; error?: string }>('/chanjet/integration/subject-balance-readonly-report'),
         request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
+        request<{ success: boolean; readonlyFieldAdapters: ReadonlyFieldAdaptersOverview; error?: string }>('/chanjet/integration/readonly-field-adapters'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -636,6 +677,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceReadModel(financeReadModelResp.readModel || null);
       setFinanceReadonlyReports(financeReadonlyReportResp.readonlyReport || null);
       setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
+      setReadonlyFieldAdapters(readonlyFieldAdaptersResp.readonlyFieldAdapters || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -783,6 +825,7 @@ export default function ChanjetIntegrationPage() {
         {[
           ['adapter', 'P0 财务适配'],
           ['coverage', '覆盖率看板'],
+          ['readonlyAdapters', '只读适配器'],
           ['mirror', '只读镜像'],
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
@@ -970,6 +1013,152 @@ export default function ChanjetIntegrationPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </section>
+      )}
+
+      {tab === 'readonlyAdapters' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>好业财只读字段适配器</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                将好业财镜像中的凭证头、凭证明细、往来单位整理成 ERP 可消费合同。该页只服务管理员治理，不对普通用户暴露中间层。
+              </div>
+            </div>
+            <Badge tone={readonlyFieldAdapters?.decision === 'GO' ? 'green' : readonlyFieldAdapters?.decision === 'HOLD' ? 'red' : 'amber'}>
+              {readonlyFieldAdapters?.decision || '—'}
+            </Badge>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>适配器</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{readonlyFieldAdapters?.summary?.ready ?? 0}/{readonlyFieldAdapters?.summary?.totalAdapters ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>READY / TOTAL</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>凭证头 / 明细</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{readonlyFieldAdapters?.summary?.voucherHeaderRows ?? 0}/{readonlyFieldAdapters?.summary?.voucherLineRows ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>只读样本行</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>往来单位</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{readonlyFieldAdapters?.summary?.counterpartyRows ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>需映射审核后业务使用</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginTop: 8 }}>{readonlyFieldAdapters?.summary?.nextGate ?? '—'}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>不写好业财，不推凭证</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>安全边界</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{readonlyFieldAdapters?.guardrails?.rule || '只读适配器只消费 ERP 中间层快照。'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">凭证推送: 否</Badge>
+              <Badge tone="green">ERP 业务表覆盖: 否</Badge>
+              <Badge tone="green">普通用户可见: 否</Badge>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 14 }}>
+            {(readonlyFieldAdapters?.adapters || []).map((adapter) => (
+              <div key={adapter.adapterKey} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <strong>{adapter.title}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                      {adapter.adapterKey} · 样本 {adapter.sampleRows} · 最近同步 {fmtDate(adapter.latestPulledAt)}
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                      {adapter.sourceEntityTypes.join(' / ')} · {adapter.endpointKeys.join(' / ')}
+                    </div>
+                  </div>
+                  <Badge tone={statusTone(adapter.status)}>{adapter.status}</Badge>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginBottom: 12 }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>已映射字段</div>
+                    <div style={{ marginTop: 6, fontSize: 12 }}>{adapter.mappedFields.slice(0, 10).join(' / ') || '—'}</div>
+                  </div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>关键缺口</div>
+                    <div style={{ marginTop: 6, color: adapter.missingCriticalFields.length ? 'var(--status-danger)' : 'var(--status-success)', fontSize: 12 }}>
+                      {adapter.missingCriticalFields.join(' / ') || '无'}
+                    </div>
+                  </div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一步</div>
+                    <div style={{ marginTop: 6, fontSize: 12 }}>{adapter.nextAction}</div>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  {adapter.adapterKey === 'CHANJET_VOUCHER_HEADER' && (
+                    <table style={{ ...tableStyle, minWidth: 980 }}>
+                      <thead><tr>{['凭证号', '账套/期间', '日期', '状态', '摘要', '制单/审核'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {adapter.rows.slice(0, 30).map((row) => (
+                          <tr key={row.rowId}>
+                            <td style={cellStyle}><strong>{String(row.voucherNo || '—')}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{String(row.voucherId || '—')}</div></td>
+                            <td style={cellStyle}>{String(row.bookId || '—')}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{String(row.period || '—')}</div></td>
+                            <td style={cellStyle}>{String(row.voucherDate || '—')}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>入账 {String(row.postingDate || '—')}</div></td>
+                            <td style={cellStyle}><Badge tone={String(row.status || '') ? 'blue' : 'muted'}>{String(row.status || '—')}</Badge></td>
+                            <td style={cellStyle}>{String(row.summary || '—')}</td>
+                            <td style={cellStyle}>{String(row.maker || '—')}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>审核 {String(row.reviewer || '—')}</div></td>
+                          </tr>
+                        ))}
+                        {!adapter.rows.length && <tr><td style={cellStyle} colSpan={6}>暂无凭证头样本，请先执行好业财只读同步。</td></tr>}
+                      </tbody>
+                    </table>
+                  )}
+                  {adapter.adapterKey === 'CHANJET_VOUCHER_LINE' && (
+                    <table style={{ ...tableStyle, minWidth: 1120 }}>
+                      <thead><tr>{['凭证/行', '科目', '摘要', '借方', '贷方', '辅助核算'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {adapter.rows.slice(0, 60).map((row) => (
+                          <tr key={row.rowId}>
+                            <td style={cellStyle}>{String(row.voucherNo || '—')}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>行 {String(row.lineNo || '—')}</div></td>
+                            <td style={cellStyle}><strong>{String(row.subjectName || '—')}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{String(row.subjectCode || '—')}</div></td>
+                            <td style={cellStyle}>{String(row.summary || '—')}</td>
+                            <td style={cellStyle}>{String(row.debitAmount || '0')} {String(row.currency || '')}</td>
+                            <td style={cellStyle}>{String(row.creditAmount || '0')} {String(row.currency || '')}</td>
+                            <td style={cellStyle}>
+                              往来 {String(row.counterpartyName || '—')}
+                              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>项目 {String(row.projectName || '—')} / 部门 {String(row.departmentName || '—')}</div>
+                            </td>
+                          </tr>
+                        ))}
+                        {!adapter.rows.length && <tr><td style={cellStyle} colSpan={6}>暂未从凭证样本中识别到分录数组，需补充样本或字段规则。</td></tr>}
+                      </tbody>
+                    </table>
+                  )}
+                  {adapter.adapterKey === 'CHANJET_COUNTERPARTY' && (
+                    <table style={{ ...tableStyle, minWidth: 1040 }}>
+                      <thead><tr>{['好业财往来', '类型候选', '状态', 'ERP 候选', '审核', '置信度'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {adapter.rows.slice(0, 80).map((row) => (
+                          <tr key={row.rowId}>
+                            <td style={cellStyle}><strong>{String(row.externalName || '—')}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{String(row.externalCode || row.externalId || '—')}</div></td>
+                            <td style={cellStyle}><Badge tone={String(row.roleCandidate) === 'UNKNOWN' ? 'amber' : 'blue'}>{String(row.roleCandidate || 'UNKNOWN')}</Badge></td>
+                            <td style={cellStyle}>{String(row.status || '—')}</td>
+                            <td style={cellStyle}>{String(row.erpCandidateName || '未匹配')}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{String(row.erpCandidateCode || '—')}</div></td>
+                            <td style={cellStyle}><Badge tone={statusTone(String(row.mappingReviewStatus || 'PENDING'))}>{String(row.mappingReviewStatus || 'PENDING')}</Badge></td>
+                            <td style={cellStyle}>{String(row.confidence || '0')}</td>
+                          </tr>
+                        ))}
+                        {!adapter.rows.length && <tr><td style={cellStyle} colSpan={6}>暂无往来单位样本，请先执行 CUSTOMER_SUPPLIER 只读同步。</td></tr>}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            ))}
+            {!readonlyFieldAdapters?.adapters?.length && <div style={cardStyle}>暂无只读适配器数据。</div>}
           </div>
         </section>
       )}

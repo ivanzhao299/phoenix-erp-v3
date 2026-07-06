@@ -1,6 +1,33 @@
 # Next Actions
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
+
+## 2026-07-07 — Chanjet Readonly Field Adapter Implementation
+
+Current stage: `CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added readonly API `GET /api/chanjet/integration/readonly-field-adapters`.
+2. Implemented adapter contracts for:
+   - `CHANJET_VOUCHER_HEADER`
+   - `CHANJET_VOUCHER_LINE`
+   - `CHANJET_COUNTERPARTY`
+3. Added admin UI tab `/finance2/chanjet-integration#readonlyAdapters`.
+4. Added executable audit tool `scripts/ops/chanjet-readonly-field-adapter-audit.mjs`.
+5. Kept Chanjet write/delete/modify/voucher push disabled.
+
+Next actions:
+
+1. `CHANJET_READONLY_ADAPTER_UI_UAT_AND_RECONCILIATION_WIRING`
+   - Verify production samples for voucher header / line / counterparty adapters.
+   - Wire adapter rows into reconciliation views without exposing the middle layer to ordinary users.
+2. `CHANJET_BUSINESS_FUSION_UI_PASS`
+   - Show only business-level source badges, differences, and mapping states on ordinary finance pages.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet writes and voucher push until a separate approved Gate.
 
 ## 2026-07-06 — Chanjet / ERP Fusion Admin Boundary
 

@@ -123,6 +123,7 @@ export interface FinanceSemanticExtractor {
 export type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
 export type FinanceReadonlyStatementReportStatus = 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'HOLD';
 export type ReceiptPaymentLockStatus = 'LOCKED' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
+export type ChanjetReadonlyAdapterStatus = 'READY' | 'PARTIAL' | 'WAITING_SAMPLE' | 'HOLD';
 export type ReceiptPaymentSystemConfirmationStatus =
   | 'SYSTEM_CONFIRMED_LOCK_CANDIDATE'
   | 'SYSTEM_CONFIRMED_PARTIAL'
@@ -294,6 +295,86 @@ export interface FinanceCardSourceSwitchAuditItem {
   blockerReason: string | null;
   validationRule: string;
   evidence: string[];
+}
+
+export interface ChanjetReadonlyAdapterBase {
+  adapterKey: 'CHANJET_VOUCHER_HEADER' | 'CHANJET_VOUCHER_LINE' | 'CHANJET_COUNTERPARTY';
+  title: string;
+  status: ChanjetReadonlyAdapterStatus;
+  sampleRows: number;
+  latestPulledAt: string | null;
+  mappedFields: string[];
+  missingCriticalFields: string[];
+  sourceEntityTypes: string[];
+  endpointKeys: string[];
+  nextAction: string;
+}
+
+export interface ChanjetVoucherHeaderAdapterRow {
+  rowId: string;
+  voucherId: string;
+  voucherNo: string;
+  bookId: string;
+  period: string;
+  voucherDate: string;
+  postingDate: string;
+  status: string;
+  summary: string;
+  maker: string;
+  reviewer: string;
+  rawEvidenceExcerpt: Record<string, unknown>;
+}
+
+export interface ChanjetVoucherLineAdapterRow {
+  rowId: string;
+  voucherId: string;
+  voucherNo: string;
+  lineNo: string;
+  subjectCode: string;
+  subjectName: string;
+  summary: string;
+  debitAmount: string;
+  creditAmount: string;
+  currency: string;
+  counterpartyName: string;
+  projectName: string;
+  departmentName: string;
+  rawEvidenceExcerpt: Record<string, unknown>;
+}
+
+export interface ChanjetCounterpartyAdapterRow {
+  rowId: string;
+  bookId: string;
+  externalId: string;
+  externalCode: string;
+  externalName: string;
+  roleCandidate: 'CUSTOMER' | 'SUPPLIER' | 'BOTH' | 'UNKNOWN';
+  status: string;
+  erpCandidateCode: string;
+  erpCandidateName: string;
+  mappingReviewStatus: string;
+  confidence: string;
+  rawEvidenceExcerpt: Record<string, unknown>;
+}
+
+export interface ChanjetReadonlyFieldAdapterOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    totalAdapters: number;
+    ready: number;
+    partial: number;
+    waitingSample: number;
+    hold: number;
+    voucherHeaderRows: number;
+    voucherLineRows: number;
+    counterpartyRows: number;
+    nextGate: string;
+  };
+  adapters: Array<ChanjetReadonlyAdapterBase & {
+    rows: Array<ChanjetVoucherHeaderAdapterRow | ChanjetVoucherLineAdapterRow | ChanjetCounterpartyAdapterRow>;
+  }>;
+  guardrails: Record<string, boolean | string>;
 }
 
 export interface ReceiptPaymentDateStatusLock {
@@ -2882,6 +2963,157 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReadonlyFieldAdaptersOverview(): Promise<ChanjetReadonlyFieldAdapterOverview> {
+    const [voucherRows, counterpartyRows, counterpartyMappings] = await Promise.all([
+      this.entitySnapshotRepo.find({
+        where: { entityType: 'VOUCHER' },
+        order: { updatedAt: 'DESC' },
+        take: 120,
+      }),
+      this.entitySnapshotRepo.find({
+        where: { entityType: 'CUSTOMER_SUPPLIER' },
+        order: { updatedAt: 'DESC' },
+        take: 200,
+      }),
+      this.mappingRepo.find({
+        where: { mappingType: In(['CUSTOMER', 'SUPPLIER']) },
+        order: { reviewStatus: 'ASC', updatedAt: 'DESC' },
+        take: 3000,
+      }),
+    ]);
+
+    const latestVoucher = voucherRows.reduce<string | null>(
+      (latest, row) => this.maxIso(latest, row.updatedAt ? row.updatedAt.toISOString() : null),
+      null,
+    );
+    const latestCounterparty = counterpartyRows.reduce<string | null>(
+      (latest, row) => this.maxIso(latest, row.updatedAt ? row.updatedAt.toISOString() : null),
+      null,
+    );
+
+    const voucherHeaderRows = voucherRows.slice(0, 60).map((row) => this.buildVoucherHeaderAdapterRow(row));
+    const voucherLineRows = voucherRows
+      .slice(0, 60)
+      .flatMap((row) => this.buildVoucherLineAdapterRows(row))
+      .slice(0, 160);
+    const counterpartyAdapterRows = counterpartyRows
+      .slice(0, 120)
+      .map((row) => this.buildCounterpartyAdapterRow(row, counterpartyMappings));
+
+    const headerMissing = this.requiredAdapterFields(voucherHeaderRows, [
+      ['voucherId', 'voucher_id'],
+      ['voucherNo', 'voucher_no'],
+      ['voucherDate', 'voucher_date'],
+      ['status', 'voucher_status'],
+    ]);
+    const lineMissing = voucherRows.length === 0
+      ? ['voucher_sample']
+      : voucherLineRows.length === 0
+        ? ['voucher_line_items']
+        : this.requiredAdapterFields(voucherLineRows, [
+          ['subjectCode', 'subject_code'],
+          ['subjectName', 'subject_name'],
+          ['debitAmount', 'debit_amount'],
+          ['creditAmount', 'credit_amount'],
+        ]);
+    const counterpartyMissing = this.requiredAdapterFields(counterpartyAdapterRows, [
+      ['externalId', 'external_id'],
+      ['externalName', 'external_name'],
+      ['roleCandidate', 'counterparty_role'],
+    ]);
+    const approvedCounterpartyMappings = counterpartyMappings.filter((mapping) => mapping.reviewStatus === 'APPROVED').length;
+    if (counterpartyRows.length > 0 && approvedCounterpartyMappings === 0) {
+      counterpartyMissing.push('approved_customer_supplier_mapping');
+    }
+
+    const adapters: ChanjetReadonlyFieldAdapterOverview['adapters'] = [
+      {
+        adapterKey: 'CHANJET_VOUCHER_HEADER',
+        title: '凭证头只读适配器',
+        status: this.buildReadonlyAdapterStatus(voucherRows.length, headerMissing),
+        sampleRows: voucherHeaderRows.length,
+        latestPulledAt: latestVoucher,
+        mappedFields: ['voucherId', 'voucherNo', 'bookId', 'period', 'voucherDate', 'postingDate', 'status', 'summary', 'maker', 'reviewer'],
+        missingCriticalFields: headerMissing,
+        sourceEntityTypes: ['VOUCHER'],
+        endpointKeys: ['VOUCHER_SEARCH'],
+        rows: voucherHeaderRows,
+        nextAction: headerMissing.length
+          ? `继续锁定凭证头字段: ${headerMissing.join(' / ')}。`
+          : '凭证头字段已可只读展示；仍禁止生成或推送好业财凭证。',
+      },
+      {
+        adapterKey: 'CHANJET_VOUCHER_LINE',
+        title: '凭证明细只读适配器',
+        status: this.buildReadonlyAdapterStatus(voucherRows.length, lineMissing),
+        sampleRows: voucherLineRows.length,
+        latestPulledAt: latestVoucher,
+        mappedFields: ['lineNo', 'subjectCode', 'subjectName', 'summary', 'debitAmount', 'creditAmount', 'currency', 'counterpartyName', 'projectName', 'departmentName'],
+        missingCriticalFields: lineMissing,
+        sourceEntityTypes: ['VOUCHER'],
+        endpointKeys: ['VOUCHER_SEARCH'],
+        rows: voucherLineRows,
+        nextAction: lineMissing.length
+          ? `继续锁定凭证明细字段: ${lineMissing.join(' / ')}。`
+          : '凭证明细可进入只读对账视图；借贷金额必须继续以字符串/decimal 保留精度。',
+      },
+      {
+        adapterKey: 'CHANJET_COUNTERPARTY',
+        title: '往来单位只读适配器',
+        status: this.buildReadonlyAdapterStatus(counterpartyRows.length, counterpartyMissing),
+        sampleRows: counterpartyAdapterRows.length,
+        latestPulledAt: latestCounterparty,
+        mappedFields: ['externalId', 'externalCode', 'externalName', 'roleCandidate', 'status', 'erpCandidateCode', 'erpCandidateName', 'mappingReviewStatus', 'confidence'],
+        missingCriticalFields: counterpartyMissing,
+        sourceEntityTypes: ['CUSTOMER_SUPPLIER'],
+        endpointKeys: ['CUSTOMER_SUPPLIER'],
+        rows: counterpartyAdapterRows,
+        nextAction: counterpartyMissing.includes('approved_customer_supplier_mapping')
+          ? '往来单位已可只读展示，但 CUSTOMER/SUPPLIER 映射未达到批准状态；业务页面不得自动采用。'
+          : counterpartyMissing.length
+            ? `继续锁定往来单位字段: ${counterpartyMissing.join(' / ')}。`
+            : '往来单位只读适配已具备映射证据，可进入差异对账中心。',
+      },
+    ];
+
+    const statusCounts = adapters.reduce<Record<ChanjetReadonlyAdapterStatus, number>>((acc, adapter) => {
+      acc[adapter.status] = (acc[adapter.status] || 0) + 1;
+      return acc;
+    }, {} as Record<ChanjetReadonlyAdapterStatus, number>);
+    const hold = statusCounts.HOLD || 0;
+    const partial = statusCounts.PARTIAL || 0;
+    const waitingSample = statusCounts.WAITING_SAMPLE || 0;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 || waitingSample > 0 ? 'HOLD' : partial > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
+      summary: {
+        totalAdapters: adapters.length,
+        ready: statusCounts.READY || 0,
+        partial,
+        waitingSample,
+        hold,
+        voucherHeaderRows: voucherHeaderRows.length,
+        voucherLineRows: voucherLineRows.length,
+        counterpartyRows: counterpartyAdapterRows.length,
+        nextGate: partial || waitingSample || hold
+          ? 'CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC'
+          : 'CHANJET_BUSINESS_FUSION_UI_PASS',
+      },
+      adapters,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        ordinaryUserVisible: false,
+        rule: '只读适配器只消费 ERP 中间层快照，输出管理员可审查的凭证头、凭证明细、往来单位合同；禁止写好业财、禁止推凭证、禁止静默覆盖 ERP 业务事实。',
+      },
+    };
+  }
+
   async financeReadonlyCoverage() {
     const expectedEndpoints = PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault);
     const [rawRows, entityRows, fieldRows, recentJobs, books] = await Promise.all([
@@ -3347,6 +3579,173 @@ export class ChanjetIntegrationService {
     if (sampleRows === 0 || !metric || metric.status === 'WAITING_SAMPLE') return 'WAITING_SAMPLE';
     if (['AUTHORITY_READY', 'READONLY_READY'].includes(metric.status)) return 'READONLY_READY';
     return 'BLOCKED_MAPPING';
+  }
+
+  private buildReadonlyAdapterStatus(sampleRows: number, missingCriticalFields: string[]): ChanjetReadonlyAdapterStatus {
+    if (sampleRows === 0) return 'WAITING_SAMPLE';
+    if (missingCriticalFields.length === 0) return 'READY';
+    if (missingCriticalFields.length <= 2) return 'PARTIAL';
+    return 'HOLD';
+  }
+
+  private requiredAdapterFields<T extends object>(
+    rows: T[],
+    fields: Array<[keyof T & string, string]>,
+  ): string[] {
+    if (rows.length === 0) return fields.map(([, label]) => label);
+    return fields
+      .filter(([field]) => rows.every((row) => this.isEmptyAdapterValue((row as Record<string, unknown>)[field])))
+      .map(([, label]) => label);
+  }
+
+  private isEmptyAdapterValue(value: unknown): boolean {
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string') {
+      const text = value.trim();
+      return !text || text === '—' || text === 'UNKNOWN';
+    }
+    return false;
+  }
+
+  private buildVoucherHeaderAdapterRow(row: ChanjetEntitySnapshotEntity): ChanjetVoucherHeaderAdapterRow {
+    const raw = row.rawData || {};
+    return {
+      rowId: row.id,
+      voucherId: this.firstChanjetText(raw, ['id', 'voucherId', 'acctgTransId', 'transId', 'docId', 'billId']) || row.externalId || row.id,
+      voucherNo: this.firstChanjetText(raw, ['voucherNo', 'voucherCode', 'voucherNum', 'transNo', 'docNo', 'billNo', 'code']) || row.externalCode || '—',
+      bookId: row.bookId || this.firstChanjetText(raw, ['bookId', 'bookid', 'accountBookId']) || '—',
+      period: row.period || this.firstChanjetText(raw, ['period', 'accountPeriod', 'acctPeriod', 'fiscalPeriod', 'yearPeriod']) || '—',
+      voucherDate: this.firstChanjetText(raw, ['voucherDate', 'bizDate', 'businessDate', 'transDate', 'date', 'postedDate', 'createDate']) || '—',
+      postingDate: this.firstChanjetText(raw, ['postingDate', 'postedDate', 'auditDate', 'bookkeepingDate', 'accountingDate']) || '—',
+      status: row.status || this.firstChanjetText(raw, ['status', 'voucherStatus', 'auditStatus', 'state', 'billStatus']) || '—',
+      summary: this.firstChanjetText(raw, ['summary', 'abstract', 'memo', 'description', 'remark', 'comments']) || row.externalName || '—',
+      maker: this.firstChanjetText(raw, ['maker', 'creator', 'createUserName', 'createdBy', 'operatorName', 'createName']) || '—',
+      reviewer: this.firstChanjetText(raw, ['reviewer', 'auditor', 'approveUserName', 'auditUserName', 'reviewUserName']) || '—',
+      rawEvidenceExcerpt: this.compactChanjetRawEvidence(raw),
+    };
+  }
+
+  private buildVoucherLineAdapterRows(row: ChanjetEntitySnapshotEntity): ChanjetVoucherLineAdapterRow[] {
+    const raw = row.rawData || {};
+    const header = this.buildVoucherHeaderAdapterRow(row);
+    const lines = this.firstChanjetArray(raw, [
+      'entries',
+      'entryList',
+      'items',
+      'lines',
+      'details',
+      'detailList',
+      'voucherLines',
+      'voucherDetails',
+      'voucherDetailsList',
+      'acctgTransDetails',
+      'acctgTransItems',
+      'children',
+      'rows',
+      'data.details',
+      'data.items',
+      'data.lines',
+    ]);
+    return lines
+      .filter((line) => this.isRecord(line))
+      .map((line, index) => {
+        const item = line as Record<string, unknown>;
+        return {
+          rowId: `${row.id}:${index + 1}`,
+          voucherId: header.voucherId,
+          voucherNo: header.voucherNo,
+          lineNo: this.firstChanjetText(item, ['lineNo', 'rowNo', 'seq', 'sequence', 'index']) || String(index + 1),
+          subjectCode: this.firstChanjetText(item, ['subjectCode', 'subject.code', 'subjectNo', 'accountCode', 'accountSubjectCode']) || '—',
+          subjectName: this.firstChanjetText(item, ['subjectName', 'subject.name', 'accountName', 'accountSubjectName']) || '—',
+          summary: this.firstChanjetText(item, ['summary', 'abstract', 'memo', 'remark', 'comments', 'longText']) || header.summary,
+          debitAmount: this.firstChanjetText(item, ['debitAmount', 'debit', 'debitOriginalAmount', 'drAmount', 'borrowAmount', 'postedDr']) || '0',
+          creditAmount: this.firstChanjetText(item, ['creditAmount', 'credit', 'creditOriginalAmount', 'crAmount', 'loanAmount', 'postedCr']) || '0',
+          currency: this.firstChanjetText(item, ['currency', 'currencyCode', 'currencyName']) || row.currency || '—',
+          counterpartyName: this.firstChanjetText(item, ['counterpartyName', 'customerName', 'supplierName', 'custVendorName', 'assistantCustomerName', 'partyName']) || '—',
+          projectName: this.firstChanjetText(item, ['projectName', 'project.name', 'assistantProjectName']) || '—',
+          departmentName: this.firstChanjetText(item, ['departmentName', 'department.name', 'deptName', 'assistantDepartmentName']) || '—',
+          rawEvidenceExcerpt: this.compactChanjetRawEvidence(item),
+        };
+      });
+  }
+
+  private buildCounterpartyAdapterRow(
+    row: ChanjetEntitySnapshotEntity,
+    mappings: ChanjetMasterMappingEntity[],
+  ): ChanjetCounterpartyAdapterRow {
+    const raw = row.rawData || {};
+    const roleCandidate = this.detectCounterpartyRole(raw);
+    const match = mappings.find((mapping) => (
+      mapping.bookId === row.bookId
+      && (
+        (!!row.externalId && mapping.chanjetId === row.externalId)
+        || (!!row.externalCode && mapping.chanjetCode === row.externalCode)
+        || (!!row.externalName && mapping.chanjetName === row.externalName)
+      )
+    )) || mappings.find((mapping) => (
+      (!!row.externalId && mapping.chanjetId === row.externalId)
+      || (!!row.externalCode && mapping.chanjetCode === row.externalCode)
+      || (!!row.externalName && mapping.chanjetName === row.externalName)
+    ));
+    return {
+      rowId: row.id,
+      bookId: row.bookId || '—',
+      externalId: row.externalId || this.firstChanjetText(raw, ['id', 'partyId', 'customerId', 'supplierId']) || '—',
+      externalCode: row.externalCode || this.firstChanjetText(raw, ['code', 'partyCode', 'customerCode', 'supplierCode']) || '—',
+      externalName: row.externalName || this.firstChanjetText(raw, ['name', 'partyName', 'customerName', 'supplierName', 'subjectName']) || '—',
+      roleCandidate,
+      status: row.status || this.firstChanjetText(raw, ['status', 'state', 'enabled', 'disabled']) || '—',
+      erpCandidateCode: match?.erpCode || '',
+      erpCandidateName: match?.erpName || '',
+      mappingReviewStatus: match?.reviewStatus || 'PENDING',
+      confidence: String(match?.confidence ?? '0'),
+      rawEvidenceExcerpt: this.compactChanjetRawEvidence(raw),
+    };
+  }
+
+  private detectCounterpartyRole(raw: Record<string, unknown>): ChanjetCounterpartyAdapterRow['roleCandidate'] {
+    const text = JSON.stringify(this.compactChanjetRawEvidence(raw)).toLowerCase();
+    const customer = /customer|cust|客户|应收|receive/.test(text);
+    const supplier = /supplier|vendor|供应商|应付|pay/.test(text);
+    if (customer && supplier) return 'BOTH';
+    if (customer) return 'CUSTOMER';
+    if (supplier) return 'SUPPLIER';
+    return 'UNKNOWN';
+  }
+
+  private firstChanjetArray(rawData: Record<string, unknown>, paths: string[]): unknown[] {
+    for (const path of paths) {
+      const value = this.readChanjetPath(rawData, path);
+      if (Array.isArray(value)) return value;
+    }
+    for (const value of Object.values(rawData)) {
+      if (Array.isArray(value)) return value;
+      if (this.isRecord(value)) {
+        const nested = this.firstChanjetArray(value, paths);
+        if (nested.length) return nested;
+      }
+    }
+    return [];
+  }
+
+  private firstChanjetText(rawData: Record<string, unknown>, paths: string[]): string {
+    for (const path of paths) {
+      const value = this.readChanjetPath(rawData, path);
+      if (value === null || value === undefined) continue;
+      if (typeof value === 'string') {
+        if (value.trim()) return value.trim();
+        continue;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    }
+    return '';
+  }
+
+  private readChanjetPath(rawData: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>((current, segment) => {
+      if (!this.isRecord(current)) return undefined;
+      return current[segment];
+    }, rawData);
   }
 
   private compactChanjetRawEvidence(rawData: Record<string, unknown> | null | undefined): Record<string, unknown> {
