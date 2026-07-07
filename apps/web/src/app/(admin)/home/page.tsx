@@ -33,7 +33,7 @@ interface QualityScores { overall: number; masterData: number; alertCount: numbe
 interface CenterMember { type: string; total: number; active: number; pending: number; frozen: number; }
 interface CenterStat { key: string; label: string; objectCount: number; pendingCount: number; riskCount: number; healthScore: number; members: CenterMember[]; }
 interface TodoTask { task_no: string; title: string; node_name: string; created_at: string; due_at?: string; starter_name?: string; }
-interface FarmKpiState { totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number; waterToday?: number; alarmCount?: number; }
+interface FarmKpiState { totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number | null; waterToday?: number | null; alarmCount?: number; }
 
 function localDateString(date = new Date()) {
   const y = date.getFullYear();

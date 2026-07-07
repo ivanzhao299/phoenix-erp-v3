@@ -16,6 +16,7 @@ The bug-intake local runner has been hardened so approved production bug reports
 4. The runner did not skip blocked tasks and therefore could not consume later A1/A2/A5 tasks.
 5. A command containing both `--dry-run` and `--execute-approved --approval-token` was interpreted as real execution because approval token overrode explicit dry-run.
 6. Production API sync/login had no effective timeout at the runner level, so a slow connection could hang the local workflow.
+7. The LaunchAgent environment could lose a usable `node` lookup for child processes, causing background runs to fail with `env: node: No such file or directory` even when terminal runs worked.
 
 ## Fixes Implemented
 
@@ -28,11 +29,17 @@ The bug-intake local runner has been hardened so approved production bug reports
   - Added blocked/skipped task reporting to JSON and Markdown summaries.
   - Fixed explicit `--dry-run` precedence so it always prevents real Codex execution.
   - Added child process timeout support.
+  - Switched internal Node child commands to `process.execPath` and added a stable PATH fallback for LaunchAgent execution.
 
 - `scripts/ops/bug-intake-sync-from-api.mjs`
   - Added API fetch timeout.
   - Added attachment download timeout.
   - Added queue handoff timeout.
+  - Switched queue handoff execution to `process.execPath` with a stable PATH fallback.
+
+- `scripts/ops/agent-worker.mjs`
+  - Switched `run-agent-task`, baseline autopilot, and local A1 validation Node calls to `process.execPath`.
+  - Added stable PATH fallback so Codex CLI and Node-backed scripts behave consistently under LaunchAgent.
 
 ## Queue Unblocked
 

@@ -13,6 +13,8 @@ const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
 const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
+const NODE_BIN = process.execPath;
+const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -112,7 +114,7 @@ function run(command, options = {}) {
   const result = spawnSync(command[0], command.slice(1), {
     cwd: options.cwd || process.cwd(),
     encoding: 'utf8',
-    env: { ...process.env, ...(options.env || {}) },
+    env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH, ...(options.env || {}) },
     timeout: Number(options.timeoutMs || options.childTimeoutMs || 180000),
   });
   const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
@@ -193,7 +195,7 @@ async function loginToken(args) {
 }
 
 function syncCommand(args) {
-  const command = ['node', 'scripts/ops/bug-intake-sync-from-api.mjs', '--output-dir', args.syncOutputDir, '--fetch-timeout-ms', String(args.fetchTimeoutMs)];
+  const command = [NODE_BIN, 'scripts/ops/bug-intake-sync-from-api.mjs', '--output-dir', args.syncOutputDir, '--fetch-timeout-ms', String(args.fetchTimeoutMs)];
   if (args.fixtureJson) command.push('--fixture-json', args.fixtureJson);
   else {
     command.push('--api-base', args.apiBase || '');
@@ -219,7 +221,7 @@ function findTask(taskId) {
 }
 
 function workerCommand(task, args) {
-  const command = ['node', 'scripts/ops/agent-worker.mjs', '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
+  const command = [NODE_BIN, 'scripts/ops/agent-worker.mjs', '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
   if (args.dryRun) command.push('--dry-run');
   else command.push('--approval-token', args.approvalToken);
   return command;
@@ -232,7 +234,7 @@ function taskAllowsCode(task) {
 
 function baselineAutopilotCommand(task, args) {
   const command = [
-    'node',
+    NODE_BIN,
     'scripts/ops/agent-baseline-autopilot.mjs',
     '--agent',
     task.agent,
@@ -346,7 +348,7 @@ function writebackCommand(task, finalTask, args) {
   const resultFile = finalTask?.result_file || task.result_file;
   if (!bugNo || !resultFile || !args.apiBase) return null;
   const command = [
-    'node',
+    NODE_BIN,
     'scripts/ops/bug-agent-result-to-report.mjs',
     '--bug-no',
     bugNo,

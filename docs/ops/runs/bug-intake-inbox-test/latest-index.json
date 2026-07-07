@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-07-07T10:53:32.664Z",
-  "batch_dir": "docs/ops/runs/bug-intake-inbox-test/20260707-185324",
+  "generated_at": "2026-07-07T11:17:31.304Z",
+  "batch_dir": "docs/ops/runs/bug-intake-inbox-test/20260707-191722",
   "files": [
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0010/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0009/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0008/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0007/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0006/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0005/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0004/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0003/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0001/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260705-0001/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0002/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260706-0002/report.json",
-    "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260705-0003/report.json"
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0010/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0009/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0008/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0007/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0006/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0005/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0004/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0003/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0001/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260705-0001/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0002/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260706-0002/report.json",
+    "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260705-0003/report.json"
   ]
 }

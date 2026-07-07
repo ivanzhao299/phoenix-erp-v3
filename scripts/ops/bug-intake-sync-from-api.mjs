@@ -7,6 +7,8 @@ import { spawnSync } from 'node:child_process';
 const DEFAULT_OUTPUT_DIR = 'docs/ops/runs/bug-intake-inbox';
 const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
 const APPROVED_REPAIR_STATUS = 'AGENT_APPROVED';
+const NODE_BIN = process.execPath;
+const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -220,13 +222,18 @@ async function writeInboxReports(args, reports, batchDir) {
 
 function queueHandoff(file, apply) {
   const command = [
-    'node',
+    NODE_BIN,
     'scripts/ops/bug-task-to-agent-queue.mjs',
     '--repair-task-json',
     file,
     apply ? '--apply' : '--dry-run',
   ];
-  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8', timeout: 120000 });
+  const result = spawnSync(command[0], command.slice(1), {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+    timeout: 120000,
+  });
   return {
     command: command.join(' '),
     status: result.status ?? 1,

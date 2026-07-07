@@ -941,12 +941,12 @@ Assigned agent: A2-Security-Regression-Gate
           "originalName": "pasted-screenshot-1783389524052-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png",
-          "localPath": "docs/ops/runs/bug-intake-inbox-test/20260707-190015/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png",
+          "localPath": "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png",
           "sizeBytes": 536117
         }
       ],
       "localAttachmentPaths": [
-        "docs/ops/runs/bug-intake-inbox-test/20260707-190015/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png"
+        "docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png"
       ]
     }
   },
@@ -1053,4 +1053,4 @@ Assigned agent: A2-Security-Regression-Gate
 
 ## Local Evidence
 
-- docs/ops/runs/bug-intake-inbox-test/20260707-190015/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png
+- docs/ops/runs/bug-intake-inbox-test/20260707-191722/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png

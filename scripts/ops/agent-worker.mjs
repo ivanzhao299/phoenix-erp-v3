@@ -7,6 +7,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const RUN_DIR = 'docs/ops/runs';
+const NODE_BIN = process.execPath;
+const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 const BASELINE_MERGE_AGENTS = new Set([
   'Codex-Orchestrator',
   'A3-Backend-Critical-Path',
@@ -101,7 +103,7 @@ function rebaseMain(task, dryRun) {
 function commandForTask(task, dryRun, approvalToken) {
   const assembled = path.join(RUN_DIR, `${task.task_id}-worker-assembled-prompt.md`);
   const command = [
-    'node',
+    NODE_BIN,
     'scripts/ops/run-agent-task.mjs',
     '--agent',
     task.agent,
@@ -120,7 +122,7 @@ function commandForTask(task, dryRun, approvalToken) {
 
 function baselineAutopilotCommand(task, dryRun = true) {
   return [
-    'node',
+    NODE_BIN,
     'scripts/ops/agent-baseline-autopilot.mjs',
     '--agent',
     task.agent,
@@ -136,7 +138,11 @@ function baselineAutopilotCommand(task, dryRun = true) {
 
 function runBaselineAutopilot(task) {
   const command = baselineAutopilotCommand(task, false);
-  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
+  const result = spawnSync(command[0], command.slice(1), {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+  });
   return {
     command,
     status: result.status ?? 1,
@@ -157,14 +163,19 @@ function shouldUseLocalValidation(task) {
 function runLocalA1Validation(task) {
   const commands = [
     ['git', '-C', task.worktree, 'status', '--short'],
-    ['node', '--check', 'scripts/ops/run-agent-task.mjs'],
-    ['node', '--check', 'scripts/ops/agent-worker.mjs'],
-    ['node', '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/run-agent-task.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
   ];
   const sections = [];
   let failed = false;
   for (const command of commands) {
-    const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8', timeout: 120000 });
+    const result = spawnSync(command[0], command.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+      timeout: 120000,
+    });
     const status = result.status ?? 1;
     if (status !== 0) failed = true;
     sections.push(`$ ${command.join(' ')}
@@ -262,7 +273,11 @@ function runOne(args) {
   const useLocalValidation = shouldUseLocalValidation(task);
   const result = useLocalValidation
     ? runLocalA1Validation(task)
-    : spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
+    : spawnSync(command[0], command.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+    });
   const log = writeWorkerLog(task, {
     dryRun: false,
     exitCode: result.status ?? 1,
