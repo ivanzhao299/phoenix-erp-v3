@@ -95,7 +95,7 @@ export class GenericCrudController {
     // G33-A：method → PermCode 映射独立 DELETE='D'（防 'E' 权限误开删除权）
     //   旧：PUT/DELETE 都用 'E' → 持 E 权角色可 DELETE 生产数据（宋明光被实证可删 brd_flocks）
     //   新：DELETE 需独立 'D' perm；多数业务方角色不持 'D'，admin '*' 永远通过
-    const fallbackMenu = this.tableToFallbackMenu(table);
+    const fallbackMenu = this.tableToFallbackMenu(table, method);
     if (fallbackMenu) {
       const requiredOp: PermCode = method === 'GET' ? 'V'
         : method === 'POST'   ? 'C'
@@ -106,7 +106,7 @@ export class GenericCrudController {
       //   （brd_vaccinations/medications：BE=MENU_FARM_DATA 录入域 / FE=MENU_FARM_VET 兽医防疫域，
       //    见 G33-B 与 G18-1/G24-A）。补 altMenu OR：持任一域对应操作权即放行，让兽医防疫域用户
       //   （如宋明光持 FARM_VET 无 FARM_DATA）按 FE 意图录入而不被 BE 误 403。
-      for (const alt of this.tableToAltMenus(table)) {
+      for (const alt of this.tableToAltMenus(table, method)) {
         if (hasPerm(perms, alt, requiredOp)) return;
       }
     }
@@ -117,7 +117,10 @@ export class GenericCrudController {
   /**
    * F9：表名 → 备选菜单码（OR 关系）。用于 FE/BE 域刻意不同的表，避免持 FE 域权的用户被 BE 误 403。
    */
-  private tableToAltMenus(table: string): string[] {
+  private tableToAltMenus(table: string, method: string): string[] {
+    // BUG-20260707-0002: 库存总览只读拉取 wms_* 汇总数据时应接受仓储查看权。
+    // 保留 MENU_WMS_INOUT 作为 GET 备选，避免已有出入库作业角色因未显式持 MENU_WMS_VIEW 被误挡。
+    if (method === 'GET' && table.startsWith('wms_')) return ['MENU_WMS_INOUT'];
     if (table === 'brd_vaccinations' || table === 'brd_medications') return ['MENU_FARM_VET'];
     return [];
   }
@@ -189,7 +192,7 @@ export class GenericCrudController {
    * 表名 → 业务菜单 menu_code 映射（与 sidebar perm 一致）
    * 用于 RBAC fallback：持有该菜单对应操作权限即可访问该表。
    */
-  private tableToFallbackMenu(table: string): string | null {
+  private tableToFallbackMenu(table: string, method: string): string | null {
     // G33-B：brd_* 主档 vs 业务记录拆分（A1 menu 粒度收口）
     //   主档表（houses/farms/flocks 档案）→ MENU_FARM_MASTER（高权限）
     //   业务记录表（daily_logs/medication_records/vaccinations）→ MENU_FARM_DATA（业务录入权）
@@ -218,7 +221,7 @@ export class GenericCrudController {
     if (table.startsWith('fin_'))            return null;
     if (table === 'inv_batches' || table === 'inv_ledger') return 'MENU_WMS_VIEW';
     if (table.startsWith('inv_'))            return 'MENU_WMS_VIEW';
-    if (table.startsWith('wms_'))            return 'MENU_WMS_INOUT';
+    if (table.startsWith('wms_'))            return method === 'GET' ? 'MENU_WMS_VIEW' : 'MENU_WMS_INOUT';
     if (table.startsWith('prc_purchase_request')) return 'MENU_PRC2_REQUEST';
     if (table.startsWith('prc_purchase_payment')) return 'MENU_PRC2_PAYMENT';
     if (table.startsWith('prc_receipt'))     return 'MENU_PRC2_RECEIPT';
