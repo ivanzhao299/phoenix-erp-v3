@@ -3809,7 +3809,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3830,9 +3830,9 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-07T17:39:43.639Z",
+    "completed_at": "2026-07-07T17:44:45.131Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -3840,7 +3840,8 @@
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "worker parent returned before child completion; child exited after 122s but task was not written back; worker exit=1; observed=running"
   },
   {
     "task_id": "BUGTASK-20260707-0007-04-A5",
