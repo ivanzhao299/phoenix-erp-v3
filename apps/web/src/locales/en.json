@@ -8606,6 +8606,7 @@
   "ui.请先选择一个分级任务": "Please select a grading task first.",
   "ui.请先选择养殖场": "Please select a farm first.",
   "ui.请先选择鸡舍": "Please select a house first.",
+  "ui.请先选择鸡舍后再提交": "Please select a house before submitting.",
   "ui.请取消其中一侧菜单的写权限CEDABlock级别冲突不允许保存": "Remove write permission (C/E/D/A) on one of the menus; a Block-level conflict cannot be saved.",
   "ui.请填入新的角色代码": "Please enter a new role code.",
   "ui.请填写鸡舍编码": "Please enter the house code.",
