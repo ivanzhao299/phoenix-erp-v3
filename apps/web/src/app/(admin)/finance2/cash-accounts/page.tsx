@@ -215,6 +215,7 @@ function CreateAccountModal({
     setErr('');
     try {
       const body: Record<string, unknown> = {
+        accountCode: form.accountCode.trim(),
         accountName: form.accountName.trim(),
         companyCode: form.companyCode.trim(),
         companyName: form.companyName.trim() || undefined,
@@ -225,7 +226,6 @@ function CreateAccountModal({
         bankAccountNo: form.bankAccountNo.trim() || undefined,
         remark: form.remark.trim() || undefined
       };
-      if (form.accountCode.trim()) body.accountCode = form.accountCode.trim();
       const r = await fetch(`${API}/accounts`, {
         method: 'POST',
         headers: authHeaders(),

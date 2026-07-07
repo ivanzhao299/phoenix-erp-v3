@@ -1,0 +1,22 @@
+{
+  "agent": "A4-Frontend-UAT-Smoke",
+  "branch": "w5-a4-frontend-uat-smoke",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+  "status": "HOLD",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [],
+  "rebase": "not-started",
+  "merge": "not-started",
+  "gate": "not-started",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No",
+  "hold_reason": "target worktree contains business code and --allow-code was not provided",
+  "hold_context": {
+    "status": " M apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx\n?? docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md"
+  }
+}
