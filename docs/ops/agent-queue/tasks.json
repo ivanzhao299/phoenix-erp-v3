@@ -2580,7 +2580,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "running",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2599,8 +2599,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
+    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_at": "2026-07-07T11:58:11.163Z",
     "completed_at": null,
     "result_file": null,
     "next_agents": [
