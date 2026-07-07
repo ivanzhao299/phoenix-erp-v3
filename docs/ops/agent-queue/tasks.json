@@ -2413,7 +2413,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "running",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2434,8 +2434,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-07T11:28:51.826Z",
     "completed_at": null,
     "result_file": null,
     "next_agents": [
