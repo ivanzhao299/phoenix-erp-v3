@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 
 const WAREHOUSE = 'MEDICINE';
 
@@ -31,7 +32,10 @@ export interface MedLedgerEntry {
 
 @Injectable()
 export class FarmMedicineService {
-  constructor(@InjectDataSource() private ds: DataSource) {}
+  constructor(
+    @InjectDataSource() private ds: DataSource,
+    private readonly scopeHelper: DataScopeHelper,
+  ) {}
 
   /** 药品目录 */
   async getCatalog(): Promise<MedStockRow[]> {
@@ -90,22 +94,39 @@ export class FarmMedicineService {
     items: Array<{ medication_code: string; qty: number; note?: string }>,
     operator: string,
   ): Promise<void> {
-    for (const item of items) {
-      if (!item.qty || item.qty <= 0) continue;
-      const bn = batchNo(item.medication_code);
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET qty = qty + $1, qty_available = COALESCE(qty_available, qty, 0) + $1, updated_at = NOW()
-         WHERE batch_no = $2`,
-        [item.qty, bn],
-      );
-      await this.ds.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, log_date, warehouse_code, operator, note)
-         VALUES ($1, 'MED_INBOUND', $2, $3, $4, $5, $6)`,
-        [bn, item.qty, logDate, WAREHOUSE, operator, item.note ?? '采购入库'],
-      );
-    }
+    this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
+
+    await this.ds.transaction(async manager => {
+      for (const item of items) {
+        const qty = Number(item.qty) || 0;
+        if (qty <= 0) continue;
+        const bn = batchNo(item.medication_code);
+        const rows = await manager.query(
+          `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, warehouse_code, status)
+           SELECT $1, $2, $3, $3, $4, 'AVAILABLE'
+           WHERE EXISTS (
+             SELECT 1 FROM brd_medications WHERE medication_code = $2 AND status = 'ACTIVE'
+           )
+           ON CONFLICT (batch_no) DO UPDATE SET
+             qty = inv_batches.qty + EXCLUDED.qty,
+             qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty, 0) + EXCLUDED.qty,
+             warehouse_code = EXCLUDED.warehouse_code,
+             status = 'AVAILABLE',
+             updated_at = NOW()
+           RETURNING batch_no`,
+          [bn, item.medication_code, qty, WAREHOUSE],
+        );
+        if (rows.length === 0) {
+          throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);
+        }
+        await manager.query(
+          `INSERT INTO inv_ledger
+             (batch_no, change_type, qty_change, log_date, warehouse_code, operator, note)
+           VALUES ($1, 'MED_INBOUND', $2, $3, $4, $5, $6)`,
+          [bn, qty, logDate, WAREHOUSE, operator, item.note ?? '采购入库'],
+        );
+      }
+    });
   }
 
   /** 出库（用药） */
@@ -114,23 +135,32 @@ export class FarmMedicineService {
     items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>,
     operator: string,
   ): Promise<void> {
-    for (const item of items) {
-      if (!item.qty || item.qty <= 0) continue;
-      const bn = batchNo(item.medication_code);
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET qty = GREATEST(0, qty - $1),
-             qty_available = GREATEST(0, COALESCE(qty_available, qty, 0) - $1),
-             updated_at = NOW()
-         WHERE batch_no = $2`,
-        [item.qty, bn],
-      );
-      await this.ds.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, log_date, warehouse_code, house_code, operator, note)
-         VALUES ($1, 'MED_OUTBOUND', $2, $3, $4, $5, $6, $7)`,
-        [bn, -item.qty, logDate, WAREHOUSE, item.house_code ?? null, operator, item.note ?? '用药出库'],
-      );
-    }
+    this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
+
+    await this.ds.transaction(async manager => {
+      for (const item of items) {
+        const qty = Number(item.qty) || 0;
+        if (qty <= 0) continue;
+        const bn = batchNo(item.medication_code);
+        const rows = await manager.query(
+          `UPDATE inv_batches
+           SET qty = GREATEST(0, qty - $1),
+               qty_available = GREATEST(0, COALESCE(qty_available, qty, 0) - $1),
+               updated_at = NOW()
+           WHERE batch_no = $2
+           RETURNING batch_no`,
+          [qty, bn],
+        );
+        if (rows.length === 0) {
+          throw new BadRequestException(`药品 ${item.medication_code} 库存不存在，请先入库`);
+        }
+        await manager.query(
+          `INSERT INTO inv_ledger
+             (batch_no, change_type, qty_change, log_date, warehouse_code, house_code, operator, note)
+           VALUES ($1, 'MED_OUTBOUND', $2, $3, $4, $5, $6, $7)`,
+          [bn, -qty, logDate, WAREHOUSE, item.house_code ?? null, operator, item.note ?? '用药出库'],
+        );
+      }
+    });
   }
 }
