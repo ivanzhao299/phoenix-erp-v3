@@ -33,6 +33,24 @@ interface QualityScores { overall: number; masterData: number; alertCount: numbe
 interface CenterMember { type: string; total: number; active: number; pending: number; frozen: number; }
 interface CenterStat { key: string; label: string; objectCount: number; pendingCount: number; riskCount: number; healthScore: number; members: CenterMember[]; }
 interface TodoTask { task_no: string; title: string; node_name: string; created_at: string; due_at?: string; starter_name?: string; }
+interface FarmKpiState { totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number; waterToday?: number; alarmCount?: number; }
+
+function localDateString(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function asRows(payload: any): any[] {
+  const rows = payload?.data?.rows ?? payload?.data ?? payload?.rows ?? payload;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function asNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
 
 // ── 8 大业务中心 ─────────────────────────────────────
 // G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
@@ -113,14 +131,7 @@ export default function HomePage() {
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [todoList, setTodoList] = useState<TodoTask[]>([]);
   // G19-E：养殖运营 KPI（拼合现有 farm/iot endpoint，不新建后端）
-  const [farmKpi, setFarmKpi] = useState<{
-    totalStock?: number;
-    layRate?: number;
-    eggsToday?: number;
-    feedToday?: number | null;
-    waterToday?: number | null;
-    alarmCount?: number;
-  } | null>(null);
+  const [farmKpi, setFarmKpi] = useState<FarmKpiState | null>(null);
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
@@ -145,15 +156,17 @@ export default function HomePage() {
 
     // G19-E：拼养殖 KPI（hasPermission('MENU_FARM_DATA') 则拉）
     if (hasPermission('MENU_FARM_DATA', 'V')) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateString();
       Promise.all([
         request<any>(`/v3/farm/daily-hen-report?date=${today}`).catch(() => null),
         request<any>(`/v3/iot/devices/all-summary`).catch(() => null),
-      ]).then(([hen, iot]) => {
-        const rows = hen?.data || hen?.rows || hen || [];
+        request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
+      ]).then(([hen, iot, dailyLogs]) => {
+        const rows = asRows(hen);
         const totals = hen?.totals || hen?.data?.totals || null;
-        const totalStock = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.current_qty) || Number(r.total_qty) || 0), 0) : 0;
-        const eggsToday  = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.eggs) || 0), 0) : 0;
+        const dailyRows = asRows(dailyLogs);
+        const totalStock = rows.reduce((s: number, r: any) => s + (asNumber(r.current_qty) || asNumber(r.total_qty)), 0);
+        const eggsToday  = rows.reduce((s: number, r: any) => s + (asNumber(r.eggs) || asNumber(r.eggs_produced)), 0);
         const layRate    = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
         const summary    = iot?.data?.summary;
         const houses     = iot?.data?.houses || [];
@@ -171,12 +184,20 @@ export default function HomePage() {
           return hasKnown ? total : null;
         };
         const hasDailyLog = Number(totals?.logged_houses ?? 0) > 0;
+        const henFeedKg  = totals?.feed;
+        const henWaterL  = totals?.water;
+        const logFeedKg  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.feed_consumed), 0);
+        const logWaterL  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.water_consumed), 0);
+        const iotFeedKg  = sumKnown('feedToday');
+        // IoT overview uses the same field rendered as T on the device page; /home displays water in L.
+        const iotWater = sumKnown('waterToday');
+        const iotWaterL = iotWater == null ? null : iotWater * 1000;
         const feedToday = hasDailyLog
-          ? Number(totals?.feed ?? 0)
-          : sumKnown('feedToday');
+          ? asNumber(henFeedKg)
+          : (iotFeedKg ?? (logFeedKg > 0 ? logFeedKg : null));
         const waterToday = hasDailyLog
-          ? Number(totals?.water ?? 0)
-          : sumKnown('waterToday');
+          ? asNumber(henWaterL)
+          : (logWaterL > 0 ? logWaterL : iotWaterL);
         const alarmCount = summary?.totalAlarms ?? 0;
         setFarmKpi({ totalStock, layRate, eggsToday, feedToday, waterToday, alarmCount });
       });
@@ -233,11 +254,11 @@ export default function HomePage() {
       {hasPermission('MENU_FARM_DATA', 'V') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {([
-            { label: t('home.kpiTotalStock', '当前总存栏'), value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: t('home.unitBird', '羽'), tone: 'info' as const, Icon: Bird },
-            { label: t('home.kpiEggsToday', '今日产蛋'), value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: t('home.unitEgg', '枚'), tone: 'success' as const, Icon: EggFried },
-            { label: t('home.kpiLayRate', '今日产蛋率'), value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', tone: 'success' as const, Icon: LineChart },
-            { label: t('home.kpiFeedToday', '今日饲料消耗'), value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
-            { label: t('home.kpiWaterToday', '今日用水'), value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', tone: 'info' as const, Icon: Droplets },
+            { label: t('home.kpiTotalStock', '当前总存栏'), value: farmKpi.totalStock != null ? farmKpi.totalStock.toLocaleString() : '--', unit: t('home.unitBird', '羽'), tone: 'info' as const, Icon: Bird },
+            { label: t('home.kpiEggsToday', '今日产蛋'), value: farmKpi.eggsToday != null ? farmKpi.eggsToday.toLocaleString() : '--', unit: t('home.unitEgg', '枚'), tone: 'success' as const, Icon: EggFried },
+            { label: t('home.kpiLayRate', '今日产蛋率'), value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '--', unit: '%', tone: 'success' as const, Icon: LineChart },
+            { label: t('home.kpiFeedToday', '今日饲料消耗'), value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '--', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
+            { label: t('home.kpiWaterToday', '今日用水'), value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '--', unit: 'L', tone: 'info' as const, Icon: Droplets },
             { label: t('home.kpiAlarm', '设备告警'), value: farmKpi.alarmCount?.toString() ?? '0', unit: t('home.unitItem', '条'), tone: ((farmKpi.alarmCount ?? 0) > 0 ? 'danger' : 'success') as 'danger' | 'success', Icon: AlertTriangle },
           ]).map(k => (
             <div key={k.label} style={kpiCardCompact(k.tone)}>
