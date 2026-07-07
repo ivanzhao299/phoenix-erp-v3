@@ -881,12 +881,12 @@ Assigned agent: A5-Data-Readiness
           "originalName": "pasted-screenshot-1783387763821-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png",
-          "localPath": "docs/ops/runs/bug-intake-inbox-test/20260707-185058/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png",
+          "localPath": "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png",
           "sizeBytes": 374361
         }
       ],
       "localAttachmentPaths": [
-        "docs/ops/runs/bug-intake-inbox-test/20260707-185058/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png"
+        "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png"
       ]
     }
   },
@@ -993,4 +993,4 @@ Assigned agent: A5-Data-Readiness
 
 ## Local Evidence
 
-- docs/ops/runs/bug-intake-inbox-test/20260707-185058/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png
+- docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png

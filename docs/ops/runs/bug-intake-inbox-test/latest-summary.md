@@ -1,6 +1,6 @@
 # Bug Intake Local Inbox Sync
 
-Generated at: 2026-07-07T10:51:06.723Z
+Generated at: 2026-07-07T10:53:32.974Z
 Decision: BUG_INTAKE_QUEUE_APPLIED
 Reports fetched: 13
 Queue candidates: 9
