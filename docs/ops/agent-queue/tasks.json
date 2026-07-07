@@ -3235,7 +3235,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0005",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3259,7 +3259,7 @@
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-07T15:33:50.060Z",
     "completed_at": "2026-07-07T15:36:49.975Z",
-    "result_file": null,
+    "result_file": "docs/ops/BUG-20260707-0005-a4-frontend-uat-smoke.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -3267,7 +3267,10 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "reason": "worker returned but task did not reach terminal status; worker exit=1; observed=running"
+    "reason": "A4 child Codex completed and commit f9df9d77 was cherry-picked into main after runner parent exited early.",
+    "merge_commit": "f9df9d77",
+    "reconciled_at": "2026-07-07T15:39:22.948Z",
+    "reconciled_by": "Codex-Orchestrator"
   },
   {
     "task_id": "BUGTASK-20260707-0005-04-A5",
