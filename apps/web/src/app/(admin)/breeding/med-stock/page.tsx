@@ -152,7 +152,8 @@ export default function MedStockPage() {
       setSaved(true);
       setEntries({});
       setTimeout(() => setSaved(false), 3000);
-      loadStock();
+      await loadStock();
+      setTab('stock');
     } catch (e: any) {
       setError(e.message);
     } finally {

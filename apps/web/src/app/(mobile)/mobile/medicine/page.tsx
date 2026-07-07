@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Package,
   Sun, Moon,
 } from 'lucide-react';
-import { mobileApi, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
+import { mobileApi, invalidateCache, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -132,10 +132,12 @@ export default function MedicinePage() {
       } else {
         await mobileApi.medOutbound(today, items);
       }
+      invalidateCache('medStock');
       setSaved(true);
       setEntries({});
       setTimeout(() => setSaved(false), 3000);
-      loadStock();
+      await loadStock();
+      setTab('stock');
     } catch (e: any) {
       setError(e.message || tr('mob.brd.save_fail', '保存失败'));
     } finally {
