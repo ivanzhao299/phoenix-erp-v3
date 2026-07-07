@@ -21,7 +21,9 @@ function usage(code = 1) {
     [--token-env PHOENIX_ERP_TOKEN | --login-user-env PHOENIX_ERP_RUNNER_USER --login-password-env PHOENIX_ERP_RUNNER_PASS] \\
     [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 3] \\
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
-    [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] [--dry-run]
+    [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] \\
+    [--auto-unblock-dirty-worktrees | --no-auto-unblock-dirty-worktrees] \\
+    [--skip-blocked | --no-skip-blocked] [--dry-run]
 
 Fixture test:
   node scripts/ops/bug-intake-local-runner.mjs --fixture-json /tmp/bug.json --once --dry-run`);
@@ -42,14 +44,29 @@ function parseArgs(argv) {
     loginUserEnv: 'PHOENIX_ERP_RUNNER_USER',
     loginPasswordEnv: 'PHOENIX_ERP_RUNNER_PASS',
     childTokenEnv: 'PHOENIX_ERP_RUNNER_TOKEN',
+    autoUnblockDirtyWorktrees: true,
+    skipBlocked: true,
+    maxCandidateTasks: 0,
+    childTimeoutMs: 180000,
+    fetchTimeoutMs: 45000,
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
+  let explicitDryRun = false;
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
+      if (arg === '--dry-run') explicitDryRun = true;
+      continue;
+    }
+    if (arg === '--no-auto-unblock-dirty-worktrees') {
+      args.autoUnblockDirtyWorktrees = false;
+      continue;
+    }
+    if (arg === '--no-skip-blocked') {
+      args.skipBlocked = false;
       continue;
     }
     if (arg.startsWith('--')) {
@@ -60,7 +77,10 @@ function parseArgs(argv) {
   args.interval = Number.parseInt(args.interval, 10) || 300;
   args.maxCycles = Number.parseInt(args.maxCycles, 10) || 1;
   args.maxTasks = Number.parseInt(args.maxTasks, 10) || 3;
-  if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN) args.dryRun = false;
+  args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
+  args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 180000;
+  args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
+  if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
   if (!args.once && !args.watch) args.once = true;
   return args;
 }
@@ -93,6 +113,7 @@ function run(command, options = {}) {
     cwd: options.cwd || process.cwd(),
     encoding: 'utf8',
     env: { ...process.env, ...(options.env || {}) },
+    timeout: Number(options.timeoutMs || options.childTimeoutMs || 180000),
   });
   const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
     .filter(Boolean)
@@ -103,6 +124,8 @@ function run(command, options = {}) {
     startedAt,
     finishedAt: new Date().toISOString(),
     status: result.status ?? 1,
+    signal: result.signal || null,
+    timedOut: result.error?.code === 'ETIMEDOUT',
     stdout: redact(result.stdout || '').slice(-12000),
     stderr: redact(result.stderr || '').slice(-12000),
   };
@@ -153,11 +176,14 @@ async function loginToken(args) {
   const password = process.env[args.loginPasswordEnv];
   if (!username || !password) return '';
   if (!args.apiBase) throw new Error('--api-base is required for runner login');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
   const res = await fetch(`${args.apiBase.replace(/\/$/, '')}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
   const text = await res.text();
   if (!res.ok) throw new Error(`runner login failed HTTP ${res.status}: ${text.slice(0, 300)}`);
   const data = text ? JSON.parse(text) : {};
@@ -167,7 +193,7 @@ async function loginToken(args) {
 }
 
 function syncCommand(args) {
-  const command = ['node', 'scripts/ops/bug-intake-sync-from-api.mjs', '--output-dir', args.syncOutputDir];
+  const command = ['node', 'scripts/ops/bug-intake-sync-from-api.mjs', '--output-dir', args.syncOutputDir, '--fetch-timeout-ms', String(args.fetchTimeoutMs)];
   if (args.fixtureJson) command.push('--fixture-json', args.fixtureJson);
   else {
     command.push('--api-base', args.apiBase || '');
@@ -185,7 +211,7 @@ function listRunnableBugTasks(args) {
     .filter((task) => task.source === 'bug-intake')
     .filter((task) => RUNNABLE_STATUSES.has(task.status))
     .filter((task) => !allowAgents || allowAgents.has(task.agent))
-    .slice(0, args.maxTasks);
+    .slice(0, args.maxCandidateTasks);
 }
 
 function findTask(taskId) {
@@ -197,6 +223,108 @@ function workerCommand(task, args) {
   if (args.dryRun) command.push('--dry-run');
   else command.push('--approval-token', args.approvalToken);
   return command;
+}
+
+function taskAllowsCode(task) {
+  const allowed = JSON.stringify(task.allowed_paths || []).toLowerCase();
+  return allowed.includes('apps/api') || allowed.includes('apps/web');
+}
+
+function baselineAutopilotCommand(task, args) {
+  const command = [
+    'node',
+    'scripts/ops/agent-baseline-autopilot.mjs',
+    '--agent',
+    task.agent,
+    '--branch',
+    task.branch,
+    '--worktree',
+    task.worktree,
+    '--max-retries',
+    '3',
+  ];
+  if (taskAllowsCode(task)) command.push('--allow-code');
+  command.push(args.dryRun ? '--dry-run' : '--yes');
+  return command;
+}
+
+function gitStatusShort(cwd) {
+  if (!cwd || !existsSync(cwd)) return { ok: false, output: 'worktree does not exist' };
+  return safeGit(['status', '--short'], cwd);
+}
+
+function worktreeClean(cwd) {
+  const status = gitStatusShort(cwd);
+  return status.ok && status.output.trim() === '';
+}
+
+function unblockDirtyWorktree(task, args) {
+  const before = gitStatusShort(task.worktree);
+  if (!before.ok) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'BLOCKED',
+      reason: before.output,
+      before: before.output,
+      command: null,
+      result: null,
+    };
+  }
+  if (!before.output.trim()) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'CLEAN',
+      reason: '',
+      before: '',
+      command: null,
+      result: null,
+    };
+  }
+  const command = baselineAutopilotCommand(task, args);
+  if (!args.autoUnblockDirtyWorktrees) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'BLOCKED',
+      reason: 'dirty worktree and auto-unblock disabled',
+      before: before.output,
+      command,
+      result: null,
+    };
+  }
+  if (args.dryRun) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'WOULD_UNBLOCK',
+      reason: 'dry-run would run baseline autopilot before worker execution',
+      before: before.output,
+      command,
+      result: null,
+    };
+  }
+  const result = run(command, { cwd: args.mainRoot, timeoutMs: args.childTimeoutMs });
+  let abort = null;
+  let after = gitStatusShort(task.worktree);
+  let clean = after.ok && after.output.trim() === '';
+  if (result.status !== 0 && !clean) {
+    abort = safeGit(['rebase', '--abort'], task.worktree);
+    after = gitStatusShort(task.worktree);
+    clean = after.ok && after.output.trim() === '';
+  }
+  return {
+    task_id: task.task_id,
+    agent: task.agent,
+    status: result.status === 0 && clean ? 'UNBLOCKED' : 'BLOCKED',
+    reason: result.status === 0 && clean ? '' : `baseline autopilot exit ${result.status}; remaining status: ${after.output || '<none>'}`,
+    before: before.output,
+    after: after.ok ? after.output : after.output,
+    abortRebase: abort,
+    command,
+    result: { status: result.status, stdout: result.stdout, stderr: result.stderr },
+  };
 }
 
 function isSafeRetryTask(task) {
@@ -377,6 +505,9 @@ function summaryMarkdown(summary) {
 | Queue apply | ${summary.queueApply} |
 | Runnable tasks | ${summary.runnableTasks.length} |
 | Worker runs | ${summary.workerRuns.length} |
+| Blocked/skipped tasks | ${summary.blockedTasks?.length || 0} |
+| Auto-unblock dirty worktrees | ${summary.autoUnblockDirtyWorktrees ? 'Enabled' : 'Disabled'} |
+| Skip blocked tasks | ${summary.skipBlocked ? 'Enabled' : 'Disabled'} |
 | Safe retry | ${summary.retrySafeUiOnce ? 'Enabled for A4/A1 low-risk tasks' : 'Disabled'} |
 | Push after success | ${summary.pushAfterSuccess ? 'Enabled' : 'Disabled'} |
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
@@ -390,6 +521,10 @@ ${summary.runnableTasks.map((task) => `- ${task.task_id} -> ${task.agent}`).join
 ## Worker Runs
 
 ${summary.workerRuns.map((item) => `- ${item.task.task_id}: worker=${item.worker.status}, final=${item.finalTask?.status || 'unknown'}, writeback=${item.writeback?.status ?? 'skipped'}, retries=${item.retryRuns?.length || 0}`).join('\n') || '- None'}
+
+## Blocked / Skipped Tasks
+
+${(summary.blockedTasks || []).map((item) => `- ${item.task_id}: ${item.agent} -> ${item.status}${item.reason ? ` (${item.reason})` : ''}`).join('\n') || '- None'}
 
 ## Safety
 
@@ -412,10 +547,20 @@ async function runCycle(args, cycle) {
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
   const sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
   const preWorkerCommit = sync.status === 0 ? commitOpsRuntimeArtifacts(args) : { skipped: true, reason: 'sync failed' };
-  const runnableTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
+  const candidateTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
+  const runnableTasks = [];
+  const blockedTasks = [];
   const workerRuns = [];
 
-  for (const task of runnableTasks) {
+  for (const task of candidateTasks) {
+    if (workerRuns.length >= args.maxTasks) break;
+    const unblock = unblockDirtyWorktree(task, args);
+    if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
+      blockedTasks.push(unblock);
+      if (args.skipBlocked) continue;
+      break;
+    }
+    runnableTasks.push(task);
     let worker = run(workerCommand(task, args));
     let finalTask = findTask(task.task_id);
     const retryRuns = [];
@@ -449,8 +594,12 @@ async function runCycle(args, cycle) {
     executeApproved: Boolean(args.executeApproved),
     pushAfterSuccess: Boolean(args.pushAfterSuccess),
     retrySafeUiOnce: Boolean(args.retrySafeUiOnce),
+    autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
+    skipBlocked: Boolean(args.skipBlocked),
     sync,
     preWorkerCommit,
+    candidateTasks: candidateTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
+    blockedTasks,
     runnableTasks: runnableTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
     workerRuns: workerRuns.map((item) => ({
       task: { task_id: item.task.task_id, agent: item.task.agent, source_bug_no: item.task.source_bug_no },
@@ -473,6 +622,7 @@ async function runCycle(args, cycle) {
     cycle,
     synced: sync.status === 0,
     runnable_tasks: summary.runnableTasks,
+    blocked_tasks: summary.blockedTasks.map((item) => ({ task_id: item.task_id, agent: item.agent, status: item.status, reason: item.reason })),
     worker_runs: summary.workerRuns.map((item) => ({ task_id: item.task.task_id, worker_status: item.worker.status, final_status: item.finalTask?.status })),
     push: push.skipped ? `skipped: ${push.reason}` : `exit ${push.status}`,
     summary: `${args.outputDir}/latest-summary.md`,

@@ -13,7 +13,7 @@ function usage(code = 1) {
   node scripts/ops/bug-intake-sync-from-api.mjs \\
     --api-base https://erp.eggslao.com \\
     --token-env PHOENIX_ERP_TOKEN \\
-    [--dry-run] [--apply-queue] [--limit 100] [--output-dir docs/ops/runs/bug-intake-inbox]
+    [--dry-run] [--apply-queue] [--limit 100] [--fetch-timeout-ms 45000] [--output-dir docs/ops/runs/bug-intake-inbox]
 
 Test with a local fixture:
   node scripts/ops/bug-intake-sync-from-api.mjs --fixture-json /tmp/bug-reports.json --dry-run
@@ -27,7 +27,7 @@ Behavior:
 }
 
 function parseArgs(argv) {
-  const args = { dryRun: true, limit: 100, outputDir: DEFAULT_OUTPUT_DIR };
+  const args = { dryRun: true, limit: 100, outputDir: DEFAULT_OUTPUT_DIR, fetchTimeoutMs: 45000 };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
@@ -46,6 +46,7 @@ function parseArgs(argv) {
     }
   }
   args.limit = Math.max(1, Math.min(500, Number(args.limit) || 100));
+  args.fetchTimeoutMs = Math.max(5000, Number(args.fetchTimeoutMs) || 45000);
   return args;
 }
 
@@ -80,7 +81,10 @@ async function apiGet(args, endpoint) {
   if (!args.apiBase) throw new Error('--api-base is required without --fixture-json');
   if (!token) throw new Error('--token or --token-env is required without --fixture-json');
   const url = `${args.apiBase.replace(/\/$/, '')}${endpoint}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
   const text = await res.text();
   if (!res.ok) throw new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 500)}`);
   return text ? JSON.parse(text) : {};
@@ -91,7 +95,10 @@ async function apiDownload(args, endpoint) {
   if (!args.apiBase) throw new Error('--api-base is required without --fixture-json');
   if (!token) throw new Error('--token or --token-env is required without --fixture-json');
   const url = `${args.apiBase.replace(/\/$/, '')}${endpoint}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 300)}`);
@@ -219,10 +226,12 @@ function queueHandoff(file, apply) {
     file,
     apply ? '--apply' : '--dry-run',
   ];
-  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
+  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8', timeout: 120000 });
   return {
     command: command.join(' '),
     status: result.status ?? 1,
+    signal: result.signal || null,
+    timedOut: result.error?.code === 'ETIMEDOUT',
     stdout: result.stdout || '',
     stderr: result.stderr || '',
   };
