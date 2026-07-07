@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
+import { ClsService } from 'nestjs-cls';
 import { EntityManager } from 'typeorm';
 import { ConditionEngineService, ConditionNode } from './condition-engine.service';
 
@@ -93,6 +94,7 @@ export class WorkflowService implements OnModuleInit {
   constructor(
     @InjectEntityManager() private readonly em: EntityManager,
     private readonly conditionEngine: ConditionEngineService,
+    private readonly cls: ClsService,
   ) {}
 
   async onModuleInit() {
@@ -851,7 +853,9 @@ export class WorkflowService implements OnModuleInit {
   }
 
   async listTodo(user: WorkflowUser, query: QueryDto) {
-    return this.listTasks(user, query, 'TODO');
+    const { limit, offset } = this.page(query);
+    const rows = await this.listUnifiedTodoTasks(user, limit, offset);
+    return { code: 200, data: rows, total: rows.length };
   }
 
   async listDone(user: WorkflowUser, query: QueryDto) {
@@ -922,14 +926,9 @@ export class WorkflowService implements OnModuleInit {
   async getTaskSummary(user: WorkflowUser) {
     const roles = this.userRoles(user);
     const isAdmin = this.isAdmin(user);
-    const [todoRows, ccRows, overdueRows, runningRows, startedRows] = await Promise.all([
-      this.em.query(
-        `SELECT COUNT(*)::int AS count
-         FROM wf_task t
-         WHERE t.status='TODO'
-           AND ($1::boolean OR t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))`,
-        [isAdmin, user.userId || 0, roles],
-      ),
+    const [todoCount, ccRows, overdueCount, runningRows, startedRows] = await Promise.all([
+      this.countUnifiedTodoTasks(user),
+      // CC/running 仍属通用 WorkflowEngine；todo/overdue 采用 /workflow/todos 的统一待办口径。
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM wf_cc_task c
@@ -937,15 +936,7 @@ export class WorkflowService implements OnModuleInit {
            AND ($1::boolean OR c.receiver_user_id=$2::int OR c.receiver_role_code = ANY($3::text[]))`,
         [isAdmin, user.userId || 0, roles],
       ),
-      this.em.query(
-        `SELECT COUNT(*)::int AS count
-         FROM wf_task t
-         WHERE t.status='TODO'
-           AND t.due_at IS NOT NULL
-           AND t.due_at < CURRENT_TIMESTAMP
-           AND ($1::boolean OR t.assignee_user_id=$2::int OR t.assignee_role_code = ANY($3::text[]))`,
-        [isAdmin, user.userId || 0, roles],
-      ),
+      this.countUnifiedTodoTasks(user, true),
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM wf_instance i
@@ -971,9 +962,9 @@ export class WorkflowService implements OnModuleInit {
     return {
       code: 200,
       data: {
-        todo: Number(todoRows[0]?.count || 0),
+        todo: todoCount,
         ccUnread: Number(ccRows[0]?.count || 0),
-        overdueTodo: Number(overdueRows[0]?.count || 0),
+        overdueTodo: overdueCount,
         running: Number(runningRows[0]?.count || 0),
         startedRunning: Number(startedRows[0]?.count || 0),
       },
@@ -1340,6 +1331,139 @@ export class WorkflowService implements OnModuleInit {
       [status, this.isAdmin(user), user.userId || 0, this.userRoles(user), limit, offset],
     );
     return { code: 200, data: rows, total: rows.length };
+  }
+
+  private async listUnifiedTodoTasks(user: WorkflowUser, limit: number, offset: number) {
+    const params: any[] = [user.userId || 0, this.userRoles(user)];
+    const dataScopeWhere = this.approvalTodoDataScopeWhere(params, 'i2');
+    const assigneeWhere = this.approvalTodoAssigneeWhere('$1', '$2');
+    return this.em.query(
+      `SELECT *
+         FROM (
+           SELECT
+             t.id,
+             t.task_no,
+             t.instance_id,
+             t.node_id,
+             t.node_name,
+             t.assignee_role_code,
+             t.assignee_user_id,
+             t.status,
+             t.action_result,
+             t.due_at,
+             t.completed_at,
+             t.created_at,
+             i.title,
+             i.instance_no,
+             i.status AS instance_status,
+             i.started_at,
+             i.starter_name,
+             i.form_data_json,
+             fv.schema_json AS form_schema_json,
+             d.name AS definition_name,
+             'WORKFLOW_ENGINE'::text AS task_source
+           FROM wf_task t
+           JOIN wf_instance i ON i.id=t.instance_id
+           LEFT JOIN wf_definition d ON d.id=i.definition_id
+           LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
+           WHERE t.status='TODO'
+             AND (t.assignee_user_id=$1::bigint OR t.assignee_role_code = ANY($2::text[]))
+
+           UNION ALL
+
+           SELECT
+             s.id,
+             COALESCE('AE-' || i2.instance_no, 'AE-' || s.id::text) AS task_no,
+             i2.id AS instance_id,
+             ('approval-step-' || s.step_no::text) AS node_id,
+             COALESCE(s.approver_name, s.approver_role, '审批') AS node_name,
+             s.approver_role AS assignee_role_code,
+             s.approver_user_id AS assignee_user_id,
+             'TODO'::text AS status,
+             NULL::text AS action_result,
+             s.due_at,
+             NULL::timestamptz AS completed_at,
+             i2.started_at AS created_at,
+             COALESCE(i2.subject, i2.biz_no, i2.instance_no) AS title,
+             i2.instance_no,
+             i2.status AS instance_status,
+             i2.started_at,
+             COALESCE(u.real_name, u.username, i2.started_by::text) AS starter_name,
+             NULL::jsonb AS form_data_json,
+             NULL::jsonb AS form_schema_json,
+             '审批引擎'::text AS definition_name,
+             'APPROVAL_ENGINE'::text AS task_source
+           FROM wf_approval_instance_steps s
+           JOIN wf_approval_instances i2 ON i2.id = s.instance_id
+           LEFT JOIN sys_user u ON u.user_id = i2.started_by
+           WHERE s.status = 'PENDING'
+             AND i2.status = 'PENDING'
+             AND s.step_no = i2.current_step_no
+             AND ${assigneeWhere}
+             ${dataScopeWhere}
+         ) todo
+        ORDER BY todo.created_at DESC, todo.id DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
+    );
+  }
+
+  private async countUnifiedTodoTasks(user: WorkflowUser, overdueOnly = false): Promise<number> {
+    const params: any[] = [user.userId || 0, this.userRoles(user)];
+    const dataScopeWhere = this.approvalTodoDataScopeWhere(params, 'i');
+    const wfOverdueWhere = overdueOnly ? `AND t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP` : '';
+    const aeOverdueWhere = overdueOnly ? `AND s.due_at IS NOT NULL AND s.due_at < CURRENT_TIMESTAMP` : '';
+    const assigneeWhere = this.approvalTodoAssigneeWhere('$1', '$2');
+    const rows = await this.em.query(
+      `SELECT (
+          SELECT COUNT(*)::int
+            FROM wf_task t
+           WHERE t.status='TODO'
+             AND (t.assignee_user_id=$1::bigint OR t.assignee_role_code = ANY($2::text[]))
+             ${wfOverdueWhere}
+        ) + (
+          SELECT COUNT(*)::int
+            FROM wf_approval_instance_steps s
+            JOIN wf_approval_instances i ON i.id = s.instance_id
+           WHERE s.status = 'PENDING'
+             AND i.status = 'PENDING'
+             AND s.step_no = i.current_step_no
+             AND ${assigneeWhere}
+             ${aeOverdueWhere}
+             ${dataScopeWhere}
+        ) AS count`,
+      params,
+    );
+    return Number(rows[0]?.count || 0);
+  }
+
+  private approvalTodoAssigneeWhere(userParam: string, rolesParam: string) {
+    return `(s.approver_role = ANY(${rolesParam}::text[])
+              OR s.approver_user_id = ${userParam}::bigint
+              OR (
+                s.allow_admin_override = true
+                AND 'ROLE_ADMIN' = ANY(${rolesParam}::text[])
+                AND (
+                  s.is_overdue = true
+                  OR (s.approver_role IS NOT NULL AND NOT EXISTS (
+                        SELECT 1 FROM sys_user u2
+                        JOIN sys_user_role ur2 ON ur2.user_id = u2.user_id
+                        JOIN sys_role r2 ON r2.role_id = ur2.role_id
+                        WHERE r2.role_code = s.approver_role AND u2.status = 1))
+                  OR (s.approver_user_id IS NOT NULL AND NOT EXISTS (
+                        SELECT 1 FROM sys_user u3 WHERE u3.user_id = s.approver_user_id AND u3.status = 1))
+                )
+              ))`;
+  }
+
+  private approvalTodoDataScopeWhere(params: any[], instanceAlias: string) {
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
+    if (scope && !scope.isGlobal && Array.isArray(scope.allowedCompanyCodes) && scope.allowedCompanyCodes.length > 0) {
+      params.push(scope.allowedCompanyCodes);
+      return `AND (${instanceAlias}.company_code = ANY($${params.length}::varchar[]) OR ${instanceAlias}.company_code IS NULL)`;
+    }
+    return '';
   }
 
   private async findActiveDefinition(body: StartWorkflowDto) {

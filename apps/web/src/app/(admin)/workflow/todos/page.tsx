@@ -489,8 +489,10 @@ export default function ApprovalTodosPage() {
     else void handleReassign();
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
+  const visibleTotal = Math.max(resp.total || 0, resp.items.length);
+  const totalPages = Math.max(1, Math.ceil(visibleTotal / PAGE_SIZE));
   return <div>
-      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${resp.total} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
+      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${visibleTotal} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
 
       <section className={s.card}>
         {/* ── 筛选栏 ── */}
@@ -677,7 +679,7 @@ export default function ApprovalTodosPage() {
             </table>
 
             {/* 分页 */}
-            {resp.total > PAGE_SIZE && <div className={s.cardBody} style={{
+            {visibleTotal > PAGE_SIZE && <div className={s.cardBody} style={{
           display: "flex",
           justifyContent: "flex-end",
           gap: 8,
@@ -697,7 +699,7 @@ export default function ApprovalTodosPage() {
             lineHeight: "30px",
             color: "var(--text-secondary)"
           }}>
-                  {t('ui.第','第')} {page} / {Math.ceil(resp.total / PAGE_SIZE)} {t('ui.页','页')}
+                  {t('ui.第','第')} {page} / {totalPages} {t('ui.页','页')}
                 </span>
                 <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => {
             const p = page + 1;
@@ -705,7 +707,7 @@ export default function ApprovalTodosPage() {
             load({
               page: p
             });
-          }} disabled={page >= Math.ceil(resp.total / PAGE_SIZE)}>
+          }} disabled={page >= totalPages}>
                   {t('ui.下一页','下一页')}
                 </button>
               </div>}
