@@ -705,16 +705,11 @@ Assigned agent: A5-Data-Readiness
       "localAttachments": [
         {
           "fileName": "01-1783415569511-68df7d8e.png",
-          "originalName": "pasted-screenshot-1783415381248-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-203515/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png",
-          "sizeBytes": 716311
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-203515/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -820,4 +815,4 @@ Assigned agent: A5-Data-Readiness
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-203515/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
