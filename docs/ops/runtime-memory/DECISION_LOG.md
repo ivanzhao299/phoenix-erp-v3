@@ -1,5 +1,36 @@
 # Decision Log
 
+## 2026-07-07 - Chanjet Readonly Adapter Authenticated Audit CI Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The previous production adapter audit correctly failed closed with `HTTP 401` because the local runner had no approved runtime token.
+- The fix is not to store a long-lived token. The CI smoke workflow now exposes target `chanjet-readonly-adapter-production`.
+- The target reuses the production deploy SSH/proxy channel, mints a 20-minute admin JWT inside the production API container using the runtime `JWT_SECRET`, runs the readonly adapter audit against `https://erp.eggslao.com/api`, and pulls sanitized JSON / Markdown artifacts.
+
+Evidence:
+
+- `.github/workflows/ci-smoke.yml`
+- `scripts/ops/chanjet-readonly-field-adapter-audit.mjs`
+- `docs/ops/CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT_CI_GATE_REPORT_20260707.md`
+
+Guardrails:
+
+- Chanjet write: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- Migration / DB write: false.
+- Deploy: false.
+- Long-lived token committed: false.
+
+Next actions:
+
+1. Dispatch `AI Delivery CI Smoke` with target `chanjet-readonly-adapter-production`.
+2. Verify voucher header / line / counterparty sample rows and field coverage.
+3. Only then wire validated adapter output into ordinary business-facing reconciliation views.
+
 ## 2026-07-07 - Chanjet Readonly Adapter Production Audit Gate
 
 Decision: GO WITH CONDITIONS.

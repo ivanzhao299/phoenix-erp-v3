@@ -1,6 +1,6 @@
 # Chanjet Readonly Field Adapter Audit
 
-- generated_at: 2026-07-07T00:34:17.635Z
+- generated_at: 2026-07-07T01:14:18.658Z
 - source_endpoint: https://erp.eggslao.com/api/chanjet/integration/readonly-field-adapters
 - decision: HOLD
 - next_gate: —

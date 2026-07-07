@@ -2,6 +2,28 @@
 
 Last updated: 2026-07-07
 
+## 2026-07-07 — Chanjet Readonly Adapter Authenticated Audit CI Gate
+
+Current stage: `CHANJET_READONLY_ADAPTER_AUTHENTICATED_CI_GATE_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added GitHub Actions smoke target `chanjet-readonly-adapter-production`.
+2. The target reuses the production deploy SSH/proxy path.
+3. The target mints a short-lived runtime admin JWT inside the production API container.
+4. The target runs `scripts/ops/chanjet-readonly-field-adapter-audit.mjs` against `https://erp.eggslao.com/api`.
+5. The target pulls `chanjet-readonly-field-adapter-audit-latest.json/md` as CI artifacts.
+6. No long-lived token is stored in GitHub, docs, scripts, or runtime memory.
+
+Next actions:
+
+1. Dispatch `AI Delivery CI Smoke` with target `chanjet-readonly-adapter-production`.
+2. Confirm voucher header / voucher line / counterparty sample counts and field coverage.
+3. If the authenticated adapter audit is GO, start `CHANJET_BUSINESS_FUSION_UI_PASS`.
+4. Keep `CHANJET_WRITE_BACK_HOLD`.
+
 ## 2026-07-07 — Chanjet Readonly Adapter Production Audit Gate
 
 Current stage: `CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_IMPLEMENTED`

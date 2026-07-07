@@ -86,3 +86,6 @@ Last updated: 2026-07-07
 78. Voucher header / line adapters are read-only evidence for reconciliation and review; they do not authorize voucher draft push.
 79. Counterparty adapter rows require approved CUSTOMER / SUPPLIER mapping before they can influence ordinary business pages.
 80. If a readonly adapter is `PARTIAL`, `WAITING_SAMPLE`, or `HOLD`, ordinary finance pages must fail closed to ERP source plus difference/mapping notice.
+81. Chanjet authenticated adapter audit must use short-lived runtime JWT minted inside the production API container or an approved readonly service-account login; long-lived tokens must not be committed.
+82. The `chanjet-readonly-adapter-production` CI smoke target may run readonly adapter audit only; it must not call mirror sync, Chanjet write APIs, voucher push APIs, migration, deploy, or DB write commands.
+83. Ordinary finance pages may consume adapter evidence only after authenticated production adapter audit returns sample evidence and non-HOLD decision.

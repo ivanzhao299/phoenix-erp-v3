@@ -118,6 +118,12 @@
     "readonly_field_adapter_md": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md",
     "readonly_field_adapter_report": "docs/ops/CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION_REPORT_20260707.md",
     "readonly_field_adapter_status": "implemented_with_production_fail_closed_audit",
+    "readonly_field_adapter_authenticated_ci_gate": "implemented",
+    "readonly_field_adapter_authenticated_ci_target": "chanjet-readonly-adapter-production",
+    "readonly_field_adapter_authenticated_ci_workflow": ".github/workflows/ci-smoke.yml",
+    "readonly_field_adapter_authenticated_ci_auth": "short_lived_runtime_admin_jwt_minted_inside_production_api_container",
+    "readonly_field_adapter_authenticated_ci_report": "docs/ops/CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT_CI_GATE_REPORT_20260707.md",
+    "readonly_field_adapter_authenticated_ci_guardrail": "no_long_lived_token_committed_no_chanjet_write_no_voucher_push_no_erp_business_overwrite",
     "readonly_field_adapter_scope": [
       "CHANJET_VOUCHER_HEADER",
       "CHANJET_VOUCHER_LINE",
