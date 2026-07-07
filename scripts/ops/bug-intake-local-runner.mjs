@@ -18,6 +18,7 @@ const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
 const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
+const TOKEN_CACHE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-token.json';
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -242,6 +243,10 @@ async function loginToken(args) {
   const password = process.env[args.loginPasswordEnv];
   if (!username || !password) return '';
   if (!args.apiBase) throw new Error('--api-base is required for runner login');
+
+  const cached = readTokenCache(args, username);
+  if (cached) return cached;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
   const res = await fetch(`${args.apiBase.replace(/\/$/, '')}/api/auth/login`, {
@@ -255,7 +260,36 @@ async function loginToken(args) {
   const data = text ? JSON.parse(text) : {};
   const token = data.token || data.accessToken || data.access_token;
   if (!token) throw new Error('runner login response did not include token');
+  writeTokenCache(args, username, token);
   return token;
+}
+
+function readTokenCache(args, username) {
+  try {
+    if (!existsSync(TOKEN_CACHE_FILE)) return '';
+    const cache = JSON.parse(readFileSync(TOKEN_CACHE_FILE, 'utf8'));
+    if (cache.apiBase !== args.apiBase || cache.username !== username) return '';
+    if (!cache.token || Number(cache.expiresAt || 0) <= Date.now() + 60_000) return '';
+    return String(cache.token);
+  } catch {
+    return '';
+  }
+}
+
+function writeTokenCache(args, username, token) {
+  try {
+    mkdirSync(path.dirname(TOKEN_CACHE_FILE), { recursive: true });
+    writeFileSync(TOKEN_CACHE_FILE, `${JSON.stringify({
+      apiBase: args.apiBase,
+      username,
+      token,
+      // Auth token currently reports an 8h window; refresh locally at 6h to avoid edge expiry.
+      expiresAt: Date.now() + 6 * 60 * 60 * 1000,
+      updatedAt: new Date().toISOString(),
+    }, null, 2)}\n`, { mode: 0o600 });
+  } catch {
+    // Cache failure must not block the runner.
+  }
 }
 
 function syncCommand(args) {
