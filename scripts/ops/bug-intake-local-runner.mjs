@@ -280,6 +280,19 @@ function findTask(taskId) {
   return readJson(TASKS_FILE, []).find((task) => task.task_id === taskId) || null;
 }
 
+function patchTask(taskId, patch) {
+  const tasks = readJson(TASKS_FILE, []);
+  const index = tasks.findIndex((task) => task.task_id === taskId);
+  if (index < 0) return null;
+  tasks[index] = { ...tasks[index], ...patch };
+  writeJson(TASKS_FILE, tasks);
+  return tasks[index];
+}
+
+function isFinishedTask(task) {
+  return task && FINISHED_STATUSES.has(task.status);
+}
+
 function workerCommand(task, args) {
   const command = [NODE_BIN, 'scripts/ops/agent-worker.mjs', '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
   if (args.dryRun) command.push('--dry-run');
@@ -641,6 +654,13 @@ async function runCycle(args, cycle) {
       worker = run(workerCommand(task, args));
       finalTask = findTask(task.task_id);
     }
+    if (!args.dryRun && !isFinishedTask(finalTask)) {
+      finalTask = patchTask(task.task_id, {
+        status: 'HOLD',
+        completed_at: new Date().toISOString(),
+        reason: `worker returned but task did not reach terminal status; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
+      }) || finalTask;
+    }
     let writeback = null;
     const wbCommand = writebackCommand(task, finalTask, args);
     if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
@@ -649,6 +669,15 @@ async function runCycle(args, cycle) {
     const postWorkerCommit = commitOpsRuntimeArtifacts(args);
     workerRuns.push({ task, worker, finalTask, writeback, retryRuns });
     const leftovers = activeAgentProcesses();
+    if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
+      blockedTasks.push({
+        task_id: task.task_id,
+        agent: task.agent,
+        status: 'BLOCKED',
+        reason: `worker reached non-success terminal status ${finalTask.status}; stop dispatching more tasks in this cycle`,
+      });
+      break;
+    }
     if (leftovers.length > 0) {
       blockedTasks.push({
         task_id: task.task_id,
