@@ -13381,5 +13381,17 @@
   "auto.literal.b78c2dc2e260": "Confidence",
   "auto.literal.434b19686a55": "Unmatched",
   "auto.literal.75bd264bba4e": "No read-only adapter data yet.",
-  "auto.literal.chanjet.readonlyAdapterMissingFieldRemediation": "Missing fields automatically enter the remediation list"
+  "auto.literal.chanjet.readonlyAdapterMissingFieldRemediation": "Missing fields automatically enter the remediation list",
+  "ui.当前账号没有库存查询权限或仓库数据范围，请联系管理员检查 MENU_WMS_VIEW 与仓库授权。": "This account has no inventory query permission or warehouse data scope. Please ask an administrator to check MENU_WMS_VIEW and warehouse authorization.",
+  "ui.库存查询加载失败": "Inventory query failed to load",
+  "ui.按权限范围查询库存批次余量和状态": "Query inventory batch balance and status within the authorized scope",
+  "ui.可见批次": "Visible batches",
+  "ui.按当前账号仓库范围": "Based on the current account's warehouse scope",
+  "ui.可见库存量": "Visible inventory quantity",
+  "ui.来自专用库存接口": "From the dedicated inventory endpoint",
+  "ui.搜索批次号、产品、仓库、库位": "Search batch, product, warehouse, or location",
+  "ui.刷新中": "Refreshing",
+  "ui.库存数据加载中": "Loading inventory data",
+  "ui.请先处理上方提示": "Please resolve the message above first",
+  "ui.当前权限范围内暂无库存批次": "No inventory batches in the current permission scope"
 }

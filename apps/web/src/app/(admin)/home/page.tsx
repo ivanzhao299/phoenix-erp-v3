@@ -123,6 +123,7 @@ export default function HomePage() {
   // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
   const hasQualityPerm = hasPermission('MENU_MD_QUALITY', 'V');
   const hasCentersPerm = hasPermission('MENU_MD_CENTER', 'V');
+  const hasDeviceMonitorPerm = hasPermission('MENU_DEVICE_MONITOR', 'V');
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
@@ -154,12 +155,15 @@ export default function HomePage() {
       setCenters(c || []);
     });
 
-    // G19-E：拼养殖 KPI（hasPermission('MENU_FARM_DATA') 则拉）
+    // G19-E：拼养殖 KPI。IoT 是独立设备权限，不能因有养殖数据权限就请求设备接口。
+    // 无 MENU_DEVICE_MONITOR 时只拉日报/日志，避免运营工作台被可选设备 KPI 的 403 打扰。
     if (hasPermission('MENU_FARM_DATA', 'V')) {
       const today = localDateString();
       Promise.all([
-        request<any>(`/v3/farm/daily-hen-report?date=${today}`).catch(() => null),
-        request<any>(`/v3/iot/devices/all-summary`).catch(() => null),
+        request<any>(`/v3/farm/daily-hen-report?date=${today}`, { silent: true }).catch(() => null),
+        hasDeviceMonitorPerm
+          ? request<any>(`/v3/iot/devices/all-summary`, { silent: true }).catch(() => null)
+          : Promise.resolve(null),
         request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
       ]).then(([hen, iot, dailyLogs]) => {
         const rows = asRows(hen);
@@ -202,7 +206,7 @@ export default function HomePage() {
         setFarmKpi({ totalStock, layRate, eggsToday, feedToday, waterToday, alarmCount });
       });
     }
-  }, [hasQualityPerm, hasCentersPerm, hasPermission]);
+  }, [hasQualityPerm, hasCentersPerm, hasDeviceMonitorPerm, hasPermission]);
 
   const totalObjects = useMemo(() => centers.reduce((s, c) => s + c.objectCount, 0), [centers]);
   const totalRisk = useMemo(() => centers.reduce((s, c) => s + c.riskCount, 0), [centers]);
