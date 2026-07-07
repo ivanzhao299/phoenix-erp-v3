@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-07T00:38:12.991Z",
+  "generated_at": "2026-07-07T22:05:58.037Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3128,
-  "auto_translatable_findings": 3127,
-  "manual_componentization_findings": 1,
-  "affected_files": 170,
+  "total_findings": 3149,
+  "auto_translatable_findings": 3133,
+  "manual_componentization_findings": 16,
+  "affected_files": 171,
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -2549,6 +2549,68 @@
       ]
     },
     {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "count": 21,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 435,
+          "kind": "jsx-text",
+          "text": "AI 修复流水线运行面板",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 447,
+          "kind": "jsx-text",
+          "text": "刷新面板",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 456,
+          "kind": "jsx-text",
+          "text": "自动分类 / 恢复 / 分派",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 463,
+          "kind": "string-literal",
+          "text": "总待处理",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 464,
+          "kind": "string-literal",
+          "text": "需复核或重新分派",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 465,
+          "kind": "string-literal",
+          "text": "运行超时",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 465,
+          "kind": "string-literal",
+          "text": "AGENT_RUNNING 超时",
+          "auto_translatable": false
+        },
+        {
+          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+          "line": 466,
+          "kind": "string-literal",
+          "text": "批准待执行",
+          "auto_translatable": false
+        }
+      ]
+    },
+    {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
       "count": 20,
       "samples": [
@@ -2596,14 +2658,14 @@
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 260,
+          "line": 261,
           "kind": "string-literal",
           "text": "药品名称",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 260,
+          "line": 261,
           "kind": "string-literal",
           "text": "规格",
           "auto_translatable": true
@@ -3043,68 +3105,6 @@
           "auto_translatable": true
         }
       ]
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "count": 17,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 49,
-          "kind": "string-literal",
-          "text": "待装车",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 55,
-          "kind": "string-literal",
-          "text": "装车中",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 61,
-          "kind": "string-literal",
-          "text": "已装车",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 67,
-          "kind": "string-literal",
-          "text": "已发车",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 73,
-          "kind": "string-literal",
-          "text": "已到达",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 79,
-          "kind": "string-literal",
-          "text": "部分签收",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 85,
-          "kind": "string-literal",
-          "text": "已完成",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-          "line": 91,
-          "kind": "string-literal",
-          "text": "已取消",
-          "auto_translatable": true
-        }
-      ]
     }
   ],
   "findings": [
@@ -3530,37 +3530,16 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 260,
+      "line": 261,
       "kind": "string-literal",
       "text": "药品名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 260,
+      "line": 261,
       "kind": "string-literal",
       "text": "规格",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 260,
-      "kind": "string-literal",
-      "text": "库存量",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 260,
-      "kind": "string-literal",
-      "text": "单位",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 260,
-      "kind": "string-literal",
-      "text": "状态",
       "auto_translatable": true
     },
     {
@@ -3572,51 +3551,44 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
+      "line": 261,
+      "kind": "string-literal",
+      "text": "单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 261,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 262,
+      "kind": "string-literal",
+      "text": "库存量",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 417,
       "kind": "string-literal",
       "text": "日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
+      "line": 417,
       "kind": "string-literal",
       "text": "药品名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
+      "line": 417,
       "kind": "string-literal",
       "text": "类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
-      "kind": "string-literal",
-      "text": "数量变动",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
-      "kind": "string-literal",
-      "text": "栋舍",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
-      "kind": "string-literal",
-      "text": "备注",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 416,
-      "kind": "string-literal",
-      "text": "操作人",
       "auto_translatable": true
     },
     {
@@ -3625,6 +3597,181 @@
       "kind": "string-literal",
       "text": "数量变动",
       "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 417,
+      "kind": "string-literal",
+      "text": "栋舍",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 417,
+      "kind": "string-literal",
+      "text": "备注",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 417,
+      "kind": "string-literal",
+      "text": "操作人",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "line": 418,
+      "kind": "string-literal",
+      "text": "数量变动",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 435,
+      "kind": "jsx-text",
+      "text": "AI 修复流水线运行面板",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 447,
+      "kind": "jsx-text",
+      "text": "刷新面板",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 456,
+      "kind": "jsx-text",
+      "text": "自动分类 / 恢复 / 分派",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 463,
+      "kind": "string-literal",
+      "text": "总待处理",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 464,
+      "kind": "string-literal",
+      "text": "需复核或重新分派",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 465,
+      "kind": "string-literal",
+      "text": "运行超时",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 465,
+      "kind": "string-literal",
+      "text": "AGENT_RUNNING 超时",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 466,
+      "kind": "string-literal",
+      "text": "批准待执行",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 466,
+      "kind": "string-literal",
+      "text": "AGENT_APPROVED 超时",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 467,
+      "kind": "string-literal",
+      "text": "Runner 状态",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 467,
+      "kind": "string-literal",
+      "text": "后端工作流判断",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 468,
+      "kind": "string-literal",
+      "text": "未处理告警",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 468,
+      "kind": "string-literal",
+      "text": "Bug Intake 告警",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 472,
+      "kind": "string-literal",
+      "text": "运行超时",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 482,
+      "kind": "jsx-text",
+      "text": "最近自动处理：",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 483,
+      "kind": "jsx-text",
+      "text": "处理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 483,
+      "kind": "jsx-text",
+      "text": "条；HOLD 分派候选",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 483,
+      "kind": "jsx-text",
+      "text": "条。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 498,
+      "kind": "jsx-text",
+      "text": "分类：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 498,
+      "kind": "string-literal",
+      "text": "未分类",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 498,
+      "kind": "jsx-text",
+      "text": "· 建议 Agent：",
+      "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/daily-work/page.tsx",
@@ -5332,7 +5479,7 @@
       "line": 1054,
       "kind": "jsx-text",
       "text": "缺字段自动进入整改清单",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -8178,56 +8325,56 @@
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 41,
+      "line": 59,
       "kind": "string-literal",
       "text": "客户中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 42,
+      "line": 60,
       "kind": "string-literal",
       "text": "供应商中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 43,
+      "line": 61,
       "kind": "string-literal",
       "text": "采购中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 44,
+      "line": 62,
       "kind": "string-literal",
       "text": "销售中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 45,
+      "line": 63,
       "kind": "string-literal",
       "text": "财务中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 46,
+      "line": 64,
       "kind": "string-literal",
       "text": "库存中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 47,
+      "line": 65,
       "kind": "string-literal",
       "text": "审批工作台",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "line": 48,
+      "line": 66,
       "kind": "string-literal",
       "text": "数据质量",
       "auto_translatable": true

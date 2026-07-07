@@ -432,9 +432,9 @@ export default function BugReportsPage() {
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--bg-card)", padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16 }}>AI 修复流水线运行面板</h3>
+              <h3 style={{ margin: 0, fontSize: 16 }}>{t("system.bugIntake.pipelinePanelTitle", "AI 修复流水线运行面板")}</h3>
               <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
-                失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。
+                {t("system.bugIntake.pipelinePanelSubtitle", "失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。")}
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -444,7 +444,7 @@ export default function BugReportsPage() {
                 disabled={pipelineLoading}
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: pipelineLoading ? "not-allowed" : "pointer" }}
               >
-                <RefreshCw size={14} /> 刷新面板
+                <RefreshCw size={14} /> {t("system.bugIntake.refreshPanel", "刷新面板")}
               </button>
               <button
                 type="button"
@@ -453,23 +453,23 @@ export default function BugReportsPage() {
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: pipelineLoading ? "not-allowed" : "pointer" }}
               >
                 {pipelineLoading ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
-                自动分类 / 恢复 / 分派
+                {t("system.bugIntake.autoTriageRecoverDispatch", "自动分类 / 恢复 / 分派")}
               </button>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(120px, 1fr))", gap: 10, marginTop: 14 }}>
             {[
-              ["总待处理", pipelineStatus?.counts.openTotal ?? "—", "OPEN/TRIAGED/IN_PROGRESS"],
-              ["HOLD", pipelineStatus?.counts.hold ?? "—", "需复核或重新分派"],
-              ["运行超时", pipelineStatus?.counts.staleRunning ?? "—", "AGENT_RUNNING 超时"],
-              ["批准待执行", pipelineStatus?.counts.staleApproved ?? "—", "AGENT_APPROVED 超时"],
-              ["Runner 状态", pipelineStatus?.decision ?? "—", "后端工作流判断"],
-              ["未处理告警", pipelineStatus?.alerts.length ?? "—", "Bug Intake 告警"],
+              [t("system.bugIntake.pipelineOpenTotal", "总待处理"), pipelineStatus?.counts.openTotal ?? "—", "OPEN/TRIAGED/IN_PROGRESS"],
+              ["HOLD", pipelineStatus?.counts.hold ?? "—", t("system.bugIntake.pipelineHoldHint", "需复核或重新分派")],
+              [t("system.bugIntake.pipelineStaleRunning", "运行超时"), pipelineStatus?.counts.staleRunning ?? "—", t("system.bugIntake.pipelineStaleRunningHint", "AGENT_RUNNING 超时")],
+              [t("system.bugIntake.pipelineStaleApproved", "批准待执行"), pipelineStatus?.counts.staleApproved ?? "—", t("system.bugIntake.pipelineStaleApprovedHint", "AGENT_APPROVED 超时")],
+              [t("system.bugIntake.pipelineRunnerStatus", "Runner 状态"), pipelineStatus?.decision ?? "—", t("system.bugIntake.pipelineBackendDecisionHint", "后端工作流判断")],
+              [t("system.bugIntake.pipelineOpenAlerts", "未处理告警"), pipelineStatus?.alerts.length ?? "—", t("system.bugIntake.pipelineAlertHint", "Bug Intake 告警")],
             ].map(([label, value, hint]) => (
               <div key={String(label)} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-muted)", minHeight: 92 }}>
                 <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{label}</div>
-                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 900, color: label === "HOLD" || label === "运行超时" ? "var(--status-danger)" : "var(--text-primary)" }}>{String(value)}</div>
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 900, color: label === "HOLD" || label === t("system.bugIntake.pipelineStaleRunning", "运行超时") ? "var(--status-danger)" : "var(--text-primary)" }}>{String(value)}</div>
                 <div style={{ marginTop: 4, color: "var(--text-secondary)", fontSize: 11 }}>{hint}</div>
               </div>
             ))}
@@ -479,8 +479,13 @@ export default function BugReportsPage() {
             <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
               {autoTriageResult && (
                 <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--status-info-bg-faint)" }}>
-                  <strong>最近自动处理：{autoTriageResult.decision}</strong>
-                  <div style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12 }}>处理 {autoTriageResult.processed} 条；HOLD 分派候选 {autoTriageResult.results.filter(item => item.action.includes("HOLD_DISPATCH")).length} 条。</div>
+                  <strong>{t("system.bugIntake.latestAutoTriage", "最近自动处理：")}{autoTriageResult.decision}</strong>
+                  <div style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12 }}>
+                    {t("system.bugIntake.autoTriageProcessedPrefix", "处理 ")}{autoTriageResult.processed}
+                    {t("system.bugIntake.autoTriageHoldDispatchMiddle", " 条；HOLD 分派候选 ")}
+                    {autoTriageResult.results.filter(item => item.action.includes("HOLD_DISPATCH")).length}
+                    {t("system.bugIntake.autoTriageProcessedSuffix", " 条。")}
+                  </div>
                 </div>
               )}
               {pipelineStatus?.holdReports.slice(0, 5).map(item => (
@@ -495,7 +500,7 @@ export default function BugReportsPage() {
                     <span style={{ color: "var(--status-danger)", fontWeight: 800 }}>{item.repairTaskStatus}</span>
                   </div>
                   <div style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12 }}>
-                    分类：{item.failureClassification?.category || "未分类"} · 建议 Agent：{item.holdDispatch?.recommendedAgents?.join(" / ") || "—"}
+                    {t("system.bugIntake.failureCategoryLabel", "分类：")}{item.failureClassification?.category || t("system.bugIntake.unclassified", "未分类")} · {t("system.bugIntake.recommendedAgentLabel", "建议 Agent：")}{item.holdDispatch?.recommendedAgents?.join(" / ") || "—"}
                   </div>
                 </button>
               ))}
