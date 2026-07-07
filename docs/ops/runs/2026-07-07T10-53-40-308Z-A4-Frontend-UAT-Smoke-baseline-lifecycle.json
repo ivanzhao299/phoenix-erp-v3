@@ -1,0 +1,26 @@
+{
+  "agent": "A4-Frontend-UAT-Smoke",
+  "branch": "w5-a4-frontend-uat-smoke",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+  "status": "COMPLETED_MERGED",
+  "dry_run": false,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [],
+  "auto_commits": [
+    {
+      "label": "target worktree",
+      "message": "feat(web): record A4-Frontend-UAT-Smoke result",
+      "files": [
+        "apps/web/src/app/(admin)/home/page.tsx"
+      ]
+    }
+  ],
+  "rebase": "completed",
+  "merge": "completed",
+  "gate": "PASS",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No"
+}
