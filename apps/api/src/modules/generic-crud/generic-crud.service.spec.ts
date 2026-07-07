@@ -1,4 +1,5 @@
 import { GenericCrudService } from './generic-crud.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('GenericCrudService', () => {
   const buildSvc = (queryImpl: jest.Mock) => {
@@ -69,6 +70,66 @@ describe('GenericCrudService', () => {
 
       await expect(svc.findAll('sys_dict', {})).resolves.toEqual([{ id: 1, dict_code: 'LOW_PRODUCTION' }]);
       expect(query).toHaveBeenCalledTimes(1);
+    });
+
+    it('aliases WMS location route id to location_code for generic CRUD clients', async () => {
+      const query = jest.fn().mockResolvedValueOnce([
+        { location_code: 'LOC-A-01', warehouse_code: 'WH-A', zone_code: 'ZONE-A' },
+      ]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.findAll('wms_locations', {})).resolves.toEqual([
+        { id: 'LOC-A-01', location_code: 'LOC-A-01', warehouse_code: 'WH-A', zone_code: 'ZONE-A' },
+      ]);
+    });
+
+    it('aliases WMS zone route id to zone_code even when the table has a numeric id', async () => {
+      const query = jest.fn().mockResolvedValueOnce([
+        { id: 12, zone_code: 'ZONE-A', zone_name: 'A区' },
+      ]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.findAll('wms_zones', {})).resolves.toEqual([
+        { id: 'ZONE-A', zone_code: 'ZONE-A', zone_name: 'A区' },
+      ]);
+    });
+  });
+
+  describe('update', () => {
+    it('returns success when UPDATE RETURNING matches a row', async () => {
+      const query = jest.fn().mockResolvedValueOnce([[{ location_code: 'LOC-A-01' }], 1]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.update('wms_locations', 'location_code', 'LOC-A-01', { status: 'NORMAL' }))
+        .resolves.toEqual({ msg: 'Updated successfully' });
+      expect(query.mock.calls[0][0]).toContain('RETURNING "location_code"');
+    });
+
+    it('throws Record not found when UPDATE RETURNING matches no rows', async () => {
+      const query = jest.fn().mockResolvedValueOnce([[], 0]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.update('wms_locations', 'location_code', 'missing', { status: 'NORMAL' }))
+        .rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('remove', () => {
+    it('returns success when DELETE RETURNING matches a row', async () => {
+      const query = jest.fn().mockResolvedValueOnce([[{ zone_code: 'ZONE-A' }], 1]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.remove('wms_zones', 'zone_code', 'ZONE-A'))
+        .resolves.toEqual({ msg: 'Deleted successfully' });
+      expect(query.mock.calls[0][0]).toContain('RETURNING "zone_code"');
+    });
+
+    it('throws Record not found when DELETE RETURNING matches no rows', async () => {
+      const query = jest.fn().mockResolvedValueOnce([[], 0]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.remove('wms_zones', 'zone_code', 'missing'))
+        .rejects.toThrow(BadRequestException);
     });
   });
 });

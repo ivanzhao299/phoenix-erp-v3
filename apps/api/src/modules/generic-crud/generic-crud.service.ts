@@ -4,6 +4,11 @@ import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
+  private static readonly CRUD_ROUTE_ID_ALIAS: Record<string, string> = {
+    wms_locations: 'location_code',
+    wms_zones: 'zone_code',
+  };
+
   constructor(
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
@@ -2137,10 +2142,31 @@ export class GenericCrudService implements OnModuleInit {
       if (table === 'brd_daily_logs') {
         return await this.enrichDailyLogReasonLabels(rows);
       }
-      return rows;
+      return this.withCrudRouteIdAlias(table, rows);
     } catch (e) {
       throw new InternalServerErrorException((e as Error).message);
     }
+  }
+
+  private withCrudRouteIdAlias(table: string, rows: any[]): any[] {
+    const aliasColumn = GenericCrudService.CRUD_ROUTE_ID_ALIAS[table];
+    if (!aliasColumn || !Array.isArray(rows)) return rows;
+
+    return rows.map((row) => {
+      if (!row || typeof row !== 'object' || row[aliasColumn] === undefined || row[aliasColumn] === null) {
+        return row;
+      }
+      return { ...row, id: row[aliasColumn] };
+    });
+  }
+
+  private extractRows(raw: any): any[] {
+    if (!raw) return [];
+    if (Array.isArray(raw) && raw.length === 2 && Array.isArray(raw[0]) && typeof raw[1] === 'number') {
+      return raw[0];
+    }
+    if (Array.isArray(raw)) return raw;
+    return [];
   }
 
   private async enrichDailyLogReasonLabels(rows: any[]): Promise<any[]> {
@@ -2377,11 +2403,11 @@ export class GenericCrudService implements OnModuleInit {
     let finalSql: string;
     // ✅ 修复：updated_at 全部改用参数化写法（JS Date 对象），避免 TEXT 列类型不匹配
     if (hasUpdatedAt) {
-      finalSql = `UPDATE "${table}" SET ${setClauses} WHERE "${pkName}" = $${fields.length + 1}`;
+      finalSql = `UPDATE "${table}" SET ${setClauses} WHERE "${pkName}" = $${fields.length + 1} RETURNING "${pkName}"`;
       values.push(id);
     } else {
       // $n+1 = updated_at（JS Date 自动转换）, $n+2 = PK
-      finalSql = `UPDATE "${table}" SET ${setClauses}, "updated_at" = $${fields.length + 1} WHERE "${pkName}" = $${fields.length + 2}`;
+      finalSql = `UPDATE "${table}" SET ${setClauses}, "updated_at" = $${fields.length + 1} WHERE "${pkName}" = $${fields.length + 2} RETURNING "${pkName}"`;
       values.push(new Date(), id);
     }
 
@@ -2390,10 +2416,14 @@ export class GenericCrudService implements OnModuleInit {
     // 自适应循环：逐列补齐，最多重试 5 次（防无限循环）
     for (let attempt = 0; attempt <= 5; attempt++) {
       try {
-        await this.entityManager.query(finalSql, values);
+        const raw = await this.entityManager.query(finalSql, values);
+        if (this.extractRows(raw).length === 0) {
+          throw new BadRequestException('Record not found');
+        }
         console.log(`[CRUD Update] ✅ success on attempt ${attempt}`);
         return { msg: 'Updated successfully' };
       } catch (e) {
+        if (e instanceof BadRequestException) throw e;
         console.error(`[CRUD Update] ❌ attempt ${attempt} failed: ${(e as Error).message}`);
         const missingCol = this.extractMissingColumn((e as Error).message);
         if (missingCol && attempt < 5) {
@@ -2415,13 +2445,17 @@ export class GenericCrudService implements OnModuleInit {
       }
     }
 
-    const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1`;
+    const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1 RETURNING "${pkName}"`;
     console.log(`[CRUD Delete] ${table} WHERE ${pkName}=${id}`);
     try {
-      await this.entityManager.query(sql, [id]);
+      const raw = await this.entityManager.query(sql, [id]);
+      if (this.extractRows(raw).length === 0) {
+        throw new BadRequestException('Record not found');
+      }
       console.log(`[CRUD Delete] ✅ success`);
       return { msg: 'Deleted successfully' };
     } catch (e) {
+      if (e instanceof BadRequestException) throw e;
       console.error(`[CRUD Delete] ❌ failed: ${(e as Error).message}`);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
