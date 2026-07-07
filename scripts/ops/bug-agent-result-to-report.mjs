@@ -102,6 +102,8 @@ function parsePayload(args) {
     /当前结论[:：]\s*([A-Z_ ]+)/i,
     /最终结论[:：]\s*([A-Z_ ]+)/i,
     /conclusion[:：]\s*([A-Z_ /]+)/i,
+    /^##+\s+Result\s*\n+\s*([A-Z_ ]+)/im,
+    /^##+\s+结论\s*\n+\s*([A-Z_ ]+)/im,
   ]);
   const conclusion = normalizeConclusion(parsedConclusion) || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
   const commitHash = json?.commit_hash || json?.commitHash || firstMatch(raw, [
