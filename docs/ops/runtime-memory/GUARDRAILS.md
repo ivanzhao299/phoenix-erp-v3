@@ -78,6 +78,10 @@ Last updated: 2026-07-07
 74. Ordinary users must consume Chanjet-aligned data only through business pages, source badges, reconciliation states, and approved finance cards.
 75. Do not expose Chanjet mirror tables, raw payloads, field catalogs, proxy calls, sync jobs, or voucher-draft plumbing to ordinary users.
 76. Business pages may show `好业财口径`, `ERP口径`, `差异`, or `待映射`, but must not require users to understand the middle layer.
+77. Chanjet readonly adapter audits must fail closed when no approved runtime token or service-account login is available.
+78. Do not wire voucher header, voucher line, or counterparty adapter rows into ordinary finance pages until authenticated production sample audit evidence exists.
+79. Adapter field coverage may be displayed to administrators, but low or unknown coverage must become a remediation item rather than a silent fallback.
+80. `PHOENIX_ADMIN_TOKEN`, `PHOENIX_AUTH_TOKEN`, or runner service-account credentials must never be committed to docs, scripts, runtime memory, or audit artifacts.
 77. Chanjet readonly field adapters may only consume ERP-owned mirror snapshots and master mapping rows; they must not call Chanjet write APIs.
 78. Voucher header / line adapters are read-only evidence for reconciliation and review; they do not authorize voucher draft push.
 79. Counterparty adapter rows require approved CUSTOMER / SUPPLIER mapping before they can influence ordinary business pages.

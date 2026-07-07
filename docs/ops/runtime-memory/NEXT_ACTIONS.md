@@ -2,6 +2,36 @@
 
 Last updated: 2026-07-07
 
+## 2026-07-07 — Chanjet Readonly Adapter Production Audit Gate
+
+Current stage: `CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added `fieldCoverage` to the readonly adapter API summary.
+2. Updated the admin-only readonly adapter tab to show field coverage.
+3. Hardened `scripts/ops/chanjet-readonly-field-adapter-audit.mjs` with token or service-account login support.
+4. Re-ran the production audit against `https://erp.eggslao.com/api`.
+5. Verified fail-closed behavior: without a runtime token or service-account credentials, the audit writes a HOLD report instead of fabricating adapter evidence.
+
+Current blocker:
+
+- Production adapter sample audit returned `HTTP 401` because no approved runtime token or service-account login was available in the local runner environment.
+
+Next actions:
+
+1. `CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT`
+   - Provide a dedicated readonly audit service account or short-lived admin token to the runner.
+   - Re-run `scripts/ops/chanjet-readonly-field-adapter-audit.mjs` against production.
+   - Verify voucher header / voucher line / counterparty sample rows and field coverage.
+2. `CHANJET_BUSINESS_FUSION_UI_PASS`
+   - Only after authenticated audit evidence is available, wire adapter rows into reconciliation views.
+   - Ordinary users still see only business-level source badges, differences, and mapping state.
+3. `CHANJET_WRITE_BACK_HOLD`
+   - Continue forbidding Chanjet writes and voucher push until a separate approved Gate.
+
 ## 2026-07-07 — Chanjet Readonly Field Adapter Implementation
 
 Current stage: `CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTED`

@@ -1,5 +1,37 @@
 # Decision Log
 
+## 2026-07-07 - Chanjet Readonly Adapter Production Audit Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The readonly adapter audit must be repeatable in production before adapter values are wired into ordinary finance pages.
+- The audit runner now supports `PHOENIX_ADMIN_TOKEN`, `PHOENIX_AUTH_TOKEN`, or service-account login through `PHOENIX_ERP_RUNNER_USER` / `PHOENIX_ERP_RUNNER_PASS`.
+- The production audit was executed against `https://erp.eggslao.com/api/chanjet/integration/readonly-field-adapters`.
+- The runner had no approved auth source in the local environment, so the endpoint returned `HTTP 401`.
+- The runner correctly wrote HOLD evidence instead of fabricating adapter rows or field coverage.
+
+Evidence:
+
+- `docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json`
+- `docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md`
+- `docs/ops/CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_REPORT_20260707.md`
+
+Guardrails:
+
+- Chanjet write: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- Migration / DB write: false.
+- Ordinary finance pages must not consume adapter-derived values until authenticated production sample audit passes.
+
+Next actions:
+
+1. Provide a dedicated readonly audit service account or short-lived admin token.
+2. Re-run the production adapter audit and verify voucher header / line / counterparty samples.
+3. Only then wire validated adapter output into reconciliation views.
+
 ## 2026-07-07 - Chanjet Readonly Field Adapter Implementation
 
 Decision: GO WITH CONDITIONS.

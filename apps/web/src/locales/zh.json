@@ -13376,5 +13376,6 @@
   "auto.literal.63467d41c2d8": "类型候选",
   "auto.literal.b78c2dc2e260": "置信度",
   "auto.literal.434b19686a55": "未匹配",
-  "auto.literal.75bd264bba4e": "暂无只读适配器数据。"
+  "auto.literal.75bd264bba4e": "暂无只读适配器数据。",
+  "auto.literal.chanjet.readonlyAdapterMissingFieldRemediation": "缺字段自动进入整改清单"
 }

@@ -369,6 +369,7 @@ export interface ChanjetReadonlyFieldAdapterOverview {
     voucherHeaderRows: number;
     voucherLineRows: number;
     counterpartyRows: number;
+    fieldCoverage: number;
     nextGate: string;
   };
   adapters: Array<ChanjetReadonlyAdapterBase & {
@@ -3083,6 +3084,11 @@ export class ChanjetIntegrationService {
     const hold = statusCounts.HOLD || 0;
     const partial = statusCounts.PARTIAL || 0;
     const waitingSample = statusCounts.WAITING_SAMPLE || 0;
+    const mappedFieldCount = adapters.reduce((sum, adapter) => sum + adapter.mappedFields.length, 0);
+    const missingCriticalFieldCount = adapters.reduce((sum, adapter) => sum + adapter.missingCriticalFields.length, 0);
+    const fieldCoverage = mappedFieldCount
+      ? Math.max(0, (mappedFieldCount - missingCriticalFieldCount) / mappedFieldCount)
+      : 0;
     return {
       generatedAt: new Date().toISOString(),
       decision: hold > 0 || waitingSample > 0 ? 'HOLD' : partial > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
@@ -3095,6 +3101,7 @@ export class ChanjetIntegrationService {
         voucherHeaderRows: voucherHeaderRows.length,
         voucherLineRows: voucherLineRows.length,
         counterpartyRows: counterpartyAdapterRows.length,
+        fieldCoverage,
         nextGate: partial || waitingSample || hold
           ? 'CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC'
           : 'CHANJET_BUSINESS_FUSION_UI_PASS',

@@ -13376,5 +13376,6 @@
   "auto.literal.63467d41c2d8": "Type candidate",
   "auto.literal.b78c2dc2e260": "Confidence",
   "auto.literal.434b19686a55": "Unmatched",
-  "auto.literal.75bd264bba4e": "No read-only adapter data yet."
+  "auto.literal.75bd264bba4e": "No read-only adapter data yet.",
+  "auto.literal.chanjet.readonlyAdapterMissingFieldRemediation": "Missing fields automatically enter the remediation list"
 }

@@ -536,6 +536,7 @@ interface ReadonlyFieldAdaptersOverview {
     voucherHeaderRows: number;
     voucherLineRows: number;
     counterpartyRows: number;
+    fieldCoverage: number;
     nextGate: string;
   };
   adapters: ReadonlyFieldAdapter[];
@@ -1048,15 +1049,16 @@ export default function ChanjetIntegrationPage() {
               <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>需映射审核后业务使用</div>
             </div>
             <div style={{ ...cardStyle, padding: 12 }}>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>下一 Gate</div>
-              <div style={{ fontSize: 14, fontWeight: 800, marginTop: 8 }}>{readonlyFieldAdapters?.summary?.nextGate ?? '—'}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>不写好业财，不推凭证</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>字段覆盖率</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{pct(readonlyFieldAdapters?.summary?.fieldCoverage ?? 0)}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>缺字段自动进入整改清单</div>
             </div>
           </div>
 
           <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>安全边界</div>
             <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{readonlyFieldAdapters?.guardrails?.rule || '只读适配器只消费 ERP 中间层快照。'}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>下一 Gate: {readonlyFieldAdapters?.summary?.nextGate ?? '—'}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
               <Badge tone="green">好业财写入: 否</Badge>
               <Badge tone="green">凭证推送: 否</Badge>

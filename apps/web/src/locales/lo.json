@@ -13376,5 +13376,6 @@
   "auto.literal.63467d41c2d8": "ປະເພດຜູ້ສະໝັກ",
   "auto.literal.b78c2dc2e260": "ຄວາມເຊື່ອໝັ້ນ",
   "auto.literal.434b19686a55": "ຍັງບໍ່ຈັບຄູ່",
-  "auto.literal.75bd264bba4e": "ຍັງບໍ່ມີຂໍ້ມູນຕົວປັບອ່ານຢ່າງດຽວ."
+  "auto.literal.75bd264bba4e": "ຍັງບໍ່ມີຂໍ້ມູນຕົວປັບອ່ານຢ່າງດຽວ.",
+  "auto.literal.chanjet.readonlyAdapterMissingFieldRemediation": "ຟິວທີ່ຂາດຈະເຂົ້າລາຍການແກ້ໄຂໂດຍອັດຕະໂນມັດ"
 }

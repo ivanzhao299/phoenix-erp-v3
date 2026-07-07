@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-07",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTED",
+  "current_stage": "CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_IMPLEMENTED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_READONLY_ADAPTER_UI_UAT_AND_RECONCILIATION_WIRING",
+  "next_gate": "CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTED",
+    "current_stage": "CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_IMPLEMENTED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "uat_readonly_adapters_then_wire_business_fusion_views_without_chanjet_writeback",
+    "next_action": "provide_readonly_audit_service_account_or_short_lived_admin_token_then_rerun_adapter_audit_before_business_fusion_wiring",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -78,7 +78,7 @@
     "remote_readonly_high_open_fields": 1348,
     "local_prod_mirror_state": "local_empty_production_covered_keep_audits_separate",
     "finance_ar_runtime_source": "chanjet_entity_snapshots.AR_STATISTICS_first_legacy_chanjet_ar_snapshot_fallback",
-    "finance_alignment_next_gate": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION",
+    "finance_alignment_next_gate": "CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT",
     "local_chanjet_sync_jobs_table": "unavailable_optional_audit_evidence",
     "finance_cards_authority": "must_show_chanjet_only_when_readonly_mirror_covered",
     "real_mirror_sync_decision": "GO_WITH_CONDITIONS",
@@ -117,7 +117,7 @@
     "readonly_field_adapter_json": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json",
     "readonly_field_adapter_md": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md",
     "readonly_field_adapter_report": "docs/ops/CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION_REPORT_20260707.md",
-    "readonly_field_adapter_status": "implemented",
+    "readonly_field_adapter_status": "implemented_with_production_fail_closed_audit",
     "readonly_field_adapter_scope": [
       "CHANJET_VOUCHER_HEADER",
       "CHANJET_VOUCHER_LINE",
@@ -307,7 +307,13 @@
       "SUBJECT_BALANCE",
       "BALANCE_SHEET",
       "INCOME_STATEMENT"
-    ]
+    ],
+    "readonly_field_adapter_summary_field_coverage": "implemented",
+    "readonly_field_adapter_production_audit": "HOLD_AUTH_REQUIRED",
+    "readonly_field_adapter_production_audit_json": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json",
+    "readonly_field_adapter_production_audit_md": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md",
+    "readonly_field_adapter_production_audit_report": "docs/ops/CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_REPORT_20260707.md",
+    "readonly_field_adapter_production_audit_blocker": "HTTP_401_NO_RUNTIME_TOKEN_OR_SERVICE_ACCOUNT_ENV"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
