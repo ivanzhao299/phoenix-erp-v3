@@ -3235,7 +3235,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0005",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3256,9 +3256,9 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-07T15:33:50.060Z",
+    "completed_at": "2026-07-07T15:36:49.975Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -3266,7 +3266,8 @@
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "worker returned but task did not reach terminal status; worker exit=1; observed=running"
   },
   {
     "task_id": "BUGTASK-20260707-0005-04-A5",
