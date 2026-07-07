@@ -2130,6 +2130,69 @@ export class GenericCrudService implements OnModuleInit {
 
 
   async findAll(table: string, query: any) {
+    const { sql, queryValues } = this.buildFindAllSql(table, query);
+
+    try {
+      const rows = await this.entityManager.query(sql, queryValues);
+      return rows;
+    } catch (e) {
+      throw new InternalServerErrorException((e as Error).message);
+    }
+  }
+
+  async findAllInventoryScoped(table: 'inv_batches' | 'inv_ledger', query: any, allowedWarehouseCodes: string[] | null) {
+    const extraWhere: string[] = [];
+    const extraValues: unknown[] = [];
+
+    if (allowedWarehouseCodes !== null) {
+      if (allowedWarehouseCodes.length === 0) {
+        extraWhere.push('1=0');
+      } else if (table === 'inv_batches') {
+        extraWhere.push(`"warehouse_code" = ANY($${this.nextParamIndex(query, extraValues.length)})`);
+        extraValues.push(allowedWarehouseCodes);
+      } else {
+        const idx = this.nextParamIndex(query, extraValues.length);
+        extraWhere.push(`(
+          "warehouse_code" = ANY($${idx})
+          OR EXISTS (
+            SELECT 1 FROM "inv_batches" b
+            WHERE b."batch_no" = "${table}"."batch_no"
+              AND b."warehouse_code" = ANY($${idx})
+          )
+        )`);
+        extraValues.push(allowedWarehouseCodes);
+      }
+    }
+
+    const { sql, queryValues } = this.buildFindAllSql(table, query, extraWhere, extraValues);
+
+    try {
+      const rows = await this.entityManager.query(sql, queryValues);
+      return rows;
+    } catch (e) {
+      throw new InternalServerErrorException((e as Error).message);
+    }
+  }
+
+  private nextParamIndex(query: any, extraValueCount: number): number {
+    let idx = 1;
+    for (const [key] of Object.entries(query)) {
+      if (this.isControlQueryParam(key)) continue;
+      if (key.endsWith('__like')) {
+        const col = key.slice(0, -6);
+        if (/^[a-zA-Z0-9_]+$/.test(col)) idx++;
+        continue;
+      }
+      if (/^[a-zA-Z0-9_]+$/.test(key)) idx++;
+    }
+    return idx + extraValueCount;
+  }
+
+  private isControlQueryParam(key: string): boolean {
+    return ['limit', 'offset', 'page', 'pageSize', 'pageNumber', 'pageNo', 'size', 'sortBy', 'sortDesc', 'orderBy', 'orderDir', '_t', '_'].includes(key);
+  }
+
+  private buildFindAllSql(table: string, query: any, extraWhere: string[] = [], extraValues: unknown[] = []) {
     const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
     const offset = Math.max(Number(query.offset) || 0, 0);
 
@@ -2142,7 +2205,7 @@ export class GenericCrudService implements OnModuleInit {
       // 分页/排序/反缓存类 query param 不参与 WHERE 拼接
       // pageSize / pageNumber 等是前端 selectors（HouseSelector 等）的约定，
       // 漏过滤会被当列名拼到 SQL 抛 "column does not exist" 500 — 此前导致 brd_houses 下拉全空。
-      if (['limit', 'offset', 'page', 'pageSize', 'pageNumber', 'pageNo', 'size', 'sortBy', 'sortDesc', 'orderBy', 'orderDir', '_t', '_'].includes(key)) continue;
+      if (this.isControlQueryParam(key)) continue;
       // Support LIKE prefix filter: key ending with __like → column = key minus suffix, value used as-is
       if (key.endsWith('__like')) {
         const col = key.slice(0, -6);
@@ -2167,6 +2230,11 @@ export class GenericCrudService implements OnModuleInit {
       queryValues.push(val);
       paramIndex++;
     }
+    for (const where of extraWhere) {
+      whereClauses.push(where);
+    }
+    queryValues.push(...extraValues);
+    paramIndex += extraValues.length;
 
     let sql = `SELECT * FROM "${table}"`;
     if (whereClauses.length > 0) {
@@ -2175,12 +2243,7 @@ export class GenericCrudService implements OnModuleInit {
     sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     queryValues.push(limit, offset);
 
-    try {
-      const rows = await this.entityManager.query(sql, queryValues);
-      return rows;
-    } catch (e) {
-      throw new InternalServerErrorException((e as Error).message);
-    }
+    return { sql, queryValues };
   }
 
   async create(table: string, body: any) {

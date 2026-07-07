@@ -343,6 +343,12 @@ export class GenericCrudController {
       scopeField = 'store_code';
     }
 
+    if (isInventoryFactTable(table)) {
+      const allowedWarehouseCodes = isGlobal ? null : (tableScope?.allowedWarehouseCodes ?? []);
+      const data = await this.crudService.findAllInventoryScoped(table, query, allowedWarehouseCodes);
+      return { code: 200, data };
+    }
+
     const baseQuery = (isGlobal || !scopeField)
       ? query
       : { ...query, [scopeField]: userStoreCode };
@@ -469,6 +475,10 @@ export class GenericCrudController {
   ) {
     return this.removeWithColumn(table, getPkColumn(table), id, req);
   }
+}
+
+function isInventoryFactTable(table: string): table is 'inv_batches' | 'inv_ledger' {
+  return table === 'inv_batches' || table === 'inv_ledger';
 }
 
 // ── 主键列名映射（非 id 主键的表）──────────────────────────
