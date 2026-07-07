@@ -27,9 +27,9 @@ Guardrails:
 
 Next actions:
 
-1. Dispatch `AI Delivery CI Smoke` with target `chanjet-readonly-adapter-production`.
-2. Verify voucher header / line / counterparty sample rows and field coverage.
-3. Only then wire validated adapter output into ordinary business-facing reconciliation views.
+1. `AI Delivery CI Smoke` target `chanjet-readonly-adapter-production` was dispatched as run `28834627546`.
+2. The authenticated audit returned `GO_WITH_CONDITIONS` with 60 voucher header rows, 160 voucher line rows, 120 counterparty rows, and 86.2% field coverage.
+3. Next Gate is `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC`; ordinary business-facing reconciliation views must still treat the adapter evidence as conditional until voucher status, subject fields, and customer/supplier mappings are locked.
 
 ## 2026-07-07 - Chanjet Readonly Adapter Production Audit Gate
 

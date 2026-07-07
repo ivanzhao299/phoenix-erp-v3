@@ -124,6 +124,19 @@
     "readonly_field_adapter_authenticated_ci_auth": "short_lived_runtime_admin_jwt_minted_inside_production_api_container",
     "readonly_field_adapter_authenticated_ci_report": "docs/ops/CHANJET_READONLY_ADAPTER_AUTHENTICATED_AUDIT_CI_GATE_REPORT_20260707.md",
     "readonly_field_adapter_authenticated_ci_guardrail": "no_long_lived_token_committed_no_chanjet_write_no_voucher_push_no_erp_business_overwrite",
+    "readonly_field_adapter_authenticated_ci_run": "28834627546",
+    "readonly_field_adapter_authenticated_ci_result": "GO_WITH_CONDITIONS",
+    "readonly_field_adapter_authenticated_ci_field_coverage": "86.2%",
+    "readonly_field_adapter_authenticated_ci_samples": {
+      "voucher_header_rows": 60,
+      "voucher_line_rows": 160,
+      "counterparty_rows": 120
+    },
+    "readonly_field_adapter_authenticated_ci_conditions": [
+      "voucher_status_semantic_lock_required",
+      "subject_code_subject_name_semantic_lock_required",
+      "customer_supplier_mapping_approval_required"
+    ],
     "readonly_field_adapter_scope": [
       "CHANJET_VOUCHER_HEADER",
       "CHANJET_VOUCHER_LINE",

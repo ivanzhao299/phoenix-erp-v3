@@ -16,12 +16,24 @@ Completed:
 4. The target runs `scripts/ops/chanjet-readonly-field-adapter-audit.mjs` against `https://erp.eggslao.com/api`.
 5. The target pulls `chanjet-readonly-field-adapter-audit-latest.json/md` as CI artifacts.
 6. No long-lived token is stored in GitHub, docs, scripts, or runtime memory.
+7. Executed workflow run `28834627546`; authenticated audit completed with real production sample evidence.
+
+Authenticated audit result:
+
+- decision: `GO_WITH_CONDITIONS`
+- voucher header rows: `60`
+- voucher line rows: `160`
+- counterparty rows: `120`
+- field coverage: `86.2%`
+- partial adapters: `3/3`
 
 Next actions:
 
-1. Dispatch `AI Delivery CI Smoke` with target `chanjet-readonly-adapter-production`.
-2. Confirm voucher header / voucher line / counterparty sample counts and field coverage.
-3. If the authenticated adapter audit is GO, start `CHANJET_BUSINESS_FUSION_UI_PASS`.
+1. `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC`
+   - Lock `voucher_status`.
+   - Lock `subject_code` / `subject_name`.
+   - Approve or hold customer / supplier mapping semantics.
+2. Start `CHANJET_BUSINESS_FUSION_UI_PASS` only after the partial adapter conditions are cleared or explicitly displayed as non-authoritative evidence.
 4. Keep `CHANJET_WRITE_BACK_HOLD`.
 
 ## 2026-07-07 — Chanjet Readonly Adapter Production Audit Gate
