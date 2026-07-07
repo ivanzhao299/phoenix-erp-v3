@@ -3400,7 +3400,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0005",
     "source": "bug-intake",
     "agent": "A7-Final-QA-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -3419,14 +3419,15 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
     "branch": "w5-a7-final-qa-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
+    "claimed_by": "A7-Final-QA-Gate",
+    "claimed_at": "2026-07-07T16:02:24.123Z",
+    "completed_at": "2026-07-07T16:05:23.724Z",
     "result_file": null,
     "next_agents": [
       "Codex-Orchestrator"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "worker returned but task did not reach terminal status; worker exit=1; observed=running"
   },
   {
     "task_id": "BUGTASK-20260707-0006-01-A2",
