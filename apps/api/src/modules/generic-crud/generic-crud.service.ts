@@ -2134,10 +2134,86 @@ export class GenericCrudService implements OnModuleInit {
 
     try {
       const rows = await this.entityManager.query(sql, queryValues);
+      if (table === 'brd_daily_logs') {
+        return await this.enrichDailyLogReasonLabels(rows);
+      }
       return rows;
     } catch (e) {
       throw new InternalServerErrorException((e as Error).message);
     }
+  }
+
+  private async enrichDailyLogReasonLabels(rows: any[]): Promise<any[]> {
+    if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+    const reasonTypes: Array<{ field: 'culling_reason' | 'mortality_reason'; dictType: string }> = [
+      { field: 'culling_reason', dictType: 'BRD_CULLING_REASON' },
+      { field: 'mortality_reason', dictType: 'BRD_MORTALITY_REASON' },
+    ];
+    const codesByType = new Map<string, Set<string>>();
+
+    for (const row of rows) {
+      for (const { field, dictType } of reasonTypes) {
+        for (const token of this.splitReasonTokens(row?.[field])) {
+          if (!codesByType.has(dictType)) codesByType.set(dictType, new Set());
+          codesByType.get(dictType)!.add(token);
+        }
+      }
+    }
+
+    const dictParams: unknown[] = [];
+    const whereParts: string[] = [];
+    for (const [dictType, codes] of codesByType.entries()) {
+      if (codes.size === 0) continue;
+      dictParams.push(dictType, Array.from(codes));
+      const typeIdx = dictParams.length - 1;
+      const codesIdx = dictParams.length;
+      whereParts.push(`(dict_type = $${typeIdx} AND dict_code = ANY($${codesIdx}))`);
+    }
+    if (whereParts.length === 0) return rows;
+
+    const dictRows: Array<{
+      dict_type: string;
+      dict_code: string;
+      label: string | null;
+    }> = await this.entityManager.query(
+      `SELECT dict_type, dict_code, COALESCE(dict_label_zh, name, dict_code) AS label
+         FROM sys_dict
+        WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
+          AND (${whereParts.join(' OR ')})`,
+      dictParams,
+    );
+    if (dictRows.length === 0) return rows;
+
+    const labelByTypeAndCode = new Map<string, string>();
+    for (const dict of dictRows) {
+      if (dict.label) labelByTypeAndCode.set(`${dict.dict_type}:${dict.dict_code}`, dict.label);
+    }
+
+    return rows.map((row) => {
+      const next = { ...row };
+      for (const { field, dictType } of reasonTypes) {
+        const original = row?.[field];
+        if (typeof original !== 'string' || original.trim() === '') continue;
+        next[`${field}_code`] = original;
+        next[field] = this.translateReasonValue(original, dictType, labelByTypeAndCode);
+      }
+      return next;
+    });
+  }
+
+  private splitReasonTokens(value: unknown): string[] {
+    if (typeof value !== 'string') return [];
+    return value
+      .split(/[；;,]/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  private translateReasonValue(value: string, dictType: string, labels: Map<string, string>): string {
+    return this.splitReasonTokens(value)
+      .map((token) => labels.get(`${dictType}:${token}`) ?? token)
+      .join('；');
   }
 
   async findAllInventoryScoped(table: 'inv_batches' | 'inv_ledger', query: any, allowedWarehouseCodes: string[] | null) {
