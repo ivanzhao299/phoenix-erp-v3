@@ -1,0 +1,184 @@
+{
+  "decision": "BUG_INTAKE_QUEUE_APPLIED",
+  "generated_at": "2026-07-07T10:47:13.569Z",
+  "api_base": "https://erp.eggslao.com",
+  "output_dir": "docs/ops/runs/bug-intake-inbox-test/20260707-184704",
+  "reports_fetched": 13,
+  "apply_queue": true,
+  "queue_candidates": [
+    {
+      "bugNo": "BUG-20260707-0010",
+      "title": "我的待办中有审批任务，但是上方显示0条",
+      "repairTaskNo": "BUGTASK-20260707-0010",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": [
+        "docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png"
+      ]
+    },
+    {
+      "bugNo": "BUG-20260707-0009",
+      "title": "养殖场总览-药品库存，今日入库提交后，库存总览还是0",
+      "repairTaskNo": "BUGTASK-20260707-0009",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": [
+        "docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0009/attachments/01-1783403267106-b1f40399.png"
+      ]
+    },
+    {
+      "bugNo": "BUG-20260707-0008",
+      "title": "养殖总览的今日产蛋、今日死淘都显示0",
+      "repairTaskNo": "BUGTASK-20260707-0008",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": [
+        "docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0008/attachments/01-1783389537721-72f6e1d8.png"
+      ]
+    },
+    {
+      "bugNo": "BUG-20260707-0007",
+      "title": "库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能",
+      "repairTaskNo": "BUGTASK-20260707-0007",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": [
+        "docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0007/attachments/01-1783387884409-e59460b2.png"
+      ]
+    },
+    {
+      "bugNo": "BUG-20260707-0006",
+      "title": "近期日报记录下的淘汰原因不显示中文",
+      "repairTaskNo": "BUGTASK-20260707-0006",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": []
+    },
+    {
+      "bugNo": "BUG-20260707-0005",
+      "title": "日生产日报不选择鸡舍也能提交成功",
+      "repairTaskNo": "BUGTASK-20260707-0005",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": []
+    },
+    {
+      "bugNo": "BUG-20260707-0004",
+      "title": "用tangzhiwen账号库存查询无数据",
+      "repairTaskNo": "BUGTASK-20260707-0004",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": []
+    },
+    {
+      "bugNo": "BUG-20260707-0003",
+      "title": "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
+      "repairTaskNo": "BUGTASK-20260707-0003",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": []
+    },
+    {
+      "bugNo": "BUG-20260707-0001",
+      "title": "财务结算中心/资金账户，没有账户建档权限的账号也可以新建账户",
+      "repairTaskNo": "BUGTASK-20260707-0001",
+      "repairTaskStatus": "AGENT_APPROVED",
+      "localAttachmentPaths": []
+    }
+  ],
+  "not_ready": [
+    {
+      "bugNo": "BUG-20260705-0001",
+      "repairTaskStatus": "READY",
+      "reason": "missing agent plan"
+    },
+    {
+      "bugNo": "BUG-20260707-0002",
+      "repairTaskStatus": "HOLD",
+      "reason": "repairTaskStatus is HOLD"
+    },
+    {
+      "bugNo": "BUG-20260706-0002",
+      "repairTaskStatus": "HOLD",
+      "reason": "repairTaskStatus is HOLD"
+    },
+    {
+      "bugNo": "BUG-20260705-0003",
+      "repairTaskStatus": "HOLD",
+      "reason": "repairTaskStatus is HOLD"
+    }
+  ],
+  "queue_results": [
+    {
+      "bugNo": "BUG-20260707-0010",
+      "repairTaskNo": "BUGTASK-20260707-0010",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0010/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0010\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0010-01-A2\",\n    \"BUGTASK-20260707-0010-02-A3\",\n    \"BUGTASK-20260707-0010-03-A4\",\n    \"BUGTASK-20260707-0010-04-A5\",\n    \"BUGTASK-20260707-0010-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T09:18:10.741Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0009",
+      "repairTaskNo": "BUGTASK-20260707-0009",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0009/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0009\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0009-01-A2\",\n    \"BUGTASK-20260707-0009-02-A3\",\n    \"BUGTASK-20260707-0009-03-A4\",\n    \"BUGTASK-20260707-0009-04-A5\",\n    \"BUGTASK-20260707-0009-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T05:48:14.561Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0008",
+      "repairTaskNo": "BUGTASK-20260707-0008",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0008/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0008\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0008-01-A2\",\n    \"BUGTASK-20260707-0008-02-A3\",\n    \"BUGTASK-20260707-0008-03-A4\",\n    \"BUGTASK-20260707-0008-04-A5\",\n    \"BUGTASK-20260707-0008-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T02:00:00.810Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0007",
+      "repairTaskNo": "BUGTASK-20260707-0007",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0007/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0007\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0007-01-A2\",\n    \"BUGTASK-20260707-0007-02-A3\",\n    \"BUGTASK-20260707-0007-03-A4\",\n    \"BUGTASK-20260707-0007-04-A5\",\n    \"BUGTASK-20260707-0007-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T01:32:32.187Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0006",
+      "repairTaskNo": "BUGTASK-20260707-0006",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0006/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0006\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\",\n    \"A6-Staging-Deploy-Runbook\",\n    \"A7-Final-QA-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0006-01-A2\",\n    \"BUGTASK-20260707-0006-02-A3\",\n    \"BUGTASK-20260707-0006-03-A4\",\n    \"BUGTASK-20260707-0006-04-A5\",\n    \"BUGTASK-20260707-0006-05-A1\",\n    \"BUGTASK-20260707-0006-06-A6\",\n    \"BUGTASK-20260707-0006-07-A7\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T01:10:36.157Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0005",
+      "repairTaskNo": "BUGTASK-20260707-0005",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0005/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0005\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\",\n    \"A6-Staging-Deploy-Runbook\",\n    \"A7-Final-QA-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0005-01-A2\",\n    \"BUGTASK-20260707-0005-02-A3\",\n    \"BUGTASK-20260707-0005-03-A4\",\n    \"BUGTASK-20260707-0005-04-A5\",\n    \"BUGTASK-20260707-0005-05-A1\",\n    \"BUGTASK-20260707-0005-06-A6\",\n    \"BUGTASK-20260707-0005-07-A7\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T00:58:54.580Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0004",
+      "repairTaskNo": "BUGTASK-20260707-0004",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0004/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0004\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0004-01-A2\",\n    \"BUGTASK-20260707-0004-02-A3\",\n    \"BUGTASK-20260707-0004-03-A4\",\n    \"BUGTASK-20260707-0004-04-A5\",\n    \"BUGTASK-20260707-0004-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T00:38:17.405Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0003",
+      "repairTaskNo": "BUGTASK-20260707-0003",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0003/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0003\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0003-01-A2\",\n    \"BUGTASK-20260707-0003-02-A3\",\n    \"BUGTASK-20260707-0003-03-A4\",\n    \"BUGTASK-20260707-0003-04-A5\",\n    \"BUGTASK-20260707-0003-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T00:29:38.118Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    },
+    {
+      "bugNo": "BUG-20260707-0001",
+      "repairTaskNo": "BUGTASK-20260707-0001",
+      "command": "node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox-test/20260707-184704/BUG-20260707-0001/report.json --apply",
+      "status": 0,
+      "stdout_excerpt": "{\n  \"decision\": \"BUG_TASK_QUEUE_PLAN_READY\",\n  \"source_repair_task_no\": \"BUGTASK-20260707-0001\",\n  \"selected_agents\": [\n    \"A2-Security-Regression-Gate\",\n    \"A3-Backend-Critical-Path\",\n    \"A4-Frontend-UAT-Smoke\",\n    \"A5-Data-Readiness\",\n    \"A1-CI-Runtime-Gate\"\n  ],\n  \"generated_tasks\": [\n    \"BUGTASK-20260707-0001-01-A2\",\n    \"BUGTASK-20260707-0001-02-A3\",\n    \"BUGTASK-20260707-0001-03-A4\",\n    \"BUGTASK-20260707-0001-04-A5\",\n    \"BUGTASK-20260707-0001-05-A1\"\n  ],\n  \"agent_execution_approval\": {\n    \"approved\": true,\n    \"approvedAt\": \"2026-07-07T00:17:13.330Z\",\n    \"approvedBy\": \"admin\",\n    \"approvalScope\": \"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\",\n    \"forbiddenActions\": [\n      \"production deploy without separate approval\",\n      \"database write without separate gate\",\n      \"migration execution without separate gate\",\n      \"push without release approval\",\n      \"force push\"\n    ]\n  },\n  \"apply\": true,\n  \"added_tasks\": []\n}\n",
+      "stderr_excerpt": ""
+    }
+  ],
+  "safety": {
+    "codex_cli_executed": false,
+    "business_code_modified": false,
+    "database_written": false,
+    "deployed": false,
+    "pushed": false
+  }
+}
