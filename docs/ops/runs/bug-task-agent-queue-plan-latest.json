@@ -1,28 +1,24 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260707-0006",
+    "source_repair_task_no": "BUGTASK-20260707-0007",
     "selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate",
-      "A6-Staging-Deploy-Runbook",
-      "A7-Final-QA-Gate"
+      "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260707-0006-01-A2",
-      "BUGTASK-20260707-0006-02-A3",
-      "BUGTASK-20260707-0006-03-A4",
-      "BUGTASK-20260707-0006-04-A5",
-      "BUGTASK-20260707-0006-05-A1",
-      "BUGTASK-20260707-0006-06-A6",
-      "BUGTASK-20260707-0006-07-A7"
+      "BUGTASK-20260707-0007-01-A2",
+      "BUGTASK-20260707-0007-02-A3",
+      "BUGTASK-20260707-0007-03-A4",
+      "BUGTASK-20260707-0007-04-A5",
+      "BUGTASK-20260707-0007-05-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-07T01:10:36.157Z",
+      "approvedAt": "2026-07-07T01:32:32.187Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -36,7 +32,7 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260707-0006",
+    "source_bug_no": "BUG-20260707-0007",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
@@ -78,22 +74,6 @@
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
-      },
-      {
-        "agent": "A6-Staging-Deploy-Runbook",
-        "reasons": [
-          "deploy/runbook signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A7-Final-QA-Gate",
-        "reasons": [
-          "release gate signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
       }
     ],
     "selected_agents": [
@@ -101,9 +81,7 @@
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate",
-      "A6-Staging-Deploy-Runbook",
-      "A7-Final-QA-Gate"
+      "A1-CI-Runtime-Gate"
     ],
     "hard_constraints": [
       "no automatic production deploy",
@@ -111,15 +89,13 @@
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "source_repair_task_no": "BUGTASK-20260707-0006",
+    "source_repair_task_no": "BUGTASK-20260707-0007",
     "selected_agents_after_bug_intake_policy": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate",
-      "A6-Staging-Deploy-Runbook",
-      "A7-Final-QA-Gate"
+      "A1-CI-Runtime-Gate"
     ],
     "bug_intake_policy_reasons": {
       "A4-Frontend-UAT-Smoke": [
@@ -141,11 +117,11 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260707-0006-01-A2",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A2-Security-Regression-Gate)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
+      "task_id": "BUGTASK-20260707-0007-01-A2",
+      "request_id": "BUGTASK-20260707-0007",
+      "title": "Repair BUG-20260707-0007: 库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能 (A2-Security-Regression-Gate)",
+      "source_bug_no": "BUG-20260707-0007",
+      "source_repair_task_no": "BUGTASK-20260707-0007",
       "source": "bug-intake",
       "agent": "A2-Security-Regression-Gate",
       "status": "pending",
@@ -162,7 +138,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-01-A2-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0007-01-A2-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
       "branch": "w5-a2-security-regression-gate",
@@ -180,11 +156,11 @@
       "approval_required": true
     },
     {
-      "task_id": "BUGTASK-20260707-0006-02-A3",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
+      "task_id": "BUGTASK-20260707-0007-02-A3",
+      "request_id": "BUGTASK-20260707-0007",
+      "title": "Repair BUG-20260707-0007: 库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能 (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260707-0007",
+      "source_repair_task_no": "BUGTASK-20260707-0007",
       "source": "bug-intake",
       "agent": "A3-Backend-Critical-Path",
       "status": "pending",
@@ -201,7 +177,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-02-A3-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0007-02-A3-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
       "branch": "w5-a3-backend-critical-path",
@@ -218,11 +194,11 @@
       "approval_required": true
     },
     {
-      "task_id": "BUGTASK-20260707-0006-03-A4",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
+      "task_id": "BUGTASK-20260707-0007-03-A4",
+      "request_id": "BUGTASK-20260707-0007",
+      "title": "Repair BUG-20260707-0007: 库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能 (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260707-0007",
+      "source_repair_task_no": "BUGTASK-20260707-0007",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
@@ -241,7 +217,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-03-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0007-03-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
       "branch": "w5-a4-frontend-uat-smoke",
@@ -259,11 +235,11 @@
       "approval_required": true
     },
     {
-      "task_id": "BUGTASK-20260707-0006-04-A5",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A5-Data-Readiness)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
+      "task_id": "BUGTASK-20260707-0007-04-A5",
+      "request_id": "BUGTASK-20260707-0007",
+      "title": "Repair BUG-20260707-0007: 库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能 (A5-Data-Readiness)",
+      "source_bug_no": "BUG-20260707-0007",
+      "source_repair_task_no": "BUGTASK-20260707-0007",
       "source": "bug-intake",
       "agent": "A5-Data-Readiness",
       "status": "pending",
@@ -281,7 +257,7 @@
         "DB write"
       ],
       "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-04-A5-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0007-04-A5-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
       "branch": "w5-a5-data-readiness",
@@ -297,11 +273,11 @@
       "approval_required": true
     },
     {
-      "task_id": "BUGTASK-20260707-0006-05-A1",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
+      "task_id": "BUGTASK-20260707-0007-05-A1",
+      "request_id": "BUGTASK-20260707-0007",
+      "title": "Repair BUG-20260707-0007: 库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260707-0007",
+      "source_repair_task_no": "BUGTASK-20260707-0007",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -319,7 +295,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-05-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0007-05-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
@@ -332,79 +308,6 @@
         "A2-Security-Regression-Gate",
         "A4-Frontend-UAT-Smoke",
         "A7-Final-QA-Gate"
-      ],
-      "approval_required": true
-    },
-    {
-      "task_id": "BUGTASK-20260707-0006-06-A6",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A6-Staging-Deploy-Runbook)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
-      "source": "bug-intake",
-      "agent": "A6-Staging-Deploy-Runbook",
-      "status": "pending",
-      "priority": "P2",
-      "risk_level": "LOW/MEDIUM",
-      "allowed_paths": [
-        "docs/ops/**",
-        "scripts/ops/**"
-      ],
-      "forbidden_paths": [
-        "production deploy",
-        "DB write",
-        "migration execution",
-        "apps/api/**",
-        "apps/web/**"
-      ],
-      "prompt_file": "docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-06-A6-contract.md",
-      "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
-      "branch": "w5-a6-staging-deploy-runbook",
-      "dependencies": [],
-      "claimed_by": null,
-      "claimed_at": null,
-      "completed_at": null,
-      "result_file": null,
-      "next_agents": [
-        "A7-Final-QA-Gate"
-      ],
-      "approval_required": true
-    },
-    {
-      "task_id": "BUGTASK-20260707-0006-07-A7",
-      "request_id": "BUGTASK-20260707-0006",
-      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A7-Final-QA-Gate)",
-      "source_bug_no": "BUG-20260707-0006",
-      "source_repair_task_no": "BUGTASK-20260707-0006",
-      "source": "bug-intake",
-      "agent": "A7-Final-QA-Gate",
-      "status": "pending",
-      "priority": "P2",
-      "risk_level": "LOW/MEDIUM",
-      "allowed_paths": [
-        "docs/ops/**"
-      ],
-      "forbidden_paths": [
-        "apps/api/**",
-        "apps/web/**",
-        "apps/api/src/database/migrations/**",
-        "schema/entity/table/column",
-        "production deploy"
-      ],
-      "prompt_file": "docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-07-A7-contract.md",
-      "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
-      "branch": "w5-a7-final-qa-gate",
-      "dependencies": [],
-      "claimed_by": null,
-      "claimed_at": null,
-      "completed_at": null,
-      "result_file": null,
-      "next_agents": [
-        "Codex-Orchestrator"
       ],
       "approval_required": true
     }
