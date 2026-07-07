@@ -64,6 +64,63 @@ describe('GenericCrudService', () => {
       ]);
     });
 
+    it('normalizes brd_daily_logs date fields to YYYY-MM-DD for overview aggregation', async () => {
+      const query = jest.fn().mockResolvedValueOnce([
+        {
+          id: 1,
+          log_date: new Date('2026-07-07T00:00:00.000Z'),
+          business_date: '2026-07-07T00:00:00.000Z',
+          eggs_produced: 479,
+          mortality_qty: 2,
+        },
+      ]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.findAll('brd_daily_logs', {})).resolves.toEqual([
+        {
+          id: 1,
+          log_date: '2026-07-07',
+          business_date: '2026-07-07',
+          eggs_produced: 479,
+          mortality_qty: 2,
+        },
+      ]);
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query.mock.calls[0][0]).toContain('SELECT * FROM "brd_daily_logs"');
+    });
+
+    it('keeps daily log reason label enrichment after date normalization', async () => {
+      const query = jest
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: 1,
+            log_date: '2026-07-07T00:00:00.000Z',
+            mortality_reason: 'DISEASE',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            dict_type: 'BRD_MORTALITY_REASON',
+            dict_code: 'DISEASE',
+            label: '疾病',
+          },
+        ]);
+      const { svc } = buildSvc(query);
+
+      await expect(svc.findAll('brd_daily_logs', {})).resolves.toEqual([
+        {
+          id: 1,
+          log_date: '2026-07-07',
+          mortality_reason: '疾病',
+          mortality_reason_code: 'DISEASE',
+        },
+      ]);
+
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+
     it('does not query dictionaries for other generic CRUD tables', async () => {
       const query = jest.fn().mockResolvedValueOnce([{ id: 1, dict_code: 'LOW_PRODUCTION' }]);
       const { svc } = buildSvc(query);

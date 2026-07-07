@@ -2140,7 +2140,7 @@ export class GenericCrudService implements OnModuleInit {
     try {
       const rows = await this.entityManager.query(sql, queryValues);
       if (table === 'brd_daily_logs') {
-        return await this.enrichDailyLogReasonLabels(rows);
+        return await this.enrichDailyLogRows(rows);
       }
       return this.withCrudRouteIdAlias(table, rows);
     } catch (e) {
@@ -2169,8 +2169,10 @@ export class GenericCrudService implements OnModuleInit {
     return [];
   }
 
-  private async enrichDailyLogReasonLabels(rows: any[]): Promise<any[]> {
+  private async enrichDailyLogRows(rows: any[]): Promise<any[]> {
     if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+    const normalizedRows = rows.map((row) => this.normalizeDailyLogDateFields(row));
 
     const reasonTypes: Array<{ field: 'culling_reason' | 'mortality_reason'; dictType: string }> = [
       { field: 'culling_reason', dictType: 'BRD_CULLING_REASON' },
@@ -2178,7 +2180,7 @@ export class GenericCrudService implements OnModuleInit {
     ];
     const codesByType = new Map<string, Set<string>>();
 
-    for (const row of rows) {
+    for (const row of normalizedRows) {
       for (const { field, dictType } of reasonTypes) {
         for (const token of this.splitReasonTokens(row?.[field])) {
           if (!codesByType.has(dictType)) codesByType.set(dictType, new Set());
@@ -2196,7 +2198,7 @@ export class GenericCrudService implements OnModuleInit {
       const codesIdx = dictParams.length;
       whereParts.push(`(dict_type = $${typeIdx} AND dict_code = ANY($${codesIdx}))`);
     }
-    if (whereParts.length === 0) return rows;
+    if (whereParts.length === 0) return normalizedRows;
 
     const dictRows: Array<{
       dict_type: string;
@@ -2209,14 +2211,14 @@ export class GenericCrudService implements OnModuleInit {
           AND (${whereParts.join(' OR ')})`,
       dictParams,
     );
-    if (dictRows.length === 0) return rows;
+    if (dictRows.length === 0) return normalizedRows;
 
     const labelByTypeAndCode = new Map<string, string>();
     for (const dict of dictRows) {
       if (dict.label) labelByTypeAndCode.set(`${dict.dict_type}:${dict.dict_code}`, dict.label);
     }
 
-    return rows.map((row) => {
+    return normalizedRows.map((row) => {
       const next = { ...row };
       for (const { field, dictType } of reasonTypes) {
         const original = row?.[field];
@@ -2226,6 +2228,29 @@ export class GenericCrudService implements OnModuleInit {
       }
       return next;
     });
+  }
+
+  private normalizeDailyLogDateFields(row: any): any {
+    if (!row || typeof row !== 'object') return row;
+    const next = { ...row };
+    if (Object.prototype.hasOwnProperty.call(next, 'log_date')) {
+      next.log_date = this.toDateOnly(next.log_date);
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'business_date')) {
+      next.business_date = this.toDateOnly(next.business_date);
+    }
+    return next;
+  }
+
+  private toDateOnly(value: unknown): unknown {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    if (typeof value === 'string') {
+      const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+    }
+    return value;
   }
 
   private splitReasonTokens(value: unknown): string[] {

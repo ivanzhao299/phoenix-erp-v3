@@ -29,6 +29,38 @@ async function apiFetch(path: string) {
   return r.json();
 }
 
+function localDateString(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addLocalDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function dateKey(value: unknown): string {
+  if (value instanceof Date) return localDateString(value);
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match?.[1] || "";
+  }
+  if (typeof value === "number") return localDateString(new Date(value));
+  return "";
+}
+
+function asNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function mortalityTotal(row: Record<string, unknown>): number {
+  return asNumber(row.mortality_qty) + asNumber(row.elimination_qty);
+}
+
 // 产蛋率低于此值视为异常（业务规则，非动态配置）
 const WARN_LAY_RATE_PCT = 88;
 interface Farm {
@@ -132,10 +164,11 @@ export default function BreedingPage() {
   const loadData = useCallback(async (cancelled?: {
     v: boolean;
   }) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-    const ydStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const [farmsRaw, flocksRaw, logsRaw, medsRaw, immuneRaw] = await Promise.all([apiFetch("/api/crud/brd_farms"), apiFetch("/api/crud/brd_flocks"), apiFetch("/api/crud/brd_daily_logs"), apiFetch("/api/crud/brd_medications"), apiFetch("/api/crud/brd_vaccinations")]);
+    const now = new Date();
+    const today = localDateString(now);
+    const weekAgo = localDateString(addLocalDays(now, -7));
+    const ydStr = localDateString(addLocalDays(now, -1));
+    const [farmsRaw, flocksRaw, logsRaw, medsRaw, immuneRaw] = await Promise.all([apiFetch("/api/crud/brd_farms"), apiFetch("/api/crud/brd_flocks"), apiFetch("/api/crud/brd_daily_logs?limit=1000"), apiFetch("/api/crud/brd_medications"), apiFetch("/api/crud/brd_vaccinations")]);
 
     // If the effect was superseded (Strict Mode double-invoke) or farms API failed,
     // bail out — never wipe existing displayed data with an empty/error result.
@@ -153,22 +186,22 @@ export default function BreedingPage() {
     flocks.forEach((fk: Record<string, unknown>) => {
       if (fk.flock_no) {
         flockFarmMap[fk.flock_no as string] = fk.farm_code as string;
-        flockQtyMap[fk.flock_no as string] = Number(fk.current_qty) || 0;
+        flockQtyMap[fk.flock_no as string] = asNumber(fk.current_qty);
       }
       if (fk.farm_code) {
         const fc = fk.farm_code as string;
-        farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + (Number(fk.current_qty) || 0);
+        farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + asNumber(fk.current_qty);
       }
     });
-    const todayLogs = logs.filter((l: Record<string, unknown>) => l.log_date === today);
-    setTodayEggs(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.eggs_produced) || 0), 0));
-    setTodayDeaths(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.mortality_qty) || 0), 0));
-    const weekLogs = logs.filter((l: Record<string, unknown>) => l.log_date as string >= weekAgo);
-    const wEggs = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.eggs_produced) || 0), 0);
-    const wDeath = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.mortality_qty) || 0), 0);
-    const wFeed = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + (Number(l.feed_consumed) || 0), 0);
-    const immuneDone = immune.filter((i: Record<string, unknown>) => i.actual_date && i.plan_date as string >= weekAgo).length;
-    const immuneTotal = immune.filter((i: Record<string, unknown>) => i.plan_date as string >= weekAgo).length;
+    const todayLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === today);
+    setTodayEggs(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.eggs_produced), 0));
+    setTodayDeaths(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + mortalityTotal(l), 0));
+    const weekLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) >= weekAgo);
+    const wEggs = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.eggs_produced), 0);
+    const wDeath = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + mortalityTotal(l), 0);
+    const wFeed = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.feed_consumed), 0);
+    const immuneDone = immune.filter((i: Record<string, unknown>) => i.actual_date && dateKey(i.plan_date) >= weekAgo).length;
+    const immuneTotal = immune.filter((i: Record<string, unknown>) => dateKey(i.plan_date) >= weekAgo).length;
     setWeekSummary({
       eggs: wEggs,
       mortality: wDeath,
@@ -176,15 +209,15 @@ export default function BreedingPage() {
       immuneDone,
       immuneTotal
     });
-    const latestDate = logs.reduce((mx: string, l: Record<string, unknown>) => l.log_date as string > mx ? l.log_date as string : mx, "");
-    const recentLogs = logs.filter((l: Record<string, unknown>) => l.log_date === latestDate);
+    const latestDate = logs.reduce((mx: string, l: Record<string, unknown>) => dateKey(l.log_date) > mx ? dateKey(l.log_date) : mx, "");
+    const recentLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === latestDate);
     const farmEggMap: Record<string, number> = {};
     // farmLayMap: 用于产蛋率分母（有日报记录的当日在产鸡数），独立于存栏总数
     const farmLayMap: Record<string, number> = {};
     recentLogs.forEach((l: Record<string, unknown>) => {
       const fc = flockFarmMap[l.flock_no as string];
       if (!fc) return;
-      farmEggMap[fc] = (farmEggMap[fc] || 0) + (Number(l.eggs_produced) || 0);
+      farmEggMap[fc] = (farmEggMap[fc] || 0) + asNumber(l.eggs_produced);
       farmLayMap[fc] = (farmLayMap[fc] || 0) + (flockQtyMap[l.flock_no as string] || 0);
     });
     const mapped: Farm[] = farmsData.map((d: Record<string, unknown>) => {
@@ -198,8 +231,8 @@ export default function BreedingPage() {
         id: fc,
         name: (d.farm_name || d.name || fc) as string,
         location,
-        houses: Number(d.houses) || 0,
-        designCapacity: Number(d.capacity) || 0,
+        houses: asNumber(d.houses),
+        designCapacity: asNumber(d.capacity),
         totalBirds,
         layingRate: rate,
         status: layBirds > 0 && Number(rate) < WARN_LAY_RATE_PCT || d.status === "WARNING" ? "warning" : "normal"
@@ -221,7 +254,7 @@ export default function BreedingPage() {
         time: t('ui.系统', '系统')
       });
     });
-    const ydLogs = logs.filter((l: Record<string, unknown>) => l.log_date === ydStr);
+    const ydLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === ydStr);
     const ydMap: Record<string, {
       eggs: number;
       cap: number;
@@ -233,7 +266,7 @@ export default function BreedingPage() {
         eggs: 0,
         cap: 0
       };
-      ydMap[fc].eggs += Number(l.eggs_produced) || 0;
+      ydMap[fc].eggs += asNumber(l.eggs_produced);
       ydMap[fc].cap += flockQtyMap[l.flock_no as string] || 0;
     });
     mapped.forEach(farm => {
@@ -248,7 +281,7 @@ export default function BreedingPage() {
         time: t('ui.实时', '实时')
       });
     });
-    immune.filter((i: Record<string, unknown>) => i.plan_date === today && !i.actual_date).forEach((i: Record<string, unknown>) => {
+    immune.filter((i: Record<string, unknown>) => dateKey(i.plan_date) === today && !i.actual_date).forEach((i: Record<string, unknown>) => {
       alertList.push({
         id: "im-" + i.id,
         type: "info",
