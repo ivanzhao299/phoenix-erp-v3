@@ -247,8 +247,8 @@ export const crudApi = {
     );
   },
 
-  get: <T = Record<string, unknown>>(table: string, id: number) =>
-    request<T>(`/crud/${table}/${id}`),
+  get: <T = Record<string, unknown>>(table: string, id: number | string) =>
+    request<T>(`/crud/${table}/${encodeURIComponent(String(id))}`),
 
   create: <T = Record<string, unknown>>(
     table: string,
@@ -261,16 +261,16 @@ export const crudApi = {
 
   update: <T = Record<string, unknown>>(
     table: string,
-    id: number,
+    id: number | string,
     data: Record<string, unknown>
   ) =>
-    request<T>(`/crud/${table}/${id}`, {
+    request<T>(`/crud/${table}/${encodeURIComponent(String(id))}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
-  delete: (table: string, id: number) =>
-    request(`/crud/${table}/${id}`, { method: "DELETE" }),
+  delete: (table: string, id: number | string) =>
+    request(`/crud/${table}/${encodeURIComponent(String(id))}`, { method: "DELETE" }),
 };
 
 // ── 数据字典 ─────────────────────────────────────────────────

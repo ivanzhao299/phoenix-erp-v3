@@ -36,6 +36,11 @@ const STATUS_TEXT_CLS: Record<Status, string> = {
 };
 const OCCUPIED = new Set<Status>(["NORMAL", "FULL", "LOCKED"]);
 type Row = Record<string, unknown>;
+function crudKey(row: Row): string | number | null {
+  const key = row.id ?? row.location_code;
+  if (key === undefined || key === null || key === "") return null;
+  return key as string | number;
+}
 // B3: wms_locations 真实列只有 location_code / warehouse_code / zone_code / location_name / capacity_qty / status / store_code
 //     原 row_no / layer_no / remark 在 DB 不存在 — 写入静默丢失。删除虚构字段。
 const EMPTY_FORM: Row = {
@@ -206,7 +211,13 @@ export default function LocationsPage() {
         ...rest,
         capacity_qty: Number((rest as Record<string, unknown>).capacity_qty)
       };
-      modal === "add" ? await crudApi.create(TABLE, payload) : await crudApi.update(TABLE, form.id as number, payload as any);
+      if (modal === "add") {
+        await crudApi.create(TABLE, payload);
+      } else {
+        const key = crudKey(form);
+        if (!key) throw new Error("Missing location key");
+        await crudApi.update(TABLE, key, payload as any);
+      }
       closeModal();
       await load();
     } finally {
@@ -215,7 +226,9 @@ export default function LocationsPage() {
   };
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    await crudApi.update(TABLE, deleteTarget.id as number, {
+    const key = crudKey(deleteTarget);
+    if (!key) return;
+    await crudApi.update(TABLE, key, {
       status: "DELETED"
     } as any);
     setConfirmOpen(false);
@@ -402,9 +415,9 @@ export default function LocationsPage() {
             }}>
                 {t("ui.暂无库位数据点击新增库位开始维护仓库档案", "暂无库位数据，点击「新增库位」开始维护仓库档案。")}
               </td></tr>}
-            {!loading && filtered.map(row => {
+          {!loading && filtered.map(row => {
             const pct = usagePct(String(row.status ?? "EMPTY"));
-            return <tr key={String(row.id)}>
+            return <tr key={String(crudKey(row) ?? row.location_code ?? "")}>
                   <td style={{
                 fontFamily: "monospace",
                 fontSize: 13,
