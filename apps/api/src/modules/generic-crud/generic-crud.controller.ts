@@ -135,8 +135,8 @@ export class GenericCrudController {
     'wms_transfer',
   ]);
 
-  private async resolveTableScope(table: string, req: any): Promise<DataScopeContext | null> {
-    const menu = this.tableToFallbackMenu(table);
+  private async resolveTableScope(table: string, req: any, method: string): Promise<DataScopeContext | null> {
+    const menu = this.tableToFallbackMenu(table, method);
     const userId = String(req.user?.userId ?? req.user?.id ?? '');
     if (!menu || !userId) return null;
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : (req.user?.role ? [req.user.role] : []);
@@ -283,7 +283,7 @@ export class GenericCrudController {
   @Get(':table')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'GET');
-    const tableScope = await this.resolveTableScope(table, req);
+    const tableScope = await this.resolveTableScope(table, req, 'GET');
 
     // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
     const userStoreCode: string | undefined = req.user?.storeCode;
@@ -355,7 +355,7 @@ export class GenericCrudController {
   @Post(':table')
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
-    const tableScope = await this.resolveTableScope(table, req);
+    const tableScope = await this.resolveTableScope(table, req, 'POST');
     
     // Auto populate store_code if not present, and auto populated created_by
     if (!body.store_code && req.user?.storeCode) {
@@ -411,7 +411,7 @@ export class GenericCrudController {
     @Req() req: any,
   ) {
     this.checkTableAccess(table, req, 'PUT');
-    const tableScope = await this.resolveTableScope(table, req);
+    const tableScope = await this.resolveTableScope(table, req, 'PUT');
     const existing = await this.crudService.findOneByColumn(table, idColumn, id);
     if (!existing) {
       throw new BadRequestException('Record not found');
@@ -451,7 +451,7 @@ export class GenericCrudController {
     if (!/^[a-zA-Z0-9_]+$/.test(idColumn)) {
       throw new BadRequestException('Security Violation: Invalid primary key column');
     }
-    const tableScope = await this.resolveTableScope(table, req);
+    const tableScope = await this.resolveTableScope(table, req, 'DELETE');
     const existing = await this.crudService.findOneByColumn(table, idColumn, id);
     if (!existing) {
       throw new BadRequestException('Record not found');
