@@ -5,9 +5,12 @@ import { GenericCrudService } from './generic-crud.service';
 describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
   let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'create'>>;
+  let dataScopeService: { resolve: jest.Mock };
 
   const req = (permissions: string[]) => ({
     user: {
+      userId: '1',
+      id: 1,
       username: 'wangweihua',
       role: 'ROLE_MENGSAI_DONGPENG_TREASURER',
       roles: ['ROLE_MENGSAI_DONGPENG_TREASURER'],
@@ -20,7 +23,22 @@ describe('GenericCrudController WMS RBAC', () => {
       findAll: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ msg: 'ok' }),
     };
-    controller = new GenericCrudController(svc as unknown as GenericCrudService);
+    dataScopeService = {
+      resolve: jest.fn().mockResolvedValue({
+        isGlobal: true,
+        scopeLevel: 'GROUP',
+        allowedCompanyCodes: [],
+        allowedProjectCodes: [],
+        allowedWarehouseCodes: [],
+        allowedFarmCodes: [],
+        allowedSiteCodes: [],
+        userId: '1',
+      }),
+    };
+    controller = new GenericCrudController(
+      svc as unknown as GenericCrudService,
+      dataScopeService as any,
+    );
   });
 
   it('allows WMS overview reads with MENU_WMS_VIEW', async () => {

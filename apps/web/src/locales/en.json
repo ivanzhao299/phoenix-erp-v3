@@ -9634,6 +9634,8 @@
   "ui.库存周转 KPI": "Inventory turnover KPI",
   "ui.库存周转率": "Inventory turnover rate",
   "ui.库存总览": "Inventory overview",
+  "ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏": "This account can only view the inventory overview. Inbound/outbound operations and zone capacity are hidden by permissions.",
+  "ui.需要出入库查看权限": "Inbound/outbound view permission is required",
   "ui.库存来源模式": "Stock source mode",
   "ui.库存管理": "Inventory management",
   "ui.应收 / 应付 / 资金 / 报表": "Receivables / Payables / Funds / Reports",
