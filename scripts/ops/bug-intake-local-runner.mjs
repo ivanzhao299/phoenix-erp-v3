@@ -140,6 +140,68 @@ function run(command, options = {}) {
   };
 }
 
+function classifyRunnerFailure(input = {}) {
+  const text = [
+    input.step,
+    input.reason,
+    input.error,
+    input.stdout,
+    input.stderr,
+    JSON.stringify(input),
+  ].join('\n').toLowerCase();
+  const evidence = [];
+  const match = (pattern, label) => {
+    const ok = pattern.test(text);
+    if (ok) evidence.push(label);
+    return ok;
+  };
+  if (match(/timeout|etimedout|timed out|超时/, 'timeout')) {
+    return { category: 'RUNNER_TIMEOUT', severity: 'WARNING', auto_recovery: 'recover stale lease then retry next cycle', evidence };
+  }
+  if (match(/login failed|http 401|http 403|token|unauthorized|forbidden|认证|权限/, 'auth')) {
+    return { category: 'RUNNER_AUTH', severity: 'CRITICAL', auto_recovery: 'refresh token cache; require credential check if repeated', evidence };
+  }
+  if (match(/dirty worktree|rebase|conflict|merge|工作区|冲突/, 'baseline')) {
+    return { category: 'BASELINE_SYNC', severity: 'WARNING', auto_recovery: 'baseline autopilot can repair docs/ops artifacts only', evidence };
+  }
+  if (match(/tsc|typecheck|lint|ci|check failed|build failed/, 'validation')) {
+    return { category: 'VALIDATION_FAILURE', severity: 'WARNING', auto_recovery: 'route to A1 and keep bug in HOLD', evidence };
+  }
+  if (match(/push|deploy|github|gh run|workflow/, 'release')) {
+    return { category: 'RELEASE_PIPELINE', severity: 'WARNING', auto_recovery: 'stop before production side effects and require release review', evidence };
+  }
+  return { category: 'UNKNOWN_RUNNER_FAILURE', severity: 'WARNING', auto_recovery: 'HOLD and require route review', evidence: evidence.length ? evidence : ['no stable failure signature matched'] };
+}
+
+function summarizeFailureClassifications(summary) {
+  const classes = [];
+  if (summary.sync && summary.sync.status !== 0) classes.push(classifyRunnerFailure({ step: 'sync', ...summary.sync }));
+  for (const blocked of summary.blockedTasks || []) {
+    classes.push(classifyRunnerFailure({ step: 'blockedTask', ...blocked }));
+  }
+  for (const runItem of summary.workerRuns || []) {
+    if (runItem.worker?.status !== 0) {
+      classes.push(classifyRunnerFailure({ step: 'worker', task: runItem.task, ...runItem.worker }));
+    }
+    if (runItem.finalTask && ['HOLD', 'hold', 'failed'].includes(runItem.finalTask.status)) {
+      classes.push(classifyRunnerFailure({ step: 'finalTask', task: runItem.task, ...runItem.finalTask }));
+    }
+    if (runItem.writeback && runItem.writeback.status && runItem.writeback.status !== 0) {
+      classes.push(classifyRunnerFailure({ step: 'writeback', task: runItem.task, ...runItem.writeback }));
+    }
+  }
+  if (summary.push && !summary.push.skipped && summary.push.status !== 0) classes.push(classifyRunnerFailure({ step: 'push', ...summary.push }));
+  if (summary.ci && !summary.ci.skipped && summary.ci.ok === false) classes.push(classifyRunnerFailure({ step: 'ci', ...summary.ci }));
+  const byCategory = {};
+  for (const item of classes) byCategory[item.category] = (byCategory[item.category] || 0) + 1;
+  return {
+    total: classes.length,
+    byCategory,
+    highestSeverity: classes.some((item) => item.severity === 'CRITICAL') ? 'CRITICAL' : (classes.length ? 'WARNING' : 'INFO'),
+    items: classes.slice(0, 20),
+  };
+}
+
 function pidAlive(pid) {
   const parsed = Number(pid);
   if (!Number.isInteger(parsed) || parsed <= 0) return false;
@@ -722,6 +784,7 @@ function summaryMarkdown(summary) {
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
 | CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
 | Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
+| Failure classifications | ${summary.failureClassification?.total ?? 0} (${summary.failureClassification?.highestSeverity ?? 'INFO'}) |
 
 ## Runnable Tasks
 
@@ -738,6 +801,10 @@ ${(summary.blockedTasks || []).map((item) => `- ${item.task_id}: ${item.agent} -
 ## Stale Lease Recovery
 
 ${(summary.leaseRecovery?.recovered || []).map((item) => `- ${item.task_id}: ${item.agent} ${item.previous_status} -> pending (${item.age_minutes} minutes old)`).join('\n') || '- None'}
+
+## Failure Classification
+
+${(summary.failureClassification?.items || []).map((item) => `- ${item.category} [${item.severity}]: ${item.evidence.join(', ')}; recovery=${item.auto_recovery}`).join('\n') || '- None'}
 
 ## Safety
 
@@ -782,6 +849,7 @@ function crashSummary(args, cycle, error) {
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
     lifecycleWriteback: { skipped: true, reason: 'cycle failed before lifecycle writeback' },
   };
+  summary.failureClassification = summarizeFailureClassifications(summary);
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
   return summary;
@@ -817,6 +885,7 @@ async function runCycle(args, cycle) {
       tokenSource: 'not-required',
       lifecycleWriteback: { skipped: true, reason: 'recover-leases-only' },
     };
+    summary.failureClassification = summarizeFailureClassifications(summary);
     writeJson(`${args.outputDir}/latest-summary.json`, summary);
     writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
     console.log(JSON.stringify({
@@ -975,6 +1044,7 @@ async function runCycle(args, cycle) {
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
   };
+  summary.failureClassification = summarizeFailureClassifications(summary);
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
   try {

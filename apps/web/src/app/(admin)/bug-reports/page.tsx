@@ -62,6 +62,44 @@ type AgentResult = {
   summary?: string;
 };
 
+type PipelineStatus = {
+  generatedAt: string;
+  decision: string;
+  counts: {
+    openTotal: number;
+    byStatus: Record<string, number>;
+    byRepairTaskStatus: Record<string, number>;
+    staleRunning: number;
+    staleApproved: number;
+    hold: number;
+  };
+  staleRunning: Array<{ bug_no?: string; bugNo?: string; title: string; updated_at?: string; updatedAt?: string }>;
+  staleApproved: Array<{ bug_no?: string; bugNo?: string; title: string; updated_at?: string; updatedAt?: string }>;
+  holdReports: Array<{
+    bugNo: string;
+    title: string;
+    severity: string;
+    priority: string;
+    repairTaskStatus: string;
+    updatedAt: string;
+    failureClassification?: { category?: string; confidence?: number; suggestedFix?: string };
+    holdDispatch?: { recommendedAgents?: string[]; nextAction?: string; reason?: string };
+  }>;
+  alerts: Array<{ id: number; alert_type: string; severity: string; title: string; created_at: string }>;
+};
+
+type AutoTriageResult = {
+  generatedAt: string;
+  decision: string;
+  processed: number;
+  results: Array<{
+    bugNo: string;
+    action: string;
+    repairTaskStatus: string;
+    classification?: { category?: string; confidence?: number; suggestedFix?: string; recommendedAgents?: string[] };
+  }>;
+};
+
 const STATUSES = ["OPEN", "TRIAGED", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"];
 const PRIORITIES = ["P0", "P1", "P2", "P3"];
 const PAGE_SIZE = 20;
@@ -199,6 +237,22 @@ export default function BugReportsPage() {
   });
   const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
   const [approvalScope, setApprovalScope] = useState("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null);
+  const [pipelineLoading, setPipelineLoading] = useState(false);
+  const [autoTriageResult, setAutoTriageResult] = useState<AutoTriageResult | null>(null);
+
+  const fetchPipelineStatus = useCallback(async () => {
+    setPipelineLoading(true);
+    try {
+      const res = await fetch("/api/bug-intake/pipeline/status", { headers: { Authorization: `Bearer ${token()}` } });
+      if (res.ok) {
+        const data = await res.json() as PipelineStatus;
+        setPipelineStatus(data);
+      }
+    } finally {
+      setPipelineLoading(false);
+    }
+  }, []);
 
   const fetchList = useCallback(async (nextPage = 1) => {
     setLoading(true);
@@ -221,7 +275,26 @@ export default function BugReportsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchList(1);
-  }, [fetchList]);
+    void fetchPipelineStatus();
+  }, [fetchList, fetchPipelineStatus]);
+
+  const runAutoTriage = async () => {
+    setPipelineLoading(true);
+    try {
+      const res = await fetch("/api/bug-intake/pipeline/auto-triage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json() as AutoTriageResult & { status?: PipelineStatus };
+        setAutoTriageResult(data);
+        if (data.status) setPipelineStatus(data.status);
+        await fetchList(page);
+      }
+    } finally {
+      setPipelineLoading(false);
+    }
+  };
 
   const openDetail = async (bugNo: string) => {
     setDetailLoading(true);
@@ -354,6 +427,82 @@ export default function BugReportsPage() {
           </div>
         }
       />
+
+      <section style={{ marginBottom: 16, display: "grid", gap: 12 }}>
+        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--bg-card)", padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>AI 修复流水线运行面板</h3>
+              <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
+                失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={fetchPipelineStatus}
+                disabled={pipelineLoading}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: pipelineLoading ? "not-allowed" : "pointer" }}
+              >
+                <RefreshCw size={14} /> 刷新面板
+              </button>
+              <button
+                type="button"
+                onClick={runAutoTriage}
+                disabled={pipelineLoading}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: pipelineLoading ? "not-allowed" : "pointer" }}
+              >
+                {pipelineLoading ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
+                自动分类 / 恢复 / 分派
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(120px, 1fr))", gap: 10, marginTop: 14 }}>
+            {[
+              ["总待处理", pipelineStatus?.counts.openTotal ?? "—", "OPEN/TRIAGED/IN_PROGRESS"],
+              ["HOLD", pipelineStatus?.counts.hold ?? "—", "需复核或重新分派"],
+              ["运行超时", pipelineStatus?.counts.staleRunning ?? "—", "AGENT_RUNNING 超时"],
+              ["批准待执行", pipelineStatus?.counts.staleApproved ?? "—", "AGENT_APPROVED 超时"],
+              ["Runner 状态", pipelineStatus?.decision ?? "—", "后端工作流判断"],
+              ["未处理告警", pipelineStatus?.alerts.length ?? "—", "Bug Intake 告警"],
+            ].map(([label, value, hint]) => (
+              <div key={String(label)} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-muted)", minHeight: 92 }}>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{label}</div>
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 900, color: label === "HOLD" || label === "运行超时" ? "var(--status-danger)" : "var(--text-primary)" }}>{String(value)}</div>
+                <div style={{ marginTop: 4, color: "var(--text-secondary)", fontSize: 11 }}>{hint}</div>
+              </div>
+            ))}
+          </div>
+
+          {(pipelineStatus?.holdReports.length || autoTriageResult) && (
+            <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+              {autoTriageResult && (
+                <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--status-info-bg-faint)" }}>
+                  <strong>最近自动处理：{autoTriageResult.decision}</strong>
+                  <div style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12 }}>处理 {autoTriageResult.processed} 条；HOLD 分派候选 {autoTriageResult.results.filter(item => item.action.includes("HOLD_DISPATCH")).length} 条。</div>
+                </div>
+              )}
+              {pipelineStatus?.holdReports.slice(0, 5).map(item => (
+                <button
+                  type="button"
+                  key={item.bugNo}
+                  onClick={() => openDetail(item.bugNo)}
+                  style={{ textAlign: "left", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-card)", cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <strong>{item.bugNo} · {item.title}</strong>
+                    <span style={{ color: "var(--status-danger)", fontWeight: 800 }}>{item.repairTaskStatus}</span>
+                  </div>
+                  <div style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 12 }}>
+                    分类：{item.failureClassification?.category || "未分类"} · 建议 Agent：{item.holdDispatch?.recommendedAgents?.join(" / ") || "—"}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
         <table className={s.table}>

@@ -41,6 +41,18 @@ export class BugIntakeController {
     return this.service.create(payload, files ?? [], req.user ?? {}, this.reqMeta(req));
   }
 
+  @Get('pipeline/status')
+  @RequireMenu('MENU_BUG_REPORT', 'V')
+  async pipelineStatus() {
+    return this.service.pipelineStatus();
+  }
+
+  @Post('pipeline/auto-triage')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async autoTriagePipeline(@Req() req: AuthedRequest) {
+    return this.service.autoTriagePipeline(req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   async list(
