@@ -53,7 +53,7 @@ function parseArgs(argv) {
     autoUnblockDirtyWorktrees: true,
     skipBlocked: true,
     maxCandidateTasks: 0,
-    childTimeoutMs: 180000,
+    childTimeoutMs: 900000,
     fetchTimeoutMs: 45000,
     staleLeaseMinutes: 15,
   };
@@ -85,7 +85,7 @@ function parseArgs(argv) {
   args.maxCycles = Number.parseInt(args.maxCycles, 10) || 1;
   args.maxTasks = Number.parseInt(args.maxTasks, 10) || 3;
   args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
-  args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 180000;
+  args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 900000;
   args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
   args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 15;
   if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
