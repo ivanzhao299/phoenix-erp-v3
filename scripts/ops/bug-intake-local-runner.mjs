@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -15,6 +15,8 @@ const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
+const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -131,6 +133,64 @@ function run(command, options = {}) {
     stdout: redact(result.stdout || '').slice(-12000),
     stderr: redact(result.stderr || '').slice(-12000),
   };
+}
+
+function pidAlive(pid) {
+  const parsed = Number(pid);
+  if (!Number.isInteger(parsed) || parsed <= 0) return false;
+  try {
+    process.kill(parsed, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireRunnerLock() {
+  try {
+    mkdirSync(LOCK_DIR);
+    writeFileSync(LOCK_PID_FILE, `${process.pid}\n`);
+    return { acquired: true };
+  } catch (error) {
+    const existingPid = existsSync(LOCK_PID_FILE) ? readFileSync(LOCK_PID_FILE, 'utf8').trim() : '';
+    if (existingPid && pidAlive(existingPid)) {
+      return { acquired: false, reason: `another bug-intake runner is active: pid ${existingPid}` };
+    }
+    rmSync(LOCK_DIR, { recursive: true, force: true });
+    mkdirSync(LOCK_DIR);
+    writeFileSync(LOCK_PID_FILE, `${process.pid}\n`);
+    return { acquired: true, recoveredStale: true };
+  }
+}
+
+function releaseRunnerLock() {
+  const existingPid = existsSync(LOCK_PID_FILE) ? readFileSync(LOCK_PID_FILE, 'utf8').trim() : '';
+  if (String(process.pid) === existingPid) rmSync(LOCK_DIR, { recursive: true, force: true });
+}
+
+function activeAgentProcesses() {
+  const result = spawnSync('ps', ['-axo', 'pid=,command='], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+    timeout: 10000,
+  });
+  if ((result.status ?? 1) !== 0) return [];
+  return (result.stdout || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(\d+)\s+(.+)$/);
+      return match ? { pid: Number(match[1]), command: match[2] } : null;
+    })
+    .filter(Boolean)
+    .filter((item) => item.pid !== process.pid)
+    .filter((item) => (
+      item.command.includes('codex exec -C /Users/mac/phoenix-erp-worktrees/') ||
+      item.command.includes('scripts/ops/agent-worker.mjs') ||
+      item.command.includes('scripts/ops/run-agent-task.mjs')
+    ));
 }
 
 function execGit(args, cwd) {
@@ -553,8 +613,18 @@ async function runCycle(args, cycle) {
   const runnableTasks = [];
   const blockedTasks = [];
   const workerRuns = [];
+  const preExistingProcesses = activeAgentProcesses();
+  if (preExistingProcesses.length > 0) {
+    blockedTasks.push({
+      task_id: 'RUNNER-PREFLIGHT',
+      agent: 'BugIntakeLocalRunner',
+      status: 'BLOCKED',
+      reason: 'active agent child process exists; refusing to start another task',
+      processes: preExistingProcesses,
+    });
+  }
 
-  for (const task of candidateTasks) {
+  for (const task of preExistingProcesses.length > 0 ? [] : candidateTasks) {
     if (workerRuns.length >= args.maxTasks) break;
     const unblock = unblockDirtyWorktree(task, args);
     if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
@@ -578,6 +648,18 @@ async function runCycle(args, cycle) {
     }
     const postWorkerCommit = commitOpsRuntimeArtifacts(args);
     workerRuns.push({ task, worker, finalTask, writeback, retryRuns });
+    const leftovers = activeAgentProcesses();
+    if (leftovers.length > 0) {
+      blockedTasks.push({
+        task_id: task.task_id,
+        agent: task.agent,
+        status: 'BLOCKED',
+        reason: 'worker returned while agent child process is still active; stop dispatching more tasks in this cycle',
+        processes: leftovers,
+      });
+      workerRuns[workerRuns.length - 1].activeChildProcesses = leftovers;
+      break;
+    }
     if (!postWorkerCommit.skipped && postWorkerCommit.ok === false) {
       workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
       break;
@@ -610,6 +692,7 @@ async function runCycle(args, cycle) {
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
       retryRuns: item.retryRuns || [],
       postWorkerCommit: item.postWorkerCommit ?? null,
+      activeChildProcesses: item.activeChildProcesses || [],
     })),
     push,
     ci,
@@ -634,10 +717,16 @@ async function runCycle(args, cycle) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const lock = acquireRunnerLock();
+  if (!lock.acquired) throw new Error(lock.reason);
   const cycles = args.watch ? args.maxCycles : 1;
-  for (let cycle = 1; cycle <= cycles; cycle += 1) {
-    await runCycle(args, cycle);
-    if (args.watch && cycle < cycles) await sleep(args.interval * 1000);
+  try {
+    for (let cycle = 1; cycle <= cycles; cycle += 1) {
+      await runCycle(args, cycle);
+      if (args.watch && cycle < cycles) await sleep(args.interval * 1000);
+    }
+  } finally {
+    releaseRunnerLock();
   }
 }
 

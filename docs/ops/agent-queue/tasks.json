@@ -2372,7 +2372,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2393,16 +2393,16 @@
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-07T11:26:01.520Z",
-    "completed_at": "2026-07-07T11:28:49.552Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260707-0002-02-A3-worker-log.md",
+    "completed_at": "2026-07-07T11:42:12.047Z",
+    "result_file": "docs/ops/BUG-20260707-0002-A3-BACKEND-REPORT.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "reason": "baseline autopilot failed with 1",
-    "baseline_autopilot_exit_code": 1,
+    "reason": "manual baseline rerun completed with --allow-code; merged A3 backend fix",
+    "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --yes"
   },
   {
@@ -2413,7 +2413,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "running",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2436,15 +2436,17 @@
     "dependencies": [],
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-07T11:28:51.826Z",
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-07T11:42:12.047Z",
+    "result_file": "docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "baseline_autopilot_exit_code": 0,
+    "reason": "manual baseline rerun completed with --allow-code; merged A4 frontend guard fix"
   },
   {
     "task_id": "BUGTASK-20260707-0002-04-A5",
@@ -2454,7 +2456,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A5-Data-Readiness",
-    "status": "running",
+    "status": "completed",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -2476,13 +2478,16 @@
     "dependencies": [],
     "claimed_by": "A5-Data-Readiness",
     "claimed_at": "2026-07-07T11:31:51.971Z",
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-07T11:42:12.047Z",
+    "result_file": "docs/ops/BUGTASK-20260707-0002_A5_DATA_READINESS_REPORT.md",
     "next_agents": [
       "A3-Backend-Critical-Path",
       "A2-Security-Regression-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only data readiness report; no code merge required",
+    "reason": "A5 diagnosis completed; issue is RBAC/API/UI contract mismatch, not missing data"
   },
   {
     "task_id": "BUGTASK-20260707-0002-05-A1",
@@ -2533,7 +2538,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "running",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -2552,8 +2557,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-07T11:35:15.168Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": null,
     "result_file": null,
     "next_agents": [
@@ -2562,7 +2567,8 @@
       "A4-Frontend-UAT-Smoke",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "reset to pending after runner child-process guard repair interrupted execution before result completion"
   },
   {
     "task_id": "BUGTASK-20260707-0001-02-A3",
@@ -2600,7 +2606,8 @@
       "A1-CI-Runtime-Gate",
       "A4-Frontend-UAT-Smoke"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "reset to pending after runner child-process guard repair interrupted execution before result completion"
   },
   {
     "task_id": "BUGTASK-20260707-0001-03-A4",

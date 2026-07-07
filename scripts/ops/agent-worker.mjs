@@ -121,7 +121,7 @@ function commandForTask(task, dryRun, approvalToken) {
 }
 
 function baselineAutopilotCommand(task, dryRun = true) {
-  return [
+  const command = [
     NODE_BIN,
     'scripts/ops/agent-baseline-autopilot.mjs',
     '--agent',
@@ -132,8 +132,11 @@ function baselineAutopilotCommand(task, dryRun = true) {
     task.worktree,
     '--max-retries',
     '3',
-    dryRun ? '--dry-run' : '--yes',
   ];
+  const allowed = JSON.stringify(task.allowed_paths || []).toLowerCase();
+  if (allowed.includes('apps/api') || allowed.includes('apps/web')) command.push('--allow-code');
+  command.push(dryRun ? '--dry-run' : '--yes');
+  return command;
 }
 
 function runBaselineAutopilot(task) {
