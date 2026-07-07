@@ -1,0 +1,93 @@
+{
+  "id": "1",
+  "bugNo": "BUG-20260705-0001",
+  "title": "验收试运行里面试运行项目页面奇丑无比",
+  "severity": "MEDIUM",
+  "status": "TRIAGED",
+  "priority": "P2",
+  "moduleCode": "",
+  "assigneeUsername": "",
+  "assigneeName": "",
+  "repairTaskNo": "BUGTASK-20260705-0001",
+  "repairTaskStatus": "READY",
+  "route": "/pilot-run",
+  "reporterUsername": "zhaoyongwei",
+  "reporterName": "赵永伟",
+  "createdAt": "2026-07-05T07:48:56.766Z",
+  "updatedAt": "2026-07-05T07:49:14.179Z",
+  "closedAt": null,
+  "attachmentCount": 0,
+  "description": "",
+  "url": "https://erp.eggslao.com/pilot-run",
+  "reporterUserId": "25",
+  "roles": [
+    "ROLE_ADMIN",
+    "ROLE_CEO",
+    "ROLE_REGION_MGR"
+  ],
+  "companyCode": "",
+  "projectCode": "",
+  "consoleErrors": [],
+  "failedRequests": [],
+  "attachments": [],
+  "clientContext": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "viewport": {
+      "width": 1526,
+      "height": 956
+    },
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+    "capturedAt": "2026-07-05T07:48:56.765Z",
+    "devicePixelRatio": 1
+  },
+  "resolutionNote": "",
+  "repairTaskPayload": {
+    "url": "https://erp.eggslao.com/pilot-run",
+    "bugNo": "BUG-20260705-0001",
+    "route": "/pilot-run",
+    "title": "验收试运行里面试运行项目页面奇丑无比",
+    "taskNo": "BUGTASK-20260705-0001",
+    "context": {
+      "attachments": [],
+      "clientContext": {
+        "language": "zh-CN",
+        "timezone": "Asia/Shanghai",
+        "viewport": {
+          "width": 1526,
+          "height": 956
+        },
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+        "capturedAt": "2026-07-05T07:48:56.765Z",
+        "devicePixelRatio": 1
+      },
+      "consoleErrors": [],
+      "failedRequests": []
+    },
+    "priority": "P2",
+    "reporter": {
+      "name": "赵永伟",
+      "roles": [
+        "ROLE_ADMIN",
+        "ROLE_CEO",
+        "ROLE_REGION_MGR"
+      ],
+      "username": "zhaoyongwei",
+      "companyCode": "",
+      "projectCode": ""
+    },
+    "severity": "MEDIUM",
+    "createdAt": "2026-07-05T07:49:14.177Z",
+    "createdBy": "zhaoyongwei",
+    "moduleCode": "",
+    "suggestedOwner": "",
+    "repairGuardrails": {
+      "autoRepairExecuted": false,
+      "noProductionDeploy": true,
+      "noDbWriteWithoutGate": true,
+      "requiresHumanApproval": true
+    },
+    "acceptanceCriteria": ""
+  },
+  "updatedBy": "zhaoyongwei"
+}
