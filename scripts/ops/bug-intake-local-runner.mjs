@@ -366,6 +366,24 @@ function isFinishedTask(task) {
   return task && FINISHED_STATUSES.has(task.status);
 }
 
+async function waitForAgentChildrenToExit(args, task) {
+  const startedAt = Date.now();
+  const timeoutMs = Math.max(30000, Number(args.childTimeoutMs || 900000));
+  let processes = activeAgentProcesses();
+  const firstSeen = processes;
+  while (processes.length > 0 && Date.now() - startedAt < timeoutMs) {
+    await sleep(5000);
+    processes = activeAgentProcesses();
+  }
+  return {
+    task_id: task.task_id,
+    waited_ms: Date.now() - startedAt,
+    timed_out: processes.length > 0,
+    first_seen: firstSeen,
+    remaining: processes,
+  };
+}
+
 function workerCommand(task, args) {
   const command = [NODE_BIN, 'scripts/ops/agent-worker.mjs', '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
   if (args.dryRun) command.push('--dry-run');
@@ -815,23 +833,37 @@ async function runCycle(args, cycle) {
     }
     let leftovers = activeAgentProcesses();
     if (!args.dryRun && !isFinishedTask(finalTask) && leftovers.length > 0) {
-      workerRuns.push({
-        task,
-        worker,
-        finalTask,
-        writeback: null,
-        retryRuns,
-        activeChildProcesses: leftovers,
-        postWorkerCommit: { skipped: true, reason: 'agent child process still active' },
-      });
-      blockedTasks.push({
-        task_id: task.task_id,
-        agent: task.agent,
-        status: 'BLOCKED',
-        reason: 'worker returned while agent child process is still active; leaving task state unchanged and stopping this cycle',
-        processes: leftovers,
-      });
-      break;
+      const childWait = await waitForAgentChildrenToExit(args, task);
+      finalTask = findTask(task.task_id);
+      leftovers = activeAgentProcesses();
+      if (!isFinishedTask(finalTask) && childWait.timed_out) {
+        workerRuns.push({
+          task,
+          worker,
+          finalTask,
+          writeback: null,
+          retryRuns,
+          activeChildProcesses: leftovers,
+          childWait,
+          postWorkerCommit: { skipped: true, reason: 'agent child process still active after wait' },
+        });
+        blockedTasks.push({
+          task_id: task.task_id,
+          agent: task.agent,
+          status: 'BLOCKED',
+          reason: 'worker returned while agent child process is still active after wait; leaving task state unchanged and stopping this cycle',
+          processes: leftovers,
+        });
+        break;
+      }
+      if (!isFinishedTask(finalTask)) {
+        finalTask = patchTask(task.task_id, {
+          status: 'HOLD',
+          completed_at: new Date().toISOString(),
+          reason: `worker parent returned before child completion; child exited after ${Math.round(childWait.waited_ms / 1000)}s but task was not written back; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
+        }) || finalTask;
+      }
+      worker.childWait = childWait;
     }
     if (!args.dryRun && !isFinishedTask(finalTask)) {
       finalTask = patchTask(task.task_id, {
