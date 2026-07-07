@@ -1999,7 +1999,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2184,7 +2184,7 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_by": "Codex-Orchestrator",
     "claimed_at": "2026-07-07T10:47:13.875Z",
     "completed_at": "2026-07-07T10:57:14.819Z",
     "result_file": "docs/ops/BUG-20260706-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md",
