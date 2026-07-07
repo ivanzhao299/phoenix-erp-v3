@@ -1154,16 +1154,11 @@ Assigned agent: A3-Backend-Critical-Path
       "localAttachments": [
         {
           "fileName": "01-1783385890768-eec55765.png",
-          "originalName": "pasted-screenshot-1783385734893-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png",
-          "sizeBytes": 841957
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -1287,4 +1282,4 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

@@ -1154,16 +1154,11 @@ Assigned agent: A6-Staging-Deploy-Runbook
       "localAttachments": [
         {
           "fileName": "01-1783386602602-2500083a.png",
-          "originalName": "pasted-screenshot-1783386591914-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png",
-          "sizeBytes": 523541
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -1287,4 +1282,4 @@ Assigned agent: A6-Staging-Deploy-Runbook
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260707-091757/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
