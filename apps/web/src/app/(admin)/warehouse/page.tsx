@@ -96,29 +96,49 @@ function ZoneCard({ zone, warningLabel }: { zone: Zone; warningLabel: string }) 
 
 export default function WarehouseDashboard() {
   const { t } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { hasPermission, loading: authLoading } = useAuth();
+  const canViewWarehouse = hasPermission("MENU_WMS_VIEW", "V");
+  const canViewInout = hasPermission("MENU_WMS_INOUT", "V");
   const [zones, setZones] = useState<Zone[]>([]);
   const [inbounds, setInbounds] = useState<InboundRow[]>([]);
   const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
+  const [batches, setBatches] = useState<BatchRow[]>([]);
   const [expiry, setExpiry] = useState<BatchRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
+    if (authLoading) return;
+    if (!canViewWarehouse) {
+      setZones([]);
+      setInbounds([]);
+      setOutbounds([]);
+      setBatches([]);
+      setExpiry([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const [zRes, ibRes, obRes, btRes] = await Promise.all([
-      crudApi.list<Zone>("wms_zones", { limit: 100 }).catch(() => ({ data: [] as Zone[], code: 0 })),
-      crudApi.list<InboundRow>("wms_inbound", { limit: 200 }).catch(() => ({ data: [] as InboundRow[], code: 0 })),
-      crudApi.list<OutboundRow>("wms_outbound", { limit: 200 }).catch(() => ({ data: [] as OutboundRow[], code: 0 })),
+      canViewInout
+        ? crudApi.list<Zone>("wms_zones", { limit: 100 }).catch(() => ({ data: [] as Zone[], code: 0 }))
+        : Promise.resolve({ data: [] as Zone[], code: 0 }),
+      canViewInout
+        ? crudApi.list<InboundRow>("wms_inbound", { limit: 200 }).catch(() => ({ data: [] as InboundRow[], code: 0 }))
+        : Promise.resolve({ data: [] as InboundRow[], code: 0 }),
+      canViewInout
+        ? crudApi.list<OutboundRow>("wms_outbound", { limit: 200 }).catch(() => ({ data: [] as OutboundRow[], code: 0 }))
+        : Promise.resolve({ data: [] as OutboundRow[], code: 0 }),
       crudApi.list<BatchRow>("inv_batches", { limit: 500 }).catch(() => ({ data: [] as BatchRow[], code: 0 })),
     ]);
-    setZones(zRes.data ?? []);
-    setInbounds(ibRes.data ?? []);
-    setOutbounds(obRes.data ?? []);
+    setZones(canViewInout ? (zRes.data ?? []) : []);
+    setInbounds(canViewInout ? (ibRes.data ?? []) : []);
+    setOutbounds(canViewInout ? (obRes.data ?? []) : []);
+    setBatches(btRes.data ?? []);
     const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
     setExpiry((btRes.data ?? []).filter((b: BatchRow) => b.expire_date && b.expire_date <= in14 && b.expire_date >= today && b.qty_available > 0));
     setLoading(false);
-  }, []);
+  }, [authLoading, canViewInout, canViewWarehouse]);
   useEffect(() => { loadAll(); }, [loadAll]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -126,7 +146,7 @@ export default function WarehouseDashboard() {
   const todayOut = useMemo(() => outbounds.filter(r => (r.date || r.created_at?.slice(0, 10)) === today), [outbounds, today]);
   const totalInQty = todayIn.reduce((s, r) => s + (Number(r.qty) || 0), 0);
   const totalOutQty = todayOut.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-  const totalStock = zones.reduce((s, z) => s + (Number(z.used_capacity) || 0), 0);
+  const totalStock = batches.reduce((s, b) => s + (Number(b.qty_available) || 0), 0);
 
   const activity = useMemo(() => {
     const inLabel = t("ui.入库", "入库");
@@ -156,8 +176,8 @@ export default function WarehouseDashboard() {
   // g200e KPI 4 卡:kpiCardCompact(tone) 统一
   const KPIs = [
     { label: t("ui.库存总量", "库存总量"), value: loading ? "…" : totalStock.toLocaleString(),                  unit: t("ui.单位", "单位"), tone: "info"    as const, Icon: Package },
-    { label: t("ui.今日入库", "今日入库"), value: loading ? "…" : (totalInQty || todayIn.length).toString(),    unit: totalInQty ? t("ui.枚", "枚") : t("ui.单", "单"), tone: "success" as const, Icon: ArrowDown },
-    { label: t("ui.今日出库", "今日出库"), value: loading ? "…" : (totalOutQty || todayOut.length).toString(),  unit: totalOutQty ? t("ui.枚", "枚") : t("ui.单", "单"), tone: "danger"  as const, Icon: ArrowUp },
+    { label: t("ui.今日入库", "今日入库"), value: loading ? "…" : canViewInout ? (totalInQty || todayIn.length).toString() : "—",    unit: canViewInout ? (totalInQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
+    { label: t("ui.今日出库", "今日出库"), value: loading ? "…" : canViewInout ? (totalOutQty || todayOut.length).toString() : "—",  unit: canViewInout ? (totalOutQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "danger"  as const, Icon: ArrowUp },
     { label: t("ui.临期批次", "临期批次"), value: loading ? "…" : expiry.length.toString(),                    unit: t("ui.批", "批"),  tone: "warning" as const, Icon: AlertTriangle },
   ];
 
@@ -175,9 +195,9 @@ export default function WarehouseDashboard() {
   const warningLabel = t("ui.容量预警", "容量预警");
 
   const monthlyStats = [
-    { label: t("ui.总入库单数", "总入库单数"),       value: inbounds.length,  tone: "success" as const },
-    { label: t("ui.总出库单数", "总出库单数"),       value: outbounds.length, tone: "danger"  as const },
-    { label: t("ui.库区满载预警", "库区满载预警"),   value: zones.filter(z => z.status === "WARNING").length, tone: "warning" as const },
+    { label: t("ui.总入库单数", "总入库单数"),       value: canViewInout ? inbounds.length : "—",  tone: "success" as const },
+    { label: t("ui.总出库单数", "总出库单数"),       value: canViewInout ? outbounds.length : "—", tone: "danger"  as const },
+    { label: t("ui.库区满载预警", "库区满载预警"),   value: canViewInout ? zones.filter(z => z.status === "WARNING").length : "—", tone: "warning" as const },
     { label: t("ui.临期批次", "临期批次"),           value: expiry.length,    tone: "warning" as const },
   ];
 
@@ -231,7 +251,12 @@ export default function WarehouseDashboard() {
             {t("ui.库区状态", "库区状态")}
             {loading && <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 400, marginLeft: 8 }}>{t("common.loading", "加载中…")}</span>}
           </h3>
-          {!loading && zones.length === 0 && (
+          {!loading && !canViewInout && (
+            <div style={{ ...inlineAlert("info"), marginBottom: 24 }}>
+              {t("ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏", "当前账号仅可查看库存总览，出入库作业与库区容量已按权限隐藏。")}
+            </div>
+          )}
+          {!loading && canViewInout && zones.length === 0 && (
             <div style={{ ...inlineAlert("warning"), marginBottom: 24 }}>
               {t("ui.暂无库区数据请先维护仓库库区档案", "暂无库区数据，请先维护仓库库区档案")}
             </div>
@@ -271,6 +296,10 @@ export default function WarehouseDashboard() {
             {loading ? (
               <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "var(--text-secondary)" }}>
                 {t("common.loading", "加载中…")}
+              </div>
+            ) : !canViewInout ? (
+              <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "var(--text-secondary)" }}>
+                {t("ui.需要出入库查看权限", "需要出入库查看权限")}
               </div>
             ) : activity.length === 0 ? (
               <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "var(--text-secondary)" }}>
