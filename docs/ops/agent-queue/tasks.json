@@ -2708,5 +2708,200 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true
+  },
+  {
+    "task_id": "BUGTASK-20260707-0003-01-A2",
+    "request_id": "BUGTASK-20260707-0003",
+    "title": "Repair BUG-20260707-0003: 打开运营工作台报错[403] MENU_PERMISSION_DENIED (A2-Security-Regression-Gate)",
+    "source_bug_no": "BUG-20260707-0003",
+    "source_repair_task_no": "BUGTASK-20260707-0003",
+    "source": "bug-intake",
+    "agent": "A2-Security-Regression-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "scripts/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260707-0003-01-A2-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "branch": "w5-a2-security-regression-gate",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A1-CI-Runtime-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true
+  },
+  {
+    "task_id": "BUGTASK-20260707-0003-02-A3",
+    "request_id": "BUGTASK-20260707-0003",
+    "title": "Repair BUG-20260707-0003: 打开运营工作台报错[403] MENU_PERMISSION_DENIED (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260707-0003",
+    "source_repair_task_no": "BUGTASK-20260707-0003",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260707-0003-02-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+    "branch": "w5-a3-backend-critical-path",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true
+  },
+  {
+    "task_id": "BUGTASK-20260707-0003-03-A4",
+    "request_id": "BUGTASK-20260707-0003",
+    "title": "Repair BUG-20260707-0003: 打开运营工作台报错[403] MENU_PERMISSION_DENIED (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260707-0003",
+    "source_repair_task_no": "BUGTASK-20260707-0003",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260707-0003-03-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+    "branch": "w5-a4-frontend-uat-smoke",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true
+  },
+  {
+    "task_id": "BUGTASK-20260707-0003-04-A5",
+    "request_id": "BUGTASK-20260707-0003",
+    "title": "Repair BUG-20260707-0003: 打开运营工作台报错[403] MENU_PERMISSION_DENIED (A5-Data-Readiness)",
+    "source_bug_no": "BUG-20260707-0003",
+    "source_repair_task_no": "BUGTASK-20260707-0003",
+    "source": "bug-intake",
+    "agent": "A5-Data-Readiness",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/web/**",
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "DB write"
+    ],
+    "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260707-0003-04-A5-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+    "branch": "w5-a5-data-readiness",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate"
+    ],
+    "approval_required": true
+  },
+  {
+    "task_id": "BUGTASK-20260707-0003-05-A1",
+    "request_id": "BUGTASK-20260707-0003",
+    "title": "Repair BUG-20260707-0003: 打开运营工作台报错[403] MENU_PERMISSION_DENIED (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260707-0003",
+    "source_repair_task_no": "BUGTASK-20260707-0003",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260707-0003-05-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true
   }
 ]
