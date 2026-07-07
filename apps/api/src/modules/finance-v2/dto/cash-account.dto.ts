@@ -1,9 +1,10 @@
 import { IsString, IsOptional, IsNumber, IsIn, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 // ── 创建资金账户 ──────────────────────────────────────────────────────────
 
 export class CreateCashAccountDto {
+  @Transform(({ value }) => (value === null || (typeof value === 'string' && value.trim() === '') ? undefined : value))
   @IsOptional()
   @IsString()
   accountCode?: string;
