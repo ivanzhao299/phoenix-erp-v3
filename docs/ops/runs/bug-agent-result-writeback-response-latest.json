@@ -1,24 +1,24 @@
 {
-  "id": "10",
-  "bugNo": "BUG-20260707-0005",
-  "title": "日生产日报不选择鸡舍也能提交成功",
+  "id": "11",
+  "bugNo": "BUG-20260707-0006",
+  "title": "近期日报记录下的淘汰原因不显示中文",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "__________",
-  "assigneeUsername": "_____",
+  "moduleCode": "",
+  "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260707-0005",
-  "repairTaskStatus": "HOLD",
+  "repairTaskNo": "BUGTASK-20260707-0006",
+  "repairTaskStatus": "AGENT_RUNNING",
   "route": "/breeding/daily",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-07T00:58:10.770Z",
-  "updatedAt": "2026-07-07T16:02:23.172Z",
+  "createdAt": "2026-07-07T01:10:02.603Z",
+  "updatedAt": "2026-07-07T16:05:25.831Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "生产管理/日生产日报，不选择鸡舍也能提交成功，这就导致鸡舍是未知，在运营工作台查看今日产蛋就是0，在经营仪表盘查看的当日产蛋量是准确的，应该是运营工作台查询加了限制，查询时必须带鸡舍。处理方法很简单，日生产日报点击”提交日报“时检查是否选择鸡舍，鸡舍显示“加载中...”就是没选择，若没选择鸡舍给一个提示“请先选择鸡舍后再提交”",
-  "url": "https://erp.eggslao.com/breeding/daily?action=create&date=today",
+  "description": "生产管理/日生产日报，近期日报记录下的淘汰原因不显示中文",
+  "url": "https://erp.eggslao.com/breeding/daily",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -30,13 +30,13 @@
   "failedRequests": [],
   "attachments": [
     {
-      "sha256": "f961c9036b46e2752abecf44d62b5ab3833fd389fac552159dceda6e5f880f77",
-      "fileName": "01-1783385890768-eec55765.png",
+      "sha256": "ca878b3924659e40f19200af08714a36db67bb94d414d4ec572f15676c9b5a95",
+      "fileName": "01-1783386602602-2500083a.png",
       "mimeType": "image/png",
-      "sizeBytes": 841957,
-      "originalName": "pasted-screenshot-1783385734893-1.png",
-      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0005/01-1783385890768-eec55765.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png"
+      "sizeBytes": 523541,
+      "originalName": "pasted-screenshot-1783386591914-1.png",
+      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0006/01-1783386602602-2500083a.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png"
     }
   ],
   "clientContext": {
@@ -47,7 +47,7 @@
       "height": 865
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-07T00:58:10.770Z",
+    "capturedAt": "2026-07-07T01:10:02.603Z",
     "pageSnapshot": {
       "route": "/breeding/daily",
       "title": "金凤凰 ERP — Phoenix ERP V3",
@@ -65,7 +65,7 @@
         "经营仪表盘",
         "生产管理",
         "🖥️ 进入包装作业台",
-        "养殖总览",
+        "养殖场总览",
         "鸡舍管理",
         "鸡群档案",
         "日生产日报",
@@ -75,8 +75,8 @@
         "环境预警",
         "设备运维",
         "日产蛋入库",
-        "包装作业",
-        "包装批次",
+        "包装管理",
+        "批次管理",
         "包装日报",
         "异常处理",
         "补打日志",
@@ -113,7 +113,7 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783385734893-1.png",
+        "pasted-screenshot-1783386591914-1.png",
         "退出",
         "养殖管理",
         "/日生产日报",
@@ -152,6 +152,13 @@
         "温度",
         "湿度",
         "2026-07-07T00:00:00.000Z",
+        "测试鸡舍2",
+        "10",
+        "0",
+        "—",
+        "9.00",
+        "25.00℃",
+        "60.00%",
         "未知",
         "210",
         "1",
@@ -160,11 +167,9 @@
         "30.00℃",
         "28.00%",
         "晚班测试",
-        "10",
         "SICKNESS",
         "白班测试",
         "2026-07-06T00:00:00.000Z",
-        "测试鸡舍2",
         "5",
         "LOW_PRODUCTION",
         "36.00℃",
@@ -174,12 +179,7 @@
         "鸡舍2早班测试",
         "测试鸡舍",
         "11",
-        "1.00",
-        "37.00℃",
-        "31.00%",
-        "早班测试",
-        "9",
-        "0"
+        "1.00"
       ],
       "interactiveElements": [
         {
@@ -251,7 +251,7 @@
             "x": 0,
             "y": 317
           },
-          "label": "养殖总览",
+          "label": "养殖场总览",
           "disabled": false
         },
         {
@@ -371,7 +371,7 @@
             "x": 0,
             "y": 637
           },
-          "label": "包装作业",
+          "label": "包装管理",
           "disabled": false
         },
         {
@@ -383,7 +383,7 @@
             "x": 0,
             "y": 669
           },
-          "label": "包装批次",
+          "label": "批次管理",
           "disabled": false
         },
         {
@@ -668,7 +668,7 @@
           "rect": {
             "h": 30,
             "w": 96,
-            "x": 940,
+            "x": 938,
             "y": 13
           },
           "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -679,11 +679,11 @@
           "path": "",
           "rect": {
             "h": 34,
-            "w": 93,
-            "x": 1097,
+            "w": 95,
+            "x": 1095,
             "y": 11
           },
-          "label": "在线 1",
+          "label": "在线 2",
           "disabled": false
         },
         {
@@ -788,7 +788,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 769,
+            "x": 764,
             "y": 715
           },
           "label": "移除附件",
@@ -849,7 +849,7 @@
             "h": 36,
             "w": 90,
             "x": 1054,
-            "y": -512
+            "y": -767
           },
           "label": "历史记录",
           "disabled": false
@@ -861,7 +861,7 @@
             "h": 36,
             "w": 110,
             "x": 1154,
-            "y": -512
+            "y": -767
           },
           "label": "导出报表",
           "disabled": false
@@ -873,7 +873,7 @@
             "h": 36,
             "w": 178,
             "x": 1274,
-            "y": -512
+            "y": -767
           },
           "label": "⚡ 设备数据一键填入",
           "disabled": true
@@ -885,7 +885,7 @@
             "h": 36,
             "w": 109,
             "x": 1462,
-            "y": -512
+            "y": -767
           },
           "label": "提交日报",
           "disabled": false
@@ -897,7 +897,7 @@
             "h": 38,
             "w": 160,
             "x": 265,
-            "y": -415
+            "y": -670
           },
           "label": "2026-07-07",
           "disabled": false
@@ -909,7 +909,7 @@
             "h": 38,
             "w": 200,
             "x": 445,
-            "y": -415
+            "y": -670
           },
           "label": "加载中… X 测试鸡舍 · 蛋鸡舍 测试鸡舍2 · 蛋鸡舍 2号鸡舍 · 蛋鸡舍 3号鸡舍 · 蛋鸡舍 4号鸡舍 · 蛋鸡舍 5号鸡舍 · 蛋鸡舍 6号鸡舍 · 蛋鸡舍",
           "disabled": false
@@ -921,7 +921,7 @@
             "h": 34,
             "w": 92,
             "x": 1447,
-            "y": -261
+            "y": -516
           },
           "label": "按 9 档分级",
           "disabled": false
@@ -933,7 +933,7 @@
             "h": 36,
             "w": 130,
             "x": 291,
-            "y": -159
+            "y": -414
           },
           "label": "0",
           "disabled": false
@@ -945,7 +945,7 @@
             "h": 36,
             "w": 130,
             "x": 602,
-            "y": -159
+            "y": -414
           },
           "label": "0",
           "disabled": false
@@ -957,7 +957,7 @@
             "h": 36,
             "w": 130,
             "x": 914,
-            "y": -159
+            "y": -414
           },
           "label": "0",
           "disabled": false
@@ -969,7 +969,7 @@
             "h": 36,
             "w": 130,
             "x": 1225,
-            "y": -159
+            "y": -414
           },
           "label": "0",
           "disabled": false
@@ -981,7 +981,7 @@
             "h": 36,
             "w": 130,
             "x": 291,
-            "y": -44
+            "y": -299
           },
           "label": "0",
           "disabled": false
@@ -993,7 +993,7 @@
             "h": 38,
             "w": 301,
             "x": 602,
-            "y": -44
+            "y": -299
           },
           "label": "请选择 疾病 外伤 热应激 自然 不明",
           "disabled": false
@@ -1005,7 +1005,7 @@
             "h": 36,
             "w": 130,
             "x": 914,
-            "y": -44
+            "y": -299
           },
           "label": "0",
           "disabled": false
@@ -1017,7 +1017,7 @@
             "h": 38,
             "w": 301,
             "x": 1225,
-            "y": -44
+            "y": -299
           },
           "label": "请选择 产蛋率低 患病 老龄 严重外伤 其它",
           "disabled": false
@@ -1029,7 +1029,7 @@
             "h": 36,
             "w": 130,
             "x": 291,
-            "y": 73
+            "y": -182
           },
           "label": "0",
           "disabled": false
@@ -1041,7 +1041,7 @@
             "h": 36,
             "w": 130,
             "x": 540,
-            "y": 73
+            "y": -182
           },
           "label": "0",
           "disabled": false
@@ -1053,7 +1053,7 @@
             "h": 36,
             "w": 130,
             "x": 789,
-            "y": 73
+            "y": -182
           },
           "label": "0",
           "disabled": false
@@ -1065,7 +1065,7 @@
             "h": 36,
             "w": 130,
             "x": 1038,
-            "y": 73
+            "y": -182
           },
           "label": "0",
           "disabled": false
@@ -1077,7 +1077,7 @@
             "h": 36,
             "w": 160,
             "x": 1287,
-            "y": 73
+            "y": -182
           },
           "label": "备注...",
           "disabled": false
@@ -1089,7 +1089,7 @@
             "h": 34,
             "w": 92,
             "x": 1447,
-            "y": 164
+            "y": -91
           },
           "label": "按 9 档分级",
           "disabled": false
@@ -1101,7 +1101,7 @@
             "h": 36,
             "w": 130,
             "x": 291,
-            "y": 266
+            "y": 11
           },
           "label": "0",
           "disabled": false
@@ -1113,7 +1113,7 @@
             "h": 36,
             "w": 130,
             "x": 602,
-            "y": 266
+            "y": 11
           },
           "label": "0",
           "disabled": false
@@ -1125,7 +1125,7 @@
             "h": 36,
             "w": 130,
             "x": 914,
-            "y": 266
+            "y": 11
           },
           "label": "0",
           "disabled": false
@@ -1137,7 +1137,7 @@
             "h": 36,
             "w": 130,
             "x": 1225,
-            "y": 266
+            "y": 11
           },
           "label": "0",
           "disabled": false
@@ -1146,23 +1146,23 @@
     },
     "devicePixelRatio": 2
   },
-  "resolutionNote": "日生产日报点击”提交日报“时检查是否选择鸡舍，鸡舍显示“加载中...”就是没选择，若没选择鸡舍给一个提示“请先选择鸡舍后再提交”",
+  "resolutionNote": "要求近期日报记录下的淘汰原因显示中文",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/breeding/daily?action=create&date=today",
-    "bugNo": "BUG-20260707-0005",
+    "url": "https://erp.eggslao.com/breeding/daily",
+    "bugNo": "BUG-20260707-0006",
     "route": "/breeding/daily",
-    "title": "日生产日报不选择鸡舍也能提交成功",
-    "taskNo": "BUGTASK-20260707-0005",
+    "title": "近期日报记录下的淘汰原因不显示中文",
+    "taskNo": "BUGTASK-20260707-0006",
     "context": {
       "attachments": [
         {
-          "sha256": "f961c9036b46e2752abecf44d62b5ab3833fd389fac552159dceda6e5f880f77",
-          "fileName": "01-1783385890768-eec55765.png",
+          "sha256": "ca878b3924659e40f19200af08714a36db67bb94d414d4ec572f15676c9b5a95",
+          "fileName": "01-1783386602602-2500083a.png",
           "mimeType": "image/png",
-          "sizeBytes": 841957,
-          "originalName": "pasted-screenshot-1783385734893-1.png",
-          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0005/01-1783385890768-eec55765.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png"
+          "sizeBytes": 523541,
+          "originalName": "pasted-screenshot-1783386591914-1.png",
+          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0006/01-1783386602602-2500083a.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0006/attachments/01-1783386602602-2500083a.png"
         }
       ],
       "clientContext": {
@@ -1173,7 +1173,7 @@
           "height": 865
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-07T00:58:10.770Z",
+        "capturedAt": "2026-07-07T01:10:02.603Z",
         "pageSnapshot": {
           "route": "/breeding/daily",
           "title": "金凤凰 ERP — Phoenix ERP V3",
@@ -1191,7 +1191,7 @@
             "经营仪表盘",
             "生产管理",
             "🖥️ 进入包装作业台",
-            "养殖总览",
+            "养殖场总览",
             "鸡舍管理",
             "鸡群档案",
             "日生产日报",
@@ -1201,8 +1201,8 @@
             "环境预警",
             "设备运维",
             "日产蛋入库",
-            "包装作业",
-            "包装批次",
+            "包装管理",
+            "批次管理",
             "包装日报",
             "异常处理",
             "补打日志",
@@ -1239,7 +1239,7 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783385734893-1.png",
+            "pasted-screenshot-1783386591914-1.png",
             "退出",
             "养殖管理",
             "/日生产日报",
@@ -1278,6 +1278,13 @@
             "温度",
             "湿度",
             "2026-07-07T00:00:00.000Z",
+            "测试鸡舍2",
+            "10",
+            "0",
+            "—",
+            "9.00",
+            "25.00℃",
+            "60.00%",
             "未知",
             "210",
             "1",
@@ -1286,11 +1293,9 @@
             "30.00℃",
             "28.00%",
             "晚班测试",
-            "10",
             "SICKNESS",
             "白班测试",
             "2026-07-06T00:00:00.000Z",
-            "测试鸡舍2",
             "5",
             "LOW_PRODUCTION",
             "36.00℃",
@@ -1300,12 +1305,7 @@
             "鸡舍2早班测试",
             "测试鸡舍",
             "11",
-            "1.00",
-            "37.00℃",
-            "31.00%",
-            "早班测试",
-            "9",
-            "0"
+            "1.00"
           ],
           "interactiveElements": [
             {
@@ -1377,7 +1377,7 @@
                 "x": 0,
                 "y": 317
               },
-              "label": "养殖总览",
+              "label": "养殖场总览",
               "disabled": false
             },
             {
@@ -1497,7 +1497,7 @@
                 "x": 0,
                 "y": 637
               },
-              "label": "包装作业",
+              "label": "包装管理",
               "disabled": false
             },
             {
@@ -1509,7 +1509,7 @@
                 "x": 0,
                 "y": 669
               },
-              "label": "包装批次",
+              "label": "批次管理",
               "disabled": false
             },
             {
@@ -1794,7 +1794,7 @@
               "rect": {
                 "h": 30,
                 "w": 96,
-                "x": 940,
+                "x": 938,
                 "y": 13
               },
               "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -1805,11 +1805,11 @@
               "path": "",
               "rect": {
                 "h": 34,
-                "w": 93,
-                "x": 1097,
+                "w": 95,
+                "x": 1095,
                 "y": 11
               },
-              "label": "在线 1",
+              "label": "在线 2",
               "disabled": false
             },
             {
@@ -1914,7 +1914,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 769,
+                "x": 764,
                 "y": 715
               },
               "label": "移除附件",
@@ -1975,7 +1975,7 @@
                 "h": 36,
                 "w": 90,
                 "x": 1054,
-                "y": -512
+                "y": -767
               },
               "label": "历史记录",
               "disabled": false
@@ -1987,7 +1987,7 @@
                 "h": 36,
                 "w": 110,
                 "x": 1154,
-                "y": -512
+                "y": -767
               },
               "label": "导出报表",
               "disabled": false
@@ -1999,7 +1999,7 @@
                 "h": 36,
                 "w": 178,
                 "x": 1274,
-                "y": -512
+                "y": -767
               },
               "label": "⚡ 设备数据一键填入",
               "disabled": true
@@ -2011,7 +2011,7 @@
                 "h": 36,
                 "w": 109,
                 "x": 1462,
-                "y": -512
+                "y": -767
               },
               "label": "提交日报",
               "disabled": false
@@ -2023,7 +2023,7 @@
                 "h": 38,
                 "w": 160,
                 "x": 265,
-                "y": -415
+                "y": -670
               },
               "label": "2026-07-07",
               "disabled": false
@@ -2035,7 +2035,7 @@
                 "h": 38,
                 "w": 200,
                 "x": 445,
-                "y": -415
+                "y": -670
               },
               "label": "加载中… X 测试鸡舍 · 蛋鸡舍 测试鸡舍2 · 蛋鸡舍 2号鸡舍 · 蛋鸡舍 3号鸡舍 · 蛋鸡舍 4号鸡舍 · 蛋鸡舍 5号鸡舍 · 蛋鸡舍 6号鸡舍 · 蛋鸡舍",
               "disabled": false
@@ -2047,7 +2047,7 @@
                 "h": 34,
                 "w": 92,
                 "x": 1447,
-                "y": -261
+                "y": -516
               },
               "label": "按 9 档分级",
               "disabled": false
@@ -2059,7 +2059,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 291,
-                "y": -159
+                "y": -414
               },
               "label": "0",
               "disabled": false
@@ -2071,7 +2071,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 602,
-                "y": -159
+                "y": -414
               },
               "label": "0",
               "disabled": false
@@ -2083,7 +2083,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 914,
-                "y": -159
+                "y": -414
               },
               "label": "0",
               "disabled": false
@@ -2095,7 +2095,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 1225,
-                "y": -159
+                "y": -414
               },
               "label": "0",
               "disabled": false
@@ -2107,7 +2107,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 291,
-                "y": -44
+                "y": -299
               },
               "label": "0",
               "disabled": false
@@ -2119,7 +2119,7 @@
                 "h": 38,
                 "w": 301,
                 "x": 602,
-                "y": -44
+                "y": -299
               },
               "label": "请选择 疾病 外伤 热应激 自然 不明",
               "disabled": false
@@ -2131,7 +2131,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 914,
-                "y": -44
+                "y": -299
               },
               "label": "0",
               "disabled": false
@@ -2143,7 +2143,7 @@
                 "h": 38,
                 "w": 301,
                 "x": 1225,
-                "y": -44
+                "y": -299
               },
               "label": "请选择 产蛋率低 患病 老龄 严重外伤 其它",
               "disabled": false
@@ -2155,7 +2155,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 291,
-                "y": 73
+                "y": -182
               },
               "label": "0",
               "disabled": false
@@ -2167,7 +2167,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 540,
-                "y": 73
+                "y": -182
               },
               "label": "0",
               "disabled": false
@@ -2179,7 +2179,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 789,
-                "y": 73
+                "y": -182
               },
               "label": "0",
               "disabled": false
@@ -2191,7 +2191,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 1038,
-                "y": 73
+                "y": -182
               },
               "label": "0",
               "disabled": false
@@ -2203,7 +2203,7 @@
                 "h": 36,
                 "w": 160,
                 "x": 1287,
-                "y": 73
+                "y": -182
               },
               "label": "备注...",
               "disabled": false
@@ -2215,7 +2215,7 @@
                 "h": 34,
                 "w": 92,
                 "x": 1447,
-                "y": 164
+                "y": -91
               },
               "label": "按 9 档分级",
               "disabled": false
@@ -2227,7 +2227,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 291,
-                "y": 266
+                "y": 11
               },
               "label": "0",
               "disabled": false
@@ -2239,7 +2239,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 602,
-                "y": 266
+                "y": 11
               },
               "label": "0",
               "disabled": false
@@ -2251,7 +2251,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 914,
-                "y": 266
+                "y": 11
               },
               "label": "0",
               "disabled": false
@@ -2263,7 +2263,7 @@
                 "h": 36,
                 "w": 130,
                 "x": 1225,
-                "y": 266
+                "y": 11
               },
               "label": "0",
               "disabled": false
@@ -2288,7 +2288,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260707-0005",
+      "source_bug_no": "BUG-20260707-0006",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -2363,252 +2363,24 @@
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "source_repair_task_no": "BUGTASK-20260707-0005"
+      "source_repair_task_no": "BUGTASK-20260707-0006"
     },
-    "createdAt": "2026-07-07T00:58:52.243Z",
+    "createdAt": "2026-07-07T01:10:33.816Z",
     "createdBy": "admin",
-    "moduleCode": "__________",
-    "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260707-0005-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0005-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0005-01-A2\nTitle: Repair BUG-20260707-0005: 日生产日报不选择鸡舍也能提交成功 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T14:49:03.341Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260707-0005-04-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0005-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0005-04-A5\nTitle: Repair BUG-20260707-0005: 日生产日报不选择鸡舍也能提交成功 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T14:49:04.937Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-04-A5-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "BugIntakeLocalRunner",
-        "taskId": "LOCAL-RUNNER-20260707144909",
-        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 6 |\n| Worker runs | 6 |\n| Blocked/skipped tasks | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0003-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0005-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0003-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-        "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-07T14:49:11.435Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "validationResults": {
-          "ci": "SKIPPED: wait-ci-after-push disabled",
-          "push": "PASS",
-          "sync": "PASS",
-          "workerRuns": [
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260707-0001-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260707-0003-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260707-0004-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A1-CI-Runtime-Gate",
-              "taskId": "BUGTASK-20260707-0004-05-A1",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A2-Security-Regression-Gate",
-              "taskId": "BUGTASK-20260707-0005-01-A2",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260707-0005-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            }
-          ]
-        }
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260707-0005-02-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-02-A3-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nBranch: w5-a3-backend-critical-path\nPrompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0005-02-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0005-02-A3-worker-assembled-prompt.md\nAssembled prompt chars: 33854\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T15-33-27-515Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS / Backend GO.\n\nBackend diagnosis found the required guard already present: `POST /api/v3/farm/daily-logs` rejects empty or `加载中…` `house_code` before any DB access with `请先选择鸡舍后再提交`. I added the required report at [BUG-20260707-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260707-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md) and committed it as `11fa71a9`.\n\nValidation:\n- `cd apps/api && pnpm test -- farm.service.spec.ts --runInBand` PASS, 3/3\n- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit` FAIL due existing missing `vitest` /",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T15:33:39.518Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-02-A3-worker-log.md",
-        "changedFiles": [
-          "docs/ops/STORE_PAYMENT_PILOT_GATE_S1_APPROVAL_MATRIX.md",
-          "docs/ops/STORE_PAYMENT_PILOT_GATE_S1_DECISION.md",
-          "docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PACKAGE.md",
-          "docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_DECISION.md",
-          "docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_PLAN.md",
-          "docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_SMOKE_REPORT.md",
-          "docs/ops/STORE_PAYMENT_READINESS_A1_A2_A5_APPROVED_EXECUTION_REPORT.md",
-          "docs/ops/STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REPORT.md",
-          "docs/ops/STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_FIXTURE_REPORT.md",
-          "docs/ops/STORE_PAYMENT_S1_APP_001_MIGRATION_EXECUTION_REPORT.md",
-          "docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md",
-          "docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md",
-          "docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md",
-          "docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md",
-          "docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md",
-          "docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md",
-          "docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md",
-          "docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md",
-          "docs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md",
-          "docs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md",
-          "docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md",
-          "docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md",
-          "docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md",
-          "docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md",
-          "docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md",
-          "docs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md",
-          "docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md",
-          "docs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md",
-          "docs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md",
-          "docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md"
-        ],
-        "validationResults": null
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260707-0005-05-A1",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0005-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T15:36:52.125Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-05-A1-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "taskId": "BUGTASK-20260707-0005-06-A6",
-        "agent": "A6-Staging-Deploy-Runbook",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-06-A6-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [
-          "docs/uix5-design-system-migration.md",
-          "docs/g199-chanjet-permission-status.md",
-          "docs/mobile-runtime-architecture-audit.md",
-          "docs/user-role-matrix-v3.md",
-          "docs/M1_ORGANIZATION_MODEL_DECISIONS.md",
-          "docs/organization-runtime-phase1-report.md",
-          "docs/g94-form-style-convergence.md",
-          "docs/uix7-product-experience-refactor.md",
-          "docs/mdm-1-unified-model-design.md",
-          "docs/ui-ux-governance-phase-ui26-medium-risk-migration.md",
-          "docs/shareholder-runtime-phase3-plan.md",
-          "docs/production-runtime-rebuild-phase-r4-sales-runtime-audit.md",
-          "docs/ui-ux-page-template-guide.md",
-          "docs/ui-ux-phase1-report.md",
-          "docs/M1_ORGANIZATION_MODEL.md",
-          "docs/legacy-ord-tables-archive.md",
-          "docs/rbac-matrix.md",
-          "docs/glp1a2-production-extension.md",
-          "docs/g199-month-end-close-sop.md",
-          "docs/master-data-initialization-phase-m3-dryrun.md",
-          "docs/g4a-finance-document-runtime-refactor.md",
-          "docs/wf2-screenshots/01-instance-detail-visualization.png",
-          "docs/wf2-screenshots/05-sidebar-approval-center-expanded.png",
-          "docs/wf2-screenshots/02-mobile-workflow.png",
-          "docs/wf2-screenshots/03-sidebar-expanded.png",
-          "docs/wf2-screenshots/04-approval-flows-completed.png",
-          "docs/packaging-runtime-production-recovery-phase-p1e.md",
-          "docs/production-readiness-scorecard.md",
-          "docs/g36-migrations-allowlist-lock.md",
-          "docs/uix1-design-system-framework.md"
-        ],
-        "validationResults": null,
-        "summary": "- 库存查询页从通用 `DataTable + /api/crud/inv_batches` 改为页面内只读表格，优先读取 `/api/inventory/batches?limit=1000`，仅当专用接口 404 时回退 `/api/crud/inv_batches?limit=1000`。\n- 库存台账页从通用 `DataTable + /api/crud/inv_ledger` 改为页面内只读表格，优先读取 `/api/inventory/ledger?limit=1000`，仅当专用接口 404 时回退 `/api/crud/inv_ledger?limit=1000`。\n- 403 / 接口错误不再被吞成“暂无数据”，页面会展示真实错误，避免把权限或接口问题误判为库存为 0。\n- 两页新增刷新按钮和前端关键字搜索，支持批次号、产品编码、仓库、库位、事务类型、单据号、操作员等常用查询维度。\n- 保留库存数量、数量变动的现有状态色表达。\n\n## 4. Permission Visibility Notes\n\n- 两页均显式检查 `MENU_WMS_VIEW:V`。\n- 无库存查看权限时不发起库存/台账数据请求，页面展示“当前账号没有库存查看权限”。\n- 403 不回退 CRUD，避免用兜底路径绕过 RBAC / DataScope。\n\n## 5. Responsive Behavior Notes\n\n- 表格沿用现有 `data-table.module.css` 的横向滚动容器，窄屏下保留列宽并通过横向滚动查看明细。\n- 搜索区沿用 `admin-ui.module.css` toolbar/searchBox 样式，可随已有后台布局换行。\n- 未新增固定宽页面容器，不改变侧栏或移动端布局结构。\n\n## 6. UAT Smoke Result\n\nResult: HOLD\n\nEvidence:\n- `pwd` = `/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke`\n- `git branch --show-current` = `w5-a4-frontend-uat-smoke`\n- 初始 `git status --short` 为空。\n- `git diff --check` 通过，无 whitespace error。\n\nBlocked validation:\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit` 失败：`./node_modules/.bin/tsc` 不存在。\n- `cd apps/web && pnpm exec tsc --noEmit` 失败：`packages field missing or empty`。\n- `pnpm --filter web typecheck` 失败：`tsc: command not found`，并提示 `node_modules missing`。\n- `pnpm install --offline --frozen-lockfile` 失败：缺离线包 `concurrently-8.2.2.tgz`。\n- `pnpm install --filter web --offline --frozen-lockfile` 失败：缺离线包 `@radix-ui/primitive-1.1.3.tgz`。\n\nUI path `/warehouse/query`、`/warehouse/ledger` 未能本地启动 Next.js 验证，因为当前 worktree 缺 `node_modules` 且离线缓存不完整。\n\n## 7. Whether A2 Security Review Is Required\n\nRequired.\n\nReason: 本修复涉及 RBAC / DataScope 相关只读库存路径选择，且源任务已标记 security/RBAC/DataScope signal。A2 需确认 `/api/inventory/batches` 与 `/api/inventory/ledger` 的权限和 DataScope 行为符合预期；若 `/api/inventory/ledger` 不存在，需确认 CRUD fallback 不扩大权限面。\n\n## 8. Whether A1 Validation Is Required\n\nRequired.\n\nReason: 本地缺依赖导致 Web tsc / Next UI smoke 未完成。A1 需在依赖完整环境执行 Web typecheck、构建或 UAT smoke。\n\n## 9. Blo",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-07T16:02:23.169Z"
-      }
-    ],
-    "suggestedOwner": "_____",
+    "moduleCode": "",
+    "suggestedOwner": "",
     "repairGuardrails": {
       "autoRepairExecuted": false,
       "noProductionDeploy": true,
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
     },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260707-0005-06-A6",
-      "agent": "A6-Staging-Deploy-Runbook",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-06-A6-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [
-        "docs/uix5-design-system-migration.md",
-        "docs/g199-chanjet-permission-status.md",
-        "docs/mobile-runtime-architecture-audit.md",
-        "docs/user-role-matrix-v3.md",
-        "docs/M1_ORGANIZATION_MODEL_DECISIONS.md",
-        "docs/organization-runtime-phase1-report.md",
-        "docs/g94-form-style-convergence.md",
-        "docs/uix7-product-experience-refactor.md",
-        "docs/mdm-1-unified-model-design.md",
-        "docs/ui-ux-governance-phase-ui26-medium-risk-migration.md",
-        "docs/shareholder-runtime-phase3-plan.md",
-        "docs/production-runtime-rebuild-phase-r4-sales-runtime-audit.md",
-        "docs/ui-ux-page-template-guide.md",
-        "docs/ui-ux-phase1-report.md",
-        "docs/M1_ORGANIZATION_MODEL.md",
-        "docs/legacy-ord-tables-archive.md",
-        "docs/rbac-matrix.md",
-        "docs/glp1a2-production-extension.md",
-        "docs/g199-month-end-close-sop.md",
-        "docs/master-data-initialization-phase-m3-dryrun.md",
-        "docs/g4a-finance-document-runtime-refactor.md",
-        "docs/wf2-screenshots/01-instance-detail-visualization.png",
-        "docs/wf2-screenshots/05-sidebar-approval-center-expanded.png",
-        "docs/wf2-screenshots/02-mobile-workflow.png",
-        "docs/wf2-screenshots/03-sidebar-expanded.png",
-        "docs/wf2-screenshots/04-approval-flows-completed.png",
-        "docs/packaging-runtime-production-recovery-phase-p1e.md",
-        "docs/production-readiness-scorecard.md",
-        "docs/g36-migrations-allowlist-lock.md",
-        "docs/uix1-design-system-framework.md"
-      ],
-      "validationResults": null,
-      "summary": "- 库存查询页从通用 `DataTable + /api/crud/inv_batches` 改为页面内只读表格，优先读取 `/api/inventory/batches?limit=1000`，仅当专用接口 404 时回退 `/api/crud/inv_batches?limit=1000`。\n- 库存台账页从通用 `DataTable + /api/crud/inv_ledger` 改为页面内只读表格，优先读取 `/api/inventory/ledger?limit=1000`，仅当专用接口 404 时回退 `/api/crud/inv_ledger?limit=1000`。\n- 403 / 接口错误不再被吞成“暂无数据”，页面会展示真实错误，避免把权限或接口问题误判为库存为 0。\n- 两页新增刷新按钮和前端关键字搜索，支持批次号、产品编码、仓库、库位、事务类型、单据号、操作员等常用查询维度。\n- 保留库存数量、数量变动的现有状态色表达。\n\n## 4. Permission Visibility Notes\n\n- 两页均显式检查 `MENU_WMS_VIEW:V`。\n- 无库存查看权限时不发起库存/台账数据请求，页面展示“当前账号没有库存查看权限”。\n- 403 不回退 CRUD，避免用兜底路径绕过 RBAC / DataScope。\n\n## 5. Responsive Behavior Notes\n\n- 表格沿用现有 `data-table.module.css` 的横向滚动容器，窄屏下保留列宽并通过横向滚动查看明细。\n- 搜索区沿用 `admin-ui.module.css` toolbar/searchBox 样式，可随已有后台布局换行。\n- 未新增固定宽页面容器，不改变侧栏或移动端布局结构。\n\n## 6. UAT Smoke Result\n\nResult: HOLD\n\nEvidence:\n- `pwd` = `/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke`\n- `git branch --show-current` = `w5-a4-frontend-uat-smoke`\n- 初始 `git status --short` 为空。\n- `git diff --check` 通过，无 whitespace error。\n\nBlocked validation:\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit` 失败：`./node_modules/.bin/tsc` 不存在。\n- `cd apps/web && pnpm exec tsc --noEmit` 失败：`packages field missing or empty`。\n- `pnpm --filter web typecheck` 失败：`tsc: command not found`，并提示 `node_modules missing`。\n- `pnpm install --offline --frozen-lockfile` 失败：缺离线包 `concurrently-8.2.2.tgz`。\n- `pnpm install --filter web --offline --frozen-lockfile` 失败：缺离线包 `@radix-ui/primitive-1.1.3.tgz`。\n\nUI path `/warehouse/query`、`/warehouse/ledger` 未能本地启动 Next.js 验证，因为当前 worktree 缺 `node_modules` 且离线缓存不完整。\n\n## 7. Whether A2 Security Review Is Required\n\nRequired.\n\nReason: 本修复涉及 RBAC / DataScope 相关只读库存路径选择，且源任务已标记 security/RBAC/DataScope signal。A2 需确认 `/api/inventory/batches` 与 `/api/inventory/ledger` 的权限和 DataScope 行为符合预期；若 `/api/inventory/ledger` 不存在，需确认 CRUD fallback 不扩大权限面。\n\n## 8. Whether A1 Validation Is Required\n\nRequired.\n\nReason: 本地缺依赖导致 Web tsc / Next UI smoke 未完成。A1 需在依赖完整环境执行 Web typecheck、构建或 UAT smoke。\n\n## 9. Blo",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-07T16:02:23.169Z"
-    },
-    "acceptanceCriteria": "日生产日报点击”提交日报“时检查是否选择鸡舍，鸡舍显示“加载中...”就是没选择，若没选择鸡舍给一个提示“请先选择鸡舍后再提交”",
-    "agentPlanGeneratedAt": "2026-07-07T00:58:53.452Z",
+    "acceptanceCriteria": "要求近期日报记录下的淘汰原因显示中文",
+    "agentPlanGeneratedAt": "2026-07-07T01:10:34.939Z",
     "agentPlanGeneratedBy": "admin",
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-07T00:58:54.580Z",
+      "approvedAt": "2026-07-07T01:10:36.157Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -2618,6 +2390,34 @@
         "push without release approval",
         "force push"
       ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260707-0006-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0006-01-A2-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0006-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0006-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0006-01-A2\nTitle: Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-07T16:05:25.828Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260707-0006-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0006-01-A2-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0006-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0006-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0006-01-A2\nTitle: Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-07T16:05:25.828Z"
     }
   },
   "updatedBy": "bug_intake_runner"
