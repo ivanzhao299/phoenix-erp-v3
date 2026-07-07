@@ -2206,7 +2206,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2227,10 +2227,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-07T11:23:09.511Z",
+    "completed_at": "2026-07-07T11:23:29.035Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260706-0002-03-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -2238,7 +2238,9 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "reason": "reset interrupted dry-run parser bug claim"
+    "reason": "reset interrupted dry-run parser bug claim",
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A4-Frontend-UAT-Smoke --branch w5-a4-frontend-uat-smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --max-retries 3 --yes"
   },
   {
     "task_id": "BUGTASK-20260706-0002-04-A5",

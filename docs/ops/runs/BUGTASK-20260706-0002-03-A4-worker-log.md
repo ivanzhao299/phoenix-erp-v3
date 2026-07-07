@@ -10,7 +10,7 @@
 ## Command
 
 ```bash
-node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty
+/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty
 ```
 
 ## Stdout
@@ -25,7 +25,7 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260706-0002-03-A4-worker-assembled-pro
 Assembled prompt chars: 32102
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T10-54-53-454Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T11-23-29-026Z-A4-Frontend-UAT-Smoke.md
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -33,8 +33,6 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-07T10:53:42.699684Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.codex/plugins/cache/openai-primary-runtime/template-creator/26.630.12135/.codex-plugin/plugin.json
-2026-07-07T10:53:42.700413Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.codex/plugins/cache/openai-primary-runtime/template-creator/26.630.12135/.codex-plugin/plugin.json
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
@@ -44,7 +42,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3c36-5986-7903-a358-3a72c0c41e77
+session id: 019f3c51-508b-7462-b788-fb66c428e6cf
 --------
 user
 # Base Agent Prompt
@@ -1335,40 +1333,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
 8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
-2026-07-07T10:53:42.893115Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime/plugins/template-creator/.codex-plugin/plugin.json
-2026-07-07T10:53:42.898631Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-07T10:53:42.914139Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.914153Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.914905Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.914912Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915209Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915215Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915496Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915500Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915794Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.915798Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.916569Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:42.916574Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:44.339147Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.codex/plugins/cache/openai-primary-runtime/template-creator/26.630.12135/.codex-plugin/plugin.json
-2026-07-07T10:53:44.339912Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.codex/plugins/cache/openai-primary-runtime/template-creator/26.630.12135/.codex-plugin/plugin.json
-2026-07-07T10:53:44.396720Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-07T10:53:44.398317Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-07T10:53:45.052220Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime/plugins/template-creator/.codex-plugin/plugin.json
-2026-07-07T10:53:45.057825Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-07T10:53:45.068551Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.068564Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.068861Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.068866Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069170Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069177Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069484Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069488Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069800Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.069804Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.070460Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-07T10:53:45.070466Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 codex
-I’ll start with the required worktree checks and then inspect the `/home` frontend code path. If the bug turns out to require backend/schema/data changes, I’ll stop and report HOLD instead of crossing scope.
+我先做约定的 dry-run 检查，确认当前目录、分支、工作区和近期提交，再决定是否继续。
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
@@ -1380,298 +1346,486 @@ exec
 w5-a4-frontend-uat-smoke
 
 exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-a5e2323f (HEAD -> w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
+e3f95993 (HEAD -> w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
+6a006e2f docs(ops): record baseline lifecycle report
+a5e2323f docs(ops): record baseline lifecycle report
 8e17584a feat(web): record A4-Frontend-UAT-Smoke result
-411f204a (w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
+411f204a docs(ops): record baseline lifecycle report
 a433dfe0 feat(web): record A4-Frontend-UAT-Smoke result
 68dd814d docs(ops): record baseline lifecycle report
 2f8a48b5 feat(api): record A3-Backend-Critical-Path result
-9d683b03 docs(ops): record production rbac atomicity clearance
-e57099f1 fix(ops): dedupe role permission matrix repair plan
 
-2026-07-07T10:53:52.140074Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/mac/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime/plugins/template-creator/.codex-plugin/plugin.json
-2026-07-07T10:53:52.146021Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+exec
+/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ succeeded in 0ms:
 codex
-The preflight checks pass: correct directory, correct branch, and a clean worktree. I’m narrowing the `/home` implementation now to see whether the missing feed/water values are a rendering issue, a frontend API mapping issue, or a missing backend dependency.
+前置检查通过：目录和分支匹配，工作区干净。现在只读 `apps/web` 和 `docs/ops` 相关代码，先定位 `/home` 的工作台指标来源和渲染逻辑。
 exec
-/bin/zsh -lc 'find docs/ops -maxdepth 2 -type f | sort | tail -30' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'find apps/web -maxdepth 4 -type d | sort | head -200' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-docs/ops/runs/router-v1-revalidate-case2-route-plan.json
-docs/ops/runs/router-v1-revalidate-case2-route-plan.md
-docs/ops/runs/router-v1-revalidate-case3-route-plan.json
-docs/ops/runs/router-v1-revalidate-case3-route-plan.md
-docs/ops/runs/router-v1-revalidate-case4-route-plan.json
-docs/ops/runs/router-v1-revalidate-case4-route-plan.md
-docs/ops/runs/router-v1-revalidate-case5-route-plan.json
-docs/ops/runs/router-v1-revalidate-case5-route-plan.md
-docs/ops/runs/router-v1-revalidate-case6-route-plan.json
-docs/ops/runs/router-v1-revalidate-case6-route-plan.md
-docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt
-docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
-docs/ops/runs/store-payment-controlled-uat-smoke-static.json
-docs/ops/runs/store-payment-file-metadata-acl-static-check.json
-docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json
-docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json
-docs/ops/runs/store-payment-protected-streaming-static-check.json
-docs/ops/runs/store-payment-record-proof-db-evidence.json
-docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
-docs/ops/runs/store-payment-record-proof-page-smoke.json
-docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md
-docs/ops/runs/sys-dict-dedupe-latest.json
-docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
-docs/ops/runtime-memory/DECISION_LOG.md
-docs/ops/runtime-memory/GUARDRAILS.md
-docs/ops/runtime-memory/NEXT_ACTIONS.md
-docs/ops/runtime-memory/PROJECT_STATE.json
-docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
+apps/web
+apps/web/public
+apps/web/scripts
+apps/web/src
+apps/web/src/__tests__
+apps/web/src/app
+apps/web/src/app/(admin)
+apps/web/src/app/(admin)/analytics
+apps/web/src/app/(admin)/breeding
+apps/web/src/app/(admin)/daily-work
+apps/web/src/app/(admin)/dashboard
+apps/web/src/app/(admin)/data-quality
+apps/web/src/app/(admin)/finance2
+apps/web/src/app/(admin)/home
+apps/web/src/app/(admin)/master
+apps/web/src/app/(admin)/master-data
+apps/web/src/app/(admin)/notifications
+apps/web/src/app/(admin)/packaging
+apps/web/src/app/(admin)/pilot-run
+apps/web/src/app/(admin)/procurement2
+apps/web/src/app/(admin)/profile
+apps/web/src/app/(admin)/quality
+apps/web/src/app/(admin)/sales2
+apps/web/src/app/(admin)/settings
+apps/web/src/app/(admin)/shareholders
+apps/web/src/app/(admin)/store
+apps/web/src/app/(admin)/store-payment
+apps/web/src/app/(admin)/store-pos
+apps/web/src/app/(admin)/system
+apps/web/src/app/(admin)/traceability
+apps/web/src/app/(admin)/uat
+apps/web/src/app/(admin)/warehouse
+apps/web/src/app/(admin)/workflow
+apps/web/src/app/(mobile)
+apps/web/src/app/(mobile)/mobile
+apps/web/src/app/(terminal)
+apps/web/src/app/(terminal)/terminal
+apps/web/src/app/login
+apps/web/src/app/trace
+apps/web/src/app/trace/[batchNo]
+apps/web/src/components
+apps/web/src/components/cabin
+apps/web/src/components/data-table
+apps/web/src/components/design-system
+apps/web/src/components/design-system/cards
+apps/web/src/components/design-system/charts
+apps/web/src/components/design-system/detail
+apps/web/src/components/design-system/dialogs
+apps/web/src/components/design-system/drawers
+apps/web/src/components/design-system/feedback
+apps/web/src/components/design-system/forms
+apps/web/src/components/design-system/layouts
+apps/web/src/components/design-system/mobile
+apps/web/src/components/design-system/status
+apps/web/src/components/design-system/tables
+apps/web/src/components/design-system/templates
+apps/web/src/components/design-system/timeline
+apps/web/src/components/design-system/workbench
+apps/web/src/components/finance
+apps/web/src/components/layout
+apps/web/src/components/master-data
+apps/web/src/components/mobile
+apps/web/src/components/packaging
+apps/web/src/components/settings
+apps/web/src/components/shared-selectors
+apps/web/src/components/terminal
+apps/web/src/components/uat
+apps/web/src/components/ui
+apps/web/src/components/workflow
+apps/web/src/contexts
+apps/web/src/hooks
+apps/web/src/lib
+apps/web/src/locales
+apps/web/src/providers
+apps/web/src/styles
+apps/web/src/types
 
 exec
-/bin/zsh -lc "rg --files apps/web/app apps/web/src | rg 'home|dashboard|workbench|operations|farm'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc "rg --files apps/web | rg 'home|dashboard|workbench|page\\.tsx|page\\.ts"'$'"'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-rg: apps/web/app: No such file or directory (os error 2)
-apps/web/src/app/(mobile)/mobile/dashboard/page.tsx
-apps/web/src/app/(terminal)/terminal/home/page.tsx
 apps/web/src/components/design-system/workbench/WorkbenchParts.tsx
 apps/web/src/components/design-system/workbench/WorkbenchKit.tsx
-apps/web/src/app/(mobile)/mobile/home/page.tsx
-apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
-apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx
-apps/web/src/app/(admin)/quality/farm/page.tsx
+apps/web/src/app/(admin)/store/page.tsx
+apps/web/src/app/(admin)/store/receiving/page.tsx
+apps/web/src/app/(admin)/store/inventory/page.tsx
+apps/web/src/app/(admin)/store/replenish/page.tsx
+apps/web/src/app/(admin)/store/daily/page.tsx
+apps/web/src/app/(admin)/store/losses/page.tsx
+apps/web/src/app/(admin)/analytics/page.tsx
+apps/web/src/app/(admin)/analytics/production/page.tsx
+apps/web/src/app/(admin)/analytics/inventory/page.tsx
+apps/web/src/app/(admin)/analytics/feed/page.tsx
+apps/web/src/app/(admin)/analytics/price-review/page.tsx
+apps/web/src/app/(admin)/notifications/page.tsx
+apps/web/src/app/(admin)/shareholders/scopes/page.tsx
+apps/web/src/app/(admin)/shareholders/page.tsx
+apps/web/src/app/(admin)/shareholders/equity/page.tsx
 apps/web/src/app/(admin)/shareholders/dashboard/page.tsx
-apps/web/src/app/(admin)/home/page.tsx
+apps/web/src/app/(admin)/shareholders/projects/page.tsx
+apps/web/src/app/(admin)/shareholders/contributions/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/import/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/[id]/page.tsx
+apps/web/src/app/(admin)/warehouse/loss-report/page.tsx
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx
+apps/web/src/app/(admin)/warehouse/page.tsx
+apps/web/src/app/(admin)/warehouse/query/page.tsx
+apps/web/src/app/(admin)/warehouse/expiry/page.tsx
+apps/web/src/app/(admin)/warehouse/outbound/page.tsx
+apps/web/src/app/(admin)/warehouse/inbound/page.tsx
+apps/web/src/app/(admin)/warehouse/locations/page.tsx
+apps/web/src/app/(admin)/warehouse/stocktake/page.tsx
+apps/web/src/app/(admin)/warehouse/source-mode/page.tsx
+apps/web/src/app/(admin)/warehouse/transfer/page.tsx
+apps/web/src/app/(admin)/warehouse/zones/page.tsx
+apps/web/src/app/(admin)/warehouse/warehouses/page.tsx
+apps/web/src/app/(admin)/warehouse/ledger/page.tsx
+apps/web/src/app/(admin)/workflow/analytics/page.tsx
+apps/web/src/app/(admin)/workflow/page.tsx
+apps/web/src/app/(admin)/workflow/builder/page.tsx
+apps/web/src/app/(admin)/workflow/definitions/page.tsx
+apps/web/src/app/(admin)/workflow/data-sources/page.tsx
+apps/web/src/app/(admin)/workflow/todos/page.tsx
+apps/web/src/app/(admin)/workflow/instances/page.tsx
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx
+apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx
+apps/web/src/app/(admin)/workflow/history/page.tsx
+apps/web/src/app/(admin)/workflow/start/page.tsx
+apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx
+apps/web/src/app/(admin)/workflow/forms/page.tsx
+apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx
+apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx
+apps/web/src/app/(admin)/workflow/monitor/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/cc/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/done/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx
+apps/web/src/app/(admin)/workflow/metrics/page.tsx
+apps/web/src/app/(admin)/sales2/channels/page.tsx
+apps/web/src/app/(admin)/sales2/reports/page.tsx
+apps/web/src/app/(admin)/sales2/pricing/page.tsx
+apps/web/src/app/(admin)/sales2/page.tsx
+apps/web/src/app/(admin)/sales2/orders/page.tsx
+apps/web/src/app/(admin)/sales2/returns/page.tsx
+apps/web/src/app/(admin)/sales2/delivery/page.tsx
+apps/web/src/app/(admin)/sales2/inventory/page.tsx
+apps/web/src/app/(admin)/sales2/credit/page.tsx
+apps/web/src/app/(admin)/sales2/customers/page.tsx
+apps/web/src/app/(admin)/master/page.tsx
+apps/web/src/app/(admin)/master/orgs/page.tsx
+apps/web/src/app/(admin)/master/farms/page.tsx
+apps/web/src/app/(admin)/master/stores/page.tsx
+apps/web/src/app/(admin)/master/products/page.tsx
+apps/web/src/app/(admin)/profile/page.tsx
+apps/web/src/app/(admin)/system/backup/page.tsx
+apps/web/src/app/(admin)/system/configs/page.tsx
+apps/web/src/app/(admin)/system/alerts/page.tsx
+apps/web/src/app/(admin)/system/health/page.tsx
+apps/web/src/app/(admin)/system/error-logs/page.tsx
+apps/web/src/app/(admin)/master-data/pending/page.tsx
+apps/web/src/app/(admin)/master-data/companies/page.tsx
+apps/web/src/app/(admin)/master-data/page.tsx
+apps/web/src/app/(admin)/master-data/dictionaries/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/new/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx
+apps/web/src/app/(admin)/master-data/vehicles/page.tsx
+apps/web/src/app/(admin)/master-data/governance/page.tsx
+apps/web/src/app/(admin)/master-data/product-grades/page.tsx
+apps/web/src/app/(admin)/master-data/user-orgs/page.tsx
+apps/web/src/app/(admin)/master-data/operations/page.tsx
+apps/web/src/app/(admin)/master-data/stores/page.tsx
+apps/web/src/app/(admin)/master-data/packaging-specs/page.tsx
+apps/web/src/app/(admin)/master-data/projects/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/new/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx
+apps/web/src/app/(admin)/master-data/quality/page.tsx
+apps/web/src/app/(admin)/master-data/business-units/page.tsx
+apps/web/src/app/(admin)/master-data/suppliers/page.tsx
+apps/web/src/app/(admin)/master-data/product-skus/page.tsx
+apps/web/src/app/(admin)/master-data/suppliers/new/page.tsx
+apps/web/src/app/(admin)/finance2/reports/page.tsx
+apps/web/src/app/(admin)/finance2/page.tsx
+apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx
+apps/web/src/app/(admin)/master-data/suppliers/[code]/edit/page.tsx
+apps/web/src/app/(admin)/master-data/organizations/page.tsx
+apps/web/src/app/(admin)/master-data/products/page.tsx
+apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx
+apps/web/src/app/(admin)/master-data/customers/page.tsx
+apps/web/src/app/(admin)/master-data/products/new/page.tsx
+apps/web/src/app/(admin)/master-data/drivers/page.tsx
+apps/web/src/app/(admin)/master-data/customers/new/page.tsx
+apps/web/src/app/(admin)/master-data/warehouses/page.tsx
+apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx
+apps/web/src/app/(admin)/master-data/products/[code]/edit/page.tsx
+apps/web/src/app/(admin)/finance2/ar/page.tsx
+apps/web/src/app/(admin)/master-data/materials/page.tsx
+apps/web/src/app/(admin)/master-data/customers/[code]/edit/page.tsx
+apps/web/src/app/trace/[batchNo]/page.tsx
 apps/web/src/app/(admin)/dashboard/page.tsx
 apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css
 apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx
 apps/web/src/app/(admin)/dashboard/dashboard.module.css
-apps/web/src/app/(admin)/master-data/operations/page.tsx
-apps/web/src/app/(admin)/master/farms/page.tsx
+apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx
+apps/web/src/app/(admin)/store-payment/page.tsx
+apps/web/src/app/(admin)/finance2/reimbursements/page.tsx
+apps/web/src/app/(mobile)/mobile/analytics/page.tsx
+apps/web/src/app/(admin)/traceability/page.tsx
+apps/web/src/app/(mobile)/mobile/login/page.tsx
+apps/web/src/app/(mobile)/mobile/expenses/page.tsx
+apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx
+apps/web/src/app/(mobile)/mobile/notifications/page.tsx
+apps/web/src/app/(mobile)/mobile/quality/page.tsx
+apps/web/src/app/(mobile)/mobile/medicine/page.tsx
+apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx
+apps/web/src/app/(mobile)/mobile/sales/page.tsx
+apps/web/src/app/(mobile)/mobile/device/page.tsx
+apps/web/src/app/(admin)/finance2/expenses/page.tsx
+apps/web/src/app/(mobile)/mobile/prc-request/page.tsx
+apps/web/src/app/(mobile)/mobile/prc-order/page.tsx
+apps/web/src/app/(mobile)/mobile/workflow/page.tsx
+apps/web/src/app/(mobile)/mobile/egg/page.tsx
+apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/page.tsx
+apps/web/src/app/(mobile)/mobile/henhouse/page.tsx
+apps/web/src/app/(mobile)/mobile/feed/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/performance/page.tsx
+apps/web/src/app/(admin)/finance2/ap/page.tsx
+apps/web/src/app/(mobile)/mobile/home/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/orders/page.tsx
+apps/web/src/app/(mobile)/mobile/packaging/page.tsx
+apps/web/src/app/(mobile)/mobile/henreport/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/exception/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/photos/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/exceptions/page.tsx
+apps/web/src/app/(mobile)/mobile/dashboard/page.tsx
+apps/web/src/app/page.tsx
+apps/web/src/app/(mobile)/mobile/delivery/receipt/[orderId]/page.tsx
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx
+apps/web/src/app/(admin)/uat/page.tsx
+apps/web/src/app/(admin)/packaging/page.tsx
+apps/web/src/app/(admin)/home/page.tsx
+apps/web/src/app/(admin)/packaging/daily-report/page.tsx
+apps/web/src/app/(admin)/packaging/inbound/page.tsx
+apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx
+apps/web/src/app/(terminal)/terminal/wms/outbound/page.tsx
+apps/web/src/app/(admin)/packaging/batch/page.tsx
+apps/web/src/app/(terminal)/terminal/wms/inbound/page.tsx
+apps/web/src/app/(admin)/settings/notifications/page.tsx
+apps/web/src/app/(admin)/packaging/print-logs/page.tsx
+apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx
+apps/web/src/app/(admin)/settings/dict/page.tsx
+apps/web/src/app/(admin)/packaging/exceptions/page.tsx
+apps/web/src/app/(terminal)/terminal/home/page.tsx
+apps/web/src/app/(admin)/settings/pda-terminals/page.tsx
+apps/web/src/app/(admin)/settings/page.tsx
+apps/web/src/app/(admin)/daily-work/page.tsx
+apps/web/src/app/(admin)/settings/pos-config/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/packing/page.tsx
+apps/web/src/app/(admin)/procurement2/page.tsx
+apps/web/src/app/(admin)/settings/online-users/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/page.tsx
+apps/web/src/app/(admin)/settings/users/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx
+apps/web/src/app/(admin)/settings/users/[id]/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/[id]/edit/page.tsx
+apps/web/src/app/(admin)/settings/profile/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/exceptions/page.tsx
+apps/web/src/app/(admin)/settings/master-data/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/new/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx
+apps/web/src/app/(admin)/settings/permissions/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx
+apps/web/src/app/(admin)/settings/approval-flows/page.tsx
+apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx
+apps/web/src/app/(admin)/settings/permission-sets/page.tsx
+apps/web/src/app/(admin)/procurement2/requests/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx
+apps/web/src/app/(admin)/settings/audit-log/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx
+apps/web/src/app/(admin)/settings/roles/page.tsx
+apps/web/src/app/(admin)/procurement2/requests/[id]/edit/page.tsx
+apps/web/src/app/(admin)/settings/store-stock/page.tsx
+apps/web/src/app/(admin)/settings/roles/[code]/page.tsx
+apps/web/src/app/(admin)/procurement2/requests/new/page.tsx
+apps/web/src/app/(admin)/settings/approval-rules/page.tsx
+apps/web/src/app/(admin)/settings/brand/page.tsx
+apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx
+apps/web/src/app/(admin)/settings/data-scopes/page.tsx
+apps/web/src/app/(admin)/settings/security/page.tsx
+apps/web/src/app/(admin)/procurement2/projects/page.tsx
+apps/web/src/app/(admin)/settings/organizations/page.tsx
+apps/web/src/app/(admin)/procurement2/receipts/page.tsx
+apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx
+apps/web/src/app/(admin)/breeding/page.tsx
+apps/web/src/app/(admin)/procurement2/suppliers/page.tsx
+apps/web/src/app/(admin)/pilot-run/page.tsx
+apps/web/src/app/(admin)/store-pos/page.tsx
+apps/web/src/app/(admin)/breeding/egg-ledger/page.tsx
+apps/web/src/app/(admin)/procurement2/payments/page.tsx
+apps/web/src/app/(admin)/procurement2/init/page.tsx
+apps/web/src/app/(admin)/breeding/flock/page.tsx
+apps/web/src/app/(admin)/procurement2/shipments/page.tsx
+apps/web/src/app/(admin)/quality/standards/page.tsx
+apps/web/src/app/(admin)/breeding/device/page.tsx
+apps/web/src/app/(admin)/procurement2/payments/[id]/edit/page.tsx
+apps/web/src/app/(admin)/procurement2/payments/new/page.tsx
+apps/web/src/app/(admin)/quality/forward/page.tsx
+apps/web/src/app/(admin)/quality/page.tsx
+apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx
+apps/web/src/app/(admin)/breeding/med-stock/page.tsx
+apps/web/src/app/(admin)/quality/product/page.tsx
+apps/web/src/app/(admin)/breeding/henhouse/page.tsx
+apps/web/src/app/(admin)/breeding/medicine/page.tsx
+apps/web/src/app/(admin)/breeding/daily/page.tsx
+apps/web/src/app/(admin)/quality/backward/page.tsx
+apps/web/src/app/(admin)/breeding/feed/page.tsx
+apps/web/src/app/(admin)/breeding/device-ops/page.tsx
+apps/web/src/app/(admin)/quality/nonconformance/page.tsx
+apps/web/src/app/(admin)/breeding/henreport/page.tsx
+apps/web/src/app/(admin)/breeding/immune/page.tsx
+apps/web/src/app/(admin)/data-quality/page.tsx
+apps/web/src/app/(admin)/quality/farm/page.tsx
+apps/web/src/app/login/page.tsx
+apps/web/src/app/(mobile)/mobile/egglog/page.tsx
+apps/web/src/app/(admin)/breeding/device-alerts/page.tsx
 
 exec
-/bin/zsh -lc 'rg -n "运营工作台|今日饲料|今日用水|饲料|用水|feed|water|home" apps/web/app apps/web/src' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- exited 2 in 0ms:
-rg: apps/web/app: No such file or directory (os error 2)
+/bin/zsh -lc 'rg -n "今日|饲料|用水|feed|water|运营工作台|kg|L" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ succeeded in 0ms:
+apps/web/src/lib/packaging-api.ts:6:export interface PrintLogRow {
+apps/web/src/lib/packaging-api.ts:10:  print_type: 'NORMAL' | 'REPRINT';
+apps/web/src/lib/packaging-api.ts:63:  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+apps/web/src/lib/packaging-api.ts:125:  recordPrintLog: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/labels/print-log', body),
+apps/web/src/lib/packaging-api.ts:126:  getPrintLogs: (params: { startDate: string; endDate: string; type?: string }) => {
+apps/web/src/lib/packaging-api.ts:127:    const q = new URLSearchParams({ startDate: params.startDate, endDate: params.endDate });
+apps/web/src/lib/packaging-api.ts:128:    if (params.type && params.type !== 'ALL') q.set('type', params.type);
+apps/web/src/lib/packaging-api.ts:129:    return request<{ data: PrintLogRow[] }>('GET', `/api/packaging/terminal/labels/print-logs?${q}`);
+apps/web/src/lib/packaging-api.ts:137:      shift: { id: number; shiftCode: string; shiftLabel: string; operatorName: string; supervisorName: string } | null;
+apps/web/src/lib/packaging-api.ts:143:    const params = new URLSearchParams();
+apps/web/src/lib/packaging-api.ts:179:  // ── 班组长候选列表（ROLE_LINE_SUPERVISOR / ROLE_PKG_MGR / ROLE_ADMIN） ──────
+apps/web/src/lib/packaging-api.ts:188:  labelLo?: string;
+apps/web/src/lib/packaging-api.ts:205:  // PKG_QC_RESULT
+apps/web/src/lib/shareholder-api.ts:55:export const PROJECT_TYPE_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:56:  LAYER_FARM: '蛋鸡养殖场', BROILER_FARM: '肉鸡养殖场', SLAUGHTER: '屠宰加工厂',
+apps/web/src/lib/shareholder-api.ts:57:  FOOD_FACTORY: '食品厂', ORGANIC_FERTILIZER: '有机肥生产厂', HATCHERY: '孵化场',
 apps/web/src/lib/shareholder-api.ts:58:  FEED_MILL: '饲料厂', OTHER: '其他',
-apps/web/src/hooks/useMobilePermission.ts:22: *   const { allowed, readonly, loading } = useMobilePermission('feed');
-apps/web/src/hooks/useMobilePermission.ts:24: * - allowed=false 且 loading=false → 自动重定向到 /mobile/home
-apps/web/src/hooks/useMobilePermission.ts:42:      router.replace('/mobile/home');
-apps/web/src/lib/dict-type-labels.ts:43:  SYS: "系统", TRP: "运输", VET: "兽医", WMS: "仓储", FARM: "养殖", STORE: "门店", FEED: "饲料",
-apps/web/src/lib/mobile-api.ts:116:  feed_consumed?:  number | string;
-apps/web/src/lib/mobile-api.ts:117:  water_consumed?: number | string;
-apps/web/src/lib/mobile-api.ts:261:  feed:           number;
-apps/web/src/lib/mobile-api.ts:275:    feed:        number;
-apps/web/src/lib/mobile-api.ts:284:  feed:        number;
-apps/web/src/lib/mobile-api.ts:296:    avg_feed:        number;
-apps/web/src/lib/mobile-api.ts:334:  /** 饲料台账 — 查询某日 */
-apps/web/src/lib/mobile-api.ts:336:    get<FeedLedgerRow[]>(`/api/farm/feed/ledger?date=${date}`),
-apps/web/src/lib/mobile-api.ts:338:  /** 饲料台账 — 保存 */
-apps/web/src/lib/mobile-api.ts:340:    fetch((process.env.NEXT_PUBLIC_API_BASE || '') + '/api/farm/feed/ledger', {
-apps/web/src/lib/mobile-api.ts:351:    getCached('feedHousesDetail', () => get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses'), 5 * 60_000)
-apps/web/src/lib/mobile-api.ts:365:    post<{ code: number; data?: { house_code: string }; msg?: string }>('/api/farm/feed/houses', body),
-apps/web/src/lib/mobile-api.ts:441:  /** 生产趋势（最近 N 天日均产蛋/死淘/饲料 + 上期对比） */
-apps/web/src/lib/mobile-roles.ts:132:  /** 饲料台账：农场相关角色可录入；仓储/物流/采购/成本会计可查看 */
-apps/web/src/lib/mobile-roles.ts:133:  feed: {
-apps/web/src/lib/mobile-roles.ts:295:  feed: {
-apps/web/src/__tests__/mobile-roles.test.ts:22:    // feed.write 含 FARM_MGR
-apps/web/src/__tests__/mobile-roles.test.ts:23:    expect(getAccessLevel('feed', R.FARM_MGR)).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:27:    // feed.read 含 CEO（不在 write）
-apps/web/src/__tests__/mobile-roles.test.ts:28:    expect(getAccessLevel('feed', R.CEO)).toBe('read');
-apps/web/src/__tests__/mobile-roles.test.ts:32:    expect(getAccessLevel('feed', R.DRIVER)).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:40:    expect(getAccessLevel('feed', null)).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:41:    expect(getAccessLevel('feed', undefined)).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:47:    expect(canAccess('feed', R.FARM_MGR)).toBe(true); // write
-apps/web/src/__tests__/mobile-roles.test.ts:48:    expect(canAccess('feed', R.CEO)).toBe(true); // read
-apps/web/src/__tests__/mobile-roles.test.ts:52:    expect(canAccess('feed', R.DRIVER)).toBe(false);
-apps/web/src/__tests__/mobile-roles.test.ts:56:    expect(canWrite('feed', R.FARM_MGR)).toBe(true);
-apps/web/src/__tests__/mobile-roles.test.ts:57:    expect(canWrite('feed', R.CEO)).toBe(false);
-apps/web/src/__tests__/mobile-roles.test.ts:82:    // CEO=read on feed, FARM_MGR=write on feed -> write wins
-apps/web/src/__tests__/mobile-roles.test.ts:83:    expect(getAccessLevelMulti('feed', [R.CEO, R.FARM_MGR])).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:87:    // ROLE_FARMER aliases to BREEDER which has write on feed
-apps/web/src/__tests__/mobile-roles.test.ts:88:    expect(getAccessLevelMulti('feed', ['ROLE_FARMER'])).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:92:    expect(getAccessLevelMulti('feed', [R.DRIVER, null])).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:98:    expect(getMobileAccessFromJWT(['*'], 'feed')).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:102:    // feed.write menu MENU_FARM_DAILY with E action
-apps/web/src/__tests__/mobile-roles.test.ts:103:    expect(getMobileAccessFromJWT(['MENU_FARM_DAILY:E'], 'feed')).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:107:    expect(getMobileAccessFromJWT(['MENU_FARM_DAILY:V'], 'feed')).toBe('read');
-apps/web/src/__tests__/mobile-roles.test.ts:111:    expect(getMobileAccessFromJWT(['MOBILE_FEED:V'], 'feed')).toBe('read');
-apps/web/src/__tests__/mobile-roles.test.ts:112:    expect(getMobileAccessFromJWT(['MOBILE_FEED:E'], 'feed')).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:116:    expect(getMobileAccessFromJWT([], 'feed')).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:117:    expect(getMobileAccessFromJWT(null, 'feed')).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:118:    expect(getMobileAccessFromJWT(undefined, 'feed')).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:122:    expect(getMobileAccessFromJWT(['MENU_UNRELATED:E'], 'feed')).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:129:      getMobileAccessLevel('feed', { permissions: ['MENU_FARM_DAILY:E'], role: R.DRIVER }),
-apps/web/src/__tests__/mobile-roles.test.ts:137:    expect(getMobileAccessLevel('feed', { role: R.FARM_MGR })).toBe('write');
-apps/web/src/__tests__/mobile-roles.test.ts:141:    // feed IS in PAGE_MENU_PERMS; non-matching perms => none, role ignored.
-apps/web/src/__tests__/mobile-roles.test.ts:143:      getMobileAccessLevel('feed', { permissions: ['MENU_UNRELATED:E'], role: R.FARM_MGR }),
-apps/web/src/__tests__/mobile-roles.test.ts:148:    expect(getMobileAccessLevel('feed', {})).toBe('none');
-apps/web/src/__tests__/mobile-roles.test.ts:154:    expect(canAccessMobile('feed', { role: R.FARM_MGR })).toBe(true);
-apps/web/src/__tests__/mobile-roles.test.ts:155:    expect(canAccessMobile('feed', { role: R.DRIVER })).toBe(false);
-apps/web/src/__tests__/mobile-roles.test.ts:160:    // DRIVER can see dashboard (read) and delivery (write) but NOT feed.
-apps/web/src/__tests__/mobile-roles.test.ts:163:    expect(pages).not.toContain('feed');
-apps/web/src/middleware.ts:103:      const dest = token ? '/mobile/home' : '/mobile/login';
-apps/web/src/middleware.ts:106:    // 桌面端根路径：已登录按角色落地——超管→集团驾驶舱，其余一律→运营工作台 /home，
-apps/web/src/middleware.ts:113:      dest = isAdmin ? '/dashboard' : '/home';
-apps/web/src/middleware.ts:172:      // 无权限 → 回退到运营工作台 /home（而非 CEO 集团驾驶舱），附带提示
-apps/web/src/middleware.ts:173:      const homeUrl = new URL('/home', request.url);
-apps/web/src/middleware.ts:174:      homeUrl.searchParams.set('reason', 'forbidden');
-apps/web/src/middleware.ts:175:      return NextResponse.redirect(homeUrl);
-apps/web/src/app/(admin)/store/page.tsx:52:     ClipboardList/RefreshCcw/AlertTriangle),按 [feedback_avoid_emoji_color_card]
-apps/web/src/app/(admin)/store/receiving/page.tsx:16:/* g200k(2026-06-20):状态 tone + 中文 label,按 [feedback_hardcoded_english_to_chinese] */
-apps/web/src/app/(admin)/sales2/channels/page.tsx:68:// 按 [feedback_avoid_emoji_color_card]:禁用浅色背景图标盒 + hex 大数字。
-apps/web/src/app/(admin)/store/replenish/page.tsx:13:/* g200k(2026-06-20):状态 tone + 中文 label,按 [feedback_hardcoded_english_to_chinese] */
-apps/web/src/components/ErrorBoundary.tsx:19:          <button type="button" className="phx-btn phx-btn-secondary" onClick={() => { window.location.href = '/home'; }}>
-apps/web/src/app/(admin)/store/daily/page.tsx:14:   [feedback_hardcoded_english_to_chinese] 铁律 */
-apps/web/src/components/design-system/index.ts:91:// feedback
-apps/web/src/components/design-system/index.ts:92:export { EmptyState } from './feedback/EmptyState';
-apps/web/src/components/design-system/index.ts:93:export type { EmptyStateProps } from './feedback/EmptyState';
-apps/web/src/components/design-system/index.ts:94:export { LoadingSkeleton } from './feedback/LoadingSkeleton';
-apps/web/src/components/design-system/index.ts:95:export type { LoadingSkeletonProps } from './feedback/LoadingSkeleton';
-apps/web/src/components/design-system/index.ts:96:export { ErrorState } from './feedback/ErrorState';
-apps/web/src/components/design-system/index.ts:97:export type { ErrorStateProps } from './feedback/ErrorState';
-apps/web/src/components/design-system/index.ts:98:export { PermissionDeniedState, NoDataState } from './feedback/States';
-apps/web/src/locales/en.json:64:  "packaging.grading": "graded homework",
-apps/web/src/locales/en.json:396:  "ui.合计饲料": "total feed",
-apps/web/src/locales/en.json:1068:  "ui.条码截获瀑布流": "Barcode interception waterfall flow:",
-apps/web/src/locales/en.json:1147:  "ui.客诉异常反馈": "Customer complaint abnormal feedback",
-apps/web/src/locales/en.json:1176:  "ui.饲料": "Feed",
-apps/web/src/locales/en.json:1256:  "ui.饮水": "drink water",
-apps/web/src/locales/en.json:1318:  "ui.如100mgkg饲料": "For example: 100mg/kg feed",
-apps/web/src/locales/en.json:1353:  "ui.家": "home",
-apps/web/src/locales/en.json:1379:  "ui.饲料包材兽药等物料的采购全流程管控": "Full process control of the procurement of feed, packaging materials, veterinary drugs and other materials",
-apps/web/src/locales/en.json:1409:  "ui.老挝农业饲料公司": "Lao Agricultural Feed Company",
-apps/web/src/locales/en.json:1413:  "ui.物料名称例优质玉米饲料": "Material name (example: high-quality corn feed)",
-apps/web/src/locales/en.json:1436:  "ui.经停加水点与押送过路费备报": "Reporting of water refilling points and escort tolls at stops...",
-apps/web/src/locales/en.json:1865:  "ui.05号鸡舍产蛋率环比下降4需排查饲料": "The egg production rate in House No. 05 dropped by 4% month-on-month, and the feed needs to be checked",
-apps/web/src/locales/en.json:1866:  "ui.饲料成本": "feed cost",
-apps/web/src/locales/en.json:2509:  "ui.成本原料饲料采购": "Cost: Raw Material: Feed Purchase",
-apps/web/src/locales/en.json:2518:  "ui.饲料采购": "Feed Procurement",
-apps/web/src/locales/en.json:2837:  "ui.用水": "Water Use",
-apps/web/src/locales/en.json:2949:  "ui.丰达饲料有限公司": "Fengda Feed Co. Ltd.",
-apps/web/src/locales/en.json:3089:  "ui.老挝农业饲料公司准时率": "Lao Agri Feed Co. - On-time Rate",
-apps/web/src/locales/en.json:3381:  "ui.饲料消耗核验": "Feed Consumption Verification",
-apps/web/src/locales/en.json:3628:  "ui.今日用水": "Water Today",
-apps/web/src/locales/en.json:3790:  "ui.设备采集耗料v": "Equipment feed usage vs. purchase inbound data comparison audit",
-apps/web/src/locales/en.json:3930:  "tab_home": "Workbench",
-apps/web/src/locales/en.json:4131:  "menu.an-feed": "Feed Reconciliation",
-apps/web/src/locales/en.json:4438:  "analytics.feed_title": "Feed Procurement Analysis",
-apps/web/src/locales/en.json:4439:  "analytics.feed_subtitle": "Receipt statistics · Feed category distribution · Supplier analysis",
-apps/web/src/locales/en.json:4440:  "analytics.feed_month_batches": "Receipts This Month",
-apps/web/src/locales/en.json:4441:  "analytics.feed_month_weight": "Total Receipt Weight This Month",
-apps/web/src/locales/en.json:4442:  "analytics.feed_net_weight_total": "Total net weight",
-apps/web/src/locales/en.json:4443:  "analytics.feed_supplier_count": "Supplier Count",
-apps/web/src/locales/en.json:4444:  "analytics.feed_supplier_count_sub": "suppliers (all records)",
-apps/web/src/locales/en.json:4445:  "analytics.feed_recent_receipts": "Recent Receipts",
-apps/web/src/locales/en.json:4447:  "analytics.col_feed_category": "Feed Category",
-apps/web/src/locales/en.json:4539:  "dwork.card.feed_log.title": "Feed Consumption Registration",
-apps/web/src/locales/en.json:4540:  "dwork.card.feed_log.desc": "Corn / Soybean meal / Premix · allocated by henhouse",
-apps/web/src/locales/en.json:4550:  "dwork.card.manual_in.desc": "Manual inbound of feed / vet drugs / packaging materials",
-apps/web/src/locales/en.json:4599:  "home.enterDailyWork": "Enter Daily Workbench",
-apps/web/src/locales/en.json:4600:  "home.handleNow": "Handle now",
-apps/web/src/locales/en.json:4601:  "home.todosUnit": "to-dos",
-apps/web/src/locales/en.json:4602:  "home.enterCashCenter": "Enter Cash Account Center",
-apps/web/src/locales/en.json:4603:  "home.enterFinance": "Enter Finance Center",
-apps/web/src/locales/en.json:4604:  "home.enterProcurement": "Enter Procurement Center",
-apps/web/src/locales/en.json:4605:  "home.enterSales": "Enter Sales Center",
-apps/web/src/locales/en.json:4606:  "home.enterInventory": "Enter Inventory Center",
-apps/web/src/locales/en.json:4607:  "home.enterMasterData": "Enter Master Data Center",
-apps/web/src/locales/en.json:4608:  "home.enterDataQuality": "Enter Data Quality Cockpit",
-apps/web/src/locales/en.json:4609:  "home.enterWorkspace": "Enter My Workspace",
-apps/web/src/locales/en.json:4610:  "home.viewMyTodos": "View My To-dos",
-apps/web/src/locales/en.json:4611:  "home.user": "User",
-apps/web/src/locales/en.json:4612:  "home.greetEarly": "Good early morning",
-apps/web/src/locales/en.json:4613:  "home.greetMorning": "Good morning",
-apps/web/src/locales/en.json:4614:  "home.greetNoon": "Good noon",
-apps/web/src/locales/en.json:4615:  "home.greetAfternoon": "Good afternoon",
-apps/web/src/locales/en.json:4616:  "home.greetEvening": "Good evening",
-apps/web/src/locales/en.json:4617:  "home.todosPending": "to-dos pending",
-apps/web/src/locales/en.json:4618:  "home.overdueUnit": "overdue",
-apps/web/src/locales/en.json:4619:  "home.highAlertsUnit": "high-risk alerts",
-apps/web/src/locales/en.json:4620:  "home.mdPendingUnit": "master data pending approval",
-apps/web/src/locales/en.json:4621:  "home.noUrgent": "No urgent matters today, you can focus on your work.",
-apps/web/src/locales/en.json:4622:  "home.todayHas": "Today there are ",
-apps/web/src/locales/en.json:4623:  "home.listSep": ", ",
-apps/web/src/locales/en.json:4624:  "home.handlePriority": ", please handle with priority.",
-apps/web/src/locales/en.json:4625:  "home.kpiTotalStock": "Current Total Stock",
-apps/web/src/locales/en.json:4626:  "home.unitBird": "birds",
-apps/web/src/locales/en.json:4627:  "home.kpiEggsToday": "Eggs Today",
-apps/web/src/locales/en.json:4628:  "home.unitEgg": "pcs",
-apps/web/src/locales/en.json:4629:  "home.kpiLayRate": "Lay Rate Today",
-apps/web/src/locales/en.json:4630:  "home.kpiFeedToday": "Feed Consumption Today",
-apps/web/src/locales/en.json:4631:  "home.kpiWaterToday": "Water Usage Today",
-apps/web/src/locales/en.json:4632:  "home.kpiAlarm": "Device Alarms",
-apps/web/src/locales/en.json:4633:  "home.unitItem": "items",
-apps/web/src/locales/en.json:4634:  "home.opsWorkbench": "Operations Workbench",
-apps/web/src/locales/en.json:4635:  "home.masterDataCenter": "Master Data Center",
-apps/web/src/locales/en.json:4636:  "home.todo": "To-do",
-apps/web/src/locales/en.json:4637:  "home.overdue": "Overdue",
-apps/web/src/locales/en.json:4638:  "home.highAlert": "High-risk Alert",
-apps/web/src/locales/en.json:4639:  "home.todoFlow": "Transaction Flow · My To-dos",
-apps/web/src/locales/en.json:4640:  "home.total": "Total",
-apps/web/src/locales/en.json:4641:  "home.orderUnit": "orders",
-apps/web/src/locales/en.json:4642:  "home.all": "All",
-apps/web/src/locales/en.json:4643:  "home.noTodo": "No to-do tasks, you can focus on your work today ✨",
-apps/web/src/locales/en.json:4644:  "home.overdueTag": "Overdue",
-apps/web/src/locales/en.json:4645:  "home.within24h": "Within 24h",
-apps/web/src/locales/en.json:4646:  "home.starter": "Initiator: ",
-apps/web/src/locales/en.json:4647:  "home.due": "Due",
-apps/web/src/locales/en.json:4648:  "home.bizSales": "Sales",
-apps/web/src/locales/en.json:4649:  "home.bizSalesSub": "Orders · Receipts",
-apps/web/src/locales/en.json:4650:  "home.bizCash": "Cash",
-apps/web/src/locales/en.json:4651:  "home.bizCashSub": "Accounts · Transactions",
-apps/web/src/locales/en.json:4652:  "home.bizAr": "Receivables",
-apps/web/src/locales/en.json:4653:  "home.bizArSub": "Invoices · Aging",
-apps/web/src/locales/en.json:4654:  "home.bizAp": "Payables",
-apps/web/src/locales/en.json:4655:  "home.bizApSub": "Terms · Payments",
-apps/web/src/locales/en.json:4656:  "home.bizOverview": "Business Overview",
-apps/web/src/locales/en.json:4657:  "home.bizPanorama": "Business Panorama",
-apps/web/src/locales/en.json:4658:  "home.dataQuality": "Data Quality Cockpit",
-apps/web/src/locales/en.json:4659:  "home.excellent": "Excellent",
-apps/web/src/locales/en.json:4660:  "home.good": "Good",
-apps/web/src/locales/en.json:4661:  "home.pass": "Pass",
-apps/web/src/locales/en.json:4662:  "home.needFix": "Needs Fixing",
-apps/web/src/locales/en.json:4663:  "home.compositeScore": "Composite Score",
-apps/web/src/locales/en.json:4664:  "home.sevenDimWeighted": "7-dimension weighted",
-apps/web/src/locales/en.json:4665:  "home.masterDataHealth": "Master Data Health",
-apps/web/src/locales/en.json:4666:  "home.needAttention": "Needs Immediate Attention",
-apps/web/src/locales/en.json:4667:  "home.itemUnit": "items",
-apps/web/src/locales/en.json:4668:  "home.masterDataHealthScore": "Master Data Health Score",
-apps/web/src/locales/en.json:4669:  "home.managed": "Managed",
-apps/web/src/locales/en.json:4670:  "home.risk": "Risk",
-apps/web/src/locales/en.json:4671:  "home.bizCenter": "Business Center",
-apps/web/src/locales/en.json:4672:  "home.oneClick": "One-click access",
-apps/web/src/locales/en.json:4673:  "home.shortcut.customer": "Customer Center",
-apps/web/src/locales/en.json:4674:  "home.shortcut.supplier": "Supplier Center",
-apps/web/src/locales/en.json:4675:  "home.shortcut.procure": "Procurement Center",
-apps/web/src/locales/en.json:4676:  "home.shortcut.sales": "Sales Center",
-apps/web/src/locales/en.json:4677:  "home.shortcut.finance": "Finance Center",
-apps/web/src/locales/en.json:4678:  "home.shortcut.inventory": "Inventory Center",
-apps/web/src/locales/en.json:4679:  "home.shortcut.workflow": "Approval Workbench",
-apps/web/src/locales/en.json:4680:  "home.shortcut.quality": "Data Quality",
-apps/web/src/locales/en.json:5338:  "fin2.home.accounts_unit": "accounts",
-apps/web/src/locales/en.json:5339:  "fin2.home.ap_payable": "Payables Outstanding",
-apps/web/src/locales/en.json:5340:  "fin2.home.ar_receivable": "Receivables Outstanding",
-apps/web/src/locales/en.json:5341:  "fin2.home.cash_payment": "Cash Receipts & Payments",
-apps/web/src/locales/en.json:5342:  "fin2.home.cockpit": "Cockpit",
-apps/web/src/locales/en.json:5343:  "fin2.home.core_metrics": "Core Financial Metrics",
-apps/web/src/locales/en.json:5344:  "fin2.home.func_modules": "Function Modules",
-apps/web/src/locales/en.json:5345:  "fin2.home.outflow": "Outflow",
-apps/web/src/locales/en.json:5346:  "fin2.home.overdue_alert_mid": "overdue receivables, overdue balance",
-apps/web/src/locales/en.json:5347:  "fin2.home.overdue_alert_post": ", please follow up promptly.",
-apps/web/src/locales/en.json:5348:  "fin2.home.overdue_alert_pre": "There are currently",
-apps/web/src/locales/en.json:5349:  "fin2.home.overdue_unit": "overdue",
-apps/web/src/locales/en.json:5350:  "fin2.home.pending_confirm_unit": "pending confirmation",
-apps/web/src/locales/en.json:5351:  "fin2.home.pending_reimb_unit": "pending reimbursement",
-apps/web/src/locales/en.json:5352:  "fin2.home.pending_tfr_post": "transfer requests awaiting approval.",
-apps/web/src/locales/en.json:5353:  "fin2.home.pending_tfr_pre": "There are",
-apps/web/src/locales/en.json:5354:  "fin2.home.reimb_amount": "Pending Reimbursement Amount",
-apps/web/src/locales/en.json:5355:  "fin2.home.shareholder_balance": "Shareholder Contribution Balance",
-apps/web/src/locales/en.json:5356:  "fin2.home.subtitle": "Payables · Receivables · Cash accounts · Expense reimbursement · Shareholder funds · Disposable funds",
-apps/web/src/locales/en.json:5357:  "fin2.home.today_inflow": "Today Inflow",
-apps/web/src/locales/en.js
+apps/web/src/lib/shareholder-api.ts:60:export const CAPITAL_STATUS_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:61:  PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认',
+apps/web/src/lib/shareholder-api.ts:63:export const EQUITY_STATUS_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:64:  CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权',
+apps/web/src/lib/shareholder-api.ts:66:export const SOURCE_TYPE_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:69:  SHAREHOLDER_ADVANCE: '股东垫资', GOODS_PAYMENT: '代付货款',
+apps/web/src/lib/shareholder-api.ts:70:  PERSONAL_PAYMENT: '股东个人代付', EQUIPMENT_INVESTMENT: '设备投入', LAND_INVESTMENT: '土地投入',
+apps/web/src/lib/shareholder-api.ts:71:  REVERSAL: '冲销', CASH: '现金', CAPITAL_SUMMARY_IMPORT: '历史实缴(汇总导入)', OTHER: '其他',
+apps/web/src/lib/shareholder-api.ts:76:  'SHAREHOLDER_ADVANCE', 'GOODS_PAYMENT', 'EQUIPMENT_INVESTMENT', 'LAND_INVESTMENT', 'OTHER',
+apps/web/src/lib/shareholder-api.ts:78:export const PAID_IN_SOURCE_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:79:  LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表',
+apps/web/src/lib/shareholder-api.ts:81:export const CONTRIB_STATUS_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:83:  CONFIRMED: '已确认到账', CANCELLED: '已取消', REVERSED: '已冲销',
+apps/web/src/lib/shareholder-api.ts:85:export const SCOPE_TYPE_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:89:export const ORG_CODE_LABEL: Record<string, string> = {
+apps/web/src/lib/shareholder-api.ts:91:  'COMP-LAO-AGRI': '老挝凤凰农业', 'COMP-LAO-XINGCHI': '星驰养鸡场', 'COMP-LAO-FOOD': '老挝凤凰食品',
+apps/web/src/lib/shareholder-api.ts:92:  'SITE-MENGSAI-LAYER': '孟赛蛋鸡养殖场', 'SITE-DONGPENG-LAYER': '东鹏蛋鸡养殖场', 'SITE-VTE-SLAUGHTER': '万象屠宰加工厂',
+apps/web/src/lib/shareholder-api.ts:111:    const p = new URLSearchParams(); if (q.projectCode) p.set('projectCode', q.projectCode); if (q.status) p.set('status', q.status);
+apps/web/src/lib/workflow-data-catalog.ts:7:  source_type: "TABLE" | "DICT" | "STATIC";
+apps/web/src/lib/workflow-data-catalog.ts:20:export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
+apps/web/src/lib/workflow-data-catalog.ts:25:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:32:    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
+apps/web/src/lib/workflow-data-catalog.ts:40:    code: "SYS_ROLES",
+apps/web/src/lib/workflow-data-catalog.ts:43:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:48:    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
+apps/web/src/lib/workflow-data-catalog.ts:59:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:77:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:91:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:102:    code: "SYS_DICT_APPROVAL",
+apps/web/src/lib/workflow-data-catalog.ts:106:    dict_type: "APPROVAL",
+apps/web/src/lib/workflow-data-catalog.ts:119:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:130:    code: "PRC_SUPPLIERS",
+apps/web/src/lib/workflow-data-catalog.ts:133:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:145:    code: "SAL_CUSTOMERS",
+apps/web/src/lib/workflow-data-catalog.ts:148:    source_type: "TABLE",
+apps/web/src/lib/workflow-data-catalog.ts:163:  if (item.source_type === "TABLE") {
+apps/web/src/lib/workflow-data-catalog.ts:177:export function dataSourceLabel(code?: string) {
+apps/web/src/lib/workflow-data-catalog.ts:178:  return WORKFLOW_DATA_CATALOG.find(item => item.code === code)?.name || code || "";
+apps/web/src/__tests__/request-cache.test.ts:2:import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
+apps/web/src/__tests__/request-cache.test.ts:5: * 通用取数缓存：并发去重 + TTL 命中 + 失败不缓存 + 前缀失效。
+apps/web/src/__tests__/request-cache.test.ts:34:describe('cachedGet — TTL hit', () => {
+apps/web/src/__tests__/request-cache.test.ts:35:  it('returns cached value within TTL without re-invoking loader', async () => {
+apps/web/src/__tests__/request-cache.test.ts:52:    vi.advanceTimersByTime(1500); // 越过 TTL
+apps/web/src/__tests__/request-cache.test.ts:74:    const dictLoader = vi.fn().mockResolvedValue('dict');
+apps/web/src/__tests__/request-cache.test.ts:75:    const lookupLoader = vi.fn().mockResolvedValue('lookup');
+apps/web/src/__tests__/request-cache.test.ts:77:    await cachedGet('dict:currency', 10_000, dictLoader);
+apps/web/src/__tests__/request-cache.test.ts:78:    await cachedGet('lookup:customer', 10_000, lookupLoader);
+apps/web/src/__tests__/request-cache.test.ts:82:    await cachedGet('dict:currency', 10_000, dictLoader); // 重新加载
+apps/web/src/__tests__/request-cache.test.ts:83:    await cachedGet('lookup:customer', 10_000, lookupLoader); // 仍命中缓存
+apps/web/src/__tests__/request-cache.test.ts:85:    expect(dictLoader).toHaveBeenCalledTimes(2);
+apps/web/src/__tests__/request-cache.test.ts:86:    expect(lookupLoader).toHaveBeenCalledTimes(1);
+apps/web/src/__tests__/request-cache.test.ts:89:  it('exposes sane default TTL constants', () => {
+apps/web/src/__tests__/request-cache.test.ts:90:    expect(TTL.dict).toBe(5 * 60_000);
+apps/web/src/__tests__/request-cache.test.ts:91:    expect(TTL.brand).toBe(10 * 60_000);
+apps/web/src/lib/request-cache.ts:6: *  ② TTL 缓存：命中且未过期直接返回（解决"切回页面重复拉低频主数据"）
+apps/web/src/lib/request-cache.ts:48:/** 常用 TTL（毫秒） */
+apps/web/src/lib/request-cache.ts:49:export const TTL = {
+apps/web/src/lib/impersonate.ts:23:  document.cookie = `phoenix_access_token=${ck}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+apps/web/src/lib/workflow-api.ts:24:export interface WorkflowList<T> {
+apps/web/src/lib/workflow-api.ts:183:  definitions: () => req<WorkflowList<WorkflowDefinition>>("/definitions"),
+apps/web/src/lib/workflow-api.ts:196:  forms: () => req<WorkflowList<WorkflowForm>>("/forms"),
+apps/web/src/lib/workflow-api.ts:205:  dataSources: () => req<WorkflowList<Record<string, unknown>>>("/data-sources"),
+apps/web/src/lib/workflow-api.ts:209:    req<WorkflowList<Record<string, unknown>>>("/data-sources/sync-defaults", { method: "POST", body: JSON.stringify({}) }),
+apps/web/src/lib/workflow-api.ts:211:    req<WorkflowList<Record<string, unknown>>>("/data-sources/refresh-metadata", { method: "POST", body: JSON.stringify({}) }),
+apps/web/src/lib/workflow-api.ts:215:    req<WorkflowList<Record<string, unknown>>>("/data-sources/preview", { method: "POST", body: JSON.stringify(data) }),
+apps/web/src/lib/workflow-api.ts:220:  instances: (status?: string) => req<WorkflowList<WorkflowInstance>>(`/instances${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+apps/web/src/lib/workflow-api.ts:227:  todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
+apps/web/src/lib/workflow-api.ts:228:  done: () => req<WorkflowList<WorkflowTask>>("/tasks/done"),
+apps/web/src/lib/workflow-api.ts:229:  cc: () => req<WorkflowList<WorkflowCcTask>>("/tasks/cc"),
+apps/web/src/lib/workflow-api.ts:231:  monitorTasks: () => req<WorkflowList<WorkflowMonitorTask>>("/tasks/monitor"),
+apps/web/src/__tests__/currency.test.ts:14:    expect(currencySymbol('LAK')).toBe('₭');
+apps/web/src/lib/design-tokens.ts:12: *   import { TOKENS, ACCENT_MAP, STATUS_LABEL } from '@/lib/design-tokens';
+apps/web/src/lib/design-tokens.ts:42:    radiusLg:       'var(--radius-lg)',
+apps/web/src/lib/design-tokens.ts:117:// 用法：borderLeft: `4px solid ${ACCENT_SOLID.blue}`
+apps/web/src/lib/design-tokens.ts:118://      background: `color-mix(in srgb, ${ACCENT_SOLID.blue} 12%, transparent)`
+apps/web/src/lib/design-tokens.ts:119:export const ACCENT_SOLID: Record<AccentColor, string> = {
+apps/web/src/lib/design-tokens.ts:141:  return (hex && m[hex.toLowerCase()]) || 'slate';
+apps/web/src/lib/design-tokens.ts:159:  | 'DISABLED' | 'NEUTRAL' | 'PENDING' | 'RUNNING'
+apps/web/src/lib/design-tokens.ts:160:  | 'ACTIVE' | 'FROZEN' | 'CANCELLED' | 'COMPLETED';
+apps/web/src/lib/design-tokens.ts:163:export const STATUS_CLASS: Record<string, string> = {
+apps/web/src/lib/design-tokens.ts:169:  DISABLED:  'text-text-dim bg-bg-muted',
+apps/web/src/lib/design-tokens.ts:170:  NEUTRAL:   'text-text-muted bg-bg-muted',
+apps/web/src/lib/design-tokens.ts:175:  CANCELLED: 'text-text-dim bg-bg-muted',
+apps/web/src/lib/design-tokens.ts:176:  COMPLETED: 'text-violet-700  bg-violet-50   dark:text-violet-300  dark:bg-violet-950/40',
+apps/web/src/lib/design-tokens.ts:179:  PARTIALLY_RECEIVED: 'text-blue-700   bg-blue-50    dark:text-blue-300   dark:bg-blue-950/40',
+apps/web/src/lib/design-tokens.ts:185:  PARTIALLY_PAID: 'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
+apps/web/src/lib/design-tokens.ts:195:  SETTLED:        'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+apps/web/src/lib/design-tokens.ts:196:  PENDING_APPROVAL:  'text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/40',
+apps/web/src/lib/design-tokens.ts:198:  NORMAL:         'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+apps/web/src/lib/design-tokens.ts:199:  CLOSED:         'text-text-dim bg-bg-muted',
+apps/web/src/lib/design-tokens.ts:203:export const STATUS_LABEL: Record<string, string> = {
+apps/web/src/lib/design-tokens.ts:208:  DISABLED:  '禁用',
+apps/web/src/lib/design-tokens.ts:209:  NEUTRAL:   '正常',
+apps/web/src/lib/design-tokens.ts:214:  CANCELLED: '已取消',
+apps/web/src/lib/design-tokens.ts:215:  COMPLETED: '已完成',
+apps/web/src/lib/design-tokens.ts:221:  CLOSED:            '已关闭',
+apps/web/src/lib/design-tokens.ts:223:  RESOLVED:          '已解决',
+apps/web/src/lib/design-tokens.ts:225:  PARTIALLY_RECEIVED: '部分收款',
+apps/web/src/lib/design-tokens.ts:230:  PARTIALLY_PAID:     '部分付款',
+apps/web/src/lib/design-tokens.ts:233:  NORMAL:             '正常',
+apps/web/src/lib/design-tokens.ts:240:  SETTLED:            '已结算',
+apps/web/src/lib/design-tokens.ts:244:  PENDING_APPROVAL:   '待审批',
+apps/web/src/lib/design-tokens.ts:272:// 目的：消灭页面内散落的 STATUS_COLOR / GRADE_COLORS / SEVERITY_COLOR / 图表硬编码色。
+apps/web/src/lib/design-tokens.ts:286:export const CHART_PALETTE = {
+apps/web/src/lib/design-tokens.ts:299:/** 分级色板（蛋品/质量分级 AA/A/B/C/D）。替换页面内 GRADE_COLORS。 */
+apps/web/src/lib/design-tokens.ts:300:export const GRADE_PALETTE: Record<string, string> = {
+apps/web/src/lib/design-tokens.ts:304:/** 风险/告警严重度色板。替换页面内 SEVERITY_COLOR。 */
+apps/web/src/lib/design-tokens.ts:305:export const SEVERITY_PALETTE: Record<string, string> = {
+apps/web/src/lib/design-tokens.ts:306:  CRITICAL: '#dc2626', HIGH: '#f97316', MEDIUM: '#2563eb', LOW: '#64748b', INFO: '#0891b2',
+apps/web/src/lib/design-tokens.ts:310:export const ENTITY_PALETTE: Record<string, string> = {
+apps/web/src/lib/design-tokens.ts:322:  const s = CHART_PALETTE.series;
+apps/web/next.config.ts:9:  // 不在白名单的 origin 会拿到首屏 HTML 但 JS hydration / HMR �
 ```
