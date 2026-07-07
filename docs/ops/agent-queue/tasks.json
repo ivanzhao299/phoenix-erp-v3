@@ -2824,7 +2824,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -2847,7 +2847,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-07T12:31:52.549Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -2855,7 +2855,8 @@
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "reason": "blocked because BUGTASK-20260707-0003-02-A3 is HOLD; prevent frontend task from bypassing backend repair gate"
   },
   {
     "task_id": "BUGTASK-20260707-0003-04-A5",

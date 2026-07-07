@@ -614,6 +614,40 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function crashSummary(args, cycle, error) {
+  const summary = {
+    decision: 'BUG_INTAKE_LOCAL_RUNNER_HOLD',
+    generatedAt: new Date().toISOString(),
+    cycle,
+    dryRun: args.dryRun,
+    queueApply: args.applyQueue && !args.dryRun ? 'applied-approved-only' : 'dry-run-no-queue-write',
+    executeApproved: Boolean(args.executeApproved),
+    pushAfterSuccess: Boolean(args.pushAfterSuccess),
+    retrySafeUiOnce: Boolean(args.retrySafeUiOnce),
+    autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
+    skipBlocked: Boolean(args.skipBlocked),
+    sync: { status: 1, stdout: '', stderr: error.message },
+    preWorkerCommit: { skipped: true, reason: 'cycle failed before pre-worker commit completed' },
+    candidateTasks: [],
+    blockedTasks: [{
+      task_id: 'RUNNER-CYCLE',
+      agent: 'BugIntakeLocalRunner',
+      status: 'HOLD',
+      reason: error.message,
+    }],
+    runnableTasks: [],
+    workerRuns: [],
+    push: { skipped: true, reason: 'cycle failed before push gate' },
+    ci: { skipped: true, reason: 'cycle failed before CI wait' },
+    headSha: currentHead(args.mainRoot),
+    tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
+    lifecycleWriteback: { skipped: true, reason: 'cycle failed before lifecycle writeback' },
+  };
+  writeJson(`${args.outputDir}/latest-summary.json`, summary);
+  writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
+  return summary;
+}
+
 async function runCycle(args, cycle) {
   if (!tokenAvailable(args)) throw new Error('--api-base with --token/--token-env is required unless --fixture-json is used');
   if (!args.dryRun && args.approvalToken !== APPROVAL_TOKEN) throw new Error('real execution requires --approval-token APPROVE_AGENT_EXECUTION');
@@ -728,7 +762,13 @@ async function runCycle(args, cycle) {
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
   };
-  summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
+  writeJson(`${args.outputDir}/latest-summary.json`, summary);
+  writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
+  try {
+    summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
+  } catch (error) {
+    summary.lifecycleWriteback = { skipped: false, ok: false, error: error.message };
+  }
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
   console.log(JSON.stringify({
@@ -751,7 +791,13 @@ async function main() {
   const cycles = args.watch ? args.maxCycles : 1;
   try {
     for (let cycle = 1; cycle <= cycles; cycle += 1) {
-      await runCycle(args, cycle);
+      try {
+        await runCycle(args, cycle);
+      } catch (error) {
+        crashSummary(args, cycle, error);
+        console.error(`ERROR: ${error.message}`);
+        if (!args.watch) throw error;
+      }
       if (args.watch && cycle < cycles) await sleep(args.interval * 1000);
     }
   } finally {
