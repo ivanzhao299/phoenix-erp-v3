@@ -3647,7 +3647,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0006",
     "source": "bug-intake",
     "agent": "A6-Staging-Deploy-Runbook",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -3667,14 +3667,18 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
     "branch": "w5-a6-staging-deploy-runbook",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A6-Staging-Deploy-Runbook",
+    "claimed_at": "2026-07-07T16:36:53.378Z",
+    "completed_at": "2026-07-07T16:44:28.143Z",
+    "result_file": "docs/ops/BUG-20260707-0006_A6_STAGING_DEPLOY_RUNBOOK.md",
     "next_agents": [
       "A7-Final-QA-Gate"
     ],
-    "approval_required": true
+    "approval_required": true,
+    "baseline_autopilot_exit_code": 0,
+    "reconciled_by": "Codex-Orchestrator",
+    "reconciled_at": "2026-07-07T16:44:28.143Z",
+    "reconcile_reason": "A6 child completed in worktree and produced staging deploy runbook; recovered into main after worker parent exited before child finished."
   },
   {
     "task_id": "BUGTASK-20260707-0006-07-A7",
