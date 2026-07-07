@@ -251,6 +251,10 @@ export default function DailyPage() {
     Object.values(gradeQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const handleSubmit = async () => {
+    if (!selectedHouse) {
+      toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
+      return;
+    }
     const hasData = rows.some(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
     if (!hasData) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
@@ -551,9 +555,9 @@ export default function DailyPage() {
           <div style={{
           minWidth: 200
         }}>
-            <label className={s.lbl}>{t('ui.鸡舍', '鸡舍')}</label>
+            <label className={s.lbl}>{t('ui.鸡舍', '鸡舍')} <span style={{ color: 'var(--status-danger)' }}>*</span></label>
             {/* G4-E：从 brd_houses 主数据加载，仅 ACTIVE */}
-            <HouseSelector value={selectedHouse} onChange={setSelectedHouse} />
+            <HouseSelector value={selectedHouse} onChange={setSelectedHouse} placeholder={t('ui.请选择鸡舍', '请选择鸡舍')} />
           </div>
           {deviceHint && <div style={{
           display: 'flex',
