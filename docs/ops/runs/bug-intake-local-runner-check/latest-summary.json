@@ -1,0 +1,506 @@
+{
+  "decision": "BUG_INTAKE_LOCAL_RUNNER_DRY_RUN",
+  "generatedAt": "2026-07-07T14:36:25.740Z",
+  "cycle": 1,
+  "dryRun": true,
+  "queueApply": "dry-run-no-queue-write",
+  "executeApproved": false,
+  "pushAfterSuccess": false,
+  "retrySafeUiOnce": false,
+  "autoUnblockDirtyWorktrees": true,
+  "skipBlocked": true,
+  "sync": {
+    "command": [
+      "/usr/local/bin/node",
+      "scripts/ops/bug-intake-sync-from-api.mjs",
+      "--output-dir",
+      "docs/ops/runs/bug-intake-inbox",
+      "--fetch-timeout-ms",
+      "45000",
+      "--api-base",
+      "https://erp.eggslao.com",
+      "--token-env",
+      "PHOENIX_ERP_RUNNER_TOKEN",
+      "--dry-run"
+    ],
+    "startedAt": "2026-07-07T14:36:07.525Z",
+    "finishedAt": "2026-07-07T14:36:24.398Z",
+    "status": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "No\": \"BUGTASK-20260707-0008\",\n      \"repairTaskStatus\": \"AGENT_APPROVED\",\n      \"localAttachmentPaths\": []\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0007\",\n      \"title\": \"库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0007\",\n      \"repairTaskStatus\": \"AGENT_APPROVED\",\n      \"localAttachmentPaths\": []\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0006\",\n      \"title\": \"近期日报记录下的淘汰原因不显示中文\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0006\",\n      \"repairTaskStatus\": \"AGENT_APPROVED\",\n      \"localAttachmentPaths\": []\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0005\",\n      \"title\": \"日生产日报不选择鸡舍也能提交成功\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0005\",\n      \"repairTaskStatus\": \"AGENT_APPROVED\",\n      \"localAttachmentPaths\": []\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0004\",\n      \"title\": \"用tangzhiwen账号库存查询无数据\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0004\",\n      \"repairTaskStatus\": \"AGENT_APPROVED\",\n      \"localAttachmentPaths\": []\n    }\n  ],\n  \"not_ready\": [\n    {\n      \"bugNo\": \"BUG-20260705-0001\",\n      \"repairTaskStatus\": \"READY\",\n      \"reason\": \"missing agent plan\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0003\",\n      \"repairTaskStatus\": \"AGENT_RUNNING\",\n      \"reason\": \"repairTaskStatus is AGENT_RUNNING\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0002\",\n      \"repairTaskStatus\": \"AGENT_RUNNING\",\n      \"reason\": \"repairTaskStatus is AGENT_RUNNING\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0001\",\n      \"repairTaskStatus\": \"AGENT_RUNNING\",\n      \"reason\": \"repairTaskStatus is AGENT_RUNNING\"\n    },\n    {\n      \"bugNo\": \"BUG-20260706-0002\",\n      \"repairTaskStatus\": \"HOLD\",\n      \"reason\": \"repairTaskStatus is HOLD\"\n    },\n    {\n      \"bugNo\": \"BUG-20260705-0003\",\n      \"repairTaskStatus\": \"HOLD\",\n      \"reason\": \"repairTaskStatus is HOLD\"\n    }\n  ],\n  \"queue_results\": [\n    {\n      \"bugNo\": \"BUG-20260707-0010\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0010\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0010/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0010\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0010-01-A2\\\",\\n    \\\"BUGTASK-20260707-0010-02-A3\\\",\\n    \\\"BUGTASK-20260707-0010-03-A4\\\",\\n    \\\"BUGTASK-20260707-0010-04-A5\\\",\\n    \\\"BUGTASK-20260707-0010-05-A1\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T09:18:10.741Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0009\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0009\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0009/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0009\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0009-01-A2\\\",\\n    \\\"BUGTASK-20260707-0009-02-A3\\\",\\n    \\\"BUGTASK-20260707-0009-03-A4\\\",\\n    \\\"BUGTASK-20260707-0009-04-A5\\\",\\n    \\\"BUGTASK-20260707-0009-05-A1\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T05:48:14.561Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0008\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0008\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0008/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0008\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0008-01-A2\\\",\\n    \\\"BUGTASK-20260707-0008-02-A3\\\",\\n    \\\"BUGTASK-20260707-0008-03-A4\\\",\\n    \\\"BUGTASK-20260707-0008-04-A5\\\",\\n    \\\"BUGTASK-20260707-0008-05-A1\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T02:00:00.810Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0007\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0007\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0007/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0007\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0007-01-A2\\\",\\n    \\\"BUGTASK-20260707-0007-02-A3\\\",\\n    \\\"BUGTASK-20260707-0007-03-A4\\\",\\n    \\\"BUGTASK-20260707-0007-04-A5\\\",\\n    \\\"BUGTASK-20260707-0007-05-A1\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T01:32:32.187Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0006\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0006\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0006/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0006\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\",\\n    \\\"A6-Staging-Deploy-Runbook\\\",\\n    \\\"A7-Final-QA-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0006-01-A2\\\",\\n    \\\"BUGTASK-20260707-0006-02-A3\\\",\\n    \\\"BUGTASK-20260707-0006-03-A4\\\",\\n    \\\"BUGTASK-20260707-0006-04-A5\\\",\\n    \\\"BUGTASK-20260707-0006-05-A1\\\",\\n    \\\"BUGTASK-20260707-0006-06-A6\\\",\\n    \\\"BUGTASK-20260707-0006-07-A7\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T01:10:36.157Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0005\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0005\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0005/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0005\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\",\\n    \\\"A6-Staging-Deploy-Runbook\\\",\\n    \\\"A7-Final-QA-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0005-01-A2\\\",\\n    \\\"BUGTASK-20260707-0005-02-A3\\\",\\n    \\\"BUGTASK-20260707-0005-03-A4\\\",\\n    \\\"BUGTASK-20260707-0005-04-A5\\\",\\n    \\\"BUGTASK-20260707-0005-05-A1\\\",\\n    \\\"BUGTASK-20260707-0005-06-A6\\\",\\n    \\\"BUGTASK-20260707-0005-07-A7\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T00:58:54.580Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    },\n    {\n      \"bugNo\": \"BUG-20260707-0004\",\n      \"repairTaskNo\": \"BUGTASK-20260707-0004\",\n      \"command\": \"/usr/local/bin/node scripts/ops/bug-task-to-agent-queue.mjs --repair-task-json docs/ops/runs/bug-intake-inbox/20260707-223617/BUG-20260707-0004/report.json --dry-run\",\n      \"status\": 0,\n      \"stdout_excerpt\": \"{\\n  \\\"decision\\\": \\\"BUG_TASK_QUEUE_PLAN_READY\\\",\\n  \\\"source_repair_task_no\\\": \\\"BUGTASK-20260707-0004\\\",\\n  \\\"selected_agents\\\": [\\n    \\\"A2-Security-Regression-Gate\\\",\\n    \\\"A3-Backend-Critical-Path\\\",\\n    \\\"A4-Frontend-UAT-Smoke\\\",\\n    \\\"A5-Data-Readiness\\\",\\n    \\\"A1-CI-Runtime-Gate\\\"\\n  ],\\n  \\\"generated_tasks\\\": [\\n    \\\"BUGTASK-20260707-0004-01-A2\\\",\\n    \\\"BUGTASK-20260707-0004-02-A3\\\",\\n    \\\"BUGTASK-20260707-0004-03-A4\\\",\\n    \\\"BUGTASK-20260707-0004-04-A5\\\",\\n    \\\"BUGTASK-20260707-0004-05-A1\\\"\\n  ],\\n  \\\"agent_execution_approval\\\": {\\n    \\\"approved\\\": true,\\n    \\\"approvedAt\\\": \\\"2026-07-07T00:38:17.405Z\\\",\\n    \\\"approvedBy\\\": \\\"admin\\\",\\n    \\\"approvalScope\\\": \\\"仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。\\\",\\n    \\\"forbiddenActions\\\": [\\n      \\\"production deploy without separate approval\\\",\\n      \\\"database write without separate gate\\\",\\n      \\\"migration execution without separate gate\\\",\\n      \\\"push without release approval\\\",\\n      \\\"force push\\\"\\n    ]\\n  },\\n  \\\"apply\\\": false\\n}\\n\",\n      \"stderr_excerpt\": \"\"\n    }\n  ],\n  \"safety\": {\n    \"codex_cli_executed\": false,\n    \"business_code_modified\": false,\n    \"database_written\": false,\n    \"deployed\": false,\n    \"pushed\": false\n  }\n}\n",
+    "stderr": ""
+  },
+  "preWorkerCommit": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "candidateTasks": [
+    {
+      "task_id": "BUGTASK-20260707-0001-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0001"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0003-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0003"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-06-A6",
+      "agent": "A6-Staging-Deploy-Runbook",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-07-A7",
+      "agent": "A7-Final-QA-Gate",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-06-A6",
+      "agent": "A6-Staging-Deploy-Runbook",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0006-07-A7",
+      "agent": "A7-Final-QA-Gate",
+      "source_bug_no": "BUG-20260707-0006"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0007-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0007"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0007-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0007"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0007-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0007"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0007-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0007"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0007-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0007"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0008-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0008"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0008-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0008"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0008-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0008"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0008-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0008"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0008-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0008"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0009-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0009"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0009-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0009"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0009-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0009"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0009-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0009"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0009-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0009"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0010-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0010"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0010-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0010"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0010-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0010"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0010-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "source_bug_no": "BUG-20260707-0010"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0010-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0010"
+    }
+  ],
+  "blockedTasks": [
+    {
+      "task_id": "BUGTASK-20260707-0004-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
+      "status": "WOULD_UNBLOCK",
+      "reason": "dry-run would run baseline autopilot before worker execution",
+      "before": "M apps/web/src/app/(admin)/home/page.tsx",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/ops/agent-baseline-autopilot.mjs",
+        "--agent",
+        "A4-Frontend-UAT-Smoke",
+        "--branch",
+        "w5-a4-frontend-uat-smoke",
+        "--worktree",
+        "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+        "--max-retries",
+        "3",
+        "--allow-code",
+        "--dry-run"
+      ],
+      "result": null
+    }
+  ],
+  "runnableTasks": [
+    {
+      "task_id": "BUGTASK-20260707-0001-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0001"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0003-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0003"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0004-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
+      "source_bug_no": "BUG-20260707-0004"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-04-A5",
+      "agent": "A5-Data-Readiness",
+      "source_bug_no": "BUG-20260707-0005"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0005-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "source_bug_no": "BUG-20260707-0005"
+    }
+  ],
+  "workerRuns": [
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0001-04-A5",
+        "agent": "A5-Data-Readiness",
+        "source_bug_no": "BUG-20260707-0001"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0001-04-A5\nWorktree check: WARN dirty worktree: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json\n?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0001-04-A5-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0001-04-A5-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A5-Data-Readiness --branch w5-a5-data-readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0003-04-A5",
+        "agent": "A5-Data-Readiness",
+        "source_bug_no": "BUG-20260707-0003"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0003-04-A5\nWorktree check: WARN dirty worktree: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json\n?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0003-04-A5-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0003-04-A5-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A5-Data-Readiness --branch w5-a5-data-readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0004-04-A5",
+        "agent": "A5-Data-Readiness",
+        "source_bug_no": "BUG-20260707-0004"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0004-04-A5\nWorktree check: WARN dirty worktree: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json\n?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0004-04-A5-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0004-04-A5-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A5-Data-Readiness --branch w5-a5-data-readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0004-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "source_bug_no": "BUG-20260707-0004"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0004-02-A3\nWorktree check: PASS\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0004-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0004-02-A3-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0004-05-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "source_bug_no": "BUG-20260707-0004"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0004-05-A1\nWorktree check: PASS\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0004-05-A1-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0004-05-A1-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A1-CI-Runtime-Gate --branch w5-a1-ci-runtime-gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0005-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "source_bug_no": "BUG-20260707-0005"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0005-01-A2\nWorktree check: PASS\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-01-A2-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-01-A2-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A2-Security-Regression-Gate --branch w5-a2-security-regression-gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0005-04-A5",
+        "agent": "A5-Data-Readiness",
+        "source_bug_no": "BUG-20260707-0005"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0005-04-A5\nWorktree check: WARN dirty worktree: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json\n?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-04-A5-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-04-A5-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A5-Data-Readiness --branch w5-a5-data-readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --max-retries 3 --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    },
+    {
+      "task": {
+        "task_id": "BUGTASK-20260707-0005-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "source_bug_no": "BUG-20260707-0005"
+      },
+      "worker": {
+        "status": 0,
+        "stdout": "Dry-run worker would claim and run: BUGTASK-20260707-0005-02-A3\nWorktree check: PASS\nCommand: /usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-02-A3-worker-assembled-prompt.md --dry-run\nbaseline autopilot will run after agent completion\nuser manual rebase required: false\nuser manual merge required: false\nuser manual docs/ops/runs cleanup required: false\nBaseline autopilot: /usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --dry-run\n",
+        "stderr": ""
+      },
+      "finalTask": {
+        "status": "pending",
+        "result_file": null
+      },
+      "writeback": null,
+      "retryRuns": [],
+      "postWorkerCommit": {
+        "skipped": true,
+        "reason": "dry-run"
+      },
+      "activeChildProcesses": []
+    }
+  ],
+  "push": {
+    "skipped": true,
+    "reason": "push-after-success disabled"
+  },
+  "ci": {
+    "skipped": true,
+    "reason": "wait-ci-after-push disabled"
+  },
+  "headSha": "6159dfe0fba001918d9c716e4f45ed0fa58cc681",
+  "tokenSource": "PHOENIX_ERP_RUNNER_USER/PHOENIX_ERP_RUNNER_PASS",
+  "lifecycleWriteback": {
+    "skipped": true,
+    "reason": "dry-run"
+  }
+}

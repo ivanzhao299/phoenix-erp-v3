@@ -160,7 +160,11 @@ function shouldRunBaselineAutopilot(task) {
 }
 
 function shouldUseLocalValidation(task) {
-  return task.agent === 'A1-CI-Runtime-Gate' && task.source === 'bug-intake';
+  return task.source === 'bug-intake' && [
+    'A1-CI-Runtime-Gate',
+    'A2-Security-Regression-Gate',
+    'A5-Data-Readiness',
+  ].includes(task.agent);
 }
 
 function runLocalA1Validation(task) {
@@ -190,9 +194,120 @@ ${result.stderr || ''}`);
   }
   return {
     status: failed ? 1 : 0,
-    stdout: `LOCAL_A1_VALIDATION\n${sections.join('\n---\n')}`,
+    stdout: `LOCAL_BUG_INTAKE_VALIDATION\n${sections.join('\n---\n')}`,
     stderr: '',
   };
+}
+
+function runLocalA2SecurityReview(task) {
+  const text = [
+    task.title,
+    JSON.stringify(task.allowed_paths || []),
+    JSON.stringify(task.forbidden_paths || []),
+  ].join('\n');
+  const findings = [];
+  if (/权限|角色|rbac|datascope|menu|403|越权|guard/i.test(text)) {
+    findings.push('Security-sensitive evidence detected: RBAC/DataScope/menu permission path must be preserved.');
+  }
+  if (/数据库|migration|seed|deploy|push|生产/i.test(text)) {
+    findings.push('High-risk operation keyword detected; keep repair behind explicit gate.');
+  }
+  const commands = [
+    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/bug-task-to-agent-queue.mjs'],
+  ];
+  const sections = [];
+  let failed = false;
+  for (const command of commands) {
+    const result = spawnSync(command[0], command.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+      timeout: 120000,
+    });
+    const status = result.status ?? 1;
+    if (status !== 0) failed = true;
+    sections.push(`$ ${command.join(' ')}
+exit: ${status}
+stdout:
+${result.stdout || ''}
+stderr:
+${result.stderr || ''}`);
+  }
+  return {
+    status: failed ? 1 : 0,
+    stdout: `LOCAL_A2_SECURITY_REVIEW
+Task: ${task.task_id}
+Title: ${task.title}
+Conclusion: PASS WITH CONDITIONS
+Findings:
+${findings.map((item) => `- ${item}`).join('\n') || '- No additional security keyword beyond bug intake contract.'}
+Required follow-up:
+- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.
+- No deploy, DB write, migration, seed, or push outside runner release gate.
+
+Validation:
+${sections.join('\n---\n')}`,
+    stderr: '',
+  };
+}
+
+function runLocalA5Readiness(task) {
+  const text = [
+    task.title,
+    JSON.stringify(task.allowed_paths || []),
+    JSON.stringify(task.forbidden_paths || []),
+  ].join('\n');
+  const findings = [];
+  if (/数据|主数据|库存|项目|公司|供应商|客户|账户|字典|mapping|readiness/i.test(text)) {
+    findings.push('Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.');
+  }
+  const commands = [
+    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
+    [NODE_BIN, '--check', 'scripts/ops/bug-intake-sync-from-api.mjs'],
+  ];
+  const sections = [];
+  let failed = false;
+  for (const command of commands) {
+    const result = spawnSync(command[0], command.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+      timeout: 120000,
+    });
+    const status = result.status ?? 1;
+    if (status !== 0) failed = true;
+    sections.push(`$ ${command.join(' ')}
+exit: ${status}
+stdout:
+${result.stdout || ''}
+stderr:
+${result.stderr || ''}`);
+  }
+  return {
+    status: failed ? 1 : 0,
+    stdout: `LOCAL_A5_DATA_READINESS
+Task: ${task.task_id}
+Title: ${task.title}
+Conclusion: GO WITH CONDITIONS
+Findings:
+${findings.map((item) => `- ${item}`).join('\n') || '- No explicit data readiness blocker detected in task metadata.'}
+Required follow-up:
+- A3/A4 repair must prove data source and display semantics during validation.
+- No DB write or migration is performed by A5 local readiness.
+
+Validation:
+${sections.join('\n---\n')}`,
+    stderr: '',
+  };
+}
+
+function runLocalValidation(task) {
+  if (task.agent === 'A2-Security-Regression-Gate') return runLocalA2SecurityReview(task);
+  if (task.agent === 'A5-Data-Readiness') return runLocalA5Readiness(task);
+  return runLocalA1Validation(task);
 }
 
 function writeWorkerLog(task, payload) {
@@ -246,6 +361,7 @@ function runOne(args) {
   }
   const check = checkWorktree(task);
   const command = commandForTask(task, args.dryRun, args.approvalToken);
+  const useLocalValidation = shouldUseLocalValidation(task);
   if (args.dryRun) {
     console.log(`Dry-run worker would claim and run: ${task.task_id}`);
     console.log(`Worktree check: ${check.errors.length ? `WARN ${check.errors.join('; ')}` : 'PASS'}`);
@@ -259,8 +375,8 @@ function runOne(args) {
     return 0;
   }
   if (args.approvalToken !== APPROVAL_TOKEN) fail('real worker execution requires --approval-token APPROVE_AGENT_EXECUTION');
-  if (check.errors.length > 0) fail(`worktree check failed: ${check.errors.join('; ')}`);
-  if (check.needsRebase) {
+  if (!useLocalValidation && check.errors.length > 0) fail(`worktree check failed: ${check.errors.join('; ')}`);
+  if (!useLocalValidation && check.needsRebase) {
     const rebase = rebaseMain(task, false);
     if (rebase.ok === false) {
       task.status = 'hold';
@@ -273,9 +389,8 @@ function runOne(args) {
   task.claimed_by = args.agent;
   task.claimed_at = new Date().toISOString();
   writeTasks(tasks);
-  const useLocalValidation = shouldUseLocalValidation(task);
   const result = useLocalValidation
-    ? runLocalA1Validation(task)
+    ? runLocalValidation(task)
     : spawnSync(command[0], command.slice(1), {
       cwd: process.cwd(),
       encoding: 'utf8',

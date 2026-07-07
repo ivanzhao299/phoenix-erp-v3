@@ -273,6 +273,21 @@ function listRunnableBugTasks(args) {
     .filter((task) => task.source === 'bug-intake')
     .filter((task) => RUNNABLE_STATUSES.has(task.status))
     .filter((task) => !allowAgents || allowAgents.has(task.agent))
+    .sort((a, b) => {
+      const aBug = String(a.source_bug_no || a.task_id || '');
+      const bBug = String(b.source_bug_no || b.task_id || '');
+      if (aBug !== bBug) return aBug.localeCompare(bBug);
+      const priority = {
+        'A2-Security-Regression-Gate': 1,
+        'A5-Data-Readiness': 2,
+        'A3-Backend-Critical-Path': 3,
+        'A4-Frontend-UAT-Smoke': 4,
+        'A1-CI-Runtime-Gate': 5,
+        'A6-Staging-Deploy-Runbook': 6,
+        'A7-Final-QA-Gate': 7,
+      };
+      return (priority[a.agent] || 99) - (priority[b.agent] || 99);
+    })
     .slice(0, args.maxCandidateTasks);
 }
 
@@ -298,6 +313,14 @@ function workerCommand(task, args) {
   if (args.dryRun) command.push('--dry-run');
   else command.push('--approval-token', args.approvalToken);
   return command;
+}
+
+function taskUsesMainRootLocalWorker(task) {
+  return task.source === 'bug-intake' && [
+    'A1-CI-Runtime-Gate',
+    'A2-Security-Regression-Gate',
+    'A5-Data-Readiness',
+  ].includes(task.agent);
 }
 
 function taskAllowsCode(task) {
@@ -673,11 +696,13 @@ async function runCycle(args, cycle) {
 
   for (const task of preExistingProcesses.length > 0 ? [] : candidateTasks) {
     if (workerRuns.length >= args.maxTasks) break;
-    const unblock = unblockDirtyWorktree(task, args);
-    if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
-      blockedTasks.push(unblock);
-      if (args.skipBlocked) continue;
-      break;
+    if (!taskUsesMainRootLocalWorker(task)) {
+      const unblock = unblockDirtyWorktree(task, args);
+      if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
+        blockedTasks.push(unblock);
+        if (args.skipBlocked) continue;
+        break;
+      }
     }
     runnableTasks.push(task);
     let worker = run(workerCommand(task, args));
@@ -708,9 +733,10 @@ async function runCycle(args, cycle) {
         task_id: task.task_id,
         agent: task.agent,
         status: 'BLOCKED',
-        reason: `worker reached non-success terminal status ${finalTask.status}; stop dispatching more tasks in this cycle`,
+        reason: `worker reached non-success terminal status ${finalTask.status}`,
       });
-      break;
+      if (!args.skipBlocked) break;
+      continue;
     }
     if (leftovers.length > 0) {
       blockedTasks.push({
