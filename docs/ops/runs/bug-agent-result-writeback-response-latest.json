@@ -1,24 +1,24 @@
 {
-  "id": "14",
-  "bugNo": "BUG-20260707-0009",
-  "title": "养殖场总览-药品库存，今日入库提交后，库存总览还是0",
+  "id": "15",
+  "bugNo": "BUG-20260707-0010",
+  "title": "我的待办中有审批任务，但是上方显示0条",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "",
-  "assigneeUsername": "",
+  "moduleCode": "_____",
+  "assigneeUsername": "_____",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260707-0009",
-  "repairTaskStatus": "HOLD",
-  "route": "/bug-reports",
+  "repairTaskNo": "BUGTASK-20260707-0010",
+  "repairTaskStatus": "AGENT_RUNNING",
+  "route": "/workflow/todos",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-07T05:47:47.112Z",
-  "updatedAt": "2026-07-07T18:55:05.150Z",
+  "createdAt": "2026-07-07T09:12:49.513Z",
+  "updatedAt": "2026-07-07T19:10:58.810Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "养殖场总览-药品库存，今日入库提交后，库存总览还是0。要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
-  "url": "https://erp.eggslao.com/bug-reports",
+  "description": "我的待办中有审批任务，但是上方显示0条，运营工作台中的待办也显示0条，要求按照我的待办中实际显示的条数进行显示",
+  "url": "https://erp.eggslao.com/workflow/todos",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -30,13 +30,13 @@
   "failedRequests": [],
   "attachments": [
     {
-      "sha256": "62eae9766ae8e9edc12ff2b1f4e950c3e941cc41fdcc8bd09d75f9ad7dbde16f",
-      "fileName": "01-1783403267106-b1f40399.png",
+      "sha256": "a36016cd3434273de00261ddd6ca45fce233a90eb7b2af24d56d5cc254ee1afa",
+      "fileName": "01-1783415569511-68df7d8e.png",
       "mimeType": "image/png",
-      "sizeBytes": 181330,
-      "originalName": "pasted-screenshot-1783403265102-1.png",
-      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0009/01-1783403267106-b1f40399.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0009/attachments/01-1783403267106-b1f40399.png"
+      "sizeBytes": 716311,
+      "originalName": "pasted-screenshot-1783415381248-1.png",
+      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0010/01-1783415569511-68df7d8e.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png"
     }
   ],
   "clientContext": {
@@ -47,9 +47,9 @@
       "height": 865
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-07T05:47:47.107Z",
+    "capturedAt": "2026-07-07T09:12:49.513Z",
     "pageSnapshot": {
-      "route": "/bug-reports",
+      "route": "/workflow/todos",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -71,20 +71,20 @@
         "财务结算中心",
         "股东权益中心",
         "审批中心",
+        "我的待办",
+        "我的已办",
+        "通知中心",
+        "流程配置",
+        "审批规则",
+        "表单管理",
+        "审批看板",
         "经营分析",
         "主数据中心",
         "系统设置",
         "验收试运行",
         "系统运维",
-        "系统健康",
-        "告警中心",
-        "错误日志",
-        "问题反馈",
-        "配置治理",
-        "备份策略",
         "个人中心 / 修改密码",
-        "库位管理",
-        "99+",
+        "37",
         "反馈问题",
         "反馈页面问题",
         "页面",
@@ -97,89 +97,36 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783403265102-1.png",
+        "pasted-screenshot-1783415381248-1.png",
         "退出",
-        "·Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 0 条",
+        "/待办",
+        "/",
+        "待办",
+        "审批待办",
+        "·我的待审批任务（共 0 条）",
         "·",
-        "编号",
-        "标题",
-        "优先级",
-        "状态",
-        "模块",
-        "负责人",
-        "修复任务",
-        "提报人",
-        "截图",
-        "创建时间",
-        "BUG-20260707-0008",
-        "养殖总览的今日产蛋、今日死淘都显示0",
-        "P2",
-        "MEDIUM",
-        "TRIAGED",
-        "_________",
-        "_____",
-        "BUGTASK-20260707-0008",
-        "/breeding",
-        "金凤凰总控",
-        "1",
-        "2026/7/7 09:58:57",
-        "BUG-20260707-0007",
-        "库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能",
-        "____",
-        "BUGTASK-20260707-0007",
-        "/warehouse/locations",
-        "2026/7/7 09:31:24",
-        "BUG-20260707-0006",
-        "近期日报记录下的淘汰原因不显示中文",
-        "—",
-        "BUGTASK-20260707-0006",
-        "/breeding/daily",
-        "2026/7/7 09:10:02",
-        "BUG-20260707-0005",
-        "日生产日报不选择鸡舍也能提交成功",
-        "__________",
-        "BUGTASK-20260707-0005",
-        "2026/7/7 08:58:10",
-        "BUG-20260707-0004",
-        "用tangzhiwen账号库存查询无数据",
-        "BUGTASK-20260707-0004",
-        "/warehouse/query",
-        "唐治文",
-        "2026/7/7 08:37:35",
-        "BUG-20260707-0003",
-        "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
-        "BUGTASK-20260707-0003",
-        "/home",
-        "刘汉涛",
-        "2026/7/7 08:28:15",
-        "BUG-20260707-0002",
-        "打开库存总览报错403",
-        "IN_PROGRESS",
-        "BUGTASK-20260707-0002",
-        "/warehouse",
-        "王玮华",
-        "2026/7/7 08:20:18",
-        "BUG-20260707-0001",
-        "财务结算中心/资金账户，没有账户建档权限的账号也可以新建账户",
-        "______",
-        "BUGTASK-20260707-0001",
-        "/finance2/cash-accounts",
-        "2026/7/7 08:14:50",
-        "BUG-20260706-0002",
-        "运营工作台不显示今日饲料消耗、今日用水",
-        "BUGTASK-20260706-0002",
-        "2026/7/6 15:50:31",
-        "BUG-20260706-0001",
-        "账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本”",
-        "CLOSED",
-        "BUGTASK-20260706-0001",
-        "2026/7/6 10:21:55",
-        "BUG-20260705-0003",
-        "驾驶舱卡片问题",
-        "BUGTASK-20260705-0003",
-        "/dashboard",
-        "赵永伟",
-        "2026/7/5 21:32:08"
+        "来源",
+        "业务类型",
+        "单据编号",
+        "主题",
+        "金额",
+        "公司",
+        "项目",
+        "需审批角色",
+        "步骤",
+        "提交时间",
+        "操作",
+        "审批引擎",
+        "采购申请",
+        "PR2-20260707-00002",
+        "采购测试2",
+        "80 CNY",
+        "老挝凤凰农业发展有限公司",
+        "PRJ_MENGSAI_LAYER",
+        "-",
+        "1/1",
+        "07/07 16:45",
+        "审批"
       ],
       "interactiveElements": [
         {
@@ -189,7 +136,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 21
+            "y": 119
           },
           "label": "运营工作台",
           "disabled": false
@@ -201,7 +148,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 59
+            "y": 157
           },
           "label": "每日工作台",
           "disabled": false
@@ -213,7 +160,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 97
+            "y": 195
           },
           "label": "经营仪表盘",
           "disabled": false
@@ -225,7 +172,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 135
+            "y": 233
           },
           "label": "生产管理",
           "disabled": false
@@ -237,7 +184,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 173
+            "y": 271
           },
           "label": "库存管理",
           "disabled": false
@@ -249,7 +196,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 211
+            "y": 309
           },
           "label": "全链追溯",
           "disabled": false
@@ -261,7 +208,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 249
+            "y": 347
           },
           "label": "采购管理",
           "disabled": false
@@ -273,7 +220,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 287
+            "y": 385
           },
           "label": "销售管理",
           "disabled": false
@@ -285,7 +232,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 325
+            "y": 423
           },
           "label": "财务结算中心",
           "disabled": false
@@ -297,21 +244,105 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 363
+            "y": 461
           },
           "label": "股东权益中心",
           "disabled": false
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 401
+            "y": 499
           },
           "label": "审批中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 537
+          },
+          "label": "我的待办",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 569
+          },
+          "label": "我的已办",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 601
+          },
+          "label": "通知中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 633
+          },
+          "label": "流程配置",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 665
+          },
+          "label": "审批规则",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 697
+          },
+          "label": "表单管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 729
+          },
+          "label": "审批看板",
           "disabled": false
         },
         {
@@ -321,7 +352,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 439
+            "y": 761
           },
           "label": "经营分析",
           "disabled": false
@@ -333,7 +364,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 477
+            "y": 799
           },
           "label": "主数据中心",
           "disabled": false
@@ -345,7 +376,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 515
+            "y": 837
           },
           "label": "系统设置",
           "disabled": false
@@ -357,93 +388,21 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 553
+            "y": 875
           },
           "label": "验收试运行",
           "disabled": false
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 591
+            "y": 913
           },
           "label": "系统运维",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 629
-          },
-          "label": "系统健康",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 661
-          },
-          "label": "告警中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 693
-          },
-          "label": "错误日志",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 725
-          },
-          "label": "问题反馈",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 757
-          },
-          "label": "配置治理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 789
-          },
-          "label": "备份策略",
           "disabled": false
         },
         {
@@ -464,7 +423,7 @@
           "rect": {
             "h": 30,
             "w": 96,
-            "x": 940,
+            "x": 938,
             "y": 13
           },
           "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -475,11 +434,11 @@
           "path": "",
           "rect": {
             "h": 34,
-            "w": 93,
-            "x": 1097,
+            "w": 95,
+            "x": 1095,
             "y": 11
           },
-          "label": "在线 1",
+          "label": "在线 2",
           "disabled": false
         },
         {
@@ -491,7 +450,7 @@
             "x": 1204,
             "y": 11
           },
-          "label": "99+",
+          "label": "37",
           "disabled": false
         },
         {
@@ -584,7 +543,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 767,
+            "x": 764,
             "y": 715
           },
           "label": "移除附件",
@@ -642,59 +601,119 @@
           "tag": "select",
           "path": "",
           "rect": {
-            "h": 38,
-            "w": 156,
-            "x": 1084,
-            "y": 77
+            "h": 24,
+            "w": 120,
+            "x": 265,
+            "y": 170
           },
-          "label": "全部状态 OPEN TRIAGED IN_PROGRESS RESOLVED CLOSED REJECTED",
+          "label": "全部来源 审批引擎 通用流程",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "path": "",
+          "rect": {
+            "h": 24,
+            "w": 120,
+            "x": 397,
+            "y": 170
+          },
+          "label": "全部类型 采购申请 采购订单 付款申请 股东资金",
           "disabled": false
         },
         {
           "tag": "input",
-          "path": "",
+          "path": ".undefined.uix-utils-module__8f1Xta__flex1",
+          "rect": {
+            "h": 26,
+            "w": 758,
+            "x": 549,
+            "y": 169
+          },
+          "label": "搜索单号、主题…",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+          "rect": {
+            "h": 38,
+            "w": 62,
+            "x": 1319,
+            "y": 163
+          },
+          "label": "搜索",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": ".admin-ui-module__B-1PDG__btnSecondary.admin-ui-module__B-1PDG__btn",
           "rect": {
             "h": 40,
-            "w": 240,
-            "x": 1247,
-            "y": 76
+            "w": 64,
+            "x": 1393,
+            "y": 162
           },
-          "label": "搜索编号 / 标题 / 页面 / 用户",
+          "label": "重置",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 37,
-            "w": 76,
-            "x": 1495,
-            "y": 78
+            "h": 34,
+            "w": 86,
+            "x": 1469,
+            "y": 165
           },
           "label": "刷新",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+          "rect": {
+            "h": 38,
+            "w": 62,
+            "x": 1487,
+            "y": 276
+          },
+          "label": "审批",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": ".rightDrawer-module__jI_Bsa__closeBtn",
+          "rect": {
+            "h": 32,
+            "w": 32,
+            "x": 2068,
+            "y": 16
+          },
+          "label": "关闭抽屉",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 2
   },
-  "resolutionNote": "要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
+  "resolutionNote": "我的待办中有审批任务，要求上方显示条数，以及运营工作台中的待办显示条数，按照我的待办中实际显示的条数进行显示",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/bug-reports",
-    "bugNo": "BUG-20260707-0009",
-    "route": "/bug-reports",
-    "title": "养殖场总览-药品库存，今日入库提交后，库存总览还是0",
-    "taskNo": "BUGTASK-20260707-0009",
+    "url": "https://erp.eggslao.com/workflow/todos",
+    "bugNo": "BUG-20260707-0010",
+    "route": "/workflow/todos",
+    "title": "我的待办中有审批任务，但是上方显示0条",
+    "taskNo": "BUGTASK-20260707-0010",
     "context": {
       "attachments": [
         {
-          "sha256": "62eae9766ae8e9edc12ff2b1f4e950c3e941cc41fdcc8bd09d75f9ad7dbde16f",
-          "fileName": "01-1783403267106-b1f40399.png",
+          "sha256": "a36016cd3434273de00261ddd6ca45fce233a90eb7b2af24d56d5cc254ee1afa",
+          "fileName": "01-1783415569511-68df7d8e.png",
           "mimeType": "image/png",
-          "sizeBytes": 181330,
-          "originalName": "pasted-screenshot-1783403265102-1.png",
-          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0009/01-1783403267106-b1f40399.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0009/attachments/01-1783403267106-b1f40399.png"
+          "sizeBytes": 716311,
+          "originalName": "pasted-screenshot-1783415381248-1.png",
+          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0010/01-1783415569511-68df7d8e.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0010/attachments/01-1783415569511-68df7d8e.png"
         }
       ],
       "clientContext": {
@@ -705,9 +724,9 @@
           "height": 865
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-07T05:47:47.107Z",
+        "capturedAt": "2026-07-07T09:12:49.513Z",
         "pageSnapshot": {
-          "route": "/bug-reports",
+          "route": "/workflow/todos",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -729,20 +748,20 @@
             "财务结算中心",
             "股东权益中心",
             "审批中心",
+            "我的待办",
+            "我的已办",
+            "通知中心",
+            "流程配置",
+            "审批规则",
+            "表单管理",
+            "审批看板",
             "经营分析",
             "主数据中心",
             "系统设置",
             "验收试运行",
             "系统运维",
-            "系统健康",
-            "告警中心",
-            "错误日志",
-            "问题反馈",
-            "配置治理",
-            "备份策略",
             "个人中心 / 修改密码",
-            "库位管理",
-            "99+",
+            "37",
             "反馈问题",
             "反馈页面问题",
             "页面",
@@ -755,89 +774,36 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783403265102-1.png",
+            "pasted-screenshot-1783415381248-1.png",
             "退出",
-            "·Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 0 条",
+            "/待办",
+            "/",
+            "待办",
+            "审批待办",
+            "·我的待审批任务（共 0 条）",
             "·",
-            "编号",
-            "标题",
-            "优先级",
-            "状态",
-            "模块",
-            "负责人",
-            "修复任务",
-            "提报人",
-            "截图",
-            "创建时间",
-            "BUG-20260707-0008",
-            "养殖总览的今日产蛋、今日死淘都显示0",
-            "P2",
-            "MEDIUM",
-            "TRIAGED",
-            "_________",
-            "_____",
-            "BUGTASK-20260707-0008",
-            "/breeding",
-            "金凤凰总控",
-            "1",
-            "2026/7/7 09:58:57",
-            "BUG-20260707-0007",
-            "库位管理新增库位时需要选择库区，库区管理界面没有新增库区的功能",
-            "____",
-            "BUGTASK-20260707-0007",
-            "/warehouse/locations",
-            "2026/7/7 09:31:24",
-            "BUG-20260707-0006",
-            "近期日报记录下的淘汰原因不显示中文",
-            "—",
-            "BUGTASK-20260707-0006",
-            "/breeding/daily",
-            "2026/7/7 09:10:02",
-            "BUG-20260707-0005",
-            "日生产日报不选择鸡舍也能提交成功",
-            "__________",
-            "BUGTASK-20260707-0005",
-            "2026/7/7 08:58:10",
-            "BUG-20260707-0004",
-            "用tangzhiwen账号库存查询无数据",
-            "BUGTASK-20260707-0004",
-            "/warehouse/query",
-            "唐治文",
-            "2026/7/7 08:37:35",
-            "BUG-20260707-0003",
-            "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
-            "BUGTASK-20260707-0003",
-            "/home",
-            "刘汉涛",
-            "2026/7/7 08:28:15",
-            "BUG-20260707-0002",
-            "打开库存总览报错403",
-            "IN_PROGRESS",
-            "BUGTASK-20260707-0002",
-            "/warehouse",
-            "王玮华",
-            "2026/7/7 08:20:18",
-            "BUG-20260707-0001",
-            "财务结算中心/资金账户，没有账户建档权限的账号也可以新建账户",
-            "______",
-            "BUGTASK-20260707-0001",
-            "/finance2/cash-accounts",
-            "2026/7/7 08:14:50",
-            "BUG-20260706-0002",
-            "运营工作台不显示今日饲料消耗、今日用水",
-            "BUGTASK-20260706-0002",
-            "2026/7/6 15:50:31",
-            "BUG-20260706-0001",
-            "账户编号留空点击创建账户报错“提交的数据有误:「accountCode」必须是文本”",
-            "CLOSED",
-            "BUGTASK-20260706-0001",
-            "2026/7/6 10:21:55",
-            "BUG-20260705-0003",
-            "驾驶舱卡片问题",
-            "BUGTASK-20260705-0003",
-            "/dashboard",
-            "赵永伟",
-            "2026/7/5 21:32:08"
+            "来源",
+            "业务类型",
+            "单据编号",
+            "主题",
+            "金额",
+            "公司",
+            "项目",
+            "需审批角色",
+            "步骤",
+            "提交时间",
+            "操作",
+            "审批引擎",
+            "采购申请",
+            "PR2-20260707-00002",
+            "采购测试2",
+            "80 CNY",
+            "老挝凤凰农业发展有限公司",
+            "PRJ_MENGSAI_LAYER",
+            "-",
+            "1/1",
+            "07/07 16:45",
+            "审批"
           ],
           "interactiveElements": [
             {
@@ -847,7 +813,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 21
+                "y": 119
               },
               "label": "运营工作台",
               "disabled": false
@@ -859,7 +825,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 59
+                "y": 157
               },
               "label": "每日工作台",
               "disabled": false
@@ -871,7 +837,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 97
+                "y": 195
               },
               "label": "经营仪表盘",
               "disabled": false
@@ -883,7 +849,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 135
+                "y": 233
               },
               "label": "生产管理",
               "disabled": false
@@ -895,7 +861,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 173
+                "y": 271
               },
               "label": "库存管理",
               "disabled": false
@@ -907,7 +873,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 211
+                "y": 309
               },
               "label": "全链追溯",
               "disabled": false
@@ -919,7 +885,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 249
+                "y": 347
               },
               "label": "采购管理",
               "disabled": false
@@ -931,7 +897,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 287
+                "y": 385
               },
               "label": "销售管理",
               "disabled": false
@@ -943,7 +909,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 325
+                "y": 423
               },
               "label": "财务结算中心",
               "disabled": false
@@ -955,21 +921,105 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 363
+                "y": 461
               },
               "label": "股东权益中心",
               "disabled": false
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 401
+                "y": 499
               },
               "label": "审批中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 537
+              },
+              "label": "我的待办",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 569
+              },
+              "label": "我的已办",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 601
+              },
+              "label": "通知中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 633
+              },
+              "label": "流程配置",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 665
+              },
+              "label": "审批规则",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 697
+              },
+              "label": "表单管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 729
+              },
+              "label": "审批看板",
               "disabled": false
             },
             {
@@ -979,7 +1029,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 439
+                "y": 761
               },
               "label": "经营分析",
               "disabled": false
@@ -991,7 +1041,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 477
+                "y": 799
               },
               "label": "主数据中心",
               "disabled": false
@@ -1003,7 +1053,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 515
+                "y": 837
               },
               "label": "系统设置",
               "disabled": false
@@ -1015,93 +1065,21 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 553
+                "y": 875
               },
               "label": "验收试运行",
               "disabled": false
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 591
+                "y": 913
               },
               "label": "系统运维",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 629
-              },
-              "label": "系统健康",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 661
-              },
-              "label": "告警中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 693
-              },
-              "label": "错误日志",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 725
-              },
-              "label": "问题反馈",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 757
-              },
-              "label": "配置治理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 789
-              },
-              "label": "备份策略",
               "disabled": false
             },
             {
@@ -1122,7 +1100,7 @@
               "rect": {
                 "h": 30,
                 "w": 96,
-                "x": 940,
+                "x": 938,
                 "y": 13
               },
               "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -1133,11 +1111,11 @@
               "path": "",
               "rect": {
                 "h": 34,
-                "w": 93,
-                "x": 1097,
+                "w": 95,
+                "x": 1095,
                 "y": 11
               },
-              "label": "在线 1",
+              "label": "在线 2",
               "disabled": false
             },
             {
@@ -1149,7 +1127,7 @@
                 "x": 1204,
                 "y": 11
               },
-              "label": "99+",
+              "label": "37",
               "disabled": false
             },
             {
@@ -1242,7 +1220,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 767,
+                "x": 764,
                 "y": 715
               },
               "label": "移除附件",
@@ -1300,36 +1278,96 @@
               "tag": "select",
               "path": "",
               "rect": {
-                "h": 38,
-                "w": 156,
-                "x": 1084,
-                "y": 77
+                "h": 24,
+                "w": 120,
+                "x": 265,
+                "y": 170
               },
-              "label": "全部状态 OPEN TRIAGED IN_PROGRESS RESOLVED CLOSED REJECTED",
+              "label": "全部来源 审批引擎 通用流程",
+              "disabled": false
+            },
+            {
+              "tag": "select",
+              "path": "",
+              "rect": {
+                "h": 24,
+                "w": 120,
+                "x": 397,
+                "y": 170
+              },
+              "label": "全部类型 采购申请 采购订单 付款申请 股东资金",
               "disabled": false
             },
             {
               "tag": "input",
-              "path": "",
+              "path": ".undefined.uix-utils-module__8f1Xta__flex1",
+              "rect": {
+                "h": 26,
+                "w": 758,
+                "x": 549,
+                "y": 169
+              },
+              "label": "搜索单号、主题…",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+              "rect": {
+                "h": 38,
+                "w": 62,
+                "x": 1319,
+                "y": 163
+              },
+              "label": "搜索",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": ".admin-ui-module__B-1PDG__btnSecondary.admin-ui-module__B-1PDG__btn",
               "rect": {
                 "h": 40,
-                "w": 240,
-                "x": 1247,
-                "y": 76
+                "w": 64,
+                "x": 1393,
+                "y": 162
               },
-              "label": "搜索编号 / 标题 / 页面 / 用户",
+              "label": "重置",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 37,
-                "w": 76,
-                "x": 1495,
-                "y": 78
+                "h": 34,
+                "w": 86,
+                "x": 1469,
+                "y": 165
               },
               "label": "刷新",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+              "rect": {
+                "h": 38,
+                "w": 62,
+                "x": 1487,
+                "y": 276
+              },
+              "label": "审批",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": ".rightDrawer-module__jI_Bsa__closeBtn",
+              "rect": {
+                "h": 32,
+                "w": 32,
+                "x": 2068,
+                "y": 16
+              },
+              "label": "关闭抽屉",
               "disabled": false
             }
           ]
@@ -1352,7 +1390,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260707-0009",
+      "source_bug_no": "BUG-20260707-0010",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -1409,177 +1447,24 @@
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "source_repair_task_no": "BUGTASK-20260707-0009"
+      "source_repair_task_no": "BUGTASK-20260707-0010"
     },
-    "createdAt": "2026-07-07T05:48:11.676Z",
+    "createdAt": "2026-07-07T09:18:08.504Z",
     "createdBy": "admin",
-    "moduleCode": "",
-    "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260707-0009-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T18:33:11.268Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260707-0009-04-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0009-04-A5\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T18:33:13.102Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-04-A5-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "BugIntakeLocalRunner",
-        "taskId": "LOCAL-RUNNER-20260707183814",
-        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0009-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0009-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-02-A3: worker=1, final=HOLD, writeback=skipped, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0009-02-A3: A3-Backend-Critical-Path -> BLOCKED (worker reached non-success terminal status HOLD)\n\n## Stale Lease Recovery\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-        "commitHash": "97cace924da3f8d474ed6fc22e9b925205e9f98f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-07T18:38:15.935Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "validationResults": {
-          "ci": "SKIPPED: wait-ci-after-push disabled",
-          "push": "PASS",
-          "sync": "PASS",
-          "workerRuns": [
-            {
-              "agent": "A2-Security-Regression-Gate",
-              "taskId": "BUGTASK-20260707-0009-01-A2",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260707-0009-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A3-Backend-Critical-Path",
-              "taskId": "BUGTASK-20260707-0009-02-A3",
-              "finalStatus": "HOLD",
-              "writebackStatus": "skipped"
-            }
-          ]
-        }
-      },
-      {
-        "taskId": "BUGTASK-20260707-0009-03-A4",
-        "agent": "A4-Frontend-UAT-Smoke",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [
-          "docs/ops/runs/router-v1-revalidate-case2-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case2-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case3-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case3-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case4-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case4-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case5-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case5-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case6-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case6-route-plan.md",
-          "docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt",
-          "docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json",
-          "docs/ops/runs/store-payment-closed-loop-fix-route-plan.json",
-          "docs/ops/runs/store-payment-closed-loop-fix-route-plan.md",
-          "docs/ops/runs/store-payment-controlled-uat-smoke-static.json",
-          "docs/ops/runs/store-payment-file-metadata-acl-static-check.json",
-          "docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json",
-          "docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json",
-          "docs/ops/runs/store-payment-protected-streaming-static-check.json",
-          "docs/ops/runs/store-payment-record-proof-db-evidence.json",
-          "docs/ops/runs/store-payment-record-proof-endpoint-smoke.json",
-          "docs/ops/runs/store-payment-record-proof-page-smoke.json",
-          "docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md",
-          "docs/ops/runs/sys-dict-dedupe-latest.json",
-          "docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md",
-          "docs/ops/runtime-memory/DECISION_LOG.md",
-          "docs/ops/runtime-memory/GUARDRAILS.md",
-          "docs/ops/runtime-memory/NEXT_ACTIONS.md",
-          "docs/ops/runtime-memory/PROJECT_STATE.json",
-          "docs/ops/runtime-memory/STORE_PAYMENT_STATE.md"
-        ],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23415\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T18-54-54-212Z-A4-Frontend-UAT-Smoke.md\nImplemented and committed the A4 frontend fix.\n\nCommit: `e04a0016 fix: bug-20260707-0009 medicine stock refresh`\n\nWhat changed:\n- [mobile medicine page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(mobile)/mobile/medicine/page.tsx): after inbound/outbound submit, invalidates `medStock` cache, reloads stock, then returns to stock overview.\n- [admin med-stock page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/breeding/med-stock/page.tsx): after submit, waits for stock reload and switches back to “库存总览”.\n- [UAT report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-uat-report.md): reco",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-07T18:55:05.145Z"
-      }
-    ],
-    "suggestedOwner": "",
+    "moduleCode": "_____",
+    "suggestedOwner": "_____",
     "repairGuardrails": {
       "autoRepairExecuted": false,
       "noProductionDeploy": true,
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
     },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260707-0009-03-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [
-        "docs/ops/runs/router-v1-revalidate-case2-route-plan.json",
-        "docs/ops/runs/router-v1-revalidate-case2-route-plan.md",
-        "docs/ops/runs/router-v1-revalidate-case3-route-plan.json",
-        "docs/ops/runs/router-v1-revalidate-case3-route-plan.md",
-        "docs/ops/runs/router-v1-revalidate-case4-route-plan.json",
-        "docs/ops/runs/router-v1-revalidate-case4-route-plan.md",
-        "docs/ops/runs/router-v1-revalidate-case5-route-plan.json",
-        "docs/ops/runs/router-v1-revalidate-case5-route-plan.md",
-        "docs/ops/runs/router-v1-revalidate-case6-route-plan.json",
-        "docs/ops/runs/router-v1-revalidate-case6-route-plan.md",
-        "docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt",
-        "docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json",
-        "docs/ops/runs/store-payment-closed-loop-fix-route-plan.json",
-        "docs/ops/runs/store-payment-closed-loop-fix-route-plan.md",
-        "docs/ops/runs/store-payment-controlled-uat-smoke-static.json",
-        "docs/ops/runs/store-payment-file-metadata-acl-static-check.json",
-        "docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json",
-        "docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json",
-        "docs/ops/runs/store-payment-protected-streaming-static-check.json",
-        "docs/ops/runs/store-payment-record-proof-db-evidence.json",
-        "docs/ops/runs/store-payment-record-proof-endpoint-smoke.json",
-        "docs/ops/runs/store-payment-record-proof-page-smoke.json",
-        "docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md",
-        "docs/ops/runs/sys-dict-dedupe-latest.json",
-        "docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md",
-        "docs/ops/runtime-memory/DECISION_LOG.md",
-        "docs/ops/runtime-memory/GUARDRAILS.md",
-        "docs/ops/runtime-memory/NEXT_ACTIONS.md",
-        "docs/ops/runtime-memory/PROJECT_STATE.json",
-        "docs/ops/runtime-memory/STORE_PAYMENT_STATE.md"
-      ],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23415\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T18-54-54-212Z-A4-Frontend-UAT-Smoke.md\nImplemented and committed the A4 frontend fix.\n\nCommit: `e04a0016 fix: bug-20260707-0009 medicine stock refresh`\n\nWhat changed:\n- [mobile medicine page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(mobile)/mobile/medicine/page.tsx): after inbound/outbound submit, invalidates `medStock` cache, reloads stock, then returns to stock overview.\n- [admin med-stock page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/breeding/med-stock/page.tsx): after submit, waits for stock reload and switches back to “库存总览”.\n- [UAT report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-uat-report.md): reco",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-07T18:55:05.145Z"
-    },
-    "acceptanceCriteria": "要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
-    "agentPlanGeneratedAt": "2026-07-07T05:48:13.413Z",
+    "acceptanceCriteria": "我的待办中有审批任务，要求上方显示条数，以及运营工作台中的待办显示条数，按照我的待办中实际显示的条数进行显示",
+    "agentPlanGeneratedAt": "2026-07-07T09:18:09.632Z",
     "agentPlanGeneratedBy": "admin",
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-07T05:48:14.561Z",
+      "approvedAt": "2026-07-07T09:18:10.741Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -1589,6 +1474,34 @@
         "push without release approval",
         "force push"
       ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260707-0010-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0010-01-A2\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-07T19:10:58.805Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260707-0010-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0010-01-A2\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-07T19:10:58.805Z"
     }
   },
   "updatedBy": "bug_intake_runner"
