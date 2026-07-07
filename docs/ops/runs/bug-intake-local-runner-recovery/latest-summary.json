@@ -1,0 +1,47 @@
+{
+  "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
+  "generatedAt": "2026-07-07T15:24:44.074Z",
+  "cycle": 1,
+  "dryRun": false,
+  "queueApply": "lease-recovery-only",
+  "executeApproved": false,
+  "pushAfterSuccess": false,
+  "retrySafeUiOnce": false,
+  "autoUnblockDirtyWorktrees": true,
+  "skipBlocked": true,
+  "sync": {
+    "status": 0,
+    "stdout": "",
+    "stderr": "",
+    "skipped": true,
+    "reason": "recover-leases-only"
+  },
+  "leaseRecovery": {
+    "recovered": [],
+    "active_processes": [],
+    "wrote_queue": false,
+    "stale_after_minutes": 1
+  },
+  "preWorkerCommit": {
+    "skipped": true,
+    "reason": "recover-leases-only"
+  },
+  "candidateTasks": [],
+  "blockedTasks": [],
+  "runnableTasks": [],
+  "workerRuns": [],
+  "push": {
+    "skipped": true,
+    "reason": "recover-leases-only"
+  },
+  "ci": {
+    "skipped": true,
+    "reason": "recover-leases-only"
+  },
+  "headSha": "a7c44e4d0c08f12d19d9488f7c172f1be18c48c7",
+  "tokenSource": "not-required",
+  "lifecycleWriteback": {
+    "skipped": true,
+    "reason": "recover-leases-only"
+  }
+}

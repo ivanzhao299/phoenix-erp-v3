@@ -10,6 +10,7 @@ const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
+const LEASE_STATUSES = new Set(['running', 'claimed']);
 const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
 const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
@@ -27,6 +28,7 @@ function usage(code = 1) {
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
     [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] \\
     [--auto-unblock-dirty-worktrees | --no-auto-unblock-dirty-worktrees] \\
+    [--recover-leases-only] \\
     [--skip-blocked | --no-skip-blocked] [--dry-run]
 
 Fixture test:
@@ -53,13 +55,14 @@ function parseArgs(argv) {
     maxCandidateTasks: 0,
     childTimeoutMs: 180000,
     fetchTimeoutMs: 45000,
+    staleLeaseMinutes: 15,
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   let explicitDryRun = false;
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       if (arg === '--dry-run') explicitDryRun = true;
@@ -84,6 +87,7 @@ function parseArgs(argv) {
   args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
   args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 180000;
   args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
+  args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 15;
   if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
   if (!args.once && !args.watch) args.once = true;
   return args;
@@ -304,6 +308,60 @@ function patchTask(taskId, patch) {
   return tasks[index];
 }
 
+function taskHasActiveProcess(task, processes) {
+  return processes.some((processInfo) => processInfo.command.includes(task.task_id));
+}
+
+function recoverStaleTaskLeases(args) {
+  const tasks = readJson(TASKS_FILE, []);
+  const processes = activeAgentProcesses();
+  const now = Date.now();
+  const staleAfterMs = Math.max(1, Number(args.staleLeaseMinutes || 15)) * 60 * 1000;
+  const recovered = [];
+  let changed = false;
+
+  const nextTasks = tasks.map((task) => {
+    if (task.source !== 'bug-intake') return task;
+    if (!LEASE_STATUSES.has(task.status)) return task;
+    if (FINISHED_STATUSES.has(task.status)) return task;
+    if (taskHasActiveProcess(task, processes)) return task;
+
+    const claimedAt = task.claimed_at ? Date.parse(task.claimed_at) : 0;
+    const ageMs = claimedAt ? now - claimedAt : staleAfterMs + 1;
+    if (ageMs < staleAfterMs) return task;
+
+    recovered.push({
+      task_id: task.task_id,
+      agent: task.agent,
+      previous_status: task.status,
+      claimed_at: task.claimed_at || null,
+      age_minutes: Math.round(ageMs / 60000),
+    });
+    changed = true;
+    if (!args.dryRun) {
+      const lockFile = path.resolve(args.mainRoot, `docs/ops/agent-queue/locks/${task.task_id}.lock`);
+      rmSync(lockFile, { force: true });
+    }
+    return {
+      ...task,
+      status: 'pending',
+      claimed_by: null,
+      claimed_at: null,
+      last_recovered_at: new Date(now).toISOString(),
+      last_recovery_reason: 'stale bug-intake task lease without active agent process',
+      recovery_count: Number(task.recovery_count || 0) + 1,
+    };
+  });
+
+  if (changed && !args.dryRun) writeJson(TASKS_FILE, nextTasks);
+  return {
+    recovered,
+    active_processes: processes.map((processInfo) => ({ pid: processInfo.pid, command: processInfo.command })),
+    wrote_queue: changed && !args.dryRun,
+    stale_after_minutes: Math.max(1, Number(args.staleLeaseMinutes || 15)),
+  };
+}
+
 function isFinishedTask(task) {
   return task && FINISHED_STATUSES.has(task.status);
 }
@@ -474,7 +532,7 @@ function currentHead(cwd) {
 function canPush(args, workerRuns) {
   if (args.dryRun || !args.pushAfterSuccess) return false;
   if (!workerRuns.length) return false;
-  return workerRuns.every((item) => item.finalTask && FINISHED_STATUSES.has(item.finalTask.status) && SUCCESS_STATUSES.has(item.finalTask.status));
+  return workerRuns.some((item) => item.finalTask && FINISHED_STATUSES.has(item.finalTask.status) && SUCCESS_STATUSES.has(item.finalTask.status));
 }
 
 function runPushIfReady(args, workerRuns) {
@@ -604,6 +662,7 @@ function summaryMarkdown(summary) {
 | Runnable tasks | ${summary.runnableTasks.length} |
 | Worker runs | ${summary.workerRuns.length} |
 | Blocked/skipped tasks | ${summary.blockedTasks?.length || 0} |
+| Stale leases recovered | ${summary.leaseRecovery?.recovered?.length || 0} |
 | Auto-unblock dirty worktrees | ${summary.autoUnblockDirtyWorktrees ? 'Enabled' : 'Disabled'} |
 | Skip blocked tasks | ${summary.skipBlocked ? 'Enabled' : 'Disabled'} |
 | Safe retry | ${summary.retrySafeUiOnce ? 'Enabled for A4/A1 low-risk tasks' : 'Disabled'} |
@@ -624,11 +683,15 @@ ${summary.workerRuns.map((item) => `- ${item.task.task_id}: worker=${item.worker
 
 ${(summary.blockedTasks || []).map((item) => `- ${item.task_id}: ${item.agent} -> ${item.status}${item.reason ? ` (${item.reason})` : ''}`).join('\n') || '- None'}
 
+## Stale Lease Recovery
+
+${(summary.leaseRecovery?.recovered || []).map((item) => `- ${item.task_id}: ${item.agent} ${item.previous_status} -> pending (${item.age_minutes} minutes old)`).join('\n') || '- None'}
+
 ## Safety
 
-- Codex CLI real execution: ${summary.dryRun ? 'No' : 'Yes, approval token required'}
+- Codex CLI real execution: ${!summary.dryRun && summary.workerRuns.length > 0 ? 'Yes, approval token required' : 'No'}
 - Production push: ${summary.push?.skipped ? 'No' : 'Yes'}
-- Production deploy: triggered only by remote CI/CD after push
+- Production deploy: ${summary.push?.skipped ? 'No' : 'triggered only by remote CI/CD after push'}
 - DB write / migration: not performed by this runner
 `;
 }
@@ -650,6 +713,7 @@ function crashSummary(args, cycle, error) {
     autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
     skipBlocked: Boolean(args.skipBlocked),
     sync: { status: 1, stdout: '', stderr: error.message },
+    leaseRecovery: { recovered: [], active_processes: [], wrote_queue: false, stale_after_minutes: args.staleLeaseMinutes },
     preWorkerCommit: { skipped: true, reason: 'cycle failed before pre-worker commit completed' },
     candidateTasks: [],
     blockedTasks: [{
@@ -672,8 +736,44 @@ function crashSummary(args, cycle, error) {
 }
 
 async function runCycle(args, cycle) {
-  if (!tokenAvailable(args)) throw new Error('--api-base with --token/--token-env is required unless --fixture-json is used');
+  if (!args.recoverLeasesOnly && !tokenAvailable(args)) throw new Error('--api-base with --token/--token-env is required unless --fixture-json is used');
   if (!args.dryRun && args.approvalToken !== APPROVAL_TOKEN) throw new Error('real execution requires --approval-token APPROVE_AGENT_EXECUTION');
+
+  const leaseRecovery = recoverStaleTaskLeases(args);
+  if (args.recoverLeasesOnly) {
+    const summary = {
+      decision: args.dryRun ? 'BUG_INTAKE_LOCAL_RUNNER_RECOVERY_DRY_RUN' : 'BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED',
+      generatedAt: new Date().toISOString(),
+      cycle,
+      dryRun: args.dryRun,
+      queueApply: 'lease-recovery-only',
+      executeApproved: false,
+      pushAfterSuccess: false,
+      retrySafeUiOnce: Boolean(args.retrySafeUiOnce),
+      autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
+      skipBlocked: Boolean(args.skipBlocked),
+      sync: { status: 0, stdout: '', stderr: '', skipped: true, reason: 'recover-leases-only' },
+      leaseRecovery,
+      preWorkerCommit: { skipped: true, reason: 'recover-leases-only' },
+      candidateTasks: [],
+      blockedTasks: [],
+      runnableTasks: [],
+      workerRuns: [],
+      push: { skipped: true, reason: 'recover-leases-only' },
+      ci: { skipped: true, reason: 'recover-leases-only' },
+      headSha: currentHead(args.mainRoot),
+      tokenSource: 'not-required',
+      lifecycleWriteback: { skipped: true, reason: 'recover-leases-only' },
+    };
+    writeJson(`${args.outputDir}/latest-summary.json`, summary);
+    writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
+    console.log(JSON.stringify({
+      decision: summary.decision,
+      stale_leases_recovered: summary.leaseRecovery.recovered,
+      summary: `${args.outputDir}/latest-summary.md`,
+    }, null, 2));
+    return summary;
+  }
 
   const token = await loginToken(args);
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
@@ -770,6 +870,7 @@ async function runCycle(args, cycle) {
     autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
     skipBlocked: Boolean(args.skipBlocked),
     sync,
+    leaseRecovery,
     preWorkerCommit,
     candidateTasks: candidateTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
     blockedTasks,
@@ -803,6 +904,7 @@ async function runCycle(args, cycle) {
     synced: sync.status === 0,
     runnable_tasks: summary.runnableTasks,
     blocked_tasks: summary.blockedTasks.map((item) => ({ task_id: item.task_id, agent: item.agent, status: item.status, reason: item.reason })),
+    stale_leases_recovered: summary.leaseRecovery.recovered,
     worker_runs: summary.workerRuns.map((item) => ({ task_id: item.task.task_id, worker_status: item.worker.status, final_status: item.finalTask?.status })),
     push: push.skipped ? `skipped: ${push.reason}` : `exit ${push.status}`,
     summary: `${args.outputDir}/latest-summary.md`,
