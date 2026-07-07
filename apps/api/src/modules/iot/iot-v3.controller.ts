@@ -27,9 +27,9 @@ export class IotV3Controller {
     try {
       const em = (this.monDeviceService as any).entityManager;
       const queryErrors: string[] = [];
-      const safeQuery = async (label: string, sql: string) => {
+      const safeQuery = async (label: string, sql: string, params: unknown[] = []) => {
         try {
-          return await em.query(sql);
+          return await em.query(sql, params);
         } catch (e: any) {
           queryErrors.push(`${label}: ${e?.message || String(e)}`.slice(0, 220));
           return [];
@@ -101,6 +101,44 @@ export class IotV3Controller {
         return !isNaN(ms) && now - ms < STALE_MS;
       };
 
+      const today = new Date().toISOString().slice(0, 10);
+      const yest = new Date(Date.now() - 86400_000).toISOString().slice(0, 10);
+      const dailyUsageRows = await safeQuery(
+        'mon_device_property_daily_agg.usage',
+        `SELECT erp_house_code, property_code, agg_date, max_val
+           FROM mon_device_property_daily_agg
+          WHERE agg_date IN ($1, $2) AND property_code IN ('2488', '2532', '2484')`,
+        [today, yest],
+      );
+      const usageIdx: Record<string, number> = {};
+      for (const row of dailyUsageRows) {
+        const day = row.agg_date instanceof Date
+          ? row.agg_date.toISOString().slice(0, 10)
+          : String(row.agg_date).slice(0, 10);
+        const value = Number(row.max_val);
+        if (!Number.isNaN(value)) {
+          usageIdx[`${row.erp_house_code}|${row.property_code}|${day}`] = value;
+        }
+      }
+
+      const snapshotCum = (houseCode: string, code: string): number | null => {
+        const props = snapshotMap.get(houseCode) || [];
+        const values = props
+          .filter((p: any) => String(p.property_code) === code)
+          .map((p: any) => Number(p.value))
+          .filter((v: number) => !Number.isNaN(v));
+        return values.length ? Math.max(...values) : null;
+      };
+
+      const diffFor = (houseCode: string, code: string): number | null => {
+        const todayValue = usageIdx[`${houseCode}|${code}|${today}`] ?? snapshotCum(houseCode, code);
+        const yestValue = usageIdx[`${houseCode}|${code}|${yest}`];
+        if (todayValue == null && yestValue == null) return null;
+        if (todayValue != null && yestValue != null) return Math.max(0, todayValue - yestValue);
+        if (todayValue != null) return Math.max(0, todayValue);
+        return null;
+      };
+
       const houses = mappings.map((m: any) => {
         const props = snapshotMap.get(m.erp_house_code) || [];
         const hasData = props.length > 0;
@@ -154,8 +192,10 @@ export class IotV3Controller {
           avgHumidity:  getVal('2083'),
           co2:          getVal('2090'),
           ammonia:      getVal('2096'),
-          feedToday:    null,
-          waterToday:   null,
+          feedToday:    diffFor(m.erp_house_code, '2488') ?? diffFor(m.erp_house_code, '2532'),
+          waterToday:   diffFor(m.erp_house_code, '2484'),
+          feedCumNow:   getVal('2488') ?? getVal('2532'),
+          waterCumNow:  getVal('2484'),
           systems,
         };
       });
