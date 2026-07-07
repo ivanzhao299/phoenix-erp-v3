@@ -28,7 +28,7 @@
     "claimed_by": null,
     "claimed_at": null,
     "completed_at": null,
-    "result_file": null,
+    "result_file": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
     "next_agents": [],
     "approval_required": true
   },
@@ -2816,7 +2816,10 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "reason": "worker returned but task did not reach terminal status; worker exit=1; observed=running"
+    "reason": "A7 final QA completed and concluded HOLD because required A1/A2/A4/A5 evidence was incomplete in the A7 worktree; report merged into main.",
+    "merge_commit": "90e1379e",
+    "reconciled_at": "2026-07-07T16:10:00.000Z",
+    "reconciled_by": "Codex-Orchestrator"
   },
   {
     "task_id": "BUGTASK-20260707-0003-03-A4",

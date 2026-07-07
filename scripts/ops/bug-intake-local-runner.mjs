@@ -813,6 +813,26 @@ async function runCycle(args, cycle) {
       worker = run(workerCommand(task, args));
       finalTask = findTask(task.task_id);
     }
+    let leftovers = activeAgentProcesses();
+    if (!args.dryRun && !isFinishedTask(finalTask) && leftovers.length > 0) {
+      workerRuns.push({
+        task,
+        worker,
+        finalTask,
+        writeback: null,
+        retryRuns,
+        activeChildProcesses: leftovers,
+        postWorkerCommit: { skipped: true, reason: 'agent child process still active' },
+      });
+      blockedTasks.push({
+        task_id: task.task_id,
+        agent: task.agent,
+        status: 'BLOCKED',
+        reason: 'worker returned while agent child process is still active; leaving task state unchanged and stopping this cycle',
+        processes: leftovers,
+      });
+      break;
+    }
     if (!args.dryRun && !isFinishedTask(finalTask)) {
       finalTask = patchTask(task.task_id, {
         status: 'HOLD',
@@ -827,7 +847,7 @@ async function runCycle(args, cycle) {
     }
     const postWorkerCommit = commitOpsRuntimeArtifacts(args);
     workerRuns.push({ task, worker, finalTask, writeback, retryRuns });
-    const leftovers = activeAgentProcesses();
+    leftovers = activeAgentProcesses();
     if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
       blockedTasks.push({
         task_id: task.task_id,
