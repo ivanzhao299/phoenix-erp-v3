@@ -14,7 +14,7 @@
   "reporterUsername": "guodapeng",
   "reporterName": "郭大鹏",
   "createdAt": "2026-07-08T07:29:22.347Z",
-  "updatedAt": "2026-07-08T08:58:35.545Z",
+  "updatedAt": "2026-07-08T08:58:37.256Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "在销售订单页面右上角点击“新建订单”，填完信息后点击“保存草稿”报错“HTTP 400”",
@@ -1310,17 +1310,30 @@
         "validationResults": null
       },
       {
-        "taskId": "BUGTASK-20260708-0007-03-A4",
         "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260708-0007-03-A4",
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0007-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 197 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nfecycle.md\nSafe merge command: cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: a4e3f062\nTarget branch HEAD (w5-a4-frontend-uat-smoke): 9df92d8b\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating a4e3f062..9df92d8b\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n9df92d8b (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\na4e3f062 do",
+        "commitHash": "",
         "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-08T08:58:35.543Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-03-A4-detached-worker-recovery.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "taskId": "BUGTASK-20260708-0007-05-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-05-A1-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0007-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 197 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nfecycle.md\nSafe merge command: cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: a4e3f062\nTarget branch HEAD (w5-a4-frontend-uat-smoke): 9df92d8b\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating a4e3f062..9df92d8b\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n9df92d8b (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\na4e3f062 do",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0007-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0007-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-08T08:58:35.543Z"
+        "recordedAt": "2026-07-08T08:58:37.253Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1331,17 +1344,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0007-03-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0007-05-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-03-A4-detached-worker-recovery.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-05-A1-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0007-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 197 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nfecycle.md\nSafe merge command: cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: a4e3f062\nTarget branch HEAD (w5-a4-frontend-uat-smoke): 9df92d8b\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating a4e3f062..9df92d8b\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...20Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n9df92d8b (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\na4e3f062 do",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0007-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0007-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-08T08:58:35.543Z"
+      "recordedAt": "2026-07-08T08:58:37.253Z"
     },
     "acceptanceCriteria": "在销售订单页面右上角点击“新建订单”，填完信息后点击“保存草稿”可以正常创建订单",
     "agentPlanGeneratedAt": "2026-07-08T07:30:13.221Z",
