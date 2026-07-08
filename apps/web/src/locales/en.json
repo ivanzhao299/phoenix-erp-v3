@@ -13441,8 +13441,14 @@
   "ui.可见库存量": "Visible inventory quantity",
   "ui.来自专用库存接口": "From the dedicated inventory endpoint",
   "ui.搜索批次号、产品、仓库、库位": "Search batch, product, warehouse, or location",
+  "ui.搜索批次产品仓库库位门店": "Search batch, product code, warehouse, location, or store",
   "ui.刷新中": "Refreshing",
   "ui.库存数据加载中": "Loading inventory data",
   "ui.请先处理上方提示": "Please resolve the message above first",
-  "ui.当前权限范围内暂无库存批次": "No inventory batches in the current permission scope"
+  "ui.当前权限范围内暂无库存批次": "No inventory batches in the current permission scope",
+  "ui.入库日期": "Inbound date",
+  "ui.产品编码物料编码": "Product/material code",
+  "ui.产品编码物料编码placeholder": "E.g. PRD-EGG-1 / LPH-MED-003 / corn",
+  "ui.入库数量": "Inbound quantity",
+  "ui.查库存": "Check stock"
 }
