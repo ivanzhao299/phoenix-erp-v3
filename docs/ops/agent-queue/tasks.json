@@ -3744,7 +3744,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "completed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -3763,10 +3763,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-08T01:33:54.032Z",
-    "completed_at": "2026-07-08T01:33:54.098Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260707-0007-01-A2-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
@@ -3778,7 +3778,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.793Z",
+    "redispatched_at": "2026-07-08T01:41:03.251Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.919Z",
@@ -3800,6 +3800,13 @@
         "previous_result_file": "docs/ops/runs/BUGTASK-20260707-0007-01-A2-worker-log.md",
         "source_bug_no": "BUG-20260707-0007",
         "source_repair_task_no": "BUGTASK-20260707-0007"
+      },
+      {
+        "at": "2026-07-08T01:41:03.252Z",
+        "previous_status": "completed",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260707-0007-01-A2-worker-log.md",
+        "source_bug_no": "BUG-20260707-0007",
+        "source_repair_task_no": "BUGTASK-20260707-0007"
       }
     ]
   },
@@ -3811,7 +3818,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3830,10 +3837,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-08T01:33:57.686Z",
-    "completed_at": "2026-07-08T01:35:38.560Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260707-0007-02-A3-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -3846,7 +3853,7 @@
     "reconcile_reason": "A3 child produced a valid backend diff but worker parent exited before queue writeback; orchestrator validated the diff in main, added report, and prepared it for safe merge.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.793Z",
+    "redispatched_at": "2026-07-08T01:41:03.252Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.919Z",
@@ -3866,6 +3873,13 @@
         "at": "2026-07-08T01:33:53.793Z",
         "previous_status": "HOLD",
         "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0007",
+        "source_repair_task_no": "BUGTASK-20260707-0007"
+      },
+      {
+        "at": "2026-07-08T01:41:03.252Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260707-0007-02-A3-worker-log.md",
         "source_bug_no": "BUG-20260707-0007",
         "source_repair_task_no": "BUGTASK-20260707-0007"
       }
@@ -3919,7 +3933,7 @@
     "reconcile_reason": "A4 child produced a valid frontend diff but worker parent exited before queue writeback; orchestrator validated the diff in main with web typecheck and prepared it for safe merge.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.793Z",
+    "redispatched_at": "2026-07-08T01:41:03.252Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.919Z",
@@ -3941,6 +3955,13 @@
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0007",
         "source_repair_task_no": "BUGTASK-20260707-0007"
+      },
+      {
+        "at": "2026-07-08T01:41:03.252Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0007",
+        "source_repair_task_no": "BUGTASK-20260707-0007"
       }
     ]
   },
@@ -3952,7 +3973,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A5-Data-Readiness",
-    "status": "completed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -3972,10 +3993,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-08T01:33:55.702Z",
-    "completed_at": "2026-07-08T01:33:55.768Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260707-0007-04-A5-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A3-Backend-Critical-Path",
       "A2-Security-Regression-Gate"
@@ -3985,7 +4006,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.793Z",
+    "redispatched_at": "2026-07-08T01:41:03.252Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.919Z",
@@ -4003,6 +4024,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.793Z",
+        "previous_status": "completed",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260707-0007-04-A5-worker-log.md",
+        "source_bug_no": "BUG-20260707-0007",
+        "source_repair_task_no": "BUGTASK-20260707-0007"
+      },
+      {
+        "at": "2026-07-08T01:41:03.252Z",
         "previous_status": "completed",
         "previous_result_file": "docs/ops/runs/BUGTASK-20260707-0007-04-A5-worker-log.md",
         "source_bug_no": "BUG-20260707-0007",
@@ -4052,7 +4080,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.793Z",
+    "redispatched_at": "2026-07-08T01:41:03.252Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.919Z",
@@ -4070,6 +4098,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.793Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0007",
+        "source_repair_task_no": "BUGTASK-20260707-0007"
+      },
+      {
+        "at": "2026-07-08T01:41:03.252Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0007",
@@ -4329,7 +4364,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.759Z",
+    "redispatched_at": "2026-07-08T01:41:03.218Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.887Z",
@@ -4347,6 +4382,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.760Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0009",
+        "source_repair_task_no": "BUGTASK-20260707-0009"
+      },
+      {
+        "at": "2026-07-08T01:41:03.219Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0009",
@@ -4397,7 +4439,7 @@
     "reconciliation_note": "Recovered completed child-agent output after worker parent writeback/running state.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.760Z",
+    "redispatched_at": "2026-07-08T01:41:03.219Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.887Z",
@@ -4415,6 +4457,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.760Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0009",
+        "source_repair_task_no": "BUGTASK-20260707-0009"
+      },
+      {
+        "at": "2026-07-08T01:41:03.219Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0009",
@@ -4466,7 +4515,7 @@
     "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A4-Frontend-UAT-Smoke --branch w5-a4-frontend-uat-smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --max-retries 3 --allow-code --yes",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.760Z",
+    "redispatched_at": "2026-07-08T01:41:03.219Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.887Z",
@@ -4484,6 +4533,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.760Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0009",
+        "source_repair_task_no": "BUGTASK-20260707-0009"
+      },
+      {
+        "at": "2026-07-08T01:41:03.219Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0009",
@@ -4532,7 +4588,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.760Z",
+    "redispatched_at": "2026-07-08T01:41:03.219Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.887Z",
@@ -4550,6 +4606,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.760Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0009",
+        "source_repair_task_no": "BUGTASK-20260707-0009"
+      },
+      {
+        "at": "2026-07-08T01:41:03.219Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0009",
@@ -4599,7 +4662,7 @@
     "baseline_autopilot_skipped": "A1 validation was executed in the main workspace and will be merged by the orchestrator commit.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.760Z",
+    "redispatched_at": "2026-07-08T01:41:03.219Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:18:06.887Z",
@@ -4617,6 +4680,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.760Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0009",
+        "source_repair_task_no": "BUGTASK-20260707-0009"
+      },
+      {
+        "at": "2026-07-08T01:41:03.219Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0009",
@@ -4666,7 +4736,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.716Z",
+    "redispatched_at": "2026-07-08T01:41:03.181Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:11:04.811Z",
@@ -4691,6 +4761,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.717Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0010",
+        "source_repair_task_no": "BUGTASK-20260707-0010"
+      },
+      {
+        "at": "2026-07-08T01:41:03.182Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0010",
@@ -4740,7 +4817,7 @@
     "reason": "recovered_from_worker_writeback_failure",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.717Z",
+    "redispatched_at": "2026-07-08T01:41:03.182Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:11:04.811Z",
@@ -4765,6 +4842,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.717Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0010",
+        "source_repair_task_no": "BUGTASK-20260707-0010"
+      },
+      {
+        "at": "2026-07-08T01:41:03.182Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0010",
@@ -4817,7 +4901,7 @@
     "baseline_autopilot_skipped": "Frontend fallback was validated and merged by Codex-Orchestrator in the main bugfix commit.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.717Z",
+    "redispatched_at": "2026-07-08T01:41:03.182Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:11:04.811Z",
@@ -4842,6 +4926,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.717Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0010",
+        "source_repair_task_no": "BUGTASK-20260707-0010"
+      },
+      {
+        "at": "2026-07-08T01:41:03.182Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0010",
@@ -4890,7 +4981,7 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.717Z",
+    "redispatched_at": "2026-07-08T01:41:03.182Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:11:04.811Z",
@@ -4915,6 +5006,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.717Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0010",
+        "source_repair_task_no": "BUGTASK-20260707-0010"
+      },
+      {
+        "at": "2026-07-08T01:41:03.182Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0010",
@@ -4964,7 +5062,7 @@
     "baseline_autopilot_skipped": "A1 validation was executed in the main workspace and will be merged by the orchestrator commit.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "redispatched_at": "2026-07-08T01:33:53.717Z",
+    "redispatched_at": "2026-07-08T01:41:03.182Z",
     "redispatch_history": [
       {
         "at": "2026-07-08T01:11:04.811Z",
@@ -4989,6 +5087,13 @@
       },
       {
         "at": "2026-07-08T01:33:53.717Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260707-0010",
+        "source_repair_task_no": "BUGTASK-20260707-0010"
+      },
+      {
+        "at": "2026-07-08T01:41:03.182Z",
         "previous_status": "pending",
         "previous_result_file": null,
         "source_bug_no": "BUG-20260707-0010",
