@@ -4366,7 +4366,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "completed",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -4385,10 +4385,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A2-Security-Regression-Gate",
+    "claimed_at": "2026-07-08T06:24:47.352Z",
+    "completed_at": "2026-07-08T06:24:47.422Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
