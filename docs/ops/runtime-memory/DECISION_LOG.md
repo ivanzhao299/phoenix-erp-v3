@@ -1,5 +1,37 @@
 # Decision Log
 
+## 2026-07-08 - Bug Intake Pipeline Closeout and Chanjet Handoff
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- The current Bug Intake repair queue is drained: 103 BUGTASK items, 58 completed, 45 completed and merged, 0 open, 0 running.
+- The resident local runner remains active and can continue processing future approved reports.
+- Queue lane filters and safe redispatch gates are implemented, so low-risk validation work is separated from code repair and release-gate work.
+- The latest CI/CD deployment and production health check passed.
+- The platform can now return to the Chanjet / 好业财 integration mainline.
+
+Evidence:
+
+- `docs/ops/BUG_INTAKE_PIPELINE_CLOSEOUT_AND_CHANJET_HANDOFF_20260708.md`
+- `apps/api/src/modules/bug-intake/bug-intake.service.ts`
+- `apps/web/src/app/(admin)/bug-reports/page.tsx`
+
+Guardrails:
+
+- Bug Intake remains support infrastructure.
+- Chanjet writes remain forbidden.
+- Voucher push remains forbidden.
+- Business-facing finance pages may only consume Chanjet authority fields after semantic locks are explicit.
+
+Next actions:
+
+1. Start `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC`.
+2. Lock voucher, subject, customer/supplier mapping semantics.
+3. Continue finance card authority wiring after fields are locked.
+
+
 ## 2026-07-07 - Chanjet Readonly Adapter Authenticated Audit CI Gate
 
 Decision: GO WITH CONDITIONS.

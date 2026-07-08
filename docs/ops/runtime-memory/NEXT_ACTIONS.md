@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-08 — Bug Intake Pipeline Closeout and Chanjet Handoff
+
+Current stage: `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Drained the current Bug Intake Agent queue.
+2. Confirmed 103 BUGTASK items are either `completed` or `COMPLETED_MERGED`.
+3. Confirmed no open or running BUGTASK items remain at handoff time.
+4. Confirmed the resident Bug Intake runner remains active.
+5. Added queue-lane filtering and safe redispatch gates to the Bug Intake admin panel.
+6. Confirmed latest CI/CD and production health are passing.
+
+Next actions:
+
+1. Resume Chanjet / 好业财 integration as the active implementation track.
+2. Run `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC`.
+3. Lock voucher status, subject code/name, and counterparty mapping semantics.
+4. Promote only authority-ready Chanjet fields to business-facing finance cards.
+5. Keep all Chanjet writes and voucher push on HOLD until a separate approved Gate.
+
+
 Last updated: 2026-07-07
 
 ## 2026-07-07 — Chanjet Readonly Adapter Authenticated Audit CI Gate
