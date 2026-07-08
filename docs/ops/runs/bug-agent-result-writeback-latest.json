@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260708-0004",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0004-05-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260708-0004-06-A6",
+    "agent": "A6-Staging-Deploy-Runbook",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-05-A1-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-06-A6-detached-worker-recovery.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-06-A6 |\n| Agent | A6-Staging-Deploy-Runbook |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 5 |\n| Worktree status before recovery | ?? docs/ops/BUG-20260708-0004_A6_STAGING_DEPLOY_RUNBOOK.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n-to-main.mjs w5-a6-staging-deploy-runbook --yes\nCurrent main HEAD: 6dc6c7ed\nTarget branch HEAD (w5-a6-staging-deploy-runbook): d3fafe0c\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-05-52-919Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-05-52-920Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.md\n\nDiff stat:\n ...-Staging-Deploy-Runbook-baseline-lifecycle.json | 26 ++++++++++++++++++++++\n ...A6-Staging-Deploy-Runbook-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 52 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a6-staging-deploy-runbook into main with --ff-only...\nUpdating 6dc6c7ed..d3fafe0c\nFast-forward\n ...-Staging-Deploy-Runbook-baseline-lifecycle.json | 26 ++++++++++++++++++++++\n ...A6-Staging-Deploy-Runbook-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 52 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-05-52-919Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-05-52-920Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nd3fafe0c (HEAD -> main, w5-a6-staging-deploy-runbook) docs(ops): record baseline lifecycle report\n6dc6c7ed docs(ops): record generated ops artifacts\n7aee7c0f docs(ops): record bug 0006 staging deploy runbook\nd3498070 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nfca5a3d1 fix: localize warehouse ledger transaction types\nbf10bcf1 (w5-a3-backend-critical-path) docs(ops)",
     "nextAction": ""
   }
 }
