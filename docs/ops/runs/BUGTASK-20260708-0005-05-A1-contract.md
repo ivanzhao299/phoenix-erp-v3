@@ -1427,12 +1427,12 @@ Assigned agent: A1-CI-Runtime-Gate
           "originalName": "pasted-screenshot-1783495023020-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
+          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
           "sizeBytes": 591332
         }
       ],
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png"
       ]
     }
   },
@@ -1541,4 +1541,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png

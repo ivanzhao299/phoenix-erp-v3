@@ -596,12 +596,12 @@ Assigned agent: A4-Frontend-UAT-Smoke
           "originalName": "pasted-screenshot-1783495750025-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png",
+          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png",
           "sizeBytes": 519608
         }
       ],
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png"
       ]
     }
   },
@@ -711,4 +711,4 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-154833/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png
