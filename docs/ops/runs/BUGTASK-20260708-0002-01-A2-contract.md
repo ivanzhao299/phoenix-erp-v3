@@ -735,16 +735,11 @@ Assigned agent: A2-Security-Regression-Gate
       "localAttachments": [
         {
           "fileName": "01-1783490320291-8baec41e.png",
-          "originalName": "pasted-screenshot-1783490291239-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0002/attachments/01-1783490320291-8baec41e.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0002/attachments/01-1783490320291-8baec41e.png",
-          "sizeBytes": 348333
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0002/attachments/01-1783490320291-8baec41e.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0002/attachments/01-1783490320291-8baec41e.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -852,4 +847,4 @@ Assigned agent: A2-Security-Regression-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0002/attachments/01-1783490320291-8baec41e.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

@@ -758,16 +758,11 @@ Assigned agent: A7-Final-QA-Gate
       "localAttachments": [
         {
           "fileName": "01-1783492571110-f0f0c6ec.png",
-          "originalName": "pasted-screenshot-1783492545617-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png",
-          "sizeBytes": 704439
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -893,4 +888,4 @@ Assigned agent: A7-Final-QA-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

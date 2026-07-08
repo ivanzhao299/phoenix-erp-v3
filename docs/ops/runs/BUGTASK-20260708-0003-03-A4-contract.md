@@ -641,16 +641,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "localAttachments": [
         {
           "fileName": "01-1783491225443-748bc8ba.png",
-          "originalName": "pasted-screenshot-1783491218739-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0003/attachments/01-1783491225443-748bc8ba.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0003/attachments/01-1783491225443-748bc8ba.png",
-          "sizeBytes": 730004
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0003/attachments/01-1783491225443-748bc8ba.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0003/attachments/01-1783491225443-748bc8ba.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -758,4 +753,4 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0003/attachments/01-1783491225443-748bc8ba.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
