@@ -3895,7 +3895,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3918,8 +3918,8 @@
     "dependencies": [],
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-08T01:47:50.903Z",
-    "completed_at": "2026-07-08T01:53:43.118Z",
-    "result_file": null,
+    "completed_at": "2026-07-08T01:59:58.424Z",
+    "result_file": "docs/ops/BUG-20260707-0007_A4_FRONTEND_UAT_SMOKE_REPORT.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -3929,8 +3929,8 @@
     "approval_required": true,
     "baseline_autopilot_exit_code": 0,
     "reconciled_by": "Codex-Orchestrator",
-    "reconciled_at": "2026-07-07T17:49:32.517Z",
-    "reconcile_reason": "A4 child produced a valid frontend diff but worker parent exited before queue writeback; orchestrator validated the diff in main with web typecheck and prepared it for safe merge.",
+    "reconciled_at": "2026-07-08T01:59:58.425Z",
+    "reconcile_reason": "A4 frontend diff validated, cherry-picked onto current main line, and merged through orchestrator reconciliation.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
     "redispatched_at": "2026-07-08T01:41:03.252Z",
@@ -3963,8 +3963,7 @@
         "source_bug_no": "BUG-20260707-0007",
         "source_repair_task_no": "BUGTASK-20260707-0007"
       }
-    ],
-    "reason": "worker parent returned before child completion; child exited after 172s but task was not written back; worker exit=1; observed=running"
+    ]
   },
   {
     "task_id": "BUGTASK-20260707-0007-04-A5",
