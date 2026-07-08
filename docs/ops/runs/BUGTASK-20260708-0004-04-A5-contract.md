@@ -761,12 +761,12 @@ Assigned agent: A5-Data-Readiness
           "originalName": "pasted-screenshot-1783492545617-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-144636/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png",
+          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png",
           "sizeBytes": 704439
         }
       ],
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-144636/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png"
       ]
     }
   },
@@ -893,4 +893,4 @@ Assigned agent: A5-Data-Readiness
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-144636/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-145347/BUG-20260708-0004/attachments/01-1783492571110-f0f0c6ec.png
