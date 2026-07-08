@@ -29,7 +29,7 @@
         "force push"
       ]
     },
-    "apply": true
+    "apply": false
   },
   "routePlan": {
     "source_bug_no": "BUG-20260707-0007",
