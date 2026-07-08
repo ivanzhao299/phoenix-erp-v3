@@ -1,0 +1,1697 @@
+# Agent Worker Log
+
+| Field | Value |
+| --- | --- |
+| Task ID | BUGTASK-20260708-0006-02-A3 |
+| Agent | A3-Backend-Critical-Path |
+| Dry run | No |
+| Exit code | 0 |
+
+## Command
+
+```bash
+/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0006-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0006-02-A3-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty
+```
+
+## Stdout
+
+```text
+Agent: A3-Backend-Critical-Path
+Worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+Branch: w5-a3-backend-critical-path
+Prompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md
+Task contract: docs/ops/runs/BUGTASK-20260708-0006-02-A3-contract.md
+Assembled prompt: docs/ops/runs/BUGTASK-20260708-0006-02-A3-worker-assembled-prompt.md
+Assembled prompt chars: 45497
+Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -
+Codex timeout ms: 600000
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-33-34-693Z-A3-Backend-Critical-Path.md
+HOLD recorded for BUG-20260708-0006.
+
+Report: [docs/ops/bug-20260708-0006-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260708-0006-a3-backend-critical-path.md)
+
+What happened:
+- Diagnosed `/sales2/pricing` backend only.
+- No backend source changes.
+- No DB writes, no migration, no deploy, no push.
+- Acceptance requires target DB state changes: restore the cancelled price book and delete the draft price book. That is forbidden by this task gate, so I stopped at HOLD.
+- Committed the report locally: `c2912d7e docs: record BUG-20260708-0006 backend hold`.
+
+Validation:
+- API `tsc --noEmit`: PASS
+- Web `tsc --noEmit`: FAIL due existing missing `vitest` / `vitest/config` types; no frontend files changed
+- Local API health: `000`, service not running
+- Final worktree: clean
+
+Notable finding: pricing mutation audit rule currently matches `/api/v2/sales/price-books`, but actual pricing route is `/api/v2/sales/pricing`; any approved restore/delete backend change should fix that audit route mismatch.
+Baseline autopilot skipped by caller; caller must run lifecycle hook.
+
+```
+
+## Stderr
+
+```text
+OpenAI Codex v0.142.5
+--------
+workdir: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: high
+reasoning summaries: none
+session id: 019f40d9-f2d4-73d2-b848-293fcb12867a
+--------
+user
+# Base Agent Prompt
+
+# A3 Backend Task Prompt
+
+## Agent Identity
+
+You are `A3-Backend-Critical-Path`.
+
+## Worktree and Branch
+
+Worktree: `/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path`
+
+Branch: `w5-a3-backend-critical-path`
+
+## Execution Checks
+
+Run:
+
+```bash
+pwd
+git branch --show-current
+git status --short
+git log --oneline --decorate -8
+```
+
+Stop if directory, branch, or worktree cleanliness is invalid.
+
+## Allowed Scope
+
+Only files explicitly allowed by the task contract. Backend implementation must follow the approved module, service, controller, DTO, RBAC, DataScope, audit, and test boundaries.
+
+## Forbidden Scope
+
+No migrations, schema/entity/table/column changes, production deploy, database writes, push, frontend work, unrelated business modules, or DataScope service rewrites unless explicitly approved.
+
+## Output Report Format
+
+Write a backend report under `docs/ops/` with changed files, APIs implemented, RBAC/DataScope/audit coverage, tests run, blockers, frozen-item statement, and next review request.
+
+## Commit Rule
+
+Commit only approved backend files and report. Do not stage unrelated changes.
+
+## Failure Rule
+
+Stop on forbidden scope, failing required checks without clear report, missing security guard, dirty unexpected files, or need for migration/schema changes.
+
+---
+
+# Agent Task Contract
+
+# Bug Repair Agent Contract
+
+Source bug: BUG-20260708-0006
+Source repair task: BUGTASK-20260708-0006
+Assigned agent: A3-Backend-Critical-Path
+
+## Issue
+
+价格册恢复
+
+## Route
+
+/sales2/pricing
+
+## Guardrails
+
+- Start with dry-run / diagnosis.
+- Do not deploy automatically.
+- Do not write database or run migration without explicit gate.
+- Preserve RBAC, DataScope, audit, and attachment ACL.
+- Produce a result report with changed files, validation commands, and GO/HOLD/FAIL.
+
+## Context
+
+```json
+{
+  "url": "https://erp.eggslao.com/sales2/pricing",
+  "bugNo": "BUG-20260708-0006",
+  "route": "/sales2/pricing",
+  "title": "价格册恢复",
+  "taskNo": "BUGTASK-20260708-0006",
+  "context": {
+    "attachments": [
+      {
+        "sha256": "4cef4e9479565a5fe952b942f3a493f52c05af300b065823fd283e777c56a595",
+        "fileName": "01-1783495418148-a24a371c.png",
+        "mimeType": "image/png",
+        "sizeBytes": 347794,
+        "originalName": "pasted-screenshot-1783495365133-1.png",
+        "relativePath": "storage/bug-reports/2026/07/08/BUG-20260708-0006/01-1783495418148-a24a371c.png",
+        "previewEndpoint": "/api/bug-intake/reports/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png"
+      }
+    ],
+    "clientContext": {
+      "language": "zh-CN",
+      "timezone": "Asia/Shanghai",
+      "viewport": {
+        "width": 1600,
+        "height": 865
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "capturedAt": "2026-07-08T07:23:38.149Z",
+      "pageSnapshot": {
+        "route": "/sales2/pricing",
+        "title": "金凤凰 ERP — Phoenix ERP V3",
+        "scroll": {
+          "x": 0,
+          "y": 0
+        },
+        "viewport": {
+          "width": 1600,
+          "height": 865
+        },
+        "visibleText": [
+          "运营工作台",
+          "每日工作台",
+          "经营仪表盘",
+          "生产管理",
+          "库存管理",
+          "全链追溯",
+          "采购管理",
+          "销售管理",
+          "销售总览",
+          "客户管理",
+          "渠道管理",
+          "价格管理",
+          "销售订单",
+          "配送管理",
+          "退货管理",
+          "信用管理",
+          "直营店收银",
+          "统一收款",
+          "门店工作台",
+          "收货验收",
+          "门店库存",
+          "补货申请",
+          "损耗记录",
+          "门店日结",
+          "鸡蛋库存",
+          "销售分析",
+          "财务结算中心",
+          "股东权益中心",
+          "审批中心",
+          "经营分析",
+          "主数据中心",
+          "系统设置",
+          "验收试运行",
+          "系统运维",
+          "个人中心 / 修改密码",
+          "供应商档案",
+          "99+",
+          "反馈问题",
+          "反馈页面问题",
+          "页面",
+          "用户",
+          "角色",
+          "问题标题 *",
+          "严重程度 低：样式/文案问题 中：影响局部流程 高：阻断业务操作 紧急：系统不可用/数据风险",
+          "严重程度",
+          "问题说明",
+          "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+          "截图 / PDF（最多 5 个，单个 ≤15MB）",
+          "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+          "pasted-screenshot-1783495365133-1.png",
+          "退出",
+          "销售系统",
+          "/价格管理",
+          "/",
+          "·价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据",
+          "·",
+          "编号",
+          "名称",
+          "渠道",
+          "客户",
+          "优先级",
+          "生效日",
+          "失效日",
+          "状态",
+          "操作",
+          "PB-20260708-00001",
+          "孟赛标准价格册（试运行版）重建",
+          "默认 (100)",
+          "(100)",
+          "2026/5/30",
+          "2026/12/31",
+          "草稿",
+          "编辑 提交审批 取消",
+          "PB-MENGSE-2026-STD",
+          "孟赛标准价格册（试运行版）",
+          "—",
+          "已取消"
+        ],
+        "interactiveElements": [
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 119
+            },
+            "label": "运营工作台",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 157
+            },
+            "label": "每日工作台",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 195
+            },
+            "label": "经营仪表盘",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 233
+            },
+            "label": "生产管理",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 271
+            },
+            "label": "库存管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 309
+            },
+            "label": "全链追溯",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 347
+            },
+            "label": "采购管理",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 385
+            },
+            "label": "销售管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 423
+            },
+            "label": "销售总览",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 455
+            },
+            "label": "客户管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 487
+            },
+            "label": "渠道管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 519
+            },
+            "label": "价格管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 551
+            },
+            "label": "销售订单",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 583
+            },
+            "label": "配送管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 615
+            },
+            "label": "退货管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 647
+            },
+            "label": "信用管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 679
+            },
+            "label": "直营店收银",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 711
+            },
+            "label": "统一收款",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 743
+            },
+            "label": "门店工作台",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 775
+            },
+            "label": "收货验收",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 807
+            },
+            "label": "门店库存",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 839
+            },
+            "label": "补货申请",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 871
+            },
+            "label": "损耗记录",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 903
+            },
+            "label": "门店日结",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 935
+            },
+            "label": "鸡蛋库存",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 967
+            },
+            "label": "销售分析",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 999
+            },
+            "label": "财务结算中心",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1037
+            },
+            "label": "股东权益中心",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1075
+            },
+            "label": "审批中心",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1113
+            },
+            "label": "经营分析",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1151
+            },
+            "label": "主数据中心",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1189
+            },
+            "label": "系统设置",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1227
+            },
+            "label": "验收试运行",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 1265
+            },
+            "label": "系统运维",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__profileLink",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 827
+            },
+            "label": "个人中心 / 修改密码",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": ".admin-module__uYgI-a__headerSelect",
+            "rect": {
+              "h": 30,
+              "w": 96,
+              "x": 938,
+              "y": 13
+            },
+            "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 34,
+              "w": 95,
+              "x": 1095,
+              "y": 11
+            },
+            "label": "在线 2",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 34,
+              "w": 34,
+              "x": 1204,
+              "y": 11
+            },
+            "label": "99+",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__feedbackButton",
+            "rect": {
+              "h": 40,
+              "w": 122,
+              "x": 1252,
+              "y": 8
+            },
+            "label": "反馈问题",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__iconButton",
+            "rect": {
+              "h": 26,
+              "w": 26,
+              "x": 1056,
+              "y": 10
+            },
+            "label": "关闭",
+            "disabled": false
+          },
+          {
+            "tag": "input",
+            "path": "",
+            "rect": {
+              "h": 42,
+              "w": 569,
+              "x": 513,
+              "y": 233
+            },
+            "label": "例如：采购付款单项目下拉为空",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": "",
+            "rect": {
+              "h": 40,
+              "w": 569,
+              "x": 513,
+              "y": 315
+            },
+            "label": "低：样式/文案问题 中：影响局部流程 高：阻断业务操作 紧急：系统不可用/数据风险",
+            "disabled": false
+          },
+          {
+            "tag": "textarea",
+            "path": "",
+            "rect": {
+              "h": 100,
+              "w": 569,
+              "x": 513,
+              "y": 395
+            },
+            "label": "请描述你刚才做了什么、期望结果、实际结果。",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__captureButton",
+            "rect": {
+              "h": 40,
+              "w": 101,
+              "x": 513,
+              "y": 535
+            },
+            "label": "全屏截图",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__captureButton",
+            "rect": {
+              "h": 40,
+              "w": 127,
+              "x": 624,
+              "y": 535
+            },
+            "label": "框选区域截图",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 18,
+              "w": 18,
+              "x": 767,
+              "y": 715
+            },
+            "label": "移除附件",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__secondaryButton",
+            "rect": {
+              "h": 43,
+              "w": 62,
+              "x": 920,
+              "y": 769
+            },
+            "label": "取消",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".bug-intake-module__OBjRZW__primaryButton",
+            "rect": {
+              "h": 43,
+              "w": 90,
+              "x": 992,
+              "y": 769
+            },
+            "label": "提交问题",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".admin-module__uYgI-a__userChip",
+            "rect": {
+              "h": 32,
+              "w": 110,
+              "x": 1388,
+              "y": 12
+            },
+            "label": "金 金凤凰总控 集团超级管理员",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".admin-module__uYgI-a__logoutBtn",
+            "rect": {
+              "h": 30,
+              "w": 68,
+              "x": 1512,
+              "y": 13
+            },
+            "label": "退出",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 38,
+              "w": 91,
+              "x": 244,
+              "y": 145
+            },
+            "label": "价格册",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 38,
+              "w": 104,
+              "x": 339,
+              "y": 145
+            },
+            "label": "价格明细",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 38,
+              "w": 130,
+              "x": 447,
+              "y": 145
+            },
+            "label": "当前生效价格",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 38,
+              "w": 104,
+              "x": 581,
+              "y": 145
+            },
+            "label": "价格异常",
+            "disabled": false
+          },
+          {
+            "tag": "input",
+            "path": "",
+            "rect": {
+              "h": 34,
+              "w": 1005,
+              "x": 244,
+              "y": 203
+            },
+            "label": "搜索价格册名称 / 编号…",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": "",
+            "rect": {
+              "h": 34,
+              "w": 94,
+              "x": 1259,
+              "y": 203
+            },
+            "label": "全部状态 草稿 审批中 已批准 生效中 已失效 已取消",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".admin-ui-module__B-1PDG__btnSecondary.admin-ui-module__B-1PDG__btn",
+            "rect": {
+              "h": 34,
+              "w": 83,
+              "x": 1363,
+              "y": 203
+            },
+            "label": "刷新",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+            "rect": {
+              "h": 34,
+              "w": 120,
+              "x": 1456,
+              "y": 203
+            },
+            "label": "新建价格册",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".admin-ui-module__B-1PDG__btnSecondary.admin-ui-module__B-1PDG__btn",
+            "rect": {
+              "h": 23,
+              "w": 40,
+              "x": 1359,
+              "y": 315
+            },
+            "label": "编辑",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".admin-ui-module__B-1PDG__btnSecondary.admin-ui-module__B-1PDG__btn",
+            "rect": {
+              "h": 23,
+              "w": 62,
+              "x": 1403,
+              "y": 315
+            },
+            "label": "提交审批",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": "",
+            "rect": {
+              "h": 23,
+              "w": 40,
+              "x": 1469,
+              "y": 315
+            },
+            "label": "取消",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".rightDrawer-module__jI_Bsa__closeBtn",
+            "rect": {
+              "h": 32,
+              "w": 32,
+              "x": 2068,
+              "y": 16
+            },
+            "label": "关闭抽屉",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": ".phx-select",
+            "rect": {
+              "h": 38,
+              "w": 232,
+              "x": 1869,
+              "y": 110
+            },
+            "label": "加载中… 老挝凤凰农业发展有限公司 老挝凤凰食品集团有限公司 老挝东鹏县星驰农业发展有限公司",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": ".phx-select",
+            "rect": {
+              "h": 38,
+              "w": 232,
+              "x": 1869,
+              "y": 191
+            },
+            "label": "加载中… 孟赛直营渠道（CH-MS-DIRECT） 孟赛经销商渠道（CH-MS-DIST）",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": ".phx-select",
+            "rect": {
+              "h": 38,
+              "w": 232,
+              "x": 1621,
+              "y": 272
+            },
+            "label": "加载中… 测试客户2（CUS-00002） 中铁路（CUS-CORP-001） 十八号仓库（CUS-DIST-001） 李潇蔬菜（CUS-DIST-002） 吴晓斌蔬菜（CUS-DIST-003） 阿香内（CUS-DIST-004） 阿慧（CUS-DIST-005） 向老头（CUS-DIST-006） 孟嗯（CUS-D",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "path": ".crudForm-module__v3To_q__input.",
+            "rect": {
+              "h": 38,
+              "w": 232,
+              "x": 1869,
+              "y": 272
+            },
+            "label": "请选择 最高优先 - 特批价 / 临时重点客户，最先匹配 优先 - 客户专属价 / 渠道专属价，优先匹配 默认 - 日常价格册，推荐默认使用 备用 - 兜底或待启用价格，最后匹配",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".crudForm-module__v3To_q__btnCancel",
+            "rect": {
+              "h": 44,
+              "w": 158,
+              "x": 1621,
+              "y": 525
+            },
+            "label": "取消",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "path": ".crudForm-module__v3To_q__btnSubmit",
+            "rect": {
+              "h": 44,
+              "w": 309,
+              "x": 1791,
+              "y": 525
+            },
+            "label": "保存",
+            "disabled": false
+          }
+        ]
+      },
+      "devicePixelRatio": 2
+    },
+    "consoleErrors": [
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:23.854Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:26.257Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:28.459Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:39.445Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:44.870Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:48.284Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:07:52.967Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:08:03.390Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:08:22.689Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:08:23.770Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:08:24.378Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:08:25.141Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:10:32.408Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:11:36.402Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:11:44.765Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:12:06.662Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:12:07.571Z"
+      },
+      {
+        "type": "unhandledrejection",
+        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
+        "message": "黑名单客户不可编辑，请先解除黑名单",
+        "timestamp": "2026-07-08T07:12:11.059Z"
+      }
+    ],
+    "failedRequests": [
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:23.852Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:26.254Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:28.457Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:39.444Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:44.869Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:48.282Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:52.965Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:03.387Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:22.687Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:23.769Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:24.376Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:25.140Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:10:32.406Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:11:36.400Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:11:44.764Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:06.660Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:07.569Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:11.058Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/system/online-count",
+        "method": "GET",
+        "status": 502,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:13:55.183Z",
+        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 502,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:13:55.183Z",
+        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
+      },
+      {
+        "url": "/api/v2/sales/pricing/books/363/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:20:30.694Z",
+        "responseExcerpt": "{\"code\":400,\"message\":\"价格册无有效明细，不可提交审批\",\"error\":\"Bad Request\",\"statusCode\":400}"
+      },
+      {
+        "url": "/api/v2/sales/pricing/books/363/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:20:31.091Z",
+        "responseExcerpt": "{\"code\":400,\"message\":\"价格册无有效明细，不可提交审批\",\"error\":\"Bad Request\",\"statusCode\":400}"
+      },
+      {
+        "url": "/api/v2/sales/pricing/books/363/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:21:32.018Z",
+        "responseExcerpt": "{\"code\":400,\"message\":\"价格册无有效明细，不可提交审批\",\"error\":\"Bad Request\",\"statusCode\":400}"
+      }
+    ],
+    "localEvidence": {
+      "localAttachments": [
+        {
+          "fileName": "01-1783495418148-a24a371c.png",
+          "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png",
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
+        }
+      ],
+      "localAttachmentPaths": []
+    }
+  },
+  "priority": "P2",
+  "reporter": {
+    "name": "金凤凰总控",
+    "roles": [
+      "ROLE_ADMIN",
+      "ROLE_MASTER_DATA_APPROVER"
+    ],
+    "username": "admin",
+    "companyCode": "",
+    "projectCode": ""
+  },
+  "severity": "MEDIUM",
+  "agentPlan": {
+    "source_bug_no": "BUG-20260708-0006",
+    "route_decision": "PLAN_READY",
+    "split_strategy": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "reasons": [
+          "security/RBAC/DataScope signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "reasons": [
+          "backend/API/error route matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "reasons": [
+          "frontend/UI route or wording matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "reasons": [
+          "data readiness/master data signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "reasons": [
+          "required validation after repair"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      }
+    ],
+    "selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A5-Data-Readiness",
+      "A1-CI-Runtime-Gate"
+    ],
+    "failure_category": null,
+    "hard_constraints": [
+      "no automatic production deploy",
+      "no automatic DB write",
+      "no automatic migration",
+      "human approval required before code repair execution"
+    ],
+    "route_confidence": null,
+    "source_repair_task_no": "BUGTASK-20260708-0006"
+  },
+  "createdAt": "2026-07-08T07:24:18.940Z",
+  "createdBy": "admin",
+  "moduleCode": "____",
+  "suggestedOwner": "_____",
+  "repairGuardrails": {
+    "autoRepairExecuted": false,
+    "noProductionDeploy": true,
+    "noDbWriteWithoutGate": true,
+    "requiresHumanApproval": true
+  },
+  "acceptanceCriteria": "将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
+  "agentPlanGeneratedAt": "2026-07-08T07:24:20.277Z",
+  "agentPlanGeneratedBy": "admin",
+  "agentExecutionApproval": {
+    "approved": true,
+    "approvedAt": "2026-07-08T07:24:22.163Z",
+    "approvedBy": "admin",
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "forbiddenActions": [
+      "production deploy without separate approval",
+      "database write without separate gate",
+      "migration execution without separate gate",
+      "push without release approval",
+      "force push"
+    ]
+  }
+}
+```
+
+## Local Evidence
+
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
+
+---
+
+# Execution Guardrails
+
+1. Do not merge.
+2. Do not push.
+3. Do not deploy.
+4. Do not execute migrations.
+5. Do not write to any database.
+6. Do not modify the task board from inside the Agent task.
+7. Stop immediately if the task requires files outside the allowed contract.
+8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
+9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
+
+codex
+先做合同要求的环境门禁检查；如果 worktree 或分支不符合，我会停在诊断报告，不碰代码。
+exec
+/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+
+exec
+/bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+w5-a3-backend-critical-path
+
+exec
+/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+6664fc7d (HEAD -> w5-a3-backend-critical-path, w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
+0d76d956 docs(ops): record baseline lifecycle report
+8d0f1995 fix: repair sales customer status update
+271aa7cf (w5-a7-final-qa-gate) docs(ops): record baseline lifecycle report
+fba60481 docs(ops): record BUG-20260708-0004 A7 final QA gate
+858ca13d docs(ops): record BUG-20260707-0006 A7 final QA gate
+218f76ba docs(ops): record BUG-20260707-0005 A7 final QA gate
+d3fafe0c (w5-a6-staging-deploy-runbook) docs(ops): record baseline lifecycle report
+
+exec
+/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+codex
+门禁通过：目录、分支、worktree clean 都符合。现在只做 dry-run 诊断，先定位 `/api/v2/sales/pricing` 的 controller/service 和现有状态流转逻辑。
+exec
+/bin/zsh -lc "rg --files apps/api/src | rg 'sales|pricing|price'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+apps/api/src/modules/analytics/services/sales-analytics-aggregator.service.ts
+apps/api/src/modules/sales-v2/entities/sal-delivery-order-item.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-channel.entity.ts
+apps/api/src/modules/sales-v2/entities/index.ts
+apps/api/src/modules/sales-v2/entities/sal-customer.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-sales-order.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-price-book.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-delivery-order.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-receipt.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-driver.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-vehicle.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-order-item.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-price-item.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-return-order.entity.ts
+apps/api/src/modules/sales-v2/entities/sal-return-item.entity.ts
+apps/api/src/modules/store-pos/services/sales-engine.service.ts
+apps/api/src/modules/sales-v2/services/customers.service.ts
+apps/api/src/modules/sales-v2/services/egg-inventory.service.ts
+apps/api/src/modules/sales-v2/services/delivery-orders.service.ts
+apps/api/src/modules/sales-v2/services/sales-v2.service.ts
+apps/api/src/modules/sales-v2/services/return-orders.service.ts
+apps/api/src/modules/sales-v2/services/price-books.service.ts
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts
+apps/api/src/modules/sales-v2/services/price-items.service.ts
+apps/api/src/modules/sales-v2/services/packaging-inventory-integration.service.ts
+apps/api/src/modules/sales-v2/services/customer-credit.service.ts
+apps/api/src/modules/sales-v2/services/production-inbound.service.ts
+apps/api/src/modules/sales-v2/services/customer-credit-scheduler.service.ts
+apps/api/src/modules/sales-v2/services/egg-inventory-scheduler.service.ts
+apps/api/src/modules/sales-v2/services/customers.service.spec.ts
+apps/api/src/modules/sales-v2/services/receipts.service.ts
+apps/api/src/modules/sales-v2/services/inventory-source-mode.service.ts
+apps/api/src/modules/sales-v2/services/sales-analytics.service.ts
+apps/api/src/modules/sales-v2/services/sales-orders.service.ts
+apps/api/src/modules/sales-v2/services/channels.service.ts
+apps/api/src/modules/sales-v2/controllers/customer-credit.controller.ts
+apps/api/src/modules/sales-v2/controllers/inventory-source.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-analytics.controller.ts
+apps/api/src/modules/sales-v2/controllers/egg-inventory.controller.ts
+apps/api/src/modules/sales-v2/controllers/delivery-orders.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-orders.controller.ts
+apps/api/src/modules/sales-v2/controllers/mobile-delivery.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-v2.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-customers.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-price-runtime.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-returns.controller.ts
+apps/api/src/modules/sales-v2/controllers/sales-channels.controller.ts
+apps/api/src/modules/sales-v2/sales-v2.module.ts
+apps/api/src/modules/sales-v2/adapters/finance-credit-note.adapter.ts
+apps/api/src/modules/sales-v2/adapters/finance-ar.adapter.ts
+apps/api/src/modules/sales-v2/dto/delivery.dto.ts
+apps/api/src/modules/sales-v2/dto/customer.dto.ts
+apps/api/src/modules/sales-v2/dto/price-item.dto.ts
+apps/api/src/modules/sales-v2/dto/channel.dto.ts
+apps/api/src/modules/sales-v2/dto/price-book.dto.ts
+apps/api/src/modules/sales-v2/dto/sales-order.dto.ts
+apps/api/src/modules/farm/farm-sales.controller.ts
+apps/api/src/modules/farm/farm-sales.service.ts
+
+exec
+/bin/zsh -lc 'find docs/ops -maxdepth 1 -type f | sort | tail -20' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md
+docs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md
+docs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md
+docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md
+docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md
+docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md
+docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
+docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md
+docs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md
+docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md
+docs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md
+docs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md
+docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md
+docs/ops/bug-20260707-0009-a3-backend-critical-path.md
+docs/ops/bug-20260707-0009-a4-frontend-uat-report.md
+docs/ops/bug-20260707-0010-a3-backend-critical-path.md
+docs/ops/bug-20260708-0002-a3-backend-critical-path.md
+docs/ops/bug-20260708-0003-a3-backend-critical-path.md
+docs/ops/bug-20260708-0004-a3-backend-critical-path.md
+docs/ops/bug-20260708-0005-a3-backend-critical-path.md
+
+exec
+/bin/zsh -lc 'rg -n "sales/pricing|pricing/books|PriceBook|price book|价格册" apps/api/src apps/api/test apps/api/tests' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ exited 2 in 0ms:
+rg: apps/api/tests: No such file or directory (os error 2)
+apps/api/src/modules/store-pos/services/sales-engine.service.ts:177:    // 若价格册未迁移至 sal_price_books，跳过校验（向后兼容旧订单）
+apps/api/src/modules/store-pos/services/sales-engine.service.ts:196:        // PRD 8.4.1: 指定了 price_book_id 但商品不在价格册内 → 直接阻断
+apps/api/src/modules/store-pos/services/sales-engine.service.ts:198:          `Product ${line.product_code} is not found in price book (id=${order.price_book_id}). Order blocked.`,
+apps/api/src/modules/bff/bff.controller.ts:935:  async getPriceBooks() {
+apps/api/src/modules/sales-v2/entities/index.ts:3:export { SalPriceBookEntity }         from './sal-price-book.entity';
+apps/api/src/modules/sales-v2/entities/sal-price-book.entity.ts:7: * 价格册  sal_price_books
+apps/api/src/modules/sales-v2/entities/sal-price-book.entity.ts:19: *   3. 默认价格册（customer_code 和 channel_code 均为 NULL）
+apps/api/src/modules/sales-v2/entities/sal-price-book.entity.ts:30:export class SalPriceBookEntity {
+apps/api/src/modules/sales-v2/entities/sal-order-item.entity.ts:13: * floor_price:         底价（来自 price book，低于此值需审批）
+apps/api/src/modules/sales-v2/entities/sal-price-item.entity.ts:4:import { SalPriceBookEntity } from './sal-price-book.entity';
+apps/api/src/modules/sales-v2/entities/sal-price-item.entity.ts:29:  @ManyToOne(() => SalPriceBookEntity)
+apps/api/src/modules/sales-v2/entities/sal-price-item.entity.ts:31:  priceBook?: SalPriceBookEntity;
+apps/api/src/modules/sales-v2/services/price-books.service.ts:10:  CreatePriceBookDto, UpdatePriceBookDto, QueryPriceBookDto, SubmitPriceBookDto,
+apps/api/src/modules/sales-v2/services/price-books.service.ts:14:export class PriceBooksService {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:37:    if (!rows?.length) throw new NotFoundException(`价格册 ${id} 不存在`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:42:        throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的价格册`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:48:  private async genPriceBookNo(companyCode: string): Promise<string> {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:58:  async listBooks(q: QueryPriceBookDto) {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:107:  async createBook(dto: CreatePriceBookDto) {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:111:        throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建价格册`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:114:    const bookNo = await this.genPriceBookNo(dto.companyCode);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:131:  async updateBook(id: string, dto: UpdatePriceBookDto) {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:134:      throw new ForbiddenException('ACTIVE 状态的价格册不可直接编辑，请先失效后再修改');
+apps/api/src/modules/sales-v2/services/price-books.service.ts:163:  async submitBook(id: string, dto: SubmitPriceBookDto) {
+apps/api/src/modules/sales-v2/services/price-books.service.ts:166:      throw new BadRequestException(`只有 DRAFT 状态的价格册可提交审批，当前状态：${rec.status}`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:175:      throw new BadRequestException('价格册无有效明细，不可提交审批');
+apps/api/src/modules/sales-v2/services/price-books.service.ts:188:        subject:     `价格册审批：${rec.price_book_name}`,
+apps/api/src/modules/sales-v2/services/price-books.service.ts:213:      throw new BadRequestException(`只有 APPROVED 状态的价格册可激活，当前状态：${rec.status}`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:225:      throw new BadRequestException(`只有 ACTIVE/APPROVED 状态的价格册可失效`);
+apps/api/src/modules/sales-v2/services/price-books.service.ts:238:      throw new BadRequestException('ACTIVE 价格册需先失效后再取消');
+apps/api/src/modules/sales-v2/sales-v2.module.ts:6:import { SalesPriceBooksController }   from './controllers/sales-price-books.controller';
+apps/api/src/modules/sales-v2/sales-v2.module.ts:19:import { PriceBooksService }                 from './services/price-books.service';
+apps/api/src/modules/sales-v2/sales-v2.module.ts:39:  SalPriceBookEntity,
+apps/api/src/modules/sales-v2/sales-v2.module.ts:83:      SalPriceBookEntity,
+apps/api/src/modules/sales-v2/sales-v2.module.ts:102:    SalesPriceBooksController,
+apps/api/src/modules/sales-v2/sales-v2.module.ts:117:    PriceBooksService,
+apps/api/src/modules/sales-v2/sales-v2.module.ts:139:    PriceBooksService,
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:55:   *   3. 默认价格册（customer_code 和 channel_code 均为 NULL）
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:147:      sourceType === 'CUSTOMER' ? `客户专属价格册 (customer=${r.customer_code})` :
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:148:      sourceType === 'CHANNEL'  ? `渠道价格册 (channel=${r.channel_code})` :
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:149:                                  `默认价格册`;
+apps/api/src/modules/sales-v2/services/price-items.service.ts:26:  /** 检查价格册归属，同时验证 DataScope */
+apps/api/src/modules/sales-v2/services/price-items.service.ts:31:    if (!rows?.length) throw new NotFoundException(`价格册 ${bookId} 不存在`);
+apps/api/src/modules/sales-v2/services/price-items.service.ts:36:        throw new ForbiddenException(`无权访问公司 ${book.company_code} 的价格册`);
+apps/api/src/modules/sales-v2/services/price-items.service.ts:115:      throw new ForbiddenException('ACTIVE 价格册不可添加明细，请先失效后操作');
+apps/api/src/modules/sales-v2/services/price-items.service.ts:165:      throw new ForbiddenException('ACTIVE 价格册的明细不可直接编辑');
+apps/api/src/modules/sales-v2/services/price-items.service.ts:212:      throw new ForbiddenException('ACTIVE 价格册不可批量导入，请先失效后操作');
+apps/api/src/modules/sales-v2/services/price-items.service.ts:265:      throw new ForbiddenException('目标价格册 ACTIVE 状态不可复制');
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:7:import { PriceBooksService } from '../services/price-books.service';
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:10:  CreatePriceBookDto, UpdatePriceBookDto, QueryPriceBookDto, SubmitPriceBookDto,
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:16:@Controller('api/v2/sales/pricing')
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:18:export class SalesPriceBooksController {
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:20:    private readonly booksSvc: PriceBooksService,
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:24:  // ── 价格册 ───────────────────────────────────────────────────────────────
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:28:  listBooks(@Query() q: QueryPriceBookDto) {
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:40:  createBook(@Body() dto: CreatePriceBookDto) {
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:46:  updateBook(@Param('id') id: string, @Body() dto: UpdatePriceBookDto) {
+apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:53:  submitBook(@Param('id') id: string, @Body() dto: SubmitPriceBookDto) {
+apps/api/src/modules/sales-v2/controllers/sales-price-runtime.controller.ts:9:@Controller('api/v2/sales/pricing')
+apps/api/src/modules/sales-v2/controllers/sales-price-runtime.controller.ts:15:   * POST /api/v2/sales/pricing/resolve-price
+apps/api/src/modules/sales-v2/controllers/sales-price-runtime.controller.ts:26:   * POST /api/v2/sales/pricing/validate-price
+apps/api/src/modules/sales-v2/controllers/sales-price-runtime.controller.ts:37:   * GET /api/v2/sales/pricing/current
+apps/api/src/modules/sales-v2/dto/price-book.dto.ts:8:export class CreatePriceBookDto {
+apps/api/src/modules/sales-v2/dto/price-book.dto.ts:37:export class UpdatePriceBookDto {
+apps/api/src/modules/sales-v2/dto/price-book.dto.ts:63:export class QueryPriceBookDto {
+apps/api/src/modules/sales-v2/dto/price-book.dto.ts:86:export class SubmitPriceBookDto {
+
+codex
+已定位销售价格模块。证据显示当前失败点是 `POST /api/v2/sales/prici
+```
