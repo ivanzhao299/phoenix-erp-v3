@@ -4404,7 +4404,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4425,8 +4425,8 @@
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-08T02:04:11.805Z",
-    "completed_at": "2026-07-08T02:08:32.874Z",
-    "result_file": null,
+    "completed_at": "2026-07-08T02:18:07.149Z",
+    "result_file": "docs/ops/bug-20260707-0009-a3-backend-critical-path.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -4434,9 +4434,9 @@
     ],
     "approval_required": true,
     "conclusion": "PASS WITH CONDITIONS",
-    "merged_at": "2026-07-07T18:41:13.941Z",
+    "merged_at": "2026-07-08T02:18:07.149Z",
     "reconciled_by": "Codex-Orchestrator",
-    "reconciliation_note": "Recovered completed child-agent output after worker parent writeback/running state.",
+    "reconciliation_note": "Recovered completed A3 child-agent output and cherry-picked medicine stock aggregation fix into orchestrator branch after worker parent writeback/running-state mismatch.",
     "redispatch_count": 0,
     "last_redispatch_at": null,
     "redispatched_at": "2026-07-08T01:41:03.219Z",
@@ -4470,7 +4470,8 @@
         "source_repair_task_no": "BUGTASK-20260707-0009"
       }
     ],
-    "reason": "worker parent returned before child completion; child exited after 81s but task was not written back; worker exit=1; observed=running"
+    "detached_worker_recovered_at": "2026-07-08T02:18:07.149Z",
+    "baseline_autopilot_exit_code": 0
   },
   {
     "task_id": "BUGTASK-20260707-0009-03-A4",
@@ -4703,7 +4704,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0010",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "completed",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -4722,10 +4723,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A2-Security-Regression-Gate",
+    "claimed_at": "2026-07-08T02:16:23.716Z",
+    "completed_at": "2026-07-08T02:16:23.785Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
