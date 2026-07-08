@@ -6276,7 +6276,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0006",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "completed",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -6295,10 +6295,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A2-Security-Regression-Gate",
+    "claimed_at": "2026-07-08T08:25:31.307Z",
+    "completed_at": "2026-07-08T08:25:31.420Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0006-01-A2-worker-log.md",
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
@@ -6307,7 +6307,9 @@
     ],
     "approval_required": true,
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260708-0006-02-A3",
