@@ -803,25 +803,16 @@ Assigned agent: A3-Backend-Critical-Path
       "localAttachments": [
         {
           "fileName": "01-1783476823164-0b2b0e51.png",
-          "originalName": "pasted-screenshot-1783476512618-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0001/attachments/01-1783476823164-0b2b0e51.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/01-1783476823164-0b2b0e51.png",
-          "sizeBytes": 433431
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0001/attachments/01-1783476823164-0b2b0e51.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         },
         {
           "fileName": "02-1783476823165-6b8717a6.png",
-          "originalName": "pasted-screenshot-1783476516925-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0001/attachments/02-1783476823165-6b8717a6.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/02-1783476823165-6b8717a6.png",
-          "sizeBytes": 545311
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0001/attachments/02-1783476823165-6b8717a6.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/01-1783476823164-0b2b0e51.png",
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/02-1783476823165-6b8717a6.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -929,5 +920,4 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/01-1783476823164-0b2b0e51.png
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-102132/BUG-20260708-0001/attachments/02-1783476823165-6b8717a6.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
