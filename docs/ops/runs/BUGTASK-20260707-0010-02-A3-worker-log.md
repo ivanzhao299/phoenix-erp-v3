@@ -22,34 +22,22 @@ Branch: w5-a3-backend-critical-path
 Prompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0010-02-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0010-02-A3-worker-assembled-prompt.md
-Assembled prompt chars: 22815
+Assembled prompt chars: 42542
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T01-12-47-019Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS / GO.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T05-48-32-065Z-A3-Backend-Critical-Path.md
+PASS.
 
-Current branch already contains the backend fix commit:
+本轮 A3 复核没有新增改动，工作区保持干净。现有后端修复已在 `22ced0ac` 落地：`GET /api/workflow/my-tasks` 的 `items` 和 `total` 由 [WorkflowService.listMyTasks](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/workflow/workflow.service.ts:842) 同一份过滤结果产出，避免列表有审批任务但顶部显示 0。
 
-`99ba3d1d fix: bug-20260707-0010 workflow todo counts`
+验证证据：
 
-Verified:
+- `pwd`、分支 `w5-a3-backend-critical-path`、初始/结束 `git status --short` 均通过且干净
+- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` -> PASS，3 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS
+- 报告已存在：[docs/ops/bug-20260707-0010-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260707-0010-a3-backend-critical-path.md:1)
 
-- Worktree: `/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path`
-- Branch: `w5-a3-backend-critical-path`
-- `git status --short`: clean
-- Changed files in commit:
-  - [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/workflow/workflow.service.ts)
-  - [bug-20260707-0010-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260707-0010-a3-backend-critical-path.md)
-
-Validation run:
-
-```bash
-cd apps/api && ./node_modules/.bin/tsc --noEmit
-```
-
-Result: PASS.
-
-No migrations, schema/entity changes, DB writes, deploy, push, frontend edits, or task-board writes were performed. Condition: I did not run production/runtime smoke against `erp.eggslao.com`; A4/A1 should verify `/workflow/todos` with a user that has at least one ApprovalEngine todo and confirm the header count equals the visible list count.
+未执行：数据库写入、migration、部署、push、前端改动、任务板修改。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -66,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3f47-5b7d-7d40-b42b-a9fb74ef6c71
+session id: 019f4044-1bef-74b2-b5f3-13d8f9262275
 --------
 user
 # Base Agent Prompt
@@ -911,21 +899,183 @@ Assigned agent: A3-Backend-Critical-Path
   "createdAt": "2026-07-08T01:09:48.528Z",
   "createdBy": "admin",
   "moduleCode": "_____",
+  "agentResults": [
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0010-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T02:21:38.267Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708023236",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 61 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 2 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0010-02-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-02-A3: worker=1, final=HOLD, writeback=skipped, retries=0\n- BUGTASK-20260707-0010-03-A4: worker=1, final=HOLD, writeback=skipped, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-02-A3: A3-Backend-Critical-Path -> BLOCKED (worker reached non-success terminal status HOLD)\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker reached non-success terminal status HOLD)\n\n## Stale Lease Recovery\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "88bbe6c5eda9ca21446607f13b9867a093f21992",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T02:32:38.139Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260707-0010-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260707-0010-02-A3",
+            "finalStatus": "HOLD",
+            "writebackStatus": "skipped"
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0010-03-A4",
+            "finalStatus": "HOLD",
+            "writebackStatus": "skipped"
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0010-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T02:33:42.100Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708023350",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "fe10c1653520762520ba17a8e288a0f30aa0755d",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T02:33:51.642Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0010-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260708-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260708-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    }
+  ],
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "BugIntakeLocalRunner",
+    "taskId": "LOCAL-RUNNER-20260708023350",
+    "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+    "commitHash": "fe10c1653520762520ba17a8e288a0f30aa0755d",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "Business owner validates the fix in production.",
+    "recordedAt": "2026-07-08T02:33:51.642Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+    "changedFiles": [],
+    "validationResults": {
+      "ci": "SKIPPED: wait-ci-after-push disabled",
+      "push": "PASS",
+      "sync": "PASS",
+      "workerRuns": [
+        {
+          "agent": "A1-CI-Runtime-Gate",
+          "taskId": "BUGTASK-20260707-0010-05-A1",
+          "finalStatus": "completed",
+          "writebackStatus": 0
+        },
+        {
+          "agent": "A2-Security-Regression-Gate",
+          "taskId": "BUGTASK-20260708-0001-01-A2",
+          "finalStatus": "completed",
+          "writebackStatus": 0
+        },
+        {
+          "agent": "A5-Data-Readiness",
+          "taskId": "BUGTASK-20260708-0001-04-A5",
+          "finalStatus": "completed",
+          "writebackStatus": 0
+        }
+      ]
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-08T05:45:52.790Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_RUNNING"
+    }
+  ],
   "acceptanceCriteria": "要求我的待办上方显示条数按照实际的待办任务数量进行显示",
   "agentPlanGeneratedAt": "2026-07-08T01:09:49.482Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T01:09:51.119Z",
+    "approvedAt": "2026-07-08T05:45:52.790Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -933,7 +1083,109 @@ Assigned agent: A3-Backend-Critical-Path
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0010-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T02:21:38.267Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708023236",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 61 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 2 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0010-02-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-02-A3: worker=1, final=HOLD, writeback=skipped, retries=0\n- BUGTASK-20260707-0010-03-A4: worker=1, final=HOLD, writeback=skipped, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-02-A3: A3-Backend-Critical-Path -> BLOCKED (worker reached non-success terminal status HOLD)\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker reached non-success terminal status HOLD)\n\n## Stale Lease Recovery\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "88bbe6c5eda9ca21446607f13b9867a093f21992",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T02:32:38.139Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260707-0010-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260707-0010-02-A3",
+            "finalStatus": "HOLD",
+            "writebackStatus": "skipped"
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0010-03-A4",
+            "finalStatus": "HOLD",
+            "writebackStatus": "skipped"
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0010-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T02:33:42.100Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708023350",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "fe10c1653520762520ba17a8e288a0f30aa0755d",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T02:33:51.642Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0010-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260708-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260708-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    }
+  ]
 }
 ```
 
@@ -956,7 +1208,7 @@ Assigned agent: A3-Backend-Critical-Path
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我会先执行合约要求的工作区检查；如果目录、分支或初始状态不符合，就按规则停下并报告。
+先做合同要求的四项环境检查，确认目录、分支、工作区状态和最近提交；如果这里不符合就停止，不碰代码。
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
@@ -970,57 +1222,39 @@ w5-a3-backend-critical-path
 exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-99ba3d1d (HEAD -> w5-a3-backend-critical-path) fix: bug-20260707-0010 workflow todo counts
-5904dfce (main) docs(ops): record baseline lifecycle report
-bb316c59 feat(api): record A3-Backend-Critical-Path result
-b22cf644 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
-e04a0016 fix: bug-20260707-0009 medicine stock refresh
-6b5eae1e docs(ops): record baseline lifecycle report
-a386c6db feat(web): record A4-Frontend-UAT-Smoke result
-0c4b660b docs(ops): record baseline lifecycle report
+6ea9f556 (HEAD -> w5-a3-backend-critical-path, w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
+e61e118d fix: bug-20260708-0001 align inbound inventory query
+0b5b0c19 docs(ops): record baseline lifecycle report
+5c0dcdaf feat(web): record A4-Frontend-UAT-Smoke result
+e2ff9722 docs(ops): record baseline lifecycle report
+62bc75cd feat(api): record A3-Backend-Critical-Path result
+50c28ba9 docs(ops): record baseline lifecycle report
+22ced0ac feat(api): record A3-Backend-Critical-Path result
 
 exec
 /bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
 codex
-初始检查通过：目录和分支匹配，工作区干净。现在做 dry-run 诊断，先定位 `/workflow/todos` 对应的 API、计数逻辑和现有测试，不碰数据库、不跑迁移。
-exec
-/bin/zsh -lc 'find docs/ops -maxdepth 1 -type f | sort | tail -30' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PACKAGE.md
-docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_DECISION.md
-docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_PLAN.md
-docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_SMOKE_REPORT.md
-docs/ops/STORE_PAYMENT_READINESS_A1_A2_A5_APPROVED_EXECUTION_REPORT.md
-docs/ops/STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REPORT.md
-docs/ops/STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_FIXTURE_REPORT.md
-docs/ops/STORE_PAYMENT_S1_APP_001_MIGRATION_EXECUTION_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md
-docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md
-docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md
-docs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md
-docs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md
-docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md
-docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md
-docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md
-docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md
-docs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md
-docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md
-docs/ops/bug-20260707-0009-a4-frontend-uat-report.md
-docs/ops/bug-20260707-0010-a3-backend-critical-path.md
-
+环境检查通过：目录和分支匹配，工作区干净。现在进入 dry-run 诊断，只读查找 `/workflow/todos` 对应的 API、服务和返回结构，先定位“列表有数据但 count 为 0”的来源。
 exec
 /bin/zsh -lc "rg --files apps/api/src | rg 'workflow|approval|todo'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+exec
+/bin/zsh -lc "rg --files apps/web | rg 'workflow|todo|approval'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
+apps/api/src/modules/approval-engine/entities/wf-approval-instance.entity.ts
+apps/api/src/modules/approval-engine/entities/wf-approval-rule.entity.ts
+apps/api/src/modules/approval-engine/entities/wf-approval-rule-step.entity.ts
+apps/api/src/modules/approval-engine/entities/wf-approval-instance-step.entity.ts
+apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts
+apps/api/src/modules/approval-engine/approval-engine.service.ts
+apps/api/src/modules/approval-engine/approval-rules.controller.ts
+apps/api/src/modules/approval-engine/approval-engine.module.ts
+apps/api/src/modules/approval-engine/approval-engine.controller.ts
+apps/api/src/modules/approval-engine/approval-rules.service.ts
+apps/api/src/modules/approval-engine/dto/approval-rule.dto.ts
+apps/api/src/modules/procurement-v2/entities/prc2-approval.entity.ts
+apps/api/src/modules/data-quality/services/workflow-health.service.ts
+apps/api/src/common/interceptors/approval-hint.interceptor.ts
 apps/api/src/modules/workflow/workflow-sla.service.ts
 apps/api/src/modules/workflow/workflow-notification.service.ts
 apps/api/src/modules/workflow/condition-engine.service.ts
@@ -1035,911 +1269,154 @@ apps/api/src/modules/workflow/workflow-definition.controller.ts
 apps/api/src/modules/workflow/workflow-form-validation.service.ts
 apps/api/src/modules/workflow/workflow-datasource.controller.ts
 apps/api/src/modules/workflow/workflow-form-runtime.service.ts
+apps/api/src/modules/workflow/workflow.service.spec.ts
 apps/api/src/modules/workflow/workflow.module.ts
-apps/api/src/modules/data-quality/services/workflow-health.service.ts
-apps/api/src/modules/procurement-v2/entities/prc2-approval.entity.ts
-apps/api/src/modules/approval-engine/entities/wf-approval-instance.entity.ts
-apps/api/src/modules/approval-engine/entities/wf-approval-rule.entity.ts
-apps/api/src/modules/approval-engine/entities/wf-approval-rule-step.entity.ts
-apps/api/src/modules/approval-engine/entities/wf-approval-instance-step.entity.ts
-apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts
-apps/api/src/modules/approval-engine/approval-engine.service.ts
-apps/api/src/modules/approval-engine/approval-rules.controller.ts
-apps/api/src/modules/approval-engine/approval-engine.module.ts
-apps/api/src/modules/approval-engine/approval-engine.controller.ts
-apps/api/src/modules/approval-engine/approval-rules.service.ts
-apps/api/src/modules/approval-engine/dto/approval-rule.dto.ts
-apps/api/src/common/interceptors/approval-hint.interceptor.ts
+
+ succeeded in 0ms:
+apps/web/src/lib/workflow-data-catalog.ts
+apps/web/src/lib/workflow-templates.ts
+apps/web/src/lib/workflow-api.ts
+apps/web/src/components/workflow/FormRenderer.tsx
+apps/web/src/components/workflow/WorkflowFormRenderer.tsx
+apps/web/src/components/workflow/WorkflowTimeline.tsx
+apps/web/src/components/workflow/WorkflowMetricsStrip.tsx
+apps/web/src/components/workflow/WorkflowDataView.tsx
+apps/web/src/app/(admin)/workflow/analytics/page.tsx
+apps/web/src/app/(admin)/workflow/page.tsx
+apps/web/src/app/(admin)/workflow/builder/page.tsx
+apps/web/src/app/(admin)/workflow/definitions/page.tsx
+apps/web/src/app/(admin)/workflow/data-sources/page.tsx
+apps/web/src/app/(admin)/workflow/todos/page.tsx
+apps/web/src/app/(admin)/workflow/instances/page.tsx
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx
+apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx
+apps/web/src/app/(admin)/workflow/history/page.tsx
+apps/web/src/app/(admin)/workflow/start/page.tsx
+apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx
+apps/web/src/app/(mobile)/mobile/workflow/page.tsx
+apps/web/src/app/(admin)/workflow/forms/page.tsx
+apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx
+apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx
+apps/web/src/app/(admin)/workflow/monitor/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/cc/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/done/page.tsx
+apps/web/src/app/(admin)/workflow/metrics/page.tsx
+apps/web/src/app/(admin)/settings/approval-flows/page.tsx
+apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx
+apps/web/src/app/(admin)/settings/approval-rules/page.tsx
 
 exec
-/bin/zsh -lc "rg --files apps/api/test apps/api/src | rg 'spec|test' | rg 'workflow|approval|todo'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- exited 1 in 0ms:
-exec
-/bin/zsh -lc "rg -n \"workflow/todos|todos|待办|todo\" apps/api/src apps/web/src docs/ops -g '"'!node_modules'"'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 119ms:
+/bin/zsh -lc "rg -n \"workflow/todos|todos|待办|my.*todo|todo\" apps/api/src apps/web/src -g '"'!node_modules'"'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+apps/web/src/lib/workflow-api.ts:109:  todo: number;
+apps/web/src/lib/workflow-api.ts:158:    todo_count: number;
+apps/web/src/lib/workflow-api.ts:227:  todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
+apps/web/src/lib/mobile-roles.ts:232:   * 几乎所有管理类角色都可查看（待办为空时也无害），不在此矩阵的角色跳过入口显示。
+apps/web/src/lib/mobile-api.ts:665:  /** 统一待办列表（ApprovalEngine + WorkflowEngine 合并） */
+apps/web/src/lib/mobile-api.ts:709:  /** 待办数量（用于首页角标） */
+apps/web/src/components/design-system/templates/Templates.tsx:98:// ── 6. ApprovalTemplate（审批：待办/实例/规则）──────────────────────────
+apps/api/src/modules/workflow/workflow-metrics.controller.ts:76:   * 返回各审批角色的平均处理时长、待办量、超期量
+apps/api/src/modules/workflow/workflow-metrics.controller.ts:116:   * 超期待办任务列表（Top 20），供健康看板展示
+apps/api/src/modules/workflow/workflow-metrics.controller.ts:170:   * 已升级待办任务列表（escalation_level > 0），供健康看板展示
+apps/web/src/app/(admin)/notifications/page.tsx:148:      // 深链带 instanceId，直接打开该审批实例详情，避免落到通用待办列表后查无此条
+apps/web/src/app/(admin)/notifications/page.tsx:149:      router.push(n.linkId ? `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}` : "/workflow/todos");
+apps/api/src/modules/workflow/workflow.service.ts:248:      `CREATE INDEX IF NOT EXISTS idx_wf_task_todo_user ON wf_task(status, assignee_user_id)`,
+apps/api/src/modules/workflow/workflow.service.ts:249:      `CREATE INDEX IF NOT EXISTS idx_wf_task_todo_role ON wf_task(status, assignee_role_code)`,
+apps/api/src/modules/workflow/workflow.service.ts:759:                COUNT(*)::int AS todo_count,
+apps/api/src/modules/workflow/workflow.service.ts:766:         ORDER BY overdue_count DESC, avg_waiting_hours DESC, todo_count DESC
+apps/api/src/modules/workflow/workflow.service.ts:957:         FROM (${selects.join('\nUNION ALL\n')}) todo
+apps/api/src/modules/workflow/workflow.service.ts:958:        ORDER BY todo.created_at DESC, todo.task_id DESC`,
+apps/api/src/modules/workflow/workflow.service.ts:1074:    const [todoCount, ccRows, overdueCount, runningRows, startedRows] = await Promise.all([
+apps/api/src/modules/workflow/workflow.service.ts:1076:      // CC/running 仍属通用 WorkflowEngine；todo/overdue 采用 /workflow/todos 的统一待办口径。
+apps/api/src/modules/workflow/workflow.service.ts:1110:        todo: todoCount,
+apps/api/src/modules/workflow/workflow.service.ts:1548:         ) todo
+apps/api/src/modules/workflow/workflow.service.ts:1549:        ORDER BY todo.created_at DESC, todo.id DESC
+apps/api/src/modules/workflow/workflow-runtime.controller.ts:13:   * 聚合 ApprovalEngine 待办 + WorkflowEngine wf_task
+apps/api/src/modules/workflow/workflow-task.controller.ts:11:  @Get('todo')
+apps/api/src/modules/workflow/workflow-task.controller.ts:13:  todo(@Query() query: any, @Req() req: any) {
+apps/api/src/modules/workflow/workflow.service.spec.ts:18:  it('keeps total aligned with the filtered unified todo rows', async () => {
+apps/api/src/modules/workflow/workflow.service.spec.ts:82:  it('preserves approval todo DataScope parameters', async () => {
+apps/api/src/modules/notification/push-notification.service.ts:156:        body:  payload.body  ?? '你有新的审批待办',
+apps/api/src/modules/approval-engine/approval-engine.service.ts:344:      // 业务摘要快照（供待办/历史页展示，避免跨表查询）
+apps/api/src/modules/approval-engine/approval-engine.service.ts:772:  /** 获取我的待办（角色匹配 OR 指定用户匹配） */
+apps/api/src/modules/approval-engine/approval-engine.service.ts:776:    // G85-D 待办 DataScope：非全局用户只看本公司范围实例（company_code 为 NULL 的全局单据保留）
+apps/api/src/modules/approval-engine/approval-engine.service.ts:826:          -- G151：兜底改为「仅卡住才进超管待办」——日常步骤不再灌入超管待办(否则老板兼超管时
+apps/api/src/modules/approval-engine/approval-engine.service.ts:827:          --   每一步都进他待办、还能一人连批两步破坏分离)。仅以下三种「卡住」情形才进：
+apps/api/src/modules/approval-engine/approval-engine.service.ts:1020:  /** 查询待办数量（用于 badge 展示） */
 apps/api/src/database/migrations/1782045418112-SeedWorkflowAtomicMenus.ts:13:        ('MENU_WORKFLOW_TODO',    '审批待办',   NULL, 'WORKFLOW', 'MENU_WORKFLOW', 10, 'ClipboardList', '/workflow/todos'),
-
-codex
-诊断里已经看到一个同号修复报告和同号提交，说明当前分支可能已包含该修复。我会继续核对实现是否真的覆盖“列表有 1 条但计数 0”的源头，再决定是否需要补改。
-exec
-/bin/zsh -lc "sed -n '880,1045p' apps/api/src/modules/workflow/workflow.service.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-       LEFT JOIN sys_user u ON u.user_id=t.assignee_user_id
-       LEFT JOIN sys_role r ON r.role_code=t.assignee_role_code
-       LEFT JOIN (
-         SELECT instance_id,
-                COUNT(*) FILTER (WHERE action='URGE')::int AS urge_count,
-                MAX(created_at) FILTER (WHERE action='URGE') AS last_urged_at
-         FROM wf_task_action
-         GROUP BY instance_id
-       ) a ON a.instance_id=i.id
-       WHERE t.status='TODO'
-         AND ($1::boolean OR i.starter_id=$2 OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]) OR EXISTS (
-           SELECT 1 FROM wf_cc_task c
-           WHERE c.instance_id=i.id
-             AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
-         ))
-       ORDER BY (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) DESC,
-                t.due_at ASC NULLS LAST,
-                t.created_at ASC,
-                t.id ASC
-       LIMIT $4 OFFSET $5`,
-      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
-    );
-    return { code: 200, data: rows, total: rows.length };
-  }
-
-  async listCcTasks(user: WorkflowUser, query: QueryDto) {
-    const { limit, offset } = this.page(query);
-    const roles = this.userRoles(user);
-    const rows = await this.em.query(
-      `SELECT c.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name,
-              i.form_data_json, fv.schema_json AS form_schema_json, d.name AS definition_name,
-              u.real_name AS receiver_user_name, r.role_name_zh AS receiver_role_name
-       FROM wf_cc_task c
-       JOIN wf_instance i ON i.id=c.instance_id
-       LEFT JOIN wf_definition d ON d.id=i.definition_id
-       LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
-       LEFT JOIN sys_user u ON u.user_id=c.receiver_user_id
-       LEFT JOIN sys_role r ON r.role_code=c.receiver_role_code
-       WHERE $1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[])
-       ORDER BY COALESCE(c.read_at, TIMESTAMP '1970-01-01') ASC, c.created_at DESC, c.id DESC
-       LIMIT $4 OFFSET $5`,
-      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
-    );
-    return { code: 200, data: rows, total: rows.length };
-  }
-
-  async getTaskSummary(user: WorkflowUser) {
-    const roles = this.userRoles(user);
-    const isAdmin = this.isAdmin(user);
-    const [todoCount, ccRows, overdueCount, runningRows, startedRows] = await Promise.all([
-      this.countUnifiedTodoTasks(user),
-      // CC/running 仍属通用 WorkflowEngine；todo/overdue 采用 /workflow/todos 的统一待办口径。
-      this.em.query(
-        `SELECT COUNT(*)::int AS count
-         FROM wf_cc_task c
-         WHERE c.read_at IS NULL
-           AND ($1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))`,
-        [isAdmin, user.userId || 0, roles],
-      ),
-      this.countUnifiedTodoTasks(user, true),
-      this.em.query(
-        `SELECT COUNT(*)::int AS count
-         FROM wf_instance i
-         WHERE i.status='RUNNING'
-           AND ($1::boolean OR i.starter_id=$2 OR EXISTS (
-             SELECT 1 FROM wf_task t
-             WHERE t.instance_id=i.id
-               AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
-           ) OR EXISTS (
-             SELECT 1 FROM wf_cc_task c
-             WHERE c.instance_id=i.id
-               AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
-           ))`,
-        [isAdmin, user.userId || 0, roles],
-      ),
-      this.em.query(
-        `SELECT COUNT(*)::int AS count
-         FROM wf_instance
-         WHERE starter_id=$1 AND status='RUNNING'`,
-        [user.userId || 0],
-      ),
-    ]);
-    return {
-      code: 200,
-      data: {
-        todo: todoCount,
-        ccUnread: Number(ccRows[0]?.count || 0),
-        overdueTodo: overdueCount,
-        running: Number(runningRows[0]?.count || 0),
-        startedRunning: Number(startedRows[0]?.count || 0),
-      },
-    };
-  }
-
-  async markCcRead(id: number, user: WorkflowUser) {
-    const rows = await this.em.query(`SELECT * FROM wf_cc_task WHERE id=$1`, [id]);
-    const cc = rows[0];
-    if (!cc) throw new NotFoundException('workflow cc task not found');
-    await this.assertCcVisible(cc, user);
-    const updated = await this.em.query(
-      `UPDATE wf_cc_task SET read_at=COALESCE(read_at, CURRENT_TIMESTAMP) WHERE id=$1 RETURNING *`,
-      [id],
-    );
-    return { code: 200, data: updated[0] };
-  }
-
-  async approveTask(taskId: number, body: any, user: WorkflowUser) {
-    return this.completeTask(taskId, 'APPROVE', body, user);
-  }
-
-  async rejectTask(taskId: number, body: any, user: WorkflowUser) {
-    return this.completeTask(taskId, 'REJECT', body, user);
-  }
-
-  async commentTask(taskId: number, body: any, user: WorkflowUser) {
-    const task = await this.findTask(taskId);
-    await this.assertTaskVisible(task, user);
-    await this.writeAction(task.instance_id, taskId, 'COMMENT', user, task.node_id, task.node_id, { comment: body?.comment || '' });
-    return { code: 200, data: { success: true } };
-  }
-
-  async transferTask(taskId: number, body: any, user: WorkflowUser) {
-    const task = await this.findTask(taskId);
-    await this.assertTaskOwner(task, user);
-    if (!body?.assignee_user_id && !body?.assignee_role_code) {
-      throw new BadRequestException('assignee_user_id or assignee_role_code required');
-    }
-    await this.em.query(
-      `UPDATE wf_task SET assignee_user_id=$2, assignee_role_code=$3 WHERE id=$1`,
-      [taskId, body.assignee_user_id || null, body.assignee_role_code || null],
-    );
-    await this.writeAction(task.instance_id, taskId, 'TRANSFER', user, task.node_id, task.node_id, body);
-    return { code: 200, data: { success: true } };
-  }
-
-  /**
-   * WF-UAT-1: 退回（退到上一节点）— 标当前 task DONE/RETURN，写 RETURN action，
-   * instance.current_node_id 回退到上节点；最小可用版本（不在 graph 上深度推演）。
-   */
-  async returnTask(taskId: number, body: any, user: WorkflowUser) {
-    const task = await this.findTask(taskId);
-    await this.assertTaskOwner(task, user);
-    if (task.status !== 'TODO') throw new BadRequestException('task is not TODO');
-    const targetNode: string | null = body?.target_node_id || null;
-    await this.em.query(
-      `UPDATE wf_task SET status='DONE', action_result='RETURN', completed_at=CURRENT_TIMESTAMP WHERE id=$1`,
-      [taskId],
-    );
-    await this.em.query(
-      `UPDATE wf_task SET status='CANCELED', action_result='CANCELED', completed_at=CURRENT_TIMESTAMP
-       WHERE instance_id=$1 AND node_id=$2 AND status='TODO' AND id<>$3`,
-      [task.instance_id, task.node_id, taskId],
-    );
-    if (targetNode) {
-      await this.em.query(
-        `UPDATE wf_instance SET current_node_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
-        [task.instance_id, targetNode],
-      );
-    }
-    await this.writeAction(task.instance_id, taskId, 'RETURN', user, task.node_id, targetNode, {
-      comment: body?.comment || '',
-      target_node_id: targetNode,
-    });
-    return { code: 200, data: { success: true } };
-  }
-
-
-exec
-/bin/zsh -lc "sed -n '1360,1435p' apps/api/src/modules/workflow/workflow.service.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-             i.form_data_json,
-             fv.schema_json AS form_schema_json,
-             d.name AS definition_name,
-             'WORKFLOW_ENGINE'::text AS task_source
-           FROM wf_task t
-           JOIN wf_instance i ON i.id=t.instance_id
-           LEFT JOIN wf_definition d ON d.id=i.definition_id
-           LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
-           WHERE t.status='TODO'
-             AND (t.assignee_user_id=$1 OR t.assignee_role_code = ANY($2::text[]))
-
-           UNION ALL
-
-           SELECT
-             s.id,
-             COALESCE('AE-' || i2.instance_no, 'AE-' || s.id::text) AS task_no,
-             i2.id AS instance_id,
-             ('approval-step-' || s.step_no::text) AS node_id,
-             COALESCE(s.approver_name, s.approver_role, '审批') AS node_name,
-             s.approver_role AS assignee_role_code,
-             s.approver_user_id AS assignee_user_id,
-             'TODO'::text AS status,
-             NULL::text AS action_result,
-             s.due_at,
-             NULL::timestamptz AS completed_at,
-             i2.started_at AS created_at,
-             COALESCE(i2.subject, i2.biz_no, i2.instance_no) AS title,
-             i2.instance_no,
-             i2.status AS instance_status,
-             i2.started_at,
-             COALESCE(u.real_name, u.username, i2.started_by::text) AS starter_name,
-             NULL::jsonb AS form_data_json,
-             NULL::jsonb AS form_schema_json,
-             '审批引擎'::text AS definition_name,
-             'APPROVAL_ENGINE'::text AS task_source
-           FROM wf_approval_instance_steps s
-           JOIN wf_approval_instances i2 ON i2.id = s.instance_id
-           LEFT JOIN sys_user u ON u.user_id = i2.started_by
-           WHERE s.status = 'PENDING'
-             AND i2.status = 'PENDING'
-             AND s.step_no = i2.current_step_no
-             AND ${this.approvalTodoAssigneeWhere('$1', '$2')}
-             ${dataScopeWhere}
-         ) todo
-        ORDER BY todo.created_at DESC, todo.id DESC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset],
-    );
-  }
-
-  private async countUnifiedTodoTasks(user: WorkflowUser, overdueOnly = false): Promise<number> {
-    const params: any[] = [user.userId || 0, this.userRoles(user)];
-    const dataScopeWhere = this.approvalTodoDataScopeWhere(params, 'i');
-    const wfOverdueWhere = overdueOnly ? `AND t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP` : '';
-    const aeOverdueWhere = overdueOnly ? `AND s.due_at IS NOT NULL AND s.due_at < CURRENT_TIMESTAMP` : '';
-    const rows = await this.em.query(
-      `SELECT (
-          SELECT COUNT(*)::int
-            FROM wf_task t
-           WHERE t.status='TODO'
-             AND (t.assignee_user_id=$1 OR t.assignee_role_code = ANY($2::text[]))
-             ${wfOverdueWhere}
-        ) + (
-          SELECT COUNT(*)::int
-            FROM wf_approval_instance_steps s
-            JOIN wf_approval_instances i ON i.id = s.instance_id
-           WHERE s.status = 'PENDING'
-             AND i.status = 'PENDING'
-             AND s.step_no = i.current_step_no
-             AND ${this.approvalTodoAssigneeWhere('$1', '$2')}
-             ${aeOverdueWhere}
-             ${dataScopeWhere}
-        ) AS count`,
-      params,
-    );
-    return Number(rows[0]?.count || 0);
-
-exec
-/bin/zsh -lc "sed -n '1,130p' apps/api/src/modules/workflow/workflow-runtime.controller.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
-exec
-/bin/zsh -lc "sed -n '1,120p' apps/api/src/modules/workflow/workflow-task.controller.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { ClsService } from 'nestjs-cls';
-import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
-import { DataScopeGuard } from '../org/guards/data-scope.guard';
-import { WorkflowService } from './workflow.service';
-import { ApprovalEngineService } from '../approval-engine/approval-engine.service';
-
-@Controller('api/workflow')
-@UseGuards(MenuGuard, DataScopeGuard)
-export class WorkflowRuntimeController {
-  constructor(
-    private readonly workflow: WorkflowService,
-    private readonly approvalEngine: ApprovalEngineService,
-    @InjectDataSource()
-    private readonly ds: DataSource,
-    private readonly cls: ClsService,
-  ) {}
-
-  private currentUser(): { userId: string; roles: string[] } {
-    const u = this.cls.get('user') as any;
-    return {
-      userId: String(u?.userId ?? u?.id ?? '0'),
-      roles:  u?.roles ?? (u?.role ? [u.role] : []),
-    };
-  }
-
-  /**
-   * 统一任务入口 — Phase B
-   * 聚合 ApprovalEngine 待办 + WorkflowEngine wf_task
-   * 支持分页、过滤、关键字搜索
-   */
-  @Get('my-tasks')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
-  async getMyTasks(@Query() q: {
-    page?:       string;
-    pageSize?:   string;
-    taskSource?: string;  // APPROVAL_ENGINE | WORKFLOW_ENGINE
-    bizType?:    string;
-    keyword?:    string;
-  }) {
-    const page     = Math.max(1, Number(q.page     ?? 1));
-    const pageSize = Math.min(100, Math.max(1, Number(q.pageSize ?? 20)));
-    const { userId, roles } = this.currentUser();
-
-    // ── Phase A: ApprovalEngine 待办 ─────────────────────────────────────
-    let aeTasks: any[] = [];
-    if (!q.taskSource || q.taskSource === 'APPROVAL_ENGINE') {
-      const rows: any[] = await this.approvalEngine.getMyTodos();
-      aeTasks = rows.map(t => ({
-        taskSource:    'APPROVAL_ENGINE',
-        taskId:        String(t.step_id),
-        instanceId:    String(t.instance_id),
-        instanceNo:    t.instance_no ?? null,
-        bizType:       t.biz_type,
-        bizId:         String(t.biz_id),
-        bizNo:         t.biz_no ?? null,
-        subject:       t.subject ?? null,
-        amount:        t.amount != null ? Number(t.amount) : null,
-        currencyCode:  t.currency_code ?? null,
-        companyCode:   t.company_code ?? null,
-        companyName:   t.company_name ?? null,
-        projectCode:   t.project_code ?? null,
-        projectName:   t.project_name ?? null,
-        requiredRole:     t.approver_role,
-        stepNo:           t.step_no ?? 1,
-        totalSteps:       t.total_steps ?? 1,
-        currentStepNo:    t.current_step_no ?? 1,
-        startedBy:        t.started_by ?? null,
-        status:           t.step_status,
-        createdAt:        t.started_at,
-        dueAt:            t.due_at ?? null,
-        isOverdue:        t.is_overdue ?? false,
-        escalationLevel:  t.escalation_level ?? 0,
-      }));
-    }
-
-    // ── Phase B: WorkflowEngine wf_task ──────────────────────────────────
-    let wfTasks: any[] = [];
-    if (!q.taskSource || q.taskSource === 'WORKFLOW_ENGINE') {
-      const wfRows: any[] = await this.ds.query(`
-        SELECT
-          t.id            AS task_id,
-          t.task_no,
-          t.node_id,
-          t.node_name,
-          t.assignee_role_code AS required_role,
-          t.status        AS task_status,
-          t.created_at,
-          i.id            AS instance_id,
-          i.instance_no,
-          i.business_type AS biz_type,
-          i.business_id   AS biz_id,
-          i.title         AS subject,
-          i.starter_id    AS started_by,
-          i.starter_name,
-          i.started_at
-        FROM wf_task t
-        JOIN wf_instance i ON i.id = t.instance_id
-        WHERE t.status = 'TODO'
-          AND (
-            t.assignee_user_id = $1
-            OR t.assignee_role_code = ANY($2::varchar[])
-          )
-        ORDER BY t.created_at ASC
-      `, [Number(userId), roles]);
-
-      wfTasks = wfRows.map(t => ({
-        taskSource:    'WORKFLOW_ENGINE',
-        taskId:        String(t.task_id),
-        instanceId:    String(t.instance_id),
-        instanceNo:    t.instance_no ?? null,
-        bizType:       t.biz_type ?? null,
-        bizId:         t.biz_id   ?? null,
-        bizNo:         null,
-        subject:       t.subject  ?? null,
-        amount:        null,
-        currencyCode:  null,
-        companyCode:   null,
-        companyName:   null,
-        projectCode:   null,
-        projectName:   null,
-        requiredRole:  t.required_role ?? null,
-        stepNo:        null,
-        totalSteps:    null,
-        currentStepNo: null,
-        startedBy:     t.started_by ? String(t.started_by) : null,
-        status:        t.task_status,
-        createdAt:     t.started_at ?? t.created_at,
-
- succeeded in 0ms:
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
-import { DataScopeGuard } from '../org/guards/data-scope.guard';
-import { WorkflowService } from './workflow.service';
-
-@Controller('api/workflow/tasks')
-@UseGuards(MenuGuard, DataScopeGuard)
-export class WorkflowTaskController {
-  constructor(private readonly workflow: WorkflowService) {}
-
-  @Get('todo')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
-  todo(@Query() query: any, @Req() req: any) {
-    return this.workflow.listTodo(req.user, query);
-  }
-
-  @Get('done')
-  @RequireMenu('MENU_WORKFLOW_HISTORY', 'V')
-  done(@Query() query: any, @Req() req: any) {
-    return this.workflow.listDone(req.user, query);
-  }
-
-  @Get('cc')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
-  cc(@Query() query: any, @Req() req: any) {
-    return this.workflow.listCcTasks(req.user, query);
-  }
-
-  @Get('summary')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
-  summary(@Req() req: any) {
-    return this.workflow.getTaskSummary(req.user);
-  }
-
-  @Get('monitor')
-  @RequireMenu('MENU_WORKFLOW_METRICS', 'X')
-  monitor(@Query() query: any, @Req() req: any) {
-    return this.workflow.listMonitorTasks(req.user, query);
-  }
-
-  @Post('cc/:id/read')
-  @RequireMenu('MENU_WORKFLOW_NOTIFY', 'E')
-  readCc(@Param('id') id: string, @Req() req: any) {
-    return this.workflow.markCcRead(Number(id), req.user);
-  }
-
-  @Post(':id/approve')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
-  approve(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.approveTask(Number(id), body, req.user);
-  }
-
-  @Post(':id/reject')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
-  reject(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.rejectTask(Number(id), body, req.user);
-  }
-
-  @Post(':id/transfer')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'E')
-  transfer(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.transferTask(Number(id), body, req.user);
-  }
-
-  @Post(':id/comment')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'E')
-  comment(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.commentTask(Number(id), body, req.user);
-  }
-
-  // WF-UAT-1: 退回
-  @Post(':id/return')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
-  return(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.returnTask(Number(id), body, req.user);
-  }
-
-  // WF-UAT-1: 加签
-  @Post(':id/countersign')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
-  countersign(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.workflow.countersignTask(Number(id), body, req.user);
-  }
-}
-
-exec
-/bin/zsh -lc "sed -n '1010,1055p' apps/api/src/modules/approval-engine/approval-engine.service.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-    mgr: EntityManager,
-  ): Promise<void> {
-    const table = this.bizRegistry.getTableName(bizType);
-    if (!table) return;
-    await mgr.query(
-      `UPDATE ${table} SET status = $1, updated_at = NOW() WHERE id = $2`,
-      [status, bizId],
-    );
-  }
-
-  /** 查询待办数量（用于 badge 展示） */
-  async getTodosCount(): Promise<number> {
-    const { userId, roles } = this.currentUser();
-    const rows = await this.ds.query(
-      `SELECT COUNT(*) AS cnt FROM wf_approval_instance_steps s
-       JOIN wf_approval_instances i ON i.id = s.instance_id
-       WHERE s.status='PENDING' AND i.status='PENDING'
-         AND s.step_no = i.current_step_no
-         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2
-              OR (s.allow_admin_override = true AND 'ROLE_ADMIN' = ANY($1::varchar[])))`,
-      [roles, userId],
-    );
-    return parseInt(rows[0]?.cnt ?? '0', 10);
-  }
-}
-
-exec
-/bin/zsh -lc "sed -n '1,180p' docs/ops/bug-20260707-0010-a3-backend-critical-path.md" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-# BUG-20260707-0010 A3 Backend Repair Report
-
-## Result
-
-GO
-
-`/workflow/todos` visible task count and Operations/Home todo count now use the same backend todo sources:
-
-- WorkflowEngine `wf_task` assigned to current user or current user roles.
-- ApprovalEngine `wf_approval_instance_steps` assigned to current user, current user roles, or the existing stuck-task `ROLE_ADMIN` override rule.
-
-This fixes the reported mismatch where an ApprovalEngine purchase approval was visible in the list while the top count and operations todo count showed `0`.
-
-## Changed Files
-
-- `apps/api/src/modules/workflow/workflow.service.ts`
-- `docs/ops/bug-20260707-0010-a3-backend-critical-path.md`
-
-## APIs Covered
-
-- `GET /api/workflow/tasks/summary`
-  - `data.todo` now counts unified visible todos.
-  - `data.overdueTodo` now counts unified visible overdue todos.
-- `GET /api/workflow/tasks/todo`
-  - now returns unified visible todos for Operations/Home short list consumers.
-- `GET /api/workflow/my-tasks`
-  - unchanged, used as the reference behavior for visible todo semantics.
-
-## RBAC / DataScope / Audit
-
-- RBAC: unchanged. Existing `@RequireMenu('MENU_WORKFLOW_TODO', 'V')` guards remain in place.
-- DataScope: preserved for ApprovalEngine todos via existing CLS `dataScope` company filter semantics.
-- Admin override: preserved with the existing ApprovalEngine stuck-task-only `ROLE_ADMIN` override condition.
-- Audit: no write action added. This is read-only query repair, so no operation audit row is created.
-- Attachment ACL: not touched.
-
-## Validation
-
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS
-
-## Frozen Items Statement
-
-No migrations, schema/entity/table/column changes, database writes, production deploy, push, frontend changes, or task-board modifications were performed.
-
-## Blockers
-
-None for backend compile validation.
-
-Runtime verification against production data was not performed because the task contract forbids production database writes/deploy and no local synced screenshot/attachment evidence was available.
-
-## Next Review Request
-
-A4/A1 should smoke `/workflow/todos` and the Operations/Home todo badge with an account that has at least one ApprovalEngine todo. Expected: the count equals the visible unified todo list count.
-
-codex
-当前实现已把 `/api/workflow/tasks/summary` 和 `/api/workflow/tasks/todo` 改成统一口径。我还要核对页面实际用的 `/api/workflow/my-tasks` 返回结构，确认这不是前端把 `total` 字段读错造成的。
-exec
-/bin/zsh -lc "sed -n '130,230p' apps/web/src/lib/workflow-api.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-}
-
-export interface WorkflowAnalytics {
-  days: number;
-  summary: {
-    total: number;
-    running: number;
-    approved: number;
-    rejected: number;
-    canceled: number;
-    startedToday: number;
-    completedToday: number;
-    avgCompleteHours: number;
-    approvalRate: number;
-  };
-  statuses: Array<{ status: string; count: number }>;
-  definitions: Array<{
-    definition_id?: number;
-    definition_name?: string;
-    category?: string;
-    total: number;
-    running: number;
-    approved: number;
-    avg_complete_hours: number;
-  }>;
-  bottlenecks: Array<{
-    node_id?: string;
-    node_name?: string;
-    todo_count: number;
-    overdue_count: number;
-    avg_waiting_hours: number;
-  }>;
-  trend: Array<{ day: string; started: number; approved: number; rejected: number }>;
-}
-
-export interface WorkflowInstance {
-  id: number;
-  instance_no: string;
-  title: string;
-  status: string;
-  business_type?: string;
-  current_node_id?: string;
-  starter_name: string;
-  form_data_json?: Record<string, unknown>;
-  form_schema_json?: WorkflowFormSchema;
-  tasks?: WorkflowTask[];
-  actions?: Record<string, unknown>[];
-  started_at?: string;
-  ended_at?: string;
-  created_at: string;
-}
-
-export const workflowApi = {
-  definitions: () => req<WorkflowList<WorkflowDefinition>>("/definitions"),
-  createDefinition: (data: Record<string, unknown>) =>
-    req<WorkflowOne<WorkflowDefinition>>("/definitions", { method: "POST", body: JSON.stringify(data) }),
-  generateIndustryTemplates: () =>
-    req<WorkflowOne<Record<string, unknown>>>("/definitions/industry-templates/generate", { method: "POST", body: JSON.stringify({}) }),
-  createDefinitionFromDataSource: (data: Record<string, unknown>) =>
-    req<WorkflowOne<Record<string, unknown>>>("/definitions/from-data-source", { method: "POST", body: JSON.stringify(data) }),
-  cloneDefinition: (id: number, data: Record<string, unknown>) =>
-    req<WorkflowOne<WorkflowDefinition>>(`/definitions/${id}/clone`, { method: "POST", body: JSON.stringify(data) }),
-  publishDefinition: (id: number, data: Record<string, unknown>) =>
-    req<WorkflowOne<Record<string, unknown>>>(`/definitions/${id}/publish`, { method: "POST", body: JSON.stringify(data) }),
-  definitionDesigner: (id: number) => req<WorkflowOne<Record<string, unknown>>>(`/definitions/${id}/designer`),
-
-  forms: () => req<WorkflowList<WorkflowForm>>("/forms"),
-  createForm: (data: Record<string, unknown>) =>
-    req<WorkflowOne<WorkflowForm>>("/forms", { method: "POST", body: JSON.stringify(data) }),
-  createFormFromDataSource: (data: Record<string, unknown>) =>
-    req<WorkflowOne<Record<string, unknown>>>("/forms/from-data-source", { method: "POST", body: JSON.stringify(data) }),
-  publishForm: (id: number, data: Record<string, unknown>) =>
-    req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/publish`, { method: "POST", body: JSON.stringify(data) }),
-  formDesigner: (id: number) => req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/designer`),
-
-  dataSources: () => req<WorkflowList<Record<string, unknown>>>("/data-sources"),
-  createDataSource: (data: Record<string, unknown>) =>
-    req<WorkflowOne<Record<string, unknown>>>("/data-sources", { method: "POST", body: JSON.stringify(data) }),
-  syncDefaultDataSources: () =>
-    req<WorkflowList<Record<string, unknown>>>("/data-sources/sync-defaults", { method: "POST", body: JSON.stringify({}) }),
-  refreshDataSourceMetadata: () =>
-    req<WorkflowList<Record<string, unknown>>>("/data-sources/refresh-metadata", { method: "POST", body: JSON.stringify({}) }),
-  dataSourceFieldSuggestions: (code: string) =>
-    req<WorkflowOne<Record<string, unknown>>>(`/data-sources/${encodeURIComponent(code)}/field-suggestions`),
-  previewDataSource: (data: Record<string, unknown>) =>
-    req<WorkflowList<Record<string, unknown>>>("/data-sources/preview", { method: "POST", body: JSON.stringify(data) }),
-
-  start: (data: Record<string, unknown>) =>
-    req<WorkflowOne<WorkflowInstance>>("/start", { method: "POST", body: JSON.stringify(data) }),
-  analytics: (days = 30) => req<WorkflowOne<WorkflowAnalytics>>(`/analytics?days=${encodeURIComponent(String(days))}`),
-  instances: (status?: string) => req<WorkflowList<WorkflowInstance>>(`/instances${status ? `?status=${encodeURIComponent(status)}` : ""}`),
-  instance: (id: number) => req<WorkflowOne<WorkflowInstance>>(`/instances/${id}`),
-  cancelInstance: (id: number, comment = "") =>
-    req<WorkflowOne<WorkflowInstance>>(`/instances/${id}/cancel`, { method: "POST", body: JSON.stringify({ comment }) }),
-  urgeInstance: (id: number, comment = "") =>
-    req<WorkflowOne<{ success: boolean; urgedTaskCount: number }>>(`/instances/${id}/urge`, { method: "POST", body: JSON.stringify({ comment }) }),
-
-  todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
-  done: () => req<WorkflowList<WorkflowTask>>("/tasks/done"),
-  cc: () => req<WorkflowList<WorkflowCcTask>>("/tasks/cc"),
-  taskSummary: () => req<WorkflowOne<WorkflowTaskSummary>>("/tasks/summary"),
-
-exec
-/bin/zsh -lc "sed -n '260,380p' 'apps/web/src/app/(admin)/workflow/todos/page.tsx'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-    })
-  });
-  return res.json();
-}
-
-// ── 组件 ─────────────────────────────────────────────────────────────────────
-export default function ApprovalTodosPage() {
-  const { t } = useLanguage();
-  const toast = useToast();
-  const searchParams = useSearchParams();
-  const [resp, setResp] = useState<TaskListResponse>({
-    items: [],
-    total: 0,
-    page: 1,
-    pageSize: 20
-  });
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<UnifiedTask | null>(null);
-  const [detail, setDetail] = useState<InstanceDetail | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [comment, setComment] = useState("");
-  const [decision, setDecision] = useState<ApprovalDecision>("approve");
-  const [submitting, setSubmitting] = useState(false);
-  const [candidates, setCandidates] = useState<ReassignCandidate[]>([]);
-  const [pickedTo, setPickedTo] = useState("");
-  const [reassignLoading, setReassignLoading] = useState(false);
-
-  // 筛选状态
-  const [taskSource, setTaskSource] = useState("");
-  const [bizType, setBizType] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 20;
-  const load = useCallback(async (params?: {
-    taskSource?: string;
-    bizType?: string;
-    keyword?: string;
-    page?: number;
-  }) => {
-    setLoading(true);
-    try {
-      const r = await fetchTodos({
-        page: params?.page ?? page,
-        pageSize: PAGE_SIZE,
-        taskSource: (params?.taskSource !== undefined ? params.taskSource : taskSource) || undefined,
-        bizType: (params?.bizType !== undefined ? params.bizType : bizType) || undefined,
-        keyword: (params?.keyword !== undefined ? params.keyword : keyword) || undefined
-      });
-      setResp(r);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, taskSource, bizType, keyword]);
-  useEffect(() => {
-    load();
-  }, [load]);
-  // 消息中心深链：/workflow/todos?instanceId=<id> 直接打开该审批实例详情，
-  // 不依赖 my-tasks 列表是否含该条（修复「点通知进来空白」——通知带的是具体实例，
-  // 但列表受 DataScope/分页/已被同角色他人处理 等过滤，可能查不到对应条目）。
-  useEffect(() => {
-    const focusId = searchParams.get("instanceId");
-    if (!focusId) return;
-    let alive = true;
-    (async () => {
-      const d = await fetchDetail(focusId);
-      if (!alive) return;
-      if (!d) {
-        toast.error(t('ui.该审批记录不存在或无权查看','该审批记录不存在或无权查看'));
-        return;
-      }
-      // 由实例详情合成最小 UnifiedTask，供抽屉头部与审批/拒绝/转交动作复用
-      const synthetic: UnifiedTask = {
-        taskSource: "APPROVAL_ENGINE",
-        taskId: String(d.id),
-        instanceId: String(d.id),
-        instanceNo: d.instanceNo ?? null,
-        bizType: d.bizType,
-        bizId: d.bizId,
-        bizNo: d.bizNo ?? null,
-        subject: d.subject ?? null,
-        amount: d.amount ?? null,
-        currencyCode: d.currencyCode ?? null,
-        companyCode: d.companyCode ?? null,
-        companyName: d.companyName ?? null,
-        projectCode: d.projectCode ?? null,
-        projectName: d.projectName ?? null,
-        requiredRole: "",
-        stepNo: d.currentStepNo ?? null,
-        totalSteps: d.totalSteps ?? null,
-        currentStepNo: d.currentStepNo ?? null,
-        startedBy: null,
-        status: d.status,
-        createdAt: d.startedAt ?? "",
-      };
-      setSelected(synthetic);
-      setComment("");
-      setDecision("approve");
-      setCandidates([]);
-      setPickedTo("");
-      setDetail(d);
-      setDrawerOpen(true);
-    })();
-    return () => { alive = false; };
-    // 仅在挂载/深链变化时触发；toast/t 稳定引用，无需入依赖
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-  const applyFilter = () => {
-    setPage(1);
-    load({
-      page: 1,
-      taskSource,
-      bizType,
-      keyword
-    });
-  };
-  const resetFilter = () => {
-    setTaskSource("");
-    setBizType("");
-    setKeyword("");
-    setPage(1);
-    load({
-
-exec
-/bin/zsh -lc "sed -n '120,260p' 'apps/web/src/app/(admin)/workflow/todos/page.tsx'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-function fmtAmount(amount: number | string | null, currency: string | null) {
-  if (amount == null) return "-";
-  const n = Number(amount);
-  if (isNaN(n)) return "-";
-  return `${n.toLocaleString("zh-CN", {
-    maximumFractionDigits: 0
-  })} ${currency ?? ""}`;
-}
-function StatusBadge({
-  status
-}: {
-  status: string;
-}) {
-  const map: Record<string, {
-    label: string;
-    color: string;
-  }> = {
-    PENDING: {
-      label: "待审批",
-      color: "var(--status-warning)"
-    },
-    APPROVED: {
-      label: "已通过",
-      color: "var(--status-success)"
-    },
-    REJECTED: {
-      label: "已拒绝",
-      color: "var(--status-danger)"
-    },
-    SKIPPED: {
-      label: "已跳过",
-      color: "var(--text-disabled)"
-    },
-    TODO: {
-      label: "待处理",
-      color: "var(--status-warning)"
-    }
-  };
-  const cfg = map[status] ?? {
-    label: status,
-    color: "var(--text-disabled)"
-  };
-  return <span style={{
-    color: cfg.color,
-    fontWeight: 600,
-    fontSize: 12
-  }}>{cfg.label}</span>;
-}
-function TaskSourceBadge({
-  source
-}: {
-  source: string;
-}) {
-  const isAE = source === "APPROVAL_ENGINE";
-  return <span style={{
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 3,
-    fontSize: 10,
-    fontWeight: 600,
-    padding: "2px 6px",
-    borderRadius: 4,
-    background: isAE ? "var(--status-warning-bg-light)" : "var(--status-info-bg)",
-    color: isAE ? "var(--status-warning)" : "var(--color-accent)"
-  }}>
-      {isAE ? "审批引擎" : "通用流程"}
-    </span>;
-}
-
-// ── API ───────────────────────────────────────────────────────────────────────
-async function fetchTodos(params: {
-  page: number;
-  pageSize: number;
-  taskSource?: string;
-  bizType?: string;
-  keyword?: string;
-}): Promise<TaskListResponse> {
-  const p = new URLSearchParams();
-  p.set("page", String(params.page));
-  p.set("pageSize", String(params.pageSize));
-  if (params.taskSource) p.set("taskSource", params.taskSource);
-  if (params.bizType) p.set("bizType", params.bizType);
-  if
+apps/api/src/modules/approval-engine/approval-engine.controller.ts:12:  /** 我的审批待办 */
+apps/api/src/modules/approval-engine/approval-engine.controller.ts:13:  @Get('todos')
+apps/web/src/app/(admin)/layout.tsx:78:  "/workflow/todos":               "menu.wf-approval-todos",
+apps/web/src/app/(admin)/home/page.tsx:31:interface WorkflowSummary { todo: number; ccUnread: number; overdueTodo: number; running: number; startedRunning: number; }
+apps/web/src/app/(admin)/home/page.tsx:65:  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
+apps/web/src/app/(admin)/home/page.tsx:70:// 优先：每日工作台（高频用户专用）→ 待办 → 角色专属页面
+apps/web/src/app/(admin)/home/page.tsx:75:function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker, t: (k: string, f?: string) => string): { label: string; href: string; icon: any } {
+apps/web/src/app/(admin)/home/page.tsx:87:  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
+apps/web/src/app/(admin)/home/page.tsx:110:  return { label: firstPath ? t('home.enterWorkspace', '进入我的工作区') : t('home.viewMyTodos', '查看我的待办'), href: firstPath || '/workflow/todos', icon: Inbox };
+apps/web/src/app/(admin)/home/page.tsx:134:  const [todoList, setTodoList] = useState<TodoTask[]>([]);
+apps/web/src/app/(admin)/home/page.tsx:143:      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6', { silent: true }).then(r => r.data || []).catch(() => [] as TodoTask[]),
+apps/web/src/app/(admin)/home/page.tsx:197:  const todoCount = summary?.todo ?? 0;
+apps/web/src/app/(admin)/home/page.tsx:198:  const cta = ctaFor(role, todoCount, hasPermission, t);
+apps/web/src/app/(admin)/home/page.tsx:211:    if (todoCount > 0)                          parts.push(`${todoCount} ${t('home.todosPending', '个待办待处理')}`);
+apps/web/src/app/(admin)/home/page.tsx:217:  }, [todoCount, summary, scores, totalPending, hasQualityPerm, hasCentersPerm, t]);
+apps/web/src/app/(admin)/home/page.tsx:229:        todoCount={todoCount}
+apps/web/src/app/(admin)/home/page.tsx:265:            <TodoTimeline todoList={todoList} todoCount={todoCount} />
+apps/web/src/app/(admin)/home/page.tsx:287:          <TodoTimeline todoList={todoList} todoCount={todoCount} />
+apps/web/src/app/(admin)/home/page.tsx:301:function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, masterDataPath, showAlertBubble }: {
+apps/web/src/app/(admin)/home/page.tsx:304:  todoCount: number; overdueCount: number; highAlertCount: number;
+apps/web/src/app/(admin)/home/page.tsx:376:        <NumberBubble icon={<Inbox size={13} />} label={t('home.todo', '待办')} value={todoCount} tone="brand" />
+apps/web/src/app/(admin)/home/page.tsx:412:// 待办 Timeline
+apps/web/src/app/(admin)/home/page.tsx:414:function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount: number }) {
+apps/web/src/app/(admin)/home/page.tsx:426:        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{tr('home.todoFlow', '事务流 · 我的待办')}</h3>
+apps/web/src/app/(admin)/home/page.tsx:428:          {tr('home.total', '共')} <strong style={{ color: 'var(--color-primary)' }}>{todoCount}</strong> {tr('home.orderUnit', '单')}
+apps/web/src/app/(admin)/home/page.tsx:430:        <Link href="/workflow/todos" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+apps/web/src/app/(admin)/home/page.tsx:435:      {todoList.length === 0 ? (
+apps/web/src/app/(admin)/home/page.tsx:438:          <div style={{ fontSize: 13 }}>{tr('home.noTodo', '暂无待办任务，今天可以专注做事 ✨')}</div>
+apps/web/src/app/(admin)/home/page.tsx:447:          {todoList.map((t, i) => {
+apps/web/src/app/(admin)/home/page.tsx:453:              <Link key={i} href={`/workflow/todos?taskNo=${encodeURIComponent(t.task_no)}`} style={{
+apps/web/src/app/(admin)/workflow/analytics/page.tsx:103:                        {row.overdue_count ? `${row.overdue_count} ${t('ui.超时','超时')}` : `${row.todo_count} ${t('ui.待办','待办')}`}
+apps/web/src/app/(admin)/workflow/analytics/page.tsx:112:                    <small>{t('ui.平均等待','平均等待')} {hourText(row.avg_waiting_hours)} · {t('ui.待办','待办')} {row.todo_count}</small>
+apps/web/src/app/(admin)/workflow/page.tsx:21:  ["我的待办", "/workflow/tasks/todo", "处理分配给我的审批任务"],
+apps/web/src/app/(admin)/workflow/page.tsx:46:      <PageHeader title={t('ui.审批工作台','审批工作台')} subtitle={t('ui.我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程','我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程')} breadcrumb={[t('ui.审批工作台','审批工作台')]} />
+apps/web/src/app/(admin)/workflow/page.tsx:51:          <Metric label={t('ui.我的待办','我的待办')} value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
+apps/web/src/app/(admin)/workflow/page.tsx:53:          <Metric label={t('ui.超时待办','超时待办')} value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
+apps/web/src/app/(admin)/workflow/todos/page.tsx:217:    cache: "no-store"   // G150：禁浏览器缓存，避免审批后刷新仍读到旧待办列表
+apps/web/src/app/(admin)/workflow/todos/page.tsx:324:  // 消息中心深链：/workflow/todos?instanceId=<id> 直接打开该审批实例详情，
+apps/web/src/app/(admin)/workflow/todos/page.tsx:395:  const openDetail = async (todo: UnifiedTask) => {
+apps/web/src/app/(admin)/workflow/todos/page.tsx:396:    setSelected(todo);
+apps/web/src/app/(admin)/workflow/todos/page.tsx:402:    if (todo.taskSource === "APPROVAL_ENGINE") {
+apps/web/src/app/(admin)/workflow/todos/page.tsx:403:      setDetail(await fetchDetail(todo.instanceId));
+apps/web/src/app/(admin)/workflow/todos/page.tsx:507:      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${displayTotal} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
+apps/web/src/app/(admin)/workflow/todos/page.tsx:596:                {resp.items.map(todo => <tr key={`${todo.taskSource}-${todo.taskId}`}>
+apps/web/src/app/(admin)/workflow/todos/page.tsx:597:                    <td><TaskSourceBadge source={todo.taskSource} /></td>
+apps/web/src/app/(admin)/workflow/todos/page.tsx:604:                        {BIZ_TYPE_ICON[todo.bizType]}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:605:                        {BIZ_TYPE_LABEL[todo.bizType] ?? todo.bizType ?? "-"}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:614:                        {todo.bizNo || todo.bizId}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:627:                        {todo.subject || "-"}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:636:                        {fmtAmount(todo.amount, todo.currencyCode)}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:646:                        {todo.companyName && <Building2 size={11} style={{
+apps/web/src/app/(admin)/workflow/todos/page.tsx:649:                        {todo.companyName ?? todo.companyCode ?? "-"}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:659:                        {todo.projectName && <FolderOpen size={11} style={{
+apps/web/src/app/(admin)/workflow/todos/page.tsx:662:                        {todo.projectName ?? todo.projectCode ?? "-"}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:672:                        {todo.requiredRole || "-"}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:676:                      {todo.currentStepNo != null && todo.totalSteps != null ? <span style={{
+apps/web/src/app/(admin)/workflow/todos/page.tsx:680:                          {todo.currentStepNo}/{todo.totalSteps}
+apps/web/src/app/(admin)/workflow/todos/page.tsx:683:                    <td className={u.fs12}>{fmtDate(todo.createdAt)}</td>
+apps/web/src/app/(admin)/workflow/todos/page.tsx:685:                      <button className={`${s.btnPrimary} ${u.fs12}`} onClick={() => openDetail(todo)}>
+apps/web/src/app/(admin)/workflow/todos/page.tsx:686:                        {todo.taskSource === "APPROVAL_ENGINE" ? t('ui.审批','审批') : t('ui.查看','查看')}
+apps/api/src/modules/master-data/operations.service.ts:12: *   4. 待办列表（待审批 + 待补资料）
+apps/api/src/modules/master-data/operations.service.ts:254:  /** 运营待办：待审批 + 待补资料 + 重复风险 */
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:57:                <Link href="/workflow/tasks/todo" style={secondaryActionButton}>{t('ui.我的待办','我的待办')}</Link>
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:126:  const todo = tasks.filter(task => String(task.status) === "TODO");
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:130:  const current = todo[0];
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:131:  const pendingOwners = todo.map(task => task.assignee_role_code || (task.assignee_user_id ? `用户 ${task.assignee_user_id}` : "待分配"));
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:144:    nextTitle: nextTitle(data.status, todo.length),
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:145:    nextHint: nextHint(data.status, todo)
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:148:function nextTitle(status: string, todoCount: number) {
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:149:  if (status === "RUNNING" && todoCount > 0) return "等待审批处理";
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:156:function nextHint(status: string, todo: WorkflowTask[]) {
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:157:  if (status === "RUNNING" && todo.length > 0) {
+apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx:158:    return todo.map(task => `${task.node_name} 由 ${task.assignee_role_code || task.assignee_user_id || "待分配"} 处理`).join("；");
+apps/api/src/modules/master-data/master-data-center.controller.ts:144:  /** 运营待办（待审批 / 缺资料 / 重复 / 归档阻断） */
+apps/api/src/modules/master-data/master-data-center.controller.ts:145:  @Get('operations/
 ```
