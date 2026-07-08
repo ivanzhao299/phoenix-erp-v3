@@ -3,20 +3,14 @@
   "bugNo": "BUG-20260708-0001",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0001-03-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
-    "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-03-A4-worker-log.md",
+    "taskId": "BUGTASK-20260708-0001-05-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "conclusion": "HOLD",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-05-A1-worker-log.md",
     "commitHash": "",
-    "changedFiles": [
-      "apps/web/src/components/shared-selectors/DictSelect.tsx",
-      "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
-      "apps/web/src/app/(admin)/warehouse/query/page.tsx",
-      "apps/web/src/components/ui/CrudForm.tsx",
-      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx"
-    ],
+    "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 60697\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T07-04-00-509Z-A4-Frontend-UAT-Smoke.md\nA4 redispatch处理完成，结论：**PASS WITH CONDITIONS / UAT HOLD**。\n\n已确认当前前端修复存在并通过静态验证：入库管理行操作会按权限显示 `查库存`，跳转到 `/warehouse/query?q=<产品编码/物料编码>`；库存查询页会读取 `q` 并预填搜索框。报告已更新并提交：\n\n- Commit: `9c7c154a docs: update bug 20260708 0001 a4 redispatch report`\n- Report: [docs/ops/BUG-20260708-0001-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260708-0001-a4-frontend-uat-report.md)\n\n验证结果：\n- `apps/web tsc --noEmit`: PASS\n- `apps/api tsc --noEmit`: PASS\n- `git diff --check`: PASS\n- `node scripts/ci/check-wms-datascope-writes.mjs`: PASS\n- RBAC/static audit for `MENU_WMS_VIEW`, `MENU_WMS_INOUT`, `/warehouse/query?q=`: PASS\n- 本地浏览器 UAT：HOLD，沙箱禁止端口监听，`next dev -H 127.0",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
     "nextAction": ""
   }
 }
