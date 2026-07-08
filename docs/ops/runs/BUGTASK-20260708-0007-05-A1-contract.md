@@ -593,16 +593,11 @@ Assigned agent: A1-CI-Runtime-Gate
       "localAttachments": [
         {
           "fileName": "01-1783495762344-9d4552bd.png",
-          "originalName": "pasted-screenshot-1783495750025-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png",
-          "sizeBytes": 519608
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -711,4 +706,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0007/attachments/01-1783495762344-9d4552bd.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
