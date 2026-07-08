@@ -25,22 +25,20 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260707-0007-02-A3-worker-assembled-pro
 Assembled prompt chars: 28966
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T01-28-38-943Z-A3-Backend-Critical-Path.md
-PASS / GO for backend review.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T01-35-38-551Z-A3-Backend-Critical-Path.md
+PASS / GO for A3 backend.
 
-已完成 A3 后端修复并本地提交：`cc8edfcb fix: bug-20260707-0007 wms master rbac`
+The backend repair is already present in `cc8edfcb fix: bug-20260707-0007 wms master rbac`: `wms_zones`, `wms_locations`, and `wms_warehouses` are treated as WMS master tables under `MENU_WMS_MASTER`, while legacy `MENU_WMS_INOUT` compatibility remains. I refreshed the A3 report here: [BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md).
 
-修复内容：
-- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/generic-crud/generic-crud.controller.ts)：将 `wms_warehouses / wms_zones / wms_locations` 主档表主权限映射为 `MENU_WMS_MASTER`，保留既有 `MENU_WMS_VIEW` 读兼容和 `MENU_WMS_INOUT` 旧写兼容。
-- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts)：新增 WMS 主档读写、旧权限兼容、作业单不被 `MENU_WMS_MASTER` 放权的回归测试。
-- [报告](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md)：已按合同更新 changed files、API、RBAC/DataScope/audit、验证、冻结项和 next review request。
+Validation run:
+- `apps/api`: `jest src/modules/generic-crud/generic-crud.service.spec.ts src/modules/generic-crud/generic-crud.controller.spec.ts --runInBand` → 2 suites / 20 tests passed
+- `apps/api`: `tsc --noEmit` → 0 errors
+- Worktree clean after commit
 
-验证：
-- `jest ...generic-crud... --runInBand`：PASS，2 suites / 20 tests
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`：PASS，0 errors
-- 工作区最终干净
+Committed:
+- `0246095a docs(ops): refresh bug 0007 a3 backend report`
 
-未执行：push、deploy、migration、数据库写入、前端修改。
+No migrations, DB writes, deploy, merge, push, frontend changes, or task-board changes were performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +55,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3f54-ac3e-7f42-9c4b-2bc2bfef0cde
+session id: 019f3f5c-3fcf-71a3-97e5-6d94b74e2cfd
 --------
 user
 # Base Agent Prompt
@@ -1120,7 +1118,7 @@ Assigned agent: A3-Backend-Critical-Path
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我先跑合同要求的四个基线检查；如果目录、分支或工作区状态不符合，会先停下来报明细，不进入修改。
+我先做约定的入口检查，确认目录、分支、工作区状态和最近提交；如果这些不符合合同，会直接停下并报告。
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
@@ -1134,266 +1132,514 @@ w5-a3-backend-critical-path
 exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-5f449641 (HEAD -> w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+6ae7fc5b (HEAD -> w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
+cc8edfcb (main) fix: bug-20260707-0007 wms master rbac
+5f449641 docs(ops): record baseline lifecycle report
 20d503ce docs(ops): record bug 0007 a3 backend report
 a381e3c2 docs(ops): record baseline lifecycle report
 99ba3d1d fix: bug-20260707-0010 workflow todo counts
 5904dfce docs(ops): record baseline lifecycle report
 bb316c59 feat(api): record A3-Backend-Critical-Path result
-b22cf644 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
-e04a0016 fix: bug-20260707-0009 medicine stock refresh
 
 exec
 /bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
 codex
-基线检查通过：目录、分支和工作区都符合合同，当前没有未提交变更。我现在只看后端 CRUD/WMS 相关实现，先判断是不是 API 侧缺能力或过滤导致库区查不到。
+入口检查通过：目录和分支匹配，工作区干净。现在做 dry-run 诊断，只读查看后端是否已经提供 `wms_zones` 创建能力、RBAC/DataScope 覆盖和 `/crud/wms_locations/undefined` 的后端触发面。
 exec
-/bin/zsh -lc 'rg "Crud|crud" apps/api/src/modules -g"*.ts" -n' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
-exec
-/bin/zsh -lc 'rg "DataScope|allowedWarehouseCodes|wms_" apps/api/src/modules -g"*.ts" -n' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+/bin/zsh -lc 'rg --files docs/ops apps/api/src | rg "(wms|warehouse|crud|zone|location|ops/)"' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-apps/api/src/modules/system-monitor/services/cron-monitor.service.ts:13: * 表 sys_cron_heartbeat 由 generic-crud bootstrap 幂等建。
-apps/api/src/modules/system-monitor/services/cron-monitor.service.ts:21:  /** 幂等建心跳表（本模块自持，不依赖 generic-crud bootstrap） */
-apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:19: * 底层仍读写 V1 fin_accounts / fin_transactions / ord_orders 表（由 generic-crud 自动建表）。
-apps/api/src/modules/org/services/org.service.ts:558:   * Why：行级数据范围过滤的**实际驱动**是 sys_user.store_code（generic-crud
-apps/api/src/modules/product-master/controllers/lookup.controller.ts:496:  /** GET /api/lookup/stores — 门店下拉（替代 /crud/mst_stores） */
-apps/api/src/modules/product-master/controllers/lookup.controller.ts:516:  /** GET /api/lookup/farms — 养殖场下拉（替代 /crud/brd_farms） */
-apps/api/src/modules/product-master/controllers/lookup.controller.ts:695:  /** GET /api/lookup/dict/:dictType — 字典下拉（替代 /crud/sys_dict?dict_type=...） */
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:15:import { GenericCrudService } from './generic-crud.service';
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:17:import { ALLOWED_TABLES } from './crud.constants';
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:21:@Controller('api/crud')
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:23:export class GenericCrudController {
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:25:    private readonly crudService: GenericCrudService,
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:60:      GenericCrudController.RUNTIME_V2_PREFIXES.some(p => table.startsWith(p)) ||
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:61:      GenericCrudController.RUNTIME_V2_EXACT.has(table);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:200:      //   持 MENU_SETTINGS_USER:E 者可经 /api/crud 直写 password_hash/role/status 提权。两名都列以防回归。
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:286:        const data = await this.crudService.findAllInventoryScoped(table, query, null);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:290:        const data = await this.crudService.findAllInventoryScoped(table, query, []);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:295:      const data = await this.crudService.findAllInventoryScoped(table, query, scope.allowedWarehouseCodes);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:299:    const data = await this.crudService.findAll(table, effectiveQuery);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:319:    //   G33 修：限定白名单表（之前对所有 generic-crud 表注入，导致主档表如
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:347:    const result = await this.crudService.create(table, body);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:367:    const result = await this.crudService.update(table, idColumn, id, safeBody);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:393:    const result = await this.crudService.remove(table, idColumn, id);
-apps/api/src/modules/generic-crud/generic-crud.service.ts:6:export class GenericCrudService implements OnModuleInit {
-apps/api/src/modules/generic-crud/generic-crud.service.ts:2145:      return this.withCrudRouteIdAlias(table, rows);
-apps/api/src/modules/generic-crud/generic-crud.service.ts:2151:  private withCrudRouteIdAlias(table: string, rows: any[]): any[] {
-apps/api/src/modules/generic-crud/generic-crud.service.ts:2152:    const aliasColumn = GenericCrudService.CRUD_ROUTE_ID_ALIAS[table];
-apps/api/src/modules/generic-crud/generic-crud.module.ts:2:import { GenericCrudController } from './generic-crud.controller';
-apps/api/src/modules/generic-crud/generic-crud.module.ts:3:import { GenericCrudService } from './generic-crud.service';
-apps/api/src/modules/generic-crud/generic-crud.module.ts:6:  controllers: [GenericCrudController],
-apps/api/src/modules/generic-crud/generic-crud.module.ts:7:  providers: [GenericCrudService],
-apps/api/src/modules/generic-crud/generic-crud.module.ts:9:export class GenericCrudModule {}
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:2:import { GenericCrudController } from './generic-crud.controller';
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:3:import { GenericCrudService } from './generic-crud.service';
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:6:describe('GenericCrudController WMS RBAC', () => {
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:7:  let controller: GenericCrudController;
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:8:  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create'>>;
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:38:    controller = new GenericCrudController(
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:39:      svc as unknown as GenericCrudService,
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:1:import { GenericCrudService } from './generic-crud.service';
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:4:describe('GenericCrudService', () => {
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:9:    return { em, svc: new GenericCrudService(em as never) };
-apps/api/src/modules/procurement/entities/purchase-order.entity.ts:8: * 与前端 useCrud('prc_purchase_orders') 对齐
-
- succeeded in 0ms:
-apps/api/src/modules/finance-v2/finance-v2.module.ts:58: *   - OrgModule 为 @Global()，DataScopeHelper 自动注入
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:5:import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:16: * DataScope：严格按当前用户的 company/project 权限过滤。
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:26:    private readonly scopeHelper: DataScopeHelper,
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:44:   * - DataScope 公司/项目过滤
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:62:    // DataScope WHERE 子句
-apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:8:import { DataScopeGuard }           from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:22:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:238:    const acc = await this.findById(id, user); // 含 DataScope 归属校验
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:246:   * 约束：源/目标账户归属当前用户 DataScope；币种必须一致。
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:39:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:49:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:52:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/finance-v2/services/ar-ledger.service.ts:9: * DataScope：scopeAll 用户（如刘杰 GROUP 财务）看全部；受限用户按 company_code 过滤。
-apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts:3:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts:13:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/notification/notification.controller.ts:3:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/notification/notification.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:67:  /** DataScope 过滤条件 */
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:101:    // DataScope
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:245:        // DataScope 验证
-apps/api/src/modules/uat/services/uat-feedback.service.ts:7: *   - 支持 company_code DataScope
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:7:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:32: *   import-from-prc2 要求 MENU_FIN2_AP:E，并继续受 DataScope 公司范围过滤。
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:35:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:43:   * AP 发票列表，支持分页、多维筛选、DataScope 过滤。
-apps/api/src/modules/finance-v2/services/financial-reports.service.ts:10: * DataScope：scopeAll 用户不做 company_code 过滤；受限用户严格过滤。
-apps/api/src/modules/finance-v2/services/financial-reports.service.ts:41:   * @param codes DataScope 公司代码列表
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:5:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:6:import { DataScopeContext }        from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:25:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:40:  /** C2 修复：从 CLS DataScope 构建 enrichedUser，提供正确的 scopeAll 和 companyCodes */
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:43:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:108:    // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已将正确 scope 写入 CLS）
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:109:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:198:   * 从 prc2_ap_ledger 读取 AP 数据（只读，DataScope 过滤）。
-apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:20: * DataScope:按 cls 中 dataScope.allowedCompanyCodes 过滤(集团 isGlobal 看全部)。
-apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:312:  // 注:此 cron 内部直接走 DB 查询(不走 reconcile 的 DataScope 限制),因为 cron 无 CLS 上下文。
-apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:363:  /** 直接 DB 跑对账(绕过 reconcile 的 DataScope,cron 无 CLS) */
-apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:5:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:6:import { DataScopeContext }       from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:15: * 只读；DataScope 在 Service 层按 company_code 过滤（GROUP 用户看全部）。
-apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:18:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:27:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:19: * DataScope：所有列表接口严格按当前用户 companyCodes 过滤。
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:20: * assertOwnership：详情/写操作验证 company_code 在 DataScope 范围内。
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:56:  /** assertOwnership：确认 AR 的 company_code 在当前用户 DataScope 内 */
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:84:    // DataScope
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:29:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:39:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:42:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/sales-v2/services/customers.service.ts:220:   * 不走 assertOwnership，由调用方保证已做 DataScope 校验
-apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:299:      moduleCode: 'MENU_MD_WAREHOUSE', tableName: 'wms_warehouses',
-apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:301:      onApproved: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'APPROVE_ACTIVE'),
-apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:302:      onRejected: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'REJECT'),
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:8:import { DataScopeContext } from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:22: * DataScope：所有列表接口严格按当前用户 companyCodes 过滤。
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:23: * assertOwnership：详情/写操作验证 company_code 在 DataScope 范围内。
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:39:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:75:  /** DataScope WHERE 子句 */
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:84:  /** 写入归属校验：create/import 等入口必须落在当前 DataScope 内。 */
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:101:  /** assertOwnership：确认 invoice 的 company_code 在当前用户 DataScope 内 */
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:133:    // DataScope
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:574:    // DataScope 过滤
-apps/api/src/modules/approval-engine/approval-engine.service.ts:191:    // 候选人本身仍由 AssignmentResolver 按 menuCode + requiredPerm + DataScope 二次筛选。
-apps/api/src/modules/approval-engine/approval-engine.service.ts:776:    // G85-D 待办 DataScope：非全局用户只看本公司范围实例（company_code 为 NULL 的全局单据保留）
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:5:import { DataScopeGuard }              from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:6:import { DataScopeContext }             from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:16: * DataScope 在 Service 层按 user.dataScope 自动过滤。
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:21:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:30:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:33:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/master-data/master-data-runtime.service.ts:9:import { DataScopeService } from '../org/services/data-scope.service'; // G71 公司数据隔离
-apps/api/src/modules/master-data/master-data-runtime.service.ts:30:  companyCol?: string;       // G71：公司隔离列名（有则按 DataScope.allowedCompanyCodes 过滤）
-apps/api/src/modules/master-data/master-data-runtime.service.ts:56:// 主数据运行时 DataScope 的菜单上下文必须与类型级权限一致。
-apps/api/src/modules/master-data/master-data-runtime.service.ts:150:    table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
-apps/api/src/modules/master-data/master-data-runtime.service.ts:357:    private readonly dataScope: DataScopeService,       // G71 公司数据隔离
-apps/api/src/modules/master-data/master-data-runtime.service.ts:467:   *   - 已登录用户的 userId 缺失或 DataScope 解析异常必须 fail-closed。
-apps/api/src/modules/master-data/master-data-runtime.service.ts:487:      this.logger.warn(`[MdRuntime] DataScope 解析失败，拒绝公司维度主数据可见范围：${e?.message}`);
-apps/api/src/modules/master-data/master-data-runtime.service.ts:511:    // G71：公司数据隔离（有 company 维度的实体按 DataScope 过滤）
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:37:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:48:  /** C2 修复：从 CLS DataScope 构建 enrichedUser，提供正确的 scopeAll 和 companyCodes */
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:51:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:158:    // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已写入正确 scope）
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:159:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/file/file-access.service.ts:14:import { DataScopeContext } from '../org/services/data-scope.service';
-apps/api/src/modules/file/file-access.service.ts:130:    this.assertDataScope(file, policy, mode);
-apps/api/src/modules/file/file-access.service.ts:160:  private assertDataScope(file: FileMetadataEntity, policy: FileAccessPolicy, mode: ProtectedFileMode) {
-apps/api/src/modules/file/file-access.service.ts:162:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/approval-engine/approval-rules.controller.ts:6:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/approval-engine/approval-rules.controller.ts:15:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/approval-engine/approval-rules.controller.ts:17:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/uat/controllers/uat-pilot-run.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/uat-pilot-run.controller.ts:11:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/master-data/biz-projects.controller.ts:19:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/master-data/biz-projects.controller.ts:20:import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
-apps/api/src/modules/master-data/biz-projects.controller.ts:23:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/master-data/biz-projects.controller.ts:30:    private readonly dataScope: DataScopeService,
-apps/api/src/modules/master-data/biz-projects.controller.ts:87:    const clsScope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/uat/controllers/uat-training.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/uat-training.controller.ts:11:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts:17:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts:21:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:8:import { DataScopeContext } from '../../org/services/data-scope.service';
-apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:49:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:59:  // ── DataScope 断言 ────────────────────────────────────────────────────────
-apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:202:    // DataScope 检查
-apps/api/src/modules/sales-v2/services/sales-v2.service.ts:37:        notes:       'All Sales V2 tables use company_code aligned with Finance V2 DataScope',
-apps/api/src/modules/approval-engine/approval-engine.controller.ts:3:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/approval-engine/approval-engine.controller.ts:6:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/approval-engine/approval-engine.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:6:import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:28: *   GET    /ar/invoices              — 列表（分页、全筛选、DataScope）
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:48:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/uat/controllers/uat-feedback.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/uat-feedback.controller.ts:12:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/master-data/operations.service.ts:98:        { type: 'warehouse', table: 'wms_warehouses', codeCol: 'warehouse_code', href: '/master-data/warehouses' },
-apps/api/src/modules/master-data/operations.service.ts:192:      { type: 'warehouse', sql: `SELECT warehouse_code AS code, COALESCE(warehouse_name_zh,warehouse_name) AS name, status FROM wms_warehouses WHERE warehouse_code ILIKE $1 OR warehouse_name ILIKE $1 OR warehouse_name_zh ILIKE $1 LIMIT 5`, href: '/master-data/warehouses' },
-apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:3:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:6:// [Phase R1 — HIGH-3] 替换 AuthGuard('jwt') + MenuGuard → MenuGuard + DataScopeGuard
-apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/uat/controllers/uat-checklist.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
-apps/api/src/modules/uat/controllers/uat-checklist.controller.ts:12:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/traceability/traceability.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/traceability/traceability.controller.ts:11: * DataScope：按 company_code 限制（普通用户禁止跨公司）。
-apps/api/src/modules/traceability/traceability.controller.ts:14:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
-apps/api/src/modules/traceability/traceability.controller.ts:18:  /** 用户可见公司 scope（DataScopeGuard 注入 req.dataScope）；admin/空 → 不限制 */
-apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:32:import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
-apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:37:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/master-data/master-data-references.service.ts:49:    { refTable: 'wms_outbound',     refDocType: '出库单',   fkColumn: 'dest',          noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
-apps/api/src/modules/master-data/master-data-references.service.ts:83:    { refTable: 'wms_inbound',     refDocType: '入库单',       fkColumn: 'item',     noField: 'inbound_no',   linkPattern: '/warehouse/inbound?keyword=:code' },
-apps/api/src/modules/master-data/master-data-references.service.ts:87:    { refTable: 'wms_inbound',    refDocType: '入库单',   fkColumn: 'warehouse_code', noField: 'inbound_no',  linkPattern: '/warehouse/inbound?keyword=:code' },
-apps/api/src/modules/master-data/master-data-references.service.ts:88:    { refTable: 'wms_outbound',   refDocType: '出库单',   fkColumn: 'warehouse_code', noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
-apps/api/src/modules/master-data/master-data-references.service.ts:89:    { refTable: 'wms_transfer',   refDocType: '调拨单',   fkColumn: 'from_warehouse', noField: 'transfer_no', linkPattern: '/warehouse/transfer?keyword=:code' },
-apps/api/src/modules/master-data/master-data-references.service.ts:109:    { refTable: 'wms_warehouses',     refDocType: '仓库',       fkColumn: 'company_code', noField: 'warehouse_code',    linkPattern: '/master-data/warehouses?keyword=:code' },
-apps/api/src/modules/terminal/stocktake.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/terminal/stocktake.controller.ts:7:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/stocktake.controller.ts:9:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/terminal/stocktake.controller.ts:20:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/stocktake.controller.ts:22:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/terminal/pda.controller.ts:5:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/terminal/pda.controller.ts:8:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/pda.controller.ts:10:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/terminal/packaging.controller.ts:8:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/terminal/packaging.controller.ts:13:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/packaging.controller.ts:16:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/terminal/packaging.controller.ts:141:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/packaging.controller.ts:144:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/terminal/labels.controller.ts:5:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/terminal/labels.controller.ts:8:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/terminal/labels.controller.ts:10:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/sales-v2/services/price-books.service.ts:7:import { DataScopeContext } from '../../org/services/data-scope.service';
-apps/api/src/modules/sales-v2/services/price-books.service.ts:23:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/sales-v2/services/price-runtime.service.ts:5:import { DataScopeContext } from '../../org/services/data-scope.service';
-apps/api/src/modules/sales-v2/services/price-runtime.service.ts:42:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/sales-v2/services/price-runtime.service.ts:219:   * 按 grade_code + packaging_spec 聚合，返回当前 DataScope 公司的 ACTIVE 价格
-apps/api/src/modules/quality/quality.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/quality/quality.controller.ts:9: * [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/quality/quality.controller.ts:12:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/wms/entities/wms-location.entity.ts:3:@Entity('wms_locations')
-apps/api/src/modules/sales-v2/services/price-items.service.ts:7:import { DataScopeContext } from '../../org/services/data-scope.service';
-apps/api/src/modules/sales-v2/services/price-items.service.ts:20:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-apps/api/src/modules/sales-v2/services/price-items.service.ts:26:  /** 检查价格册归属，同时验证 DataScope */
-apps/api/src/modules/sales-v2/services/price-items.service.ts:81:    // DataScope 通过 price_book 过滤
-apps/api/src/modules/wms/entities/wms-stock-ledger.entity.ts:3:@Entity('wms_stock_ledger')
-apps/api/src/modules/terminal/terminal.service.ts:107:        `SELECT * FROM wms_stocktake WHERE status = 'PENDING' ORDER BY created_at DESC`,
-apps/api/src/modules/wms/entities/wms-stock-balance.entity.ts:3:@Entity('wms_stock_balance')
-apps/api/src/modules/wms/entities/wms-stock-balance.entity.ts:4:@Unique('wms_stock_balance_warehouse_code_location_code_spec_code_ba_key', ['warehouse_code', 'location_code', 'spec_code', 'batch_no'])
-apps/api/src/modules/terminal/packaging.service.ts:656:      //   - packComplete 完成后自动创建 wms_inbound 任务，等待仓库验收上架
-apps/api/src/modules/terminal/packaging.service.ts:739:          // V2 fidelity: 包装完结 → 自动建 wms_inbound PENDING 任务，等待仓库上架收货
-apps/api/src/modules/terminal/packaging.service.ts:747:                `INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code, operator, created_at)
-apps/api/src/modules/terminal/packaging.service.ts:752:              console.warn('[packComplete][WARN] wms_inbound 自建跳过:', e?.message);
-apps/api/src/modules/wms/inventory.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
-apps/api/src/modules/wms/inventory.controller.ts:7:// [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
-apps/api/src/modules/wms/inventory.controller.ts:9:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/wms/inventory.controller.ts:27:@UseGuards(MenuGuard, DataScopeGuard)
-apps/api/src/modules/wms/wms.service.ts:5:import { DataScopeContext } from '../org/services/data-scope.service';
-apps/api/src/modules/wms/wms.service.ts:20:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/wms/wms.service.ts:21:    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) {
-apps/api/src/modules/wms/wms.service.ts:26:      params: [scope.allowedWarehouseCodes],
-apps/api/src/modules/wms/wms.service.ts:31:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/wms/wms.service.ts:32:    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
-apps/api/src/modules/wms/wms.service.ts:36:    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
-apps/api/src/modules/wms/wms.service.ts:42:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-apps/api/src/modules/wms/wms.service.ts:63:        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql}`,
-apps/api/src/modules/wms/wms.service.ts:67:        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING' AND ${scope.sql}`,
-apps/api/src/modules/wms/wms.service.ts:87:        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') AND ${scope.sql} ORDER BY created_at DESC`,
-apps/api/src/modules/wms/wms.service.ts:100:        `SELECT * FROM wms_inbound WHERE task_no = $1 AND ${scope.sql}`,
-apps/api/src/modules/wms/wms.service.ts:105:        `SELECT * FROM wms_inbound_items WHERE task_no = $1`,
-apps/api/src/modules/wms/wms.service.ts:156:        `SELECT warehouse_code, operator, store_code, status FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
-apps/api/src/modules/wms/wms.service.ts:176:        `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
-apps/api/src/modules/wms/wms.service.ts:478:   * 复用 getInventoryBa
+apps/api/src/modules/finance-v2/entities/fin-ar-receipt-allocation.entity.ts
+docs/ops/RBAC_SETTINGS_AND_MENU_GATE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md
+docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_PLAN.md
+docs/ops/BUG-20260707-0004-a4-frontend-uat-report.md
+docs/ops/AI_DELIVERY_FACTORY_SETUP_REVIEW.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_PLAN.md
+docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md
+docs/ops/A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md
+docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md
+docs/ops/REMAINING_AUDIT_ISSUES_CONSOLIDATED_PLAN_20260627.md
+docs/ops/MASTER_DATA_HOME_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
+docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md
+docs/ops/AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md
+docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md
+docs/ops/AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md
+docs/ops/AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md
+docs/ops/SETTINGS_HUB_SECURITY_PAGE_PERMISSION_REMEDIATION_20260627.md
+docs/ops/AP_INVOICES_DATASCOPE_WRITE_GATE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md
+docs/ops/MASTER_DATA_RUNTIME_WRITE_SCOPE_GUARD_20260626.md
+docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md
+docs/ops/MOBILE_DASHBOARD_SALES_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md
+apps/api/src/modules/procurement-v2/entities/prc2-payment-allocation.entity.ts
+apps/api/src/modules/procurement-v2/dto/payment-allocation.dto.ts
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_IMPLEMENTATION_PLAN.md
+docs/ops/PRODUCTION_DEPLOY_CHAIN_HARDENING_DRY_RUN_REPORT.md
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md
+docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REFRESH_REPORT.md
+docs/ops/SALES_BFF_GENERIC_RBAC_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK.md
+docs/ops/APPROVAL_HISTORY_SCOPE_REMEDIATION_20260627.md
+docs/ops/STORE_PAYMENT_FAST_TRACK_PILOT_EXECUTION_REPORT.md
+docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md
+docs/ops/BUG-20260707-0005_A6_STAGING_DEPLOY_RUNBOOK.md
+docs/ops/A3_STORE_PAYMENT_APP_MODULE_WIRING_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_001_UNRESOLVED_UPLOADS_REVIEW_PACKAGE.md
+docs/ops/AI_DELIVERY_PHASE5_1_NL_TO_CODEX_CLI_REVIEW.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_ACTION_BIT_COMPATIBILITY_PLAN.md
+docs/ops/AGENT_ROUTER_V1_REVIEW.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_ROADMAP.md
+docs/ops/PRODUCTION_READINESS_UPLOAD_RESPONSE_COMPAT_FIX_REPORT.md
+docs/ops/ENVIRONMENT_MATRIX.md
+docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A5-Data-Readiness_REPORT.md
+docs/ops/RBAC_FRONTEND_GATE_ALIGNMENT_BATCH_20260626.md
+docs/ops/STAGING_TARGET_DERIVATION_FROM_SERVER_CARD.md
+docs/ops/RBAC_PARENT_PERMISSION_CLEARANCE_AUDIT_20260627.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_DRY_RUN_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_STATE_AUDIT_REPORT.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_TEST_PLAN.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_SEQUENCE_PLAN.md
+docs/ops/QUALITY_AND_MOBILE_DASHBOARD_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/A2_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md
+docs/ops/A3_STORE_PAYMENT_PROTECTED_STREAMING_GATE_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_PLAN.md
+docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md
+docs/ops/MULTI_AGENT_PARALLEL_CLOSED_LOOP_RUNBOOK.md
+docs/ops/AI_DELIVERY_PHASE3_1_SPEC_FREEZE_REVIEW.md
+docs/ops/PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_RUNTIME_VERIFICATION_REPORT.md
+docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_PLAN.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_FRONTEND_DRAFT.md
+docs/ops/SERVER_CARD_STAGING_TARGET_INTAKE_REPORT.md
+docs/ops/PROCUREMENT_CONTRACT_OCR_AUTOFILL_PLAN.md
+docs/ops/AGENT_ROUTING_RULES.md
+docs/ops/PROCUREMENT_PAYMENT_PROJECT_LOOKUP_FALLBACK_20260626.md
+docs/ops/AGENT_TASK_CONTRACT.md
+docs/ops/ORG_RUNTIME_LEGACY_ALIAS_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/MASTER_DATA_FRONTEND_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PACKAGE.md
+docs/ops/MERGE_AGENT_BRANCH_RUNBOOK.md
+docs/ops/CHANJET_CALLBACK_SECRET_HANDLING_REMEDIATION_20260627.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_CHECKLIST.md
+docs/ops/AI_DELIVERY_PHASE1_CI_GATE_REVIEW.md
+docs/ops/DEBUG_ENDPOINT_PRODUCTION_DISABLE_REMEDIATION_20260627.md
+docs/ops/DR_RESTORE_DRILL.md
+docs/ops/A1_STORE_PAYMENT_A5_HOLD_CLEARANCE_VALIDATION.md
+docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_BACKLOG.md
+docs/ops/AGENT_PLATFORM_V2_CLOSED_LOOP_DELIVERY.md
+docs/ops/PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_LOCAL_COMPAT_FIX_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_REPORT.md
+docs/ops/STORE_PAYMENT_S1_APP_001_MIGRATION_EXECUTION_REPORT.md
+docs/ops/STORE_PAYMENT_READINESS_A1_A2_A5_APPROVED_EXECUTION_REPORT.md
+docs/ops/PRODUCTION_DEPLOY_CHAIN_HARDENING_PLAN.md
+docs/ops/PROCUREMENT_MATERIAL_QUICK_CREATE_REMEDIATION_20260626.md
+docs/ops/FINANCE_CASH_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/MASTER_DATA_PENDING_ATOMIC_VISIBILITY_REMEDIATION_20260627.md
+docs/ops/A2_STORE_PAYMENT_PILOT_GATE_S1_REVIEW.md
+docs/ops/AI_DELIVERY_IMPLEMENTATION_PLAN_STORE_PAYMENT_001_REVIEW.md
+docs/ops/PERMISSION_SET_ROUTE_DEDUP_REMEDIATION_20260627.md
+docs/ops/AI_DELIVERY_PHASE6_ONE_COMMAND_ORCHESTRATOR_REVIEW.md
+docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md
+docs/ops/STORE_PAYMENT_BUSINESS_CLOSED_LOOP_READY_REPORT.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_BACKEND_S2_TASK_PACKAGE.md
+docs/ops/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS_A1-CI-Runtime-Gate_REPORT.md
+docs/ops/ROLE_PERMISSION_MATRIX_REPAIR_DRY_RUN_20260627.md
+docs/ops/MASTER_DATA_CROSS_DOMAIN_TAB_PERMISSION_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_PERMISSION_MATRIX.md
+docs/ops/STORE_PAYMENT_A5_HOLD_CLEARANCE_REPORT.md
+docs/ops/PRODUCTION_READINESS_P0_001_ACCOUNT_PLACEHOLDER_EXECUTION_REPORT.md
+docs/ops/CODEX_ORCHESTRATOR_RUNTIME_MEMORY_UPDATE_REPORT.md
+docs/ops/BUG-20260707-0009_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/MOBILE_DELIVERY_SCOPE_GATE_REMEDIATION_20260626.md
+docs/ops/STORE_PAYMENT_MIGRATION_EXECUTION_PRECHECK.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_MIGRATION_EXECUTION_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_REVIEW_PACKAGE.md
+docs/ops/PRODUCTION_READINESS_P1_004_MASTER_DATA_REMEDIATION_PLAN.md
+docs/ops/GLOBAL_UI_AND_RBAC_REMEDIATION_20260625.md
+docs/ops/LOOKUP_POULTRY_SELECTOR_DATASCOPE_REMEDIATION_20260626.md
+docs/ops/BUG-20260707-0005-a4-frontend-uat-smoke.md
+docs/ops/AI_DELIVERY_STATE_MACHINE.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_INTAKE_REPORT.md
+docs/ops/MASTER_DATA_AGGREGATE_API_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/RBAC_MENU_VISIBILITY_ATOMICITY_AUDIT_20260625.md
+docs/ops/PRODUCTION_READINESS_P0_001_INITIAL_DATA_REFRESH_REPORT.md
+docs/ops/AI_DELIVERY_PHASE2_NL_DISPATCH_REVIEW.md
+docs/ops/NATURAL_LANGUAGE_DISPATCH_FLOW.md
+docs/ops/A3_BACKEND_S2_STORE_PAYMENT_001_REPORT.md
+docs/ops/A2_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REVIEW.md
+docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md
+docs/ops/SHAREHOLDER_DATASCOPE_HARDCODE_REMEDIATION_20260626.md
+docs/ops/PROCUREMENT_PAYMENT_PROJECT_SELECTOR_FIX_20260626.md
+docs/ops/ROLE_PERMISSION_MATRIX_ATOMICITY_APPLY_20260627.md
+docs/ops/A1_STORE_PAYMENT_PILOT_GATE_S1_VALIDATION.md
+docs/ops/MASTER_DATA_HUB_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_EXECUTION_PACKAGE.md
+docs/ops/AGENT_PLATFORM_V2_95_FINAL_READINESS_REPORT.md
+docs/ops/AGENT_PLATFORM_V2_HARDENING_REVIEW.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_NEXT.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_MIGRATION_DRAFT.md
+docs/ops/ORG_DATASCOPE_RBAC_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/BUG-20260707-0008-a4-frontend-uat-report.md
+docs/ops/A2_SECURITY_DESIGN_STORE_PAYMENT_001_REPORT.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_IMPLEMENTATION_S1_REPORT.md
+docs/ops/AUDIT_LOG_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/NEXT_PRODUCTION_READINESS_REMEDIATION_PLAN_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_REPAIR_PRECHECK.md
+docs/ops/ORG_SERVICE_DIRECT_ACCESS_DATASCOPE_GUARD_20260626.md
+docs/ops/OBSERVER_FINDINGS_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_REPORT.md
+docs/ops/AI_DELIVERY_PHASE5_3_NEXT_AGENT_DECISION_ENGINE_REVIEW.md
+docs/ops/QUALITY_MOBILE_MENU_REGISTRY_REMEDIATION_20260627.md
+docs/ops/MASTER_DATA_RUNTIME_DATASCOPE_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/AI_DELIVERY_PHASE5_2_AGENT_RESULT_PARSER_REVIEW.md
+docs/ops/PARALLEL_AGENT_EXECUTION_POLICY.md
+docs/ops/PHOENIX_ERP_PRODUCTION_READINESS_TASK_LIST.md
+docs/ops/AGENT_PLATFORM_V2_95_ACCEPTANCE_MATRIX.md
+docs/ops/ACCEPTANCE_CRITERIA_LIBRARY.md
+docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md
+docs/ops/ATOMIC_PERMISSION_ALIGNMENT_BATCH_2_20260627.md
+docs/ops/OBSERVER_EVOLUTION_TASKS.md
+docs/ops/AI_DELIVERY_PHASE5_4_FOLLOW_UP_DISPATCH_DRY_RUN_REVIEW.md
+docs/ops/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REPORT.md
+docs/ops/APP_LOGO_REDESIGN_20260626.md
+docs/ops/A1_APP_MODULE_WIRING_POST_MERGE_VALIDATION_STORE_PAYMENT_001_REPORT.md
+docs/ops/ROLLBACK_RUNBOOK.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_INVENTORY_REPORT.md
+docs/ops/BUG-20260707-0004-A3-backend-critical-path-report.md
+docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A1-CI-Runtime-Gate_REPORT.md
+docs/ops/AI_DELIVERY_PHASE5_6_AGENT_RESULT_NORMALIZATION_REVIEW.md
+docs/ops/DATA_QUALITY_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_EXECUTION_REPORT.md
+docs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md
+docs/ops/FRONTEND_MENU_TREE_PERMISSION_GATE_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REMOTE_AUDIT_REPORT.md
+docs/ops/bug-20260707-0009-a4-frontend-uat-report.md
+docs/ops/REQUIREMENT_SPEC_TEMPLATE.md
+docs/ops/PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_EVIDENCE_REPAIR_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_PLAN.md
+docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
+docs/ops/runtime-memory/NEXT_ACTIONS.md
+docs/ops/runtime-memory/DECISION_LOG.md
+docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
+docs/ops/runtime-memory/GUARDRAILS.md
+docs/ops/runtime-memory/PROJECT_STATE.json
+docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
+docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md
+docs/ops/NEXT_AGENT_DECISION_ENGINE.md
+docs/ops/LOOKUP_AND_ORG_DATASCOPE_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_STATE_MACHINE.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_REPAIR_PLAN.md
+docs/ops/A5_DATA_READINESS_STORE_PAYMENT_001_REPORT.md
+docs/ops/BUG-20260707-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/AGENT_AUTONOMOUS_BASELINE_LIFECYCLE.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_PRECHECK.md
+docs/ops/PROCUREMENT_RBAC_ATOMIC_REQUIREMENU_REMEDIATION_20260625.md
+docs/ops/AUTOMATED_WORKTREE_SYNC_AND_SAFE_MERGE.md
+docs/ops/PRODUCTION_LEGACY_UPLOAD_RUNTIME_VERIFICATION_PLAN.md
+docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md
+docs/ops/BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A2-Security-Regression-Gate_REPORT.md
+docs/ops/LOOKUP_SHAREHOLDER_SELECTOR_DATASCOPE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md
+docs/ops/agent-inbox/SHORT_COMMAND_EXAMPLES.md
+docs/ops/agent-inbox/APPROVALS.md
+docs/ops/agent-inbox/README.md
+docs/ops/agent-inbox/OUTBOX.md
+docs/ops/agent-inbox/USER_INTENT.md
+docs/ops/agent-inbox/INBOX_SCHEMA.md
+docs/ops/AGENT_RELEASE_STATE_MACHINE.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_DATA_MODEL_DRAFT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_PRECHECK.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_DATASCOPE.md
+docs/ops/AGENT_ROUTER_SPEC.md
+docs/ops/AGENT_PLATFORM_V2_A5_ROUTING_FIX_REVIEW.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_FILE_SECURITY_REMEDIATION_PLAN.md
+docs/ops/AGENT_ROUTER_RULES.json
+docs/ops/BUG-20260707-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/RELEASE_RUNBOOK.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SPEC.md
+docs/ops/AI_DELIVERY_SCHEMA_GATE_STORE_PAYMENT_001_REVIEW.md
+docs/ops/NOTIFICATION_AND_PRESENCE_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_STANDARD_RESCORE_AND_HARDENING_PLAN_20260701.md
+docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md
+docs/ops/AGENT_BASELINE_AUTOPILOT.md
+docs/ops/LOOKUP_USER_SELECTOR_DATASCOPE_REMEDIATION_20260626.md
+docs/ops/AGENT_PLATFORM_V2_A4_UIUX_ROLE_REVIEW.md
+docs/ops/BUG-20260706-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/PRODUCTION_READINESS_P0_003_DEPLOY_CHAIN_REMOTE_REFRESH_RETRY_REPORT.md
+docs/ops/STORE_PAYMENT_PILOT_GATE_S1_DECISION.md
+docs/ops/GLOBAL_RBAC_MENU_GATE_AUDIT_20260625.md
+docs/ops/STORE_PAYMENT_MENU_ROLE_REGISTRATION_PLAN.md
+docs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md
+docs/ops/ATTACHMENT_MULTI_UPLOAD_AND_DOCUMENT_AUTOFILL_PROGRESS.md
+docs/ops/AI_DELIVERY_PHASE3_INTAKE_REVIEW.md
+docs/ops/AGENT_TASK_BOARD.md
+docs/ops/AGENT_PLATFORM_V2_95_ACCEPTANCE_PLAN.md
+docs/ops/PRODUCTION_GO_NO_GO.md
+docs/ops/A1_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md
+docs/ops/evolution/evolution-state.json
+docs/ops/evolution/improvement-backlog.json
+docs/ops/evolution/failure-patterns.json
+docs/ops/evolution/learning-log.json
+docs/ops/SIDEBAR_MASTER_DATA_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A1-CI-Runtime-Gate_REPORT.md
+docs/ops/AGENT_ROUTING_RULES_V2.md
+docs/ops/examples/AGENT_RESULT_A3_APP_MODULE_WIRING_EXAMPLE.md
+docs/ops/examples/NL_REQUEST_STORE_PAYMENT_WIRING_EXAMPLE.md
+docs/ops/examples/REQ_STORE_PAYMENT_APP_MODULE_WIRING_SPEC_EXAMPLE.md
+docs/ops/examples/REQ_STORE_PAYMENT_APP_MODULE_WIRING_A3_CONTRACT_EXAMPLE.md
+docs/ops/MOBILE_PERMISSION_MENU_MATRIX_REMEDIATION_20260627.md
+docs/ops/ORG_USER_EXTRA_SCOPE_DATASCOPE_GUARD_20260626.md
+docs/ops/FOLLOW_UP_DISPATCH_DRY_RUN.md
+docs/ops/A2_SCHEMA_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
+docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK_REPORT.md
+docs/ops/ONE_COMMAND_APPROVED_PARALLEL_EXECUTION.md
+docs/ops/BUG-20260707-0001-A3-BACKEND-CRITICAL-PATH-REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_VALIDATION_REPORT.md
+docs/ops/ORCHESTRATOR_PROMPT.md
+docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/STORE_PAYMENT_BUSINESS_UAT_SCOPE.md
+docs/ops/PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_DATASCOPE_CLEANUP_PLAN.md
+docs/ops/AGENT_CAPABILITY_MATRIX.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_CONTROLLER_GATES.md
+docs/ops/ATTACHMENT_VIEWER_RAW_REF_MASKING_20260626.md
+docs/ops/PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_EXCLUSION_DECISION_REPORT.md
+docs/ops/A5_STORE_PAYMENT_PILOT_READINESS_EVIDENCE_REPORT.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_MOBILE_EXPENSE_AUDIT.md
+docs/ops/PRODUCTION_READINESS_P0_001_ACCOUNT_PLACEHOLDER_PRECHECK_REFRESH_REPORT.md
+docs/ops/AGENT_AUTONOMOUS_BASELINE_LIFECYCLE_REVIEW.md
+docs/ops/ATOMIC_PERMISSION_ALIGNMENT_BATCH_20260626.md
+docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md
+docs/ops/SIDEBAR_MASTER_DATA_PERMISSION_GATE_REMEDIATION_20260627.md
+docs/ops/LEGACY_UPLOADS_STATIC_CLOSURE_20260626.md
+docs/ops/STORE_PAYMENT_GITHUB_STAGING_SECRETS_SETUP_FROM_SERVER_CARD.md
+docs/ops/A1_BACKEND_S2_POST_MERGE_VALIDATION_STORE_PAYMENT_001_REPORT.md
+docs/ops/ONLINE_USERS_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_ATTACHMENT_CONVERGENCE.md
+docs/ops/NL_DISPATCH_DRY_RUN_STORE_PAYMENT_001.md
+docs/ops/A2_APP_MODULE_WIRING_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
+docs/ops/BUG-20260706-0001_CASH_ACCOUNT_AUTOCODE_BACKEND_REPORT.md
+docs/ops/MOBILE_DEVICE_ALERT_PERMISSION_ALIGNMENT_20260627.md
+docs/ops/A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_EXECUTION_REPORT.md
+docs/ops/agent-queue/tasks.json
+docs/ops/agent-queue/events.jsonl
+docs/ops/agent-queue/release-events.jsonl
+docs/ops/agent-queue/release-state.json
+docs/ops/PRODUCTION_READINESS_P1_001_SECOND_PASS_OWNER_CORRELATION_REPORT.md
+docs/ops/STORE_PAYMENT_FILE_METADATA_ACL_GATE_REPORT.md
+docs/ops/PRODUCTION_95_CLEANUP_BATCH_20260701_RBAC_ATOMICITY.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_INITIAL_DATA_IMPORT_DIAGNOSIS_REPORT.md
+docs/ops/APPROVED_FOLLOW_UP_EXECUTION_GUARD.md
+docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_PROPOSAL.md
+docs/ops/HOME_MASTER_DATA_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/LOOKUP_DATASCOPE_FAIL_CLOSED_REMEDIATION_20260626.md
+docs/ops/NATURAL_LANGUAGE_TO_CODEX_CLI_DISPATCH.md
+docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_REPORT.md
+docs/ops/A2_STORE_PAYMENT_A5_HOLD_CLEARANCE_REVIEW.md
+docs/ops/BUG-20260707-0002-A3-BACKEND-REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_LEGACY_UPLOAD_TO_FILE_METADATA_REPORT.md
+docs/ops/STAGED_UNFREEZE_AND_DEPLOY_RUNBOOK_20260627.md
+docs/ops/AI_DELIVERY_PHASE5_CODEX_CLI_ORCHESTRATION_REVIEW.md
+docs/ops/PROCUREMENT_APPROVAL_CANDIDATE_ACCESS_REMEDIATION_20260626.md
+docs/ops/MASTER_DATA_RUNTIME_DATASCOPE_FAIL_CLOSED_20260626.md
+docs/ops/ORG_SERVICE_READ_SCOPE_BYPASS_GUARD_20260626.md
+docs/ops/MASTER_DATA_OPERATIONS_ATOMIC_SCOPE_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_READINESS_P1_006_AUTH_CORS_COOKIE_REVIEW_REPORT.md
+docs/ops/AGENT_WORKTREE_MATRIX.md
+docs/ops/AGENT_DISPATCH_MAP.json
+docs/ops/bug-20260707-0010-a3-backend-critical-path.md
+docs/ops/A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_PLAN.md
+docs/ops/AGENT_ROUTER_FALLBACK_POLICY.md
+docs/ops/SERVER_CARD_INTAKE_SANITIZED_SUMMARY.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_PRECHECK_REPORT.md
+docs/ops/AGENT_PARALLEL_EXECUTION_POLICY_V2.md
+docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_POLICY.md
+docs/ops/STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REPORT.md
+docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md
+docs/ops/MASTER_DATA_RUNTIME_GUARD_ATOMIC_PERMISSION_REMEDIATION_20260627.md
+docs/ops/STORE_PAYMENT_ATTACHMENT_METADATA_UAT_DATA_SETUP_REPORT.md
+docs/ops/PRODUCTION_GO_NO_GO_REEVALUATION_REPORT.md
+docs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md
+docs/ops/NAMING_STYLE_UNIFICATION_AUDIT_20260627.md
+docs/ops/RBAC_EXTERNAL_INTERFACE_REMEDIATION_BATCH_20260626.md
+docs/ops/A1_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_VALIDATION.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_HOME_PERMISSION_ENTRY.md
+docs/ops/OPS_SCRIPT_SECRET_DEFAULT_REMEDIATION_20260626.md
+docs/ops/BUG-20260707-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md
+docs/ops/CODEX_CLI_ORCHESTRATION_PLAN.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_FILE_SECURITY_PRECHECK_REPORT.md
+docs/ops/PRODUCTION_READINESS_P0_PARALLEL_EXECUTION_REPORT.md
+docs/ops/MASTER_DATA_HUB_ATOMIC_VISIBILITY_REMEDIATION_20260627.md
+docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_DECISION.md
+docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md
+docs/ops/STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_FIXTURE_REPORT.md
+docs/ops/AI_DELIVERY_PHASE6_1_APPROVED_PARALLEL_EXECUTION_REVIEW.md
+docs/ops/IOT_DEVICE_RBAC_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_AGENT_CONTRACTS.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_HIGH_THROUGHPUT_BATCH_REPORT.md
+docs/ops/REQUEST_INTAKE_TEMPLATE.md
+docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_EXECUTION_REPORT.md
+docs/ops/ORG_LEGACY_PERMISSION_FALLBACK_REMEDIATION_20260627.md
+docs/ops/AGENT_BASELINE_AUTOPILOT_REVIEW.md
+docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md
+docs/ops/AI_DELIVERY_PHASE5_5_APPROVED_FOLLOW_UP_EXECUTION_GUARD_REVIEW.md
+docs/ops/SEVEN_AGENT_PARALLEL_DELIVERY_RUNBOOK.md
+docs/ops/BIZ_PROJECTS_DATASCOPE_GATE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625.md
+docs/ops/RBAC_FRONTEND_MENU_GATE_REMEDIATION_20260626.md
+docs/ops/AP_IMPORT_ATOMIC_PERMISSION_REMEDIATION_20260626.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-orchestration-plan.md
+docs/ops/runs/2026-07-07T16-36-46-795Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md
+docs/ops/runs/2026-06-23T05-10-53-418Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/2026-07-07T18-12-03-028Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/2026-06-24T06-50-54-203Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_A1_CONTRACT.md
+docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/2026-06-23T17-24-36-623Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-orchestration-plan.md
+docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-execution-summary.md
+docs/ops/runs/2026-06-23T06-08-55-241Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/2026-06-23T00-31-20-705Z-A5-Data-Readiness.md
+docs/ops/runs/2026-06-22T15-29-08-228Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/2026-07-07T10-40-20-816Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/2026-07-07T11-28-49-737Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md
+docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md
+docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md
+docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md
+docs/ops/prompts/A5_DATA_READINESS_PROMPT.md
+docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md
+docs/ops/prompts/FOLLOW_UP_AGENT_CONTRACT_TEMPLATE.md
+docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md
+docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
+docs/ops/A3_STORE_PAYMENT_BACKEND_GATE_PROTECTED_ATTACHMENT_DATASCOPE_ACTIONBIT_REPORT.md
+docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md
+docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_API_DRAFT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_RESTORE_SSH_AND_METADATA_CLAIM_DRY_RUN_REPORT.md
+docs/ops/A2_BACKEND_S2_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
+docs/ops/ORG_TREE_DATASCOPE_FAIL_CLOSED_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_FIRST_FIX_BATCH.md
+docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md
+docs/ops/AGENT_REGISTRY.md
+docs/ops/A1_POST_MERGE_SCHEMA_VALIDATION_STORE_PAYMENT_001_REPORT.md
+docs/ops/A7_STORE_PAYMENT_FINAL_QA_GATE_REPORT.md
+docs/ops/A1_CI_RUNTIME_GATE_REPORT.md
+docs/ops/AGENT_RESULT_PARSER_AND_TASK_BOARD_UPDATE.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_AND_OBSERVABILITY_REPORT.md
+docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_SMOKE_REPORT.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_EXECUTION_REPORT.md
+docs/ops/STORE_PAYMENT_CONTROLLED_UAT_SMOKE_REPORT.md
+docs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md
+docs/ops/SONGLEI_RBAC_AUDIT_20260628.md
+docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_SYNC_REVIEW.md
+docs/ops/PRODUCTION_READINESS_P0_001_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_PACKAGE.md
+docs/ops/AI_DELIVERY_BACKEND_S2_PACKAGE_STORE_PAYMENT_001_REVIEW.md
+docs/ops/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS_A2-Security-Regression-Gate_REPORT.md
+docs/ops/GLOBAL_REGRESSION_FINAL_ISSUES_20260628.md
+docs/ops/LOOKUP_DATASCOPE_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/NATURAL_LANGUAGE_ONE_COMMAND_ORCHESTRATOR.md
+docs/ops/RBAC_ATOMIC_MENU_GATE_BATCH_20260626.md
+docs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md
+docs/ops/AUDIT_LOG_PAGE_GATE_REMEDIATION_20260627.md
+docs/ops/RESIDENT_OBSERVER_EVOLUTION_CENTER.md
+docs/ops/STORE_PAYMENT_PILOT_GATE_S1_APPROVAL_MATRIX.md
+docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_ATTACHMENT_CI_GATE.md
+docs/ops/runs/2026-06-23T03-22-55-955Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/PROCUREMENT_LEGACY_APPROVER_CANDIDATE_REMEDIATION_20260626.md
+docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md
+docs/ops/runs/2026-06-23T03-18-58-337Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.md
+docs/ops/runs/store-payment-file-metadata-acl-static-check.json
+docs/ops/runs/95/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-acceptance-drill.json
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md
+docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_REQUIREMENT_SPEC.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-CI-A3-A4-MIGRATION-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/2026-07-07T17-12-19-801Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--execution-summary.md
+docs/ops/runs/a3-app-module-wiring-result.json
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A3-Backend-Critical-Path.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-result.json
+docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/2026-06-23T03-09-13-564Z-A1-CI-Runtime-Gate.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.md
+docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md
+docs/ops/runs/role-permission-matrix-audit-latest.json
+docs/ops/runs/2026-06-23T09-28-01-572Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A1_CONTRACT.md
+docs/ops/runs/REQ-NL-20260622-231822-STORE-PAYMENT-READINESS-DOCS-OPS-MIGRATION-requirement-spec.md
+docs/ops/runs/router-v1-revalidate-case4-route-plan.md
+docs/ops/runs/2026-06-23T03-44-14-620Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/2026-06-22T15-49-13-479Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/2026-07-07T10-56-55-873Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/2026-06-23T02-53-12-456Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
+docs/ops/runs/2026-06-23T03-09-55-364Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/2026-06-24T05-55-37-200Z-agent-inbox-route-plan.json
+docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-execution-summary.md
+docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/REQ-NL-20260622-193139-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-Codex-Orchestrator.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-requirement-spec.md
+docs/ops/runs/STORE-PAYMENTexecution-summary.md
+docs/ops/runs/2026-07-07T10-42-05-266Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-DOCS-OPS-MIGRATION-agent-contract-Codex-Orchestrator.md
+docs/ops/runs/2026-06-23T05-10-13-771Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/2026-06-24T05-55-37-200Z-agent-inbox-route-plan.md
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/2026-06-23T00-36-29-043Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-auto-merge-report.md
+docs/ops/runs/2026-06-22T15-29-08-227Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
+docs/ops/runs/2026-07-07T15-01-23-490Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-193139-MIGRATION-STORE-PAYMENT-RECORDS-execution-summary.md
+docs/ops/runs/2026-06-23T14-41-03-073Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/evolution-plan-latest.md
+docs/ops/runs/action-bit-cleanup-readonly-20260624-170135/action_bit_readonly_result.txt
+docs/ops/runs/action-bit-cleanup-readonly-20260624-170135/action_bit_readonly.sql
+docs/ops/runs/2026-06-23T00-34-21-235Z-A2-Security-Regression-Gate-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
+docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/router-v1-revalidate-case5-route-plan.json
+docs/ops/runs/2026-06-23T03-14-48-114Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/2026-06-24T03-18-37-705Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/2026-06-23T00-36-29-043Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md
+docs/ops/runs/2026-07-07T11-23-36-919Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-requirement-spec.md
+docs/ops/runs/2026-06-23T03-06-43-049Z-A2-Security-Regression-Gate-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/router-v1-revalidate-case5-route-plan.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/2026-07-07T11-28-49-738Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-approved-execution-result.json
+docs/ops/runs/2026-06-23T14-15-15-405Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
+do
 ```
