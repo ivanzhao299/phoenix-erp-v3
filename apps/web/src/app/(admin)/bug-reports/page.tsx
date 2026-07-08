@@ -92,6 +92,8 @@ type PipelineStatus = {
     waitingRunnerCount: number;
     runningCount: number;
     artifactReadyCount: number;
+    autoRecoverableCount?: number;
+    queueHealthScore?: number;
     latestRunnerConclusion?: string | null;
     latestRunnerSummary?: string | null;
     latestCommitHash?: string | null;
@@ -125,6 +127,9 @@ type PipelineStatus = {
     latestCommitHash?: string;
     resultFiles?: string[];
     validationSummary?: string | null;
+    blockingReason?: string;
+    recommendedOperation?: string;
+    autoRecoveryEligible?: boolean;
     nextAction?: string;
     artifactReady?: boolean;
   }>;
@@ -550,6 +555,7 @@ export default function BugReportsPage() {
                   <span>{t("system.bugIntake.queueVisibleCount", "队列可见项")}：<strong>{pipelineStatus.runtimeSummary.queueVisibleCount}</strong></span>
                   <span>{t("system.bugIntake.runningCount", "执行中")}：<strong>{pipelineStatus.runtimeSummary.runningCount}</strong> · {t("system.bugIntake.waitingRunnerCount", "待 Runner 领取")}：<strong>{pipelineStatus.runtimeSummary.waitingRunnerCount}</strong></span>
                   <span>{t("system.bugIntake.artifactReadyCount", "已有修复产物")}：<strong>{pipelineStatus.runtimeSummary.artifactReadyCount}</strong></span>
+                  <span>{t("system.bugIntake.autoRecoverableCount", "可自动恢复")}：<strong>{pipelineStatus.runtimeSummary.autoRecoverableCount ?? 0}</strong> · {t("system.bugIntake.queueHealthScore", "健康分")}：<strong>{pipelineStatus.runtimeSummary.queueHealthScore ?? "—"}</strong></span>
                   <span>{t("system.bugIntake.latestRunnerConclusion", "最近 Runner 结论")}：<strong>{pipelineStatus.runtimeSummary.latestRunnerConclusion || "—"}</strong></span>
                   <span>{t("system.bugIntake.latestCommitHash", "最近提交")}：<strong style={{ fontFamily: "monospace" }}>{pipelineStatus.runtimeSummary.latestCommitHash || "—"}</strong></span>
                 </div>
@@ -614,6 +620,7 @@ export default function BugReportsPage() {
                         t("system.bugIntake.agent", "Agent"),
                         t("system.bugIntake.runner", "Runner"),
                         t("system.bugIntake.artifacts", "产物"),
+                        t("system.bugIntake.blockingReason", "阻塞原因"),
                         t("system.bugIntake.nextAction", "下一动作"),
                         t("system.bugIntake.queueActions", "操作"),
                       ].map(h => <th key={h}>{h}</th>)}
@@ -651,7 +658,16 @@ export default function BugReportsPage() {
                           <strong>{item.artifactReady ? t("system.bugIntake.artifactReady", "已回写") : t("system.bugIntake.artifactPending", "待回写")}</strong>
                           <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.resultFiles?.length || 0} {t("system.bugIntake.files", "个文件")}</div>
                         </td>
-                        <td style={{ maxWidth: 280, color: "var(--text-secondary)", fontSize: 12, wordBreak: "break-word" }}>{item.nextAction || "—"}</td>
+                        <td style={{ maxWidth: 260, fontSize: 12, wordBreak: "break-word" }}>
+                          <strong style={{ color: item.autoRecoveryEligible ? "var(--status-warning)" : "var(--text-primary)" }}>
+                            {item.autoRecoveryEligible ? t("system.bugIntake.autoRecoveryEligible", "可自动恢复") : t("system.bugIntake.manualReviewOrClear", "常规处理")}
+                          </strong>
+                          <div style={{ marginTop: 4, color: "var(--text-secondary)" }}>{item.blockingReason || "—"}</div>
+                        </td>
+                        <td style={{ maxWidth: 300, color: "var(--text-secondary)", fontSize: 12, wordBreak: "break-word" }}>
+                          <strong style={{ color: "var(--text-primary)" }}>{item.recommendedOperation || "—"}</strong>
+                          <div style={{ marginTop: 4 }}>{item.nextAction || "—"}</div>
+                        </td>
                         <td>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             <button

@@ -928,6 +928,9 @@ export class BugIntakeService {
       || timeoutRecovery.action
       || this.pipelineNextAction(row.repair_task_status, row.status, runtime),
     );
+    const blockingReason = this.pipelineBlockingReason(row.repair_task_status, row.status, runtime, timeoutRecovery, failureClassification);
+    const recommendedOperation = this.pipelineRecommendedOperation(row.repair_task_status, runtime, blockingReason);
+    const autoRecoveryEligible = this.pipelineAutoRecoveryEligible(row.repair_task_status, runtime, blockingReason);
 
     return {
       bugNo: row.bug_no,
@@ -962,6 +965,9 @@ export class BugIntakeService {
       resultFiles: runtime.resultFiles,
       validationSummary: runtime.validationSummary,
       timeoutRecovery: Object.keys(timeoutRecovery).length > 0 ? timeoutRecovery : null,
+      blockingReason,
+      recommendedOperation,
+      autoRecoveryEligible,
       nextAction,
       artifactReady: runtime.resultFiles.length > 0 || Boolean(runtime.latestCommitHash),
     };
@@ -1031,6 +1037,61 @@ export class BugIntakeService {
     return '等待下一步处理';
   }
 
+  private pipelineBlockingReason(
+    repairTaskStatus: unknown,
+    status: unknown,
+    runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>,
+    timeoutRecovery: Record<string, any>,
+    failureClassification: Record<string, any>,
+  ) {
+    const repairStatus = String(repairTaskStatus || '');
+    if (Object.keys(timeoutRecovery).length > 0) {
+      return `超时恢复：${timeoutRecovery.action || 'runner lease 已进入 HOLD'}`;
+    }
+    if (repairStatus === 'HOLD') {
+      if (runtime.failedAttemptCount > 0) return `Agent/Runner 最近失败 ${runtime.failedAttemptCount} 次`;
+      return failureClassification.category ? `自动分类后等待分派：${failureClassification.category}` : 'HOLD 等待管理员重新派发';
+    }
+    if (repairStatus === 'AGENT_APPROVED') return '已批准，等待本地常驻 runner 领取';
+    if (repairStatus === 'AGENT_RUNNING') return '本地 runner 正在执行，若超时会自动 HOLD';
+    if (repairStatus === 'READY') return '已有修复任务包，等待生成 Agent 计划';
+    if (repairStatus === 'ROUTED') return '已生成 Agent 计划，等待管理员批准';
+    if (repairStatus === 'AGENT_COMPLETED' || String(status) === 'RESOLVED') {
+      return runtime.latestCommitHash ? '已有提交回写，等待业务验收' : 'Agent 已完成，等待产物/提交回写确认';
+    }
+    return '未发现阻塞';
+  }
+
+  private pipelineRecommendedOperation(
+    repairTaskStatus: unknown,
+    runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>,
+    blockingReason: string,
+  ) {
+    const repairStatus = String(repairTaskStatus || '');
+    if (repairStatus === 'HOLD') {
+      if (runtime.failedAttemptCount >= 3) return '人工复核后重算 Agent 计划再派发';
+      return '点击“重算后派发”或“重新派发”进入本地 runner';
+    }
+    if (repairStatus === 'AGENT_APPROVED') return '保持本地 runner 常驻；必要时运行自动分类/恢复';
+    if (repairStatus === 'AGENT_RUNNING') return '等待 runner 回写；超时后由自动分类转 HOLD';
+    if (repairStatus === 'ROUTED') return '管理员确认范围后批准投入 Agent 队列';
+    if (repairStatus === 'READY') return '生成 Agent 修复计划';
+    if (/已有提交|已完成/.test(blockingReason)) return '安排业务验收，通过后关闭问题';
+    return '无阻塞，等待下一轮处理';
+  }
+
+  private pipelineAutoRecoveryEligible(
+    repairTaskStatus: unknown,
+    runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>,
+    blockingReason: string,
+  ) {
+    const repairStatus = String(repairTaskStatus || '');
+    if (repairStatus === 'AGENT_APPROVED' || repairStatus === 'AGENT_RUNNING') return true;
+    if (repairStatus === 'HOLD' && runtime.failedAttemptCount > 0 && runtime.failedAttemptCount < 3) return true;
+    if (/超时恢复|runner/i.test(blockingReason) && runtime.failedAttemptCount < 3) return true;
+    return false;
+  }
+
   private buildPipelineRuntimeSummary(rows: Record<string, any>[]) {
     const items = rows.map((row) => this.toPipelineQueueItem(row));
     const latestRunner = items.find((item) => item.latestRunnerConclusion || item.latestCommitHash);
@@ -1038,6 +1099,11 @@ export class BugIntakeService {
     const waitingRunner = items.filter((item) => item.repairTaskStatus === 'AGENT_APPROVED');
     const running = items.filter((item) => item.repairTaskStatus === 'AGENT_RUNNING');
     const artifactCount = items.filter((item) => item.artifactReady).length;
+    const autoRecoverableCount = items.filter((item) => item.autoRecoveryEligible).length;
+    const queueHealthScore = Math.max(
+      0,
+      Math.min(100, 100 - blocked.length * 18 - running.length * 5 - waitingRunner.length * 4 + artifactCount * 3),
+    );
 
     return {
       queueVisibleCount: items.length,
@@ -1045,6 +1111,8 @@ export class BugIntakeService {
       waitingRunnerCount: waitingRunner.length,
       runningCount: running.length,
       artifactReadyCount: artifactCount,
+      autoRecoverableCount,
+      queueHealthScore,
       latestRunnerConclusion: latestRunner?.latestRunnerConclusion || null,
       latestRunnerSummary: latestRunner?.latestRunnerSummary || null,
       latestCommitHash: latestRunner?.latestCommitHash || null,
