@@ -4885,7 +4885,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0010",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4906,10 +4906,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-08T05:53:56.127Z",
+    "completed_at": "2026-07-08T05:56:33.749Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -4970,7 +4970,8 @@
     "merged_at": "2026-07-08T02:37:10.145Z",
     "reconciled_by": "Codex-Orchestrator",
     "reconciliation_note": "Recovered completed A4 output from worktree after old runner left task running; merged into orchestrator branch commit ef8001ae.",
-    "detached_worker_recovered_at": "2026-07-08T02:37:10.145Z"
+    "detached_worker_recovered_at": "2026-07-08T02:37:10.145Z",
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A4-Frontend-UAT-Smoke --branch w5-a4-frontend-uat-smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --max-retries 3 --allow-code --yes"
   },
   {
     "task_id": "BUGTASK-20260707-0010-04-A5",
