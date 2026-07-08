@@ -86,6 +86,46 @@ type PipelineStatus = {
     holdDispatch?: { recommendedAgents?: string[]; nextAction?: string; reason?: string };
   }>;
   alerts: Array<{ id: number; alert_type: string; severity: string; title: string; created_at: string }>;
+  runtimeSummary?: {
+    queueVisibleCount: number;
+    blockedCount: number;
+    waitingRunnerCount: number;
+    runningCount: number;
+    artifactReadyCount: number;
+    latestRunnerConclusion?: string | null;
+    latestRunnerSummary?: string | null;
+    latestCommitHash?: string | null;
+    recommendedImmediateAction?: string;
+  };
+  queueItems?: Array<{
+    bugNo: string;
+    title: string;
+    status: string;
+    severity: string;
+    priority: string;
+    moduleCode?: string;
+    repairTaskNo?: string;
+    repairTaskStatus?: string;
+    route?: string;
+    updatedAt?: string;
+    ageMinutes?: number;
+    failureCategory?: string | null;
+    classificationConfidence?: number | null;
+    suggestedFix?: string | null;
+    recommendedAgents?: string[];
+    selectedAgents?: string[];
+    retryCount?: number;
+    failedAttemptCount?: number;
+    latestAgentConclusion?: string | null;
+    latestAgentName?: string | null;
+    latestRunnerConclusion?: string | null;
+    latestRunnerSummary?: string | null;
+    latestCommitHash?: string;
+    resultFiles?: string[];
+    validationSummary?: string | null;
+    nextAction?: string;
+    artifactReady?: boolean;
+  }>;
 };
 
 type AutoTriageResult = {
@@ -475,6 +515,28 @@ export default function BugReportsPage() {
             ))}
           </div>
 
+          {pipelineStatus?.runtimeSummary && (
+            <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-muted)", display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(220px, 2fr)", gap: 12 }}>
+              <div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.runtimeSummaryTitle", "运行闭环摘要")}</div>
+                <div style={{ marginTop: 8, display: "grid", gap: 4, fontSize: 12 }}>
+                  <span>{t("system.bugIntake.queueVisibleCount", "队列可见项")}：<strong>{pipelineStatus.runtimeSummary.queueVisibleCount}</strong></span>
+                  <span>{t("system.bugIntake.runningCount", "执行中")}：<strong>{pipelineStatus.runtimeSummary.runningCount}</strong> · {t("system.bugIntake.waitingRunnerCount", "待 Runner 领取")}：<strong>{pipelineStatus.runtimeSummary.waitingRunnerCount}</strong></span>
+                  <span>{t("system.bugIntake.artifactReadyCount", "已有修复产物")}：<strong>{pipelineStatus.runtimeSummary.artifactReadyCount}</strong></span>
+                  <span>{t("system.bugIntake.latestRunnerConclusion", "最近 Runner 结论")}：<strong>{pipelineStatus.runtimeSummary.latestRunnerConclusion || "—"}</strong></span>
+                  <span>{t("system.bugIntake.latestCommitHash", "最近提交")}：<strong style={{ fontFamily: "monospace" }}>{pipelineStatus.runtimeSummary.latestCommitHash || "—"}</strong></span>
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.recommendedImmediateAction", "建议立即动作")}</div>
+                <strong style={{ display: "block", marginTop: 8 }}>{pipelineStatus.runtimeSummary.recommendedImmediateAction || "—"}</strong>
+                {pipelineStatus.runtimeSummary.latestRunnerSummary && (
+                  <div style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 12, wordBreak: "break-word" }}>{pipelineStatus.runtimeSummary.latestRunnerSummary}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {(pipelineStatus?.holdReports.length || autoTriageResult) && (
             <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
               {autoTriageResult && (
@@ -504,6 +566,68 @@ export default function BugReportsPage() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+
+          {Boolean(pipelineStatus?.queueItems?.length) && (
+            <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+              <div style={{ padding: 12, borderBottom: "1px solid var(--border)", background: "var(--bg-muted)", display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <strong>{t("system.bugIntake.pipelineQueueLedger", "修复队列运行台账")}</strong>
+                <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.pipelineQueueLedgerHint", "显示卡点、重试、Agent 产物和 runner 最近回写")}</span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table className={s.table}>
+                  <thead>
+                    <tr>
+                      {[
+                        t("system.bugIntake.bugNo", "编号"),
+                        t("system.bugIntake.pipelineStage", "阶段"),
+                        t("system.bugIntake.failureCategoryLabel", "分类："),
+                        t("system.bugIntake.retries", "重试"),
+                        t("system.bugIntake.agent", "Agent"),
+                        t("system.bugIntake.runner", "Runner"),
+                        t("system.bugIntake.artifacts", "产物"),
+                        t("system.bugIntake.nextAction", "下一动作"),
+                      ].map(h => <th key={h}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pipelineStatus?.queueItems?.slice(0, 12).map(item => (
+                      <tr key={item.bugNo} onClick={() => openDetail(item.bugNo)} style={{ cursor: "pointer" }}>
+                        <td>
+                          <strong style={{ color: "var(--color-primary)", fontFamily: "monospace" }}>{item.bugNo}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        </td>
+                        <td>
+                          <strong style={{ color: timelineStatusColor(item.repairTaskStatus || item.status || "") }}>{item.repairTaskStatus || item.status || "—"}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.ageMinutes ?? 0} {t("system.bugIntake.minutesAgo", "分钟前更新")}</div>
+                        </td>
+                        <td>
+                          <strong>{item.failureCategory || t("system.bugIntake.unclassified", "未分类")}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.classificationConfidence ? `${Math.round(item.classificationConfidence * 100)}%` : "—"}</div>
+                        </td>
+                        <td>
+                          <strong>{item.retryCount ?? 0}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t("system.bugIntake.failedAttempts", "失败尝试")} {item.failedAttemptCount ?? 0}</div>
+                        </td>
+                        <td style={{ maxWidth: 220 }}>
+                          <strong>{item.latestAgentName || item.selectedAgents?.[0] || "—"}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.recommendedAgents?.join(" / ") || item.selectedAgents?.join(" / ") || "—"}</div>
+                        </td>
+                        <td style={{ maxWidth: 180 }}>
+                          <strong>{item.latestRunnerConclusion || item.latestAgentConclusion || "—"}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11, fontFamily: "monospace" }}>{item.latestCommitHash || "—"}</div>
+                        </td>
+                        <td>
+                          <strong>{item.artifactReady ? t("system.bugIntake.artifactReady", "已回写") : t("system.bugIntake.artifactPending", "待回写")}</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.resultFiles?.length || 0} {t("system.bugIntake.files", "个文件")}</div>
+                        </td>
+                        <td style={{ maxWidth: 280, color: "var(--text-secondary)", fontSize: 12, wordBreak: "break-word" }}>{item.nextAction || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

@@ -107,6 +107,7 @@ export class BugIntakeService {
       staleApprovedRows,
       holdRows,
       latestRows,
+      queueRows,
       alertRows,
     ] = await Promise.all([
       this.ds.query<any[]>(
@@ -151,6 +152,24 @@ export class BugIntakeService {
            FROM bug_reports
           ORDER BY updated_at DESC
           LIMIT 10`,
+      ),
+      this.ds.query<any[]>(
+        `SELECT bug_no, title, status, severity, priority, module_code, assignee_username, assignee_name,
+                repair_task_no, repair_task_status, route, updated_at, repair_task_payload
+           FROM bug_reports
+          WHERE status IN ('OPEN','TRIAGED','IN_PROGRESS')
+             OR COALESCE(repair_task_status, '') IN ('READY','ROUTED','AGENT_APPROVED','AGENT_RUNNING','HOLD','AGENT_COMPLETED')
+          ORDER BY
+            CASE COALESCE(repair_task_status, '')
+              WHEN 'HOLD' THEN 0
+              WHEN 'AGENT_RUNNING' THEN 1
+              WHEN 'AGENT_APPROVED' THEN 2
+              WHEN 'READY' THEN 3
+              WHEN 'ROUTED' THEN 4
+              ELSE 5
+            END,
+            updated_at DESC
+          LIMIT 30`,
       ),
       this.ds.query<any[]>(
         `SELECT id, alert_type, severity, title, related_path, created_at
@@ -205,6 +224,8 @@ export class BugIntakeService {
         route: row.route,
         updatedAt: row.updated_at,
       })),
+      queueItems: queueRows.map((row) => this.toPipelineQueueItem(row)),
+      runtimeSummary: this.buildPipelineRuntimeSummary(queueRows),
       alerts: alertRows,
       operations: {
         autoClassifyRecoverDispatch: 'POST /api/bug-intake/pipeline/auto-triage',
@@ -756,6 +777,142 @@ export class BugIntakeService {
 
   private payloadObject(value: unknown): Record<string, any> {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {};
+  }
+
+  private toPipelineQueueItem(row: Record<string, any>) {
+    const payload = this.payloadObject(row.repair_task_payload);
+    const runtime = this.extractPipelineRuntime(payload);
+    const updatedAt = row.updated_at ? new Date(row.updated_at) : new Date();
+    const ageMinutes = Math.max(0, Math.round((Date.now() - updatedAt.getTime()) / 60000));
+    const failureClassification = this.payloadObject(payload.failureClassification);
+    const holdDispatch = this.payloadObject(payload.holdDispatch);
+    const timeoutRecovery = this.payloadObject(payload.timeoutRecovery);
+    const nextAction = String(
+      holdDispatch.nextAction
+      || runtime.latestAgentResult?.nextAction
+      || timeoutRecovery.action
+      || this.pipelineNextAction(row.repair_task_status, row.status, runtime),
+    );
+
+    return {
+      bugNo: row.bug_no,
+      title: row.title,
+      status: row.status,
+      severity: row.severity,
+      priority: row.priority,
+      moduleCode: row.module_code,
+      assigneeUsername: row.assignee_username,
+      assigneeName: row.assignee_name,
+      repairTaskNo: row.repair_task_no,
+      repairTaskStatus: row.repair_task_status,
+      route: row.route,
+      updatedAt: row.updated_at,
+      ageMinutes,
+      failureCategory: failureClassification.category || null,
+      classificationConfidence: failureClassification.confidence ?? null,
+      suggestedFix: failureClassification.suggestedFix || null,
+      recommendedAgents: Array.isArray(holdDispatch.recommendedAgents)
+        ? holdDispatch.recommendedAgents.map(String)
+        : runtime.selectedAgents,
+      selectedAgents: runtime.selectedAgents,
+      retryCount: runtime.retryCount,
+      failedAttemptCount: runtime.failedAttemptCount,
+      latestAgentConclusion: runtime.latestAgentResult?.conclusion || null,
+      latestAgentName: runtime.latestAgentResult?.agent || null,
+      latestRunnerConclusion: runtime.latestRunnerResult?.conclusion || null,
+      latestRunnerSummary: runtime.latestRunnerResult?.summary || null,
+      latestCommitHash: runtime.latestCommitHash,
+      resultFiles: runtime.resultFiles,
+      validationSummary: runtime.validationSummary,
+      timeoutRecovery: Object.keys(timeoutRecovery).length > 0 ? timeoutRecovery : null,
+      nextAction,
+      artifactReady: runtime.resultFiles.length > 0 || Boolean(runtime.latestCommitHash),
+    };
+  }
+
+  private extractPipelineRuntime(payload: Record<string, any>) {
+    const agentPlan = this.payloadObject(payload.agentPlan);
+    const selectedAgents = Array.isArray(agentPlan.selected_agents) ? agentPlan.selected_agents.map(String) : [];
+    const agentResults = Array.isArray(payload.agentResults)
+      ? payload.agentResults.filter((item: unknown): item is Record<string, any> => Boolean(item && typeof item === 'object'))
+      : [];
+    const latestAgentResultPayload = this.payloadObject(payload.latestAgentResult);
+    const runnerResults = agentResults.filter((item) => String(item.agent || '') === 'BugIntakeLocalRunner');
+    const latestRunnerResult = runnerResults.length ? runnerResults[runnerResults.length - 1] : null;
+    const latestAgentResult = Object.keys(latestAgentResultPayload).length > 0
+      ? latestAgentResultPayload
+      : agentResults[agentResults.length - 1] || null;
+    const failedAttemptCount = agentResults.filter((item) => /HOLD|FAIL|ERROR/.test(String(item.conclusion || '').toUpperCase())).length;
+    const resultFiles = Array.from(new Set(agentResults.map((item) => String(item.resultFile || '')).filter(Boolean))).slice(-6);
+    const commitHashes = Array.from(new Set(agentResults.map((item) => String(item.commitHash || '')).filter(Boolean))).slice(-4);
+    const latestCommitHash = commitHashes[commitHashes.length - 1] || '';
+    const retryCount = Math.max(
+      failedAttemptCount,
+      Number(payload.retryCount || 0),
+      Number(this.payloadObject(payload.timeoutRecovery).retryCount || 0),
+    );
+    const validationSummary = this.compactValidationSummary(latestRunnerResult?.validationResults || latestAgentResult?.validationResults);
+
+    return {
+      selectedAgents,
+      agentResults,
+      latestAgentResult,
+      latestRunnerResult,
+      retryCount,
+      failedAttemptCount,
+      resultFiles,
+      latestCommitHash,
+      validationSummary,
+    };
+  }
+
+  private compactValidationSummary(value: unknown) {
+    if (!value) return null;
+    if (typeof value === 'string') return value.slice(0, 300);
+    if (Array.isArray(value)) {
+      return value.slice(0, 5).map((item) => typeof item === 'string' ? item : JSON.stringify(item)).join('；').slice(0, 300);
+    }
+    if (typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>)
+        .slice(0, 8)
+        .map(([key, val]) => `${key}: ${typeof val === 'string' ? val : JSON.stringify(val)}`)
+        .join('；')
+        .slice(0, 300);
+    }
+    return String(value).slice(0, 300);
+  }
+
+  private pipelineNextAction(repairTaskStatus: unknown, status: unknown, runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>) {
+    const repairStatus = String(repairTaskStatus || '');
+    if (!repairStatus) return '等待管理员受理并生成修复任务包';
+    if (repairStatus === 'READY') return '等待生成 Agent 修复计划';
+    if (repairStatus === 'ROUTED') return '等待管理员批准投入本地 runner 队列';
+    if (repairStatus === 'AGENT_APPROVED') return '等待本地 runner 领取任务';
+    if (repairStatus === 'AGENT_RUNNING') return '本地 runner 执行中，超时后自动 HOLD';
+    if (repairStatus === 'HOLD') return runtime.latestAgentResult?.nextAction || '需要重新分派或人工 Gate';
+    if (repairStatus === 'AGENT_COMPLETED' || String(status) === 'RESOLVED') return '等待业务验收关闭';
+    return '等待下一步处理';
+  }
+
+  private buildPipelineRuntimeSummary(rows: Record<string, any>[]) {
+    const items = rows.map((row) => this.toPipelineQueueItem(row));
+    const latestRunner = items.find((item) => item.latestRunnerConclusion || item.latestCommitHash);
+    const blocked = items.filter((item) => item.repairTaskStatus === 'HOLD');
+    const waitingRunner = items.filter((item) => item.repairTaskStatus === 'AGENT_APPROVED');
+    const running = items.filter((item) => item.repairTaskStatus === 'AGENT_RUNNING');
+    const artifactCount = items.filter((item) => item.artifactReady).length;
+
+    return {
+      queueVisibleCount: items.length,
+      blockedCount: blocked.length,
+      waitingRunnerCount: waitingRunner.length,
+      runningCount: running.length,
+      artifactReadyCount: artifactCount,
+      latestRunnerConclusion: latestRunner?.latestRunnerConclusion || null,
+      latestRunnerSummary: latestRunner?.latestRunnerSummary || null,
+      latestCommitHash: latestRunner?.latestCommitHash || null,
+      recommendedImmediateAction: blocked[0]?.nextAction || running[0]?.nextAction || waitingRunner[0]?.nextAction || '队列无明显阻塞，保持 runner 常驻监听。',
+    };
   }
 
   private async nextBugNo() {
