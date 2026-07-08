@@ -76,6 +76,50 @@ The current local sample artifact was produced before this adapter patch was dep
 - counterparty locked fields: `externalId`, `externalCode`, `externalName`, `mappingReviewStatus`
 - counterparty open field: `roleCandidate`
 
+## Authenticated Production Rerun Result
+
+After the adapter patch was pushed to `main`, CI/CD completed successfully and the production API health check passed.
+
+Authenticated production smoke:
+
+- workflow: `AI Delivery CI Smoke`
+- target: `chanjet-readonly-adapter-production`
+- run: `28935902663`
+- result: `success`
+- Chanjet write: no
+- voucher push: no
+
+Rerun adapter audit:
+
+- decision: `GO_WITH_CONDITIONS`
+- total adapters: `3`
+- ready adapters: `2`
+- partial adapters: `1`
+- waiting sample: `0`
+- hold: `0`
+- voucher header rows: `60`
+- voucher line rows: `160`
+- counterparty rows: `120`
+- field coverage: `96.6%`
+
+Adapter readiness:
+
+| Adapter | Status | Missing critical fields |
+| --- | --- | --- |
+| `CHANJET_VOUCHER_HEADER` | `READY` | none |
+| `CHANJET_VOUCHER_LINE` | `READY` | none |
+| `CHANJET_COUNTERPARTY` | `PARTIAL` | `approved_customer_supplier_mapping` |
+
+Post-patch sample semantic review:
+
+- decision: `GO_WITH_CONDITIONS`
+- semantic coverage: `93.3%`
+- locked fields: `14/15`
+- open fields: `1/15`
+- remaining open field: `counterparty.roleCandidate` / approved customer-supplier mapping semantics
+
+The patch therefore clears the voucher header status and voucher line subject code/name blockers. The remaining Chanjet blocker is the customer / supplier / current-account mapping approval gate.
+
 ## Guardrails
 
 - Chanjet write: no.
@@ -92,7 +136,9 @@ The current local sample artifact was produced before this adapter patch was dep
 - API typecheck: PASS.
 - Sample review script syntax: PASS.
 - Sample review execution: PASS, `GO_WITH_CONDITIONS`.
-- W5 closeout gate: pending in this local gate until final validation.
+- W5 closeout gate: PASS.
+- CI/CD build and deploy: PASS.
+- Production health: PASS.
 
 ## A2 Result
 
@@ -109,24 +155,15 @@ The adapter continues to fail closed:
 
 GO WITH CONDITIONS.
 
-The adapter patch is ready to deploy. After deployment, run the authenticated production audit again:
-
-1. `chanjet-readonly-adapter-production`
-2. `chanjet-readonly-adapter-sample-review`
-
-Expected improvement:
-
-- voucher header `status` should no longer be empty.
-- voucher line `subjectCode` / `subjectName` should resolve from `glAccount`.
+The adapter patch has been deployed and authenticated production rerun evidence confirms the voucher adapters are now READY.
 
 Counterparty role and approved customer/supplier mapping remain a separate condition and should not block readonly admin evidence, but they still block ordinary business-page authority adoption.
 
 ## Next Gate
 
-`CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN`
+`CHANJET_COUNTERPARTY_MAPPING_APPROVAL_GATE`
 
-After the rerun:
-
-1. Promote voucher header / line readonly evidence to the admin reconciliation view if coverage improves as expected.
-2. Keep ordinary finance card authority gated by semantic locks.
-3. Continue counterparty mapping review before ordinary user adoption.
+1. Approve or hold customer / supplier / current-account mapping semantics.
+2. Promote voucher header / line readonly evidence to the admin reconciliation view.
+3. Keep ordinary finance card authority gated by semantic locks.
+4. Continue forbidding Chanjet write-back and voucher push.

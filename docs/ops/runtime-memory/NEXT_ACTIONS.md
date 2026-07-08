@@ -2,7 +2,7 @@
 
 ## 2026-07-08 — Chanjet Readonly Adapter Patch and Sample Review
 
-Current stage: `CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN_READY`
+Current stage: `CHANJET_READONLY_ADAPTER_PATCH_AUTHENTICATED_RERUN_VERIFIED`
 
 Decision: `GO_WITH_CONDITIONS`
 
@@ -15,14 +15,18 @@ Completed:
    - `docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.json`
    - `docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.md`
 5. Confirmed pre-patch sample semantic coverage baseline is `73.3%`.
+6. Deployed the adapter patch through CI/CD.
+7. Re-ran authenticated production smoke `chanjet-readonly-adapter-production`, run `28935902663`.
+8. Confirmed post-patch adapter field coverage is `96.6%`.
+9. Confirmed post-patch semantic coverage is `93.3%`.
+10. Confirmed `CHANJET_VOUCHER_HEADER` and `CHANJET_VOUCHER_LINE` are READY.
 
 Next actions:
 
-1. Deploy the adapter patch through the normal CI/CD path.
-2. Re-run authenticated production audit target `chanjet-readonly-adapter-production`.
-3. Re-run sample review after authenticated production audit artifacts update.
-4. Promote only fields with explicit semantic coverage to admin reconciliation views.
-5. Keep ordinary finance card authority and all Chanjet write-back on HOLD until the semantic locks are explicit.
+1. Run `CHANJET_COUNTERPARTY_MAPPING_APPROVAL_GATE`.
+2. Approve / hold customer, supplier, and current-account mapping semantics.
+3. Promote voucher header / line readonly evidence to admin reconciliation views.
+4. Keep ordinary finance card authority and all Chanjet write-back on HOLD until counterparty semantics are explicit.
 
 ## 2026-07-08 — Bug Intake Pipeline Closeout and Chanjet Handoff
 

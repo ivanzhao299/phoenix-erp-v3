@@ -1,20 +1,20 @@
 {
-  "generatedAt": "2026-07-08T10:19:04.759Z",
+  "generatedAt": "2026-07-08T10:33:15.839Z",
   "source": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json",
   "decision": "GO_WITH_CONDITIONS",
   "summary": {
     "sourceDecision": "GO_WITH_CONDITIONS",
     "reviewedDomains": 3,
     "reviewedFields": 15,
-    "lockedFields": 11,
-    "openFields": 4,
-    "semanticCoverage": 73.3,
+    "lockedFields": 14,
+    "openFields": 1,
+    "semanticCoverage": 93.3,
     "nextGate": "CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN"
   },
   "domains": {
     "voucherHeader": {
       "adapterKey": "CHANJET_VOUCHER_HEADER",
-      "status": "PARTIAL",
+      "status": "READY",
       "sampleRows": 60,
       "fieldStats": [
         {
@@ -70,25 +70,27 @@
         },
         {
           "field": "status",
-          "present": 0,
+          "present": 60,
           "total": 60,
-          "coverage": 0,
-          "samples": [],
-          "locked": false
+          "coverage": 100,
+          "samples": [
+            "POSTED_LOCKED",
+            "ADJUSTED"
+          ],
+          "locked": true
         }
       ],
       "lockedFields": [
         "voucherId",
         "voucherNo",
-        "voucherDate"
-      ],
-      "openFields": [
+        "voucherDate",
         "status"
-      ]
+      ],
+      "openFields": []
     },
     "voucherLine": {
       "adapterKey": "CHANJET_VOUCHER_LINE",
-      "status": "PARTIAL",
+      "status": "READY",
       "sampleRows": 160,
       "fieldStats": [
         {
@@ -109,19 +111,37 @@
         },
         {
           "field": "subjectCode",
-          "present": 0,
+          "present": 160,
           "total": 160,
-          "coverage": 0,
-          "samples": [],
-          "locked": false
+          "coverage": 100,
+          "samples": [
+            "100102",
+            "400101",
+            "660204",
+            "660303",
+            "100101",
+            "400104",
+            "660205",
+            "112302"
+          ],
+          "locked": true
         },
         {
           "field": "subjectName",
-          "present": 0,
+          "present": 160,
           "total": 160,
-          "coverage": 0,
-          "samples": [],
-          "locked": false
+          "coverage": 100,
+          "samples": [
+            "老挝币",
+            "朱兆存（老挝币）",
+            "开办费",
+            "银行手续费（老挝币）",
+            "人民币",
+            "赵永伟（人民币）",
+            "差旅费",
+            "张鹏（万象装修）"
+          ],
+          "locked": true
         },
         {
           "field": "debitAmount",
@@ -163,6 +183,7 @@
           "total": 160,
           "coverage": 100,
           "samples": [
+            "LAK",
             "RMB"
           ],
           "locked": true
@@ -170,14 +191,13 @@
       ],
       "lockedFields": [
         "lineNo",
+        "subjectCode",
+        "subjectName",
         "debitAmount",
         "creditAmount",
         "currency"
       ],
-      "openFields": [
-        "subjectCode",
-        "subjectName"
-      ]
+      "openFields": []
     },
     "counterparty": {
       "adapterKey": "CHANJET_COUNTERPARTY",
@@ -268,15 +288,9 @@
     }
   },
   "openFields": [
-    "voucher_header.status",
-    "voucher_line.subjectCode",
-    "voucher_line.subjectName",
     "counterparty.roleCandidate"
   ],
-  "conditions": [
-    "voucher_status_semantics_require_authenticated_rerun_after_adapter_patch",
-    "subject_code_name_semantics_require_glAccount_adapter_patch_deployed_and_verified"
-  ],
+  "conditions": [],
   "blockers": [],
   "guardrails": {
     "chanjetWrite": false,

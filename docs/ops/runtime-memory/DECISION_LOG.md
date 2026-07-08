@@ -1619,6 +1619,11 @@ Actions:
 - Patched the readonly adapter to read `glAccount.code`, `glAccount.name`, and `glAccount.longName`.
 - Added readonly voucher status inference.
 - Added sample semantic coverage review tooling.
+- Deployed the adapter patch to production through CI/CD.
+- Re-ran authenticated production smoke `chanjet-readonly-adapter-production`, run `28935902663`.
+- Confirmed voucher header and voucher line adapters are now `READY`.
+- Confirmed adapter field coverage improved to `96.6%`.
+- Confirmed sample semantic coverage improved to `93.3%`.
 
 Guardrails:
 
@@ -1629,7 +1634,7 @@ Guardrails:
 
 Next decision:
 
-`CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN`.
+`CHANJET_COUNTERPARTY_MAPPING_APPROVAL_GATE`.
 
 - No ERP business overwrite.
 - No migration or DB write.
