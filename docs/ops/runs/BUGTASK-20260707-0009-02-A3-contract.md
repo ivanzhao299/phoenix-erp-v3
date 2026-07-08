@@ -757,17 +757,19 @@ Assigned agent: A3-Backend-Critical-Path
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
+    "failure_category": null,
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
+    "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260707-0009"
   },
-  "createdAt": "2026-07-07T05:48:11.676Z",
+  "createdAt": "2026-07-08T01:15:13.612Z",
   "createdBy": "admin",
-  "moduleCode": "",
+  "moduleCode": "_____-____",
   "suggestedOwner": "",
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -775,12 +777,12 @@ Assigned agent: A3-Backend-Critical-Path
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
-  "agentPlanGeneratedAt": "2026-07-07T05:48:13.413Z",
+  "acceptanceCriteria": "要求点击保存无报错，并且今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
+  "agentPlanGeneratedAt": "2026-07-08T01:15:14.896Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-07T05:48:14.561Z",
+    "approvedAt": "2026-07-08T01:15:16.308Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [

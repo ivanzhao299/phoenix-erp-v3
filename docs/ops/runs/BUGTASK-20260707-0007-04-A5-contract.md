@@ -949,15 +949,17 @@ Assigned agent: A5-Data-Readiness
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
+    "failure_category": null,
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
+    "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260707-0007"
   },
-  "createdAt": "2026-07-07T01:32:11.337Z",
+  "createdAt": "2026-07-08T01:16:02.803Z",
   "createdBy": "admin",
   "moduleCode": "____",
   "suggestedOwner": "_____",
@@ -967,12 +969,12 @@ Assigned agent: A5-Data-Readiness
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "",
-  "agentPlanGeneratedAt": "2026-07-07T01:32:12.463Z",
+  "acceptanceCriteria": "新增库位的时候选择库区可以查询到已新增的库区",
+  "agentPlanGeneratedAt": "2026-07-08T01:16:03.775Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-07T01:32:32.187Z",
+    "approvedAt": "2026-07-08T01:16:05.203Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
