@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-07T09:12:49.513Z",
-  "updatedAt": "2026-07-07T19:11:00.661Z",
+  "updatedAt": "2026-07-08T02:21:38.269Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "我的待办中有审批任务，但是上方显示0条，运营工作台中的待办也显示0条，要求按照我的待办中实际显示的条数进行显示",
@@ -697,7 +697,7 @@
     },
     "devicePixelRatio": 2
   },
-  "resolutionNote": "我的待办中有审批任务，要求上方显示条数，以及运营工作台中的待办显示条数，按照我的待办中实际显示的条数进行显示",
+  "resolutionNote": "运营工作台中的待办条数显示正常了，但是我的待办上方显示条数还是0，要求我的待办上方显示条数按照实际的待办任务数量进行显示",
   "repairTaskPayload": {
     "url": "https://erp.eggslao.com/workflow/todos",
     "bugNo": "BUG-20260707-0010",
@@ -1441,31 +1441,43 @@
         "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
+      "failure_category": null,
       "hard_constraints": [
         "no automatic production deploy",
         "no automatic DB write",
         "no automatic migration",
         "human approval required before code repair execution"
       ],
+      "route_confidence": null,
       "source_repair_task_no": "BUGTASK-20260707-0010"
     },
-    "createdAt": "2026-07-07T09:18:08.504Z",
+    "createdAt": "2026-07-08T01:09:48.528Z",
     "createdBy": "admin",
     "moduleCode": "_____",
+    "suggestedOwner": "_____",
+    "repairGuardrails": {
+      "autoRepairExecuted": false,
+      "noProductionDeploy": true,
+      "noDbWriteWithoutGate": true,
+      "requiresHumanApproval": true
+    },
+    "acceptanceCriteria": "要求我的待办上方显示条数按照实际的待办任务数量进行显示",
+    "agentPlanGeneratedAt": "2026-07-08T01:09:49.482Z",
+    "agentPlanGeneratedBy": "admin",
+    "agentExecutionApproval": {
+      "approved": true,
+      "approvedAt": "2026-07-08T01:09:51.119Z",
+      "approvedBy": "admin",
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "forbiddenActions": [
+        "production deploy without separate approval",
+        "database write without separate gate",
+        "migration execution without separate gate",
+        "push without release approval",
+        "force push"
+      ]
+    },
     "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260707-0010-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0010-01-A2\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-07T19:10:58.805Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
       {
         "taskId": "BUGTASK-20260707-0010-04-A5",
         "agent": "A5-Data-Readiness",
@@ -1477,16 +1489,9 @@
         "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-07T19:11:00.658Z"
+        "recordedAt": "2026-07-08T02:21:38.267Z"
       }
     ],
-    "suggestedOwner": "_____",
-    "repairGuardrails": {
-      "autoRepairExecuted": false,
-      "noProductionDeploy": true,
-      "noDbWriteWithoutGate": true,
-      "requiresHumanApproval": true
-    },
     "latestAgentResult": {
       "taskId": "BUGTASK-20260707-0010-04-A5",
       "agent": "A5-Data-Readiness",
@@ -1498,23 +1503,7 @@
       "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-07T19:11:00.658Z"
-    },
-    "acceptanceCriteria": "我的待办中有审批任务，要求上方显示条数，以及运营工作台中的待办显示条数，按照我的待办中实际显示的条数进行显示",
-    "agentPlanGeneratedAt": "2026-07-07T09:18:09.632Z",
-    "agentPlanGeneratedBy": "admin",
-    "agentExecutionApproval": {
-      "approved": true,
-      "approvedAt": "2026-07-07T09:18:10.741Z",
-      "approvedBy": "admin",
-      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "forbiddenActions": [
-        "production deploy without separate approval",
-        "database write without separate gate",
-        "migration execution without separate gate",
-        "push without release approval",
-        "force push"
-      ]
+      "recordedAt": "2026-07-08T02:21:38.267Z"
     }
   },
   "updatedBy": "bug_intake_runner"
