@@ -22,29 +22,24 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0010-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 43333
+Assembled prompt chars: 81525
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T05-56-33-742Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T06-48-27-293Z-A4-Frontend-UAT-Smoke.md
 PASS WITH CONDITIONS.
 
-Frontend fix is already in history at `5c0dcdaf`: [page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/workflow/todos/page.tsx) now displays `/workflow/todos` count via normalized `displayTotal`, so a response with `items.length=1,total=0` renders `共 1 条` instead of `共 0 条`.
+A4 redispatch复核完成。当前 `/workflow/todos` 前端修复已在 [page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/workflow/todos/page.tsx:134) 保留：页面用 `displayTotal = max(api total, 当前已加载任务数)`，所以 `items.length=1,total=0` 会显示 `共 1 条`，符合验收标准。
 
-I updated the A4 report with current validation evidence and committed it locally:
+本轮只更新了报告：[BUG-20260707-0010-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md:1)  
+本地提交：`5e3b3e35 docs: update bug 20260707 0010 a4 redispatch report`
 
-- Report: [BUG-20260707-0010-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md)
-- Commit: `c5acfda7 docs: update bug 20260707 0010 a4 report`
-- Worktree: clean
-- No push, deploy, DB write, migration, backend change, or task-board modification.
+验证结果：
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`：PASS
+- `pnpm --filter web exec eslint 'src/app/(admin)/workflow/todos/page.tsx'`：PASS
+- 计数 dry-run：PASS，`items=1,total=0 => displayTotal=1`
+- 本地浏览器 smoke：HOLD 条件项，沙箱拒绝端口绑定 `listen EPERM 127.0.0.1:3001`
 
-Validation run:
-
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `pnpm --filter web exec eslint 'src/app/(admin)/workflow/todos/page.tsx'`: PASS
-- Count dry-run: PASS for `items=1,total=0 => displayTotal=1`
-- Browser smoke: HOLD condition, local Next port binding fails with `listen EPERM 127.0.0.1:3001`
-
-A1 browser-backed validation is still required in an environment that can run the web server. A2 review remains recommended because this route is RBAC/DataScope-sensitive, although A4 did not change permission logic.
+未 push、未 deploy、未写数据库、未执行 migration。结束时 worktree 干净。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -61,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f404a-4243-7921-b2cc-5249360ab25d
+session id: 019f407a-9e15-79d0-b41e-eecdb0130ad1
 --------
 user
 # Base Agent Prompt
@@ -896,7 +891,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification PG_SQL"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -920,6 +916,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification PG_SQL",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -933,33 +930,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "PG_SQL",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.92,
     "source_repair_task_no": "BUGTASK-20260707-0010"
   },
   "createdAt": "2026-07-08T01:09:48.528Z",
   "createdBy": "admin",
   "moduleCode": "_____",
   "agentResults": [
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0010-04-A5",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T02:21:38.267Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
     {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708023236",
@@ -998,19 +982,6 @@ Assigned agent: A4-Frontend-UAT-Smoke
       }
     },
     {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0010-05-A1",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T02:33:42.100Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708023350",
       "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
@@ -1046,10 +1017,236 @@ Assigned agent: A4-Frontend-UAT-Smoke
           }
         ]
       }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0010-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0010-01-A2\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:47:10.606Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0010-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:47:12.295Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0010-02-A3",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0010-02-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0010-02-A3-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nBranch: w5-a3-backend-critical-path\nPrompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0010-02-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0010-02-A3-worker-assembled-prompt.md\nAssembled prompt chars: 42542\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T05-48-32-065Z-A3-Backend-Critical-Path.md\nPASS.\n\n本轮 A3 复核没有新增改动，工作区保持干净。现有后端修复已在 `22ced0ac` 落地：`GET /api/workflow/my-tasks` 的 `items` 和 `total` 由 [WorkflowService.listMyTasks](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/workflow/workflow.service.ts:842) 同一份过滤结果产出，避免列表有审批任务但顶部显示 0。\n\n验证证据：\n\n- `pwd`、分支 `w5-a3-backend-critical-path`、初始/结束 `git status --short` 均通过且干净\n- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` -> PASS，3 tests\n- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS\n- 报告已存在：[docs/ops/bug-20260707-0010-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260707-0010-a3-backend-critical-path",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:48:41.973Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-02-A3-worker-log.md",
+      "changedFiles": [
+        "apps/api/src/modules/approval-engine/entities/wf-approval-instance.entity.ts",
+        "apps/api/src/modules/approval-engine/entities/wf-approval-rule.entity.ts",
+        "apps/api/src/modules/approval-engine/entities/wf-approval-rule-step.entity.ts",
+        "apps/api/src/modules/approval-engine/entities/wf-approval-instance-step.entity.ts",
+        "apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts",
+        "apps/api/src/modules/approval-engine/approval-engine.service.ts",
+        "apps/api/src/modules/approval-engine/approval-rules.controller.ts",
+        "apps/api/src/modules/approval-engine/approval-engine.module.ts",
+        "apps/api/src/modules/approval-engine/approval-engine.controller.ts",
+        "apps/api/src/modules/approval-engine/approval-rules.service.ts",
+        "apps/api/src/modules/approval-engine/dto/approval-rule.dto.ts",
+        "apps/api/src/modules/procurement-v2/entities/prc2-approval.entity.ts",
+        "apps/api/src/modules/data-quality/services/workflow-health.service.ts",
+        "apps/api/src/common/interceptors/approval-hint.interceptor.ts",
+        "apps/api/src/modules/workflow/workflow-sla.service.ts",
+        "apps/api/src/modules/workflow/workflow-notification.service.ts",
+        "apps/api/src/modules/workflow/condition-engine.service.ts",
+        "apps/api/src/modules/workflow/workflow-metrics.controller.ts",
+        "apps/api/src/modules/workflow/assignment-resolver.service.ts",
+        "apps/api/src/modules/workflow/workflow-sla.scheduler.ts",
+        "apps/api/src/modules/workflow/workflow.service.ts",
+        "apps/api/src/modules/workflow/workflow-runtime.controller.ts",
+        "apps/api/src/modules/workflow/workflow-form.controller.ts",
+        "apps/api/src/modules/workflow/workflow-task.controller.ts",
+        "apps/api/src/modules/workflow/workflow-definition.controller.ts",
+        "apps/api/src/modules/workflow/workflow-form-validation.service.ts",
+        "apps/api/src/modules/workflow/workflow-datasource.controller.ts",
+        "apps/api/src/modules/workflow/workflow-form-runtime.service.ts",
+        "apps/api/src/modules/workflow/workflow.service.spec.ts",
+        "apps/api/src/modules/workflow/workflow.module.ts"
+      ],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708054847",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 36 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0010-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0010-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-02-A3: A3-Backend-Critical-Path -> BLOCKED (worker returned while agent child process is still active; stop dispatching more tasks in this cycle)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RUNNER_TIMEOUT [WARNING]: timeout; recovery=recover stale lease then retry next cycle\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "8707995a7f555fb8338429b23e7dabf949d2ec98",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T05:48:48.259Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260707-0010-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260707-0010-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260707-0010-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260707-0010-03-A4",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0010-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0010-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 43333\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T05-56-33-742Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS.\n\nFrontend fix is already in history at `5c0dcdaf`: [page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/workflow/todos/page.tsx) now displays `/workflow/todos` count via normalized `displayTotal`, so a response with `items.length=1,total=0` renders `共 1 条` instead of `共 0 条`.\n\nI updated the A4 report with current validation evidence and committed it locally:\n\n- Report: [BUG-20260707-0010-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md)\n- Commit: `c5acfda7 docs: update bug 20260707 0010 a4 report`\n- Worktree: clean\n- No push, deploy, DB write, mig",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:56:44.511Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-log.md",
+      "changedFiles": [
+        "apps/web/src/lib/workflow-templates.ts",
+        "apps/web/src/lib/workflow-api.ts",
+        "apps/web/src/components/workflow/FormRenderer.tsx",
+        "apps/web/src/components/workflow/WorkflowFormRenderer.tsx",
+        "apps/web/src/components/workflow/WorkflowTimeline.tsx",
+        "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx",
+        "apps/web/src/components/workflow/WorkflowDataView.tsx",
+        "apps/web/src/app/(admin)/workflow/analytics/page.tsx",
+        "apps/web/src/app/(admin)/workflow/page.tsx",
+        "apps/web/src/app/(admin)/workflow/builder/page.tsx",
+        "apps/web/src/app/(admin)/workflow/definitions/page.tsx",
+        "apps/web/src/app/(admin)/workflow/data-sources/page.tsx",
+        "apps/web/src/app/(admin)/workflow/todos/page.tsx",
+        "apps/web/src/app/(admin)/workflow/instances/page.tsx",
+        "apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx",
+        "apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx",
+        "apps/web/src/app/(admin)/workflow/history/page.tsx",
+        "apps/web/src/app/(admin)/workflow/start/page.tsx",
+        "apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx",
+        "apps/web/src/app/(admin)/workflow/forms/page.tsx",
+        "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
+        "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx",
+        "apps/web/src/app/(admin)/workflow/monitor/page.tsx",
+        "apps/web/src/app/(admin)/workflow/tasks/cc/page.tsx",
+        "apps/web/src/app/(admin)/workflow/tasks/done/page.tsx",
+        "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx",
+        "apps/web/src/app/(admin)/workflow/metrics/page.tsx",
+        "apps/web/src/app/(admin)/settings/approval-rules/page.tsx",
+        "apps/web/src/app/(admin)/settings/approval-flows/page.tsx",
+        "apps/web/src/app/(mobile)/mobile/workflow/page.tsx"
+      ],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708055649",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 37 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 1 |\n| Worker runs | 1 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker returned while agent child process is still active; stop dispatching more tasks in this cycle)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RUNNER_TIMEOUT [WARNING]: timeout; recovery=recover stale lease then retry next cycle\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "4a23105d4626d9645a7184a388b4b88378b75f0e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T05:56:50.107Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0010-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0010-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:02:01.003Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708060209",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 38 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "b926618d999bff191f7640e2a99244a33272b74b",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T06:02:10.299Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0010-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260708-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260708-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
     }
   ],
   "suggestedOwner": "_____",
-  "redispatchCount": 1,
+  "redispatchCount": 2,
   "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -1059,12 +1256,12 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "latestAgentResult": {
     "agent": "BugIntakeLocalRunner",
-    "taskId": "LOCAL-RUNNER-20260708023350",
-    "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-    "commitHash": "fe10c1653520762520ba17a8e288a0f30aa0755d",
+    "taskId": "LOCAL-RUNNER-20260708060209",
+    "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 38 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+    "commitHash": "b926618d999bff191f7640e2a99244a33272b74b",
     "conclusion": "PASS_WITH_CONDITIONS",
     "nextAction": "Business owner validates the fix in production.",
-    "recordedAt": "2026-07-08T02:33:51.642Z",
+    "recordedAt": "2026-07-08T06:02:10.299Z",
     "recordedBy": "bug_intake_runner",
     "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
     "changedFiles": [],
@@ -1111,18 +1308,52 @@ Assigned agent: A4-Frontend-UAT-Smoke
         "A1-CI-Runtime-Gate"
       ],
       "previousRepairTaskStatus": "AGENT_RUNNING"
+    },
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "管理员要求重算 Agent 计划后重新派发。",
+      "redispatchNo": 2,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-08T06:07:12.440Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_RUNNING"
     }
   ],
   "acceptanceCriteria": "要求我的待办上方显示条数按照实际的待办任务数量进行显示",
-  "agentPlanGeneratedAt": "2026-07-08T01:09:49.482Z",
-  "agentPlanGeneratedBy": "admin",
+  "agentPlanGeneratedAt": "2026-07-08T06:07:12.440Z",
+  "agentPlanGeneratedBy": "redispatch:admin",
+  "failureClassification": {
+    "category": "PG_SQL",
+    "evidence": [
+      "数据库/PG/SQL 信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T05:45:52.790Z",
+    "approvedAt": "2026-07-08T06:07:12.440Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 1,
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1131,20 +1362,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "force push"
     ]
   },
+  "failureClassificationUpdatedAt": "2026-07-08T06:07:12.440Z",
   "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0010-04-A5",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T02:21:38.267Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
     {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708023236",
@@ -1183,19 +1402,6 @@ Assigned agent: A4-Frontend-UAT-Smoke
       }
     },
     {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0010-05-A1",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T02:33:42.100Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708023350",
       "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0010-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0001-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0010-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
@@ -1231,223 +1437,35 @@ Assigned agent: A4-Frontend-UAT-Smoke
           }
         ]
       }
-    }
-  ]
-}
-```
-
-## Local Evidence
-
-- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
-
----
-
-# Execution Guardrails
-
-1. Do not merge.
-2. Do not push.
-3. Do not deploy.
-4. Do not execute migrations.
-5. Do not write to any database.
-6. Do not modify the task board from inside the Agent task.
-7. Stop immediately if the task requires files outside the allowed contract.
-8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
-9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
-
-codex
-我先做合同要求的 dry-run 检查，确认当前目录、分支和工作区状态，再定位 `/workflow/todos` 的计数来源。
-exec
-/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-w5-a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-2638d9f3 (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
-6ea9f556 docs(ops): record baseline lifecycle report
-e61e118d fix: bug-20260708-0001 align inbound inventory query
-0b5b0c19 docs(ops): record baseline lifecycle report
-5c0dcdaf feat(web): record A4-Frontend-UAT-Smoke result
-e2ff9722 docs(ops): record baseline lifecycle report
-62bc75cd feat(api): record A3-Backend-Critical-Path result
-50c28ba9 docs(ops): record baseline lifecycle report
-
-exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-codex
-前置检查通过：目录和分支都符合任务合同，工作区当前干净。现在只读排查前端路由和组件，先找待办页实现和“共 0 条”的渲染逻辑。
-exec
-/bin/zsh -lc 'rg --files apps/web | rg "workflow|todo|approval"' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/lib/workflow-data-catalog.ts
-apps/web/src/lib/workflow-templates.ts
-apps/web/src/lib/workflow-api.ts
-apps/web/src/components/workflow/FormRenderer.tsx
-apps/web/src/components/workflow/WorkflowFormRenderer.tsx
-apps/web/src/components/workflow/WorkflowTimeline.tsx
-apps/web/src/components/workflow/WorkflowMetricsStrip.tsx
-apps/web/src/components/workflow/WorkflowDataView.tsx
-apps/web/src/app/(admin)/workflow/analytics/page.tsx
-apps/web/src/app/(admin)/workflow/page.tsx
-apps/web/src/app/(admin)/workflow/builder/page.tsx
-apps/web/src/app/(admin)/workflow/definitions/page.tsx
-apps/web/src/app/(admin)/workflow/data-sources/page.tsx
-apps/web/src/app/(admin)/workflow/todos/page.tsx
-apps/web/src/app/(admin)/workflow/instances/page.tsx
-apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx
-apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx
-apps/web/src/app/(admin)/workflow/history/page.tsx
-apps/web/src/app/(admin)/workflow/start/page.tsx
-apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx
-apps/web/src/app/(admin)/workflow/forms/page.tsx
-apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx
-apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx
-apps/web/src/app/(admin)/workflow/monitor/page.tsx
-apps/web/src/app/(admin)/workflow/tasks/cc/page.tsx
-apps/web/src/app/(admin)/workflow/tasks/done/page.tsx
-apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx
-apps/web/src/app/(admin)/workflow/metrics/page.tsx
-apps/web/src/app/(admin)/settings/approval-rules/page.tsx
-apps/web/src/app/(admin)/settings/approval-flows/page.tsx
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx
-
-exec
-/bin/zsh -lc 'rg -n "workflow/todos|审批待办|我的待审批任务|待审批|todos" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/lib/design-tokens.ts:244:  PENDING_APPROVAL:   '待审批',
-apps/web/public/sw.js:120:  const body    = payload.body   || '你有新的审批待办';
-apps/web/src/app/(admin)/master-data/pending/page.tsx:14: * 主数据待审批（G3-B）
-apps/web/src/app/(admin)/master-data/pending/page.tsx:15: * 汇总展示用户有权查看的主数据类型中处于「待审批」状态的记录。
-apps/web/src/app/(admin)/master-data/pending/page.tsx:209:      <PageHeader title={tr('md.mdPending', '主数据待审批')} subtitle={tr('md.pendingSub', '待审批主数据汇总 · 审批在「审批中心」待办完成（通过后自动生效）')} breadcrumb={[tr('md.center', '主数据中心'), tr('md.mdPending', '主数据待审批')]} />
-apps/web/src/app/(admin)/master-data/pending/page.tsx:249:    }}><LoadingSkeleton variant="card" rows={3} /></div> : total === 0 ? <EmptyState title={tr('md.noPendingMdTitle', '暂无待审批主数据')} description={tr('md.allMdApproved', '所有主数据均已审批生效')} /> : <div style={{
-apps/web/src/app/(admin)/master-data/pending/page.tsx:274:          }}>{data[t.type].length} {tr('md.pending', '待审批')}</span>
-apps/web/src/app/(admin)/analytics/page.tsx:326:    label: t("ui.待审批订单", "待审批订单"),
-apps/web/src/app/(admin)/analytics/page.tsx:456:          <AlertItem icon={<ShoppingCart size={14} />} label={t("ui.待审批订单", "待审批订单")} value={k.pending_orders} color="var(--status-warning)" noDetailLabel={t("ui.暂无明细", "暂无明细")} items={alerts.pending_orders.slice(0, 5).map(o => ({
-apps/web/src/app/(admin)/master-data/page.tsx:7: * · 6 中心运营卡（实时显示 对象数 / 待审批 / 异常 / 健康评分）
-apps/web/src/app/(admin)/master-data/page.tsx:241:    desc: t('md.opsWorkbenchDesc', '待审批 / 补资料 / 风险处理'),
-apps/web/src/app/(admin)/master-data/page.tsx:256:    label: t('md.mdPending', '主数据待审批'),
-apps/web/src/app/(admin)/master-data/page.tsx:412:                <Stat label={t('md.pending', '待审批')} value={c.pendingCount} accent={c.pendingCount > 0 ? 'var(--status-warning)' : 'var(--text-secondary)'} />
-apps/web/src/app/(admin)/master-data/dictionaries/page.tsx:7: *   顶部：5 张运营 KPI（字典总数 / 业务分类数 / 启用 / 停用 / 待审批）
-apps/web/src/app/(admin)/master-data/dictionaries/page.tsx:89:  PENDING:   { label: '待审批', color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)' },
-apps/web/src/app/(admin)/master-data/dictionaries/page.tsx:193:        <KpiCard label={t('md.pending', '待审批')}     value={stats.pending}    icon={<Clock size={14} />} suffix={t('md.unitItem', '条')} tone={stats.pending > 0 ? 'warning' : 'default'} />
-apps/web/src/app/(admin)/notifications/page.tsx:149:      router.push(n.linkId ? `/workflow/todos?instanceId=${encodeURIComponent(n.linkId)}` : "/workflow/todos");
-apps/web/src/locales/lo.json:471:  "ui.待审批申请": "ຄໍາຮ້ອງສະຫມັກທີ່ລໍຖ້າການອະນຸມັດ",
-apps/web/src/locales/lo.json:484:  "ui.待审批": "ລໍຖ້າ",
-apps/web/src/locales/lo.json:2299:  "ui.张待审批订单": "order(s) pending approval",
-apps/web/src/locales/lo.json:2300:  "ui.暂无待审批订单": "ບໍ່ແມ່ນ orders pending approval",
-apps/web/src/locales/lo.json:4105:  "menu.wf-approval-todos": "ລໍຖ້າອະນຸມັດ",
-apps/web/src/locales/lo.json:4527:  "dwork.todosToHandle": "ລາຍການລໍຖ້າດຳເນີນການ",
-apps/web/src/locales/lo.json:4601:  "home.todosUnit": "ລາຍການລໍຖ້າ",
-apps/web/src/locales/lo.json:4617:  "home.todosPending": "ລາຍການລໍຖ້າດຳເນີນການ",
-apps/web/src/locales/lo.json:7995:  "ui.待审批订单": "ໃບສັ່ງລໍຖ້າອະນຸມັດ",
-apps/web/src/locales/lo.json:9452:  "ui.审批待办": "ວຽກອະນຸມັດທີ່ຕ້ອງເຮັດ",
-apps/web/src/locales/lo.json:9658:  "ui.当前没有待审批任务。": "ບໍ່ມີວຽກທີ່ລໍຖ້າອະນຸມັດ.",
-apps/web/src/locales/lo.json:9698:  "ui.待审批任务": "ວຽກທີ່ລໍຖ້າອະນຸມັດ",
-apps/web/src/locales/lo.json:9699:  "ui.待审批资本流金额": "ຈຳນວນກະແສທຶນທີ່ລໍຖ້າອະນຸມັດ",
-apps/web/src/locales/lo.json:9728:  "ui.我的待审批任务（共": "ໜ້າວຽກລໍຖ້າອະນຸມັດຂອງຂ້ອຍ (ລວມ",
-apps/web/src/locales/lo.json:10025:  "ui.暂无待审批任务": "ບໍ່ມີວຽກທີ່ລໍຖ້າອະນຸມັດ",
-apps/web/src/locales/lo.json:10151:  "ui.查看全部审批待办 →": "ເບິ່ງການອະນຸມັດທີ່ຄ້າງທັງໝົດ →",
-apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx:34:  PENDING_APPROVAL: { labelKey: "md.status_pending_approval", label: "待审批", tone: "warning" },
-apps/web/src/locales/zh.json:471:  "ui.待审批申请": "待审批申请",
-apps/web/src/locales/zh.json:484:  "ui.待审批": "待审批",
-apps/web/src/locales/zh.json:2299:  "ui.张待审批订单": "张待审批订单",
-apps/web/src/locales/zh.json:2300:  "ui.暂无待审批订单": "暂无待审批订单",
-apps/web/src/locales/zh.json:3935:  "pending_approvals": "待审批流",
-apps/web/src/locales/zh.json:3993:  "pending_approval": "待审批",
-apps/web/src/locales/zh.json:4002:  "no_pending_approval": "当前无待审批任务",
-apps/web/src/locales/zh.json:4105:  "menu.wf-approval-todos": "审批待办",
-apps/web/src/locales/zh.json:4504:  "dwork.todosToHandle": "项待办需要处理",
-apps/web/src/locales/zh.json:4578:  "home.todosUnit": "个待办",
-apps/web/src/locales/zh.json:4594:  "home.todosPending": "个待办待处理",
-apps/web/src/locales/zh.json:4597:  "home.mdPendingUnit": "单主数据待审批",
-apps/web/src/locales/zh.json:5277:  "fin2.expenses.step_pending": "待审批",
-apps/web/src/locales/zh.json:5311:  "fin2.transfers.status_pending_approval": "待审批",
-apps/web/src/locales/zh.json:5329:  "fin2.home.pending_tfr_post": "笔转账申请等待审批。",
-apps/web/src/locales/zh.json:5432:  "fin2.reports.expense_pending": "费用待审批",
-apps/web/src/locales/zh.json:5540:  "fin2.shfunds.status.PENDING_APPROVAL": "待审批",
-apps/web/src/locales/zh.json:5616:  "md.status_pending_approval": "待审批",
-apps/web/src/locales/zh.json:5833:  "md.mdPending": "主数据待审批",
-apps/web/src/locales/zh.json:5853:  "md.noPendingMd": "🎉 暂无待审批主数据",
-apps/web/src/locales/zh.json:5854:  "md.noPendingMdTitle": "暂无待审批主数据",
-apps/web/src/locales/zh.json:5870:  "md.opsSub": "待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理",
-apps/web/src/locales/zh.json:5873:  "md.opsWorkbenchDesc": "待审批 / 补资料 / 风险处理",
-apps/web/src/locales/zh.json:5901:  "md.pending": "待审批",
-apps/web/src/locales/zh.json:5902:  "md.pendingMdData": "待审批主数据",
-apps/web/src/locales/zh.json:5903:  "md.pendingSub": "待审批主数据汇总 · 审批在「审批中心」待办完成（通过后自动生效）",
-apps/web/src/locales/zh.json:6051:  "md.dictStatus.PENDING": "待审批",
-apps/web/src/locales/zh.json:6364:  "prc2.status_pending_approval": "待审批",
-apps/web/src/locales/zh.json:6428:  "prc2.kpi_pending_approval": "待审批",
-apps/web/src/locales/zh.json:6951:  "mob.biz.status_submitted": "待审批",
-apps/web/src/locales/zh.json:7129:  "mob.home.desc_workflow": "统一审批待办",
-apps/web/src/locales/zh.json:7328:  "mob.sys.step_pending": "待审批",
-apps/web/src/locales/zh.json:7974:  "ui.待审批订单": "待审批订单",
-apps/web/src/locales/zh.json:9452:  "ui.审批待办": "审批待办",
-apps/web/src/locales/zh.json:9658:  "ui.当前没有待审批任务。": "当前没有待审批任务。",
-apps/web/src/locales/zh.json:9698:  "ui.待审批任务": "待审批任务",
-apps/web/src/locales/zh.json:9699:  "ui.待审批资本流金额": "待审批资本流金额",
-apps/web/src/locales/zh.json:9728:  "ui.我的待审批任务（共": "我的待审批任务（共",
-apps/web/src/locales/zh.json:10025:  "ui.暂无待审批任务": "暂无待审批任务",
-apps/web/src/locales/zh.json:10151:  "ui.查看全部审批待办 →": "查看全部审批待办 →",
-apps/web/src/app/(admin)/master-data/governance/page.tsx:243:            { href: '/master-data/pending', label: t('md.mdPending', '主数据待审批'), icon: GitPullRequestArrow },
-apps/web/src/locales/en.json:471:  "ui.待审批申请": "Application pending approval",
-apps/web/src/locales/en.json:484:  "ui.待审批": "Pending",
-apps/web/src/locales/en.json:2299:  "ui.张待审批订单": "order(s) pending approval",
-apps/web/src/locales/en.json:2300:  "ui.暂无待审批订单": "No orders pending approval",
-apps/web/src/locales/en.json:4105:  "menu.wf-approval-todos": "Approval Todos",
-apps/web/src/locales/en.json:4527:  "dwork.todosToHandle": "to-dos to handle",
-apps/web/src/locales/en.json:4601:  "home.todosUnit": "to-dos",
-apps/web/src/locales/en.json:4617:  "home.todosPending": "to-dos pending",
-apps/web/src/locales/en.json:7995:  "ui.待审批订单": "Orders Pending Approval",
-apps/web/src/locales/en.json:9452:  "ui.审批待办": "Approval to-do",
-apps/web/src/locales/en.json:9658:  "ui.当前没有待审批任务。": "No tasks pending approval.",
-apps/web/src/locales/en.json:9698:  "ui.待审批任务": "Tasks pending approval",
-apps/web/src/locales/en.json:9699:  "ui.待审批资本流金额": "Capital flow amount pending approval",
-apps/web/src/locales/en.json:9728:  "ui.我的待审批任务（共": "My pending approval tasks (total",
-apps/web/src/locales/en.json:10025:  "ui.暂无待审批任务": "No tasks pending approval",
-apps/web/src/locales/en.json:10151:  "ui.查看全部审批待办 →": "View All Pending Approvals →",
-apps/web/src/app/(admin)/shareholders/capital/page.tsx:220:        <KpiCard title={t('ui.待审批资本流金额', '待审批资本流金额')} value={`¥${money(kpis.pendingApproval)}`} icon={Clock} accentColor="amber" />
-apps/web/src/app/(admin)/master-data/operations/page.tsx:16: *   1. 待审批主数据（按 type 分组 + 跳转）
-apps/web/src/app/(admin)/master-data/operations/page.tsx:92:      <PageHeader title={t('md.opsTitle', '主数据运营工作台')} subtitle={t('md.opsSub', '待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理')} breadcrumb={[t('md.center', '主数据中心'), t('md.opsWorkbench', '运营工作台')]} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
-apps/web/src/app/(admin)/master-data/operations/page.tsx:113:          <KpiCard label={t('md.pendingMdData', '待审批主数据')} value={summary.pendingTotal} icon={CheckSquare} accent="var(--status-warning)" />
-apps/web/src/app/(admin)/master-data/operations/page.tsx:119:      {/* 1. 待审批 */}
-apps/web/src/app/(admin)/master-data/operations/page.tsx:120:      <Section title={t('md.pendingMdData', '待审批主数据')} icon={CheckSquare} count={summary?.pendingTotal ?? 0}>
-apps/web/src/app/(admin)/master-data/operations/page.tsx:121:        {todo?.pendingApprovals.length === 0 ? <EmptyHint text={t('md.noPendingMd', '🎉 暂无待审批主数据')} /> : <div style={{
-apps/web/src/app/(mobile)/mobile/home/page.tsx:217:  desc: '统一审批待办',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:279:  // 动态角标：审批待办数 + 未读通知数
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx:41:    DONE:     { tone: "warning", label: t("ui.待审批",       "待审批") },
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx:115:      label: t("ui.待审批", "待审批"),
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx:271:          { label: t("ui.待审批",       "待审批"),       val: `${pendingCount} ${t("ui.单", "单")}`,               tone: "info"    as Tone },
-apps/web/src/app/(admin)/finance2/reports/page.tsx:335:        <KpiCard label={t('fin2.reports.expense_pending','费用待审批')} value={`${data.expensePendingCount} ${t('fin2.common.count_unit','笔')}`} sub={fmtMoney(data.expensePendingAmount)} icon={Receipt} color="var(--color-primary)" />
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:84:  SUBMITTED: '待审批',
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:389:    SUBMITTED: tt('mob.biz.status_submitted', '待审批'),
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:696:  const stepStatusLabel = (s: string) => s === 'APPROVED' ? tr('mob.sys.step_approved', '已通过') : s === 'REJECTED' ? tr('mob.sys.step_rejected', '已拒绝') : s === 'PENDING' ? tr('mob.sys.step_pending', '待审批') : s;
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1070:type Tab = 'todos' | 'history';
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1084:  const [tab, setTab] = useState<Tab>('todos');
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1085:  const [todos, setTodos] = useState<WorkflowTask[]>([]);
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1127:    if (tab === 'todos') loadTodos();else loadHistory();
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1230:          {tab === 'todos' && total > 0 && <span style={{
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1246:          tab === 'todos' ? loadTodos() : loadHistory();
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1276:        {([['todos', tr('mob.sys.todo', '待办'), todos.length], ['history', tr('mob.sys.done', '已办'), 0]] as const).map(([key, label, cnt]) => <button key={key} onClick={() => setTab(key)} style={{
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1293:            {key === 'todos' && cnt > 0 && <span style={{
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1294:          background: tab === 'todos' ? 'var(--overlay-white-10)' : 'var(--status-danger)',
-apps/web/src/app/(mobile)/mobile/workflow/page.tsx:1321:        {!loading && !err && tab === 'todos' && (todos.length === 0 ? <MobileEmptyState icon="✅" title={tr('mob.sys.no_todo_approval', '暂无待办审批')} desc={tr('mob.sys.no_todo_approval_desc', '当前没有需要您处理的审批任务')} /> : todos.map(task => <TaskCard key={`${task.taskSource}-${task.taskId}`} task={task} onApprove={openApprove} onReject={openReject} onTransfer={openTransfer} onDetail={t => setDetailTask(t)} />))}
-apps/web/src/app/(admin)/finance2/page.tsx:382:            {t('fin2.home.pending_tfr_pre','有')} <strong>{cashDash.pendingTransfers}</strong> {t('fin2.home.pending_tfr_post','笔转账申请等待审批。')}
-apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx:80:    label: '待审批',
-apps/web/src/app/(admin)/home/page.tsx:65:  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
-apps/web/src/app/(admin)/home/page.tsx:87:  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
-apps/web/src/app/(admin)/home/page.tsx:110:  return { label: firstPath ? t('home.enterWorkspace', '进入我的工作区') : t('home.viewMyTodos', '查看我的待办'), href: firstPath || '/workflow/todos', icon: Inbox };
-apps/web/src/app/(admin)/home/page.tsx:208:  // 今日要点（智能文案）— G11：高危告警/主数据待审批 仅治理类角色可见
-apps/web/src/app/(admin)/home/page.tsx:211:    if (todoCount > 0)                          parts.push(`${todoCount} ${t('home.todosPending', '个待办待处理')}`);
-apps/web/src/app/(admin)/home/page.tsx:214:    if (hasCentersPerm && totalPending > 0)     parts.push(`${totalPending} ${t('home.mdPendingUnit', '单主数据待审批')}`);
-apps/web/src/app/(admin)/home/page.tsx:430:        <Link href="/workflow/todos" style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-apps/web/src/app/(admin)/home/page.tsx:453:              <Link key={i} href={`/workflow/todos?taskNo=${encodeURIComponent(t.task_no)}`} style={{
-apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx:34:  PENDING_APPROVAL: { labelKey: "md.status_pending_approval", label: "待审批", tone: "warning" },
-apps/web/src/app/(admin)/daily-work/page.tsx:83:    icon: Inbox,         href: '/workflow/todos',                                     accent: '#3B82F6', perm: 'ME
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0010-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0010-01-A2\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:47:10.606Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0010-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0010-04-A5\nTitle: Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T05:47:12.295Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0010-02-A3",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --workt
 ```
