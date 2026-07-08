@@ -22,26 +22,28 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23415
+Assembled prompt chars: 23495
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-07T18-54-54-212Z-A4-Frontend-UAT-Smoke.md
-Implemented and committed the A4 frontend fix.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T02-10-58-816Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS.
 
-Commit: `e04a0016 fix: bug-20260707-0009 medicine stock refresh`
+A4 frontend fix for BUG-20260707-0009 was already present in this worktree at `e04a0016`: `/breeding/med-stock` reloads stock and returns to库存总览 after submit; `/mobile/medicine` invalidates `medStock` cache, reloads, then returns to库存.
 
-What changed:
-- [mobile medicine page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(mobile)/mobile/medicine/page.tsx): after inbound/outbound submit, invalidates `medStock` cache, reloads stock, then returns to stock overview.
-- [admin med-stock page](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/breeding/med-stock/page.tsx): after submit, waits for stock reload and switches back to “库存总览”.
-- [UAT report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-uat-report.md): recorded changed files, UX notes, permission notes, UAT result, A1/A2 judgment, blockers.
+I updated the required report with current validation evidence and committed it:
 
-Validation:
+- Report: [docs/ops/bug-20260707-0009-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-uat-report.md)
+- Commit: `f3b609ed docs(ops): update bug 0009 a4 validation report`
+
+Validation run:
+
 - `git diff --check`: PASS
-- static frontend scope-audit: PASS
-- worktree clean after commit: PASS
-- Web `tsc`: BLOCKED because this worktree has no `tsc` executable installed (`apps/web/node_modules/.bin/tsc` missing; `pnpm --filter web exec tsc --noEmit` reports `Command "tsc" not found`)
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
+- `pnpm --filter web exec tsc --noEmit`: PASS
+- scope audit grep: PASS, no permission bypass or token-write pattern added
+- final `git status --short`: clean
 
-Result: `PASS WITH CONDITIONS`. No backend, migration, schema, DB write, deploy, push, or task-board modification was performed.
+I did not run live inbound/outbound browser UAT because that would require database writes, which this task forbids. A1 should run integrated UAT in a disposable environment with the A3 backend repair present.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +60,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3dec-5646-7100-9a15-4587daae54b9
+session id: 019f3f7b-ea2b-72b0-aa54-705b24588f9f
 --------
 user
 # Base Agent Prompt
@@ -911,17 +913,19 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
+    "failure_category": null,
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
+    "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260707-0009"
   },
-  "createdAt": "2026-07-07T05:48:11.676Z",
+  "createdAt": "2026-07-08T01:15:13.612Z",
   "createdBy": "admin",
-  "moduleCode": "",
+  "moduleCode": "_____-____",
   "suggestedOwner": "",
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -929,12 +933,12 @@ Assigned agent: A4-Frontend-UAT-Smoke
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
-  "agentPlanGeneratedAt": "2026-07-07T05:48:13.413Z",
+  "acceptanceCriteria": "要求点击保存无报错，并且今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
+  "agentPlanGeneratedAt": "2026-07-08T01:15:14.896Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-07T05:48:14.561Z",
+    "approvedAt": "2026-07-08T01:15:16.308Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
@@ -967,7 +971,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我先做合同要求的 dry-run 检查：确认目录、分支、工作区状态和最近提交，再判断是否可以继续进入前端诊断。
+I’ll start with the required dry-run checks and verify the worktree, branch, status, and recent commits before touching anything.
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
@@ -979,126 +983,267 @@ exec
 w5-a4-frontend-uat-smoke
 
 exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-6b5eae1e (HEAD -> w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
-a386c6db feat(web): record A4-Frontend-UAT-Smoke result
-0c4b660b (w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
-04dc2c75 feat(api): record A3-Backend-Critical-Path result
-c8ef1816 docs(ops): record baseline lifecycle report
-566419c9 feat(web): record A4-Frontend-UAT-Smoke result
-b0cad6fb docs(ops): record baseline lifecycle report
-fb9030c0 feat(api): record A3-Backend-Critical-Path result
+4502102d (HEAD -> w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
+b03caef8 feat(web): record A4-Frontend-UAT-Smoke result
+ce56f9bf docs(ops): record baseline lifecycle report
+a49ad458 docs(ops): record baseline lifecycle report
+0246095a docs(ops): refresh bug 0007 a3 backend report
+6ae7fc5b docs(ops): record baseline lifecycle report
+cc8edfcb fix: bug-20260707-0007 wms master rbac
+5f449641 docs(ops): record baseline lifecycle report
 
+exec
+/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ succeeded in 0ms:
 codex
-检查通过：目录、分支都匹配，工作区当前干净。我会只在 `apps/web/**` 和 `docs/ops/**` 内诊断，先找“养殖总览/药品库存/今日入库出库”的前端数据链路，看是否是页面刷新、字段映射或聚合口径问题。
+The preflight checks pass: correct directory, correct branch, clean worktree, and no unexpected dirty files. I’m going to trace the breeding overview and medicine stock UI paths inside `apps/web` first, keeping this as diagnosis before edits.
 exec
-/bin/zsh -lc 'find docs/ops -maxdepth 2 -type f | sort | tail -40' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc "find apps/web -maxdepth 5 -type f \\( -name '*.tsx' -o -name '*.ts' -o -name '*.css' \\) | sed 's#"'^#/#'"' | head -n 300" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-docs/ops/runs/router-v1-case3-route-plan.json
-docs/ops/runs/router-v1-case3-route-plan.md
-docs/ops/runs/router-v1-case4-route-plan.json
-docs/ops/runs/router-v1-case4-route-plan.md
-docs/ops/runs/router-v1-case5-route-plan.json
-docs/ops/runs/router-v1-case5-route-plan.md
-docs/ops/runs/router-v1-case6-route-plan.json
-docs/ops/runs/router-v1-case6-route-plan.md
-docs/ops/runs/router-v1-revalidate-case1-route-plan.json
-docs/ops/runs/router-v1-revalidate-case1-route-plan.md
-docs/ops/runs/router-v1-revalidate-case2-route-plan.json
-docs/ops/runs/router-v1-revalidate-case2-route-plan.md
-docs/ops/runs/router-v1-revalidate-case3-route-plan.json
-docs/ops/runs/router-v1-revalidate-case3-route-plan.md
-docs/ops/runs/router-v1-revalidate-case4-route-plan.json
-docs/ops/runs/router-v1-revalidate-case4-route-plan.md
-docs/ops/runs/router-v1-revalidate-case5-route-plan.json
-docs/ops/runs/router-v1-revalidate-case5-route-plan.md
-docs/ops/runs/router-v1-revalidate-case6-route-plan.json
-docs/ops/runs/router-v1-revalidate-case6-route-plan.md
-docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt
-docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
-docs/ops/runs/store-payment-controlled-uat-smoke-static.json
-docs/ops/runs/store-payment-file-metadata-acl-static-check.json
-docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json
-docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json
-docs/ops/runs/store-payment-protected-streaming-static-check.json
-docs/ops/runs/store-payment-record-proof-db-evidence.json
-docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
-docs/ops/runs/store-payment-record-proof-page-smoke.json
-docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md
-docs/ops/runs/sys-dict-dedupe-latest.json
-docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
-docs/ops/runtime-memory/DECISION_LOG.md
-docs/ops/runtime-memory/GUARDRAILS.md
-docs/ops/runtime-memory/NEXT_ACTIONS.md
-docs/ops/runtime-memory/PROJECT_STATE.json
-docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
+/apps/web/public/runtime-design-system.css
+/apps/web/vitest.config.ts
+/apps/web/next.config.ts
+/apps/web/src/middleware.ts
+/apps/web/src/types/packaging-terminal.ts
+/apps/web/src/types/index.ts
+/apps/web/src/contexts/MobileThemeContext.tsx
+/apps/web/src/contexts/BrandContext.tsx
+/apps/web/src/contexts/ToastContext.tsx
+/apps/web/src/contexts/ThemeContext.tsx
+/apps/web/src/contexts/AuthContext.tsx
+/apps/web/src/contexts/DialogContext.tsx
+/apps/web/src/contexts/LanguageContext.tsx
+/apps/web/src/app/(mobile)/layout.tsx
+/apps/web/src/app/trace/[batchNo]/page.tsx
+/apps/web/src/app/page.module.css
+/apps/web/src/app/layout.tsx
+/apps/web/src/app/error.tsx
+/apps/web/src/app/(terminal)/layout.tsx
+/apps/web/src/app/page.tsx
+/apps/web/src/app/globals.css
+/apps/web/src/app/login/login.module.css
+/apps/web/src/app/login/page.tsx
+/apps/web/src/app/not-found.tsx
+/apps/web/src/app/(admin)/daily-work/page.tsx
+/apps/web/src/app/(admin)/packaging/page.tsx
+/apps/web/src/app/(admin)/settings/settings.module.css
+/apps/web/src/app/(admin)/settings/page.tsx
+/apps/web/src/app/(admin)/home/page.tsx
+/apps/web/src/app/(admin)/uat/page.tsx
+/apps/web/src/app/(admin)/quality/quality.module.css
+/apps/web/src/app/(admin)/quality/page.tsx
+/apps/web/src/app/(admin)/pilot-run/page.tsx
+/apps/web/src/app/(admin)/store-pos/page.tsx
+/apps/web/src/app/(admin)/procurement2/page.tsx
+/apps/web/src/app/(admin)/data-quality/page.tsx
+/apps/web/src/app/(admin)/breeding/breeding.module.css
+/apps/web/src/app/(admin)/breeding/page.tsx
+/apps/web/src/app/(admin)/finance2/loading.tsx
+/apps/web/src/app/(admin)/finance2/page.tsx
+/apps/web/src/app/(admin)/traceability/page.tsx
+/apps/web/src/app/(admin)/store-payment/store-payment.module.css
+/apps/web/src/app/(admin)/store-payment/page.tsx
+/apps/web/src/app/(admin)/dashboard/dashboard.module.css
+/apps/web/src/app/(admin)/dashboard/page.tsx
+/apps/web/src/app/(admin)/master-data/loading.tsx
+/apps/web/src/app/(admin)/master-data/page.tsx
+/apps/web/src/app/(admin)/admin.module.css
+/apps/web/src/app/(admin)/profile/page.tsx
+/apps/web/src/app/(admin)/master/page.tsx
+/apps/web/src/app/(admin)/sales2/loading.tsx
+/apps/web/src/app/(admin)/sales2/page.tsx
+/apps/web/src/app/(admin)/workflow/page.tsx
+/apps/web/src/app/(admin)/layout.tsx
+/apps/web/src/app/(admin)/loading.tsx
+/apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
+/apps/web/src/app/(admin)/warehouse/warehouse.module.css
+/apps/web/src/app/(admin)/warehouse/loading.tsx
+/apps/web/src/app/(admin)/warehouse/page.tsx
+/apps/web/src/app/(admin)/shareholders/SummaryBar.tsx
+/apps/web/src/app/(admin)/shareholders/page.tsx
+/apps/web/src/app/(admin)/notifications/page.tsx
+/apps/web/src/app/(admin)/analytics/page.tsx
+/apps/web/src/app/(admin)/analytics/analytics.module.css
+/apps/web/src/app/(admin)/store/store.module.css
+/apps/web/src/app/(admin)/store/page.tsx
+/apps/web/src/providers/providers.tsx
+/apps/web/src/styles/uix-utils.module.css
+/apps/web/src/styles/terminal-theme.ts
+/apps/web/src/components/packaging/printLabel.ts
+/apps/web/src/components/packaging/KioskGuard.tsx
+/apps/web/src/components/ui/rightDrawer.module.css
+/apps/web/src/components/ui/ConfirmDialog.tsx
+/apps/web/src/components/ui/KpiCard.tsx
+/apps/web/src/components/ui/tabs.tsx
+/apps/web/src/components/ui/crudForm.module.css
+/apps/web/src/components/ui/card.tsx
+/apps/web/src/components/ui/NavCard.tsx
+/apps/web/src/components/ui/sheet.tsx
+/apps/web/src/components/ui/label.tsx
+/apps/web/src/components/ui/sonner.tsx
+/apps/web/src/components/ui/tooltip.tsx
+/apps/web/src/components/ui/QuickEntryCard.tsx
+/apps/web/src/components/ui/admin-ui.module.css
+/apps/web/src/components/ui/CrudPage.tsx
+/apps/web/src/components/ui/RightDrawer.tsx
+/apps/web/src/components/ui/CrudForm.tsx
+/apps/web/src/components/ui/dialog.tsx
+/apps/web/src/components/ui/badge.tsx
+/apps/web/src/components/ui/separator.tsx
+/apps/web/src/components/ui/StatStrip.tsx
+/apps/web/src/components/ui/button.tsx
+/apps/web/src/components/ui/confirmDialog.module.css
+/apps/web/src/components/ui/select.tsx
+/apps/web/src/components/ui/input.tsx
+/apps/web/src/components/ui/FileUploadInput.tsx
+/apps/web/src/components/settings/UserOrgBindingPanel.tsx
+/apps/web/src/components/settings/RolePicker.tsx
+/apps/web/src/components/uat/FeedbackWidget.tsx
+/apps/web/src/components/layout/PageTransition.tsx
+/apps/web/src/components/layout/OnlineUsersIndicator.tsx
+/apps/web/src/components/layout/sidebar.module.css
+/apps/web/src/components/layout/Sidebar.tsx
+/apps/web/src/components/layout/PageTransition.module.css
+/apps/web/src/components/layout/ImpersonationBanner.tsx
+/apps/web/src/components/layout/ApprovalNotifier.tsx
+/apps/web/src/components/PageHeader.tsx
+/apps/web/src/components/terminal/NumPad.tsx
+/apps/web/src/components/terminal/TerminalNumPadPanel.tsx
+/apps/web/src/components/terminal/TerminalNavRail.tsx
+/apps/web/src/components/AuthFetchInterceptor.tsx
+/apps/web/src/components/LegacyFreezeBanner.tsx
+/apps/web/src/components/cabin/KpiMetricCard.tsx
+/apps/web/src/components/cabin/AlarmBanner.tsx
+/apps/web/src/components/cabin/SystemSummaryCard.tsx
+/apps/web/src/components/cabin/CabinHeaderCard.tsx
+/apps/web/src/components/master-data/ReferenceGraph.tsx
+/apps/web/src/components/master-data/MasterDataFormPage.tsx
+/apps/web/src/components/master-data/MasterDataDetailLayout.tsx
+/apps/web/src/components/master-data/MasterDataRuntimePanel.tsx
+/apps/web/src/components/master-data/detail-configs.tsx
+/apps/web/src/components/master-data/MasterDataDetailDrawer.tsx
+/apps/web/src/components/master-data/MasterDataSearch.tsx
+/apps/web/src/components/master-data/MasterDataCenterStrip.tsx
+/apps/web/src/components/master-data/OrgMembersPanel.tsx
+/apps/web/src/components/PhoenixDialog.tsx
+/apps/web/src/components/mobile/MobileSkeleton.tsx
+/apps/web/src/components/mobile/MobilePermissionGate.tsx
+/apps/web/src/components/workflow/WorkflowDataView.tsx
+/apps/web/src/components/workflow/WorkflowMetricsStrip.tsx
+/apps/web/src/components/workflow/WorkflowTimeline.tsx
+/apps/web/src/components/workflow/WorkflowFormRenderer.tsx
+/apps/web/src/components/workflow/FormRenderer.tsx
+/apps/web/src/components/DataTable.tsx
+/apps/web/src/components/RightDrawer.tsx
+/apps/web/src/components/finance/LegacyFreezeBanner.tsx
+/apps/web/src/components/shared-selectors/MasterDataSelectors.tsx
+/apps/web/src/components/shared-selectors/MaterialPicker.tsx
+/apps/web/src/components/shared-selectors/DictSelect.tsx
+/apps/web/src/components/shared-selectors/EnumLabel.tsx
+/apps/web/src/components/design-system/tables/DataTableV3.tsx
+/apps/web/src/components/design-system/forms/DateRangePicker.tsx
+/apps/web/src/components/design-system/forms/FormField.tsx
+/apps/web/src/components/design-system/forms/AmountInput.tsx
+/apps/web/src/components/design-system/forms/Inputs.tsx
+/apps/web/src/components/design-system/forms/AttachmentUploader.tsx
+/apps/web/src/components/design-system/forms/SelectField.tsx
+/apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx
+/apps/web/src/components/design-system/forms/ManagedAttachmentUploader.tsx
+/apps/web/src/components/design-system/forms/SearchInput.tsx
+/apps/web/src/components/design-system/cockpit-styles.ts
+/apps/web/src/components/design-system/cards/StatStripV2.tsx
+/apps/web/src/components/design-system/cards/MetricCard.tsx
+/apps/web/src/components/design-system/cards/WarningCard.tsx
+/apps/web/src/components/design-system/cards/KpiCardV2.tsx
+/apps/web/src/components/design-system/cards/NavCardV2.tsx
+/apps/web/src/components/design-system/charts/ChartCard.tsx
+/apps/web/src/components/design-system/status/Displays.tsx
+/apps/web/src/components/design-system/status/StatusBadge.tsx
+/apps/web/src/components/design-system/feedback/States.tsx
+/apps/web/src/components/design-system/feedback/ErrorState.tsx
+/apps/web/src/components/design-system/feedback/LoadingSkeleton.tsx
+/apps/web/src/components/design-system/feedback/EmptyState.tsx
+/apps/web/src/components/design-system/detail/ReferenceGraph.tsx
+/apps/web/src/components/design-system/detail/HealthPanel.tsx
+/apps/web/src/components/design-system/detail/DetailPanel.tsx
+/apps/web/src/components/design-system/detail/AttachmentViewer.tsx
+/apps/web/src/components/design-system/detail/DetailGrid.tsx
+/apps/web/src/components/design-system/detail/AuditTimeline.tsx
+/apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx
+/apps/web/src/components/design-system/layouts/Toolbar.tsx
+/apps/web/src/components/design-system/layouts/FilterBar.tsx
+/apps/web/src/components/design-system/layouts/PageShell.tsx
+/apps/web/src/components/design-system/layouts/SearchBar.tsx
+/apps/web/src/components/design-system/layouts/Panel.tsx
+/apps/web/src/components/design-system/layouts/PageParts.tsx
+/apps/web/src/components/design-system/workbench/WorkbenchKit.tsx
+/apps/web/src/components/design-system/workbench/WorkbenchParts.tsx
+/apps/web/src/components/design-system/mobile/MobileKit.tsx
+/apps/web/src/components/design-system/templates/Templates.tsx
+/apps/web/src/components/design-system/templates/EntityWorkspace.tsx
+/apps/web/src/components/design-system/templates/PageTemplates.tsx
+/apps/web/src/components/design-system/templates/TreePage.tsx
+/apps/web/src/components/design-system/dialogs/ConfirmDialogV2.tsx
+/apps/web/src/components/design-system/dialogs/ModalV2.tsx
+/apps/web/src/components/design-system/CockpitGrid.tsx
+/apps/web/src/components/design-system/index.ts
+/apps/web/src/components/design-system/drawers/DrawerV2.tsx
+/apps/web/src/components/design-system/timeline/WorkflowTimeline.tsx
+/apps/web/src/components/design-system/KpiCardV2.tsx
+/apps/web/src/components/ErrorBoundary.tsx
+/apps/web/src/components/data-table/data-table.module.css
+/apps/web/src/components/data-table/DataTable.tsx
+/apps/web/src/__tests__/barcode.test.ts
+/apps/web/src/__tests__/attachments.test.ts
+/apps/web/src/__tests__/mobile-roles.test.ts
+/apps/web/src/__tests__/currency.test.ts
+/apps/web/src/__tests__/request-cache.test.ts
+/apps/web/src/hooks/usePullToRefresh.ts
+/apps/web/src/hooks/usePolling.ts
+/apps/web/src/hooks/usePermission.ts
+/apps/web/src/hooks/useDictOptions.ts
+/apps/web/src/hooks/useCrud.ts
+/apps/web/src/hooks/useLabelConfig.ts
+/apps/web/src/hooks/useTerminalContext.ts
+/apps/web/src/hooks/useProductGrades.ts
+/apps/web/src/hooks/usePackagingDicts.ts
+/apps/web/src/hooks/useMobilePermission.ts
+/apps/web/src/lib/api-client.ts
+/apps/web/src/lib/dict-type-labels.ts
+/apps/web/src/lib/mobile-auth-token.ts
+/apps/web/src/lib/currency.ts
+/apps/web/src/lib/barcode.ts
+/apps/web/src/lib/auth-dispatch.ts
+/apps/web/src/lib/use-abortable-load.ts
+/apps/web/src/lib/utils.ts
+/apps/web/src/lib/attachments.ts
+/apps/web/src/lib/mobile-roles.ts
+/apps/web/src/lib/mobile-api.ts
+/apps/web/src/lib/qrcode.ts
+/apps/web/src/lib/dict-cache.ts
+/apps/web/src/lib/haptic.ts
+/apps/web/src/lib/design-tokens.ts
+/apps/web/src/lib/workflow-api.ts
+/apps/web/src/lib/request-cache.ts
+/apps/web/src/lib/workflow-templates.ts
+/apps/web/src/lib/impersonate.ts
+/apps/web/src/lib/workflow-data-catalog.ts
+/apps/web/src/lib/shareholder-api.ts
+/apps/web/src/lib/packaging-api.ts
 
 exec
-/bin/zsh -lc 'rg --files apps/web | rg "breeding|medicine|medication|warehouse|inventory"' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'rg -n "药品|medicine|medic|库存总览|养殖场总览|breeding" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-apps/web/src/app/(admin)/store/inventory/page.tsx
-apps/web/src/app/(admin)/analytics/inventory/page.tsx
-apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx
-apps/web/src/app/(admin)/breeding/page.tsx
-apps/web/src/app/(admin)/breeding/egg-ledger/page.tsx
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx
-apps/web/src/app/(admin)/breeding/flock/page.tsx
-apps/web/src/app/(admin)/warehouse/page.tsx
-apps/web/src/app/(admin)/breeding/device/page.tsx
-apps/web/src/app/(admin)/warehouse/query/page.tsx
-apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx
-apps/web/src/app/(admin)/warehouse/expiry/page.tsx
-apps/web/src/app/(admin)/breeding/medicine/page.tsx
-apps/web/src/app/(admin)/warehouse/outbound/page.tsx
-apps/web/src/app/(admin)/warehouse/loading.tsx
-apps/web/src/app/(admin)/breeding/feed/page.tsx
-apps/web/src/app/(admin)/breeding/henreport/page.tsx
-apps/web/src/app/(admin)/warehouse/inbound/page.tsx
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx
-apps/web/src/app/(admin)/breeding/device-ops/page.tsx
-apps/web/src/app/(admin)/warehouse/locations/page.tsx
-apps/web/src/app/(admin)/breeding/immune/page.tsx
-apps/web/src/app/(admin)/breeding/med-stock/page.tsx
-apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx
-apps/web/src/app/(admin)/breeding/daily/page.tsx
-apps/web/src/app/(admin)/breeding/breeding.module.css
-apps/web/src/app/(admin)/warehouse/stocktake/page.tsx
-apps/web/src/app/(admin)/breeding/henhouse/page.tsx
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouse.module.css
-apps/web/src/app/(admin)/breeding/device-alerts/page.tsx
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx
-apps/web/src/app/(admin)/warehouse/zones/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouses/page.tsx
-apps/web/src/app/(admin)/warehouse/ledger/page.tsx
-apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
-apps/web/src/app/(admin)/sales2/inventory/page.tsx
-apps/web/src/app/(admin)/master-data/warehouses/page.tsx
-
-exec
-/bin/zsh -lc 'rg -n "药品|medicine|medication|库存总览|养殖总览|breeding|入库|出库" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/lib/packaging-api.ts:167:  // ── 入库交接 ──────────────────────────────────────────────────────────────────
-apps/web/src/lib/workflow-data-catalog.ts:123:    description: "用于库存调整、调拨、入库、出库和盘点审批。",
 apps/web/src/lib/workflow-templates.ts:175:    key: "farm_medicine",
 apps/web/src/lib/workflow-templates.ts:182:    formDescription: "包含养殖场、药品、批次、用药对象、剂量和兽医意见。",
 apps/web/src/lib/workflow-templates.ts:185:      { key: "medicine_name", label: "药品/疫苗名称", type: "text", required: true },
-apps/web/src/app/trace/[batchNo]/page.tsx:152:    OUTBOUND:   '🚚 已出库',
 apps/web/src/lib/mobile-api.ts:15: * 适用于几乎不变的主数据（鸡舍列表、客户列表、药品目录等）
 apps/web/src/lib/mobile-api.ts:228:  medication_code: string;
 apps/web/src/lib/mobile-api.ts:229:  medication_name: string;
 apps/web/src/lib/mobile-api.ts:239:  medication_code: string;
 apps/web/src/lib/mobile-api.ts:240:  medication_name: string;
-apps/web/src/lib/mobile-api.ts:383:  /** 鸡蛋出入库流水（按日期范围） */
-apps/web/src/lib/mobile-api.ts:387:  /** 鸡蛋入库（鸡舍 → 库） */
-apps/web/src/lib/mobile-api.ts:391:  /** 鸡蛋出库（库 → 客户） */
 apps/web/src/lib/mobile-api.ts:421:  /** 药品库存（含目录）（60 秒缓存） */
 apps/web/src/lib/mobile-api.ts:423:    getCached('medStock', () => get<MedStockRow[]>('/api/farm/medicine/stock'), 60_000),
 apps/web/src/lib/mobile-api.ts:425:  /** 药品流水 */
@@ -1109,126 +1254,24 @@ apps/web/src/lib/mobile-api.ts:431:    post('/api/farm/medicine/inbound', { date
 apps/web/src/lib/mobile-api.ts:433:  /** 药品出库（用药） */
 apps/web/src/lib/mobile-api.ts:434:  medOutbound: (date: string, items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>, operator?: string) =>
 apps/web/src/lib/mobile-api.ts:435:    post('/api/farm/medicine/outbound', { date, items, operator }),
-apps/web/src/lib/mobile-roles.ts:191:  /** 销售出库：销售/农场录入；物流/财务/区域/店长/收银员/品控只读（品控追溯出货品质） */
 apps/web/src/lib/mobile-roles.ts:198:  /** 药品台账：兽医/农场录入；管理层/品控查看（门店经理与用药无关，移除） */
 apps/web/src/lib/mobile-roles.ts:199:  medicine: {
 apps/web/src/lib/mobile-roles.ts:335:  medicine: {
-apps/web/src/app/(admin)/traceability/page.tsx:445:        }}>{t('ui.暂无关联库存批次（可能尚未分配/出库）','暂无关联库存批次（可能尚未分配/出库）')}</div>}
-apps/web/src/app/(admin)/analytics/page.tsx:305:    label: t("ui.今日入库", "今日入库"),
-apps/web/src/app/(admin)/analytics/page.tsx:312:    label: t("ui.今日出库", "今日出库"),
-apps/web/src/app/(admin)/analytics/page.tsx:418:        {/* 出库趋势 */}
-apps/web/src/app/(admin)/analytics/page.tsx:429:        }}>🚚 {t("ui.近7日出库趋势", "近7日出库趋势")}</h4>
-apps/web/src/app/(admin)/layout.tsx:25:  "/breeding":                     "menu.brd-overview",
-apps/web/src/app/(admin)/layout.tsx:26:  "/breeding/henhouse":            "menu.brd-house",
-apps/web/src/app/(admin)/layout.tsx:27:  "/breeding/flock":               "menu.brd-flock",
-apps/web/src/app/(admin)/layout.tsx:28:  "/breeding/daily":               "menu.brd-daily",
-apps/web/src/app/(admin)/layout.tsx:29:  "/breeding/immune":              "menu.brd-immune",
-apps/web/src/app/(admin)/layout.tsx:30:  "/breeding/medicine":            "menu.brd-medicine",
-apps/web/src/app/(admin)/layout.tsx:31:  "/breeding/device":              "menu.brd-device",
-apps/web/src/app/(admin)/layout.tsx:32:  "/breeding/device-alerts":       "menu.brd-alerts",
-apps/web/src/hooks/usePackagingDicts.ts:46:    { code:'PKG_QC_RECHECK_REQUIRED',    label:'🔄 需要复检',  terminalCode:'RECHECK_REQUIRED',    desc:'暂不允许包装入库',        color:'#3b82f6', icon:'🔄', routeTo:'exceptions' },
-apps/web/src/hooks/useProductGrades.ts:13: *   · is_storable  — 是否可入库
-apps/web/src/hooks/useProductGrades.ts:24: *   const { grades } = useProductGrades({ onlySaleable: true }); // 仅可售（生产入库默认）
-apps/web/src/app/(admin)/analytics/production/page.tsx:117:      apiFetch<ReportResponse | DailyReport[]>("/api/breeding/daily-reports?limit=30", signal).then((raw) =>
-apps/web/src/lib/dict-type-labels.ts:18:  INV_COUNT_TYPE: "盘点类型", INV_INBOUND_TYPE: "入库类型", INV_LOSS_REASON: "库存损耗原因",
-apps/web/src/lib/dict-type-labels.ts:19:  INV_OUTBOUND_DEST_TYPE: "出库目的地类型", INV_OUTBOUND_TYPE: "出库类型",
-apps/web/src/lib/dict-type-labels.ts:36:  WMS_INBOUND_TYPE: "入库类型（仓储）", WMS_OUTBOUND_TYPE: "出库类型（仓储）",
-apps/web/src/app/(admin)/analytics/inventory/page.tsx:240:                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_inbound_date", "入库日期")}</th>
+apps/web/src/components/layout/Sidebar.tsx:85:    { id: "brd-overview",   path: "/breeding",                Icon: Home,           label: "养殖总览",     perm: "MENU_FARM_DATA" },
+apps/web/src/components/layout/Sidebar.tsx:86:    { id: "brd-house",      path: "/breeding/henhouse",       Icon: Building2,      label: "鸡舍管理",     perm: "MENU_FARM_MASTER" },  // G56-C 鸡舍主档=FARM_MASTER(对齐后端 brd_houses)
+apps/web/src/components/layout/Sidebar.tsx:87:    { id: "brd-flock",      path: "/breeding/flock",          Icon: Feather,        label: "鸡群档案",     perm: "MENU_FARM_DATA" },
+apps/web/src/components/layout/Sidebar.tsx:88:    { id: "brd-daily",      path: "/breeding/daily",          Icon: ClipboardList,  label: "日生产日报",   perm: "MENU_FARM_DAILY" },   // G56-C 日报写入=FARM_DAILY(对齐 POST /api/v3/farm/daily-logs)
+apps/web/src/components/layout/Sidebar.tsx:89:    { id: "brd-immune",     path: "/breeding/immune",         Icon: Syringe,        label: "免疫计划",     perm: "MENU_FARM_VET"  },
+apps/web/src/components/layout/Sidebar.tsx:90:    { id: "brd-medicine",   path: "/breeding/medicine",       Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET"  },
+apps/web/src/components/layout/Sidebar.tsx:91:    { id: "brd-device",     path: "/breeding/device",         Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },
+apps/web/src/components/layout/Sidebar.tsx:92:    { id: "brd-alerts",     path: "/breeding/device-alerts",  Icon: AlertTriangle,  label: "环境预警",     perm: "MENU_DEVICE_MONITOR" },
+apps/web/src/components/layout/Sidebar.tsx:93:    { id: "brd-device-ops", path: "/breeding/device-ops",    Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
+apps/web/src/components/layout/Sidebar.tsx:96:    { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
+apps/web/src/components/layout/Sidebar.tsx:115:    { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
 apps/web/src/hooks/useCrud.ts:4: *   不再用 useCrud hook。本 hook 暂保留兼容 daily/flock/medicine/immune/henhouse 5 个
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:128:  if (permLoading) return <MobilePageSkeleton title={tt('mob.biz.sales_outbound', '销售出库')} tabs={[tt('mob.biz.create_order', '开单'), tt('mob.biz.records', '记录')]} onBack={() => router.back()} />;
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:230:      }}>🛒 {tt('mob.biz.sales_outbound', '销售出库')}</span>
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:350:          ✓ {tt('mob.biz.outbound_created', '出库单已创建：')}{successNo}
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:487:            {loading ? <div>{[1, 2, 3].map(i => <SkeletonCard key={i} lines={3} />)}</div> : history.length === 0 ? <MobileEmptyState icon="🛒" title={tt('mob.biz.no_sales_records', '暂无销售记录')} desc={tt('mob.biz.no_sales_today', '今日还没有销售出库记录')} /> : history.map(rec => <div key={rec.order_no} style={{
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:611:            {submitting ? tt('mob.biz.submitting', '提交中…') : tt('mob.biz.confirm_outbound', '确认出库')}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:84:  // 入库：{ house → { grade → qty } }
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:88:  // 出库：{ customer_code → { grade → qty } }
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:220:    EGG_INBOUND_HOUSE: tr('mob.brd.inbound', '入库'),
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:221:    EGG_OUTBOUND_SALE: tr('mob.brd.outbound', '出库'),
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:239:        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🥚 {tr('mob.brd.egg_io', '鸡蛋出入库')}</span>
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:269:      {/* Tab 切换（R1：鸡蛋库存已由库存来源模式统一管理，入库/出库入口冻结，本页仅供查询） */}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:293:      {/* 日期（仅入库/出库 tab 显示） */}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:325:        ⚠️ {tr('mob.brd.egg_frozen_banner', '该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。')}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:377:        {/* ── 入库 Tab ─────────────────────────────────────────────── */}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:382:                <span style={{ fontSize: 13, color: t.textSub }}>{tr('mob.brd.inbound_total', '本次入库合计')}</span>
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:429:        {/* ── 出库 Tab ─────────────────────────────────────────────── */}
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:434:                <span style={{ fontSize: 13, color: t.textSub }}>{tr('mob.brd.outbound_total', '本次出库合计')}</span>
-apps/web/src/app/(mobile)/mobile/egg/page.tsx:461:                <span>{tr('mob.brd.spec', '规格')}</span><span className={u.tar}>{tr('mob.brd.stock', '库存')}</span><span className={u.tar}>{tr('mob.brd.outbound_qty', '出库数')}</span>
-apps/web/src/app/(admin)/sales2/reports/page.tsx:468:              <KpiCard label={t('ui.近30天出库量','近30天出库量')} value={fmt(turnover.totalOutbound30d)} color="var(--status-info)" />
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:19:// G99：栋舍不再硬编码——出库栋舍从真实养殖场栋舍拉取（与 feed/egg 页同源 /api/farm/feed/houses）。
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:36:  const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:38:    MED_INBOUND:  tr('mob.brd.inbound', '入库'),
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:39:    MED_OUTBOUND: tr('mob.brd.outbound', '出库'),
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:52:  // 入库 / 出库 entries：{ medication_code → EntryRow }
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:111:    !search || m.medication_name.includes(search) || m.medication_code.includes(search)
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:124:          medication_code: code,
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:160:        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>💊 {tr('mob.brd.medicine_ledger', '药品台账')}</span>
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:193:          { key: 'inbound',  label: tr('mob.brd.inbound', '入库'), icon: <TrendingUp size={14} /> },
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:194:          { key: 'outbound', label: tr('mob.brd.outbound', '出库'), icon: <TrendingDown size={14} /> },
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:220:              placeholder={tr('mob.brd.search_medicine', '搜索药品名称…')}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:247:                <div key={m.medication_code} style={{
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:254:                    <div style={{ fontSize: 14, fontWeight: 600, color: m.qty > 0 ? t.text : t.textMuted }}>{m.medication_name}</div>
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:269:        {/* ── 入库 / 出库 Tab ── */}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:279:              const e = getEntry(m.medication_code);
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:281:                <div key={m.medication_code} style={{
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:286:                  {/* 药品名 + 库存参考 */}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:289:                      <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{m.medication_name}</div>
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:302:                        onChange={ev => setEntry(m.medication_code, { qty: Math.max(0, Number(ev.target.value) || 0) })}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:319:                          onChange={ev => setEntry(m.medication_code, { house_code: ev.target.value })}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:337:                        onChange={ev => setEntry(m.medication_code, { note: ev.target.value })}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:355:        {/* ── 出库 Tab 下方：今日流水 ── */}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:366:                  <div style={{ fontSize: 12, color: t.textSub }}>{e.medication_name}</div>
-apps/web/src/app/(admin)/workflow/start/page.tsx:477:  if (lower.includes("medicine")) return "常规兽药/疫苗";
-apps/web/src/app/(mobile)/mobile/home/page.tsx:45:  desc: '出入库登记·库存预警',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:78:  desc: '首检、过程检、出库检',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:89:  desc: '出入库登记·分级库存',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:99:  // icon: <Truck size={28} />, titleZh: '销售出库', href: '/mobile/sales', pageKey: 'sales'
-apps/web/src/app/(mobile)/mobile/home/page.tsx:101:  titleZh: '药品台账',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:104:  desc: '药品库存·出入库登记',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:105:  descKey: 'mob.home.desc_medicine',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:107:  href: '/mobile/medicine',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:109:  pageKey: 'medicine'
-apps/web/src/app/(mobile)/mobile/feed/page.tsx:180:          }}>{tr('mob.brd.today_inbound', '今日入库')}</div>
-apps/web/src/app/(mobile)/mobile/feed/page.tsx:197:          {/* 各栋出库 */}
-apps/web/src/app/(mobile)/mobile/feed/page.tsx:202:      }}>{tr('mob.brd.today_outbound_houses', '今日出库（各栋）')}</div>
-apps/web/src/app/(mobile)/mobile/feed/page.tsx:234:        }}>{tr('mob.brd.outbound_total_label', '出库合计')}</span>
-apps/web/src/types/packaging-terminal.ts:52:  PENDING_WAREHOUSE:        '待入库',
-apps/web/src/types/packaging-terminal.ts:53:  WAREHOUSED:               '已入库',
-apps/web/src/types/packaging-terminal.ts:112:  WAREHOUSE_VARIANCE: '入库差异',
 apps/web/src/middleware.ts:34:  '/breeding',
+apps/web/src/components/design-system/workbench/WorkbenchKit.tsx:6: * store-pos / terminal / packaging / breeding device-ops 等大按钮高对比场景。
 apps/web/next.config.ts:98:    //   recharts 仅 breeding/device 一页用，App Router 已按路由分包；
-apps/web/src/app/(admin)/sales2/returns/page.tsx:719:  // H1:对齐后端 sales-returns.controller 守卫——创建/提交 :C,审批/驳回/完成 :A,质检/入库 :E
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:22:// 业务逻辑: 当日入出库汇总 → 库存平衡核查 → 执行日结（每日一次）
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:121:    { label: t("ui.今日入库枚", "今日入库（枚）"), val: loading ? "…" : inQty.toLocaleString(),                                      tone: "success", Icon: PackageCheck },
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:122:    { label: t("ui.今日出库枚", "今日出库（枚）"), val: loading ? "…" : outQty.toLocaleString(),                                     tone: "danger",  Icon: PackageMinus },
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:130:        subtitle={t("ui.当日入出库汇总库存核对日结确认", "当日入出库汇总 · 库存核对 · 日结确认")}
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:227:                  { label: t("ui.今日入库", "今日入库"), value: `+${inQty.toLocaleString()}`,                                color: "var(--status-success)" },
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:228:                  { label: t("ui.今日出库", "今日出库"), value: `-${outQty.toLocaleString()}`,                               color: "var(--status-danger)"  },
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:244:                  ? <><Check size={14} /> {t("ui.今日入大于等于出库存净增", "今日入大于等于出，库存净增")} {balance.toLocaleString()} {t("ui.枚", "枚")}</>
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:245:                  : <><AlertTriangle size={14} /> {t("ui.今日出大于入库存净减", "今日出大于入，库存净减")} {Math.abs(balance).toLocaleString()} {t("ui.枚", "枚")}</>
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:259:          {t("ui.日结将锁定当日入出库记录生成日结单确认库存期末快照每日只可执行一次", "日结将锁定当日入出库记录，生成日结单，确认库存期末快照。每日只可执行一次。")}
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:14: * TEMP_PRODUCTION_INBOUND（临时生产入库） vs PACKAGING_INBOUND（包装入库）二选一，互斥。
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:19:  TEMP_PRODUCTION_INBOUND: "临时生产入库",
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:20:  PACKAGING_INBOUND: "包装入库"
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:143:      <PageHeader title={t('ui.库存来源模式','库存来源模式')} subtitle={t('ui.临时生产入库 / 包装入库 二选一（互斥），统一进入库存体系','临时生产入库 / 包装入库 二选一（互斥），统一进入库存体系')} breadcrumb={[t('ui.库存管理','库存管理'), t('ui.库存来源模式','库存来源模式')]} />
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:215:              }}>{t('ui.暂无配置（默认 临时生产入库）','暂无配置（默认 临时生产入库）')}</td></tr> : configs.map((c, i) => <tr key={i} style={{
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:325:                <option value="TEMP_PRODUCTION_INBOUND">{t('ui.临时生产入库','临时生产入库')}</option>
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:326:                <option value="PACKAGING_INBOUND">{t('ui.包装入库','包装入库')}</option>
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx:362:                <div><span className={u.muted12}>{t('ui.最后入库','最后入库')}</span><div className={u.fw600}>{risk.lastInboundDate ?? "-"}</div></div>
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx:59:    label: t("ui.调出库区", "调出库区"),
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx:79:    label: t("ui.调入库区", "调入库区"),
-apps/web/src/app/(admin)/warehouse/page.tsx:152:    const inLabel = t("ui.入库", "入库");
-apps/web/src/app/(admin)/warehouse/page.tsx:153:    const outLabel = t("ui.出库", "出库");
-apps/web/src/app/(admin)/warehouse/page.tsx:179:    { label: t("ui.今日入库", "今日入库"), value: loading ? "…" : canViewInout ? (totalInQty || todayIn.length).toString() : "—",    unit: canViewInout ? (totalInQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
-apps/web/src/app/(admin)/warehouse/page.tsx:180:    { label: t("ui.今日出库", "今日出库"), value: loading ? "…" : canViewInout ? (totalOutQty || todayOut.length).toString() : "—",  unit: canViewInout ? (totalOutQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "danger"  as const, Icon: ArrowUp },
-apps/web/src/app/(admin)/warehouse/page.tsx:186:    { path: "/warehouse/inbound",   Icon: PackagePlus,    label: t("ui.入库管理", "入库管理"), desc: t("ui.入库单创建", "入库单录入、扫码收货、批次台账上链。"),       accent: "green"  as const, perm: "MENU_WMS_INOUT" },
-apps/web/src/app/(admin)/warehouse/page.tsx:187:    { path: "/warehouse/outbound",  Icon: PackageMinus,   label: t("ui.出库管理", "出库管理"), desc: t("ui.出库单创建", "出库单录入、FIFO 出库、含调拨与销售出库。"), accent: "red"    as const, perm: "MENU_WMS_INOUT" },
-apps/web/src/app/(admin)/warehouse/page.tsx:198:    { label: t("ui.总入库单数", "总入库单数"),       value: canViewInout ? inbounds.length : "—",  tone: "success" as const },
-apps/web/src/app/(admin)/warehouse/page.tsx:199:    { label: t("ui.总出库单数", "总出库单数"),       value: canViewInout ? outbounds.length : "—", tone: "danger"  as const },
-apps/web/src/app/(admin)/warehouse/page.tsx:256:              {t("ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏", "当前账号仅可查看库存总览，出入库作业与库区容量已按权限隐藏。")}
-apps/web/src/app/(admin)/warehouse/page.tsx:291:          {/* 今日出入库动态 — actionGroupBox 容器 + recordRow(tone) 行 */}
-apps/web/src/app/(admin)/warehouse/page.tsx:294:              {t("ui.今日出入库动态", "今日出入库动态")}
-apps/web/src/app/(admin)/warehouse/page.tsx:302:                {t("ui.需要出入库查看权限", "需要出入库查看权限")}
-apps/web/src/app/(admin)/warehouse/page.tsx:306:                {t("ui.今日暂无出入库记录", "今日暂无出入库记录")}
 apps/web/src/locales/lo.json:8:  "menu.breeding": "ສູນຜະລິດພັນ",
 apps/web/src/locales/lo.json:53:  "breeding.overview": "ພາບລວມການກະສິກໍາ",
 apps/web/src/locales/lo.json:54:  "breeding.henhouse": "ການຄຸ້ມຄອງເຮືອນໄກ່",
@@ -1238,94 +1281,207 @@ apps/web/src/locales/lo.json:57:  "breeding.immune": "ຕາຕະລາງກ�
 apps/web/src/locales/lo.json:58:  "breeding.medicine": "ບັນທຶກຢາ",
 apps/web/src/locales/lo.json:59:  "breeding.withdrawal": "ການເຕືອນໄລຍະເວລາການຖອນເງິນ",
 apps/web/src/locales/lo.json:60:  "breeding.analysis": "ບົດລາຍງານການວິເຄາະແນວພັນ",
-apps/web/src/locales/lo.json:114:  "ui.对入库鲜蛋进行首批次质量抽检": "ດໍາເນີນການກວດກາຄຸນນະພາບໃນຊຸດທໍາອິດຂອງໄຂ່ສົດທີ່ເຂົ້າມາເກັບຮັກສາ",
-apps/web/src/locales/lo.json:128:  "ui.源头集蛋入库": "ການເກັບໄຂ່ຈາກແຫຼ່ງແລະການເກັບຮັກສາ",
-apps/web/src/locales/lo.json:130:  "ui.入库单号": "ໝາຍເລກສັ່ງຊື້ສິນຄ້າ",
-apps/web/src/locales/lo.json:143:  "ui.将包装完毕的产品下线落账入库为独立库存批次": "ບັນທຶກການຫຸ້ມຫໍ່ຜະລິດຕະພັນອອກຈາກສາຍການຜະລິດແລະເກັບຮັກສາໃຫ້ເຂົາເຈົ້າເປັນ batches ສາງເອກະລາດ",
-apps/web/src/locales/lo.json:275:  "ui.产品入出库品控检验": "ການກວດກາການຄວບຄຸມຄຸນະພາບສິນຄ້າຂາເຂົ້າແລະຂາອອກ",
-apps/web/src/locales/lo.json:327:  "ui.万象中央仓出库": "ອອກເດີນທາງຈາກສາງສູນການຄ້າວຽງຈັນເຊັນເຕີ",
-apps/web/src/locales/lo.json:329:  "ui.包装入库": "ການຫຸ້ມຫໍ່ແລະສາງ",
-apps/web/src/locales/lo.json:330:  "ui.集蛋入库": "ການເກັບໄຂ່ແລະການເກັບຮັກສາ",
+apps/web/src/locales/lo.json:362:  "ui.养殖场总览": "ພາບລວມ",
 apps/web/src/locales/lo.json:402:  "ui.药品名称": "ຊື່ຢາ",
-apps/web/src/locales/lo.json:430:  "ui.到货收货入库": "ມາຮອດແລະສາງ",
-apps/web/src/locales/lo.json:741:  "ui.调出库区": "ໂອນອອກຈາກພື້ນທີ່ສາງ",
-apps/web/src/locales/lo.json:742:  "ui.调入库区": "ໂອນເຂົ້າພື້ນທີ່ສາງ",
-apps/web/src/locales/lo.json:746:  "ui.入库管理": "ການຄຸ້ມຄອງສາງ",
-apps/web/src/locales/lo.json:747:  "ui.入库类型": "ປະເພດສາງ",
-apps/web/src/locales/lo.json:749:  "ui.入库库区": "ພື້ນທີ່ເກັບຮັກສາ",
-apps/web/src/locales/lo.json:753:  "ui.今日入库": "ສາງໃນມື້ນີ້",
-apps/web/src/locales/lo.json:754:  "ui.今日出库": "ມື້ນີ້ໝົດແລ້ວ",
-apps/web/src/locales/lo.json:757:  "ui.入库": "ສາງ",
-apps/web/src/locales/lo.json:758:  "ui.出库": "ສົ່ງ",
-apps/web/src/locales/lo.json:779:  "ui.出库管理": "ການຄຸ້ມຄອງຂາອອກ",
-apps/web/src/locales/lo.json:780:  "ui.已出库": "ສົ່ງ",
-apps/web/src/locales/lo.json:782:  "ui.待出库": "ລໍ",
-apps/web/src/locales/lo.json:783:  "ui.出库单号": "ໝາຍເລກການສັ່ງຊື້ຂາອອກ",
-apps/web/src/locales/lo.json:784:  "ui.出库类型": "ປະເພດຂາອອກ",
-apps/web/src/locales/lo.json:860:  "ui.分发批次核验与到店入库": "ການກວດສອບຊຸດການແຈກຢາຍແລະການມາຮອດຮ້ານ",
-apps/web/src/locales/lo.json:902:  "ui.关联集蛋入库单": "ໃບຮັບເງິນເກັບໄຂ່ທີ່ກ່ຽວຂ້ອງ",
-apps/web/src/locales/lo.json:903:  "ui.暂无今日集蛋入库": "ມື້ນີ້ບໍ່ມີໄຂ່ທີ່ເກັບໄດ້.",
-apps/web/src/locales/lo.json:926:  "ui.一键入库": "ການ​ເກັບ​ຮັກ​ສາ​ການ​ຄລິກ​ຫນຶ່ງ​",
-apps/web/src/locales/lo.json:1145:  "ui.入库抽检反馈": "ຄວາມຄິດເຫັນກ່ຽວກັບການກວດກາແບບສຸ່ມສາງ",
-apps/web/src/locales/lo.json:1158:  "ui.入库全检": "ການກວດກາເຕັມທີ່ເມື່ອມາຮອດ",
-apps/web/src/locales/lo.json:1159:  "ui.入库抽检": "ການກວດກາແບບສຸ່ມຂອງສາງ",
-apps/web/src/locales/lo.json:1160:  "ui.出库抽检": "ການກວດກາຕົວຢ່າງອອກຈາກສາງ",
 apps/web/src/locales/lo.json:1312:  "ui.搜索批次药品": "ຄົ້ນ​ພົບ​ຢາ​ເສບ​ຕິດ...",
-apps/web/src/locales/lo.json:1356:  "ui.外购物资到场查验及清点交接生成入库凭证": "ການກວດກາຢູ່ສະຖານທີ່, ສິນຄ້າຄົງຄັງແລະການໂອນວັດສະດຸພາຍນອກ, ແລະການຜະລິດບັດປະຈໍາຄັງສິນຄ້າ",
-apps/web/src/locales/lo.json:1567:  "ui.保存会员入库": "ບັນທຶກສະມາຊິກເຂົ້າໃນຖານຂໍ້ມູນ",
-apps/web/src/locales/lo.json:1636:  "ui.成品原料包材等各类物品入库记录": "ບັນທຶກສາງຂອງຜະລິດຕະພັນສໍາເລັດຮູບ, ວັດຖຸດິບ, ອຸປະກອນການຫຸ້ມຫໍ່ແລະລາຍການອື່ນໆ",
-apps/web/src/locales/lo.json:1637:  "ui.新建入库单": "ສ້າງໃບຮັບເງິນສາງໃໝ່",
-apps/web/src/locales/lo.json:1638:  "ui.生产入库": "ການຜະລິດແລະສາງ",
-apps/web/src/locales/lo.json:1639:  "ui.采购入库": "ການຈັດຊື້ ແລະສາງ",
-apps/web/src/locales/lo.json:1640:  "ui.调拨入库": "ຈັດສັນ ແລະເກັບຮັກສາ",
-apps/web/src/locales/lo.json:1648:  "ui.今日出入库动态": "ອັບເດດຂາເຂົ້າ ແລະ ຂາອອກຂອງມື້ນີ້",
-apps/web/src/locales/lo.json:1651:  "ui.安排出库": "ຈັດ​ການ​ສົ່ງ​ອອກ​ນອກ​",
-apps/web/src/locales/lo.json:1653:  "ui.FEFO出库策略": "ຍຸດທະສາດຂາອອກ FEFO:",
-apps/web/src/locales/lo.json:1680:  "ui.各类出库单管理门店补货团购报损等": "ປະເພດຕ່າງໆຂອງການຄຸ້ມຄອງການສັ່ງຊື້ຂາອອກ: ການເຕີມເງິນໃນຮ້ານ, ການຊື້ກຸ່ມ, ການລາຍງານການສູນເສຍ, ແລະອື່ນໆ.",
-apps/web/src/locales/lo.json:1681:  "ui.新建出库单": "ສ້າງຄໍາສັ່ງອອກໃຫມ່",
-apps/web/src/locales/lo.json:1684:  "ui.团购出库": "ກຸ່ມຊື້ອອກຈາກສາງ",
-apps/web/src/locales/lo.json:1685:  "ui.报损出库": "ລາຍງານຄວາມເສຍຫາຍແລະການຂົນສົ່ງອອກຈາກສາງ",
-apps/web/src/locales/lo.json:1921:  "ui.缺少入库单号": "ໝາຍເລກການສັ່ງຊື້ບ່ອນເກັບມ້ຽນຫາຍໄປ!",
-apps/web/src/locales/lo.json:2014:  "ui.成品封锁无损检验与出库放行签单": "ການຜະນຶກຜະລິດຕະພັນສໍາເລັດຮູບ: ການກວດກາທີ່ບໍ່ມີການທໍາລາຍແລະການລົງນາມໃນການປ່ອຍສາງ",
-apps/web/src/locales/lo.json:2016:  "ui.调拨操作出入库与跨仓划拨签单": "ການໂອນຍ້າຍ: ຂາເຂົ້າ-ຂາອອກ ແລະ ເຊັນສັນຍາໂອນເຂົ້າ-ຂາອອກ",
-apps/web/src/locales/lo.json:2030:  "ui.万象核心1店采购包材托盘5000入库内部": "ຮ້ານວຽງຈັນຫຼັກ 1', 'ຈັດຊື້ວັດສະດຸຫຸ້ມຫໍ່ 5000 ກ່ອງໃສ່ບ່ອນເກັບມ້ຽນ'];",
-apps/web/src/locales/lo.json:2097:  "ui.入库_2": "📥 ນຳເຂົ້າສາງ",
-apps/web/src/locales/lo.json:2098:  "ui.出库_2": "  const types = ['all','store replenishment','group purchase delivery','loss report delivery'];",
-apps/web/src/locales/lo.json:2176:  "ui.产线集蛋入库单生成": "ສິນຄ້າion egg collection inbound order generated",
-apps/web/src/locales/lo.json:2365:  "ui.通传编制入库": "Broadcast Headcount to DB",
-apps/web/src/locales/lo.json:2520:  "ui.全栈出入库流水网": "Full-stack ນຳເຂົ້າສາງ/Outbound Transaction Network",
-apps/web/src/locales/lo.json:2626:  "ui.确认收录入库": "ຢືນຢັນ and Archive",
-apps/web/src/locales/lo.json:2647:  "ui.笔出库": "outbound transaction(s)",
-apps/web/src/locales/lo.json:2649:  "ui.入库来源": "ນຳເຂົ້າສາງ Source",
-apps/web/src/locales/lo.json:2657:  "ui.出库流向记录": "Outbound Flow Records",
-apps/web/src/locales/lo.json:2676:  "ui.该批次暂无关联出库流向记录": "ບໍ່ແມ່ນ outbound flow records for this batch",
-apps/web/src/locales/lo.json:2697:  "ui.仓储出库": "ສາງ Outbound",
-apps/web/src/locales/lo.json:2698:  "ui.批次入库": "ຊຸດນຳເຂົ້າສາງ",
-apps/web/src/locales/lo.json:3267:  "ui.已入库": "ນຳເຂົ້າສາງ ສຳເລັດ",
-apps/web/src/locales/lo.json:3269:  "ui.审核入库": "ກວດສອບນຳເຂົ້າສາງ",
-apps/web/src/locales/lo.json:3270:  "ui.入库单": "ໃບນຳເຂົ້າ",
-apps/web/src/locales/lo.json:3276:  "ui.今日暂无出入库记录": "ບໍ່ແມ່ນ inbound/outbound records today",
-apps/web/src/locales/lo.json:3278:  "ui.总入库单数": "ລວມ ໃບນຳເຂົ້າs",
-apps/web/src/locales/lo.json:3279:  "ui.总出库单数": "ລວມ ໃບສົ່ງອອກs",
-apps/web/src/locales/lo.json:3282:  "ui.入库登记": "ນຳເຂົ້າສາງ Registration",
-apps/web/src/locales/lo.json:3283:  "ui.出库操作": "ນຳອອກສາງການດຳເນີນງານ",
-apps/web/src/locales/lo.json:3287:  "ui.加急出库单是否确认": "Urgent outbound order, confirm?",
-apps/web/src/locales/lo.json:3300:  "ui.出库单": "ໃບສົ່ງອອກ",
-apps/web/src/locales/lo.json:3753:  "ui.入库副标": "ຮັບ",
-apps/web/src/locales/lo.json:3754:  "ui.批次入库副标": "ລ໋ອດ",
-apps/web/src/locales/lo.json:3811:  "ui.各类出库单管理门": "各类出库单管理门",
 apps/web/src/locales/lo.json:4047:  "menu.brd-medicine": "ບັນທຶກການໃຊ້ຢາ",
-apps/web/src/locales/lo.json:4399:  "ui.扫描箱码入库": "ສະແກນກ່ອງເຂົ້າສາງ",
-apps/web/src/locales/lo.json:4401:  "ui.入库汇总": "ສະຫຼຸບ",
-apps/web/src/locales/lo.json:4412:  "ui.已入库总箱数": "ສະແກນ / ທັງໝົດ",
-apps/web/src/locales/lo.json:4413:  "ui.入库成功": "ເຂົ້າສາງສຳເລັດ",
-apps/web/src/locales/lo.json:4415:  "ui.确认入库": "ຢືນຢັນເຂົ້າສາງ",
-apps/web/src/locales/lo.json:4418:  "ui.暂无待入库包装批次": "ບໍ່ມີຊຸດທີ່ລໍຖ້າເຂົ້າສາງ",
-apps/web/src/locales/lo.json:4419:  "ui.枚已入库跳转交班": " ໄຂ່ເຂົ້າສາງ, ກຳລັງໄປສ່ຶງໜ້າທີ່...",
 apps/web/src/locales/lo.json:4482:  "breeding.noDailyOr9Grade": "ບໍ່ມີລາຍງານປະຈຳວັນ ຫຼື ບໍ່ໄດ້ປ້ອນຕາມ 9 ລະດັບ",
 apps/web/src/locales/lo.json:4483:  "breeding.fetchDailyFailed": "ດຶງຂໍ້ມູນລາຍງານປະຈຳວັນລົ້ມເຫລວ",
 apps/web/src/locales/lo.json:4484:  "breeding.enterAtLeastOne": "ກະລຸນາປ້ອນຈຳນວນຢ່າງໜ້ອຍໜຶ່ງລະດັບ",
 apps/web/src/locales/lo.json:4485:  "breeding.inboundFailed": "ການນຳເຂົ້າສາງລົ້ມເຫລວ",
 apps/web/src/locales/lo.json:4486:  "breeding.noPermInbound": "ບໍ່ມີສິດເຂົ້າເຖິງການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
-apps/web/src/locales/lo.js
+apps/web/src/locales/lo.json:4487:  "breeding.inboundTitle": "ການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
+apps/web/src/locales/lo.json:4488:  "breeding.inboundSubtitle": "ໂໝດນຳເຂົ້າການຜະລິດຊົ່ວຄາວ · ໄຂ່ປະຈຳວັນກາຍເປັນສິນຄ້າຄົງຄັງຂາຍໂດຍກົງ (ເຂົ້າລະບົບ FIFO)",
+apps/web/src/locales/lo.json:4489:  "breeding.prodMgmt": "ການຈັດການການຜະລິດ",
+apps/web/src/locales/lo.json:4490:  "breeding.loadingSourceMode": "ກຳລັງໂຫລດໂໝດແຫລ່ງສິນຄ້າຄົງຄັງ...",
+apps/web/src/locales/lo.json:4491:  "breeding.packagingModeOn": "ເປີດໃຊ້ໂໝດນຳເຂົ້າການຫຸ້ມຫໍ່ (PACKAGING_INBOUND)",
+apps/web/src/locales/lo.json:4492:  "breeding.packagingModeDesc": "ບໍ່ອະນຸຍາດສ້າງສິນຄ້າຄົງຄັງໂດຍກົງ. ກະລຸນາເຮັດໃຫ້ສຳເລັດ ເກັບໄຂ່ → ຈັດລະດັບ → ຫຸ້ມຫໍ່ → ນຳເຂົ້າອັດຕະໂນມັດ ຜ່ານສູນຫຸ້ມຫໍ່.",
+apps/web/src/locales/lo.json:4493:  "breeding.goPackaging": "ໄປທີ່ການຫຸ້ມຫໍ່",
+apps/web/src/locales/lo.json:4494:  "breeding.currentMode": "ປະຈຸບັນແມ່ນ",
+apps/web/src/locales/lo.json:4495:  "breeding.tempProdMode": "ໂໝດນຳເຂົ້າການຜະລິດຊົ່ວຄາວ",
+apps/web/src/locales/lo.json:4496:  "breeding.tempProdModeDesc": ", ການປ້ອນຈະກາຍເປັນສິນຄ້າຄົງຄັງທີ່ຂາຍໄດ້ໂດຍກົງ.",
+apps/web/src/locales/lo.json:4497:  "breeding.prodDate": "ວັນທີຜະລິດ",
+apps/web/src/locales/lo.json:4498:  "breeding.houseOptional": "ເລົ້າໄກ່ (ທາງເລືອກ · ການຕິດຕາມ)",
+apps/web/src/locales/lo.json:4499:  "breeding.houseExample": "ເຊັ່ນ A001",
+apps/web/src/locales/lo.json:4500:  "breeding.refreshMode": "ໂຫລດໂໝດໃໝ່",
+apps/web/src/locales/lo.json:4501:  "breeding.prefillTitle": "ດຶງຈຳນວນໄຂ່ທີ່ແບ່ງຕາມ 9 ລະດັບ ຈາກລາຍງານການຜະລິດປະຈຳວັນຂອງວັນທີ+ເລົ້າໄກ່ທີ່ເລືອກ ແລ້ວຕື່ມໃສ່ຕາຕະລາງລຸ່ມ",
+apps/web/src/locales/lo.json:4502:  "breeding.fetching": "ກຳລັງດຶງ...",
+apps/web/src/locales/lo.json:4503:  "breeding.prefillFromDaily": "ຕື່ມລ່ວງໜ້າຈາກລາຍງານປະຈຳວັນ",
+apps/web/src/locales/lo.json:4504:  "breeding.gradesEntered": "ລະດັບທີ່ປ້ອນແລ້ວ",
+apps/web/src/locales/lo.json:4505:  "breeding.totalInboundEa": "ລວມນຳເຂົ້າ (ໜ່ວຍ)",
+apps/web/src/locales/lo.json:4506:  "breeding.totalCrates": "ລວມ (ກ່ອງ · ÷180)",
+apps/web/src/locales/lo.json:4507:  "breeding.eggGrade": "ລະດັບໄຂ່",
+apps/web/src/locales/lo.json:4508:  "breeding.code": "ລະຫັດ",
+apps/web/src/locales/lo.json:4509:  "breeding.qtyEa": "ຈຳນວນ (ໜ່ວຍ)",
+apps/web/src/locales/lo.json:4510:  "breeding.loadingGrades": "ກຳລັງໂຫລດຂໍ້ມູນຫລັກລະດັບ…",
+apps/web/src/locales/lo.json:4511:  "breeding.inbounding": "ກຳລັງນຳເຂົ້າ...",
+apps/web/src/locales/lo.json:4512:  "breeding.confirmInbound": "ຢືນຢັນການນຳເຂົ້າ (ສ້າງສິນຄ້າຄົງຄັງຂາຍ)",
+apps/web/src/locales/lo.json:4513:  "breeding.noCreatePerm": "ບັນຊີປະຈຸບັນບໍ່ມີສິດປ້ອນ (ຕ້ອງການສິດ C ຂອງ MENU_PROD_INBOUND)",
+apps/web/src/locales/lo.json:4514:  "breeding.inboundSuccess": "✓ ນຳເຂົ້າສຳເລັດ · ລວມ",
+apps/web/src/locales/lo.json:4515:  "breeding.eaGenerated": "ໜ່ວຍ, ສ້າງ",
+apps/web/src/locales/lo.json:4516:  "breeding.saleableBatches": "ຊຸດທີ່ຂາຍໄດ້",
+apps/web/src/locales/lo.json:4517:  "breeding.batchNo": "ເລກຊຸດ",
+apps/web/src/locales/lo.json:4518:  "breeding.grade": "ລະດັບ",
+apps/web/src/locales/lo.json:4519:  "breeding.qty": "ຈຳນວນ",
+apps/web/src/locales/lo.json:4520:  "breeding.pageMigrated": "ໜ້າຖືກຍ້າຍແລ້ວ",
+apps/web/src/locales/lo.json:4521:  "breeding.eggLedgerMerged": "ບັນຊີໄຂ່ຖືກລວມເຂົ້າ「ລາຍງານການຜະລິດປະຈຳວັນ」, ກຳລັງປ່ຽນເສັ້ນທາງ…",
+apps/web/src/locales/lo.json:6786:  "mob.brd.medicine_ledger": "ບັນຊີຢາ",
+apps/web/src/locales/lo.json:6787:  "mob.brd.search_medicine": "ຄົ້ນຫາຊື່ຢາ…",
+apps/web/src/locales/lo.json:7142:  "mob.home.desc_medicine": "ສະຕັອກຢາ · ລົງທະບຽນເຂົ້າ-ອອກ",
+apps/web/src/locales/lo.json:8510:  "ui.药品库存": "ສິນຄ້າຄົງຄັງຢາ",
+apps/web/src/locales/lo.json:9606:  "ui.库存总览": "ພາບລວມສິນຄ້າຄົງຄັງ",
+apps/web/src/locales/lo.json:9849:  "ui.搜索药品名称…": "ຄົ້ນຫາຊື່ຢາ…",
+apps/web/src/components/ui/CrudPage.tsx:5: * 收口 inbound/outbound/feed/medicine/transfer/stocktake 等所有"列表 + 抽屉
+apps/web/src/locales/en.json:8:  "menu.breeding": "Breeding production center",
+apps/web/src/locales/en.json:53:  "breeding.overview": "Farm overview",
+apps/web/src/locales/en.json:54:  "breeding.henhouse": "Chicken house management",
+apps/web/src/locales/en.json:55:  "breeding.flock": "Chicken Flock Archives",
+apps/web/src/locales/en.json:56:  "breeding.daily": "Daily production report",
+apps/web/src/locales/en.json:57:  "breeding.immune": "immunization schedule",
+apps/web/src/locales/en.json:58:  "breeding.medicine": "Medication records",
+apps/web/src/locales/en.json:59:  "breeding.withdrawal": "Withdrawal period warning",
+apps/web/src/locales/en.json:60:  "breeding.analysis": "Breeding analysis report",
+apps/web/src/locales/en.json:356:  "ui.有效养殖场": "Effective breeding farm",
+apps/web/src/locales/en.json:362:  "ui.养殖场总览": "Farm Overview",
+apps/web/src/locales/en.json:386:  "ui.养殖场": "breeding farm",
+apps/web/src/locales/en.json:397:  "ui.记录所有鸡群用药情况及停药期管理": "Record the medication status of all chickens and the management of the withdrawal period",
+apps/web/src/locales/en.json:398:  "ui.新增用药记录": "Add medication record",
+apps/web/src/locales/en.json:401:  "ui.用药中": "Taking medication",
+apps/web/src/locales/en.json:402:  "ui.药品名称": "Drug name",
+apps/web/src/locales/en.json:412:  "ui.累计用药记录": "Cumulative medication records",
+apps/web/src/locales/en.json:413:  "ui.多维度养殖绩效分析": "Multi-dimensional breeding performance analysis",
+apps/web/src/locales/en.json:1212:  "ui.用药前检查": "Check before medication",
+apps/web/src/locales/en.json:1230:  "ui.全链路质量管控从养殖到终端每一枚蛋都有迹": "Full-link quality control, every egg from breeding to terminal is traceable",
+apps/web/src/locales/en.json:1265:  "ui.养殖场一览": "List of breeding farms",
+apps/web/src/locales/en.json:1294:  "ui.选择养殖场": "-- Select a breeding farm --",
+apps/web/src/locales/en.json:1301:  "ui.引种来源种禽企业": "Source of introduction/breeding poultry enterprise",
+apps/web/src/locales/en.json:1302:  "ui.如XX育种公司": "Such as: XX breeding company",
+apps/web/src/locales/en.json:1312:  "ui.搜索批次药品": "Search batches, drugs...",
+apps/web/src/locales/en.json:1319:  "ui.新增用药": "New medication",
+apps/web/src/locales/en.json:1831:  "ui.凤凰一场": "+ Add new breeding farm",
+apps/web/src/locales/en.json:1855:  "ui.系统自动根据用药记录计算停药天数停药期内": "View medication details",
+apps/web/src/locales/en.json:1856:  "ui.7日内到期": "The system automatically calculates the number of days of drug withdrawal based on medication records, and batches of eggs during the drug withdrawal period will be marked as \"prohibited for sale.\" When the withdrawal period ends, the system will automatically lift the restrictions and notify relevant personnel.",
+apps/web/src/locales/en.json:1868:  "ui.其他养殖耗材": "Other breeding supplies",
+apps/web/src/locales/en.json:1872:  "ui.养殖人工": "artificial breeding",
+apps/web/src/locales/en.json:2011:  "ui.活体操作生产死淘与用药记录": "In vivo operation: production of dead cells and medication records",
+apps/web/src/locales/en.json:3782:  "ui.记录所有鸡群用药": "Record all flock medication and withdrawal period management",
+apps/web/src/locales/en.json:4047:  "menu.brd-medicine": "Medication Records",
+apps/web/src/locales/en.json:4482:  "breeding.noDailyOr9Grade": "No daily report or not entered by 9 grades",
+apps/web/src/locales/en.json:4483:  "breeding.fetchDailyFailed": "Failed to fetch daily report data",
+apps/web/src/locales/en.json:4484:  "breeding.enterAtLeastOne": "Please enter quantity for at least one grade",
+apps/web/src/locales/en.json:4485:  "breeding.inboundFailed": "Inbound failed",
+apps/web/src/locales/en.json:4486:  "breeding.noPermInbound": "No permission to access daily egg inbound",
+apps/web/src/locales/en.json:4487:  "breeding.inboundTitle": "Daily Egg Inbound",
+apps/web/src/locales/en.json:4488:  "breeding.inboundSubtitle": "Temporary production inbound mode · Daily eggs directly form sales inventory (unified into FIFO inventory system)",
+apps/web/src/locales/en.json:4489:  "breeding.prodMgmt": "Production Management",
+apps/web/src/locales/en.json:4490:  "breeding.loadingSourceMode": "Loading inventory source mode...",
+apps/web/src/locales/en.json:4491:  "breeding.packagingModeOn": "Packaging inbound mode enabled (PACKAGING_INBOUND)",
+apps/web/src/locales/en.json:4492:  "breeding.packagingModeDesc": "Direct inventory generation not allowed. Please complete egg collection → grading → packaging → auto inbound via the Packaging Center.",
+apps/web/src/locales/en.json:4493:  "breeding.goPackaging": "Go to Packaging",
+apps/web/src/locales/en.json:4494:  "breeding.currentMode": "Currently",
+apps/web/src/locales/en.json:4495:  "breeding.tempProdMode": "Temporary Production Inbound Mode",
+apps/web/src/locales/en.json:4496:  "breeding.tempProdModeDesc": ", entries directly form saleable inventory.",
+apps/web/src/locales/en.json:4497:  "breeding.prodDate": "Production Date",
+apps/web/src/locales/en.json:4498:  "breeding.houseOptional": "Henhouse (optional · traceability)",
+apps/web/src/locales/en.json:4499:  "breeding.houseExample": "e.g. A001",
+apps/web/src/locales/en.json:4500:  "breeding.refreshMode": "Refresh Mode",
+apps/web/src/locales/en.json:4501:  "breeding.prefillTitle": "Fetch egg quantities broken down by 9 grades from the daily production report of the selected date + henhouse, and prefill the table below",
+apps/web/src/locales/en.json:4502:  "breeding.fetching": "Fetching...",
+apps/web/src/locales/en.json:4503:  "breeding.prefillFromDaily": "Prefill from Daily Report",
+apps/web/src/locales/en.json:4504:  "breeding.gradesEntered": "Grades Entered",
+apps/web/src/locales/en.json:4505:  "breeding.totalInboundEa": "Total Inbound (pcs)",
+apps/web/src/locales/en.json:4506:  "breeding.totalCrates": "Total (crates · ÷180)",
+apps/web/src/locales/en.json:4507:  "breeding.eggGrade": "Egg Grade",
+apps/web/src/locales/en.json:4508:  "breeding.code": "Code",
+apps/web/src/locales/en.json:4509:  "breeding.qtyEa": "Quantity (pcs)",
+apps/web/src/locales/en.json:4510:  "breeding.loadingGrades": "Loading grade master data…",
+apps/web/src/locales/en.json:4511:  "breeding.inbounding": "Inbounding...",
+apps/web/src/locales/en.json:4512:  "breeding.confirmInbound": "Confirm Inbound (form sales inventory)",
+apps/web/src/locales/en.json:4513:  "breeding.noCreatePerm": "Current account has no entry permission (requires MENU_PROD_INBOUND C permission)",
+apps/web/src/locales/en.json:4514:  "breeding.inboundSuccess": "✓ Inbound successful · Total",
+apps/web/src/locales/en.json:4515:  "breeding.eaGenerated": "pcs, generated",
+apps/web/src/locales/en.json:4516:  "breeding.saleableBatches": "saleable batches",
+apps/web/src/locales/en.json:4517:  "breeding.batchNo": "Batch No.",
+apps/web/src/locales/en.json:4518:  "breeding.grade": "Grade",
+apps/web/src/locales/en.json:4519:  "breeding.qty": "Quantity",
+apps/web/src/locales/en.json:4520:  "breeding.pageMigrated": "Page Migrated",
+apps/web/src/locales/en.json:4521:  "breeding.eggLedgerMerged": "Egg ledger merged into Daily Production Report, redirecting…",
+apps/web/src/locales/en.json:4542:  "dwork.card.vet_record.desc": "Routine medication / Treatment records",
+apps/web/src/locales/en.json:6786:  "mob.brd.medicine_ledger": "Medicine Ledger",
+apps/web/src/locales/en.json:6787:  "mob.brd.search_medicine": "Search medicine name…",
+apps/web/src/locales/en.json:7142:  "mob.home.desc_medicine": "Medicine Stock · In/Out Registration",
+apps/web/src/locales/en.json:8510:  "ui.药品库存": "Drug Inventory",
+apps/web/src/locales/en.json:9606:  "ui.库存总览": "Inventory overview",
+apps/web/src/locales/en.json:9849:  "ui.搜索药品名称…": "Search drug name…",
+apps/web/src/locales/zh.json:8:  "menu.breeding": "养殖生产中心",
+apps/web/src/locales/zh.json:53:  "breeding.overview": "养殖场总览",
+apps/web/src/locales/zh.json:54:  "breeding.henhouse": "鸡舍管理",
+apps/web/src/locales/zh.json:55:  "breeding.flock": "鸡群档案",
+apps/web/src/locales/zh.json:56:  "breeding.daily": "日生产日报",
+apps/web/src/locales/zh.json:57:  "breeding.immune": "免疫计划",
+apps/web/src/locales/zh.json:58:  "breeding.medicine": "用药记录",
+apps/web/src/locales/zh.json:59:  "breeding.withdrawal": "停药期预警",
+apps/web/src/locales/zh.json:60:  "breeding.analysis": "养殖分析报表",
+apps/web/src/locales/zh.json:362:  "ui.养殖场总览": "养殖场总览",
+apps/web/src/locales/zh.json:402:  "ui.药品名称": "药品名称",
+apps/web/src/locales/zh.json:1312:  "ui.搜索批次药品": "搜索批次、药品...",
+apps/web/src/locales/zh.json:4042:  "menu.brd-overview": "养殖场总览",
+apps/web/src/locales/zh.json:4047:  "menu.brd-medicine": "用药记录",
+apps/web/src/locales/zh.json:4459:  "breeding.noDailyOr9Grade": "暂无日报或未按 9 档录入",
+apps/web/src/locales/zh.json:4460:  "breeding.fetchDailyFailed": "拉取日报数据失败",
+apps/web/src/locales/zh.json:4461:  "breeding.enterAtLeastOne": "请至少录入一档数量",
+apps/web/src/locales/zh.json:4462:  "breeding.inboundFailed": "入库失败",
+apps/web/src/locales/zh.json:4463:  "breeding.noPermInbound": "无权限访问日产蛋入库",
+apps/web/src/locales/zh.json:4464:  "breeding.inboundTitle": "日产蛋入库",
+apps/web/src/locales/zh.json:4465:  "breeding.inboundSubtitle": "临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）",
+apps/web/src/locales/zh.json:4466:  "breeding.prodMgmt": "生产管理",
+apps/web/src/locales/zh.json:4467:  "breeding.loadingSourceMode": "加载库存来源模式...",
+apps/web/src/locales/zh.json:4468:  "breeding.packagingModeOn": "已启用包装入库模式（PACKAGING_INBOUND）",
+apps/web/src/locales/zh.json:4469:  "breeding.packagingModeDesc": "不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。",
+apps/web/src/locales/zh.json:4470:  "breeding.goPackaging": "前往包装作业",
+apps/web/src/locales/zh.json:4471:  "breeding.currentMode": "当前为",
+apps/web/src/locales/zh.json:4472:  "breeding.tempProdMode": "临时生产入库模式",
+apps/web/src/locales/zh.json:4473:  "breeding.tempProdModeDesc": "，录入即直接形成可销售库存。",
+apps/web/src/locales/zh.json:4474:  "breeding.prodDate": "生产日期",
+apps/web/src/locales/zh.json:4475:  "breeding.houseOptional": "鸡舍（可选·追溯）",
+apps/web/src/locales/zh.json:4476:  "breeding.houseExample": "如 A001",
+apps/web/src/locales/zh.json:4477:  "breeding.refreshMode": "刷新模式",
+apps/web/src/locales/zh.json:4478:  "breeding.prefillTitle": "从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格",
+apps/web/src/locales/zh.json:4479:  "breeding.fetching": "拉取中...",
+apps/web/src/locales/zh.json:4480:  "breeding.prefillFromDaily": "从日报预填",
+apps/web/src/locales/zh.json:4481:  "breeding.gradesEntered": "已录等级",
+apps/web/src/locales/zh.json:4482:  "breeding.totalInboundEa": "合计入库（枚）",
+apps/web/src/locales/zh.json:4483:  "breeding.totalCrates": "合计（提·÷180）",
+apps/web/src/locales/zh.json:4484:  "breeding.eggGrade": "蛋品等级",
+apps/web/src/locales/zh.json:4485:  "breeding.code": "编码",
+apps/web/src/locales/zh.json:4486:  "breeding.qtyEa": "数量（枚）",
+apps/web/src/locales/zh.json:4487:  "breeding.loadingGrades": "加载等级主数据中…",
+apps/web/src/locales/zh.json:4488:  "breeding.inbounding": "入库中...",
+apps/web/src/locales/zh.json:4489:  "breeding.confirmInbound": "确认入库（形成销售库存）",
+apps/web/src/locales/zh.json:4490:  "breeding.noCreatePerm": "当前账号无录入权限（需 MENU_PROD_INBOUND 的 C 权限）",
+apps/web/src/locales/zh.json:4491:  "breeding.inboundSuccess": "✓ 入库成功 · 合计",
+apps/web/src/locales/zh.json:4492:  "breeding.eaGenerated": "枚，生成",
+apps/web/src/locales/zh.json:4493:  "breeding.saleableBatches": "个可售批次",
+apps/web/src/locales/zh.json:4494:  "breeding.batchNo": "批次号",
+apps/web/src/locales/zh.json:4495:  "breeding.grade": "等级",
+apps/web/src/locales/zh.json:4496:  "breeding.qty": "数量",
+apps/web/src/locales/zh.json:4497:  "breeding.pageMigrated": "页面已迁移",
+apps/web/src/locales/zh.json:4498:  "breeding.eggLedgerMerged": "蛋品台账已合并到「日生产日报」，正在跳转…",
+apps/web/src/locales/zh.json:4522:  "dwork.card.med_stock.title": "药品库存",
+apps/web/src/locales/zh.json:6763:  "mob.brd.medicine_ledger": "药品台账",
+apps/web/src/locales/zh.json:6764:  "mob.brd.search_medicine": "搜索药品名称…",
+apps/web/src/locales/zh.json:7119:  "mob.home.desc_medicine": "药品库存·出入库登记",
+apps/web/src/locales/zh.json:8507:  "ui.药品库存": "药品库存",
+apps/web/src/locales/zh.json:9606:  "ui.库存总览": "库存总览",
+apps/web/src/locales/zh.json:9849:  "ui.搜索药品名称…": "搜索药品名称…",
+apps/web/src/app/(admin)/analytics/production/page.tsx:117:      apiFetch<ReportResponse | DailyReport[]>("/api/breeding/daily-reports?limit=30", signal).then((raw) =>
+apps/web/src/app/(mobile)/mobile/home/page.tsx:101:  titleZh: '药品台账',
+apps/web/src/app/(mobile)/mobile/home/page.tsx:104:  desc: '药品库存·出入库登记',
+apps/web/src/app/(mobile)/mobile/home/page.tsx:105:  descKey: 'mob.home.desc_medicine',
+apps/web/src/app/(mobile)/mobile/home/page.tsx:107:  href: '/mobile/medicine',
+apps/web/src/app/(mobile)/mobile/home/page.tsx:109:  pageKey: 'medicine'
+apps/web/src/app/(admin)/warehouse/page.tsx:256:              {t("ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏", "当前账号仅可查看库存总览，出入库作业与库区容量已按权限隐藏。")}
+apps/web/src/app/(mobile)/mobile/medicine/page.tsx:36:  const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
+apps/web/src/app/(mobile)/mobile/medicine/page.tsx:52:  // 入库 / 出库 entries：{ medication_code → EntryRow }
+apps/web/src/app/(mobile)/mobile/medicine/page.tsx:111:    !search ||
 ```
