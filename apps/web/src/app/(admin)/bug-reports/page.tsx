@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import u from "@/styles/uix-utils.module.css";
@@ -93,6 +93,10 @@ type PipelineStatus = {
     runningCount: number;
     artifactReadyCount: number;
     autoRecoverableCount?: number;
+    readOnlyValidationCount?: number;
+    codeRepairCount?: number;
+    releaseGateCount?: number;
+    routeReviewCount?: number;
     queueHealthScore?: number;
     latestRunnerConclusion?: string | null;
     latestRunnerSummary?: string | null;
@@ -116,6 +120,8 @@ type PipelineStatus = {
     suggestedFix?: string | null;
     recommendedAgents?: string[];
     selectedAgents?: string[];
+    safetyLane?: string;
+    canRedispatchSafely?: boolean;
     retryCount?: number;
     redispatchCount?: number;
     lastRedispatchAt?: string | null;
@@ -148,6 +154,7 @@ type AutoTriageResult = {
 };
 
 const STATUSES = ["OPEN", "TRIAGED", "IN_PROGRESS", "RESOLVED", "CLOSED", "REJECTED"];
+type QueueLaneFilter = "ALL" | "READ_ONLY_VALIDATION" | "CODE_REPAIR" | "RELEASE_GATE" | "ROUTE_REVIEW" | "AUTO_RECOVERABLE" | "HOLD";
 const PRIORITIES = ["P0", "P1", "P2", "P3"];
 const PAGE_SIZE = 20;
 
@@ -287,6 +294,7 @@ export default function BugReportsPage() {
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [autoTriageResult, setAutoTriageResult] = useState<AutoTriageResult | null>(null);
+  const [queueLaneFilter, setQueueLaneFilter] = useState<QueueLaneFilter>("ALL");
 
   const fetchPipelineStatus = useCallback(async () => {
     setPipelineLoading(true);
@@ -477,6 +485,22 @@ export default function BugReportsPage() {
   };
 
   const pages = Math.ceil(total / PAGE_SIZE) || 1;
+  const queueItems = pipelineStatus?.queueItems ?? [];
+  const filteredQueueItems = useMemo(() => {
+    if (queueLaneFilter === "ALL") return queueItems;
+    if (queueLaneFilter === "AUTO_RECOVERABLE") return queueItems.filter(item => item.autoRecoveryEligible);
+    if (queueLaneFilter === "HOLD") return queueItems.filter(item => item.repairTaskStatus === "HOLD");
+    return queueItems.filter(item => item.safetyLane === queueLaneFilter);
+  }, [queueItems, queueLaneFilter]);
+  const queueLaneOptions: Array<{ key: QueueLaneFilter; label: string; count: number }> = [
+    { key: "ALL", label: t("system.bugIntake.queueLaneAll", "全部"), count: queueItems.length },
+    { key: "READ_ONLY_VALIDATION", label: t("system.bugIntake.queueLaneReadOnly", "只读验证"), count: pipelineStatus?.runtimeSummary?.readOnlyValidationCount ?? queueItems.filter(item => item.safetyLane === "READ_ONLY_VALIDATION").length },
+    { key: "CODE_REPAIR", label: t("system.bugIntake.queueLaneCodeRepair", "代码修复"), count: pipelineStatus?.runtimeSummary?.codeRepairCount ?? queueItems.filter(item => item.safetyLane === "CODE_REPAIR").length },
+    { key: "RELEASE_GATE", label: t("system.bugIntake.queueLaneReleaseGate", "发布 Gate"), count: pipelineStatus?.runtimeSummary?.releaseGateCount ?? queueItems.filter(item => item.safetyLane === "RELEASE_GATE").length },
+    { key: "ROUTE_REVIEW", label: t("system.bugIntake.queueLaneRouteReview", "路由复核"), count: pipelineStatus?.runtimeSummary?.routeReviewCount ?? queueItems.filter(item => item.safetyLane === "ROUTE_REVIEW").length },
+    { key: "AUTO_RECOVERABLE", label: t("system.bugIntake.queueLaneAutoRecoverable", "可自恢复"), count: pipelineStatus?.runtimeSummary?.autoRecoverableCount ?? queueItems.filter(item => item.autoRecoveryEligible).length },
+    { key: "HOLD", label: "HOLD", count: pipelineStatus?.counts.hold ?? queueItems.filter(item => item.repairTaskStatus === "HOLD").length },
+  ];
 
   return (
     <div>
@@ -556,6 +580,8 @@ export default function BugReportsPage() {
                   <span>{t("system.bugIntake.runningCount", "执行中")}：<strong>{pipelineStatus.runtimeSummary.runningCount}</strong> · {t("system.bugIntake.waitingRunnerCount", "待 Runner 领取")}：<strong>{pipelineStatus.runtimeSummary.waitingRunnerCount}</strong></span>
                   <span>{t("system.bugIntake.artifactReadyCount", "已有修复产物")}：<strong>{pipelineStatus.runtimeSummary.artifactReadyCount}</strong></span>
                   <span>{t("system.bugIntake.autoRecoverableCount", "可自动恢复")}：<strong>{pipelineStatus.runtimeSummary.autoRecoverableCount ?? 0}</strong> · {t("system.bugIntake.queueHealthScore", "健康分")}：<strong>{pipelineStatus.runtimeSummary.queueHealthScore ?? "—"}</strong></span>
+                  <span>{t("system.bugIntake.queueLaneReadOnly", "只读验证")}：<strong>{pipelineStatus.runtimeSummary.readOnlyValidationCount ?? 0}</strong> · {t("system.bugIntake.queueLaneCodeRepair", "代码修复")}：<strong>{pipelineStatus.runtimeSummary.codeRepairCount ?? 0}</strong></span>
+                  <span>{t("system.bugIntake.queueLaneReleaseGate", "发布 Gate")}：<strong>{pipelineStatus.runtimeSummary.releaseGateCount ?? 0}</strong> · {t("system.bugIntake.queueLaneRouteReview", "路由复核")}：<strong>{pipelineStatus.runtimeSummary.routeReviewCount ?? 0}</strong></span>
                   <span>{t("system.bugIntake.latestRunnerConclusion", "最近 Runner 结论")}：<strong>{pipelineStatus.runtimeSummary.latestRunnerConclusion || "—"}</strong></span>
                   <span>{t("system.bugIntake.latestCommitHash", "最近提交")}：<strong style={{ fontFamily: "monospace" }}>{pipelineStatus.runtimeSummary.latestCommitHash || "—"}</strong></span>
                 </div>
@@ -602,11 +628,38 @@ export default function BugReportsPage() {
             </div>
           )}
 
-          {Boolean(pipelineStatus?.queueItems?.length) && (
+          {Boolean(queueItems.length) && (
             <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
               <div style={{ padding: 12, borderBottom: "1px solid var(--border)", background: "var(--bg-muted)", display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                 <strong>{t("system.bugIntake.pipelineQueueLedger", "修复队列运行台账")}</strong>
+                <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>
+                  {t("system.bugIntake.filteredQueueCount", "当前筛选")} {filteredQueueItems.length}/{queueItems.length}
+                </span>
+              </div>
+              <div style={{ padding: 12, borderBottom: "1px solid var(--border)", background: "var(--bg-card)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.pipelineQueueLedgerHint", "显示卡点、重试、Agent 产物和 runner 最近回写")}</span>
+                {queueLaneOptions.map(option => {
+                  const active = queueLaneFilter === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setQueueLaneFilter(option.key)}
+                      style={{
+                        border: `1px solid ${active ? "var(--color-primary)" : "var(--border)"}`,
+                        borderRadius: 999,
+                        background: active ? "var(--color-primary)" : "var(--bg-muted)",
+                        color: active ? "white" : "var(--text-primary)",
+                        padding: "5px 10px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {option.label} · {option.count}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table className={s.table}>
@@ -615,6 +668,7 @@ export default function BugReportsPage() {
                       {[
                         t("system.bugIntake.bugNo", "编号"),
                         t("system.bugIntake.pipelineStage", "阶段"),
+                        t("system.bugIntake.safetyLane", "处理分道"),
                         t("system.bugIntake.failureCategoryLabel", "分类："),
                         t("system.bugIntake.retries", "重试"),
                         t("system.bugIntake.agent", "Agent"),
@@ -627,7 +681,7 @@ export default function BugReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pipelineStatus?.queueItems?.slice(0, 12).map(item => (
+                    {filteredQueueItems.slice(0, 20).map(item => (
                       <tr key={item.bugNo} onClick={() => openDetail(item.bugNo)} style={{ cursor: "pointer" }}>
                         <td>
                           <strong style={{ color: "var(--color-primary)", fontFamily: "monospace" }}>{item.bugNo}</strong>
@@ -636,6 +690,14 @@ export default function BugReportsPage() {
                         <td>
                           <strong style={{ color: timelineStatusColor(item.repairTaskStatus || item.status || "") }}>{item.repairTaskStatus || item.status || "—"}</strong>
                           <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.ageMinutes ?? 0} {t("system.bugIntake.minutesAgo", "分钟前更新")}</div>
+                        </td>
+                        <td>
+                          <strong>{t(`system.bugIntake.safetyLane.${item.safetyLane || "ROUTE_REVIEW"}`, item.safetyLane || "ROUTE_REVIEW")}</strong>
+                          <div style={{ color: item.canRedispatchSafely ? "var(--status-success)" : "var(--status-warning)", fontSize: 11, fontWeight: 800 }}>
+                            {item.canRedispatchSafely
+                              ? t("system.bugIntake.safeRedispatchAllowed", "可安全重派")
+                              : t("system.bugIntake.gateRequiredBeforeRedispatch", "需 Gate 后重派")}
+                          </div>
                         </td>
                         <td>
                           <strong>{item.failureCategory || t("system.bugIntake.unclassified", "未分类")}</strong>
@@ -676,8 +738,8 @@ export default function BugReportsPage() {
                                 event.stopPropagation();
                                 redispatchRepairTask(item.bugNo, "REQUEUE");
                               }}
-                              disabled={saving || !item.repairTaskNo}
-                              style={{ padding: "5px 9px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-sm)", background: "var(--status-success)", color: "white", cursor: saving || !item.repairTaskNo ? "not-allowed" : "pointer", fontSize: 12 }}
+                              disabled={saving || !item.repairTaskNo || !item.canRedispatchSafely}
+                              style={{ padding: "5px 9px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-sm)", background: item.canRedispatchSafely ? "var(--status-success)" : "var(--bg-muted)", color: item.canRedispatchSafely ? "white" : "var(--text-secondary)", cursor: saving || !item.repairTaskNo || !item.canRedispatchSafely ? "not-allowed" : "pointer", fontSize: 12 }}
                             >
                               {t("system.bugIntake.redispatchOriginal", "重新派发")}
                             </button>

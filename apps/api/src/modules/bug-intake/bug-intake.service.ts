@@ -931,6 +931,18 @@ export class BugIntakeService {
     const blockingReason = this.pipelineBlockingReason(row.repair_task_status, row.status, runtime, timeoutRecovery, failureClassification);
     const recommendedOperation = this.pipelineRecommendedOperation(row.repair_task_status, runtime, blockingReason);
     const autoRecoveryEligible = this.pipelineAutoRecoveryEligible(row.repair_task_status, runtime, blockingReason);
+    const recommendedAgents = Array.isArray(holdDispatch.recommendedAgents)
+      ? holdDispatch.recommendedAgents.map(String)
+      : runtime.selectedAgents;
+    const safetyLane = this.pipelineSafetyLane(row.repair_task_status, row.status, runtime, recommendedAgents);
+    const canRedispatchSafely = this.pipelineCanRedispatchSafely(
+      row.repair_task_no,
+      row.repair_task_status,
+      row.status,
+      runtime,
+      safetyLane,
+      autoRecoveryEligible,
+    );
 
     return {
       bugNo: row.bug_no,
@@ -949,10 +961,10 @@ export class BugIntakeService {
       failureCategory: failureClassification.category || null,
       classificationConfidence: failureClassification.confidence ?? null,
       suggestedFix: failureClassification.suggestedFix || null,
-      recommendedAgents: Array.isArray(holdDispatch.recommendedAgents)
-        ? holdDispatch.recommendedAgents.map(String)
-        : runtime.selectedAgents,
+      recommendedAgents,
       selectedAgents: runtime.selectedAgents,
+      safetyLane,
+      canRedispatchSafely,
       retryCount: runtime.retryCount,
       redispatchCount: Number(payload.redispatchCount || 0),
       lastRedispatchAt: typeof lastRedispatch?.redispatchedAt === 'string' ? lastRedispatch.redispatchedAt : null,
@@ -1092,6 +1104,46 @@ export class BugIntakeService {
     return false;
   }
 
+  private pipelineSafetyLane(
+    repairTaskStatus: unknown,
+    status: unknown,
+    runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>,
+    recommendedAgents: string[],
+  ) {
+    const repairStatus = String(repairTaskStatus || '');
+    if (repairStatus === 'AGENT_COMPLETED' || String(status) === 'RESOLVED' || String(status) === 'CLOSED') {
+      return 'DONE_OR_VERIFY';
+    }
+    const agents = Array.from(new Set([...(recommendedAgents || []), ...(runtime.selectedAgents || [])].filter(Boolean)));
+    if (agents.some((agent) => agent.includes('A6-') || agent.includes('A7-'))) return 'RELEASE_GATE';
+    if (agents.some((agent) => agent.includes('A3-') || agent.includes('A4-'))) return 'CODE_REPAIR';
+    if (agents.length > 0 && agents.every((agent) => agent.includes('A1-') || agent.includes('A2-') || agent.includes('A5-'))) {
+      return 'READ_ONLY_VALIDATION';
+    }
+    if (agents.some((agent) => agent.includes('Codex-Orchestrator')) || repairStatus === 'HOLD' || repairStatus === 'READY' || repairStatus === 'ROUTED') {
+      return 'ROUTE_REVIEW';
+    }
+    return 'ROUTE_REVIEW';
+  }
+
+  private pipelineCanRedispatchSafely(
+    repairTaskNo: unknown,
+    repairTaskStatus: unknown,
+    status: unknown,
+    runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>,
+    safetyLane: string,
+    autoRecoveryEligible: boolean,
+  ) {
+    if (!repairTaskNo) return false;
+    const repairStatus = String(repairTaskStatus || '');
+    if (['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(status || ''))) return false;
+    if (repairStatus === 'AGENT_COMPLETED') return false;
+    if (runtime.failedAttemptCount >= 3) return false;
+    if (safetyLane === 'CODE_REPAIR' || safetyLane === 'RELEASE_GATE') return false;
+    if (autoRecoveryEligible) return true;
+    return ['READY', 'ROUTED', 'HOLD', 'AGENT_APPROVED'].includes(repairStatus);
+  }
+
   private buildPipelineRuntimeSummary(rows: Record<string, any>[]) {
     const items = rows.map((row) => this.toPipelineQueueItem(row));
     const latestRunner = items.find((item) => item.latestRunnerConclusion || item.latestCommitHash);
@@ -1100,6 +1152,10 @@ export class BugIntakeService {
     const running = items.filter((item) => item.repairTaskStatus === 'AGENT_RUNNING');
     const artifactCount = items.filter((item) => item.artifactReady).length;
     const autoRecoverableCount = items.filter((item) => item.autoRecoveryEligible).length;
+    const readOnlyValidationCount = items.filter((item) => item.safetyLane === 'READ_ONLY_VALIDATION').length;
+    const codeRepairCount = items.filter((item) => item.safetyLane === 'CODE_REPAIR').length;
+    const releaseGateCount = items.filter((item) => item.safetyLane === 'RELEASE_GATE').length;
+    const routeReviewCount = items.filter((item) => item.safetyLane === 'ROUTE_REVIEW').length;
     const queueHealthScore = Math.max(
       0,
       Math.min(100, 100 - blocked.length * 18 - running.length * 5 - waitingRunner.length * 4 + artifactCount * 3),
@@ -1112,6 +1168,10 @@ export class BugIntakeService {
       runningCount: running.length,
       artifactReadyCount: artifactCount,
       autoRecoverableCount,
+      readOnlyValidationCount,
+      codeRepairCount,
+      releaseGateCount,
+      routeReviewCount,
       queueHealthScore,
       latestRunnerConclusion: latestRunner?.latestRunnerConclusion || null,
       latestRunnerSummary: latestRunner?.latestRunnerSummary || null,
