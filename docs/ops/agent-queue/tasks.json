@@ -4404,7 +4404,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4423,9 +4423,9 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
+    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_at": "2026-07-08T02:04:11.805Z",
+    "completed_at": "2026-07-08T02:08:32.874Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -4469,7 +4469,8 @@
         "source_bug_no": "BUG-20260707-0009",
         "source_repair_task_no": "BUGTASK-20260707-0009"
       }
-    ]
+    ],
+    "reason": "worker parent returned before child completion; child exited after 81s but task was not written back; worker exit=1; observed=running"
   },
   {
     "task_id": "BUGTASK-20260707-0009-03-A4",
