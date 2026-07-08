@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-08T06:36:11.112Z",
-  "updatedAt": "2026-07-08T07:53:29.271Z",
+  "updatedAt": "2026-07-08T07:57:15.984Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "库存管理-库存台账，事务类型不显示中文",
@@ -1643,17 +1643,30 @@
         "validationResults": null
       },
       {
-        "taskId": "BUGTASK-20260708-0004-02-A3",
         "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260708-0004-02-A3",
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 96 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.service.ts\n?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n: 64cfbfef\nTarget branch HEAD (w5-a3-backend-critical-path): bf10bcf1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 64cfbfef..bf10bcf1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nbf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n64cfbfef feat(api): record A3-Backend-Critical-Path result\n20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n531c7139 feat(web): record A4-Frontend-UAT-Smoke result\n2dffe9b1 docs(ops): record baseline lifecycle report",
+        "commitHash": "",
         "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-08T07:53:29.269Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "taskId": "BUGTASK-20260708-0004-03-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-03-A4-detached-worker-recovery.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 96 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.service.ts\n?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n: 64cfbfef\nTarget branch HEAD (w5-a3-backend-critical-path): bf10bcf1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 64cfbfef..bf10bcf1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nbf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n64cfbfef feat(api): record A3-Backend-Critical-Path result\n20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n531c7139 feat(web): record A4-Frontend-UAT-Smoke result\n2dffe9b1 docs(ops): record baseline lifecycle report",
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 35 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: fca5a3d1\nTarget branch HEAD (w5-a4-frontend-uat-smoke): d3498070\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating fca5a3d1..d3498070\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nd3498070 (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nfca5a3d1 fix: localize warehouse ledger transaction",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-08T07:53:29.269Z"
+        "recordedAt": "2026-07-08T07:57:15.982Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1664,17 +1677,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0004-02-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0004-03-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-03-A4-detached-worker-recovery.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 96 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.service.ts\n?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n: 64cfbfef\nTarget branch HEAD (w5-a3-backend-critical-path): bf10bcf1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 64cfbfef..bf10bcf1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nbf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n64cfbfef feat(api): record A3-Backend-Critical-Path result\n20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n531c7139 feat(web): record A4-Frontend-UAT-Smoke result\n2dffe9b1 docs(ops): record baseline lifecycle report",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 35 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: fca5a3d1\nTarget branch HEAD (w5-a4-frontend-uat-smoke): d3498070\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating fca5a3d1..d3498070\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nd3498070 (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nfca5a3d1 fix: localize warehouse ledger transaction",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-08T07:53:29.269Z"
+      "recordedAt": "2026-07-08T07:57:15.982Z"
     },
     "acceptanceCriteria": "库存管理-库存台账，要求事务类型显示中文",
     "agentPlanGeneratedAt": "2026-07-08T06:37:09.336Z",
