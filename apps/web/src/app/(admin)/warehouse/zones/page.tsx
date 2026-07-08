@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -52,9 +52,10 @@ export default function Page() {
   const [refreshKey, setRefreshKey]     = useState(0);
   const [confirmOpen, setConfirmOpen]   = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [draftDefaults, setDraftDefaults] = useState<Row>({});
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { setEditing(null); setDrawerOpen(true); }, []);
-  const openEdit    = useCallback((row: Row) => { setEditing(row); setDrawerOpen(true); }, []);
+  const openNew     = useCallback((defaults: Row = {}) => { setEditing(null); setDraftDefaults(defaults); setDrawerOpen(true); }, []);
+  const openEdit    = useCallback((row: Row) => { setDraftDefaults({}); setEditing(row); setDrawerOpen(true); }, []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const handleSave  = useCallback(async (values: Record<string, unknown>) => {
     setSaving(true);
@@ -76,21 +77,30 @@ export default function Page() {
     await crudApi.delete(TABLE, key);
     setConfirmOpen(false); refresh();
   }, [deleteTarget, refresh]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") !== "new") return;
+    const warehouseCode = params.get("warehouseCode") ?? "";
+    openNew(warehouseCode ? { warehouse_code: warehouseCode } : {});
+    window.history.replaceState(null, "", "/warehouse/zones");
+  }, [openNew]);
+
   return (
     <div>
       <PageHeader
         title={t("ui.库区管理", "库区管理")}
         subtitle={t("ui.管理仓库内的库区划分", "管理仓库内的库区划分")}
         actions={
-          <button type="button" style={primaryActionButton} onClick={openNew}>
+          <button type="button" style={primaryActionButton} onClick={() => openNew()}>
             <Plus size={14} />{t("ui.新增库区", "新增库区")}
           </button>
         }
       />
-      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+      <DataTable table={TABLE} columns={COLUMNS} onNew={() => openNew()} onEdit={openEdit}
         onDelete={handleDelete} showActions rowKey="zone_code" refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑库区管理", "编辑库区管理") : t("ui.新增库区管理", "新增库区管理")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
+        <CrudForm fields={FIELDS} initialValues={editing ?? draftDefaults} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

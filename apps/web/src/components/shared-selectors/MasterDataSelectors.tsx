@@ -270,8 +270,9 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
   const { t } = useLanguage();
   const { warehouseCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择库区','请选择库区')}
+    reloadDeps={[warehouseCode]}
     loader={async () => {
-      const r = await request<any>('/crud/wms_zones?status=ACTIVE&pageSize=500');
+      const r = await request<any>('/crud/wms_zones?status=ACTIVE&limit=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
         .filter(z => (z.status ?? 'ACTIVE') === 'ACTIVE')

@@ -2,73 +2,77 @@
 
 ## Result
 
-PASS WITH CONDITIONS / HOLD for full UAT smoke.
+GO WITH CONDITIONS.
 
-The frontend repair is implemented in the allowed scope. Local TypeScript and browser smoke could not be completed because this worktree has no installed dependencies and offline install cannot hydrate the missing pnpm package tarballs.
+Frontend repair is implemented inside the approved A4 scope. Web typecheck now passes after hydrating the A4 worktree dependencies. Browser UAT should still be performed after deployment because this report only validates static frontend behavior and the route handoff.
 
 ## Changed Files
 
-- `apps/web/src/app/(admin)/warehouse/zones/page.tsx`
 - `apps/web/src/app/(admin)/warehouse/locations/page.tsx`
-- `apps/web/src/lib/api-client.ts`
+- `apps/web/src/app/(admin)/warehouse/zones/page.tsx`
+- `apps/web/src/components/shared-selectors/MasterDataSelectors.tsx`
+- `apps/web/src/locales/zh.json`
+- `apps/web/src/locales/en.json`
+- `apps/web/src/locales/lo.json`
 - `docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md`
 
 ## Page / Component List
 
+- `/warehouse/locations`
+  - `ModalV2`
+  - `WarehouseSelector`
+  - `ZoneSelector`
 - `/warehouse/zones`
   - `PageHeader`
   - `DataTable`
   - `RightDrawer`
   - `CrudForm`
-- `/warehouse/locations`
-  - `ModalV2`
-  - `WarehouseSelector`
+- Shared selector:
   - `ZoneSelector`
-- Shared frontend API client:
-  - `crudApi.get`
-  - `crudApi.update`
-  - `crudApi.delete`
 
 ## UI/UX Adjustment Summary
 
-- Added an explicit top-right `新增库区` action on `/warehouse/zones`, wired to the existing new-zone drawer.
-- Kept the existing table refresh and edit/delete actions unchanged.
-- Set zone `warehouse_code` as required so zones are created under a warehouse and can be filtered by the location form.
-- Set zone `status` as required with default `ACTIVE`, because `/warehouse/locations` uses `ZoneSelector`, which only loads active zones.
-- Added string primary-key compatibility for CRUD requests and used `zone_code` / `location_code` as fallback keys when rows do not include `id`.
-- Fixed the `/warehouse/locations` edit/delete path that could call `/api/crud/wms_locations/undefined`.
+- Made `ZoneSelector` reload when `warehouseCode` changes, so the location form does not keep a stale zone list after selecting another warehouse.
+- Changed the zone selector CRUD query to request `limit=500`, matching the generic CRUD pagination contract and avoiding a truncated default page.
+- Marked `库区` as required in the location modal and disabled save until `location_code`, `warehouse_code`, and `zone_code` are present.
+- Added an inline `新增库区` link beside the location modal's `库区` label.
+- Added `/warehouse/zones?action=new&warehouseCode=...` support so the zone drawer opens directly and pre-fills the selected warehouse from the location form.
+- Added the `ui.新增库区` locale key for zh/en/lo.
 
 ## Permission Visibility Notes
 
 - No RBAC bypass was added.
-- Existing menu permission remains `MENU_WMS_MASTER`.
-- Existing page-level visibility and CRUD API authorization are preserved.
-- The new `新增库区` button only opens the same frontend drawer that was already reachable through the page callback.
+- Existing menu visibility remains governed by `MENU_WMS_MASTER`.
+- The new inline link only routes to `/warehouse/zones`, which is already a protected warehouse master page.
+- DataScope remains enforced by existing backend CRUD and lookup/read paths; no frontend hidden security shortcut was introduced.
 
 ## Responsive Behavior Notes
 
-- The new zone action uses the existing `PageHeader` action slot and shared `primaryActionButton` token.
-- Existing responsive behavior of `PageHeader`, `DataTable`, `RightDrawer`, and `ModalV2` is unchanged.
-- No new fixed-width layout was introduced beyond the existing drawer/table configuration.
+- The new `新增库区` action is a compact inline text/icon link inside the existing two-column modal grid.
+- It uses nowrap text to avoid wrapping into the selector control on desktop.
+- No new fixed-width page layout, drawer width, table width, or mobile-only layout rule was introduced.
 
 ## UAT Smoke Result
 
-- `pwd`: `/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke`
-- `git branch --show-current`: `w5-a4-frontend-uat-smoke`
-- Initial `git status --short`: clean
+- `pwd`: PASS, `/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke`
+- `git branch --show-current`: PASS, `w5-a4-frontend-uat-smoke`
+- initial `git status --short`: PASS, clean
+- `git log --oneline --decorate -8`: PASS, branch history inspected
 - `git diff --check`: PASS
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: FAIL, `./node_modules/.bin/tsc` missing
-- `pnpm --filter web typecheck`: FAIL, `tsc: command not found`
-- `pnpm install --offline --frozen-lockfile`: FAIL, pnpm store missing `chalk-4.1.2.tgz`
-- Browser smoke: HOLD, local web server cannot be started without dependencies
+- forbidden-scope audit: PASS, no `apps/api/**`, migration, schema/entity/table/column changes
+- targeted source audit: PASS, found expected `reloadDeps={[warehouseCode]}`, required `zone_code` save gate, and `action=new` zone handoff
+- `pnpm install --frozen-lockfile`: PARTIAL PASS, dependencies were hydrated; pnpm returned non-zero only because `esbuild` build-script approval is governed by the existing workspace allowBuilds policy.
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
+- `node scripts/check-i18n-keys.js`: HOLD, 7 pre-existing locale keys are missing in this older A4 worktree baseline; the new `ui.新增库区` key is present in zh/en/lo.
+- browser route smoke: HOLD, requires a running web server or deployed environment.
 
 ## A2 Security Review Required
 
-Required only as a normal regression gate if this change is promoted. The repair does not add permission bypass, token handling, ACL changes, attachment changes, or DataScope changes.
+Yes, as a normal promotion gate because this touches permission-visible warehouse master UI. No new security-sensitive mechanism was added.
 
 ## A1 Validation Required
 
-Required. A1 should run web typecheck/build and route smoke after dependencies are available.
+Yes. A1 should run web typecheck/build and browser smoke after dependencies are available.
 
 ## Orchestrator Main-Workspace Validation
 
@@ -82,6 +86,6 @@ After A4 produced the repair diff, Codex-Orchestrator reconciled it into the mai
 
 ## Blockers And Next Recommendation
 
-- Original A4 worktree blocker: local dependency tree is not installed, and offline pnpm store is incomplete.
+- Condition: run browser smoke for `/warehouse/locations` -> `新增库位` -> `新增库区` -> create ACTIVE zone -> return and select the new zone.
 - Main-workspace validation cleared the typecheck blocker.
-- Remaining recommendation: browser smoke `/warehouse/zones` and `/warehouse/locations` after deploy.
+- Remaining recommendation: browser smoke `/warehouse/zones` and `/warehouse/locations` after deploy, then close BUG-20260707-0007 if the user can create a zone and immediately select it when creating a location.

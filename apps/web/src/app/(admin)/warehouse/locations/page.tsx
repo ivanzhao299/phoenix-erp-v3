@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
@@ -194,7 +195,7 @@ export default function LocationsPage() {
     setSaving(false);
   };
   const handleSave = async () => {
-    if (!String(form.location_code ?? "").trim() || !String(form.warehouse_code ?? "").trim()) return;
+    if (!String(form.location_code ?? "").trim() || !String(form.warehouse_code ?? "").trim() || !String(form.zone_code ?? "").trim()) return;
     setSaving(true);
     try {
       // B3: 只 POST DB 存在的列；filter 掉前端历史残留的 row_no/layer_no/remark
@@ -253,6 +254,9 @@ export default function LocationsPage() {
     fontWeight: 600
   };
   const occupancyTone: Tone = stats.occupancyPct >= 85 ? "danger" : stats.occupancyPct >= 60 ? "warning" : "success";
+  const zoneCreateHref = `/warehouse/zones?action=new${
+    form.warehouse_code ? `&warehouseCode=${encodeURIComponent(String(form.warehouse_code))}` : ""
+  }`;
   return <div>
       <PageHeader
         title={t("ui.库位管理", "库位管理")}
@@ -496,7 +500,7 @@ export default function LocationsPage() {
         footer={
           <>
             <button type="button" onClick={closeModal} style={secondaryActionButton}>{t("common.cancel", "取消")}</button>
-            <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}>
+            <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code || !form.zone_code} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}>
               <Check size={14} />{saving ? t("ui.保存中", "保存中…") : t("common.save", "确认保存")}
             </button>
           </>
@@ -509,7 +513,12 @@ export default function LocationsPage() {
           <div><label style={labelStyle}>{t("ui.库位名称", "库位名称")}</label><input value={String(form.location_name ?? "")} onChange={e => setForm(f => ({ ...f, location_name: e.target.value }))} placeholder={t("ui.如A区1排1层", "如 A区1排1层")} style={inputStyle} /></div>
           <div><label style={labelStyle}>{t("ui.仓库", "仓库")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <WarehouseSelector value={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({ ...f, warehouse_code: v, zone_code: "" }))} /></div>
-          <div><label style={labelStyle}>{t("ui.库区", "库区")}</label>
+          <div><label style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span>{t("ui.库区", "库区")} <span style={{ color: "var(--status-danger)" }}>*</span></span>
+              <Link href={zoneCreateHref} style={{ color: "var(--color-primary)", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                <Plus size={12} style={{ verticalAlign: -2 }} /> {t("ui.新增库区", "新增库区")}
+              </Link>
+            </label>
             <ZoneSelector value={String(form.zone_code ?? "")} warehouseCode={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({ ...f, zone_code: v }))} /></div>
           <div><label style={labelStyle}>{t("common.status", "状态")}</label>
             <select value={String(form.status ?? "EMPTY")} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={inputStyle}>
