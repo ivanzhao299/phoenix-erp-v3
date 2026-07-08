@@ -282,6 +282,9 @@ function main() {
     const existingIndex = new Map(queue.map((task, index) => [task.task_id, index]));
     const incoming = [];
     const requeued = [];
+    const skippedExisting = [];
+    const approval = getApproval(payload);
+    const redispatchRequested = approval?.redispatch === true;
     for (const task of tasks) {
       if (!existingIndex.has(task.task_id)) {
         queue.push(task);
@@ -290,6 +293,12 @@ function main() {
       }
       const index = existingIndex.get(task.task_id);
       const previous = queue[index];
+      const previousRedispatchCount = Number(previous.redispatch_count || 0);
+      const nextRedispatchCount = Number(task.redispatch_count || 0);
+      if (!redispatchRequested || nextRedispatchCount <= previousRedispatchCount) {
+        skippedExisting.push(previous);
+        continue;
+      }
       queue[index] = {
         ...previous,
         ...task,
@@ -316,6 +325,7 @@ function main() {
     writeJson(QUEUE_FILE, queue);
     summary.added_tasks = incoming.map((task) => task.task_id);
     summary.requeued_tasks = requeued.map((task) => task.task_id);
+    summary.skipped_existing_tasks = skippedExisting.map((task) => task.task_id);
   }
 
   console.log(JSON.stringify(summary, null, 2));
