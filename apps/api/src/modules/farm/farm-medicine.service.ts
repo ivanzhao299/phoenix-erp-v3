@@ -45,19 +45,12 @@ export class FarmMedicineService {
     );
     if (meds.length === 0) return [];
 
-    // 确保每个药品都有 inv_batches 行
-    for (const m of meds) {
-      await this.ds.query(
-        `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, warehouse_code, status)
-         VALUES ($1, $2, 0, 0, $3, 'AVAILABLE')
-         ON CONFLICT (batch_no) DO NOTHING`,
-        [batchNo(m.medication_code), m.medication_code, WAREHOUSE],
-      );
-    }
-
     const stocks = await this.ds.query<any[]>(
-      `SELECT product_code, COALESCE(qty_available, qty, 0) AS qty
-       FROM inv_batches WHERE warehouse_code = $1`,
+      `SELECT product_code, SUM(COALESCE(qty_available, qty, 0)) AS qty
+       FROM inv_batches
+       WHERE warehouse_code = $1
+         AND product_code IS NOT NULL
+       GROUP BY product_code`,
       [WAREHOUSE],
     );
     const stockMap = new Map(stocks.map(s => [s.product_code as string, Number(s.qty)]));
@@ -108,7 +101,7 @@ export class FarmMedicineService {
              SELECT 1 FROM brd_medications WHERE medication_code = $2 AND status = 'ACTIVE'
            )
            ON CONFLICT (batch_no) DO UPDATE SET
-             qty = inv_batches.qty + EXCLUDED.qty,
+             qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty,
              qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty, 0) + EXCLUDED.qty,
              warehouse_code = EXCLUDED.warehouse_code,
              status = 'AVAILABLE',
