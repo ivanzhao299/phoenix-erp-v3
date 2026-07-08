@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260707-0010",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260707-0010/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260707-0010-03-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
-    "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-log.md",
+    "taskId": "BUGTASK-20260707-0010-05-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "conclusion": "HOLD",
+    "resultFile": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0010-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0010-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 81525\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T06-48-27-293Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS.\n\nA4 redispatch复核完成。当前 `/workflow/todos` 前端修复已在 [page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/workflow/todos/page.tsx:134) 保留：页面用 `displayTotal = max(api total, 当前已加载任务数)`，所以 `items.length=1,total=0` 会显示 `共 1 条`，符合验收标准。\n\n本轮只更新了报告：[BUG-20260707-0010-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md:1)  \n本地提交：`5e3b3e35 docs: update bug 20260707 0010 a4 redispatch report`\n\n验证结果：\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit`：PASS\n- `pnpm --filter web exec eslint 'src/app/(admin)/workflow/todos/page.tsx'`：PASS\n- 计数 dry-run：PASS，`items=1,tota",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0010-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0010-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
     "nextAction": ""
   }
 }
