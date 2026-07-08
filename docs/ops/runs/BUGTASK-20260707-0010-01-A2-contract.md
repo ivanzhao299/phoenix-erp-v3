@@ -776,15 +776,17 @@ Assigned agent: A2-Security-Regression-Gate
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
+    "failure_category": null,
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
+    "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260707-0010"
   },
-  "createdAt": "2026-07-07T09:18:08.504Z",
+  "createdAt": "2026-07-08T01:09:48.528Z",
   "createdBy": "admin",
   "moduleCode": "_____",
   "suggestedOwner": "_____",
@@ -794,12 +796,12 @@ Assigned agent: A2-Security-Regression-Gate
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "我的待办中有审批任务，要求上方显示条数，以及运营工作台中的待办显示条数，按照我的待办中实际显示的条数进行显示",
-  "agentPlanGeneratedAt": "2026-07-07T09:18:09.632Z",
+  "acceptanceCriteria": "要求我的待办上方显示条数按照实际的待办任务数量进行显示",
+  "agentPlanGeneratedAt": "2026-07-08T01:09:49.482Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-07T09:18:10.741Z",
+    "approvedAt": "2026-07-08T01:09:51.119Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
