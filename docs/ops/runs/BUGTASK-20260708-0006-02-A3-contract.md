@@ -1264,12 +1264,12 @@ Assigned agent: A3-Backend-Critical-Path
           "originalName": "pasted-screenshot-1783495365133-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-152519/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png",
+          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png",
           "sizeBytes": 347794
         }
       ],
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-152519/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png"
       ]
     }
   },
@@ -1378,4 +1378,4 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-152519/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-153718/BUG-20260708-0006/attachments/01-1783495418148-a24a371c.png
