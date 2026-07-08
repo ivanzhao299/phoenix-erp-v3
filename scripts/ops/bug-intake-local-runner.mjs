@@ -518,6 +518,77 @@ function baselineAutopilotCommand(task, args) {
   return command;
 }
 
+function detachedRecoveryReportFile(task) {
+  return `docs/ops/runs/${task.task_id}-detached-worker-recovery.md`;
+}
+
+function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
+  if (args.dryRun) return { recovered: false, reason: 'dry-run' };
+  if (!task?.worktree || !task?.branch || !task?.agent) return { recovered: false, reason: 'task missing worktree/branch/agent' };
+  if (!existsSync(task.worktree)) return { recovered: false, reason: `worktree does not exist: ${task.worktree}` };
+
+  const before = gitStatusShort(task.worktree);
+  const command = baselineAutopilotCommand(task, args);
+  const result = run(command, { cwd: args.mainRoot, timeoutMs: args.childTimeoutMs });
+  const reportFile = detachedRecoveryReportFile(task);
+  const conclusion = result.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
+  const text = `# Detached Worker Recovery
+
+| Field | Value |
+| --- | --- |
+| Task | ${task.task_id} |
+| Agent | ${task.agent} |
+| Conclusion | ${conclusion} |
+| Worker exit | ${worker?.status ?? 'unknown'} |
+| Child waited seconds | ${childWait ? Math.round(childWait.waited_ms / 1000) : 'n/a'} |
+| Worktree status before recovery | ${before.ok ? (before.output.trim() || 'clean') : before.output} |
+| Baseline autopilot exit | ${result.status} |
+
+## Safety
+
+- Push: No
+- Deploy: No
+- Migration: No
+- DB write: No
+
+## Baseline stdout excerpt
+
+\`\`\`text
+${String(result.stdout || '').slice(-6000)}
+\`\`\`
+
+## Baseline stderr excerpt
+
+\`\`\`text
+${String(result.stderr || '').slice(-3000)}
+\`\`\`
+`;
+  writeMd(reportFile, text);
+
+  const patch = result.status === 0
+    ? {
+        status: 'COMPLETED_MERGED',
+        completed_at: new Date().toISOString(),
+        result_file: reportFile,
+        baseline_autopilot_exit_code: 0,
+        detached_worker_recovered_at: new Date().toISOString(),
+        detached_worker_recovery: 'baseline autopilot completed after parent worker exited before queue writeback',
+      }
+    : {
+        status: 'HOLD',
+        completed_at: new Date().toISOString(),
+        result_file: reportFile,
+        baseline_autopilot_exit_code: result.status,
+        reason: `detached worker recovery failed; baseline autopilot exit=${result.status}; worker exit=${worker?.status ?? 'unknown'}`,
+      };
+  return {
+    recovered: result.status === 0,
+    result,
+    reportFile,
+    task: patchTask(task.task_id, patch),
+  };
+}
+
 function gitStatusShort(cwd) {
   if (!cwd || !existsSync(cwd)) return { ok: false, output: 'worktree does not exist' };
   return safeGit(['status', '--short'], cwd);
@@ -960,20 +1031,30 @@ async function runCycle(args, cycle) {
         break;
       }
       if (!isFinishedTask(finalTask)) {
-        finalTask = patchTask(task.task_id, {
-          status: 'HOLD',
-          completed_at: new Date().toISOString(),
-          reason: `worker parent returned before child completion; child exited after ${Math.round(childWait.waited_ms / 1000)}s but task was not written back; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
-        }) || finalTask;
+        const recovery = recoverDetachedWorkerResult(task, args, worker, childWait);
+        worker.detachedRecovery = recovery;
+        finalTask = recovery.task || finalTask;
+        if (!isFinishedTask(finalTask)) {
+          finalTask = patchTask(task.task_id, {
+            status: 'HOLD',
+            completed_at: new Date().toISOString(),
+            reason: `worker parent returned before child completion; child exited after ${Math.round(childWait.waited_ms / 1000)}s but task was not written back; recovery=${recovery.reason || (recovery.recovered ? 'completed' : 'failed')}; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
+          }) || finalTask;
+        }
       }
       worker.childWait = childWait;
     }
     if (!args.dryRun && !isFinishedTask(finalTask)) {
-      finalTask = patchTask(task.task_id, {
-        status: 'HOLD',
-        completed_at: new Date().toISOString(),
-        reason: `worker returned but task did not reach terminal status; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
-      }) || finalTask;
+      const recovery = recoverDetachedWorkerResult(task, args, worker, null);
+      worker.detachedRecovery = recovery;
+      finalTask = recovery.task || finalTask;
+      if (!isFinishedTask(finalTask)) {
+        finalTask = patchTask(task.task_id, {
+          status: 'HOLD',
+          completed_at: new Date().toISOString(),
+          reason: `worker returned but task did not reach terminal status; recovery=${recovery.reason || (recovery.recovered ? 'completed' : 'failed')}; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
+        }) || finalTask;
+      }
     }
     let writeback = null;
     const wbCommand = writebackCommand(task, finalTask, args);
@@ -1036,6 +1117,12 @@ async function runCycle(args, cycle) {
       finalTask: item.finalTask ? { status: item.finalTask.status, result_file: item.finalTask.result_file, baseline_autopilot_exit_code: item.finalTask.baseline_autopilot_exit_code } : null,
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
       retryRuns: item.retryRuns || [],
+      detachedRecovery: item.worker.detachedRecovery ? {
+        recovered: item.worker.detachedRecovery.recovered,
+        reportFile: item.worker.detachedRecovery.reportFile || null,
+        baselineExit: item.worker.detachedRecovery.result?.status ?? null,
+        reason: item.worker.detachedRecovery.reason || null,
+      } : null,
       postWorkerCommit: item.postWorkerCommit ?? null,
       activeChildProcesses: item.activeChildProcesses || [],
     })),
