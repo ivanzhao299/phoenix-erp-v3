@@ -963,20 +963,44 @@ Assigned agent: A2-Security-Regression-Gate
   "createdBy": "admin",
   "moduleCode": "____",
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {},
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "TRIAGED",
+      "redispatchedAt": "2026-07-08T06:07:33.747Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_APPROVED"
+    }
+  ],
   "acceptanceCriteria": "新增库位的时候选择库区可以查询到已新增的库区",
   "agentPlanGeneratedAt": "2026-07-08T01:16:03.775Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T01:16:05.203Z",
+    "approvedAt": "2026-07-08T06:07:33.747Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -984,7 +1008,8 @@ Assigned agent: A2-Security-Regression-Gate
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": []
 }
 ```
 

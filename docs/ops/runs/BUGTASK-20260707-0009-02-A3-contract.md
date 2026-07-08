@@ -771,20 +771,44 @@ Assigned agent: A3-Backend-Critical-Path
   "createdBy": "admin",
   "moduleCode": "_____-____",
   "suggestedOwner": "",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {},
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "TRIAGED",
+      "redispatchedAt": "2026-07-08T06:07:40.734Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_APPROVED"
+    }
+  ],
   "acceptanceCriteria": "要求点击保存无报错，并且今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
   "agentPlanGeneratedAt": "2026-07-08T01:15:14.896Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T01:15:16.308Z",
+    "approvedAt": "2026-07-08T06:07:40.734Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -792,7 +816,8 @@ Assigned agent: A3-Backend-Critical-Path
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": []
 }
 ```
 
