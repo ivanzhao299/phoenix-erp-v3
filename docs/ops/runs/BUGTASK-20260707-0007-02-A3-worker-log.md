@@ -25,23 +25,22 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260707-0007-02-A3-worker-assembled-pro
 Assembled prompt chars: 28966
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T01-20-13-494Z-A3-Backend-Critical-Path.md
-A3 backend task completed: **PASS WITH CONDITIONS**.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T01-28-38-943Z-A3-Backend-Critical-Path.md
+PASS / GO for backend review.
 
-I verified the backend path and found no backend code change required. Existing Generic CRUD already supports `wms_zones` querying/creation and `wms_locations` route-id handling by business code. The visible missing “新增库区” action and `/wms_locations/undefined` issue are frontend-path concerns already covered by A4.
+已完成 A3 后端修复并本地提交：`cc8edfcb fix: bug-20260707-0007 wms master rbac`
 
-Report written and committed:
+修复内容：
+- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/generic-crud/generic-crud.controller.ts)：将 `wms_warehouses / wms_zones / wms_locations` 主档表主权限映射为 `MENU_WMS_MASTER`，保留既有 `MENU_WMS_VIEW` 读兼容和 `MENU_WMS_INOUT` 旧写兼容。
+- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts)：新增 WMS 主档读写、旧权限兼容、作业单不被 `MENU_WMS_MASTER` 放权的回归测试。
+- [报告](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md)：已按合同更新 changed files、API、RBAC/DataScope/audit、验证、冻结项和 next review request。
 
-[BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md)
+验证：
+- `jest ...generic-crud... --runInBand`：PASS，2 suites / 20 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`：PASS，0 errors
+- 工作区最终干净
 
-Validation run:
-
-- `apps/api` Generic CRUD tests: **2 suites / 16 tests passed**
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: **0 errors**
-- Final worktree: **clean**
-- Commit: `20d503ce docs(ops): record bug 0007 a3 backend report`
-
-No migrations, DB writes, deploy, push, frontend edits, or task-board changes were performed.
+未执行：push、deploy、migration、数据库写入、前端修改。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3f4d-ccfe-7363-ab83-eb8f2f97d64c
+session id: 019f3f54-ac3e-7f42-9c4b-2bc2bfef0cde
 --------
 user
 # Base Agent Prompt
@@ -1121,7 +1120,7 @@ Assigned agent: A3-Backend-Critical-Path
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我先做合同要求的执行检查，确认目录、分支、工作树和最近提交；如果这些不满足就停止，不碰代码。
+我先跑合同要求的四个基线检查；如果目录、分支或工作区状态不符合，会先停下来报明细，不进入修改。
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
@@ -1135,149 +1134,57 @@ w5-a3-backend-critical-path
 exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-a381e3c2 (HEAD -> w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+5f449641 (HEAD -> w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+20d503ce docs(ops): record bug 0007 a3 backend report
+a381e3c2 docs(ops): record baseline lifecycle report
 99ba3d1d fix: bug-20260707-0010 workflow todo counts
 5904dfce docs(ops): record baseline lifecycle report
 bb316c59 feat(api): record A3-Backend-Critical-Path result
 b22cf644 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
 e04a0016 fix: bug-20260707-0009 medicine stock refresh
-6b5eae1e docs(ops): record baseline lifecycle report
-a386c6db feat(web): record A4-Frontend-UAT-Smoke result
 
 exec
 /bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
 codex
-检查通过：目录、分支、工作树都符合合同，当前没有未提交改动。我现在做 dry-run 诊断，只读后端 CRUD/WMS 相关实现，先判断是否需要后端修复或应交给前端/数据就绪。
+基线检查通过：目录、分支和工作区都符合合同，当前没有未提交变更。我现在只看后端 CRUD/WMS 相关实现，先判断是不是 API 侧缺能力或过滤导致库区查不到。
 exec
-/bin/zsh -lc 'rg --files apps/api/src | rg "(crud|wms|warehouse|location|zone)"' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-apps/api/src/modules/finance-v2/entities/fin-ar-receipt-allocation.entity.ts
-apps/api/src/modules/generic-crud/generic-crud.controller.ts
-apps/api/src/modules/generic-crud/generic-crud.service.ts
-apps/api/src/modules/generic-crud/generic-crud.module.ts
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts
-apps/api/src/modules/generic-crud/crud.constants.ts
-apps/api/src/modules/procurement-v2/entities/prc2-payment-allocation.entity.ts
-apps/api/src/modules/procurement-v2/dto/payment-allocation.dto.ts
-apps/api/src/modules/org/entities/sys-user-warehouse-scope.entity.ts
-apps/api/src/modules/wms/outbound.controller.ts
-apps/api/src/modules/wms/inbound.controller.ts
-apps/api/src/modules/wms/wms.module.ts
-apps/api/src/modules/wms/wms.service.ts
-apps/api/src/modules/wms/inventory/inventory.service.spec.ts
-apps/api/src/modules/wms/inventory/inventory.service.ts
-apps/api/src/modules/wms/inventory.controller.ts
-apps/api/src/modules/wms/entities/wms-location.entity.ts
-apps/api/src/modules/wms/entities/wms-stock-ledger.entity.ts
-apps/api/src/modules/wms/entities/wms-stock-balance.entity.ts
-
+/bin/zsh -lc 'rg "Crud|crud" apps/api/src/modules -g"*.ts" -n' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
 exec
-/bin/zsh -lc 'rg --files apps/web/src | rg "(warehouse|locations|zones|CrudForm|wms)"' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+/bin/zsh -lc 'rg "DataScope|allowedWarehouseCodes|wms_" apps/api/src/modules -g"*.ts" -n' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-apps/web/src/components/ui/CrudForm.tsx
-apps/web/src/app/(terminal)/terminal/wms/outbound/page.tsx
-apps/web/src/app/(terminal)/terminal/wms/inbound/page.tsx
-apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx
-apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx
-apps/web/src/app/(admin)/warehouse/page.tsx
-apps/web/src/app/(admin)/warehouse/query/page.tsx
-apps/web/src/app/(admin)/warehouse/expiry/page.tsx
-apps/web/src/app/(admin)/warehouse/outbound/page.tsx
-apps/web/src/app/(admin)/warehouse/loading.tsx
-apps/web/src/app/(admin)/warehouse/inbound/page.tsx
-apps/web/src/app/(admin)/warehouse/locations/page.tsx
-apps/web/src/app/(admin)/warehouse/stocktake/page.tsx
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouse.module.css
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx
-apps/web/src/app/(admin)/warehouse/zones/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouses/page.tsx
-apps/web/src/app/(admin)/warehouse/ledger/page.tsx
-apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
-apps/web/src/app/(admin)/master-data/warehouses/page.tsx
-
-exec
-/bin/zsh -lc "rg -n \"wms_locations|wms_zones|warehouse/locations|warehouse/zones|Crud\" apps/api/src apps/web/src docs/ops -g '"'!node_modules'"'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-apps/web/src/lib/api-client.ts:6:import type { CrudListResponse, PaginationParams } from "@/types";
-apps/web/src/lib/api-client.ts:233:  ): Promise<CrudListResponse<T>> => {
-apps/web/src/lib/api-client.ts:244:    return request<CrudListResponse<T>>(
-docs/ops/SALES_BFF_GENERIC_RBAC_ATOMICITY_REMEDIATION_20260627.md:15:- `GenericCrudController.tableToFallbackMenu()` for `sal_*` tables
-docs/ops/SALES_BFF_GENERIC_RBAC_ATOMICITY_REMEDIATION_20260627.md:44:- `GenericCrudController` returning coarse `MENU_SALES2`
-docs/ops/BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md:38:  - `GenericCrudController` still uses `@UseGuards(AuthGuard('jwt'))`.
-apps/web/src/hooks/useCrud.ts:3: * @deprecated G21-3 — 新业务页一律使用 crudApi (lib/api-client.ts) + CrudPage 模板，
-apps/web/src/hooks/useCrud.ts:4: *   不再用 useCrud hook。本 hook 暂保留兼容 daily/flock/medicine/immune/henhouse 5 个
-apps/web/src/hooks/useCrud.ts:8: *   旧：const { fetchRecords, createRecord, updateRecord } = useCrud('brd_xxx')
-apps/web/src/hooks/useCrud.ts:17:export const useCrud = (table: string) => {
-apps/web/src/hooks/useCrud.ts:61:        if (process.env.NODE_ENV === 'development') console.error(`[useCrud:${table}] HTTP ${res.status}`, errData);
-apps/web/src/hooks/useCrud.ts:68:      console.error(`useCrud [${table}] Error:`, msg);
-apps/web/src/hooks/useDictOptions.ts:3:import { useCrud } from './useCrud';
-apps/web/src/hooks/useDictOptions.ts:28:  const { fetchRecords } = useCrud('sys_dict');
-apps/web/src/hooks/useDictOptions.ts:84:  const { fetchRecords } = useCrud(table);
-apps/web/src/components/design-system/index.ts:32:// CrudTable = 后端CRUD表格（原 data-table/DataTable，23处引用，接 table 名）
-docs/ops/BUG-20260707-0002-A3-BACKEND-REPORT.md:13:- `/api/crud/wms_zones?limit=100&offset=0`
-docs/ops/ATTACHMENT_MULTI_UPLOAD_AND_DOCUMENT_AUTOFILL_PROGRESS.md:26:  - 通用 `CrudForm` 的 `upload` 字段：由旧单文件 `FileUploadInput` 升级为统一多附件上传。
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:11:- `apps/web/src/app/(admin)/warehouse/zones/page.tsx`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:12:- `apps/web/src/app/(admin)/warehouse/locations/page.tsx`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:18:- `/warehouse/zones`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:22:  - `CrudForm`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:23:- `/warehouse/locations`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:34:- Added an explicit top-right `新增库区` action on `/warehouse/zones`, wired to the existing new-zone drawer.
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:37:- Set zone `status` as required with default `ACTIVE`, because `/warehouse/locations` uses `ZoneSelector`, which only loads active zones.
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:39:- Fixed the `/warehouse/locations` edit/delete path that could call `/api/crud/wms_locations/undefined`.
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:78:  - local browser smoke for `/warehouse/zones`
-docs/ops/BUG-20260707-0007-a4-frontend-uat-smoke.md:79:  - local browser smoke for `/warehouse/locations`
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:268:// ── 库区（wms_zones）─────────────────────────────────────────────────────────
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:274:      const r = await request<any>('/crud/wms_zones?status=ACTIVE&pageSize=500');
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:287:// ── 货位（wms_locations）─────────────────────────────────────────────────────
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:293:      const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
-docs/ops/BUG-20260707-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md:34:- RBAC preserved: `GenericCrudController.checkTableAccess()` remains unchanged.
-docs/ops/BUG-20260707-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md:35:- DataScope preserved: filtering still happens before `GenericCrudService.findAll()` receives the query.
-docs/ops/NAMING_STYLE_UNIFICATION_AUDIT_20260627.md:249:**范围**：三套 DataTable 收口（根 DataTable→DataTableV3，data-table 改名 CrudTable）；两 KpiCardV2 改名（顶层→CockpitKpiCard）；统一 DrawerV2、ConfirmDialogV2；删死码（PhoenixDialog/ui/dialog）；合并 LegacyFreezeBanner/ReferenceGraph/WorkflowTimeline/FormRenderer 各 2 份；收敛 barrel `as` 别名 + 命名规约。
-docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md:23:- Stopped the page from requesting `wms_zones`, `wms_inbound`, and `wms_outbound` unless the user also has `MENU_WMS_INOUT:V`.
-docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md:47:  - `wms_zones`: guarded by `canViewInout`
-docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md:72:for (const target of ['wms_zones','wms_inbound','wms_outbound']) {
-docs/ops/runs/2026-07-07T18-12-03-028Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json:15:        "apps/web/src/app/(admin)/warehouse/locations/page.tsx",
-docs/ops/runs/2026-07-07T18-12-03-028Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json:16:        "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
-apps/api/src/modules/wms/entities/wms-location.entity.ts:3:@Entity('wms_locations')
-apps/web/src/components/layout/Sidebar.tsx:128:    { id: "wh-zones",    path: "/warehouse/zones",        Icon: MapPinned,       label: "库区管理",   perm: "MENU_WMS_MASTER" },
-apps/web/src/components/layout/Sidebar.tsx:129:    { id: "wh-loc",      path: "/warehouse/locations",    Icon: MapPin,          label: "库位管理",   perm: "MENU_WMS_MASTER" },
+apps/api/src/modules/system-monitor/services/cron-monitor.service.ts:13: * 表 sys_cron_heartbeat 由 generic-crud bootstrap 幂等建。
+apps/api/src/modules/system-monitor/services/cron-monitor.service.ts:21:  /** 幂等建心跳表（本模块自持，不依赖 generic-crud bootstrap） */
+apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:19: * 底层仍读写 V1 fin_accounts / fin_transactions / ord_orders 表（由 generic-crud 自动建表）。
+apps/api/src/modules/org/services/org.service.ts:558:   * Why：行级数据范围过滤的**实际驱动**是 sys_user.store_code（generic-crud
+apps/api/src/modules/product-master/controllers/lookup.controller.ts:496:  /** GET /api/lookup/stores — 门店下拉（替代 /crud/mst_stores） */
+apps/api/src/modules/product-master/controllers/lookup.controller.ts:516:  /** GET /api/lookup/farms — 养殖场下拉（替代 /crud/brd_farms） */
+apps/api/src/modules/product-master/controllers/lookup.controller.ts:695:  /** GET /api/lookup/dict/:dictType — 字典下拉（替代 /crud/sys_dict?dict_type=...） */
 apps/api/src/modules/generic-crud/generic-crud.controller.ts:15:import { GenericCrudService } from './generic-crud.service';
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:17:import { ALLOWED_TABLES } from './crud.constants';
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:21:@Controller('api/crud')
 apps/api/src/modules/generic-crud/generic-crud.controller.ts:23:export class GenericCrudController {
 apps/api/src/modules/generic-crud/generic-crud.controller.ts:25:    private readonly crudService: GenericCrudService,
 apps/api/src/modules/generic-crud/generic-crud.controller.ts:60:      GenericCrudController.RUNTIME_V2_PREFIXES.some(p => table.startsWith(p)) ||
 apps/api/src/modules/generic-crud/generic-crud.controller.ts:61:      GenericCrudController.RUNTIME_V2_EXACT.has(table);
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:265:      'wms_warehouses', 'wms_zones', 'wms_locations',
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:420:    wms_locations:    'location_code',
-apps/api/src/modules/generic-crud/generic-crud.controller.ts:421:    wms_zones:        'zone_code',
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:200:      //   持 MENU_SETTINGS_USER:E 者可经 /api/crud 直写 password_hash/role/status 提权。两名都列以防回归。
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:286:        const data = await this.crudService.findAllInventoryScoped(table, query, null);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:290:        const data = await this.crudService.findAllInventoryScoped(table, query, []);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:295:      const data = await this.crudService.findAllInventoryScoped(table, query, scope.allowedWarehouseCodes);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:299:    const data = await this.crudService.findAll(table, effectiveQuery);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:319:    //   G33 修：限定白名单表（之前对所有 generic-crud 表注入，导致主档表如
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:347:    const result = await this.crudService.create(table, body);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:367:    const result = await this.crudService.update(table, idColumn, id, safeBody);
+apps/api/src/modules/generic-crud/generic-crud.controller.ts:393:    const result = await this.crudService.remove(table, idColumn, id);
 apps/api/src/modules/generic-crud/generic-crud.service.ts:6:export class GenericCrudService implements OnModuleInit {
-apps/api/src/modules/generic-crud/generic-crud.service.ts:8:    wms_locations: 'location_code',
-apps/api/src/modules/generic-crud/generic-crud.service.ts:9:    wms_zones: 'zone_code',
-apps/api/src/modules/generic-crud/generic-crud.service.ts:57:        'wms_warehouses', 'wms_locations',
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1084:        // ── 仓储补充（wms_zones/wms_transfer/wms_stock_transfers） ──────
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1085:        `CREATE TABLE IF NOT EXISTS wms_zones (
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1094:        `ALTER TABLE wms_zones ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1095:        // B5: wms_zones 加 warehouse_code 与 wms_warehouses 关联（旧 warehouse 列已不再使用）
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1096:        `ALTER TABLE wms_zones ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(50)`,
-apps/api/src/modules/generic-crud/generic-crud.service.ts:1098:        `UPDATE wms_zones SET warehouse_code = warehouse WHERE warehouse_code IS NULL AND warehouse IS NOT NULL`,
 apps/api/src/modules/generic-crud/generic-crud.service.ts:2145:      return this.withCrudRouteIdAlias(table, rows);
 apps/api/src/modules/generic-crud/generic-crud.service.ts:2151:  private withCrudRouteIdAlias(table: string, rows: any[]): any[] {
 apps/api/src/modules/generic-crud/generic-crud.service.ts:2152:    const aliasColumn = GenericCrudService.CRUD_ROUTE_ID_ALIAS[table];
-apps/web/src/components/ui/CrudForm.tsx:20: * G4-D：CrudForm 新增主数据 / 字典 / 附件类型
-apps/web/src/components/ui/CrudForm.tsx:59:interface CrudFormProps {
-apps/web/src/components/ui/CrudForm.tsx:79:// ✅ React.memo 防止父组件重渲染时 CrudForm 无意义重渲染
-apps/web/src/components/ui/CrudForm.tsx:80:export const CrudForm = memo(function CrudForm({
-apps/web/src/components/ui/CrudForm.tsx:87:}: CrudFormProps) {
 apps/api/src/modules/generic-crud/generic-crud.module.ts:2:import { GenericCrudController } from './generic-crud.controller';
 apps/api/src/modules/generic-crud/generic-crud.module.ts:3:import { GenericCrudService } from './generic-crud.service';
 apps/api/src/modules/generic-crud/generic-crud.module.ts:6:  controllers: [GenericCrudController],
 apps/api/src/modules/generic-crud/generic-crud.module.ts:7:  providers: [GenericCrudService],
 apps/api/src/modules/generic-crud/generic-crud.module.ts:9:export class GenericCrudModule {}
-apps/web/src/components/ui/RightDrawer.tsx:19:// 这样可以避免 CrudForm 在每次打开/关闭时重新挂载（造成闪烁和卡顿）
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:2:import { GenericCrudController } from './generic-crud.controller';
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:3:import { GenericCrudService } from './generic-crud.service';
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:6:describe('GenericCrudController WMS RBAC', () => {
@@ -1285,188 +1192,208 @@ apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:7:  let contro
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:8:  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create'>>;
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:38:    controller = new GenericCrudController(
 apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:39:      svc as unknown as GenericCrudService,
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:53:      controller.findAll('wms_zones', { limit: '100', offset: '0' }, req(['MENU_WMS_INOUT:V'])),
-apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:55:    expect(svc.findAll).toHaveBeenCalledWith('wms_zones', { limit: '100', offset: '0' });
-apps/web/src/components/ui/CrudPage.tsx:3: * G18-2 · CrudPage — 标准 CRUD 业务页模板
-apps/web/src/components/ui/CrudPage.tsx:10: *   · RightDrawer + CrudForm（用 shared-selectors 字典/主数据下拉）
-apps/web/src/components/ui/CrudPage.tsx:15: *   <CrudPage
-apps/web/src/components/ui/CrudPage.tsx:28:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/components/ui/CrudPage.tsx:38:export interface CrudPageProps {
-apps/web/src/components/ui/CrudPage.tsx:65:export function CrudPage(props: CrudPageProps) {
-apps/web/src/components/ui/CrudPage.tsx:192:        <CrudForm fields={fields} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
 apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:1:import { GenericCrudService } from './generic-crud.service';
 apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:4:describe('GenericCrudService', () => {
 apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:9:    return { em, svc: new GenericCrudService(em as never) };
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:138:      await expect(svc.findAll('wms_locations', {})).resolves.toEqual([
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:149:      await expect(svc.findAll('wms_zones', {})).resolves.toEqual([
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:160:      await expect(svc.update('wms_locations', 'location_code', 'LOC-A-01', { status: 'NORMAL' }))
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:169:      await expect(svc.update('wms_locations', 'location_code', 'missing', { status: 'NORMAL' }))
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:179:      await expect(svc.remove('wms_zones', 'zone_code', 'ZONE-A'))
-apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:188:      await expect(svc.remove('wms_zones', 'zone_code', 'missing'))
-apps/api/src/modules/generic-crud/crud.constants.ts:12:  'wms_warehouses', 'wms_locations', 'wms_inbound', 'wms_inbound_items', 'wms_outbound', 'wms_outbound_items', 'wms_stocktake',
-apps/api/src/modules/generic-crud/crud.constants.ts:13:  'wms_zones', 'wms_transfer', 'wms_stock_transfers', 'wms_suppliers',
-apps/web/src/components/ui/crudForm.module.css:1:/* ── CrudForm V3 — 与 admin-ui.module.css 主题对齐 ─────────────── */
-apps/web/src/app/(admin)/store/receiving/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/store/receiving/page.tsx:59:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/store/inventory/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/store/inventory/page.tsx:54:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/store/replenish/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/store/replenish/page.tsx:57:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/store/daily/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/store/daily/page.tsx:62:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/store/losses/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/store/losses/page.tsx:61:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/api/src/app.module.ts:31:import { GenericCrudModule } from './modules/generic-crud/generic-crud.module';
-apps/api/src/app.module.ts:114:    GenericCrudModule,
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx:7:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx:286:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
-apps/web/src/app/(admin)/warehouse/page.tsx:123:        ? crudApi.list<Zone>("wms_zones", { limit: 100 }).catch(() => ({ data: [] as Zone[], code: 0 }))
-apps/web/src/app/(admin)/warehouse/page.tsx:192:    { path: "/warehouse/locations", Icon: MapPin,         label: t("ui.库位管理", "库位管理"), desc: t("ui.库位管理", "库位档案、容量、温区,与库区联动。"),          accent: "blue"   as const, perm: "MENU_WMS_MASTER" },
-apps/web/src/app/(admin)/warehouse/outbound/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/outbound/page.tsx:209:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
-apps/web/src/app/(admin)/warehouse/inbound/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/inbound/page.tsx:191:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
-apps/web/src/app/(admin)/warehouse/locations/page.tsx:23:// ✅ V3 表: wms_locations
-apps/web/src/app/(admin)/warehouse/locations/page.tsx:27:const TABLE = "wms_locations";
-apps/web/src/app/(admin)/warehouse/locations/page.tsx:44:// B3: wms_locations 真实列只有 location_code / warehouse_code / zone_code / location_name / capacity_qty / status / store_code
-apps/web/src/app/(admin)/warehouse/stocktake/page.tsx:7:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/stocktake/page.tsx:352:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx:7:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx:308:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
 apps/api/src/modules/procurement/entities/purchase-order.entity.ts:8: * 与前端 useCrud('prc_purchase_orders') 对齐
-apps/web/src/app/(admin)/warehouse/zones/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/zones/page.tsx:13:// ✅ V3 表: wms_zones
-apps/web/src/app/(admin)/warehouse/zones/page.tsx:14:const TABLE = "wms_zones";
-apps/web/src/app/(admin)/warehouse/zones/page.tsx:15:// B5: wms_zones 旧字段 warehouse 在 DB 不存在 → 改用 warehouse_code（需 DB migration 加列 — 见 generic-crud.service）
-apps/web/src/app/(admin)/warehouse/zones/page.tsx:93:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
-apps/web/src/app/(admin)/warehouse/warehouses/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/warehouse/warehouses/page.tsx:69:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
-apps/web/src/app/(admin)/layout.tsx:50:  "/warehouse/zones":              "menu.wh-zones",
-apps/web/src/app/(admin)/layout.tsx:51:  "/warehouse/locations":          "menu.wh-loc",
-apps/web/src/app/(admin)/quality/standards/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/quality/standards/page.tsx:80:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
-apps/web/src/app/(admin)/quality/product/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/quality/product/page.tsx:51:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/quality/backward/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/quality/backward/page.tsx:98:        <CrudForm
-apps/web/src/app/(admin)/sales2/pricing/page.tsx:8:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/sales2/pricing/page.tsx:505:        <CrudForm fields={FIELDS} initialValues={editing ? {
-apps/web/src/app/(admin)/quality/farm/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/quality/farm/page.tsx:50:      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/sales2/customers/page.tsx:8:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/sales2/customers/page.tsx:563:        <CrudForm fields={FIELDS} initialValues={editing ? {
-apps/web/src/app/(admin)/sales2/customers/page.tsx:827:        <CrudForm fields={FIELDS} initialValues={editing ? {
-apps/web/src/app/(admin)/breeding/flock/page.tsx:23:import { useCrud } from '@/hooks/useCrud';
-apps/web/src/app/(admin)/breeding/flock/page.tsx:119:  } = useCrud('brd_flocks');
-apps/web/src/app/(admin)/breeding/flock/page.tsx:122:  } = useCrud('brd_farms');
-apps/web/src/app/(admin)/breeding/flock/page.tsx:125:  } = useCrud('brd_houses');
-apps/web/src/app/(admin)/breeding/flock/page.tsx:128:  } = useCrud('sys_dict');
-apps/web/src/app/(admin)/master/farms/page.tsx:5:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/master/farms/page.tsx:160:        <CrudForm
-apps/web/src/app/(admin)/master/stores/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/master/stores/page.tsx:80:        <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/master/products/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/master/products/page.tsx:68:        <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-apps/web/src/app/(admin)/breeding/medicine/page.tsx:25:import { useCrud } from '@/hooks/useCrud';
-apps/web/src/app/(admin)/breeding/medicine/page.tsx:92:  } = useCrud('brd_medication_records');  // G21-4 切到新建的用药记录表（主档独立）
-apps/web/src/app/(admin)/breeding/medicine/page.tsx:95:  } = useCrud('brd_flocks');
-apps/web/src/app/(admin)/breeding/daily/page.tsx:24:import { useCrud } from '@/hooks/useCrud';
-apps/web/src/app/(admin)/breeding/daily/page.tsx:96:  } = useCrud('brd_houses');
-apps/web/src/app/(admin)/breeding/daily/page.tsx:99:  } = useCrud('brd_flocks');
-apps/web/src/app/(admin)/breeding/daily/page.tsx:103:  } = useCrud('brd_daily_logs');
-apps/web/src/app/(admin)/breeding/henhouse/page.tsx:28:import { useCrud } from '@/hooks/useCrud';
-apps/web/src/app/(admin)/breeding/henhouse/page.tsx:76:  } = useCrud('brd_houses');
-apps/web/src/app/(admin)/breeding/henhouse/page.tsx:79:  } = useCrud('brd_farms');
-apps/web/src/app/(admin)/breeding/henhouse/page.tsx:82:  } = useCrud('brd_flocks');
-apps/web/src/app/(admin)/packaging/exceptions/page.tsx:6:import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-apps/web/src/app/(admin)/packaging/exceptions/page.tsx:115:        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
-apps/web/src/app/(admin)/breeding/immune/page.tsx:24:import { crudApi } from '@/lib/api-client'; // G27-C：useCrud → crudApi
-apps/web/src/app/(admin)/breeding/immune/page.tsx:97:  // G27-C：useCrud → crudApi （deprecation 收口示范）
-apps/web/src/types/index.ts:35:export type CrudListResponse<T = Record<string, unknown>> = ApiListResponse<T>;
-apps/web/src/types/index.ts:36:export type CrudResponse<T = Record<string, unknown>> = ApiItemResponse<T>;
-apps/web/src/types/index.ts:250:// ── 库位 wms_locations ───────────────────────────────────────
 
-exec
-/bin/zsh -lc 'ls -la docs/ops' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-total 4512
-drwxr-xr-x  367 mac  staff  11744 Jul  8 03:14 .
-drwxr-xr-x  258 mac  staff   8256 Jul  6 10:31 ..
--rw-r--r--    1 mac  staff   2497 Jun 23 00:35 A1_APP_MODULE_WIRING_POST_MERGE_VALIDATION_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff   2220 Jun 21 22:04 A1_BACKEND_S2_POST_MERGE_VALIDATION_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff  10548 Jun 21 21:18 A1_CI_RUNTIME_GATE_REPORT.md
--rw-r--r--    1 mac  staff   4426 Jun 21 21:18 A1_POST_MERGE_SCHEMA_VALIDATION_STORE_PAYMENT_001_REPORT.md
--rw-r--r--@   1 mac  staff   6057 Jul  6 10:31 A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_EXECUTION_REPORT.md
--rw-r--r--@   1 mac  staff   3682 Jul  6 10:31 A1_RUNTIME_SECURITY_BLOCKER_REMEDIATION_PLAN.md
--rw-r--r--@   1 mac  staff   5054 Jul  6 10:31 A1_STORE_PAYMENT_A5_HOLD_CLEARANCE_VALIDATION.md
--rw-r--r--@   1 mac  staff   4526 Jul  6 10:31 A1_STORE_PAYMENT_PILOT_GATE_S1_VALIDATION.md
--rw-r--r--@   1 mac  staff   6073 Jul  6 10:31 A1_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_VALIDATION.md
--rw-r--r--@   1 mac  staff   5330 Jul  6 10:31 A1_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md
--rw-r--r--    1 mac  staff   7697 Jun 21 22:24 A2_APP_MODULE_WIRING_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff  12427 Jun 21 21:32 A2_BACKEND_S2_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff   9800 Jun 23 00:35 A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md
--rw-r--r--    1 mac  staff  17144 Jun 21 20:35 A2_SCHEMA_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff  19600 Jun 21 19:27 A2_SECURITY_DESIGN_STORE_PAYMENT_001_REPORT.md
--rw-r--r--@   1 mac  staff  11083 Jul  6 10:31 A2_STORE_PAYMENT_A5_HOLD_CLEARANCE_REVIEW.md
--rw-r--r--@   1 mac  staff   9649 Jul  6 10:31 A2_STORE_PAYMENT_PILOT_GATE_S1_REVIEW.md
--rw-r--r--@   1 mac  staff   9965 Jul  6 10:31 A2_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REVIEW.md
--rw-r--r--@   1 mac  staff  11380 Jul  6 10:31 A2_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md
--rw-r--r--    1 mac  staff   6002 Jun 21 21:32 A3_BACKEND_S2_STORE_PAYMENT_001_REPORT.md
--rw-r--r--    1 mac  staff   4299 Jun 21 22:24 A3_STORE_PAYMENT_APP_MODULE_WIRING_REPORT.md
--rw-r--r--@   1 mac  staff   7745 Jul  6 10:31 A3_STORE_PAYMENT_BACKEND_GATE_PROTECTED_ATTACHMENT_DATASCOPE_ACTIONBIT_REPORT.md
--rw-r--r--@   1 mac  staff   6213 Jul  6 10:31 A3_STORE_PAYMENT_PROTECTED_STREAMING_GATE_REPORT.md
--rw-r--r--@   1 mac  staff   5769 Jul  6 10:31 A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md
--rw-r--r--@   1 mac  staff   5483 Jul  6 10:31 A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md
--rw-r--r--    1 mac  staff  24032 Jun 21 19:27 A5_DATA_READINESS_STORE_PAYMENT_001_REPORT.md
--rw-r--r--@   1 mac  staff  13958 Jul  6 10:31 A5_STORE_PAYMENT_PILOT_READINESS_EVIDENCE_REPORT.md
--rw-r--r--@   1 mac  staff  15058 Jul  6 10:31 A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK.md
--rw-r--r--@   1 mac  staff   3516 Jul  6 10:31 A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK_REPORT.md
--rw-r--r--@   1 mac  staff   9862 Jul  6 10:31 A7_STORE_PAYMENT_FINAL_QA_GATE_REPORT.md
--rw-r--r--    1 mac  staff   4769 Jun 21 13:54 ACCEPTANCE_CRITERIA_LIBRARY.md
--rw-r--r--    1 mac  staff   3101 Jun 23 00:35 AGENT_AUTONOMOUS_BASELINE_LIFECYCLE.md
--rw-r--r--    1 mac  staff   3508 Jun 23 00:35 AGENT_AUTONOMOUS_BASELINE_LIFECYCLE_REVIEW.md
--rw-r--r--    1 mac  staff   3658 Jun 23 00:35 AGENT_BASELINE_AUTOPILOT.md
--rw-r--r--    1 mac  staff   3621 Jun 23 00:35 AGENT_BASELINE_AUTOPILOT_REVIEW.md
--rw-r--r--    1 mac  staff   2265 Jun 23 00:35 AGENT_CAPABILITY_MATRIX.md
--rw-r--r--    1 mac  staff  11117 Jun 23 00:35 AGENT_DISPATCH_MAP.json
--rw-r--r--@   1 mac  staff   4148 Jul  6 10:31 AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md
--rw-r--r--    1 mac  staff   1574 Jun 23 00:35 AGENT_PARALLEL_EXECUTION_POLICY_V2.md
--rw-r--r--    1 mac  staff   1863 Jun 23 00:35 AGENT_PLATFORM_V2_95_ACCEPTANCE_MATRIX.md
--rw-r--r--    1 mac  staff   1736 Jun 23 00:35 AGENT_PLATFORM_V2_95_ACCEPTANCE_PLAN.md
--rw-r--r--    1 mac  staff   3204 Jun 23 00:35 AGENT_PLATFORM_V2_95_FINAL_READINESS_REPORT.md
--rw-r--r--    1 mac  staff   2706 Jun 23 00:35 AGENT_PLATFORM_V2_A4_UIUX_ROLE_REVIEW.md
--rw-r--r--    1 mac  staff   2731 Jun 23 00:35 AGENT_PLATFORM_V2_A5_ROUTING_FIX_REVIEW.md
--rw-r--r--    1 mac  staff   4612 Jun 23 00:35 AGENT_PLATFORM_V2_CLOSED_LOOP_DELIVERY.md
--rw-r--r--    1 mac  staff   2626 Jun 23 00:35 AGENT_PLATFORM_V2_HARDENING_REVIEW.md
--rw-r--r--    1 mac  staff   2698 Jun 23 00:35 AGENT_REGISTRY.md
--rw-r--r--    1 mac  staff    878 Jun 23 00:35 AGENT_RELEASE_STATE_MACHINE.md
--rw-r--r--    1 mac  staff   5724 Jun 23 00:35 AGENT_RESULT_PARSER_AND_TASK_BOARD_UPDATE.md
--rw-r--r--@   1 mac  staff   1921 Jul  6 10:31 AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md
--rw-r--r--@   1 mac  staff   3215 Jul  6 10:31 AGENT_ROUTER_FALLBACK_POLICY.md
--rw-r--r--@   1 mac  staff  15184 Jul  6 10:31 AGENT_ROUTER_RULES.json
--rw-r--r--    1 mac  staff   3592 Jun 23 00:35 AGENT_ROUTER_SPEC.md
--rw-r--r--    1 mac  staff   2572 Jun 23 00:35 AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md
--rw-r--r--    1 mac  staff   5185 Jun 23 00:35 AGENT_ROUTER_V1_REVIEW.md
--rw-r--r--    1 mac  staff   6320 Jun 21 19:27 AGENT_ROUTING_RULES.md
--rw-r--r--@   1 mac  staff   5526 Jul  6 10:31 AGENT_ROUTING_RULES_V2.md
--rw-r--r--@   1 mac  staff  38904 Jul  6 10:31 AGENT_TASK_BOARD.md
--rw-r--r--    1 mac  staff   3193 Jun 21 19:27 AGENT_TASK_CONTRACT.md
--rw-r--r--    1 mac  staff   1542 Jun 23 00:35 AGENT_WORKTREE_MATRIX.md
--rw-r--r--    1 mac  staff   3403 Jun 23 00:35 AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md
--rw-r--r--    1 mac  staff   3127 Jun 23 00:35 AI_DELIVERY_AGENT_PLATFORM_V2_SYNC_REVIEW.md
--rw-r--r--    1 mac  staff   2115 Jun 21 21:18 AI_DELIVERY_BACKEND_S2_PACKAGE_STORE_PAYMENT_001_REVIEW.md
--rw-r--r--    1 mac  staff  11768 Jun 21 13:54 AI_DELIVERY_FACTORY_SETUP_REVIEW.md
--rw-r--r--    1 mac  staff   3096 Jun 21 19:27 AI_DELIVERY_IMPLEMENTATION_PLAN_STORE_PAYMENT_001_REVIEW.md
--rw-r--r--    1 mac  staff   6699 Jun 21 13:54 AI_DELIVERY_PHASE1_CI_GATE_REVIEW.md
--rw-r--r--    1 mac  staff   6191 Jun 21 19:27 AI_DELIVERY_PHASE2_NL_DISPATCH_REVIEW.md
--rw-r--r--    1 mac  staff   3189 Jun 21 19:27 AI_DELIVERY_PHASE3_1_SPEC_FREEZE_REVIEW.md
--rw-r--r--    1 mac  staff   2233 Jun 21 19:27 AI_DELIVERY_PHASE3_INTAKE_REVIEW.md
--rw-r--r--    1 mac  staff   3583 Jun 21 22:04 AI_DELIVERY_PHASE5_1_NL_TO_CODEX_CLI_REVIEW.md
--rw-r--r--    1 mac  staff   4082 Jun 23 00:35 AI_DELIVERY_PHASE5_2_AGENT_RESULT_PARSER_REVIEW.md
--rw-r--r--    1 mac  staff   3942 Jun 23 00:35 AI_DELIVERY_PHASE5_3_NEXT_AGENT_DECISION_ENGINE_REVIEW.md
--rw-r--r--    1 mac  staff   2786 Jun 23 00:35 AI_DELIVERY_PHASE5_4_FOLLOW_UP_DISPATCH_DRY_RUN_REVIEW.md
--rw-r--r--    1 mac  staff   3384 Jun 23 00:35 AI_DELIVERY_PHASE5_5_APPROVED_FOLLOW_UP_EXECUTION_GUARD_REVIEW.md
--rw-r--r--    1 mac  staff   3463 Jun 23 00:35 AI_DELIVERY_PHASE5_6_AGENT_RESULT_NORMALIZATION_REVIEW.md
--rw-r--r--    1 mac  staff   3426 Jun 21 22:04 AI_DELIVERY_PHASE5_CODEX_CLI_ORCHESTRATION_REVIEW.md
--rw-r--r--   
+apps/api/src/modules/finance-v2/finance-v2.module.ts:58: *   - OrgModule 为 @Global()，DataScopeHelper 自动注入
+apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:5:import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
+apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:16: * DataScope：严格按当前用户的 company/project 权限过滤。
+apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:26:    private readonly scopeHelper: DataScopeHelper,
+apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:44:   * - DataScope 公司/项目过滤
+apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:62:    // DataScope WHERE 子句
+apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:8:import { DataScopeGuard }           from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/finance-order-bridge.controller.ts:22:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:238:    const acc = await this.findById(id, user); // 含 DataScope 归属校验
+apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:246:   * 约束：源/目标账户归属当前用户 DataScope；币种必须一致。
+apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:39:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:49:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
+apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:52:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/finance-v2/services/ar-ledger.service.ts:9: * DataScope：scopeAll 用户（如刘杰 GROUP 财务）看全部；受限用户按 company_code 过滤。
+apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts:3:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-ar-reconciliation.controller.ts:13:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/notification/notification.controller.ts:3:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/notification/notification.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:67:  /** DataScope 过滤条件 */
+apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:101:    // DataScope
+apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:245:        // DataScope 验证
+apps/api/src/modules/uat/services/uat-feedback.service.ts:7: *   - 支持 company_code DataScope
+apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:7:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:32: *   import-from-prc2 要求 MENU_FIN2_AP:E，并继续受 DataScope 公司范围过滤。
+apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:35:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:43:   * AP 发票列表，支持分页、多维筛选、DataScope 过滤。
+apps/api/src/modules/finance-v2/services/financial-reports.service.ts:10: * DataScope：scopeAll 用户不做 company_code 过滤；受限用户严格过滤。
+apps/api/src/modules/finance-v2/services/financial-reports.service.ts:41:   * @param codes DataScope 公司代码列表
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:5:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:6:import { DataScopeContext }        from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:25:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:40:  /** C2 修复：从 CLS DataScope 构建 enrichedUser，提供正确的 scopeAll 和 companyCodes */
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:43:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:108:    // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已将正确 scope 写入 CLS）
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:109:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:198:   * 从 prc2_ap_ledger 读取 AP 数据（只读，DataScope 过滤）。
+apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:20: * DataScope:按 cls 中 dataScope.allowedCompanyCodes 过滤(集团 isGlobal 看全部)。
+apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:312:  // 注:此 cron 内部直接走 DB 查询(不走 reconcile 的 DataScope 限制),因为 cron 无 CLS 上下文。
+apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts:363:  /** 直接 DB 跑对账(绕过 reconcile 的 DataScope,cron 无 CLS) */
+apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:5:import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:6:import { DataScopeContext }       from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:15: * 只读；DataScope 在 Service 层按 company_code 过滤（GROUP 用户看全部）。
+apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:18:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-ar-ledger.controller.ts:27:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:19: * DataScope：所有列表接口严格按当前用户 companyCodes 过滤。
+apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:20: * assertOwnership：详情/写操作验证 company_code 在 DataScope 范围内。
+apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:56:  /** assertOwnership：确认 AR 的 company_code 在当前用户 DataScope 内 */
+apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:84:    // DataScope
+apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:29:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:39:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
+apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:42:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/sales-v2/services/customers.service.ts:220:   * 不走 assertOwnership，由调用方保证已做 DataScope 校验
+apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:299:      moduleCode: 'MENU_MD_WAREHOUSE', tableName: 'wms_warehouses',
+apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:301:      onApproved: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'APPROVE_ACTIVE'),
+apps/api/src/modules/approval-engine/workflow-biz-registry.service.ts:302:      onRejected: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'REJECT'),
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:8:import { DataScopeContext } from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:22: * DataScope：所有列表接口严格按当前用户 companyCodes 过滤。
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:23: * assertOwnership：详情/写操作验证 company_code 在 DataScope 范围内。
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:39:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:75:  /** DataScope WHERE 子句 */
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:84:  /** 写入归属校验：create/import 等入口必须落在当前 DataScope 内。 */
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:101:  /** assertOwnership：确认 invoice 的 company_code 在当前用户 DataScope 内 */
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:133:    // DataScope
+apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:574:    // DataScope 过滤
+apps/api/src/modules/approval-engine/approval-engine.service.ts:191:    // 候选人本身仍由 AssignmentResolver 按 menuCode + requiredPerm + DataScope 二次筛选。
+apps/api/src/modules/approval-engine/approval-engine.service.ts:776:    // G85-D 待办 DataScope：非全局用户只看本公司范围实例（company_code 为 NULL 的全局单据保留）
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:5:import { DataScopeGuard }              from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:6:import { DataScopeContext }             from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:16: * DataScope 在 Service 层按 user.dataScope 自动过滤。
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:21:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:30:  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
+apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts:33:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/master-data/master-data-runtime.service.ts:9:import { DataScopeService } from '../org/services/data-scope.service'; // G71 公司数据隔离
+apps/api/src/modules/master-data/master-data-runtime.service.ts:30:  companyCol?: string;       // G71：公司隔离列名（有则按 DataScope.allowedCompanyCodes 过滤）
+apps/api/src/modules/master-data/master-data-runtime.service.ts:56:// 主数据运行时 DataScope 的菜单上下文必须与类型级权限一致。
+apps/api/src/modules/master-data/master-data-runtime.service.ts:150:    table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
+apps/api/src/modules/master-data/master-data-runtime.service.ts:357:    private readonly dataScope: DataScopeService,       // G71 公司数据隔离
+apps/api/src/modules/master-data/master-data-runtime.service.ts:467:   *   - 已登录用户的 userId 缺失或 DataScope 解析异常必须 fail-closed。
+apps/api/src/modules/master-data/master-data-runtime.service.ts:487:      this.logger.warn(`[MdRuntime] DataScope 解析失败，拒绝公司维度主数据可见范围：${e?.message}`);
+apps/api/src/modules/master-data/master-data-runtime.service.ts:511:    // G71：公司数据隔离（有 company 维度的实体按 DataScope 过滤）
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:8:import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:9:import { DataScopeContext }         from '../../org/services/data-scope.service';
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:37:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:48:  /** C2 修复：从 CLS DataScope 构建 enrichedUser，提供正确的 scopeAll 和 companyCodes */
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:51:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:158:    // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已写入正确 scope）
+apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:159:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/file/file-access.service.ts:14:import { DataScopeContext } from '../org/services/data-scope.service';
+apps/api/src/modules/file/file-access.service.ts:130:    this.assertDataScope(file, policy, mode);
+apps/api/src/modules/file/file-access.service.ts:160:  private assertDataScope(file: FileMetadataEntity, policy: FileAccessPolicy, mode: ProtectedFileMode) {
+apps/api/src/modules/file/file-access.service.ts:162:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/approval-engine/approval-rules.controller.ts:6:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/approval-engine/approval-rules.controller.ts:15:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/approval-engine/approval-rules.controller.ts:17:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/uat/controllers/uat-pilot-run.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/uat-pilot-run.controller.ts:11:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/master-data/biz-projects.controller.ts:19:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/master-data/biz-projects.controller.ts:20:import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
+apps/api/src/modules/master-data/biz-projects.controller.ts:23:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/master-data/biz-projects.controller.ts:30:    private readonly dataScope: DataScopeService,
+apps/api/src/modules/master-data/biz-projects.controller.ts:87:    const clsScope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/uat/controllers/uat-training.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/uat-training.controller.ts:11:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts:17:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/pilot-run-dashboard.controller.ts:21:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:8:import { DataScopeContext } from '../../org/services/data-scope.service';
+apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:49:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:59:  // ── DataScope 断言 ────────────────────────────────────────────────────────
+apps/api/src/modules/sales-v2/services/delivery-orders.service.ts:202:    // DataScope 检查
+apps/api/src/modules/sales-v2/services/sales-v2.service.ts:37:        notes:       'All Sales V2 tables use company_code aligned with Finance V2 DataScope',
+apps/api/src/modules/approval-engine/approval-engine.controller.ts:3:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/approval-engine/approval-engine.controller.ts:6:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/approval-engine/approval-engine.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:6:import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
+apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:28: *   GET    /ar/invoices              — 列表（分页、全筛选、DataScope）
+apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:48:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/uat/controllers/uat-feedback.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/uat-feedback.controller.ts:12:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/master-data/operations.service.ts:98:        { type: 'warehouse', table: 'wms_warehouses', codeCol: 'warehouse_code', href: '/master-data/warehouses' },
+apps/api/src/modules/master-data/operations.service.ts:192:      { type: 'warehouse', sql: `SELECT warehouse_code AS code, COALESCE(warehouse_name_zh,warehouse_name) AS name, status FROM wms_warehouses WHERE warehouse_code ILIKE $1 OR warehouse_name ILIKE $1 OR warehouse_name_zh ILIKE $1 LIMIT 5`, href: '/master-data/warehouses' },
+apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:3:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:6:// [Phase R1 — HIGH-3] 替换 AuthGuard('jwt') + MenuGuard → MenuGuard + DataScopeGuard
+apps/api/src/modules/uat/controllers/uat-readiness.controller.ts:8:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/uat/controllers/uat-checklist.controller.ts:7:import { DataScopeGuard } from '../../org/guards/data-scope.guard';
+apps/api/src/modules/uat/controllers/uat-checklist.controller.ts:12:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/traceability/traceability.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/traceability/traceability.controller.ts:11: * DataScope：按 company_code 限制（普通用户禁止跨公司）。
+apps/api/src/modules/traceability/traceability.controller.ts:14:@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
+apps/api/src/modules/traceability/traceability.controller.ts:18:  /** 用户可见公司 scope（DataScopeGuard 注入 req.dataScope）；admin/空 → 不限制 */
+apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:32:import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
+apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:37:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/master-data/master-data-references.service.ts:49:    { refTable: 'wms_outbound',     refDocType: '出库单',   fkColumn: 'dest',          noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
+apps/api/src/modules/master-data/master-data-references.service.ts:83:    { refTable: 'wms_inbound',     refDocType: '入库单',       fkColumn: 'item',     noField: 'inbound_no',   linkPattern: '/warehouse/inbound?keyword=:code' },
+apps/api/src/modules/master-data/master-data-references.service.ts:87:    { refTable: 'wms_inbound',    refDocType: '入库单',   fkColumn: 'warehouse_code', noField: 'inbound_no',  linkPattern: '/warehouse/inbound?keyword=:code' },
+apps/api/src/modules/master-data/master-data-references.service.ts:88:    { refTable: 'wms_outbound',   refDocType: '出库单',   fkColumn: 'warehouse_code', noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
+apps/api/src/modules/master-data/master-data-references.service.ts:89:    { refTable: 'wms_transfer',   refDocType: '调拨单',   fkColumn: 'from_warehouse', noField: 'transfer_no', linkPattern: '/warehouse/transfer?keyword=:code' },
+apps/api/src/modules/master-data/master-data-references.service.ts:109:    { refTable: 'wms_warehouses',     refDocType: '仓库',       fkColumn: 'company_code', noField: 'warehouse_code',    linkPattern: '/master-data/warehouses?keyword=:code' },
+apps/api/src/modules/terminal/stocktake.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/terminal/stocktake.controller.ts:7:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/stocktake.controller.ts:9:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/terminal/stocktake.controller.ts:20:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/stocktake.controller.ts:22:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/terminal/pda.controller.ts:5:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/terminal/pda.controller.ts:8:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/pda.controller.ts:10:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/terminal/packaging.controller.ts:8:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/terminal/packaging.controller.ts:13:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/packaging.controller.ts:16:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/terminal/packaging.controller.ts:141:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/packaging.controller.ts:144:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/terminal/labels.controller.ts:5:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/terminal/labels.controller.ts:8:// [Phase R1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/terminal/labels.controller.ts:10:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/sales-v2/services/price-books.service.ts:7:import { DataScopeContext } from '../../org/services/data-scope.service';
+apps/api/src/modules/sales-v2/services/price-books.service.ts:23:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:5:import { DataScopeContext } from '../../org/services/data-scope.service';
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:42:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/sales-v2/services/price-runtime.service.ts:219:   * 按 grade_code + packaging_spec 聚合，返回当前 DataScope 公司的 ACTIVE 价格
+apps/api/src/modules/quality/quality.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/quality/quality.controller.ts:9: * [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/quality/quality.controller.ts:12:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/wms/entities/wms-location.entity.ts:3:@Entity('wms_locations')
+apps/api/src/modules/sales-v2/services/price-items.service.ts:7:import { DataScopeContext } from '../../org/services/data-scope.service';
+apps/api/src/modules/sales-v2/services/price-items.service.ts:20:    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+apps/api/src/modules/sales-v2/services/price-items.service.ts:26:  /** 检查价格册归属，同时验证 DataScope */
+apps/api/src/modules/sales-v2/services/price-items.service.ts:81:    // DataScope 通过 price_book 过滤
+apps/api/src/modules/wms/entities/wms-stock-ledger.entity.ts:3:@Entity('wms_stock_ledger')
+apps/api/src/modules/terminal/terminal.service.ts:107:        `SELECT * FROM wms_stocktake WHERE status = 'PENDING' ORDER BY created_at DESC`,
+apps/api/src/modules/wms/entities/wms-stock-balance.entity.ts:3:@Entity('wms_stock_balance')
+apps/api/src/modules/wms/entities/wms-stock-balance.entity.ts:4:@Unique('wms_stock_balance_warehouse_code_location_code_spec_code_ba_key', ['warehouse_code', 'location_code', 'spec_code', 'batch_no'])
+apps/api/src/modules/terminal/packaging.service.ts:656:      //   - packComplete 完成后自动创建 wms_inbound 任务，等待仓库验收上架
+apps/api/src/modules/terminal/packaging.service.ts:739:          // V2 fidelity: 包装完结 → 自动建 wms_inbound PENDING 任务，等待仓库上架收货
+apps/api/src/modules/terminal/packaging.service.ts:747:                `INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code, operator, created_at)
+apps/api/src/modules/terminal/packaging.service.ts:752:              console.warn('[packComplete][WARN] wms_inbound 自建跳过:', e?.message);
+apps/api/src/modules/wms/inventory.controller.ts:4:import { DataScopeGuard } from '../org/guards/data-scope.guard';
+apps/api/src/modules/wms/inventory.controller.ts:7:// [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
+apps/api/src/modules/wms/inventory.controller.ts:9:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/wms/inventory.controller.ts:27:@UseGuards(MenuGuard, DataScopeGuard)
+apps/api/src/modules/wms/wms.service.ts:5:import { DataScopeContext } from '../org/services/data-scope.service';
+apps/api/src/modules/wms/wms.service.ts:20:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/wms/wms.service.ts:21:    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) {
+apps/api/src/modules/wms/wms.service.ts:26:      params: [scope.allowedWarehouseCodes],
+apps/api/src/modules/wms/wms.service.ts:31:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/wms/wms.service.ts:32:    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
+apps/api/src/modules/wms/wms.service.ts:36:    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
+apps/api/src/modules/wms/wms.service.ts:42:    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+apps/api/src/modules/wms/wms.service.ts:63:        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql}`,
+apps/api/src/modules/wms/wms.service.ts:67:        `SELECT COUNT(*) as count FROM wms_inbound WHERE status = 'PROCESSING' AND ${scope.sql}`,
+apps/api/src/modules/wms/wms.service.ts:87:        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') AND ${scope.sql} ORDER BY created_at DESC`,
+apps/api/src/modules/wms/wms.service.ts:100:        `SELECT * FROM wms_inbound WHERE task_no = $1 AND ${scope.sql}`,
+apps/api/src/modules/wms/wms.service.ts:105:        `SELECT * FROM wms_inbound_items WHERE task_no = $1`,
+apps/api/src/modules/wms/wms.service.ts:156:        `SELECT warehouse_code, operator, store_code, status FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
+apps/api/src/modules/wms/wms.service.ts:176:        `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
+apps/api/src/modules/wms/wms.service.ts:478:   * 复用 getInventoryBa
 ```

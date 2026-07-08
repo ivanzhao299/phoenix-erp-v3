@@ -3804,7 +3804,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0007",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "running",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -3825,7 +3825,7 @@
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-08T01:25:41.144Z",
-    "completed_at": null,
+    "completed_at": "2026-07-08T01:28:41.098Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -3856,7 +3856,8 @@
         "source_repair_task_no": "BUGTASK-20260707-0007"
       }
     ],
-    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --yes"
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --yes",
+    "reason": "worker returned but task did not reach terminal status; worker exit=1; observed=running"
   },
   {
     "task_id": "BUGTASK-20260707-0007-03-A4",
