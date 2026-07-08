@@ -126,6 +126,16 @@ export class BugIntakeController {
     return this.service.approveAgentExecution(bugNo, body, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('reports/:bugNo/redispatch')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async redispatchRepairTask(
+    @Param('bugNo') bugNo: string,
+    @Body() body: { mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE'; approvalScope?: string; note?: string },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.redispatchRepairTask(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Post('reports/:bugNo/agent-result')
   @RequireMenu('MENU_BUG_REPORT', 'E')
   async recordAgentResult(

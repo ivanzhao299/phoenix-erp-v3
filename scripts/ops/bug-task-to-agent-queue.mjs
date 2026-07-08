@@ -197,6 +197,8 @@ function buildTasks(payload, plan, dispatchMap) {
   const bugNo = payload.bugNo || payload.bug_no || 'BUG-UNKNOWN';
   const repairTaskNo = payload.taskNo || payload.task_no || plan.source_repair_task_no || `BUGTASK-${nowStamp()}`;
   const selected = plan.selected_agents || [];
+  const approval = getApproval(payload);
+  const redispatchCount = Number(payload.redispatchCount || approval?.redispatchCount || 0);
   return selected.map((agent, index) => {
     const cfg = dispatchMap[agent] || {};
     const short = agentShort(agent);
@@ -227,6 +229,10 @@ function buildTasks(payload, plan, dispatchMap) {
       result_file: null,
       next_agents: cfg.handoff_to || [],
       approval_required: true,
+      redispatch_count: redispatchCount,
+      last_redispatch_at: Array.isArray(payload.redispatchHistory) && payload.redispatchHistory.length
+        ? payload.redispatchHistory[payload.redispatchHistory.length - 1]?.redispatchedAt || null
+        : null,
     };
   });
 }
@@ -273,11 +279,43 @@ function main() {
 
   if (args.apply) {
     const queue = existsSync(resolveFile(QUEUE_FILE)) ? readJson(QUEUE_FILE) : [];
-    const existing = new Set(queue.map((task) => task.task_id));
-    const incoming = tasks.filter((task) => !existing.has(task.task_id));
-    queue.push(...incoming);
+    const existingIndex = new Map(queue.map((task, index) => [task.task_id, index]));
+    const incoming = [];
+    const requeued = [];
+    for (const task of tasks) {
+      if (!existingIndex.has(task.task_id)) {
+        queue.push(task);
+        incoming.push(task);
+        continue;
+      }
+      const index = existingIndex.get(task.task_id);
+      const previous = queue[index];
+      queue[index] = {
+        ...previous,
+        ...task,
+        status: 'pending',
+        claimed_by: null,
+        claimed_at: null,
+        completed_at: null,
+        result_file: null,
+        redispatch_count: Math.max(Number(previous.redispatch_count || 0), Number(task.redispatch_count || 0)),
+        redispatched_at: task.last_redispatch_at || new Date().toISOString(),
+        redispatch_history: [
+          ...(Array.isArray(previous.redispatch_history) ? previous.redispatch_history : []),
+          {
+            at: new Date().toISOString(),
+            previous_status: previous.status || '',
+            previous_result_file: previous.result_file || null,
+            source_bug_no: task.source_bug_no,
+            source_repair_task_no: task.source_repair_task_no,
+          },
+        ].slice(-20),
+      };
+      requeued.push(queue[index]);
+    }
     writeJson(QUEUE_FILE, queue);
     summary.added_tasks = incoming.map((task) => task.task_id);
+    summary.requeued_tasks = requeued.map((task) => task.task_id);
   }
 
   console.log(JSON.stringify(summary, null, 2));

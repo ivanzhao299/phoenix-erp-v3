@@ -115,6 +115,8 @@ type PipelineStatus = {
     recommendedAgents?: string[];
     selectedAgents?: string[];
     retryCount?: number;
+    redispatchCount?: number;
+    lastRedispatchAt?: string | null;
     failedAttemptCount?: number;
     latestAgentConclusion?: string | null;
     latestAgentName?: string | null;
@@ -439,6 +441,31 @@ export default function BugReportsPage() {
     }
   };
 
+  const redispatchRepairTask = async (bugNo: string, mode: "REQUEUE" | "REPLAN_AND_REQUEUE") => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/redispatch`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          approvalScope: approvalScope || t("system.bugIntake.redispatchDefaultScope", "重新派发到本地 Agent 队列；仍禁止未授权 DB 写入、migration、生产部署和 force push。"),
+          note: mode === "REPLAN_AND_REQUEUE"
+            ? t("system.bugIntake.replanRedispatchNote", "管理员要求重算 Agent 计划后重新派发。")
+            : t("system.bugIntake.redispatchNote", "管理员要求按原 Agent 计划重新派发。"),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as BugReportDetail;
+        setDetail(prev => prev?.bugNo === data.bugNo ? data : prev);
+        await fetchList(page);
+        await fetchPipelineStatus();
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openProtectedAttachment = (endpoint: string) => {
     if (!endpoint) return;
     window.location.assign(endpoint);
@@ -588,6 +615,7 @@ export default function BugReportsPage() {
                         t("system.bugIntake.runner", "Runner"),
                         t("system.bugIntake.artifacts", "产物"),
                         t("system.bugIntake.nextAction", "下一动作"),
+                        t("system.bugIntake.queueActions", "操作"),
                       ].map(h => <th key={h}>{h}</th>)}
                     </tr>
                   </thead>
@@ -609,6 +637,7 @@ export default function BugReportsPage() {
                         <td>
                           <strong>{item.retryCount ?? 0}</strong>
                           <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t("system.bugIntake.failedAttempts", "失败尝试")} {item.failedAttemptCount ?? 0}</div>
+                          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t("system.bugIntake.redispatchCount", "重派")} {item.redispatchCount ?? 0}</div>
                         </td>
                         <td style={{ maxWidth: 220 }}>
                           <strong>{item.latestAgentName || item.selectedAgents?.[0] || "—"}</strong>
@@ -623,6 +652,32 @@ export default function BugReportsPage() {
                           <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.resultFiles?.length || 0} {t("system.bugIntake.files", "个文件")}</div>
                         </td>
                         <td style={{ maxWidth: 280, color: "var(--text-secondary)", fontSize: 12, wordBreak: "break-word" }}>{item.nextAction || "—"}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                redispatchRepairTask(item.bugNo, "REQUEUE");
+                              }}
+                              disabled={saving || !item.repairTaskNo}
+                              style={{ padding: "5px 9px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-sm)", background: "var(--status-success)", color: "white", cursor: saving || !item.repairTaskNo ? "not-allowed" : "pointer", fontSize: 12 }}
+                            >
+                              {t("system.bugIntake.redispatchOriginal", "重新派发")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                redispatchRepairTask(item.bugNo, "REPLAN_AND_REQUEUE");
+                              }}
+                              disabled={saving || !item.repairTaskNo}
+                              style={{ padding: "5px 9px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving || !item.repairTaskNo ? "not-allowed" : "pointer", fontSize: 12 }}
+                            >
+                              {t("system.bugIntake.replanAndRedispatch", "重算后派发")}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -770,6 +825,7 @@ export default function BugReportsPage() {
                   <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, fontSize: 13, marginBottom: 10 }}>
                     <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.repairTask", "修复任务")}</span><strong>{detail.repairTaskNo || "—"}</strong>
                     <span style={{ color: "var(--text-secondary)" }}>{t("common.status", "状态")}</span><strong>{detail.repairTaskStatus || "—"}</strong>
+                    <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.redispatchCount", "重派")}</span><strong>{String((detail.repairTaskPayload?.redispatchCount as number | undefined) ?? 0)}</strong>
                   </div>
                   <textarea value={acceptanceCriteria} onChange={e => setAcceptanceCriteria(e.target.value)}
                     placeholder={t("system.bugIntake.acceptancePlaceholder", "验收标准：例如复现路径、期望结果、必须通过的检查")}
@@ -799,9 +855,31 @@ export default function BugReportsPage() {
                   >
                     {t("system.bugIntake.approveAgentQueue", "批准投入 Agent 队列")}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => redispatchRepairTask(detail.bugNo, "REQUEUE")}
+                    disabled={saving || !detail.repairTaskNo}
+                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success)", color: "white", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}
+                  >
+                    {t("system.bugIntake.redispatchOriginal", "重新派发原任务")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => redispatchRepairTask(detail.bugNo, "REPLAN_AND_REQUEUE")}
+                    disabled={saving || !detail.repairTaskNo}
+                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}
+                  >
+                    {t("system.bugIntake.replanAndRedispatch", "重算计划并重新派发")}
+                  </button>
                   <p style={{ margin: "8px 0 0", color: "var(--text-secondary)", fontSize: 12 }}>
                     {t("system.bugIntake.agentApprovalNote", "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。")}
                   </p>
+                  {Array.isArray(detail.repairTaskPayload?.redispatchHistory) && (
+                    <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-muted)" }}>
+                      <strong>{t("system.bugIntake.redispatchHistory", "重新派发历史")}</strong>
+                      <JsonBlock value={detail.repairTaskPayload.redispatchHistory} />
+                    </div>
+                  )}
                   {Array.isArray(detail.repairTaskPayload?.agentResults) && (
                     <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12 }}>
                       <strong>{t("system.bugIntake.agentResults", "Agent 执行结果")}</strong>

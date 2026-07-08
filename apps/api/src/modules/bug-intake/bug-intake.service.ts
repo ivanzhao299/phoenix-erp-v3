@@ -65,6 +65,12 @@ interface BugAgentApprovalPayload {
   approvalScope?: string;
 }
 
+interface BugRedispatchPayload {
+  mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE';
+  approvalScope?: string;
+  note?: string;
+}
+
 interface BugAgentResultPayload {
   taskId?: string;
   agent?: string;
@@ -175,7 +181,7 @@ export class BugIntakeService {
         `SELECT id, alert_type, severity, title, related_path, created_at
            FROM sys_alerts
           WHERE resolved = FALSE
-            AND alert_type IN ('BUG_INTAKE_PIPELINE_HOLD','BUG_INTAKE_RUNNER_TIMEOUT','BUG_INTAKE_AUTO_TRIAGE')
+            AND alert_type IN ('BUG_INTAKE_PIPELINE_HOLD','BUG_INTAKE_RUNNER_TIMEOUT','BUG_INTAKE_AUTO_TRIAGE','BUG_INTAKE_REDISPATCH')
           ORDER BY created_at DESC
           LIMIT 10`,
       ).catch(() => []),
@@ -549,6 +555,131 @@ export class BugIntakeService {
     return this.toDto(saved);
   }
 
+  async redispatchRepairTask(
+    bugNo: string,
+    body: BugRedispatchPayload,
+    user: BugReportUser,
+    reqMeta: { ip?: string; userAgent?: string },
+  ) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    if (['RESOLVED', 'CLOSED'].includes(report.status)) {
+      throw new BadRequestException('已解决或已关闭的问题不能直接重新派发，请先重新打开并确认仍需修复');
+    }
+
+    const before = this.toWorkflowSnapshot(report);
+    const operator = this.safeText(user.username ?? user.name ?? 'bug-intake-admin', 128);
+    const mode = body.mode === 'REPLAN_AND_REQUEUE' ? 'REPLAN_AND_REQUEUE' : 'REQUEUE';
+    const taskNo = report.repairTaskNo || await this.nextRepairTaskNo();
+    let payload: Record<string, unknown> = this.payloadObject(report.repairTaskPayload);
+
+    if (!report.repairTaskNo || Object.keys(payload).length === 0) {
+      payload = this.buildRepairTaskPayload(report, taskNo, user, {
+        acceptanceCriteria: report.resolutionNote || '管理员重新派发原问题，按当前上下文完成修复、回测、回写。',
+        suggestedOwner: report.assigneeUsername || '',
+      });
+    }
+
+    const classification = this.classifyReport(report);
+    let agentPlan = this.payloadObject(payload.agentPlan);
+    if (mode === 'REPLAN_AND_REQUEUE' || Object.keys(agentPlan).length === 0) {
+      agentPlan = this.buildAgentPlan(this.buildAgentRouteText(report), report, classification);
+      payload = {
+        ...payload,
+        failureClassification: classification,
+        failureClassificationUpdatedAt: new Date().toISOString(),
+        agentPlan,
+        agentPlanGeneratedAt: new Date().toISOString(),
+        agentPlanGeneratedBy: `redispatch:${operator}`,
+      };
+    }
+
+    const selectedAgents = Array.isArray(agentPlan.selected_agents) ? agentPlan.selected_agents.map(String) : [];
+    if (selectedAgents.length === 0 || agentPlan.route_decision === 'HOLD') {
+      report.repairTaskNo = taskNo;
+      report.repairTaskStatus = 'HOLD';
+      report.status = 'IN_PROGRESS';
+      report.repairTaskPayload = {
+        ...payload,
+        redispatchRejectedAt: new Date().toISOString(),
+        redispatchRejectedBy: operator,
+        redispatchRejectedReason: 'agent plan is HOLD or has no selected_agents',
+      };
+      report.updatedBy = operator;
+      const saved = await this.repo.save(report);
+      await this.writeAudit('REDISPATCH_AGENT_TASK_HOLD', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+      return this.toDto(saved);
+    }
+
+    const previousResults = Array.isArray(payload.agentResults) ? payload.agentResults : [];
+    const redispatchCount = Number(payload.redispatchCount || 0) + 1;
+    const redispatchHistory = [
+      ...(Array.isArray(payload.redispatchHistory) ? payload.redispatchHistory : []),
+      {
+        redispatchNo: redispatchCount,
+        mode,
+        redispatchedAt: new Date().toISOString(),
+        redispatchedBy: operator,
+        previousStatus: report.status,
+        previousRepairTaskStatus: report.repairTaskStatus || '',
+        selectedAgents,
+        approvalScope: this.safeText(body.approvalScope ?? '', 1000),
+        note: this.safeText(body.note ?? '', 1000),
+      },
+    ].slice(-20);
+
+    report.repairTaskNo = taskNo;
+    report.status = 'IN_PROGRESS';
+    report.repairTaskStatus = 'AGENT_APPROVED';
+    report.repairTaskPayload = {
+      ...payload,
+      taskNo,
+      bugNo: report.bugNo,
+      agentPlan,
+      agentExecutionApproval: {
+        approved: true,
+        approvedBy: operator,
+        approvedAt: new Date().toISOString(),
+        approvalScope: this.safeText(
+          body.approvalScope
+          ?? 'redispatch original bug intake repair task to the local Agent queue',
+          1000,
+        ),
+        redispatch: true,
+        redispatchCount,
+        forbiddenActions: [
+          'production deploy without separate approval',
+          'database write without separate gate',
+          'migration execution without separate gate',
+          'push without release approval',
+          'force push',
+        ],
+      },
+      redispatchCount,
+      redispatchHistory,
+      previousAgentResultsBeforeRedispatch: previousResults.slice(-10),
+      timeoutRecovery: this.payloadObject(payload.timeoutRecovery),
+      latestAgentResult: this.payloadObject(payload.latestAgentResult),
+    };
+    report.updatedBy = operator;
+
+    const saved = await this.repo.save(report);
+    await this.writeAudit('REDISPATCH_AGENT_TASK', saved.bugNo, user, before, {
+      ...this.toWorkflowSnapshot(saved),
+      redispatchCount,
+      selectedAgents,
+      mode,
+    }, reqMeta);
+    await this.createPipelineAlert('BUG_INTAKE_REDISPATCH', 'INFO', `问题已重新派发：${saved.bugNo}`, {
+      bugNo: saved.bugNo,
+      title: saved.title,
+      redispatchCount,
+      selectedAgents,
+      mode,
+    }, `/bug-reports?bugNo=${encodeURIComponent(saved.bugNo)}`);
+    return this.toDto(saved);
+  }
+
   async recordAgentResult(
     bugNo: string,
     body: BugAgentResultPayload,
@@ -787,6 +918,10 @@ export class BugIntakeService {
     const failureClassification = this.payloadObject(payload.failureClassification);
     const holdDispatch = this.payloadObject(payload.holdDispatch);
     const timeoutRecovery = this.payloadObject(payload.timeoutRecovery);
+    const redispatchHistory = Array.isArray(payload.redispatchHistory)
+      ? payload.redispatchHistory.filter((item: unknown): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+      : [];
+    const lastRedispatch = redispatchHistory[redispatchHistory.length - 1] || null;
     const nextAction = String(
       holdDispatch.nextAction
       || runtime.latestAgentResult?.nextAction
@@ -816,6 +951,8 @@ export class BugIntakeService {
         : runtime.selectedAgents,
       selectedAgents: runtime.selectedAgents,
       retryCount: runtime.retryCount,
+      redispatchCount: Number(payload.redispatchCount || 0),
+      lastRedispatchAt: typeof lastRedispatch?.redispatchedAt === 'string' ? lastRedispatch.redispatchedAt : null,
       failedAttemptCount: runtime.failedAttemptCount,
       latestAgentConclusion: runtime.latestAgentResult?.conclusion || null,
       latestAgentName: runtime.latestAgentResult?.agent || null,
