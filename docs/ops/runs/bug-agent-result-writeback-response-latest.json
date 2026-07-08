@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-07T05:47:47.112Z",
-  "updatedAt": "2026-07-08T06:24:48.554Z",
+  "updatedAt": "2026-07-08T06:30:08.092Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "养殖场总览-药品库存，今日入库提交后，库存总览还是0。要求今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
@@ -1416,6 +1416,71 @@
     "createdAt": "2026-07-08T01:15:13.612Z",
     "createdBy": "admin",
     "moduleCode": "_____-____",
+    "agentResults": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260707-0009-01-A2",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-08T06:24:48.552Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "agent": "BugIntakeLocalRunner",
+        "taskId": "LOCAL-RUNNER-20260708062453",
+        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 41 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0007-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260707-0007-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0009-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260707-0007-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0007-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-01-A2: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+        "commitHash": "79fccdac276f8d35efa7beeabc392637ed0bfa0b",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Business owner validates the fix in production.",
+        "recordedAt": "2026-07-08T06:24:54.735Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "validationResults": {
+          "ci": "SKIPPED: wait-ci-after-push disabled",
+          "push": "PASS",
+          "sync": "PASS",
+          "workerRuns": [
+            {
+              "agent": "A4-Frontend-UAT-Smoke",
+              "taskId": "BUGTASK-20260707-0007-03-A4",
+              "finalStatus": "COMPLETED_MERGED",
+              "writebackStatus": 0
+            },
+            {
+              "agent": "A1-CI-Runtime-Gate",
+              "taskId": "BUGTASK-20260707-0007-05-A1",
+              "finalStatus": "completed",
+              "writebackStatus": 0
+            },
+            {
+              "agent": "A2-Security-Regression-Gate",
+              "taskId": "BUGTASK-20260707-0009-01-A2",
+              "finalStatus": "completed",
+              "writebackStatus": 0
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260707-0009-04-A5",
+        "agent": "A5-Data-Readiness",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-04-A5-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0009-04-A5\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-08T06:30:08.090Z"
+      }
+    ],
     "suggestedOwner": "",
     "redispatchCount": 1,
     "timeoutRecovery": {},
@@ -1426,17 +1491,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260707-0009-01-A2",
-      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0009-04-A5",
+      "agent": "A5-Data-Readiness",
       "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-04-A5-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0009-04-A5\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-08T06:24:48.552Z"
+      "recordedAt": "2026-07-08T06:30:08.090Z"
     },
     "redispatchHistory": [
       {
@@ -1475,22 +1540,7 @@
         "force push"
       ]
     },
-    "previousAgentResultsBeforeRedispatch": [],
-    "agentResults": [
-      {
-        "taskId": "BUGTASK-20260707-0009-01-A2",
-        "agent": "A2-Security-Regression-Gate",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-08T06:24:48.552Z"
-      }
-    ]
+    "previousAgentResultsBeforeRedispatch": []
   },
   "updatedBy": "bug_intake_runner"
 }
