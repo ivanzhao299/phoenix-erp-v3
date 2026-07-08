@@ -7,8 +7,8 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
-import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
-import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
+import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
+import { WorkflowFormRenderer, type FormSchema, type UiSchema } from "@/components/workflow/WorkflowFormRenderer";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -129,6 +129,13 @@ function fmtAmount(amount: number | string | null, currency: string | null) {
   return `${n.toLocaleString("zh-CN", {
     maximumFractionDigits: 0
   })} ${currency ?? ""}`;
+}
+function getDisplayTotal(resp: TaskListResponse) {
+  const apiTotal = Number.isFinite(Number(resp.total)) ? Number(resp.total) : 0;
+  const currentPage = Math.max(1, Number(resp.page) || 1);
+  const currentPageSize = Math.max(1, Number(resp.pageSize) || 20);
+  const loadedMinimum = (currentPage - 1) * currentPageSize + resp.items.length;
+  return Math.max(apiTotal, loadedMinimum);
 }
 function StatusBadge({
   status
@@ -311,7 +318,8 @@ export default function ApprovalTodosPage() {
     }
   }, [page, taskSource, bizType, keyword]);
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
   // 消息中心深链：/workflow/todos?instanceId=<id> 直接打开该审批实例详情，
   // 不依赖 my-tasks 列表是否含该条（修复「点通知进来空白」——通知带的是具体实例，
@@ -397,29 +405,34 @@ export default function ApprovalTodosPage() {
       setDetail(null);
     }
   };
+  const selectedInstanceId = selected?.instanceId;
   useEffect(() => {
-    if (!drawerOpen || !selected || decision !== "transfer") return;
+    if (!drawerOpen || !selectedInstanceId || decision !== "transfer") return;
     let alive = true;
-    setPickedTo("");
-    setReassignLoading(true);
-    fetchReassignCandidates(selected.instanceId)
-      .then(rows => {
-        if (!alive) return;
-        setCandidates(rows);
-        setPickedTo(rows[0]?.userId ?? "");
-      })
-      .catch(() => {
-        if (!alive) return;
-        setCandidates([]);
-        setPickedTo("");
-      })
-      .finally(() => {
-        if (alive) setReassignLoading(false);
-      });
+    const timer = window.setTimeout(() => {
+      if (!alive) return;
+      setPickedTo("");
+      setReassignLoading(true);
+      fetchReassignCandidates(selectedInstanceId)
+        .then(rows => {
+          if (!alive) return;
+          setCandidates(rows);
+          setPickedTo(rows[0]?.userId ?? "");
+        })
+        .catch(() => {
+          if (!alive) return;
+          setCandidates([]);
+          setPickedTo("");
+        })
+        .finally(() => {
+          if (alive) setReassignLoading(false);
+        });
+    }, 0);
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
-  }, [drawerOpen, selected?.instanceId, decision]);
+  }, [drawerOpen, selectedInstanceId, decision]);
   const handleApprove = async () => {
     if (!selected) return;
     setSubmitting(true);
@@ -489,10 +502,10 @@ export default function ApprovalTodosPage() {
     else void handleReassign();
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
-  const visibleTotal = Math.max(resp.total || 0, resp.items.length);
-  const totalPages = Math.max(1, Math.ceil(visibleTotal / PAGE_SIZE));
+  const displayTotal = getDisplayTotal(resp);
+  const totalPages = Math.max(1, Math.ceil(displayTotal / PAGE_SIZE));
   return <div>
-      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${visibleTotal} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
+      <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${displayTotal} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
 
       <section className={s.card}>
         {/* ── 筛选栏 ── */}
@@ -679,7 +692,7 @@ export default function ApprovalTodosPage() {
             </table>
 
             {/* 分页 */}
-            {visibleTotal > PAGE_SIZE && <div className={s.cardBody} style={{
+            {displayTotal > PAGE_SIZE && <div className={s.cardBody} style={{
           display: "flex",
           justifyContent: "flex-end",
           gap: 8,
@@ -854,7 +867,7 @@ export default function ApprovalTodosPage() {
             padding: "16px 18px",
             border: "1px solid var(--border)"
           }}>
-                  <WorkflowFormRenderer schema={detail.formSubmission.schemaJson as any} uiSchema={detail.formSubmission.uiSchemaJson as any} value={detail.formSubmission.dataJson as Record<string, unknown>} onChange={() => {}} disabled={true} />
+                  <WorkflowFormRenderer schema={detail.formSubmission.schemaJson as unknown as FormSchema} uiSchema={detail.formSubmission.uiSchemaJson as unknown as UiSchema} value={detail.formSubmission.dataJson as Record<string, unknown>} onChange={() => {}} disabled={true} />
                 </div>
                 <div style={{
             fontSize: 11,

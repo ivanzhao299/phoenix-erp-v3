@@ -70,6 +70,14 @@ interface QueryDto {
   category?: string;
 }
 
+interface MyTasksQuery {
+  page?: string | number;
+  pageSize?: string | number;
+  taskSource?: string;
+  bizType?: string;
+  keyword?: string;
+}
+
 interface IndustryWorkflowTemplate {
   code: string;
   name: string;
@@ -856,6 +864,143 @@ export class WorkflowService implements OnModuleInit {
     const { limit, offset } = this.page(query);
     const rows = await this.listUnifiedTodoTasks(user, limit, offset);
     return { code: 200, data: rows, total: rows.length };
+  }
+
+  async listMyTasks(user: WorkflowUser, query: MyTasksQuery) {
+    const currentUser = this.normalizeWorkflowUser(user);
+    const page = Math.max(1, Number(query.page ?? 1));
+    const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? 20)));
+    const includeApprovalEngine = !query.taskSource || query.taskSource === 'APPROVAL_ENGINE';
+    const includeWorkflowEngine = !query.taskSource || query.taskSource === 'WORKFLOW_ENGINE';
+
+    if (!includeApprovalEngine && !includeWorkflowEngine) {
+      return { items: [], total: 0, page, pageSize };
+    }
+
+    const params: any[] = [currentUser.userId || 0, this.userRoles(currentUser)];
+    const selects: string[] = [];
+
+    if (includeWorkflowEngine) {
+      selects.push(`
+        SELECT
+          'WORKFLOW_ENGINE'::text AS task_source,
+          t.id                    AS task_id,
+          i.id                    AS instance_id,
+          i.instance_no,
+          i.business_type         AS biz_type,
+          i.business_id::text     AS biz_id,
+          NULL::text              AS biz_no,
+          i.title                 AS subject,
+          NULL::numeric           AS amount,
+          NULL::varchar           AS currency_code,
+          NULL::varchar           AS company_code,
+          NULL::varchar           AS company_name,
+          NULL::varchar           AS project_code,
+          NULL::varchar           AS project_name,
+          t.assignee_role_code    AS required_role,
+          NULL::int               AS step_no,
+          NULL::int               AS total_steps,
+          NULL::int               AS current_step_no,
+          i.starter_id::text      AS started_by,
+          t.status                AS status,
+          COALESCE(i.started_at, t.created_at)::timestamptz AS created_at,
+          t.due_at::timestamptz  AS due_at,
+          (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) AS is_overdue,
+          0::int                  AS escalation_level
+        FROM wf_task t
+        JOIN wf_instance i ON i.id = t.instance_id
+        WHERE t.status = 'TODO'
+          AND (t.assignee_user_id = $1 OR t.assignee_role_code = ANY($2::text[]))
+      `);
+    }
+
+    if (includeApprovalEngine) {
+      const dataScopeWhere = this.approvalTodoDataScopeWhere(params, 'i');
+      selects.push(`
+        SELECT
+          'APPROVAL_ENGINE'::text AS task_source,
+          s.id                    AS task_id,
+          i.id                    AS instance_id,
+          i.instance_no,
+          i.biz_type,
+          i.biz_id::text          AS biz_id,
+          i.biz_no,
+          i.subject,
+          i.amount,
+          i.currency_code,
+          i.company_code,
+          i.company_name,
+          i.project_code,
+          i.project_name,
+          s.approver_role         AS required_role,
+          s.step_no,
+          i.total_steps,
+          i.current_step_no,
+          i.started_by::text      AS started_by,
+          s.status                AS status,
+          i.started_at::timestamptz AS created_at,
+          s.due_at::timestamptz   AS due_at,
+          s.is_overdue,
+          COALESCE(s.escalation_level, 0)::int AS escalation_level
+        FROM wf_approval_instance_steps s
+        JOIN wf_approval_instances i ON i.id = s.instance_id
+        WHERE s.status = 'PENDING'
+          AND i.status = 'PENDING'
+          AND s.step_no = i.current_step_no
+          AND ${this.approvalTodoAssigneeWhere('$1', '$2')}
+          ${dataScopeWhere}
+      `);
+    }
+
+    const rows = await this.em.query(
+      `SELECT *
+         FROM (${selects.join('\nUNION ALL\n')}) todo
+        ORDER BY todo.created_at DESC, todo.task_id DESC`,
+      params,
+    );
+
+    let all: any[] = rows.map((t: any) => ({
+      taskSource:      t.task_source,
+      taskId:          String(t.task_id),
+      instanceId:      String(t.instance_id),
+      instanceNo:      t.instance_no ?? null,
+      bizType:         t.biz_type ?? null,
+      bizId:           t.biz_id != null ? String(t.biz_id) : null,
+      bizNo:           t.biz_no ?? null,
+      subject:         t.subject ?? null,
+      amount:          t.amount != null ? Number(t.amount) : null,
+      currencyCode:    t.currency_code ?? null,
+      companyCode:     t.company_code ?? null,
+      companyName:     t.company_name ?? null,
+      projectCode:     t.project_code ?? null,
+      projectName:     t.project_name ?? null,
+      requiredRole:    t.required_role ?? null,
+      stepNo:          t.step_no ?? null,
+      totalSteps:      t.total_steps ?? null,
+      currentStepNo:   t.current_step_no ?? null,
+      startedBy:       t.started_by ?? null,
+      status:          t.status,
+      createdAt:       t.created_at,
+      dueAt:           t.due_at ?? null,
+      isOverdue:       t.is_overdue ?? false,
+      escalationLevel: t.escalation_level ?? 0,
+    }));
+
+    if (query.bizType) {
+      all = all.filter(t => t.bizType === query.bizType);
+    }
+    if (query.keyword) {
+      const kw = String(query.keyword).toLowerCase();
+      all = all.filter(t =>
+        t.bizNo?.toLowerCase().includes(kw) ||
+        t.subject?.toLowerCase().includes(kw) ||
+        t.instanceNo?.toLowerCase().includes(kw),
+      );
+    }
+
+    const total = all.length;
+    const items = all.slice((page - 1) * pageSize, page * pageSize);
+    return { items, total, page, pageSize };
   }
 
   async listDone(user: WorkflowUser, query: QueryDto) {
@@ -2020,6 +2165,15 @@ export class WorkflowService implements OnModuleInit {
   private isAdmin(user: WorkflowUser) {
     const roles = this.userRoles(user);
     return roles.some(role => ADMIN_ROLES.has(role)) || user.username === 'admin' || (user.permissions || []).includes('*');
+  }
+
+  private normalizeWorkflowUser(user: WorkflowUser & { id?: number | string }) {
+    const userId = Number(user?.userId ?? user?.id ?? 0) || 0;
+    return {
+      ...user,
+      userId,
+      roles: Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []),
+    };
   }
 
   private userRoles(user: WorkflowUser) {
