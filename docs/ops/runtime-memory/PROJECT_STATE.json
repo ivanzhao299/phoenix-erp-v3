@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-08",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC_READY",
+  "current_stage": "CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN_READY",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC",
+  "next_gate": "CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC_READY",
+    "current_stage": "CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN_READY",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "local API not running; no PHOENIX_ADMIN_TOKEN/PHOENIX_AUTH_TOKEN; no visible Chanjet runtime auth chain",
-    "next_action": "review_authenticated_adapter_samples_and_lock_voucher_subject_counterparty_semantics",
+    "next_action": "deploy_readonly_adapter_patch_then_rerun_authenticated_production_audit",
     "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
@@ -332,7 +332,19 @@
     "readonly_field_adapter_production_audit_json": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json",
     "readonly_field_adapter_production_audit_md": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md",
     "readonly_field_adapter_production_audit_report": "docs/ops/CHANJET_READONLY_ADAPTER_PRODUCTION_AUDIT_GATE_REPORT_20260707.md",
-    "readonly_field_adapter_production_audit_blocker": "HTTP_401_NO_RUNTIME_TOKEN_OR_SERVICE_ACCOUNT_ENV"
+    "readonly_field_adapter_production_audit_blocker": "HTTP_401_NO_RUNTIME_TOKEN_OR_SERVICE_ACCOUNT_ENV",
+    "readonly_field_adapter_patch_report": "docs/ops/CHANJET_READONLY_FIELD_ADAPTER_PATCH_AND_SAMPLE_REVIEW_REPORT_20260708.md",
+    "readonly_adapter_sample_review_script": "scripts/ops/chanjet-readonly-adapter-sample-review.mjs",
+    "readonly_adapter_sample_review_json": "docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.json",
+    "readonly_adapter_sample_review_md": "docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.md",
+    "readonly_adapter_sample_review_result": "GO_WITH_CONDITIONS",
+    "readonly_adapter_sample_review_semantic_coverage": "73.3%_pre_patch_baseline",
+    "readonly_adapter_patch_scope": [
+      "voucher_status_inference_from_readonly_evidence",
+      "voucher_line_subject_code_name_from_glAccount",
+      "currency_from_currencyTO_code"
+    ],
+    "readonly_adapter_patch_guardrail": "readonly_only_no_chanjet_write_no_voucher_push_no_erp_business_overwrite"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",

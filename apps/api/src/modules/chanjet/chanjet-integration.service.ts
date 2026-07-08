@@ -3616,6 +3616,9 @@ export class ChanjetIntegrationService {
 
   private buildVoucherHeaderAdapterRow(row: ChanjetEntitySnapshotEntity): ChanjetVoucherHeaderAdapterRow {
     const raw = row.rawData || {};
+    const status = row.status
+      || this.firstChanjetText(raw, ['status', 'voucherStatus', 'auditStatus', 'state', 'billStatus'])
+      || this.inferChanjetVoucherStatus(raw);
     return {
       rowId: row.id,
       voucherId: this.firstChanjetText(raw, ['id', 'voucherId', 'acctgTransId', 'transId', 'docId', 'billId']) || row.externalId || row.id,
@@ -3624,7 +3627,7 @@ export class ChanjetIntegrationService {
       period: row.period || this.firstChanjetText(raw, ['period', 'accountPeriod', 'acctPeriod', 'fiscalPeriod', 'yearPeriod']) || '—',
       voucherDate: this.firstChanjetText(raw, ['voucherDate', 'bizDate', 'businessDate', 'transDate', 'date', 'postedDate', 'createDate']) || '—',
       postingDate: this.firstChanjetText(raw, ['postingDate', 'postedDate', 'auditDate', 'bookkeepingDate', 'accountingDate']) || '—',
-      status: row.status || this.firstChanjetText(raw, ['status', 'voucherStatus', 'auditStatus', 'state', 'billStatus']) || '—',
+      status: status || '—',
       summary: this.firstChanjetText(raw, ['summary', 'abstract', 'memo', 'description', 'remark', 'comments']) || row.externalName || '—',
       maker: this.firstChanjetText(raw, ['maker', 'creator', 'createUserName', 'createdBy', 'operatorName', 'createName']) || '—',
       reviewer: this.firstChanjetText(raw, ['reviewer', 'auditor', 'approveUserName', 'auditUserName', 'reviewUserName']) || '—',
@@ -3662,18 +3665,28 @@ export class ChanjetIntegrationService {
           voucherId: header.voucherId,
           voucherNo: header.voucherNo,
           lineNo: this.firstChanjetText(item, ['lineNo', 'rowNo', 'seq', 'sequence', 'index']) || String(index + 1),
-          subjectCode: this.firstChanjetText(item, ['subjectCode', 'subject.code', 'subjectNo', 'accountCode', 'accountSubjectCode']) || '—',
-          subjectName: this.firstChanjetText(item, ['subjectName', 'subject.name', 'accountName', 'accountSubjectName']) || '—',
+          subjectCode: this.firstChanjetText(item, ['subjectCode', 'subject.code', 'subjectNo', 'accountCode', 'accountSubjectCode', 'glAccount.code']) || '—',
+          subjectName: this.firstChanjetText(item, ['subjectName', 'subject.name', 'accountName', 'accountSubjectName', 'glAccount.name', 'glAccount.longName']) || '—',
           summary: this.firstChanjetText(item, ['summary', 'abstract', 'memo', 'remark', 'comments', 'longText']) || header.summary,
           debitAmount: this.firstChanjetText(item, ['debitAmount', 'debit', 'debitOriginalAmount', 'drAmount', 'borrowAmount', 'postedDr']) || '0',
           creditAmount: this.firstChanjetText(item, ['creditAmount', 'credit', 'creditOriginalAmount', 'crAmount', 'loanAmount', 'postedCr']) || '0',
-          currency: this.firstChanjetText(item, ['currency', 'currencyCode', 'currencyName']) || row.currency || '—',
+          currency: this.firstChanjetText(item, ['currency', 'currencyCode', 'currencyName', 'currencyTO.code']) || row.currency || '—',
           counterpartyName: this.firstChanjetText(item, ['counterpartyName', 'customerName', 'supplierName', 'custVendorName', 'assistantCustomerName', 'partyName']) || '—',
           projectName: this.firstChanjetText(item, ['projectName', 'project.name', 'assistantProjectName']) || '—',
           departmentName: this.firstChanjetText(item, ['departmentName', 'department.name', 'deptName', 'assistantDepartmentName']) || '—',
           rawEvidenceExcerpt: this.compactChanjetRawEvidence(item),
         };
       });
+  }
+
+  private inferChanjetVoucherStatus(raw: Record<string, unknown>): string {
+    const cancelUserId = this.readChanjetPath(raw, 'cancelUserId');
+    if (this.isRecord(cancelUserId) && Object.keys(cancelUserId).length > 0) return 'CANCELLED';
+    if (this.firstChanjetText(raw, ['hasAdjusted']).toLowerCase() === 'true') return 'ADJUSTED';
+    const hasEditAuth = this.firstChanjetText(raw, ['hasEditAuth']).toLowerCase();
+    if (hasEditAuth === 'false') return 'POSTED_LOCKED';
+    if (hasEditAuth === 'true') return 'EDITABLE';
+    return '';
   }
 
   private buildCounterpartyAdapterRow(

@@ -1605,6 +1605,32 @@ Boundaries:
 
 - No Chanjet write/delete/modify.
 - No voucher push.
+## 2026-07-08 — Chanjet Readonly Adapter Patch and Sample Review
+
+Decision: `GO_WITH_CONDITIONS`.
+
+Root cause of the current adapter gap:
+
+- Voucher line subject fields existed in 好业财 nested `glAccount` evidence but were not read by the ERP adapter.
+- Voucher header status had no direct flat field in the sample artifact, but the raw evidence includes readonly status clues such as `hasAdjusted`, `hasEditAuth`, and `cancelUserId`.
+
+Actions:
+
+- Patched the readonly adapter to read `glAccount.code`, `glAccount.name`, and `glAccount.longName`.
+- Added readonly voucher status inference.
+- Added sample semantic coverage review tooling.
+
+Guardrails:
+
+- Chanjet write: false.
+- Voucher push: false.
+- ERP business overwrite: false.
+- DB write: false.
+
+Next decision:
+
+`CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN`.
+
 - No ERP business overwrite.
 - No migration or DB write.
 

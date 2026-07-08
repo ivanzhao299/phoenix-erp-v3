@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-08 — Chanjet Readonly Adapter Patch and Sample Review
+
+Current stage: `CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Patched the readonly voucher line adapter to read subject code/name from nested 好业财 `glAccount`.
+2. Added readonly voucher header status inference from existing evidence fields.
+3. Added `scripts/ops/chanjet-readonly-adapter-sample-review.mjs`.
+4. Generated sample review artifacts:
+   - `docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.json`
+   - `docs/ops/runs/chanjet-readonly-adapter-sample-review-latest.md`
+5. Confirmed pre-patch sample semantic coverage baseline is `73.3%`.
+
+Next actions:
+
+1. Deploy the adapter patch through the normal CI/CD path.
+2. Re-run authenticated production audit target `chanjet-readonly-adapter-production`.
+3. Re-run sample review after authenticated production audit artifacts update.
+4. Promote only fields with explicit semantic coverage to admin reconciliation views.
+5. Keep ordinary finance card authority and all Chanjet write-back on HOLD until the semantic locks are explicit.
+
 ## 2026-07-08 — Bug Intake Pipeline Closeout and Chanjet Handoff
 
 Current stage: `CHANJET_READONLY_FIELD_ADAPTER_REVIEW_AND_SAMPLE_SYNC_READY`
