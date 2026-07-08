@@ -4785,7 +4785,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0010",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4807,7 +4807,7 @@
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-08T02:21:38.802Z",
     "completed_at": "2026-07-08T02:27:51.077Z",
-    "result_file": null,
+    "result_file": "docs/ops/bug-20260707-0010-a3-backend-critical-path.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -4816,7 +4816,6 @@
     "approval_required": true,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "Codex-Orchestrator recovered the completed A3 child commit after worker writeback failure and merged it in the main bugfix commit.",
-    "reason": "worker parent returned before child completion; child exited after 192s but task was not written back; worker exit=1; observed=running",
     "redispatch_count": 0,
     "last_redispatch_at": null,
     "redispatched_at": "2026-07-08T01:41:03.182Z",
@@ -4857,7 +4856,12 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --yes"
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --yes",
+    "conclusion": "PASS WITH CONDITIONS",
+    "merged_at": "2026-07-08T02:37:10.145Z",
+    "reconciled_by": "Codex-Orchestrator",
+    "reconciliation_note": "Recovered completed A3 output from worktree after old runner parent/child writeback mismatch; merged into orchestrator branch commit ef8001ae.",
+    "detached_worker_recovered_at": "2026-07-08T02:37:10.145Z"
   },
   {
     "task_id": "BUGTASK-20260707-0010-03-A4",
@@ -4867,7 +4871,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0010",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4891,7 +4895,7 @@
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-08T02:27:51.453Z",
     "completed_at": "2026-07-08T02:32:32.639Z",
-    "result_file": null,
+    "result_file": "docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -4941,7 +4945,11 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "reason": "worker parent returned before child completion; child exited after 101s but task was not written back; worker exit=1; observed=running"
+    "conclusion": "PASS WITH CONDITIONS",
+    "merged_at": "2026-07-08T02:37:10.145Z",
+    "reconciled_by": "Codex-Orchestrator",
+    "reconciliation_note": "Recovered completed A4 output from worktree after old runner left task running; merged into orchestrator branch commit ef8001ae.",
+    "detached_worker_recovered_at": "2026-07-08T02:37:10.145Z"
   },
   {
     "task_id": "BUGTASK-20260707-0010-04-A5",
