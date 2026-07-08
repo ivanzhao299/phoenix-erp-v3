@@ -1,0 +1,290 @@
+{
+  "generatedAt": "2026-07-08T10:19:04.759Z",
+  "source": "docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json",
+  "decision": "GO_WITH_CONDITIONS",
+  "summary": {
+    "sourceDecision": "GO_WITH_CONDITIONS",
+    "reviewedDomains": 3,
+    "reviewedFields": 15,
+    "lockedFields": 11,
+    "openFields": 4,
+    "semanticCoverage": 73.3,
+    "nextGate": "CHANJET_READONLY_ADAPTER_PATCH_DEPLOY_AND_AUTHENTICATED_RERUN"
+  },
+  "domains": {
+    "voucherHeader": {
+      "adapterKey": "CHANJET_VOUCHER_HEADER",
+      "status": "PARTIAL",
+      "sampleRows": 60,
+      "fieldStats": [
+        {
+          "field": "voucherId",
+          "present": 60,
+          "total": 60,
+          "coverage": 100,
+          "samples": [
+            "3611637449493450",
+            "3611635439633978",
+            "3611634362482782",
+            "3611633422962196",
+            "3611631278884341",
+            "3608481047518031",
+            "3605799513753808",
+            "3604676513240958"
+          ],
+          "locked": true
+        },
+        {
+          "field": "voucherNo",
+          "present": 60,
+          "total": 60,
+          "coverage": 100,
+          "samples": [
+            "005",
+            "004",
+            "003",
+            "002",
+            "001",
+            "042",
+            "041",
+            "040"
+          ],
+          "locked": true
+        },
+        {
+          "field": "voucherDate",
+          "present": 60,
+          "total": 60,
+          "coverage": 100,
+          "samples": [
+            "2026-07-02",
+            "2026-07-01",
+            "2026-06-30",
+            "2026-06-29",
+            "2026-06-28",
+            "2026-06-27",
+            "2026-06-25",
+            "2026-06-24"
+          ],
+          "locked": true
+        },
+        {
+          "field": "status",
+          "present": 0,
+          "total": 60,
+          "coverage": 0,
+          "samples": [],
+          "locked": false
+        }
+      ],
+      "lockedFields": [
+        "voucherId",
+        "voucherNo",
+        "voucherDate"
+      ],
+      "openFields": [
+        "status"
+      ]
+    },
+    "voucherLine": {
+      "adapterKey": "CHANJET_VOUCHER_LINE",
+      "status": "PARTIAL",
+      "sampleRows": 160,
+      "fieldStats": [
+        {
+          "field": "lineNo",
+          "present": 160,
+          "total": 160,
+          "coverage": 100,
+          "samples": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "locked": true
+        },
+        {
+          "field": "subjectCode",
+          "present": 0,
+          "total": 160,
+          "coverage": 0,
+          "samples": [],
+          "locked": false
+        },
+        {
+          "field": "subjectName",
+          "present": 0,
+          "total": 160,
+          "coverage": 0,
+          "samples": [],
+          "locked": false
+        },
+        {
+          "field": "debitAmount",
+          "present": 160,
+          "total": 160,
+          "coverage": 100,
+          "samples": [
+            "1701000",
+            "0",
+            "1000",
+            "800000",
+            "371000",
+            "10000000",
+            "400000",
+            "5558000"
+          ],
+          "locked": true
+        },
+        {
+          "field": "creditAmount",
+          "present": 160,
+          "total": 160,
+          "coverage": 100,
+          "samples": [
+            "0",
+            "1701000",
+            "10987000",
+            "371000",
+            "10000000",
+            "6167000",
+            "4902000",
+            "5558000"
+          ],
+          "locked": true
+        },
+        {
+          "field": "currency",
+          "present": 160,
+          "total": 160,
+          "coverage": 100,
+          "samples": [
+            "RMB"
+          ],
+          "locked": true
+        }
+      ],
+      "lockedFields": [
+        "lineNo",
+        "debitAmount",
+        "creditAmount",
+        "currency"
+      ],
+      "openFields": [
+        "subjectCode",
+        "subjectName"
+      ]
+    },
+    "counterparty": {
+      "adapterKey": "CHANJET_COUNTERPARTY",
+      "status": "PARTIAL",
+      "sampleRows": 120,
+      "fieldStats": [
+        {
+          "field": "externalId",
+          "present": 120,
+          "total": 120,
+          "coverage": 100,
+          "samples": [
+            "3539743453873655",
+            "3551319199067377",
+            "3610461032941530",
+            "3610461032941523",
+            "3610460227634677",
+            "3610460227634653",
+            "3610458613220343",
+            "3610458613220331"
+          ],
+          "locked": true
+        },
+        {
+          "field": "externalCode",
+          "present": 120,
+          "total": 120,
+          "coverage": 100,
+          "samples": [
+            "RETAIL_CUSTOMER",
+            "00030001",
+            "00020011",
+            "00020010",
+            "00020009",
+            "00020008",
+            "00020007",
+            "00020006"
+          ],
+          "locked": true
+        },
+        {
+          "field": "externalName",
+          "present": 120,
+          "total": 120,
+          "coverage": 100,
+          "samples": [
+            "零散客户",
+            "老挝星驰农业发展有限公司（沙耶武里）",
+            "丁",
+            "依金",
+            "同",
+            "娜娜",
+            "向老头",
+            "老刘"
+          ],
+          "locked": true
+        },
+        {
+          "field": "roleCandidate",
+          "present": 2,
+          "total": 120,
+          "coverage": 1.7,
+          "samples": [
+            "CUSTOMER"
+          ],
+          "locked": false
+        },
+        {
+          "field": "mappingReviewStatus",
+          "present": 120,
+          "total": 120,
+          "coverage": 100,
+          "samples": [
+            "PENDING"
+          ],
+          "locked": true
+        }
+      ],
+      "lockedFields": [
+        "externalId",
+        "externalCode",
+        "externalName",
+        "mappingReviewStatus"
+      ],
+      "openFields": [
+        "roleCandidate"
+      ]
+    }
+  },
+  "openFields": [
+    "voucher_header.status",
+    "voucher_line.subjectCode",
+    "voucher_line.subjectName",
+    "counterparty.roleCandidate"
+  ],
+  "conditions": [
+    "voucher_status_semantics_require_authenticated_rerun_after_adapter_patch",
+    "subject_code_name_semantics_require_glAccount_adapter_patch_deployed_and_verified"
+  ],
+  "blockers": [],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetModify": false,
+    "chanjetDelete": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "dbWrite": false,
+    "rule": "Sample review is read-only and only promotes fields after explicit semantic coverage evidence."
+  }
+}
