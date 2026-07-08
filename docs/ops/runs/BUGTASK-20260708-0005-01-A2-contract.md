@@ -1427,12 +1427,12 @@ Assigned agent: A2-Security-Regression-Gate
           "originalName": "pasted-screenshot-1783495023020-1.png",
           "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-160230/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
+          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
           "sizeBytes": 591332
         }
       ],
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-160230/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png"
       ]
     }
   },
@@ -1541,4 +1541,4 @@ Assigned agent: A2-Security-Regression-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-160230/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260708-161346/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png
