@@ -68,6 +68,11 @@ export default function StockQueryPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q") ?? "";
+    if (q.trim()) setKeyword(q);
+  }, []);
+
   const filteredRows = useMemo(() => {
     const q = keyword.trim().toLowerCase();
     if (!q) return rows;
@@ -89,7 +94,6 @@ export default function StockQueryPage() {
         title={t("ui.库存查询", "库存查询")}
         subtitle={t("ui.按权限范围查询库存批次余量和状态", "按权限范围查询库存批次余量和状态")}
       />
-
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -122,7 +126,7 @@ export default function StockQueryPage() {
         <input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder={t("ui.搜索批次号、产品、仓库、库位", "搜索批次号、产品、仓库、库位")}
+          placeholder={t("ui.搜索批次产品仓库库位门店", "搜索批次号、产品编码、仓库、库位或门店")}
           style={{
             flex: 1,
             border: "none",

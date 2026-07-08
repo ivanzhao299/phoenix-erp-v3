@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import Link from "next/link";
 import { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -26,11 +27,12 @@ type Row = Record<string, unknown>;
 
 export default function InboundPage() {
   const { t } = useLanguage();
-  const { canCreate, canEdit, canDelete, canApprove } = useAuth();
+  const { canCreate, canEdit, canDelete, canApprove, hasPermission } = useAuth();
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
   const canApproveInout = canApprove("MENU_WMS_INOUT");
+  const canViewInventory = hasPermission("MENU_WMS_VIEW", "V");
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
   const [saving,        setSaving]        = useState(false);
@@ -65,11 +67,12 @@ export default function InboundPage() {
   //   2026-06-03 seed 的 product_skus 仍保留供"包装/销售"用，不删
   const FIELDS: FormField[] = [
     { key: "inbound_no",     label: t("ui.入库单号", "入库单号"),  type: "text",   placeholder: t("ui.留空自动生成WI", "留空自动生成 WI-XXXXXX") },
+    { key: "date",           label: t("ui.入库日期", "入库日期"),  type: "date",   required: true, defaultValue: new Date().toISOString().slice(0, 10) },
     { key: "type",           label: t("ui.入库类型", "入库类型"),  type: "dict",   dictType: "INV_INBOUND_TYPE", required: true },
-    { key: "warehouse_code", label: t("ui.入库仓库", "入库仓库"),  type: "warehouse", required: true },
-    { key: "item",           label: t("ui.物料/品目", "物料/品目"), type: "text", required: true,
-      placeholder: t("ui.物料品目placeholder", "如：玉米/豆粕/兽药编码/包材...") },
-    { key: "qty",            label: t("ui.数量",     "数量"),      type: "number", required: true },
+    { key: "warehouse_code", label: t("ui.仓库",     "仓库"),      type: "warehouse", required: true },
+    { key: "item",           label: t("ui.产品编码物料编码", "产品编码/物料编码"), type: "text", required: true,
+      placeholder: t("ui.产品编码物料编码placeholder", "如：PRD-EGG-1 / LPH-MED-003 / 玉米") },
+    { key: "qty",            label: t("ui.入库数量", "入库数量"),  type: "number", required: true },
     // G31: 默认自动取当前登录用户（generic-crud 后端注入），手动选可代录入
     { key: "operator",       label: t("ui.操作员",   "操作员（留空=当前用户）"),    type: "user"   },
     { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
@@ -98,7 +101,7 @@ export default function InboundPage() {
             task_no:    values.task_no    || ("INB-" + new Date().toISOString().slice(0,10).replace(/-/g,'') + "-" + Math.random().toString(36).slice(2,6).toUpperCase()),
             inbound_no: values.inbound_no || ("WI-"  + Date.now().toString().slice(-6)),
             status:     values.status     || "PENDING",
-            date:       new Date().toISOString().slice(0, 10),
+            date:       values.date       || new Date().toISOString().slice(0, 10),
           };
       editing?.id
         ? await crudApi.update(TABLE, editing.id as number, payload)
@@ -123,11 +126,12 @@ export default function InboundPage() {
 
   const COLUMNS: Column<Row>[] = [
     { key: "inbound_no",     title: t("ui.入库单号", "入库单号"),  width: 160 },
+    { key: "date",           title: t("ui.入库日期", "入库日期"),  width: 110 },
     { key: "type",           title: t("ui.入库类型", "入库类型"),  width: 100,
       render: v => <span style={{ fontSize: 12, fontWeight: 600 }}>{SOURCE_LABEL[String(v)] ?? String(v ?? "—")}</span> },
     { key: "warehouse_code", title: t("ui.仓库",     "仓库"),      width: 120 },
-    { key: "item",           title: t("ui.品目",     "品目"),      width: 150 },
-    { key: "qty",            title: t("ui.数量",     "数量"),      width: 80, align: "right",
+    { key: "item",           title: t("ui.产品编码物料编码", "产品编码/物料编码"), width: 160 },
+    { key: "qty",            title: t("ui.入库数量", "入库数量"),  width: 90, align: "right",
       render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
       render: v => {
@@ -135,9 +139,14 @@ export default function InboundPage() {
         return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
       }},
     { key: "operator",       title: t("ui.操作员",   "操作员"),    width: 90  },
-    { key: "_actions",       title: t("common.operation", "操作"), width: 180, align: "center",
+    { key: "_actions",       title: t("common.operation", "操作"), width: 240, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+          {canViewInventory && (
+            <Link href={`/warehouse/query?q=${encodeURIComponent(String(row.item ?? ""))}`} style={{ ...actionPill("info"), textDecoration: "none" }}>
+              {t("ui.查库存", "查库存")}
+            </Link>
+          )}
           {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
           {canApproveInout && row.status === "PENDING" && (
             <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>

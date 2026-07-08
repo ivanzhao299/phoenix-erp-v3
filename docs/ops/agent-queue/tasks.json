@@ -5206,7 +5206,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -5227,10 +5227,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-08T02:44:42.908Z",
+    "completed_at": "2026-07-08T02:52:46.241Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0001-03-A4-detached-worker-recovery.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -5239,7 +5239,10 @@
     ],
     "approval_required": true,
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "baseline_autopilot_exit_code": 0,
+    "detached_worker_recovered_at": "2026-07-08T02:52:46.241Z",
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
   },
   {
     "task_id": "BUGTASK-20260708-0001-04-A5",
@@ -5291,7 +5294,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "completed",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -5311,10 +5314,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A1-CI-Runtime-Gate",
+    "claimed_at": "2026-07-08T10:56:40+0800",
+    "completed_at": "2026-07-08T10:56:40+0800",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0001-05-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -5322,6 +5325,16 @@
     ],
     "approval_required": true,
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "conclusion": "PASS WITH CONDITIONS",
+    "verification_results": {
+      "web_typecheck": "PASS",
+      "i18n_key_gate": "PASS",
+      "diff_check": "PASS",
+      "w5_closeout_gate": "PASS"
+    },
+    "reconciled_by": "Codex-Orchestrator",
+    "reconciled_at": "2026-07-08T10:56:40+0800",
+    "reconciliation_note": "A1 validation completed after A4 recovery for BUG-20260708-0001."
   }
 ]
