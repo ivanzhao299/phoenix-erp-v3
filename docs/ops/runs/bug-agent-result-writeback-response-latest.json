@@ -1,24 +1,24 @@
 {
-  "id": "24",
-  "bugNo": "BUG-20260709-0002",
-  "title": "库存业务链路没有闭环",
+  "id": "25",
+  "bugNo": "BUG-20260709-0003",
+  "title": "库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
   "moduleCode": "____",
-  "assigneeUsername": "_____",
+  "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260709-0002",
-  "repairTaskStatus": "HOLD",
-  "route": "/warehouse/inbound",
+  "repairTaskNo": "BUGTASK-20260709-0003",
+  "repairTaskStatus": "AGENT_RUNNING",
+  "route": "/warehouse/ledger",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-09T01:15:45.325Z",
-  "updatedAt": "2026-07-09T02:03:47.397Z",
+  "createdAt": "2026-07-09T07:40:50.348Z",
+  "updatedAt": "2026-07-09T07:43:54.134Z",
   "closedAt": null,
-  "attachmentCount": 0,
-  "description": "问题判断：\n库存查询、成品批次、仓库看板、入库管理、出入库流水没有使用同一套库存数据源，导致系统里明明有库存，但库存查询看不到；入库管理也没有形成“入库单 -> 库存余额 -> 库存台账/库存查询”的闭环。\n\n修复要求：\n1. 统一库存主账模型，至少包含：批次号、产品编码/SKU、仓库、库区、库位、库存数量、可用数量、状态、生产日期、保质期/到期日、归属组织/门店、来源单据、来源类型。\n2. 入库管理页面必须补齐：入库单列表、新建入库单、入库明细、保存草稿、提交/确认入库、状态流转。\n3. 入库单确认后必须同步写入库存余额，并生成库存台账流水。\n4. 库存查询必须读取真实库存余额，不能与成品批次库存割裂。\n5. 成品批次库存与仓储库存如需保留两套视图，也必须建立字段映射和数据同步关系。\n6. 仓库看板、库存查询、库存台账、成品批次的库存数量口径必须一致。\n7. 修复后请验证：新增一张入库单后，库存查询能查到对应批次，库存台账能看到入库流水，仓库看板总库存和今日入库统计同步变化。",
-  "url": "https://erp.eggslao.com/warehouse/inbound",
+  "attachmentCount": 1,
+  "description": "库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文，比如FARM_OUT_MEDICATION、TEMP_PRODUCTION_INBOUND、FARM_IN等，都转换为中文显示",
+  "url": "https://erp.eggslao.com/warehouse/ledger",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -27,8 +27,27 @@
   "companyCode": "",
   "projectCode": "",
   "consoleErrors": [],
-  "failedRequests": [],
-  "attachments": [],
+  "failedRequests": [
+    {
+      "url": "/api/bug-intake/reports/BUG-20260708-0004/redispatch",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-09T07:19:33.954Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"已解决或已关闭的问题不能直接重新派发，请先重新打开并确认仍需修复\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    }
+  ],
+  "attachments": [
+    {
+      "sha256": "5b496b92129338ed5f0491ec4da0dd2d8012a4dcb427a248aeb48237006cf81b",
+      "fileName": "01-1783582850342-ec1f5758.png",
+      "mimeType": "image/png",
+      "sizeBytes": 679498,
+      "originalName": "pasted-screenshot-1783582590020-1.png",
+      "relativePath": "storage/bug-reports/2026/07/09/BUG-20260709-0003/01-1783582850342-ec1f5758.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260709-0003/attachments/01-1783582850342-ec1f5758.png"
+    }
+  ],
   "clientContext": {
     "language": "zh-CN",
     "timezone": "Asia/Shanghai",
@@ -37,10 +56,10 @@
       "height": 961
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-09T01:15:45.325Z",
+    "capturedAt": "2026-07-09T07:40:50.346Z",
     "pageSnapshot": {
-      "route": "/warehouse/inbound",
-      "title": "金凤凰数字运营管理平台",
+      "route": "/warehouse/ledger",
+      "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
         "y": 0
@@ -55,18 +74,18 @@
         "经营仪表盘",
         "生产管理",
         "库存管理",
-        "库存总览",
+        "仓库看板",
         "成品批次",
         "库存来源模式",
-        "手工入库",
+        "入库管理",
         "出库管理",
         "调拨管理",
         "盘点管理",
-        "出入库流水",
+        "库存台账",
         "库存查询",
-        "临期库存",
+        "临期预警",
         "日结对账",
-        "损耗管理",
+        "报损管理",
         "仓库主档",
         "库区管理",
         "库位管理",
@@ -82,6 +101,7 @@
         "验收试运行",
         "系统运维",
         "个人中心 / 修改密码",
+        "问题反馈",
         "99+",
         "反馈问题",
         "反馈页面问题",
@@ -95,53 +115,80 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+        "pasted-screenshot-1783582590020-1.png",
         "退出",
-        "仓储管理",
-        "/入库管理",
-        "/",
-        "入库管理",
-        "·管理各类仓库入库单审核数据追踪",
+        "·实时库存进出流水台账",
         "·",
         "共 0 条记录",
-        "入库单号",
-        "入库日期",
-        "入库类型",
-        "仓库",
-        "产品编码/物料编码",
-        "入库数量",
-        "状态",
+        "事务时间",
+        "批次号",
+        "事务类型",
+        "数量变动",
+        "关联单据",
         "操作员",
-        "操作",
-        "20260705",
-        "2026-07-05T00:00:00.000Z",
-        "生产入库",
-        "LPH_MS_RAW",
-        "测试材料",
-        "1",
-        "已入库",
+        "门店",
+        "备注",
+        "2026-06-06 15:30",
+        "MED-STOCK-LPH-MED-019",
+        "FARM_OUT_MEDICATION",
+        "-63.000",
+        "—",
+        "ETL_INITIAL",
+        "SITE-MENGSAI-LAYER",
+        "Excel: 期初=140瓶, 6.2出=63瓶, 6.3=0(无出库), 6.4出=0, 期末=77瓶",
+        "MED-STOCK-LPH-MED-021",
+        "-3.800",
+        "Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=11.25公斤",
+        "-2.500",
+        "MED-STOCK-LPH-MED-024",
+        "Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=13.9公斤",
+        "2026-07-07 01:13",
+        "EGG-20260707-00001",
+        "TEMP_PRODUCTION_INBOUND",
+        "+1.000",
+        "TEMP-2026-07-07-PROD",
         "admin",
-        "查库存 编辑 删除",
-        "bbbb",
-        "退货入库",
-        "LPH_MS_EGG_FARM",
-        "测试",
-        "待处理",
-        "tangzhiwen",
-        "查库存 编辑 审核 删除",
-        "aaaaa",
-        "qiantao",
-        "CS-00001",
-        "11",
-        "songlei",
-        "WI-527118",
-        "2026-07-07T00:00:00.000Z",
-        "WI-534374",
+        "ALL",
+        "生产入库 product=PRD-EGG-GRADE_1 grade=GRADE_1 qty=1 expire=2026-08-06",
+        "2026-07-07 01:14",
+        "EGG-20260707-00002",
+        "2026-07-07 01:55",
+        "FARM_IN",
+        "+10.000",
+        "FK-MR8VGZS4M0Q",
+        "金凤凰总控",
+        "FACTORY",
+        "日报产蛋入账 10枚",
+        "+210.000",
+        "日报产蛋入账 210枚",
+        "2026-07-07 03:40",
+        "MED-STOCK-LPH-MED-001",
+        "MED_INBOUND",
+        "mobile",
         "采购入库",
-        "监控摄像头测试",
-        "50",
-        "WI-535598",
-        "2026-07-08T00:00:00.000Z",
-        "测试物品"
+        "2026-07-07 03:41",
+        "测试",
+        "2026-07-07 03:42",
+        "MED_OUTBOUND",
+        "-2.000",
+        "用药出库",
+        "2026-07-07 03:44",
+        "2026-07-07 05:53",
+        "EGG-20260707-00003",
+        "2026-07-07 06:04",
+        "EGG-20260707-00004",
+        "EGG-20260707-00005",
+        "生产入库 product=PRD-EGG-GRADE_2 grade=GRADE_2 qty=1 expire=2026-08-06",
+        "EGG-20260707-00006",
+        "+2.000",
+        "生产入库 product=PRD-EGG-GRADE_3 grade=GRADE_3 qty=2 expire=2026-08-06",
+        "EGG-20260707-00007",
+        "生产入库 product=PRD-EGG-GRADE_4 grade=GRADE_4 qty=1 expire=2026-08-06",
+        "EGG-20260707-00008",
+        "生产入库 product=PRD-EGG-GRADE_5 grade=GRADE_5 qty=1 expire=2026-08-06",
+        "2026-07-08 00:34",
+        "-3.000",
+        "2026-07-08 00:37"
       ],
       "interactiveElements": [
         {
@@ -213,7 +260,7 @@
             "x": 0,
             "y": 308
           },
-          "label": "库存总览",
+          "label": "仓库看板",
           "disabled": false
         },
         {
@@ -242,14 +289,14 @@
         },
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "path": ".sidebar-module__C8A-ya__subItem.",
           "rect": {
             "h": 32,
             "w": 215,
             "x": 0,
             "y": 404
           },
-          "label": "手工入库",
+          "label": "入库管理",
           "disabled": false
         },
         {
@@ -290,14 +337,14 @@
         },
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
           "rect": {
             "h": 32,
             "w": 215,
             "x": 0,
             "y": 532
           },
-          "label": "出入库流水",
+          "label": "库存台账",
           "disabled": false
         },
         {
@@ -321,7 +368,7 @@
             "x": 0,
             "y": 596
           },
-          "label": "临期库存",
+          "label": "临期预警",
           "disabled": false
         },
         {
@@ -345,7 +392,7 @@
             "x": 0,
             "y": 660
           },
-          "label": "损耗管理",
+          "label": "报损管理",
           "disabled": false
         },
         {
@@ -582,7 +629,7 @@
           "rect": {
             "h": 26,
             "w": 26,
-            "x": 1150,
+            "x": 1145,
             "y": 117
           },
           "label": "关闭",
@@ -593,7 +640,7 @@
           "path": "",
           "rect": {
             "h": 41,
-            "w": 575,
+            "w": 570,
             "x": 601,
             "y": 338
           },
@@ -605,7 +652,7 @@
           "path": "",
           "rect": {
             "h": 38,
-            "w": 575,
+            "w": 570,
             "x": 601,
             "y": 419
           },
@@ -617,7 +664,7 @@
           "path": "",
           "rect": {
             "h": 99,
-            "w": 575,
+            "w": 570,
             "x": 601,
             "y": 498
           },
@@ -650,12 +697,24 @@
         },
         {
           "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 18,
+            "w": 18,
+            "x": 857,
+            "y": 815
+          },
+          "label": "移除附件",
+          "disabled": false
+        },
+        {
+          "tag": "button",
           "path": ".bug-intake-module__OBjRZW__secondaryButton",
           "rect": {
             "h": 42,
             "w": 61,
-            "x": 1016,
-            "y": 831
+            "x": 1011,
+            "y": 869
           },
           "label": "取消",
           "disabled": false
@@ -666,8 +725,8 @@
           "rect": {
             "h": 42,
             "w": 89,
-            "x": 1087,
-            "y": 831
+            "x": 1082,
+            "y": 869
           },
           "label": "提交问题",
           "disabled": false
@@ -695,428 +754,30 @@
           },
           "label": "退出",
           "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 33,
-            "w": 121,
-            "x": 1633,
-            "y": 90
-          },
-          "label": "新建入库单",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 30,
-            "w": 53,
-            "x": 244,
-            "y": 145
-          },
-          "label": "全部",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 30,
-            "w": 77,
-            "x": 303,
-            "y": 145
-          },
-          "label": "生产入库",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 30,
-            "w": 77,
-            "x": 386,
-            "y": 145
-          },
-          "label": "采购入库",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 30,
-            "w": 77,
-            "x": 469,
-            "y": 145
-          },
-          "label": "调拨入库",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 30,
-            "w": 77,
-            "x": 552,
-            "y": 145
-          },
-          "label": "退货入库",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1522,
-            "y": 290
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1585,
-            "y": 290
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1637,
-            "y": 290
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1489,
-            "y": 351
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1552,
-            "y": 351
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 60,
-            "x": 1604,
-            "y": 351
-          },
-          "label": "审核",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1670,
-            "y": 351
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1522,
-            "y": 412
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1585,
-            "y": 412
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1637,
-            "y": 412
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1489,
-            "y": 473
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1552,
-            "y": 473
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 60,
-            "x": 1604,
-            "y": 473
-          },
-          "label": "审核",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1670,
-            "y": 473
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1489,
-            "y": 534
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1552,
-            "y": 534
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 60,
-            "x": 1604,
-            "y": 534
-          },
-          "label": "审核",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1670,
-            "y": 534
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1522,
-            "y": 595
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1585,
-            "y": 595
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1637,
-            "y": 595
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 57,
-            "x": 1522,
-            "y": 656
-          },
-          "label": "查库存",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1585,
-            "y": 656
-          },
-          "label": "编辑",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 45,
-            "x": 1637,
-            "y": 656
-          },
-          "label": "删除",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-          "rect": {
-            "h": 32,
-            "w": 32,
-            "x": 2246,
-            "y": 16
-          },
-          "label": "关闭抽屉",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 1798,
-            "y": 108
-          },
-          "label": "留空自动生成WI",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2046,
-            "y": 109
-          },
-          "label": "2026-07-09",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".phx-select",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 1798,
-            "y": 192
-          },
-          "label": "采购入库 生产入库 退货入库 盘盈入库 调拨接收",
-          "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.7999999523162842
   },
-  "resolutionNote": "按要求形成业务闭环",
+  "resolutionNote": "库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文，比如FARM_OUT_MEDICATION、TEMP_PRODUCTION_INBOUND、FARM_IN等，都转换为中文显示",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/warehouse/inbound",
-    "bugNo": "BUG-20260709-0002",
-    "route": "/warehouse/inbound",
-    "title": "库存业务链路没有闭环",
-    "taskNo": "BUGTASK-20260709-0002",
+    "url": "https://erp.eggslao.com/warehouse/ledger",
+    "bugNo": "BUG-20260709-0003",
+    "route": "/warehouse/ledger",
+    "title": "库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文",
+    "taskNo": "BUGTASK-20260709-0003",
     "context": {
-      "attachments": [],
+      "attachments": [
+        {
+          "sha256": "5b496b92129338ed5f0491ec4da0dd2d8012a4dcb427a248aeb48237006cf81b",
+          "fileName": "01-1783582850342-ec1f5758.png",
+          "mimeType": "image/png",
+          "sizeBytes": 679498,
+          "originalName": "pasted-screenshot-1783582590020-1.png",
+          "relativePath": "storage/bug-reports/2026/07/09/BUG-20260709-0003/01-1783582850342-ec1f5758.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260709-0003/attachments/01-1783582850342-ec1f5758.png"
+        }
+      ],
       "clientContext": {
         "language": "zh-CN",
         "timezone": "Asia/Shanghai",
@@ -1125,10 +786,10 @@
           "height": 961
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-09T01:15:45.325Z",
+        "capturedAt": "2026-07-09T07:40:50.346Z",
         "pageSnapshot": {
-          "route": "/warehouse/inbound",
-          "title": "金凤凰数字运营管理平台",
+          "route": "/warehouse/ledger",
+          "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
             "y": 0
@@ -1143,18 +804,18 @@
             "经营仪表盘",
             "生产管理",
             "库存管理",
-            "库存总览",
+            "仓库看板",
             "成品批次",
             "库存来源模式",
-            "手工入库",
+            "入库管理",
             "出库管理",
             "调拨管理",
             "盘点管理",
-            "出入库流水",
+            "库存台账",
             "库存查询",
-            "临期库存",
+            "临期预警",
             "日结对账",
-            "损耗管理",
+            "报损管理",
             "仓库主档",
             "库区管理",
             "库位管理",
@@ -1170,6 +831,7 @@
             "验收试运行",
             "系统运维",
             "个人中心 / 修改密码",
+            "问题反馈",
             "99+",
             "反馈问题",
             "反馈页面问题",
@@ -1183,53 +845,80 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+            "pasted-screenshot-1783582590020-1.png",
             "退出",
-            "仓储管理",
-            "/入库管理",
-            "/",
-            "入库管理",
-            "·管理各类仓库入库单审核数据追踪",
+            "·实时库存进出流水台账",
             "·",
             "共 0 条记录",
-            "入库单号",
-            "入库日期",
-            "入库类型",
-            "仓库",
-            "产品编码/物料编码",
-            "入库数量",
-            "状态",
+            "事务时间",
+            "批次号",
+            "事务类型",
+            "数量变动",
+            "关联单据",
             "操作员",
-            "操作",
-            "20260705",
-            "2026-07-05T00:00:00.000Z",
-            "生产入库",
-            "LPH_MS_RAW",
-            "测试材料",
-            "1",
-            "已入库",
+            "门店",
+            "备注",
+            "2026-06-06 15:30",
+            "MED-STOCK-LPH-MED-019",
+            "FARM_OUT_MEDICATION",
+            "-63.000",
+            "—",
+            "ETL_INITIAL",
+            "SITE-MENGSAI-LAYER",
+            "Excel: 期初=140瓶, 6.2出=63瓶, 6.3=0(无出库), 6.4出=0, 期末=77瓶",
+            "MED-STOCK-LPH-MED-021",
+            "-3.800",
+            "Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=11.25公斤",
+            "-2.500",
+            "MED-STOCK-LPH-MED-024",
+            "Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=13.9公斤",
+            "2026-07-07 01:13",
+            "EGG-20260707-00001",
+            "TEMP_PRODUCTION_INBOUND",
+            "+1.000",
+            "TEMP-2026-07-07-PROD",
             "admin",
-            "查库存 编辑 删除",
-            "bbbb",
-            "退货入库",
-            "LPH_MS_EGG_FARM",
-            "测试",
-            "待处理",
-            "tangzhiwen",
-            "查库存 编辑 审核 删除",
-            "aaaaa",
-            "qiantao",
-            "CS-00001",
-            "11",
-            "songlei",
-            "WI-527118",
-            "2026-07-07T00:00:00.000Z",
-            "WI-534374",
+            "ALL",
+            "生产入库 product=PRD-EGG-GRADE_1 grade=GRADE_1 qty=1 expire=2026-08-06",
+            "2026-07-07 01:14",
+            "EGG-20260707-00002",
+            "2026-07-07 01:55",
+            "FARM_IN",
+            "+10.000",
+            "FK-MR8VGZS4M0Q",
+            "金凤凰总控",
+            "FACTORY",
+            "日报产蛋入账 10枚",
+            "+210.000",
+            "日报产蛋入账 210枚",
+            "2026-07-07 03:40",
+            "MED-STOCK-LPH-MED-001",
+            "MED_INBOUND",
+            "mobile",
             "采购入库",
-            "监控摄像头测试",
-            "50",
-            "WI-535598",
-            "2026-07-08T00:00:00.000Z",
-            "测试物品"
+            "2026-07-07 03:41",
+            "测试",
+            "2026-07-07 03:42",
+            "MED_OUTBOUND",
+            "-2.000",
+            "用药出库",
+            "2026-07-07 03:44",
+            "2026-07-07 05:53",
+            "EGG-20260707-00003",
+            "2026-07-07 06:04",
+            "EGG-20260707-00004",
+            "EGG-20260707-00005",
+            "生产入库 product=PRD-EGG-GRADE_2 grade=GRADE_2 qty=1 expire=2026-08-06",
+            "EGG-20260707-00006",
+            "+2.000",
+            "生产入库 product=PRD-EGG-GRADE_3 grade=GRADE_3 qty=2 expire=2026-08-06",
+            "EGG-20260707-00007",
+            "生产入库 product=PRD-EGG-GRADE_4 grade=GRADE_4 qty=1 expire=2026-08-06",
+            "EGG-20260707-00008",
+            "生产入库 product=PRD-EGG-GRADE_5 grade=GRADE_5 qty=1 expire=2026-08-06",
+            "2026-07-08 00:34",
+            "-3.000",
+            "2026-07-08 00:37"
           ],
           "interactiveElements": [
             {
@@ -1301,7 +990,7 @@
                 "x": 0,
                 "y": 308
               },
-              "label": "库存总览",
+              "label": "仓库看板",
               "disabled": false
             },
             {
@@ -1330,14 +1019,14 @@
             },
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "path": ".sidebar-module__C8A-ya__subItem.",
               "rect": {
                 "h": 32,
                 "w": 215,
                 "x": 0,
                 "y": 404
               },
-              "label": "手工入库",
+              "label": "入库管理",
               "disabled": false
             },
             {
@@ -1378,14 +1067,14 @@
             },
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
               "rect": {
                 "h": 32,
                 "w": 215,
                 "x": 0,
                 "y": 532
               },
-              "label": "出入库流水",
+              "label": "库存台账",
               "disabled": false
             },
             {
@@ -1409,7 +1098,7 @@
                 "x": 0,
                 "y": 596
               },
-              "label": "临期库存",
+              "label": "临期预警",
               "disabled": false
             },
             {
@@ -1433,7 +1122,7 @@
                 "x": 0,
                 "y": 660
               },
-              "label": "损耗管理",
+              "label": "报损管理",
               "disabled": false
             },
             {
@@ -1670,7 +1359,7 @@
               "rect": {
                 "h": 26,
                 "w": 26,
-                "x": 1150,
+                "x": 1145,
                 "y": 117
               },
               "label": "关闭",
@@ -1681,7 +1370,7 @@
               "path": "",
               "rect": {
                 "h": 41,
-                "w": 575,
+                "w": 570,
                 "x": 601,
                 "y": 338
               },
@@ -1693,7 +1382,7 @@
               "path": "",
               "rect": {
                 "h": 38,
-                "w": 575,
+                "w": 570,
                 "x": 601,
                 "y": 419
               },
@@ -1705,7 +1394,7 @@
               "path": "",
               "rect": {
                 "h": 99,
-                "w": 575,
+                "w": 570,
                 "x": 601,
                 "y": 498
               },
@@ -1738,12 +1427,24 @@
             },
             {
               "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 18,
+                "w": 18,
+                "x": 857,
+                "y": 815
+              },
+              "label": "移除附件",
+              "disabled": false
+            },
+            {
+              "tag": "button",
               "path": ".bug-intake-module__OBjRZW__secondaryButton",
               "rect": {
                 "h": 42,
                 "w": 61,
-                "x": 1016,
-                "y": 831
+                "x": 1011,
+                "y": 869
               },
               "label": "取消",
               "disabled": false
@@ -1754,8 +1455,8 @@
               "rect": {
                 "h": 42,
                 "w": 89,
-                "x": 1087,
-                "y": 831
+                "x": 1082,
+                "y": 869
               },
               "label": "提交问题",
               "disabled": false
@@ -1783,421 +1484,22 @@
               },
               "label": "退出",
               "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 33,
-                "w": 121,
-                "x": 1633,
-                "y": 90
-              },
-              "label": "新建入库单",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 30,
-                "w": 53,
-                "x": 244,
-                "y": 145
-              },
-              "label": "全部",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 30,
-                "w": 77,
-                "x": 303,
-                "y": 145
-              },
-              "label": "生产入库",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 30,
-                "w": 77,
-                "x": 386,
-                "y": 145
-              },
-              "label": "采购入库",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 30,
-                "w": 77,
-                "x": 469,
-                "y": 145
-              },
-              "label": "调拨入库",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 30,
-                "w": 77,
-                "x": 552,
-                "y": 145
-              },
-              "label": "退货入库",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1522,
-                "y": 290
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1585,
-                "y": 290
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1637,
-                "y": 290
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1489,
-                "y": 351
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1552,
-                "y": 351
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 60,
-                "x": 1604,
-                "y": 351
-              },
-              "label": "审核",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1670,
-                "y": 351
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1522,
-                "y": 412
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1585,
-                "y": 412
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1637,
-                "y": 412
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1489,
-                "y": 473
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1552,
-                "y": 473
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 60,
-                "x": 1604,
-                "y": 473
-              },
-              "label": "审核",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1670,
-                "y": 473
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1489,
-                "y": 534
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1552,
-                "y": 534
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 60,
-                "x": 1604,
-                "y": 534
-              },
-              "label": "审核",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1670,
-                "y": 534
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1522,
-                "y": 595
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1585,
-                "y": 595
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1637,
-                "y": 595
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 57,
-                "x": 1522,
-                "y": 656
-              },
-              "label": "查库存",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1585,
-                "y": 656
-              },
-              "label": "编辑",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 45,
-                "x": 1637,
-                "y": 656
-              },
-              "label": "删除",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-              "rect": {
-                "h": 32,
-                "w": 32,
-                "x": 2246,
-                "y": 16
-              },
-              "label": "关闭抽屉",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 1798,
-                "y": 108
-              },
-              "label": "留空自动生成WI",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2046,
-                "y": 109
-              },
-              "label": "2026-07-09",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".phx-select",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 1798,
-                "y": 192
-              },
-              "label": "采购入库 生产入库 退货入库 盘盈入库 调拨接收",
-              "disabled": false
             }
           ]
         },
         "devicePixelRatio": 1.7999999523162842
       },
       "consoleErrors": [],
-      "failedRequests": []
+      "failedRequests": [
+        {
+          "url": "/api/bug-intake/reports/BUG-20260708-0004/redispatch",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-09T07:19:33.954Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"已解决或已关闭的问题不能直接重新派发，请先重新打开并确认仍需修复\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        }
+      ]
     },
     "priority": "P2",
     "reporter": {
@@ -2212,7 +1514,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260709-0002",
+      "source_bug_no": "BUG-20260709-0003",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -2254,6 +1556,22 @@
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
+        },
+        {
+          "agent": "A6-Staging-Deploy-Runbook",
+          "reasons": [
+            "deploy/runbook signal matched"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
+        },
+        {
+          "agent": "A7-Final-QA-Gate",
+          "reasons": [
+            "release gate signal matched"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
         }
       ],
       "selected_agents": [
@@ -2261,7 +1579,9 @@
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
+        "A1-CI-Runtime-Gate",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
       ],
       "failure_category": null,
       "hard_constraints": [
@@ -2271,141 +1591,24 @@
         "human approval required before code repair execution"
       ],
       "route_confidence": null,
-      "source_repair_task_no": "BUGTASK-20260709-0002"
+      "source_repair_task_no": "BUGTASK-20260709-0003"
     },
-    "createdAt": "2026-07-09T01:16:36.916Z",
+    "createdAt": "2026-07-09T07:41:27.170Z",
     "createdBy": "admin",
     "moduleCode": "____",
-    "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260709-0002-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0002-01-A2\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-09T01:44:03.361Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260709-0002-04-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-09T01:44:05.044Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-04-A5-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260709-0002-02-A3",
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0002-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 56 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.controller.ts\n M apps/api/src/modules/wms/wms.service.ts\n?? docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\npath): 3bbf16bf\n\nDiff file list:\n  docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 4541773c..3bbf16bf\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3bbf16bf (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n4541773c feat(api): record A3-Backend-Critical-Path result\na2c98479 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n3728b52c feat(web): record A4-Frontend-UAT-Smoke result\n63269a5d docs(ops): record baseline lifecycle report",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-09T01:48:11.916Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-02-A3-detached-worker-recovery.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "BugIntakeLocalRunner",
-        "taskId": "LOCAL-RUNNER-20260709014816",
-        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 241 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260709-0002-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260709-0002-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260709-0002-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260709-0002-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260709-0002-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260709-0002-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-        "commitHash": "c9d8adadd177a493c5031e435a3969cb09ac4b7d",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-09T01:48:17.838Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "validationResults": {
-          "ci": "SKIPPED: wait-ci-after-push disabled",
-          "push": "PASS",
-          "sync": "PASS",
-          "workerRuns": [
-            {
-              "agent": "A2-Security-Regression-Gate",
-              "taskId": "BUGTASK-20260709-0002-01-A2",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260709-0002-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A3-Backend-Critical-Path",
-              "taskId": "BUGTASK-20260709-0002-02-A3",
-              "finalStatus": "COMPLETED_MERGED",
-              "writebackStatus": 0
-            }
-          ]
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260709-0002-03-A4",
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0002-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 420 |\n| Worktree status before recovery | M apps/web/public/sw.js\n M apps/web/src/app/(admin)/warehouse/inbound/page.tsx\n M apps/web/src/app/(admin)/warehouse/ledger/page.tsx |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nght command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: ddece465\nTarget branch HEAD (w5-a4-frontend-uat-smoke): b03974ca\n\nDiff file list:\n  docs/ops/runs/2026-07-09T02-03-42-294Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T02-03-42-295Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...95Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating ddece465..b03974ca\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...95Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T02-03-42-294Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T02-03-42-295Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nb03974ca (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nddece465 feat(web): record A4-Frontend-UAT-Smoke result\n3bbf16bf (w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n4541773c feat(api): record A3-Backend-Critical-Path result\na2c98479",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-09T02:03:45.657Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-03-A4-detached-worker-recovery.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "taskId": "BUGTASK-20260709-0002-05-A1",
-        "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-05-A1-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-09T02:03:47.394Z"
-      }
-    ],
-    "suggestedOwner": "_____",
+    "suggestedOwner": "",
     "repairGuardrails": {
       "autoRepairExecuted": false,
       "noProductionDeploy": true,
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
     },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260709-0002-05-A1",
-      "agent": "A1-CI-Runtime-Gate",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-05-A1-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-09T02:03:47.394Z"
-    },
-    "acceptanceCriteria": "按要求形成业务闭环",
-    "agentPlanGeneratedAt": "2026-07-09T01:16:39.702Z",
+    "acceptanceCriteria": "事务类型一栏显示的是英文代码，需要转换成对应的中文，比如FARM_OUT_MEDICATION、TEMP_PRODUCTION_INBOUND、FARM_IN等，都转换为中文显示",
+    "agentPlanGeneratedAt": "2026-07-09T07:41:28.544Z",
     "agentPlanGeneratedBy": "admin",
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-09T01:16:41.015Z",
+      "approvedAt": "2026-07-09T07:41:30.242Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -2415,6 +1618,34 @@
         "push without release approval",
         "force push"
       ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260709-0003-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0003-01-A2-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0003-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0003-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0003-01-A2\nTitle: Repair BUG-20260709-0003: 库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-09T07:43:54.132Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260709-0003-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260709-0003-01-A2-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0003-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0003-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0003-01-A2\nTitle: Repair BUG-20260709-0003: 库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-09T07:43:54.132Z"
     }
   },
   "updatedBy": "bug_intake_runner"
