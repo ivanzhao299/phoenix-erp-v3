@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260708-0004",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0004-05-A1",
-    "agent": "A1-CI-Runtime-Gate",
-    "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-05-A1-worker-log.md",
+    "taskId": "BUGTASK-20260708-0004-06-A6",
+    "agent": "A6-Staging-Deploy-Runbook",
+    "conclusion": "PASS WITH CONDITIONS",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-06-A6-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-06-A6 |\n| Agent | A6-Staging-Deploy-Runbook |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A6-Staging-Deploy-Runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --prompt docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0004-06-A6-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0004-06-A6-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A6-Staging-Deploy-Runbook\nWorktree: /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook\nBranch: w5-a6-staging-deploy-runbook\nPrompt: docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0004-06-A6-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0004-06-A6-worker-assembled-prompt.md\nAssembled prompt chars: 79296\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-09T00-40-07-512Z-A6-Staging-Deploy-Runbook.md\nUpdated the A6 staging deploy runbook:\n\n[docs/ops/BUG-20260708-0004_A6_STAGING_DEPLOY_RUNBOOK.md](/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook/docs/ops/BUG-20260708-0004_A6_STAGING_DEPLOY_RUNBOOK.md:1)\n\nResult: **PASS WITH CONDITIONS / HOLD**. HOLD remains because A6 did not deploy, and staging still needs explicit deploy approval plus post-redispatch A7/browser evidence.\n\nValidation performed:\n- Execution prechecks passed: correct worktree, branch, clean initial state.\n- Changed file scope passed: only the A6 docs/ops runbook changed.\n- `git diff --check` passed.\n- No deploy, push, merge, migration, database write, schema/entity/table/column ",
     "nextAction": ""
   }
 }
