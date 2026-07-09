@@ -7724,7 +7724,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0003",
     "source": "bug-intake",
     "agent": "A7-Final-QA-Gate",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -7743,15 +7743,18 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
     "branch": "w5-a7-final-qa-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A7-Final-QA-Gate",
+    "claimed_at": "2026-07-09T08:05:05.667Z",
+    "completed_at": "2026-07-09T08:08:40.495Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260709-0003-07-A7-detached-worker-recovery.md",
     "next_agents": [
       "Codex-Orchestrator"
     ],
     "approval_required": true,
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "baseline_autopilot_exit_code": 0,
+    "detached_worker_recovered_at": "2026-07-09T08:08:40.495Z",
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
   }
 ]
