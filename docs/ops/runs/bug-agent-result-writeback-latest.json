@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260709-0001",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260709-0001-03-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260709-0001-05-A1",
+    "agent": "A1-CI-Runtime-Gate",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260709-0001-03-A4-detached-worker-recovery.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0001-05-A1-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0001-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 324 |\n| Worktree status before recovery | M apps/web/src/components/layout/Sidebar.tsx\n?? docs/ops/BUG-20260709-0001_A4_FRONTEND_UAT_SMOKE_REPORT.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nompleted.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: 3728b52c\nTarget branch HEAD (w5-a4-frontend-uat-smoke): a2c98479\n\nDiff file list:\n  docs/ops/runs/2026-07-09T01-38-33-625Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T01-38-33-626Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 27 ++++++++++++++++++++++\n ...26Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 +++++++++++++++++++++\n 2 files changed, 53 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating 3728b52c..a2c98479\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 27 ++++++++++++++++++++++\n ...26Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 +++++++++++++++++++++\n 2 files changed, 53 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T01-38-33-625Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T01-38-33-626Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\na2c98479 (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n3728b52c feat(web): record A4-Frontend-UAT-Smoke result\n63269a5d docs(ops): record baseline lifecycle report\nfa15cfac docs: record bug-20260707-0009 a4 redispatch\n60a9d829 (w5-a3-backend-critical-path) docs(o",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
     "nextAction": ""
   }
 }
