@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260709-0003",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0003/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260709-0003-04-A5",
-    "agent": "A5-Data-Readiness",
-    "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260709-0003-04-A5-worker-log.md",
+    "taskId": "BUGTASK-20260709-0003-02-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "conclusion": "HOLD",
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0003-02-A3-detached-worker-recovery.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0003-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0003-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0003-04-A5\nTitle: Repair BUG-20260709-0003: 库存管理-库存台账，事务类型一栏显示的是英文代码，需要转换成对应的中文 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0003-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\ntical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T07-47-02-287Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 4 files changed, 88 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 69586883..035ff2ab\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 4 files changed, 88 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T07-47-01-548Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T07-47-01-548Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n create mode 100644 docs/ops/runs/2026-07-09T07-47-02-287Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T07-47-02-287Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n035ff2ab (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n2d508a01 docs(ops): record baseline lifecycle report\n695",
     "nextAction": ""
   }
 }
