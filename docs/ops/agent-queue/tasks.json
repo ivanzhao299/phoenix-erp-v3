@@ -4454,7 +4454,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -4473,10 +4473,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_at": "2026-07-09T01:14:06.691Z",
+    "completed_at": "2026-07-09T01:16:15.162Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0009-02-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -4536,7 +4536,8 @@
     ],
     "detached_worker_recovered_at": "2026-07-08T06:33:17.747Z",
     "baseline_autopilot_exit_code": 0,
-    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback",
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --allow-code --yes"
   },
   {
     "task_id": "BUGTASK-20260707-0009-03-A4",
