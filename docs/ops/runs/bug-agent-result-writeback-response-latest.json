@@ -9,12 +9,12 @@
   "assigneeUsername": "_____",
   "assigneeName": "",
   "repairTaskNo": "BUGTASK-20260709-0002",
-  "repairTaskStatus": "AGENT_RUNNING",
+  "repairTaskStatus": "HOLD",
   "route": "/warehouse/inbound",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-09T01:15:45.325Z",
-  "updatedAt": "2026-07-09T01:44:05.046Z",
+  "updatedAt": "2026-07-09T01:48:11.919Z",
   "closedAt": null,
   "attachmentCount": 0,
   "description": "问题判断：\n库存查询、成品批次、仓库看板、入库管理、出入库流水没有使用同一套库存数据源，导致系统里明明有库存，但库存查询看不到；入库管理也没有形成“入库单 -> 库存余额 -> 库存台账/库存查询”的闭环。\n\n修复要求：\n1. 统一库存主账模型，至少包含：批次号、产品编码/SKU、仓库、库区、库位、库存数量、可用数量、状态、生产日期、保质期/到期日、归属组织/门店、来源单据、来源类型。\n2. 入库管理页面必须补齐：入库单列表、新建入库单、入库明细、保存草稿、提交/确认入库、状态流转。\n3. 入库单确认后必须同步写入库存余额，并生成库存台账流水。\n4. 库存查询必须读取真实库存余额，不能与成品批次库存割裂。\n5. 成品批次库存与仓储库存如需保留两套视图，也必须建立字段映射和数据同步关系。\n6. 仓库看板、库存查询、库存台账、成品批次的库存数量口径必须一致。\n7. 修复后请验证：新增一张入库单后，库存查询能查到对应批次，库存台账能看到入库流水，仓库看板总库存和今日入库统计同步变化。",
@@ -2291,17 +2291,30 @@
         "validationResults": null
       },
       {
-        "taskId": "BUGTASK-20260709-0002-04-A5",
         "agent": "A5-Data-Readiness",
+        "taskId": "BUGTASK-20260709-0002-04-A5",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
         "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-09T01:44:05.044Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-04-A5-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "taskId": "BUGTASK-20260709-0002-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-02-A3-detached-worker-recovery.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0002-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 56 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.controller.ts\n M apps/api/src/modules/wms/wms.service.ts\n?? docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\npath): 3bbf16bf\n\nDiff file list:\n  docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 4541773c..3bbf16bf\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3bbf16bf (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n4541773c feat(api): record A3-Backend-Critical-Path result\na2c98479 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n3728b52c feat(web): record A4-Frontend-UAT-Smoke result\n63269a5d docs(ops): record baseline lifecycle report",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-09T01:44:05.044Z"
+        "recordedAt": "2026-07-09T01:48:11.916Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -2312,17 +2325,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260709-0002-04-A5",
-      "agent": "A5-Data-Readiness",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-04-A5-worker-log.md",
+      "taskId": "BUGTASK-20260709-0002-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-02-A3-detached-worker-recovery.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260709-0002-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 56 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.controller.ts\n M apps/api/src/modules/wms/wms.service.ts\n?? docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\npath): 3bbf16bf\n\nDiff file list:\n  docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 4541773c..3bbf16bf\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 29 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 55 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-623Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-09T01-48-08-624Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3bbf16bf (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n4541773c feat(api): record A3-Backend-Critical-Path result\na2c98479 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n3728b52c feat(web): record A4-Frontend-UAT-Smoke result\n63269a5d docs(ops): record baseline lifecycle report",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-09T01:44:05.044Z"
+      "recordedAt": "2026-07-09T01:48:11.916Z"
     },
     "acceptanceCriteria": "按要求形成业务闭环",
     "agentPlanGeneratedAt": "2026-07-09T01:16:39.702Z",
