@@ -10,8 +10,8 @@
 
 ## Generated Tasks
 
-- BUGTASK-20260709-0001-01-A2 -> A2-Security-Regression-Gate
-- BUGTASK-20260709-0001-02-A3 -> A3-Backend-Critical-Path
-- BUGTASK-20260709-0001-03-A4 -> A4-Frontend-UAT-Smoke
-- BUGTASK-20260709-0001-04-A5 -> A5-Data-Readiness
-- BUGTASK-20260709-0001-05-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260707-0009-01-A2 -> A2-Security-Regression-Gate
+- BUGTASK-20260707-0009-02-A3 -> A3-Backend-Critical-Path
+- BUGTASK-20260707-0009-03-A4 -> A4-Frontend-UAT-Smoke
+- BUGTASK-20260707-0009-04-A5 -> A5-Data-Readiness
+- BUGTASK-20260707-0009-05-A1 -> A1-CI-Runtime-Gate
