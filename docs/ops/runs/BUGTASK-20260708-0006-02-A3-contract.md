@@ -1268,7 +1268,7 @@ Assigned agent: A3-Backend-Critical-Path
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
+  "priority": "P1",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -1342,7 +1342,7 @@ Assigned agent: A3-Backend-Critical-Path
     "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-09T06:42:03.609Z",
+  "createdAt": "2026-07-09T07:04:45.208Z",
   "createdBy": "admin",
   "moduleCode": "____-____",
   "suggestedOwner": "_____",
@@ -1352,12 +1352,12 @@ Assigned agent: A3-Backend-Critical-Path
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "销售管理-价格管理，将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
-  "agentPlanGeneratedAt": "2026-07-09T06:42:05.013Z",
+  "acceptanceCriteria": "销售管理-价格管理，将价格册名称为“孟赛标准价格册（试运行版）重建”的删除，并且将价格册名称为“孟赛标准价格册（试运行版）”恢复为正常状态",
+  "agentPlanGeneratedAt": "2026-07-09T07:04:46.411Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-09T06:42:11.429Z",
+    "approvedAt": "2026-07-09T07:04:47.771Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
