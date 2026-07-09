@@ -7683,7 +7683,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0003",
     "source": "bug-intake",
     "agent": "A6-Staging-Deploy-Runbook",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -7703,16 +7703,18 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
     "branch": "w5-a6-staging-deploy-runbook",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A6-Staging-Deploy-Runbook",
+    "claimed_at": "2026-07-09T07:57:07.635Z",
+    "completed_at": "2026-07-09T07:59:43.681Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260709-0003-06-A6-worker-log.md",
     "next_agents": [
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A6-Staging-Deploy-Runbook --branch w5-a6-staging-deploy-runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --max-retries 3 --yes"
   },
   {
     "task_id": "BUGTASK-20260709-0003-07-A7",
