@@ -65,6 +65,7 @@ Production correction result:
 - Reports changed back to `status = IN_PROGRESS`: 24
 - `repair_task_status` preserved as `AGENT_COMPLETED`
 - Updated meaning: Agent finished, waiting for administrator/business verification.
+- This correction updated bug-intake workflow status only. It did not modify business data.
 
 Affected reports:
 
@@ -107,8 +108,9 @@ Executed validation commands:
 - Business code touched: Yes, bug-intake backend and admin UI only.
 - DB schema changed: No.
 - Migration executed: No.
-- Production deploy executed in this task: No.
-- Push executed in this task: No.
+- Production bug-intake status correction executed: Yes, 24 reports changed from false `RESOLVED` to `IN_PROGRESS`.
+- Push executed in this task: Yes, pushed to `origin/main` to deliver the prevention fix.
+- Production deploy status: CI/CD queued after push at the time of report update.
 
 ## Conclusion
 
