@@ -22,28 +22,26 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23495
+Assembled prompt chars: 63370
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T02-10-58-816Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-09T01-24-26-740Z-A4-Frontend-UAT-Smoke.md
+A4 redispatch completed.
 
-A4 frontend fix for BUG-20260707-0009 was already present in this worktree at `e04a0016`: `/breeding/med-stock` reloads stock and returns to库存总览 after submit; `/mobile/medicine` invalidates `medStock` cache, reloads, then returns to库存.
+Current branch already contained the frontend fix for `BUG-20260707-0009` in `67445b8e`, so I did not change frontend code again. I added the required redispatch report and committed it:
 
-I updated the required report with current validation evidence and committed it:
+[docs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md)
 
-- Report: [docs/ops/bug-20260707-0009-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-uat-report.md)
-- Commit: `f3b609ed docs(ops): update bug 0009 a4 validation report`
+Commit: `fa15cfac docs: record bug-20260707-0009 a4 redispatch`
 
-Validation run:
-
+Validation:
 - `git diff --check`: PASS
 - `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `pnpm --filter web exec tsc --noEmit`: PASS
-- scope audit grep: PASS, no permission bypass or token-write pattern added
-- final `git status --short`: clean
+- Static RBAC/cache audit: PASS
+- Local browser smoke: HOLD, Next dev server failed with `listen EPERM: operation not permitted 127.0.0.1:3000`
+- Live inbound/outbound acceptance UAT: HOLD, because submitting would write database records and the task forbids DB writes
 
-I did not run live inbound/outbound browser UAT because that would require database writes, which this task forbids. A1 should run integrated UAT in a disposable environment with the A3 backend repair present.
+No merge, push, deploy, migration, backend edit, schema edit, or database write was performed. Worktree is clean.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -60,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f3f7b-ea2b-72b0-aa54-705b24588f9f
+session id: 019f4477-7cec-72c2-af17-d4911aa7ce7e
 --------
 user
 # Base Agent Prompt
@@ -926,21 +924,264 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "createdAt": "2026-07-08T01:15:13.612Z",
   "createdBy": "admin",
   "moduleCode": "_____-____",
+  "agentResults": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0009-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:24:48.552Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708062453",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 41 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0007-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260707-0007-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0009-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260707-0007-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0007-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-01-A2: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "79fccdac276f8d35efa7beeabc392637ed0bfa0b",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T06:24:54.735Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0007-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0007-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260707-0009-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0009-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0009-04-A5\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:30:08.090Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0009-02-A3",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260707-0009-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nt-sync-and-merge.mjs w5-a3-backend-critical-path --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a3-backend-critical-path\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --yes --allow-code\nCurrent main HEAD: 29c31663\nTarget branch HEAD (w5-a3-backend-critical-path): 37a857c1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 29c31663..37a857c1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n37a857c1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n29c31663 docs(ops): record baseline lifecycle report\n3c1",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:33:18.854Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260707-0009-03-A4",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260707-0009-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 294 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nand: cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: 67445b8e\nTarget branch HEAD (w5-a4-frontend-uat-smoke): a5d90c2d\n\nDiff file list:\n  docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...46Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating 67445b8e..a5d90c2d\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...46Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\na5d90c2d (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n67445b8e fix: bug-20260707-0009 medic",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:41:23.827Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-03-A4-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708064128",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 42 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 2 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0009-02-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0009-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0009-03-A4: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "20a6b79176b8265b805262f3a36ece2ba92b8f98",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T06:41:29.905Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260707-0009-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260707-0009-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0009-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0009-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:46:44.695Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708064839",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 43 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker returned while agent child process is still active; stop dispatching more tasks in this cycle)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RUNNER_TIMEOUT [WARNING]: timeout; recovery=recover stale lease then retry next cycle\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+      "commitHash": "b69a28adc9d96fa3c4d53778f0320c47c6ac24b8",
+      "conclusion": "HOLD",
+      "nextAction": "Review runner lifecycle HOLD reason before closing bug.",
+      "recordedAt": "2026-07-08T06:48:40.300Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "SKIPPED: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0009-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0010-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    }
+  ],
   "suggestedOwner": "",
+  "redispatchCount": 2,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "BugIntakeLocalRunner",
+    "taskId": "LOCAL-RUNNER-20260708064839",
+    "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 43 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker returned while agent child process is still active; stop dispatching more tasks in this cycle)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RUNNER_TIMEOUT [WARNING]: timeout; recovery=recover stale lease then retry next cycle\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+    "commitHash": "b69a28adc9d96fa3c4d53778f0320c47c6ac24b8",
+    "conclusion": "HOLD",
+    "nextAction": "Review runner lifecycle HOLD reason before closing bug.",
+    "recordedAt": "2026-07-08T06:48:40.300Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+    "changedFiles": [],
+    "validationResults": {
+      "ci": "SKIPPED: wait-ci-after-push disabled",
+      "push": "SKIPPED: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json",
+      "sync": "PASS",
+      "workerRuns": [
+        {
+          "agent": "A1-CI-Runtime-Gate",
+          "taskId": "BUGTASK-20260707-0009-05-A1",
+          "finalStatus": "completed",
+          "writebackStatus": 0
+        },
+        {
+          "agent": "A4-Frontend-UAT-Smoke",
+          "taskId": "BUGTASK-20260707-0010-03-A4",
+          "finalStatus": "COMPLETED_MERGED",
+          "writebackStatus": 0
+        }
+      ]
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "TRIAGED",
+      "redispatchedAt": "2026-07-08T06:07:40.734Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_APPROVED"
+    },
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 2,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-09T01:07:44.930Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "HOLD"
+    }
+  ],
   "acceptanceCriteria": "要求点击保存无报错，并且今日入库提交后药品库存对应的药品库存数量根据提交的数量增加，今日出库提交后药品库存对应的药品库存数量根据提交的数量减少",
   "agentPlanGeneratedAt": "2026-07-08T01:15:14.896Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T01:15:16.308Z",
+    "approvedAt": "2026-07-09T01:07:44.930Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -948,7 +1189,179 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0009-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260707-0009-01-A2\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:24:48.552Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708062453",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 41 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0007-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260707-0007-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0009-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260707-0007-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0007-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-01-A2: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "79fccdac276f8d35efa7beeabc392637ed0bfa0b",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T06:24:54.735Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0007-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0007-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260707-0009-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0009-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260707-0009-04-A5\nTitle: Repair BUG-20260707-0009: 养殖场总览-药品库存，今日入库提交后，库存总览还是0 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:30:08.090Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0009-02-A3",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260707-0009-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nt-sync-and-merge.mjs w5-a3-backend-critical-path --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a3-backend-critical-path\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --yes --allow-code\nCurrent main HEAD: 29c31663\nTarget branch HEAD (w5-a3-backend-critical-path): 37a857c1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 29c31663..37a857c1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T06-33-15-511Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n37a857c1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n29c31663 docs(ops): record baseline lifecycle report\n3c1",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:33:18.854Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260707-0009-03-A4",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260707-0009-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 294 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\nand: cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: 67445b8e\nTarget branch HEAD (w5-a4-frontend-uat-smoke): a5d90c2d\n\nDiff file list:\n  docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...46Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating 67445b8e..a5d90c2d\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...46Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T06-41-20-546Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\na5d90c2d (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n67445b8e fix: bug-20260707-0009 medic",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:41:23.827Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-03-A4-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708064128",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 42 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 2 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0009-02-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0009-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0009-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0009-03-A4: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "20a6b79176b8265b805262f3a36ece2ba92b8f98",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T06:41:29.905Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260707-0009-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260707-0009-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0009-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0009-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T06:46:44.695Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708064839",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 43 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0009-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0010-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260707-0009-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0010-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0010-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker returned while agent child process is still active; stop dispatching more tasks in this cycle)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RUNNER_TIMEOUT [WARNING]: timeout; recovery=recover stale lease then retry next cycle\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+      "commitHash": "b69a28adc9d96fa3c4d53778f0320c47c6ac24b8",
+      "conclusion": "HOLD",
+      "nextAction": "Review runner lifecycle HOLD reason before closing bug.",
+      "recordedAt": "2026-07-08T06:48:40.300Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "SKIPPED: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260707-0009-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260707-0010-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    }
+  ]
 }
 ```
 
@@ -962,526 +1375,5 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 1. Do not merge.
 2. Do not push.
-3. Do not deploy.
-4. Do not execute migrations.
-5. Do not write to any database.
-6. Do not modify the task board from inside the Agent task.
-7. Stop immediately if the task requires files outside the allowed contract.
-8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
-9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
-
-codex
-I’ll start with the required dry-run checks and verify the worktree, branch, status, and recent commits before touching anything.
-exec
-/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-w5-a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-4502102d (HEAD -> w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
-b03caef8 feat(web): record A4-Frontend-UAT-Smoke result
-ce56f9bf docs(ops): record baseline lifecycle report
-a49ad458 docs(ops): record baseline lifecycle report
-0246095a docs(ops): refresh bug 0007 a3 backend report
-6ae7fc5b docs(ops): record baseline lifecycle report
-cc8edfcb fix: bug-20260707-0007 wms master rbac
-5f449641 docs(ops): record baseline lifecycle report
-
-exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-codex
-The preflight checks pass: correct directory, correct branch, clean worktree, and no unexpected dirty files. I’m going to trace the breeding overview and medicine stock UI paths inside `apps/web` first, keeping this as diagnosis before edits.
-exec
-/bin/zsh -lc "find apps/web -maxdepth 5 -type f \\( -name '*.tsx' -o -name '*.ts' -o -name '*.css' \\) | sed 's#"'^#/#'"' | head -n 300" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-/apps/web/public/runtime-design-system.css
-/apps/web/vitest.config.ts
-/apps/web/next.config.ts
-/apps/web/src/middleware.ts
-/apps/web/src/types/packaging-terminal.ts
-/apps/web/src/types/index.ts
-/apps/web/src/contexts/MobileThemeContext.tsx
-/apps/web/src/contexts/BrandContext.tsx
-/apps/web/src/contexts/ToastContext.tsx
-/apps/web/src/contexts/ThemeContext.tsx
-/apps/web/src/contexts/AuthContext.tsx
-/apps/web/src/contexts/DialogContext.tsx
-/apps/web/src/contexts/LanguageContext.tsx
-/apps/web/src/app/(mobile)/layout.tsx
-/apps/web/src/app/trace/[batchNo]/page.tsx
-/apps/web/src/app/page.module.css
-/apps/web/src/app/layout.tsx
-/apps/web/src/app/error.tsx
-/apps/web/src/app/(terminal)/layout.tsx
-/apps/web/src/app/page.tsx
-/apps/web/src/app/globals.css
-/apps/web/src/app/login/login.module.css
-/apps/web/src/app/login/page.tsx
-/apps/web/src/app/not-found.tsx
-/apps/web/src/app/(admin)/daily-work/page.tsx
-/apps/web/src/app/(admin)/packaging/page.tsx
-/apps/web/src/app/(admin)/settings/settings.module.css
-/apps/web/src/app/(admin)/settings/page.tsx
-/apps/web/src/app/(admin)/home/page.tsx
-/apps/web/src/app/(admin)/uat/page.tsx
-/apps/web/src/app/(admin)/quality/quality.module.css
-/apps/web/src/app/(admin)/quality/page.tsx
-/apps/web/src/app/(admin)/pilot-run/page.tsx
-/apps/web/src/app/(admin)/store-pos/page.tsx
-/apps/web/src/app/(admin)/procurement2/page.tsx
-/apps/web/src/app/(admin)/data-quality/page.tsx
-/apps/web/src/app/(admin)/breeding/breeding.module.css
-/apps/web/src/app/(admin)/breeding/page.tsx
-/apps/web/src/app/(admin)/finance2/loading.tsx
-/apps/web/src/app/(admin)/finance2/page.tsx
-/apps/web/src/app/(admin)/traceability/page.tsx
-/apps/web/src/app/(admin)/store-payment/store-payment.module.css
-/apps/web/src/app/(admin)/store-payment/page.tsx
-/apps/web/src/app/(admin)/dashboard/dashboard.module.css
-/apps/web/src/app/(admin)/dashboard/page.tsx
-/apps/web/src/app/(admin)/master-data/loading.tsx
-/apps/web/src/app/(admin)/master-data/page.tsx
-/apps/web/src/app/(admin)/admin.module.css
-/apps/web/src/app/(admin)/profile/page.tsx
-/apps/web/src/app/(admin)/master/page.tsx
-/apps/web/src/app/(admin)/sales2/loading.tsx
-/apps/web/src/app/(admin)/sales2/page.tsx
-/apps/web/src/app/(admin)/workflow/page.tsx
-/apps/web/src/app/(admin)/layout.tsx
-/apps/web/src/app/(admin)/loading.tsx
-/apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
-/apps/web/src/app/(admin)/warehouse/warehouse.module.css
-/apps/web/src/app/(admin)/warehouse/loading.tsx
-/apps/web/src/app/(admin)/warehouse/page.tsx
-/apps/web/src/app/(admin)/shareholders/SummaryBar.tsx
-/apps/web/src/app/(admin)/shareholders/page.tsx
-/apps/web/src/app/(admin)/notifications/page.tsx
-/apps/web/src/app/(admin)/analytics/page.tsx
-/apps/web/src/app/(admin)/analytics/analytics.module.css
-/apps/web/src/app/(admin)/store/store.module.css
-/apps/web/src/app/(admin)/store/page.tsx
-/apps/web/src/providers/providers.tsx
-/apps/web/src/styles/uix-utils.module.css
-/apps/web/src/styles/terminal-theme.ts
-/apps/web/src/components/packaging/printLabel.ts
-/apps/web/src/components/packaging/KioskGuard.tsx
-/apps/web/src/components/ui/rightDrawer.module.css
-/apps/web/src/components/ui/ConfirmDialog.tsx
-/apps/web/src/components/ui/KpiCard.tsx
-/apps/web/src/components/ui/tabs.tsx
-/apps/web/src/components/ui/crudForm.module.css
-/apps/web/src/components/ui/card.tsx
-/apps/web/src/components/ui/NavCard.tsx
-/apps/web/src/components/ui/sheet.tsx
-/apps/web/src/components/ui/label.tsx
-/apps/web/src/components/ui/sonner.tsx
-/apps/web/src/components/ui/tooltip.tsx
-/apps/web/src/components/ui/QuickEntryCard.tsx
-/apps/web/src/components/ui/admin-ui.module.css
-/apps/web/src/components/ui/CrudPage.tsx
-/apps/web/src/components/ui/RightDrawer.tsx
-/apps/web/src/components/ui/CrudForm.tsx
-/apps/web/src/components/ui/dialog.tsx
-/apps/web/src/components/ui/badge.tsx
-/apps/web/src/components/ui/separator.tsx
-/apps/web/src/components/ui/StatStrip.tsx
-/apps/web/src/components/ui/button.tsx
-/apps/web/src/components/ui/confirmDialog.module.css
-/apps/web/src/components/ui/select.tsx
-/apps/web/src/components/ui/input.tsx
-/apps/web/src/components/ui/FileUploadInput.tsx
-/apps/web/src/components/settings/UserOrgBindingPanel.tsx
-/apps/web/src/components/settings/RolePicker.tsx
-/apps/web/src/components/uat/FeedbackWidget.tsx
-/apps/web/src/components/layout/PageTransition.tsx
-/apps/web/src/components/layout/OnlineUsersIndicator.tsx
-/apps/web/src/components/layout/sidebar.module.css
-/apps/web/src/components/layout/Sidebar.tsx
-/apps/web/src/components/layout/PageTransition.module.css
-/apps/web/src/components/layout/ImpersonationBanner.tsx
-/apps/web/src/components/layout/ApprovalNotifier.tsx
-/apps/web/src/components/PageHeader.tsx
-/apps/web/src/components/terminal/NumPad.tsx
-/apps/web/src/components/terminal/TerminalNumPadPanel.tsx
-/apps/web/src/components/terminal/TerminalNavRail.tsx
-/apps/web/src/components/AuthFetchInterceptor.tsx
-/apps/web/src/components/LegacyFreezeBanner.tsx
-/apps/web/src/components/cabin/KpiMetricCard.tsx
-/apps/web/src/components/cabin/AlarmBanner.tsx
-/apps/web/src/components/cabin/SystemSummaryCard.tsx
-/apps/web/src/components/cabin/CabinHeaderCard.tsx
-/apps/web/src/components/master-data/ReferenceGraph.tsx
-/apps/web/src/components/master-data/MasterDataFormPage.tsx
-/apps/web/src/components/master-data/MasterDataDetailLayout.tsx
-/apps/web/src/components/master-data/MasterDataRuntimePanel.tsx
-/apps/web/src/components/master-data/detail-configs.tsx
-/apps/web/src/components/master-data/MasterDataDetailDrawer.tsx
-/apps/web/src/components/master-data/MasterDataSearch.tsx
-/apps/web/src/components/master-data/MasterDataCenterStrip.tsx
-/apps/web/src/components/master-data/OrgMembersPanel.tsx
-/apps/web/src/components/PhoenixDialog.tsx
-/apps/web/src/components/mobile/MobileSkeleton.tsx
-/apps/web/src/components/mobile/MobilePermissionGate.tsx
-/apps/web/src/components/workflow/WorkflowDataView.tsx
-/apps/web/src/components/workflow/WorkflowMetricsStrip.tsx
-/apps/web/src/components/workflow/WorkflowTimeline.tsx
-/apps/web/src/components/workflow/WorkflowFormRenderer.tsx
-/apps/web/src/components/workflow/FormRenderer.tsx
-/apps/web/src/components/DataTable.tsx
-/apps/web/src/components/RightDrawer.tsx
-/apps/web/src/components/finance/LegacyFreezeBanner.tsx
-/apps/web/src/components/shared-selectors/MasterDataSelectors.tsx
-/apps/web/src/components/shared-selectors/MaterialPicker.tsx
-/apps/web/src/components/shared-selectors/DictSelect.tsx
-/apps/web/src/components/shared-selectors/EnumLabel.tsx
-/apps/web/src/components/design-system/tables/DataTableV3.tsx
-/apps/web/src/components/design-system/forms/DateRangePicker.tsx
-/apps/web/src/components/design-system/forms/FormField.tsx
-/apps/web/src/components/design-system/forms/AmountInput.tsx
-/apps/web/src/components/design-system/forms/Inputs.tsx
-/apps/web/src/components/design-system/forms/AttachmentUploader.tsx
-/apps/web/src/components/design-system/forms/SelectField.tsx
-/apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx
-/apps/web/src/components/design-system/forms/ManagedAttachmentUploader.tsx
-/apps/web/src/components/design-system/forms/SearchInput.tsx
-/apps/web/src/components/design-system/cockpit-styles.ts
-/apps/web/src/components/design-system/cards/StatStripV2.tsx
-/apps/web/src/components/design-system/cards/MetricCard.tsx
-/apps/web/src/components/design-system/cards/WarningCard.tsx
-/apps/web/src/components/design-system/cards/KpiCardV2.tsx
-/apps/web/src/components/design-system/cards/NavCardV2.tsx
-/apps/web/src/components/design-system/charts/ChartCard.tsx
-/apps/web/src/components/design-system/status/Displays.tsx
-/apps/web/src/components/design-system/status/StatusBadge.tsx
-/apps/web/src/components/design-system/feedback/States.tsx
-/apps/web/src/components/design-system/feedback/ErrorState.tsx
-/apps/web/src/components/design-system/feedback/LoadingSkeleton.tsx
-/apps/web/src/components/design-system/feedback/EmptyState.tsx
-/apps/web/src/components/design-system/detail/ReferenceGraph.tsx
-/apps/web/src/components/design-system/detail/HealthPanel.tsx
-/apps/web/src/components/design-system/detail/DetailPanel.tsx
-/apps/web/src/components/design-system/detail/AttachmentViewer.tsx
-/apps/web/src/components/design-system/detail/DetailGrid.tsx
-/apps/web/src/components/design-system/detail/AuditTimeline.tsx
-/apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx
-/apps/web/src/components/design-system/layouts/Toolbar.tsx
-/apps/web/src/components/design-system/layouts/FilterBar.tsx
-/apps/web/src/components/design-system/layouts/PageShell.tsx
-/apps/web/src/components/design-system/layouts/SearchBar.tsx
-/apps/web/src/components/design-system/layouts/Panel.tsx
-/apps/web/src/components/design-system/layouts/PageParts.tsx
-/apps/web/src/components/design-system/workbench/WorkbenchKit.tsx
-/apps/web/src/components/design-system/workbench/WorkbenchParts.tsx
-/apps/web/src/components/design-system/mobile/MobileKit.tsx
-/apps/web/src/components/design-system/templates/Templates.tsx
-/apps/web/src/components/design-system/templates/EntityWorkspace.tsx
-/apps/web/src/components/design-system/templates/PageTemplates.tsx
-/apps/web/src/components/design-system/templates/TreePage.tsx
-/apps/web/src/components/design-system/dialogs/ConfirmDialogV2.tsx
-/apps/web/src/components/design-system/dialogs/ModalV2.tsx
-/apps/web/src/components/design-system/CockpitGrid.tsx
-/apps/web/src/components/design-system/index.ts
-/apps/web/src/components/design-system/drawers/DrawerV2.tsx
-/apps/web/src/components/design-system/timeline/WorkflowTimeline.tsx
-/apps/web/src/components/design-system/KpiCardV2.tsx
-/apps/web/src/components/ErrorBoundary.tsx
-/apps/web/src/components/data-table/data-table.module.css
-/apps/web/src/components/data-table/DataTable.tsx
-/apps/web/src/__tests__/barcode.test.ts
-/apps/web/src/__tests__/attachments.test.ts
-/apps/web/src/__tests__/mobile-roles.test.ts
-/apps/web/src/__tests__/currency.test.ts
-/apps/web/src/__tests__/request-cache.test.ts
-/apps/web/src/hooks/usePullToRefresh.ts
-/apps/web/src/hooks/usePolling.ts
-/apps/web/src/hooks/usePermission.ts
-/apps/web/src/hooks/useDictOptions.ts
-/apps/web/src/hooks/useCrud.ts
-/apps/web/src/hooks/useLabelConfig.ts
-/apps/web/src/hooks/useTerminalContext.ts
-/apps/web/src/hooks/useProductGrades.ts
-/apps/web/src/hooks/usePackagingDicts.ts
-/apps/web/src/hooks/useMobilePermission.ts
-/apps/web/src/lib/api-client.ts
-/apps/web/src/lib/dict-type-labels.ts
-/apps/web/src/lib/mobile-auth-token.ts
-/apps/web/src/lib/currency.ts
-/apps/web/src/lib/barcode.ts
-/apps/web/src/lib/auth-dispatch.ts
-/apps/web/src/lib/use-abortable-load.ts
-/apps/web/src/lib/utils.ts
-/apps/web/src/lib/attachments.ts
-/apps/web/src/lib/mobile-roles.ts
-/apps/web/src/lib/mobile-api.ts
-/apps/web/src/lib/qrcode.ts
-/apps/web/src/lib/dict-cache.ts
-/apps/web/src/lib/haptic.ts
-/apps/web/src/lib/design-tokens.ts
-/apps/web/src/lib/workflow-api.ts
-/apps/web/src/lib/request-cache.ts
-/apps/web/src/lib/workflow-templates.ts
-/apps/web/src/lib/impersonate.ts
-/apps/web/src/lib/workflow-data-catalog.ts
-/apps/web/src/lib/shareholder-api.ts
-/apps/web/src/lib/packaging-api.ts
-
-exec
-/bin/zsh -lc 'rg -n "药品|medicine|medic|库存总览|养殖场总览|breeding" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/lib/workflow-templates.ts:175:    key: "farm_medicine",
-apps/web/src/lib/workflow-templates.ts:182:    formDescription: "包含养殖场、药品、批次、用药对象、剂量和兽医意见。",
-apps/web/src/lib/workflow-templates.ts:185:      { key: "medicine_name", label: "药品/疫苗名称", type: "text", required: true },
-apps/web/src/lib/mobile-api.ts:15: * 适用于几乎不变的主数据（鸡舍列表、客户列表、药品目录等）
-apps/web/src/lib/mobile-api.ts:228:  medication_code: string;
-apps/web/src/lib/mobile-api.ts:229:  medication_name: string;
-apps/web/src/lib/mobile-api.ts:239:  medication_code: string;
-apps/web/src/lib/mobile-api.ts:240:  medication_name: string;
-apps/web/src/lib/mobile-api.ts:421:  /** 药品库存（含目录）（60 秒缓存） */
-apps/web/src/lib/mobile-api.ts:423:    getCached('medStock', () => get<MedStockRow[]>('/api/farm/medicine/stock'), 60_000),
-apps/web/src/lib/mobile-api.ts:425:  /** 药品流水 */
-apps/web/src/lib/mobile-api.ts:427:    get<MedLedgerEntry[]>(`/api/farm/medicine/ledger?start=${start}&end=${end}`),
-apps/web/src/lib/mobile-api.ts:429:  /** 药品入库 */
-apps/web/src/lib/mobile-api.ts:430:  medInbound: (date: string, items: Array<{ medication_code: string; qty: number; note?: string }>, operator?: string) =>
-apps/web/src/lib/mobile-api.ts:431:    post('/api/farm/medicine/inbound', { date, items, operator }),
-apps/web/src/lib/mobile-api.ts:433:  /** 药品出库（用药） */
-apps/web/src/lib/mobile-api.ts:434:  medOutbound: (date: string, items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>, operator?: string) =>
-apps/web/src/lib/mobile-api.ts:435:    post('/api/farm/medicine/outbound', { date, items, operator }),
-apps/web/src/lib/mobile-roles.ts:198:  /** 药品台账：兽医/农场录入；管理层/品控查看（门店经理与用药无关，移除） */
-apps/web/src/lib/mobile-roles.ts:199:  medicine: {
-apps/web/src/lib/mobile-roles.ts:335:  medicine: {
-apps/web/src/components/layout/Sidebar.tsx:85:    { id: "brd-overview",   path: "/breeding",                Icon: Home,           label: "养殖总览",     perm: "MENU_FARM_DATA" },
-apps/web/src/components/layout/Sidebar.tsx:86:    { id: "brd-house",      path: "/breeding/henhouse",       Icon: Building2,      label: "鸡舍管理",     perm: "MENU_FARM_MASTER" },  // G56-C 鸡舍主档=FARM_MASTER(对齐后端 brd_houses)
-apps/web/src/components/layout/Sidebar.tsx:87:    { id: "brd-flock",      path: "/breeding/flock",          Icon: Feather,        label: "鸡群档案",     perm: "MENU_FARM_DATA" },
-apps/web/src/components/layout/Sidebar.tsx:88:    { id: "brd-daily",      path: "/breeding/daily",          Icon: ClipboardList,  label: "日生产日报",   perm: "MENU_FARM_DAILY" },   // G56-C 日报写入=FARM_DAILY(对齐 POST /api/v3/farm/daily-logs)
-apps/web/src/components/layout/Sidebar.tsx:89:    { id: "brd-immune",     path: "/breeding/immune",         Icon: Syringe,        label: "免疫计划",     perm: "MENU_FARM_VET"  },
-apps/web/src/components/layout/Sidebar.tsx:90:    { id: "brd-medicine",   path: "/breeding/medicine",       Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET"  },
-apps/web/src/components/layout/Sidebar.tsx:91:    { id: "brd-device",     path: "/breeding/device",         Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },
-apps/web/src/components/layout/Sidebar.tsx:92:    { id: "brd-alerts",     path: "/breeding/device-alerts",  Icon: AlertTriangle,  label: "环境预警",     perm: "MENU_DEVICE_MONITOR" },
-apps/web/src/components/layout/Sidebar.tsx:93:    { id: "brd-device-ops", path: "/breeding/device-ops",    Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
-apps/web/src/components/layout/Sidebar.tsx:96:    { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
-apps/web/src/components/layout/Sidebar.tsx:115:    { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
-apps/web/src/hooks/useCrud.ts:4: *   不再用 useCrud hook。本 hook 暂保留兼容 daily/flock/medicine/immune/henhouse 5 个
-apps/web/src/middleware.ts:34:  '/breeding',
-apps/web/src/components/design-system/workbench/WorkbenchKit.tsx:6: * store-pos / terminal / packaging / breeding device-ops 等大按钮高对比场景。
-apps/web/next.config.ts:98:    //   recharts 仅 breeding/device 一页用，App Router 已按路由分包；
-apps/web/src/locales/lo.json:8:  "menu.breeding": "ສູນຜະລິດພັນ",
-apps/web/src/locales/lo.json:53:  "breeding.overview": "ພາບລວມການກະສິກໍາ",
-apps/web/src/locales/lo.json:54:  "breeding.henhouse": "ການຄຸ້ມຄອງເຮືອນໄກ່",
-apps/web/src/locales/lo.json:55:  "breeding.flock": "ຮວບຮວມຝູງໄກ່",
-apps/web/src/locales/lo.json:56:  "breeding.daily": "ບົດລາຍງານການຜະລິດປະຈໍາວັນ",
-apps/web/src/locales/lo.json:57:  "breeding.immune": "ຕາຕະລາງການສັກຢາປ້ອງກັນ",
-apps/web/src/locales/lo.json:58:  "breeding.medicine": "ບັນທຶກຢາ",
-apps/web/src/locales/lo.json:59:  "breeding.withdrawal": "ການເຕືອນໄລຍະເວລາການຖອນເງິນ",
-apps/web/src/locales/lo.json:60:  "breeding.analysis": "ບົດລາຍງານການວິເຄາະແນວພັນ",
-apps/web/src/locales/lo.json:362:  "ui.养殖场总览": "ພາບລວມ",
-apps/web/src/locales/lo.json:402:  "ui.药品名称": "ຊື່ຢາ",
-apps/web/src/locales/lo.json:1312:  "ui.搜索批次药品": "ຄົ້ນ​ພົບ​ຢາ​ເສບ​ຕິດ...",
-apps/web/src/locales/lo.json:4047:  "menu.brd-medicine": "ບັນທຶກການໃຊ້ຢາ",
-apps/web/src/locales/lo.json:4482:  "breeding.noDailyOr9Grade": "ບໍ່ມີລາຍງານປະຈຳວັນ ຫຼື ບໍ່ໄດ້ປ້ອນຕາມ 9 ລະດັບ",
-apps/web/src/locales/lo.json:4483:  "breeding.fetchDailyFailed": "ດຶງຂໍ້ມູນລາຍງານປະຈຳວັນລົ້ມເຫລວ",
-apps/web/src/locales/lo.json:4484:  "breeding.enterAtLeastOne": "ກະລຸນາປ້ອນຈຳນວນຢ່າງໜ້ອຍໜຶ່ງລະດັບ",
-apps/web/src/locales/lo.json:4485:  "breeding.inboundFailed": "ການນຳເຂົ້າສາງລົ້ມເຫລວ",
-apps/web/src/locales/lo.json:4486:  "breeding.noPermInbound": "ບໍ່ມີສິດເຂົ້າເຖິງການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
-apps/web/src/locales/lo.json:4487:  "breeding.inboundTitle": "ການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
-apps/web/src/locales/lo.json:4488:  "breeding.inboundSubtitle": "ໂໝດນຳເຂົ້າການຜະລິດຊົ່ວຄາວ · ໄຂ່ປະຈຳວັນກາຍເປັນສິນຄ້າຄົງຄັງຂາຍໂດຍກົງ (ເຂົ້າລະບົບ FIFO)",
-apps/web/src/locales/lo.json:4489:  "breeding.prodMgmt": "ການຈັດການການຜະລິດ",
-apps/web/src/locales/lo.json:4490:  "breeding.loadingSourceMode": "ກຳລັງໂຫລດໂໝດແຫລ່ງສິນຄ້າຄົງຄັງ...",
-apps/web/src/locales/lo.json:4491:  "breeding.packagingModeOn": "ເປີດໃຊ້ໂໝດນຳເຂົ້າການຫຸ້ມຫໍ່ (PACKAGING_INBOUND)",
-apps/web/src/locales/lo.json:4492:  "breeding.packagingModeDesc": "ບໍ່ອະນຸຍາດສ້າງສິນຄ້າຄົງຄັງໂດຍກົງ. ກະລຸນາເຮັດໃຫ້ສຳເລັດ ເກັບໄຂ່ → ຈັດລະດັບ → ຫຸ້ມຫໍ່ → ນຳເຂົ້າອັດຕະໂນມັດ ຜ່ານສູນຫຸ້ມຫໍ່.",
-apps/web/src/locales/lo.json:4493:  "breeding.goPackaging": "ໄປທີ່ການຫຸ້ມຫໍ່",
-apps/web/src/locales/lo.json:4494:  "breeding.currentMode": "ປະຈຸບັນແມ່ນ",
-apps/web/src/locales/lo.json:4495:  "breeding.tempProdMode": "ໂໝດນຳເຂົ້າການຜະລິດຊົ່ວຄາວ",
-apps/web/src/locales/lo.json:4496:  "breeding.tempProdModeDesc": ", ການປ້ອນຈະກາຍເປັນສິນຄ້າຄົງຄັງທີ່ຂາຍໄດ້ໂດຍກົງ.",
-apps/web/src/locales/lo.json:4497:  "breeding.prodDate": "ວັນທີຜະລິດ",
-apps/web/src/locales/lo.json:4498:  "breeding.houseOptional": "ເລົ້າໄກ່ (ທາງເລືອກ · ການຕິດຕາມ)",
-apps/web/src/locales/lo.json:4499:  "breeding.houseExample": "ເຊັ່ນ A001",
-apps/web/src/locales/lo.json:4500:  "breeding.refreshMode": "ໂຫລດໂໝດໃໝ່",
-apps/web/src/locales/lo.json:4501:  "breeding.prefillTitle": "ດຶງຈຳນວນໄຂ່ທີ່ແບ່ງຕາມ 9 ລະດັບ ຈາກລາຍງານການຜະລິດປະຈຳວັນຂອງວັນທີ+ເລົ້າໄກ່ທີ່ເລືອກ ແລ້ວຕື່ມໃສ່ຕາຕະລາງລຸ່ມ",
-apps/web/src/locales/lo.json:4502:  "breeding.fetching": "ກຳລັງດຶງ...",
-apps/web/src/locales/lo.json:4503:  "breeding.prefillFromDaily": "ຕື່ມລ່ວງໜ້າຈາກລາຍງານປະຈຳວັນ",
-apps/web/src/locales/lo.json:4504:  "breeding.gradesEntered": "ລະດັບທີ່ປ້ອນແລ້ວ",
-apps/web/src/locales/lo.json:4505:  "breeding.totalInboundEa": "ລວມນຳເຂົ້າ (ໜ່ວຍ)",
-apps/web/src/locales/lo.json:4506:  "breeding.totalCrates": "ລວມ (ກ່ອງ · ÷180)",
-apps/web/src/locales/lo.json:4507:  "breeding.eggGrade": "ລະດັບໄຂ່",
-apps/web/src/locales/lo.json:4508:  "breeding.code": "ລະຫັດ",
-apps/web/src/locales/lo.json:4509:  "breeding.qtyEa": "ຈຳນວນ (ໜ່ວຍ)",
-apps/web/src/locales/lo.json:4510:  "breeding.loadingGrades": "ກຳລັງໂຫລດຂໍ້ມູນຫລັກລະດັບ…",
-apps/web/src/locales/lo.json:4511:  "breeding.inbounding": "ກຳລັງນຳເຂົ້າ...",
-apps/web/src/locales/lo.json:4512:  "breeding.confirmInbound": "ຢືນຢັນການນຳເຂົ້າ (ສ້າງສິນຄ້າຄົງຄັງຂາຍ)",
-apps/web/src/locales/lo.json:4513:  "breeding.noCreatePerm": "ບັນຊີປະຈຸບັນບໍ່ມີສິດປ້ອນ (ຕ້ອງການສິດ C ຂອງ MENU_PROD_INBOUND)",
-apps/web/src/locales/lo.json:4514:  "breeding.inboundSuccess": "✓ ນຳເຂົ້າສຳເລັດ · ລວມ",
-apps/web/src/locales/lo.json:4515:  "breeding.eaGenerated": "ໜ່ວຍ, ສ້າງ",
-apps/web/src/locales/lo.json:4516:  "breeding.saleableBatches": "ຊຸດທີ່ຂາຍໄດ້",
-apps/web/src/locales/lo.json:4517:  "breeding.batchNo": "ເລກຊຸດ",
-apps/web/src/locales/lo.json:4518:  "breeding.grade": "ລະດັບ",
-apps/web/src/locales/lo.json:4519:  "breeding.qty": "ຈຳນວນ",
-apps/web/src/locales/lo.json:4520:  "breeding.pageMigrated": "ໜ້າຖືກຍ້າຍແລ້ວ",
-apps/web/src/locales/lo.json:4521:  "breeding.eggLedgerMerged": "ບັນຊີໄຂ່ຖືກລວມເຂົ້າ「ລາຍງານການຜະລິດປະຈຳວັນ」, ກຳລັງປ່ຽນເສັ້ນທາງ…",
-apps/web/src/locales/lo.json:6786:  "mob.brd.medicine_ledger": "ບັນຊີຢາ",
-apps/web/src/locales/lo.json:6787:  "mob.brd.search_medicine": "ຄົ້ນຫາຊື່ຢາ…",
-apps/web/src/locales/lo.json:7142:  "mob.home.desc_medicine": "ສະຕັອກຢາ · ລົງທະບຽນເຂົ້າ-ອອກ",
-apps/web/src/locales/lo.json:8510:  "ui.药品库存": "ສິນຄ້າຄົງຄັງຢາ",
-apps/web/src/locales/lo.json:9606:  "ui.库存总览": "ພາບລວມສິນຄ້າຄົງຄັງ",
-apps/web/src/locales/lo.json:9849:  "ui.搜索药品名称…": "ຄົ້ນຫາຊື່ຢາ…",
-apps/web/src/components/ui/CrudPage.tsx:5: * 收口 inbound/outbound/feed/medicine/transfer/stocktake 等所有"列表 + 抽屉
-apps/web/src/locales/en.json:8:  "menu.breeding": "Breeding production center",
-apps/web/src/locales/en.json:53:  "breeding.overview": "Farm overview",
-apps/web/src/locales/en.json:54:  "breeding.henhouse": "Chicken house management",
-apps/web/src/locales/en.json:55:  "breeding.flock": "Chicken Flock Archives",
-apps/web/src/locales/en.json:56:  "breeding.daily": "Daily production report",
-apps/web/src/locales/en.json:57:  "breeding.immune": "immunization schedule",
-apps/web/src/locales/en.json:58:  "breeding.medicine": "Medication records",
-apps/web/src/locales/en.json:59:  "breeding.withdrawal": "Withdrawal period warning",
-apps/web/src/locales/en.json:60:  "breeding.analysis": "Breeding analysis report",
-apps/web/src/locales/en.json:356:  "ui.有效养殖场": "Effective breeding farm",
-apps/web/src/locales/en.json:362:  "ui.养殖场总览": "Farm Overview",
-apps/web/src/locales/en.json:386:  "ui.养殖场": "breeding farm",
-apps/web/src/locales/en.json:397:  "ui.记录所有鸡群用药情况及停药期管理": "Record the medication status of all chickens and the management of the withdrawal period",
-apps/web/src/locales/en.json:398:  "ui.新增用药记录": "Add medication record",
-apps/web/src/locales/en.json:401:  "ui.用药中": "Taking medication",
-apps/web/src/locales/en.json:402:  "ui.药品名称": "Drug name",
-apps/web/src/locales/en.json:412:  "ui.累计用药记录": "Cumulative medication records",
-apps/web/src/locales/en.json:413:  "ui.多维度养殖绩效分析": "Multi-dimensional breeding performance analysis",
-apps/web/src/locales/en.json:1212:  "ui.用药前检查": "Check before medication",
-apps/web/src/locales/en.json:1230:  "ui.全链路质量管控从养殖到终端每一枚蛋都有迹": "Full-link quality control, every egg from breeding to terminal is traceable",
-apps/web/src/locales/en.json:1265:  "ui.养殖场一览": "List of breeding farms",
-apps/web/src/locales/en.json:1294:  "ui.选择养殖场": "-- Select a breeding farm --",
-apps/web/src/locales/en.json:1301:  "ui.引种来源种禽企业": "Source of introduction/breeding poultry enterprise",
-apps/web/src/locales/en.json:1302:  "ui.如XX育种公司": "Such as: XX breeding company",
-apps/web/src/locales/en.json:1312:  "ui.搜索批次药品": "Search batches, drugs...",
-apps/web/src/locales/en.json:1319:  "ui.新增用药": "New medication",
-apps/web/src/locales/en.json:1831:  "ui.凤凰一场": "+ Add new breeding farm",
-apps/web/src/locales/en.json:1855:  "ui.系统自动根据用药记录计算停药天数停药期内": "View medication details",
-apps/web/src/locales/en.json:1856:  "ui.7日内到期": "The system automatically calculates the number of days of drug withdrawal based on medication records, and batches of eggs during the drug withdrawal period will be marked as \"prohibited for sale.\" When the withdrawal period ends, the system will automatically lift the restrictions and notify relevant personnel.",
-apps/web/src/locales/en.json:1868:  "ui.其他养殖耗材": "Other breeding supplies",
-apps/web/src/locales/en.json:1872:  "ui.养殖人工": "artificial breeding",
-apps/web/src/locales/en.json:2011:  "ui.活体操作生产死淘与用药记录": "In vivo operation: production of dead cells and medication records",
-apps/web/src/locales/en.json:3782:  "ui.记录所有鸡群用药": "Record all flock medication and withdrawal period management",
-apps/web/src/locales/en.json:4047:  "menu.brd-medicine": "Medication Records",
-apps/web/src/locales/en.json:4482:  "breeding.noDailyOr9Grade": "No daily report or not entered by 9 grades",
-apps/web/src/locales/en.json:4483:  "breeding.fetchDailyFailed": "Failed to fetch daily report data",
-apps/web/src/locales/en.json:4484:  "breeding.enterAtLeastOne": "Please enter quantity for at least one grade",
-apps/web/src/locales/en.json:4485:  "breeding.inboundFailed": "Inbound failed",
-apps/web/src/locales/en.json:4486:  "breeding.noPermInbound": "No permission to access daily egg inbound",
-apps/web/src/locales/en.json:4487:  "breeding.inboundTitle": "Daily Egg Inbound",
-apps/web/src/locales/en.json:4488:  "breeding.inboundSubtitle": "Temporary production inbound mode · Daily eggs directly form sales inventory (unified into FIFO inventory system)",
-apps/web/src/locales/en.json:4489:  "breeding.prodMgmt": "Production Management",
-apps/web/src/locales/en.json:4490:  "breeding.loadingSourceMode": "Loading inventory source mode...",
-apps/web/src/locales/en.json:4491:  "breeding.packagingModeOn": "Packaging inbound mode enabled (PACKAGING_INBOUND)",
-apps/web/src/locales/en.json:4492:  "breeding.packagingModeDesc": "Direct inventory generation not allowed. Please complete egg collection → grading → packaging → auto inbound via the Packaging Center.",
-apps/web/src/locales/en.json:4493:  "breeding.goPackaging": "Go to Packaging",
-apps/web/src/locales/en.json:4494:  "breeding.currentMode": "Currently",
-apps/web/src/locales/en.json:4495:  "breeding.tempProdMode": "Temporary Production Inbound Mode",
-apps/web/src/locales/en.json:4496:  "breeding.tempProdModeDesc": ", entries directly form saleable inventory.",
-apps/web/src/locales/en.json:4497:  "breeding.prodDate": "Production Date",
-apps/web/src/locales/en.json:4498:  "breeding.houseOptional": "Henhouse (optional · traceability)",
-apps/web/src/locales/en.json:4499:  "breeding.houseExample": "e.g. A001",
-apps/web/src/locales/en.json:4500:  "breeding.refreshMode": "Refresh Mode",
-apps/web/src/locales/en.json:4501:  "breeding.prefillTitle": "Fetch egg quantities broken down by 9 grades from the daily production report of the selected date + henhouse, and prefill the table below",
-apps/web/src/locales/en.json:4502:  "breeding.fetching": "Fetching...",
-apps/web/src/locales/en.json:4503:  "breeding.prefillFromDaily": "Prefill from Daily Report",
-apps/web/src/locales/en.json:4504:  "breeding.gradesEntered": "Grades Entered",
-apps/web/src/locales/en.json:4505:  "breeding.totalInboundEa": "Total Inbound (pcs)",
-apps/web/src/locales/en.json:4506:  "breeding.totalCrates": "Total (crates · ÷180)",
-apps/web/src/locales/en.json:4507:  "breeding.eggGrade": "Egg Grade",
-apps/web/src/locales/en.json:4508:  "breeding.code": "Code",
-apps/web/src/locales/en.json:4509:  "breeding.qtyEa": "Quantity (pcs)",
-apps/web/src/locales/en.json:4510:  "breeding.loadingGrades": "Loading grade master data…",
-apps/web/src/locales/en.json:4511:  "breeding.inbounding": "Inbounding...",
-apps/web/src/locales/en.json:4512:  "breeding.confirmInbound": "Confirm Inbound (form sales inventory)",
-apps/web/src/locales/en.json:4513:  "breeding.noCreatePerm": "Current account has no entry permission (requires MENU_PROD_INBOUND C permission)",
-apps/web/src/locales/en.json:4514:  "breeding.inboundSuccess": "✓ Inbound successful · Total",
-apps/web/src/locales/en.json:4515:  "breeding.eaGenerated": "pcs, generated",
-apps/web/src/locales/en.json:4516:  "breeding.saleableBatches": "saleable batches",
-apps/web/src/locales/en.json:4517:  "breeding.batchNo": "Batch No.",
-apps/web/src/locales/en.json:4518:  "breeding.grade": "Grade",
-apps/web/src/locales/en.json:4519:  "breeding.qty": "Quantity",
-apps/web/src/locales/en.json:4520:  "breeding.pageMigrated": "Page Migrated",
-apps/web/src/locales/en.json:4521:  "breeding.eggLedgerMerged": "Egg ledger merged into Daily Production Report, redirecting…",
-apps/web/src/locales/en.json:4542:  "dwork.card.vet_record.desc": "Routine medication / Treatment records",
-apps/web/src/locales/en.json:6786:  "mob.brd.medicine_ledger": "Medicine Ledger",
-apps/web/src/locales/en.json:6787:  "mob.brd.search_medicine": "Search medicine name…",
-apps/web/src/locales/en.json:7142:  "mob.home.desc_medicine": "Medicine Stock · In/Out Registration",
-apps/web/src/locales/en.json:8510:  "ui.药品库存": "Drug Inventory",
-apps/web/src/locales/en.json:9606:  "ui.库存总览": "Inventory overview",
-apps/web/src/locales/en.json:9849:  "ui.搜索药品名称…": "Search drug name…",
-apps/web/src/locales/zh.json:8:  "menu.breeding": "养殖生产中心",
-apps/web/src/locales/zh.json:53:  "breeding.overview": "养殖场总览",
-apps/web/src/locales/zh.json:54:  "breeding.henhouse": "鸡舍管理",
-apps/web/src/locales/zh.json:55:  "breeding.flock": "鸡群档案",
-apps/web/src/locales/zh.json:56:  "breeding.daily": "日生产日报",
-apps/web/src/locales/zh.json:57:  "breeding.immune": "免疫计划",
-apps/web/src/locales/zh.json:58:  "breeding.medicine": "用药记录",
-apps/web/src/locales/zh.json:59:  "breeding.withdrawal": "停药期预警",
-apps/web/src/locales/zh.json:60:  "breeding.analysis": "养殖分析报表",
-apps/web/src/locales/zh.json:362:  "ui.养殖场总览": "养殖场总览",
-apps/web/src/locales/zh.json:402:  "ui.药品名称": "药品名称",
-apps/web/src/locales/zh.json:1312:  "ui.搜索批次药品": "搜索批次、药品...",
-apps/web/src/locales/zh.json:4042:  "menu.brd-overview": "养殖场总览",
-apps/web/src/locales/zh.json:4047:  "menu.brd-medicine": "用药记录",
-apps/web/src/locales/zh.json:4459:  "breeding.noDailyOr9Grade": "暂无日报或未按 9 档录入",
-apps/web/src/locales/zh.json:4460:  "breeding.fetchDailyFailed": "拉取日报数据失败",
-apps/web/src/locales/zh.json:4461:  "breeding.enterAtLeastOne": "请至少录入一档数量",
-apps/web/src/locales/zh.json:4462:  "breeding.inboundFailed": "入库失败",
-apps/web/src/locales/zh.json:4463:  "breeding.noPermInbound": "无权限访问日产蛋入库",
-apps/web/src/locales/zh.json:4464:  "breeding.inboundTitle": "日产蛋入库",
-apps/web/src/locales/zh.json:4465:  "breeding.inboundSubtitle": "临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）",
-apps/web/src/locales/zh.json:4466:  "breeding.prodMgmt": "生产管理",
-apps/web/src/locales/zh.json:4467:  "breeding.loadingSourceMode": "加载库存来源模式...",
-apps/web/src/locales/zh.json:4468:  "breeding.packagingModeOn": "已启用包装入库模式（PACKAGING_INBOUND）",
-apps/web/src/locales/zh.json:4469:  "breeding.packagingModeDesc": "不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。",
-apps/web/src/locales/zh.json:4470:  "breeding.goPackaging": "前往包装作业",
-apps/web/src/locales/zh.json:4471:  "breeding.currentMode": "当前为",
-apps/web/src/locales/zh.json:4472:  "breeding.tempProdMode": "临时生产入库模式",
-apps/web/src/locales/zh.json:4473:  "breeding.tempProdModeDesc": "，录入即直接形成可销售库存。",
-apps/web/src/locales/zh.json:4474:  "breeding.prodDate": "生产日期",
-apps/web/src/locales/zh.json:4475:  "breeding.houseOptional": "鸡舍（可选·追溯）",
-apps/web/src/locales/zh.json:4476:  "breeding.houseExample": "如 A001",
-apps/web/src/locales/zh.json:4477:  "breeding.refreshMode": "刷新模式",
-apps/web/src/locales/zh.json:4478:  "breeding.prefillTitle": "从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格",
-apps/web/src/locales/zh.json:4479:  "breeding.fetching": "拉取中...",
-apps/web/src/locales/zh.json:4480:  "breeding.prefillFromDaily": "从日报预填",
-apps/web/src/locales/zh.json:4481:  "breeding.gradesEntered": "已录等级",
-apps/web/src/locales/zh.json:4482:  "breeding.totalInboundEa": "合计入库（枚）",
-apps/web/src/locales/zh.json:4483:  "breeding.totalCrates": "合计（提·÷180）",
-apps/web/src/locales/zh.json:4484:  "breeding.eggGrade": "蛋品等级",
-apps/web/src/locales/zh.json:4485:  "breeding.code": "编码",
-apps/web/src/locales/zh.json:4486:  "breeding.qtyEa": "数量（枚）",
-apps/web/src/locales/zh.json:4487:  "breeding.loadingGrades": "加载等级主数据中…",
-apps/web/src/locales/zh.json:4488:  "breeding.inbounding": "入库中...",
-apps/web/src/locales/zh.json:4489:  "breeding.confirmInbound": "确认入库（形成销售库存）",
-apps/web/src/locales/zh.json:4490:  "breeding.noCreatePerm": "当前账号无录入权限（需 MENU_PROD_INBOUND 的 C 权限）",
-apps/web/src/locales/zh.json:4491:  "breeding.inboundSuccess": "✓ 入库成功 · 合计",
-apps/web/src/locales/zh.json:4492:  "breeding.eaGenerated": "枚，生成",
-apps/web/src/locales/zh.json:4493:  "breeding.saleableBatches": "个可售批次",
-apps/web/src/locales/zh.json:4494:  "breeding.batchNo": "批次号",
-apps/web/src/locales/zh.json:4495:  "breeding.grade": "等级",
-apps/web/src/locales/zh.json:4496:  "breeding.qty": "数量",
-apps/web/src/locales/zh.json:4497:  "breeding.pageMigrated": "页面已迁移",
-apps/web/src/locales/zh.json:4498:  "breeding.eggLedgerMerged": "蛋品台账已合并到「日生产日报」，正在跳转…",
-apps/web/src/locales/zh.json:4522:  "dwork.card.med_stock.title": "药品库存",
-apps/web/src/locales/zh.json:6763:  "mob.brd.medicine_ledger": "药品台账",
-apps/web/src/locales/zh.json:6764:  "mob.brd.search_medicine": "搜索药品名称…",
-apps/web/src/locales/zh.json:7119:  "mob.home.desc_medicine": "药品库存·出入库登记",
-apps/web/src/locales/zh.json:8507:  "ui.药品库存": "药品库存",
-apps/web/src/locales/zh.json:9606:  "ui.库存总览": "库存总览",
-apps/web/src/locales/zh.json:9849:  "ui.搜索药品名称…": "搜索药品名称…",
-apps/web/src/app/(admin)/analytics/production/page.tsx:117:      apiFetch<ReportResponse | DailyReport[]>("/api/breeding/daily-reports?limit=30", signal).then((raw) =>
-apps/web/src/app/(mobile)/mobile/home/page.tsx:101:  titleZh: '药品台账',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:104:  desc: '药品库存·出入库登记',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:105:  descKey: 'mob.home.desc_medicine',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:107:  href: '/mobile/medicine',
-apps/web/src/app/(mobile)/mobile/home/page.tsx:109:  pageKey: 'medicine'
-apps/web/src/app/(admin)/warehouse/page.tsx:256:              {t("ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏", "当前账号仅可查看库存总览，出入库作业与库区容量已按权限隐藏。")}
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:36:  const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:52:  // 入库 / 出库 entries：{ medication_code → EntryRow }
-apps/web/src/app/(mobile)/mobile/medicine/page.tsx:111:    !search ||
+3
 ```
