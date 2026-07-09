@@ -563,8 +563,8 @@ export class BugIntakeService {
   ) {
     const report = await this.repo.findOne({ where: { bugNo } });
     if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
-    if (['RESOLVED', 'CLOSED'].includes(report.status)) {
-      throw new BadRequestException('已解决或已关闭的问题不能直接重新派发，请先重新打开并确认仍需修复');
+    if (['CLOSED', 'REJECTED'].includes(report.status)) {
+      throw new BadRequestException('已关闭或已驳回的问题不能直接重新派发，请先重新打开并确认仍需修复');
     }
 
     const before = this.toWorkflowSnapshot(report);
@@ -724,8 +724,8 @@ export class BugIntakeService {
       report.status = 'IN_PROGRESS';
     } else if (this.agentPlanCompleted(payload.agentPlan, agentResults)) {
       report.repairTaskStatus = 'AGENT_COMPLETED';
-      report.status = 'RESOLVED';
-      report.resolutionNote = report.resolutionNote || 'Agent 修复任务已完成，等待业务验收。';
+      report.status = 'IN_PROGRESS';
+      report.resolutionNote = report.resolutionNote || 'Agent 修复链路已完成，等待管理员/业务验收；验收通过后再关闭，验收不通过可重新派发。';
     } else {
       report.repairTaskStatus = 'AGENT_RUNNING';
       report.status = report.status === 'OPEN' ? 'TRIAGED' : 'IN_PROGRESS';
