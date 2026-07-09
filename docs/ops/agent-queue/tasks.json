@@ -5977,7 +5977,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "completed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -5996,10 +5996,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-08T07:43:16.634Z",
-    "completed_at": "2026-07-08T07:43:16.702Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-01-A2-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
@@ -6007,10 +6007,20 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.481Z",
+        "previous_status": "completed",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-01-A2-worker-log.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-02-A3",
@@ -6020,7 +6030,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -6039,21 +6049,31 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-08T07:48:42.506Z",
-    "completed_at": "2026-07-08T07:53:28.144Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
     "detached_worker_recovered_at": "2026-07-08T07:53:28.144Z",
-    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-03-A4",
@@ -6063,7 +6083,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -6084,10 +6104,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-08T07:53:29.859Z",
-    "completed_at": "2026-07-08T07:57:14.778Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-03-A4-detached-worker-recovery.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -6095,11 +6115,21 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
     "detached_worker_recovered_at": "2026-07-08T07:57:14.778Z",
-    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-03-A4-detached-worker-recovery.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-04-A5",
@@ -6109,7 +6139,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A5-Data-Readiness",
-    "status": "completed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -6129,19 +6159,29 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-08T07:48:40.776Z",
-    "completed_at": "2026-07-08T07:48:40.840Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-04-A5-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A3-Backend-Critical-Path",
       "A2-Security-Regression-Gate"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "completed",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-04-A5-worker-log.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-05-A1",
@@ -6151,7 +6191,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "completed",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -6171,20 +6211,30 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-08T08:02:38.614Z",
-    "completed_at": "2026-07-08T08:02:38.711Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-05-A1-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "completed",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-05-A1-worker-log.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-06-A6",
@@ -6194,7 +6244,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A6-Staging-Deploy-Runbook",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -6214,19 +6264,29 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
     "branch": "w5-a6-staging-deploy-runbook",
     "dependencies": [],
-    "claimed_by": "A6-Staging-Deploy-Runbook",
-    "claimed_at": "2026-07-08T08:02:40.363Z",
-    "completed_at": "2026-07-08T08:05:55.114Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-06-A6-detached-worker-recovery.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
     "detached_worker_recovered_at": "2026-07-08T08:05:55.114Z",
-    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-06-A6-detached-worker-recovery.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0004-07-A7",
@@ -6236,7 +6296,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A7-Final-QA-Gate",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -6255,18 +6315,28 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
     "branch": "w5-a7-final-qa-gate",
     "dependencies": [],
-    "claimed_by": "A7-Final-QA-Gate",
-    "claimed_at": "2026-07-08T08:05:57.079Z",
-    "completed_at": "2026-07-08T08:08:25.899Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-log.md",
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "Codex-Orchestrator"
     ],
     "approval_required": true,
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-09T00:20:40.842Z",
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A7-Final-QA-Gate --branch w5-a7-final-qa-gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --max-retries 3 --yes"
+    "baseline_autopilot_command": "/usr/local/bin/node scripts/ops/agent-baseline-autopilot.mjs --agent A7-Final-QA-Gate --branch w5-a7-final-qa-gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --max-retries 3 --yes",
+    "redispatched_at": "2026-07-09T00:20:40.842Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-09T00:21:00.482Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-log.md",
+        "source_bug_no": "BUG-20260708-0004",
+        "source_repair_task_no": "BUGTASK-20260708-0004"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260708-0006-01-A2",
