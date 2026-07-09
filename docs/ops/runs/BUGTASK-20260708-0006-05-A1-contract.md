@@ -1342,9 +1342,9 @@ Assigned agent: A1-CI-Runtime-Gate
     "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-08T07:24:18.940Z",
+  "createdAt": "2026-07-09T06:42:03.609Z",
   "createdBy": "admin",
-  "moduleCode": "____",
+  "moduleCode": "____-____",
   "suggestedOwner": "_____",
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -1352,12 +1352,12 @@ Assigned agent: A1-CI-Runtime-Gate
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
-  "agentPlanGeneratedAt": "2026-07-08T07:24:20.277Z",
+  "acceptanceCriteria": "销售管理-价格管理，将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
+  "agentPlanGeneratedAt": "2026-07-09T06:42:05.013Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T07:24:22.163Z",
+    "approvedAt": "2026-07-09T06:42:11.429Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
