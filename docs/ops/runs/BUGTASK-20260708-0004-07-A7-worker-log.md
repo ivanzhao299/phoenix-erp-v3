@@ -22,23 +22,30 @@ Branch: w5-a7-final-qa-gate
 Prompt: docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0004-07-A7-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-assembled-prompt.md
-Assembled prompt chars: 24885
+Assembled prompt chars: 79246
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-08-25-891Z-A7-Final-QA-Gate.md
-A7 Final QA completed: **FAIL / HOLD**.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-09T00-48-38-398Z-A7-Final-QA-Gate.md
+A7 final QA report updated and committed.
 
-Report written and committed:
+Report: [docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md](/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate/docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md:1)  
+Commit: `3e94655f docs(ops): update BUG-20260708-0004 A7 final QA gate`
 
-[docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md](/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate/docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md:1)
+Result: **PASS WITH CONDITIONS**  
+Recommendation: **GO WITH CONDITIONS for staging/UAT**, **HOLD for production closure** until CI/typecheck/Jest plus authenticated browser smoke prove `/warehouse/ledger` displays Chinese transaction labels.
 
-Commit:
+Validation done:
+- Preflight passed: correct worktree, branch `w5-a7-final-qa-gate`, clean status.
+- Static display contract passed: visible cell now uses `getTxnDisplayLabel(row)` / `change_type_label`, raw code retained only for tooltip/audit.
+- RBAC/DataScope static audit passed for `MENU_WMS_VIEW` and scoped inventory reads.
+- `git diff --check` passed.
 
-`03db92f9 docs(ops): record BUG-20260708-0004 A7 final QA gate`
+Blocked:
+- Web/API `tsc` and focused Jest could not run in this A7 worktree because `node_modules` is absent.
+- No browser smoke or synced screenshot evidence was available.
+- No deploy, DB write, migration, merge, push, or task-board update was performed.
 
-Key finding: `/warehouse/ledger` still renders `row.change_type` directly, so values like `FARM_OUT_MEDICATION`, `TEMP_PRODUCTION_INBOUND`, `MED_INBOUND`, `MED_OUTBOUND` remain English/internal codes instead of Chinese labels.
-
-Validation notes: `git diff --check` passed; Web/API `tsc` could not run because `./node_modules/.bin/tsc` is missing in both `apps/web` and `apps/api`. No deploy, DB write, migration, merge, push, or business-code edit was performed.
+Final worktree status is clean.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +62,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f40c3-1f7f-71e0-820c-f63326ab3614
+session id: 019f4456-61cc-7ca0-ae13-0cb740e4171b
 --------
 user
 # Base Agent Prompt
@@ -971,21 +978,318 @@ Assigned agent: A7-Final-QA-Gate
   "createdAt": "2026-07-08T06:37:08.086Z",
   "createdBy": "admin",
   "moduleCode": "____",
+  "agentResults": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0004-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260708-0004-01-A2\nTitle: Repair BUG-20260708-0004: 库存管理-库存台账，事务类型不显示中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:43:17.871Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708074322",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 49 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0003-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260708-0003-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0004-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260708-0003-03-A4: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260708-0003-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0004-01-A2: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "a34fec3d368104b8d4d849467a5482fc436195ae",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T07:43:24.441Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260708-0003-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260708-0003-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260708-0004-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0004-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0004-04-A5\nTitle: Repair BUG-20260708-0004: 库存管理-库存台账，事务类型不显示中文 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:48:41.980Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0004-02-A3",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 96 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.service.ts\n?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n: 64cfbfef\nTarget branch HEAD (w5-a3-backend-critical-path): bf10bcf1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 64cfbfef..bf10bcf1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nbf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n64cfbfef feat(api): record A3-Backend-Critical-Path result\n20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n531c7139 feat(web): record A4-Frontend-UAT-Smoke result\n2dffe9b1 docs(ops): record baseline lifecycle report",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:53:29.269Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0004-03-A4",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 35 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: fca5a3d1\nTarget branch HEAD (w5-a4-frontend-uat-smoke): d3498070\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating fca5a3d1..d3498070\nFast-forward\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nd3498070 (HEAD -> main, w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nfca5a3d1 fix: localize warehouse ledger transaction",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:57:15.982Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-03-A4-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708075721",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 50 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 2 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260708-0004-02-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260708-0004-03-A4 -> A4-Frontend-UAT-Smoke\n\n## Worker Runs\n\n- BUGTASK-20260708-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0004-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260708-0004-03-A4: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "3bf1b95d59d8ceb21a88d8ff598a91aa54c0c7b2",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T07:57:22.252Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260708-0004-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260708-0004-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260708-0004-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260708-0004-05-A1",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T08:02:39.852Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "taskId": "BUGTASK-20260708-0004-06-A6",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-06-A6 |\n| Agent | A6-Staging-Deploy-Runbook |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 5 |\n| Worktree status before recovery | ?? docs/ops/BUG-20260708-0004_A6_STAGING_DEPLOY_RUNBOOK.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n-to-main.mjs w5-a6-staging-deploy-runbook --yes\nCurrent main HEAD: 6dc6c7ed\nTarget branch HEAD (w5-a6-staging-deploy-runbook): d3fafe0c\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-05-52-919Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-05-52-920Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.md\n\nDiff stat:\n ...-Staging-Deploy-Runbook-baseline-lifecycle.json | 26 ++++++++++++++++++++++\n ...A6-Staging-Deploy-Runbook-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 52 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a6-staging-deploy-runbook into main with --ff-only...\nUpdating 6dc6c7ed..d3fafe0c\nFast-forward\n ...-Staging-Deploy-Runbook-baseline-lifecycle.json | 26 ++++++++++++++++++++++\n ...A6-Staging-Deploy-Runbook-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 52 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-05-52-919Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-05-52-920Z-A6-Staging-Deploy-Runbook-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nd3fafe0c (HEAD -> main, w5-a6-staging-deploy-runbook) docs(ops): record baseline lifecycle report\n6dc6c7ed docs(ops): record generated ops artifacts\n7aee7c0f docs(ops): record bug 0006 staging deploy runbook\nd3498070 (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\nfca5a3d1 fix: localize warehouse ledger transaction types\nbf10bcf1 (w5-a3-backend-critical-path) docs(ops)",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T08:05:56.586Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-06-A6-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "taskId": "BUGTASK-20260708-0004-07-A7",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-07-A7 |\n| Agent | A7-Final-QA-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A7-Final-QA-Gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --prompt docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0004-07-A7-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A7-Final-QA-Gate\nWorktree: /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate\nBranch: w5-a7-final-qa-gate\nPrompt: docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0004-07-A7-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-assembled-prompt.md\nAssembled prompt chars: 24885\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-08-25-891Z-A7-Final-QA-Gate.md\nA7 Final QA completed: **FAIL / HOLD**.\n\nReport written and committed:\n\n[docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md](/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate/docs/ops/BUG-20260708-0004_A7_FINAL_QA_GATE_REPORT.md:1)\n\nCommit:\n\n`03db92f9 docs(ops): record BUG-20260708-0004 A7 final QA gate`\n\nKey finding: `/warehouse/ledger` still renders `row.change_type` directly, so values like `FARM_OUT_MEDICATION`, `TEMP_PRODUCTION_INBOUND`, `MED_INBOUND`, `MED_OUTBOUND` remain English/internal codes instead of Chinese labels.\n\nValidation notes: `git diff --check` passed; Web/API `tsc` could not run because `./node_modules/.bin/tsc` is missing in both `apps/web` and `apps/api`. No deploy, DB write, migration, merge, push, or",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T08:08:36.513Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-07-A7-worker-log.md",
+      "changedFiles": [
+        "docs/v3-final-readiness-audit.md",
+        "docs/uix4-design-system-final.md",
+        "docs/ops-runbook.md",
+        "docs/ops/RBAC_SETTINGS_AND_MENU_GATE_REMEDIATION_20260626.md",
+        "docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md",
+        "docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md",
+        "docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md",
+        "docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_PLAN.md",
+        "docs/ops/BUG-20260707-0004-a4-frontend-uat-report.md",
+        "docs/ops/AI_DELIVERY_FACTORY_SETUP_REVIEW.md",
+        "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_PLAN.md",
+        "docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md",
+        "docs/ops/A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md",
+        "docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md",
+        "docs/ops/REMAINING_AUDIT_ISSUES_CONSOLIDATED_PLAN_20260627.md",
+        "docs/ops/MASTER_DATA_HOME_PERMISSION_ATOMICITY_REMEDIATION_20260627.md",
+        "docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md",
+        "docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md",
+        "docs/ops/AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md",
+        "docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md",
+        "docs/ops/AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md",
+        "docs/ops/AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md",
+        "docs/ops/SETTINGS_HUB_SECURITY_PAGE_PERMISSION_REMEDIATION_20260627.md",
+        "docs/ops/AP_INVOICES_DATASCOPE_WRITE_GATE_REMEDIATION_20260626.md",
+        "docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md",
+        "docs/ops/MASTER_DATA_RUNTIME_WRITE_SCOPE_GUARD_20260626.md",
+        "docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md",
+        "docs/ops/MOBILE_DASHBOARD_SALES_PERMISSION_ATOMICITY_REMEDIATION_20260627.md",
+        "docs/ops/PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md",
+        "docs/navigation-final.md"
+      ],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708080837",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 51 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0004-06-A6 -> A6-Staging-Deploy-Runbook\n- BUGTASK-20260708-0004-07-A7 -> A7-Final-QA-Gate\n\n## Worker Runs\n\n- BUGTASK-20260708-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0004-06-A6: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260708-0004-07-A7: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RELEASE_PIPELINE [WARNING]: release; recovery=stop before production side effects and require release review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+      "commitHash": "32929fe3308c5717b3dc193c8703bc4d95b95c94",
+      "conclusion": "HOLD",
+      "nextAction": "Review runner lifecycle HOLD reason before closing bug.",
+      "recordedAt": "2026-07-08T08:08:38.127Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "SKIPPED: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260708-0004-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A6-Staging-Deploy-Runbook",
+            "taskId": "BUGTASK-20260708-0004-06-A6",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A7-Final-QA-Gate",
+            "taskId": "BUGTASK-20260708-0004-07-A7",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    }
+  ],
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "BugIntakeLocalRunner",
+    "taskId": "LOCAL-RUNNER-20260708080837",
+    "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 51 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0004-06-A6 -> A6-Staging-Deploy-Runbook\n- BUGTASK-20260708-0004-07-A7 -> A7-Final-QA-Gate\n\n## Worker Runs\n\n- BUGTASK-20260708-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0004-06-A6: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260708-0004-07-A7: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- RELEASE_PIPELINE [WARNING]: release; recovery=stop before production side effects and require release review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+    "commitHash": "32929fe3308c5717b3dc193c8703bc4d95b95c94",
+    "conclusion": "HOLD",
+    "nextAction": "Review runner lifecycle HOLD reason before closing bug.",
+    "recordedAt": "2026-07-08T08:08:38.127Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+    "changedFiles": [],
+    "validationResults": {
+      "ci": "SKIPPED: wait-ci-after-push disabled",
+      "push": "SKIPPED: main root dirty: M apps/api/src/modules/bug-intake/bug-intake.service.ts\n M apps/web/src/app/(admin)/bug-reports/page.tsx\n M apps/web/src/locales/en.json\n M apps/web/src/locales/lo.json\n M apps/web/src/locales/zh.json",
+      "sync": "PASS",
+      "workerRuns": [
+        {
+          "agent": "A1-CI-Runtime-Gate",
+          "taskId": "BUGTASK-20260708-0004-05-A1",
+          "finalStatus": "completed",
+          "writebackStatus": 0
+        },
+        {
+          "agent": "A6-Staging-Deploy-Runbook",
+          "taskId": "BUGTASK-20260708-0004-06-A6",
+          "finalStatus": "COMPLETED_MERGED",
+          "writebackStatus": 0
+        },
+        {
+          "agent": "A7-Final-QA-Gate",
+          "taskId": "BUGTASK-20260708-0004-07-A7",
+          "finalStatus": "COMPLETED_MERGED",
+          "writebackStatus": 0
+        }
+      ]
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-09T00:20:40.842Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_APPROVED"
+    }
+  ],
   "acceptanceCriteria": "库存管理-库存台账，要求事务类型显示中文",
   "agentPlanGeneratedAt": "2026-07-08T06:37:09.336Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T06:37:12.104Z",
+    "approvedAt": "2026-07-09T00:20:40.842Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -993,525 +1297,86 @@ Assigned agent: A7-Final-QA-Gate
       "push without release approval",
       "force push"
     ]
-  }
-}
-```
-
-## Local Evidence
-
-- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
-
----
-
-# Execution Guardrails
-
-1. Do not merge.
-2. Do not push.
-3. Do not deploy.
-4. Do not execute migrations.
-5. Do not write to any database.
-6. Do not modify the task board from inside the Agent task.
-7. Stop immediately if the task requires files outside the allowed contract.
-8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
-9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
-
-codex
-先做入口校验：确认目录、分支、工作区状态和最近提交。如果这些基础条件不符合，我会停止，不进入报告编写。
-exec
-/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
-
-exec
-/bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-w5-a7-final-qa-gate
-
-exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-9d5c6095 (HEAD -> w5-a7-final-qa-gate) docs(ops): record BUG-20260707-0006 A7 final QA gate
-c5c7577e docs(ops): record BUG-20260707-0005 A7 final QA gate
-34ab86a6 docs(ops): record baseline lifecycle report
-89d076cd docs(ops): record generated ops artifacts
-9e74e1fe docs(ops): record baseline lifecycle report
-f3813a9d feat(web): record A4-Frontend-UAT-Smoke result
-653c1fc0 docs(ops): record baseline lifecycle report
-11fa71a9 docs(ops): record BUG-20260707-0005 A3 backend report
-
-exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-codex
-入口条件有效：目录、分支都匹配，工作区干净。现在只读收集 BUG-20260708-0004 的各 Agent 证据和现有 ops/docs 报告，再决定是否能给 GO。
-exec
-/bin/zsh -lc "find . -maxdepth 4 -type f \\( -iname '*20260708*' -o -iname '*0004*' -o -iname '*qa*' -o -iname '*gate*' \\)" in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-./docs/master-data-initialization-m6-1-readiness-gate.md
-./docs/ops/RBAC_FRONTEND_GATE_ALIGNMENT_BATCH_20260626.md
-./docs/ops/A3_STORE_PAYMENT_PROTECTED_STREAMING_GATE_REPORT.md
-./docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md
-./docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A2-Security-Regression-Gate_REPORT.md
-./docs/ops/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS_A1-CI-Runtime-Gate_REPORT.md
-./docs/ops/A2_STORE_PAYMENT_PILOT_GATE_S1_REVIEW.md
-./docs/ops/AI_DELIVERY_PHASE1_CI_GATE_REVIEW.md
-./docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_CHECKLIST.md
-./docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PACKAGE.md
-./docs/ops/A1_STORE_PAYMENT_PILOT_GATE_S1_VALIDATION.md
-./docs/ops/MASTER_DATA_AGGREGATE_API_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-./docs/ops/MOBILE_DELIVERY_SCOPE_GATE_REMEDIATION_20260626.md
-./docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md
-./docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A1-CI-Runtime-Gate_REPORT.md
-./docs/ops/BUG-20260707-0004-A3-backend-critical-path-report.md
-./docs/ops/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
-./docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md
-./docs/ops/AI_DELIVERY_SCHEMA_GATE_STORE_PAYMENT_001_REVIEW.md
-./docs/ops/GLOBAL_RBAC_MENU_GATE_AUDIT_20260625.md
-./docs/ops/STORE_PAYMENT_PILOT_GATE_S1_DECISION.md
-./docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
-./docs/ops/FRONTEND_MENU_TREE_PERMISSION_GATE_20260626.md
-./docs/ops/SIDEBAR_MASTER_DATA_PERMISSION_GATE_REMEDIATION_20260627.md
-./docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_CONTROLLER_GATES.md
-./docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A1-CI-Runtime-Gate_REPORT.md
-./docs/ops/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS_A2-Security-Regression-Gate_REPORT.md
-./docs/ops/A1_CI_RUNTIME_GATE_REPORT.md
-./docs/ops/A7_STORE_PAYMENT_FINAL_QA_GATE_REPORT.md
-./docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md
-./docs/ops/A3_STORE_PAYMENT_BACKEND_GATE_PROTECTED_ATTACHMENT_DATASCOPE_ACTIONBIT_REPORT.md
-./docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md
-./docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md
-./docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_PROPOSAL.md
-./docs/ops/STORE_PAYMENT_FILE_METADATA_ACL_GATE_REPORT.md
-./docs/ops/RBAC_FRONTEND_MENU_GATE_REMEDIATION_20260626.md
-./docs/ops/BIZ_PROJECTS_DATASCOPE_GATE_REMEDIATION_20260626.md
-./docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md
-./docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_DECISION.md
-./docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_ATTACHMENT_CI_GATE.md
-./docs/ops/STORE_PAYMENT_PILOT_GATE_S1_APPROVAL_MATRIX.md
-./docs/ops/AUDIT_LOG_PAGE_GATE_REMEDIATION_20260627.md
-./docs/ops/RBAC_ATOMIC_MENU_GATE_BATCH_20260626.md
-./docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_A1_CONTRACT.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T11-55-02-892Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T00-34-21-235Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-23T02-53-12-456Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A1_CONTRACT.md
-./docs/ops/runs/2026-06-23T03-09-13-564Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-22T16-51-11-346Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-CI-A3-A4-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T00-36-29-043Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-24T07-06-08-994Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/2026-06-23T03-09-18-864Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_REQUIREMENT_SPEC.md
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T03-06-43-050Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T11-46-46-582Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A1_ASSEMBLED_PROMPT.md
-./docs/ops/runs/2026-06-23T03-21-22-559Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/2026-06-23T03-06-37-424Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-22T13-08-18-558Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T03-17-36-446Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/2026-06-23T03-09-18-865Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193139-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/legacy-upload-to-file-metadata-gate-latest.md
-./docs/ops/runs/REQ-NL-20260622-193139-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T03-17-30-652Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A2_ASSEMBLED_PROMPT.md
-./docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_REQUIREMENT_SPEC.md
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T03-21-27-864Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
-./docs/ops/runs/2026-06-23T03-17-36-447Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/2026-06-22T16-59-49-565Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_PRECHECK_A2_CONTRACT.md
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T16-51-11-346Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_A2_CONTRACT.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-23T02-49-39-415Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T03-21-27-864Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T13-14-52-134Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-READINESS-CI-A3-A4-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T16-59-44-013Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T16-42-18-701Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-23T02-53-04-560Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260624-135537-AGENT-INBOX-SHORT-COMMAND-EXPANDED-REQUEST-USER--assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T00-36-23-940Z-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T16-59-49-564Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-24T07-06-13-905Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-22T10-02-43-825Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_A2_ASSEMBLED_PROMPT.md
-./docs/ops/runs/2026-06-24T07-06-13-904Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/2026-06-23T02-49-44-802Z-A2-Security-Regression-Gate-baseline-lifecycle.md
-./docs/ops/runs/legacy-upload-to-file-metadata-gate-latest.json
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-22T16-51-03-445Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-23T02-49-44-801Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/2026-06-23T00-34-16-169Z-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/STORE_PAYMENT_PILOT_GATE_S1_A1_ASSEMBLED_PROMPT.md
-./docs/ops/runs/2026-06-23T00-34-21-234Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/2026-06-23T02-53-12-456Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
-./docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
-./docs/ops/runs/2026-06-23T03-06-43-049Z-A2-Security-Regression-Gate-baseline-lifecycle.json
-./docs/ops/runs/2026-06-23T00-36-29-043Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
-./docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md
-./docs/ops/AP_INVOICES_DATASCOPE_WRITE_GATE_REMEDIATION_20260626.md
-./docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
-./docs/ops/BUG-20260707-0004-a4-frontend-uat-report.md
-./docs/ops/RBAC_SETTINGS_AND_MENU_GATE_REMEDIATION_20260626.md
-./scripts/ci/check-frontend-menu-gates.mjs
-./scripts/ci/check-w5-closeout-gate.mjs
-
-exec
-/bin/zsh -lc "rg --files | rg 'BUG-20260708-0004|BUGTASK-20260708-0004|final|qa|ops|runbook|report'" in /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate
- succeeded in 0ms:
-apps/api/src/modules/finance-v2/services/financial-reports.service.ts
-apps/api/src/modules/finance-v2/controllers/financial-reports.controller.ts
-docs/final-hardening-phase-f0-audit.md
-docs/organization-runtime-phase1-report.md
-docs/ui-ux-phase1-report.md
-docs/final-hardening-phase-f2-design-system-unification.md
-docs/final-hardening-phase-f4-enterprise-ux-finalization.md
-docs/role-runtime-phase-c-report.md
-docs/production-initialization-package-report.md
-docs/score-9-phase-r2-config-governance-report.md
-docs/uix9a-master-data-productization-final.md
-apps/api/ddl/25_production_ops_tables.sql
-apps/api/migrations/archive/db_audit_final.js
-docs/pilot-run-1-launch-report.md
-docs/workflow-hardening-p0-report.md
-docs/uix3-design-system-finalization.md
-docs/g55d-master-data-governance-finalization.md
-docs/final-hardening-phase-f3-product-polish.md
-docs/score-9-phase-r1-report.md
-docs/role-runtime-phase-a-report.md
-docs/v3-final-readiness-audit.md
-docs/uix4-design-system-final.md
-docs/ops-runbook.md
-docs/ops/RBAC_SETTINGS_AND_MENU_GATE_REMEDIATION_20260626.md
-docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md
-docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md
-docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_PLAN.md
-docs/ops/BUG-20260707-0004-a4-frontend-uat-report.md
-docs/ops/AI_DELIVERY_FACTORY_SETUP_REVIEW.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_PLAN.md
-docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md
-docs/ops/A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md
-docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md
-docs/ops/REMAINING_AUDIT_ISSUES_CONSOLIDATED_PLAN_20260627.md
-docs/ops/MASTER_DATA_HOME_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
-docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md
-docs/ops/AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md
-docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md
-docs/ops/AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md
-docs/ops/AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md
-docs/ops/SETTINGS_HUB_SECURITY_PAGE_PERMISSION_REMEDIATION_20260627.md
-docs/ops/AP_INVOICES_DATASCOPE_WRITE_GATE_REMEDIATION_20260626.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md
-docs/ops/MASTER_DATA_RUNTIME_WRITE_SCOPE_GUARD_20260626.md
-docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md
-docs/ops/MOBILE_DASHBOARD_SALES_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md
-docs/navigation-final.md
-docs/mdm-1-implementation-report.md
-docs/production-recovery-validation-report.md
-docs/production-smoke-test-report.md
-docs/workflow-sla-push-ops.md
-docs/final-readiness-fix-pack-1-report.md
-docs/final-hardening-phase-f1-dead-code-cleanup.md
-docs/final-hardening-phase-f4b-ux-hotspot-refinement.md
-docs/production-deployment-reconciliation-report.md
-docs/role-runtime-phase-c-recovery-report.md
-docs/procurement_audit_report.md
-docs/master-data-initialization-phase-m2-report.md
-docs/uat1-user-acceptance-test-report.md
-docs/master-data-initialization-m6-3-import-complete-report.md
-migrations/20260605_glp1a2_user_songmingguang_finalize.sql
-migrations/20260604_g55d_governance_finalization.sql
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_DEPLOY_CHAIN_HARDENING_REVIEW.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_IMPLEMENTATION_PLAN.md
-docs/ops/PRODUCTION_DEPLOY_CHAIN_HARDENING_DRY_RUN_REPORT.md
-docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md
-docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md
-docs/ops/PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REFRESH_REPORT.md
-docs/ops/SALES_BFF_GENERIC_RBAC_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK.md
-docs/ops/APPROVAL_HISTORY_SCOPE_REMEDIATION_20260627.md
-docs/ops/STORE_PAYMENT_FAST_TRACK_PILOT_EXECUTION_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md
-docs/ops/PRODUCTION_READINESS_P1_001_UNRESOLVED_UPLOADS_REVIEW_PACKAGE.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_ROADMAP.md
-docs/ops/PRODUCTION_READINESS_UPLOAD_RESPONSE_COMPAT_FIX_REPORT.md
-docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A5-Data-Readiness_REPORT.md
-docs/ops/STAGING_TARGET_DERIVATION_FROM_SERVER_CARD.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_DRY_RUN_REPORT.md
-docs/ops/BUG-20260707-0005_A6_STAGING_DEPLOY_RUNBOOK.md
-docs/ops/A3_STORE_PAYMENT_APP_MODULE_WIRING_REPORT.md
-docs/ops/AI_DELIVERY_PHASE5_1_NL_TO_CODEX_CLI_REVIEW.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_ACTION_BIT_COMPATIBILITY_PLAN.md
-docs/ops/AGENT_ROUTER_V1_REVIEW.md
-docs/ops/ENVIRONMENT_MATRIX.md
-docs/ops/RBAC_FRONTEND_GATE_ALIGNMENT_BATCH_20260626.md
-docs/ops/RBAC_PARENT_PERMISSION_CLEARANCE_AUDIT_20260627.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_STATE_AUDIT_REPORT.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_TEST_PLAN.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_SEQUENCE_PLAN.md
-docs/ops/QUALITY_AND_MOBILE_DASHBOARD_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-docs/ops/A2_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md
-docs/ops/PRODUCTION_READINESS_P1_005_STORE_PAYMENT_REMOTE_SMOKE_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MASTER_DATA_DIAGNOSIS_REPORT.md
-docs/ops/A5_DATA_READINESS_STORE_PAYMENT_001_REPORT.md
-docs/ops/BUG-20260707-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md
-docs/ops/AGENT_AUTONOMOUS_BASELINE_LIFECYCLE.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_PRECHECK.md
-docs/ops/PROCUREMENT_RBAC_ATOMIC_REQUIREMENU_REMEDIATION_20260625.md
-docs/ops/AUTOMATED_WORKTREE_SYNC_AND_SAFE_MERGE.md
-docs/ops/PRODUCTION_LEGACY_UPLOAD_RUNTIME_VERIFICATION_PLAN.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md
-docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A2-Security-Regression-Gate_REPORT.md
-docs/ops/LOOKUP_SHAREHOLDER_SELECTOR_DATASCOPE_REMEDIATION_20260626.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_A7_STAGE_SUMMARY_GATE.md
-docs/ops/DR_RESTORE_DRILL.md
-docs/ops/A1_STORE_PAYMENT_A5_HOLD_CLEARANCE_VALIDATION.md
-docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_BACKLOG.md
-docs/ops/AGENT_PLATFORM_V2_CLOSED_LOOP_DELIVERY.md
-docs/ops/PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_LOCAL_COMPAT_FIX_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_DRY_RUN_REPORT.md
-docs/ops/STORE_PAYMENT_S1_APP_001_MIGRATION_EXECUTION_REPORT.md
-docs/ops/STORE_PAYMENT_READINESS_A1_A2_A5_APPROVED_EXECUTION_REPORT.md
-docs/ops/PRODUCTION_DEPLOY_CHAIN_HARDENING_PLAN.md
-docs/ops/PROCUREMENT_MATERIAL_QUICK_CREATE_REMEDIATION_20260626.md
-docs/ops/FINANCE_CASH_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-docs/ops/MASTER_DATA_PENDING_ATOMIC_VISIBILITY_REMEDIATION_20260627.md
-docs/ops/A2_STORE_PAYMENT_PILOT_GATE_S1_REVIEW.md
-docs/ops/AI_DELIVERY_IMPLEMENTATION_PLAN_STORE_PAYMENT_001_REVIEW.md
-docs/ops/PERMISSION_SET_ROUTE_DEDUP_REMEDIATION_20260627.md
-docs/ops/AI_DELIVERY_PHASE6_ONE_COMMAND_ORCHESTRATOR_REVIEW.md
-docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md
-docs/ops/STORE_PAYMENT_BUSINESS_CLOSED_LOOP_READY_REPORT.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_BACKEND_S2_TASK_PACKAGE.md
-docs/ops/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS_A1-CI-Runtime-Gate_REPORT.md
-docs/ops/ROLE_PERMISSION_MATRIX_REPAIR_DRY_RUN_20260627.md
-docs/ops/MASTER_DATA_CROSS_DOMAIN_TAB_PERMISSION_REMEDIATION_20260627.md
-docs/ops/PRODUCTION_READINESS_P0_004_LEGACY_UPLOAD_RUNTIME_VERIFICATION_REPORT.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_FRONTEND_DRAFT.md
-docs/ops/runtime-memory/NEXT_ACTIONS.md
-docs/ops/runtime-memory/DECISION_LOG.md
-docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
-docs/ops/runtime-memory/GUARDRAILS.md
-docs/ops/runtime-memory/PROJECT_STATE.json
-docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
-docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_UNRESOLVED_UPLOADS_OWNER_DIAGNOSIS_REPORT.md
-docs/ops/NEXT_AGENT_DECISION_ENGINE.md
-docs/ops/LOOKUP_AND_ORG_DATASCOPE_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_STATE_MACHINE.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_REPAIR_PLAN.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_MIGRATION_EXECUTION_REPORT.md
-docs/ops/PRODUCTION_READINESS_P1_003_MANUAL_SCOPE_REVIEW_PACKAGE.md
-docs/ops/PRODUCTION_READINESS_P1_004_MASTER_DATA_REMEDIATION_PLAN.md
-docs/ops/GLOBAL_UI_AND_RBAC_REMEDIATION_20260625.md
-docs/ops/LOOKUP_POULTRY_SELECTOR_DATASCOPE_REMEDIATION_20260626.md
-docs/ops/AI_DELIVERY_STATE_MACHINE.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_INTAKE_REPORT.md
-docs/ops/MASTER_DATA_AGGREGATE_API_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-docs/ops/RBAC_MENU_VISIBILITY_ATOMICITY_AUDIT_20260625.md
-docs/ops/PRODUCTION_READINESS_P0_001_INITIAL_DATA_REFRESH_REPORT.md
-docs/ops/AI_DELIVERY_PHASE2_NL_DISPATCH_REVIEW.md
-docs/ops/NATURAL_LANGUAGE_DISPATCH_FLOW.md
-docs/ops/A3_BACKEND_S2_STORE_PAYMENT_001_REPORT.md
-docs/ops/A2_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REVIEW.md
-docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md
-docs/ops/SHAREHOLDER_DATASCOPE_HARDCODE_REMEDIATION_20260626.md
-docs/ops/PROCUREMENT_PAYMENT_PROJECT_SELECTOR_FIX_20260626.md
-docs/ops/ROLE_PERMISSION_MATRIX_ATOMICITY_APPLY_20260627.md
-docs/ops/A1_STORE_PAYMENT_PILOT_GATE_S1_VALIDATION.md
-docs/ops/MASTER_DATA_HUB_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_EXECUTION_PACKAGE.md
-docs/ops/AGENT_PLATFORM_V2_95_FINAL_READINESS_REPORT.md
-docs/ops/AGENT_PLATFORM_V2_HARDENING_REVIEW.md
-docs/ops/AGENT_TASK_CONTRACT.md
-docs/ops/ORG_RUNTIME_LEGACY_ALIAS_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/MASTER_DATA_FRONTEND_ATOMIC_PERMISSION_REMEDIATION_20260627.md
-docs/ops/STORE_PAYMENT_PILOT_GATE_S1_PACKAGE.md
-docs/ops/MERGE_AGENT_BRANCH_RUNBOOK.md
-docs/ops/CHANJET_CALLBACK_SECRET_HANDLING_REMEDIATION_20260627.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_CHECKLIST.md
-docs/ops/AI_DELIVERY_PHASE1_CI_GATE_REVIEW.md
-docs/ops/DEBUG_ENDPOINT_PRODUCTION_DISABLE_REMEDIATION_20260627.md
-docs/ops/NEXT_PRODUCTION_READINESS_REMEDIATION_PLAN_20260626.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_REPAIR_PRECHECK.md
-docs/ops/ORG_SERVICE_DIRECT_ACCESS_DATASCOPE_GUARD_20260626.md
-docs/ops/OBSERVER_FINDINGS_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_REPORT.md
-docs/ops/AI_DELIVERY_PHASE5_3_NEXT_AGENT_DECISION_ENGINE_REVIEW.md
-docs/ops/QUALITY_MOBILE_MENU_REGISTRY_REMEDIATION_20260627.md
-docs/ops/MASTER_DATA_RUNTIME_DATASCOPE_ATOMICITY_REMEDIATION_20260627.md
-docs/ops/AI_DELIVERY_PHASE5_2_AGENT_RESULT_PARSER_REVIEW.md
-docs/ops/PARALLEL_AGENT_EXECUTION_POLICY.md
-docs/ops/PHOENIX_ERP_PRODUCTION_READINESS_TASK_LIST.md
-docs/ops/AGENT_PLATFORM_V2_95_ACCEPTANCE_MATRIX.md
-docs/ops/ACCEPTANCE_CRITERIA_LIBRARY.md
-docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md
-docs/ops/ATOMIC_PERMISSION_ALIGNMENT_BATCH_2_20260627.md
-docs/ops/OBSERVER_EVOLUTION_TASKS.md
-docs/ops/AI_DELIVERY_PHASE5_4_FOLLOW_UP_DISPATCH_DRY_RUN_REVIEW.md
-docs/ops/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REPORT.md
-docs/ops/APP_LOGO_REDESIGN_20260626.md
-docs/ops/A1_APP_MODULE_WIRING_POST_MERGE_VALIDATION_STORE_PAYMENT_001_REPORT.md
-docs/ops/ROLLBACK_RUNBOOK.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_INVENTORY_REPORT.md
-docs/ops/BUG-20260707-0004-A3-backend-critical-path-report.md
-docs/ops/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M_A1-CI-Runtime-Gate_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_PERMISSION_MATRIX.md
-docs/ops/STORE_PAYMENT_A5_HOLD_CLEARANCE_REPORT.md
-docs/ops/PRODUCTION_READINESS_P0_001_ACCOUNT_PLACEHOLDER_EXECUTION_REPORT.md
-docs/ops/CODEX_ORCHESTRATOR_RUNTIME_MEMORY_UPDATE_REPORT.md
-docs/ops/MOBILE_DELIVERY_SCOPE_GATE_REMEDIATION_20260626.md
-docs/ops/STORE_PAYMENT_MIGRATION_EXECUTION_PRECHECK.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REMOTE_AUDIT_REPORT.md
-docs/ops/REQUIREMENT_SPEC_TEMPLATE.md
-docs/ops/PRODUCTION_READINESS_P1_007_ROLLBACK_RESTORE_EVIDENCE_REPAIR_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_HISTORICAL_UPLOADS_METADATA_CLAIM_PLAN.md
-docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
-docs/ops/agent-inbox/SHORT_COMMAND_EXAMPLES.md
-docs/ops/agent-inbox/APPROVALS.md
-docs/ops/agent-inbox/README.md
-docs/ops/agent-inbox/OUTBOX.md
-docs/ops/agent-inbox/USER_INTENT.md
-docs/ops/agent-inbox/INBOX_SCHEMA.md
-docs/ops/AGENT_RELEASE_STATE_MACHINE.md
-docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_DATA_MODEL_DRAFT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_PRECHECK.md
-docs/ops/PRODUCTION_READINESS_REMEDIATION_BATCH_20260625_DATASCOPE.md
-docs/ops/AGENT_ROUTER_SPEC.md
-docs/ops/AGENT_PLATFORM_V2_A5_ROUTING_FIX_REVIEW.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_FILE_SECURITY_REMEDIATION_PLAN.md
-docs/ops/AGENT_ROUTER_RULES.json
-docs/ops/BUG-20260707-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md
-docs/ops/RELEASE_RUNBOOK.md
-docs/ops/A3_STORE_PAYMENT_PROTECTED_STREAMING_GATE_REPORT.md
-docs/ops/PRODUCTION_SERVER_REMEDIATION_R4_INITIAL_DATA_IMPORT_REPAIR_PLAN.md
-docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md
-docs/ops/MULTI_AGENT_PARALLEL_CLOSED_LOOP_RUNBOOK.md
-docs/ops/AI_DELIVERY_PHASE3_1_SPEC_FREEZE_REVIEW.md
-docs/ops/STORE_PAYMENT_PROTECTED_ATTACHMENT_PLAN.md
-docs/ops/SERVER_CARD_STAGING_TARGET_INTAKE_REPORT.md
-docs/ops/PROCUREMENT_CONT
+  },
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0004-01-A2",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260708-0004-01-A2\nTitle: Repair BUG-20260708-0004: 库存管理-库存台账，事务类型不显示中文 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:43:17.871Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260708074322",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 49 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0003-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260708-0003-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260708-0004-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260708-0003-03-A4: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260708-0003-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0004-01-A2: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "a34fec3d368104b8d4d849467a5482fc436195ae",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-08T07:43:24.441Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260708-0003-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260708-0003-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260708-0004-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0004-04-A5",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0004-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0004-04-A5\nTitle: Repair BUG-20260708-0004: 库存管理-库存台账，事务类型不显示中文 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "commitHash": "",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:48:41.980Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0004-02-A3",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 96 |\n| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts\n M apps/api/src/modules/generic-crud/generic-crud.service.ts\n?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n: 64cfbfef\nTarget branch HEAD (w5-a3-backend-critical-path): bf10bcf1\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 64cfbfef..bf10bcf1\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++\n 2 files changed, 54 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\nbf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n64cfbfef feat(api): record A3-Backend-Critical-Path result\n20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\n531c7139 feat(web): record A4-Frontend-UAT-Smoke result\n2dffe9b1 docs(ops): record baseline lifecycle report",
+      "commitHash": "",
+      "conclusion": "HOLD",
+      "nextAction": "",
+      "recordedAt": "2026-07-08T07:53:29.269Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": null
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0004-03-A4",
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0004-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 35 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nMain root: /Users/mac/phoenix-erp\nTarget branch: w5-a4-frontend-uat-smoke\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a4-frontend-uat-smoke --yes --allow-code\nCurrent main HEAD: fca5a3d1\nTarget branch HEAD (w5-a4-frontend-uat-smoke): d3498070\n\nDiff file list:\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T07-57-12-537Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md\n\nDiff stat:\n ...Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json | 18 +++++++++++++++\n ...37Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a4-frontend-uat-smoke into main with --ff-only...\nUpdating fca5a3d1..d3498070\nFast-forward\n ...Z-A4-Fronte
 ```
