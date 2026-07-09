@@ -54,6 +54,45 @@ From this fix onward:
 - `CLOSED` remains the final closed state.
 - If an administrator says the issue still exists, the same report can be re-dispatched instead of creating a duplicate report.
 
+## Production Historical Status Correction
+
+After the local code fix, production bug reports were checked through the existing bug-intake runner service account. The token was not printed or stored in this report.
+
+Production correction result:
+
+- Resolved reports scanned: 24
+- Reports matching `status = RESOLVED` and `repair_task_status = AGENT_COMPLETED`: 24
+- Reports changed back to `status = IN_PROGRESS`: 24
+- `repair_task_status` preserved as `AGENT_COMPLETED`
+- Updated meaning: Agent finished, waiting for administrator/business verification.
+
+Affected reports:
+
+- `BUG-20260709-0004`
+- `BUG-20260709-0003`
+- `BUG-20260709-0002`
+- `BUG-20260709-0001`
+- `BUG-20260708-0007`
+- `BUG-20260708-0006`
+- `BUG-20260708-0005`
+- `BUG-20260708-0004`
+- `BUG-20260708-0003`
+- `BUG-20260708-0002`
+- `BUG-20260708-0001`
+- `BUG-20260707-0010`
+- `BUG-20260707-0009`
+- `BUG-20260707-0008`
+- `BUG-20260707-0007`
+- `BUG-20260707-0006`
+- `BUG-20260707-0005`
+- `BUG-20260707-0004`
+- `BUG-20260707-0003`
+- `BUG-20260707-0002`
+- `BUG-20260707-0001`
+- `BUG-20260706-0002`
+- `BUG-20260705-0003`
+- `BUG-20260705-0001`
+
 ## Verification
 
 Executed validation commands:
