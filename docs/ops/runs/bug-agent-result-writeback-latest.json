@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260707-0009",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260707-0009/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260707-0009-03-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
-    "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-log.md",
+    "taskId": "BUGTASK-20260707-0009-05-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "conclusion": "HOLD",
+    "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-05-A1-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0009-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0009-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 63370\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-09T01-24-26-740Z-A4-Frontend-UAT-Smoke.md\nA4 redispatch completed.\n\nCurrent branch already contained the frontend fix for `BUG-20260707-0009` in `67445b8e`, so I did not change frontend code again. I added the required redispatch report and committed it:\n\n[docs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md)\n\nCommit: `fa15cfac docs: record bug-20260707-0009 a4 redispatch`\n\nValidation:\n- `git diff --check`: PASS\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS\n- Static RBAC/cache audit: PASS\n- Local browser smoke: HOLD, Next dev server failed with `listen EPERM: operation not permitted 127.0.0.1:30",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
     "nextAction": ""
   }
 }
