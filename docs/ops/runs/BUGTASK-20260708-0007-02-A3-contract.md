@@ -675,7 +675,7 @@ Assigned agent: A3-Backend-Critical-Path
     "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260708-0007"
   },
-  "createdAt": "2026-07-08T07:30:12.034Z",
+  "createdAt": "2026-07-09T01:28:10.627Z",
   "createdBy": "admin",
   "moduleCode": "____",
   "suggestedOwner": "_____",
@@ -685,12 +685,12 @@ Assigned agent: A3-Backend-Critical-Path
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "在销售订单页面右上角点击“新建订单”，填完信息后点击“保存草稿”可以正常创建订单",
-  "agentPlanGeneratedAt": "2026-07-08T07:30:13.221Z",
+  "acceptanceCriteria": "在销售订单页面右上角点击“新建订单”，填完信息后点击“保存草稿”报错“HTTP 400”，要求保存不报错，可以成功创建销售订单",
+  "agentPlanGeneratedAt": "2026-07-09T01:28:11.926Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T07:30:14.389Z",
+    "approvedAt": "2026-07-09T01:28:14.555Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
