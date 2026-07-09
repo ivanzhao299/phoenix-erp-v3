@@ -13,6 +13,7 @@ const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const LEASE_STATUSES = new Set(['running', 'claimed']);
 const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
 const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
+const REMOTE_RUNNING_REPAIR_STATUSES = new Set(['AGENT_RUNNING', 'AGENT_APPROVED']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
@@ -834,6 +835,117 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
   return { skipped: false, results };
 }
 
+function readLatestInboxReports(args) {
+  const index = readJson(path.join(args.syncOutputDir, 'latest-index.json'), null);
+  const files = Array.isArray(index?.files) ? index.files : [];
+  const reports = [];
+  for (const file of files) {
+    try {
+      const report = readJson(file, null);
+      if (report?.bugNo) reports.push(report);
+    } catch {
+      // A malformed downloaded report should not block the resident runner.
+    }
+  }
+  return reports;
+}
+
+function selectedAgentsForReport(report, localTasks) {
+  const selected = report?.repairTaskPayload?.agentPlan?.selected_agents;
+  const agents = Array.isArray(selected) ? selected.map((item) => String(item)).filter(Boolean) : [];
+  if (agents.length > 0) return agents;
+  return [...new Set(localTasks.map((task) => String(task.agent || '')).filter(Boolean))];
+}
+
+function bugTaskConclusion(task) {
+  if (SUCCESS_STATUSES.has(task.status)) return 'PASS_WITH_CONDITIONS';
+  if (['HOLD', 'hold', 'failed'].includes(task.status)) return 'HOLD';
+  return '';
+}
+
+function buildTaskWritebackPayload(task, summary) {
+  const conclusion = bugTaskConclusion(task);
+  return {
+    taskId: task.task_id,
+    agent: task.agent,
+    conclusion,
+    resultFile: task.result_file || `${summary?.outputDir || RUN_DIR}/latest-summary.md`,
+    commitHash: summary?.headSha || currentHead(MAIN_ROOT) || '',
+    changedFiles: [],
+    validationResults: {
+      localTaskStatus: task.status,
+      completedAt: task.completed_at || null,
+      baselineAutopilotExitCode: task.baseline_autopilot_exit_code ?? null,
+      aggregateBackfill: true,
+    },
+    summary: [
+      `Local bug-intake task ${task.task_id} reached ${task.status}.`,
+      task.baseline_autopilot_skipped ? `Baseline lifecycle: ${task.baseline_autopilot_skipped}.` : '',
+      task.detached_worker_recovery ? `Detached worker recovery: ${task.detached_worker_recovery}.` : '',
+    ].filter(Boolean).join('\n'),
+    nextAction: conclusion === 'HOLD'
+      ? 'Keep bug report in HOLD until the failed local Agent task is reviewed.'
+      : 'All selected local Agent tasks are complete; business owner validates the fix in production.',
+  };
+}
+
+async function backfillCompletedBugReports(args, childEnv, summary) {
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  const reports = readLatestInboxReports(args);
+  if (reports.length === 0) return { skipped: true, reason: 'no latest inbox reports' };
+
+  const tasks = readJson(TASKS_FILE, []);
+  const tasksByBug = new Map();
+  for (const task of tasks) {
+    if (task.source !== 'bug-intake' || !task.source_bug_no) continue;
+    const list = tasksByBug.get(task.source_bug_no) || [];
+    list.push(task);
+    tasksByBug.set(task.source_bug_no, list);
+  }
+
+  const results = [];
+  for (const report of reports) {
+    const remoteRepairStatus = String(report.repairTaskStatus || '');
+    const remoteStatus = String(report.status || '');
+    if (!REMOTE_RUNNING_REPAIR_STATUSES.has(remoteRepairStatus)) continue;
+    if (['RESOLVED', 'CLOSED', 'REJECTED'].includes(remoteStatus)) continue;
+
+    const localTasks = tasksByBug.get(report.bugNo) || [];
+    if (localTasks.length === 0) {
+      results.push({ bugNo: report.bugNo, skipped: true, reason: 'no local bug tasks' });
+      continue;
+    }
+
+    const selectedAgents = selectedAgentsForReport(report, localTasks);
+    const selectedTasks = selectedAgents
+      .map((agent) => localTasks.find((task) => task.agent === agent))
+      .filter(Boolean);
+    const missingAgents = selectedAgents.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
+    const unfinishedTasks = selectedTasks.filter((task) => !FINISHED_STATUSES.has(task.status));
+
+    if (missingAgents.length > 0 || unfinishedTasks.length > 0) {
+      results.push({
+        bugNo: report.bugNo,
+        skipped: true,
+        reason: 'local selected Agent tasks are not all terminal',
+        missingAgents,
+        unfinishedTasks: unfinishedTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, status: task.status })),
+      });
+      continue;
+    }
+
+    const posted = [];
+    for (const task of selectedTasks) {
+      const payload = buildTaskWritebackPayload(task, summary);
+      if (!payload.conclusion) continue;
+      posted.push({ task_id: task.task_id, agent: task.agent, ...(await postAgentResult(args, childEnv, report.bugNo, payload)) });
+    }
+    results.push({ bugNo: report.bugNo, remoteRepairStatus, selectedAgents, posted });
+  }
+
+  return { skipped: false, reportsChecked: reports.length, results };
+}
+
 function summaryMarkdown(summary) {
   return `# Bug Intake Local Runner Summary
 
@@ -855,6 +967,7 @@ function summaryMarkdown(summary) {
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
 | CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
 | Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
+| Result backfill | ${summary.resultBackfill?.skipped ? `Skipped: ${summary.resultBackfill.reason}` : `${summary.resultBackfill?.results?.length || 0} report(s) checked`} |
 | Failure classifications | ${summary.failureClassification?.total ?? 0} (${summary.failureClassification?.highestSeverity ?? 'INFO'}) |
 
 ## Runnable Tasks
@@ -876,6 +989,10 @@ ${(summary.leaseRecovery?.recovered || []).map((item) => `- ${item.task_id}: ${i
 ## Failure Classification
 
 ${(summary.failureClassification?.items || []).map((item) => `- ${item.category} [${item.severity}]: ${item.evidence.join(', ')}; recovery=${item.auto_recovery}`).join('\n') || '- None'}
+
+## Result Backfill
+
+${summary.resultBackfill?.skipped ? `- Skipped: ${summary.resultBackfill.reason}` : ((summary.resultBackfill?.results || []).map((item) => `- ${item.bugNo}: ${item.skipped ? `skipped (${item.reason})` : `posted ${item.posted?.length || 0} Agent result(s)`}`).join('\n') || '- None')}
 
 ## Safety
 
@@ -1130,6 +1247,7 @@ async function runCycle(args, cycle) {
     ci,
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
+    outputDir: args.outputDir,
   };
   summary.failureClassification = summarizeFailureClassifications(summary);
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
@@ -1138,6 +1256,11 @@ async function runCycle(args, cycle) {
     summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
   } catch (error) {
     summary.lifecycleWriteback = { skipped: false, ok: false, error: error.message };
+  }
+  try {
+    summary.resultBackfill = await backfillCompletedBugReports(args, childEnv, summary);
+  } catch (error) {
+    summary.resultBackfill = { skipped: false, ok: false, error: error.message };
   }
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));

@@ -1450,11 +1450,25 @@ export class BugIntakeService {
     const plan = agentPlan && typeof agentPlan === 'object' ? agentPlan as Record<string, unknown> : {};
     const selectedAgents = Array.isArray(plan.selected_agents) ? plan.selected_agents.map((item) => String(item)) : [];
     if (selectedAgents.length === 0) return false;
-    const completedAgents = new Set(
-      agentResults
-        .filter((item) => ['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS'].includes(String(item.conclusion ?? '')))
-        .map((item) => String(item.agent ?? '')),
-    );
+    const completedAgents = new Set<string>();
+    for (const item of agentResults) {
+      const conclusion = String(item.conclusion ?? '');
+      if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS'].includes(conclusion)) {
+        completedAgents.add(String(item.agent ?? ''));
+      }
+
+      const validationResults = item.validationResults && typeof item.validationResults === 'object'
+        ? item.validationResults as Record<string, unknown>
+        : {};
+      const workerRuns = Array.isArray(validationResults.workerRuns) ? validationResults.workerRuns : [];
+      for (const run of workerRuns) {
+        const row = run && typeof run === 'object' ? run as Record<string, unknown> : {};
+        const finalStatus = String(row.finalStatus ?? row.final_status ?? '');
+        if (['completed', 'COMPLETED_MERGED'].includes(finalStatus)) {
+          completedAgents.add(String(row.agent ?? ''));
+        }
+      }
+    }
     return selectedAgents.every((agent) => completedAgents.has(agent));
   }
 }
