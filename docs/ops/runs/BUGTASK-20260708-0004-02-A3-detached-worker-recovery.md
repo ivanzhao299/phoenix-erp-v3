@@ -6,10 +6,8 @@
 | Agent | A3-Backend-Critical-Path |
 | Conclusion | COMPLETED_MERGED |
 | Worker exit | 1 |
-| Child waited seconds | 96 |
-| Worktree status before recovery | M apps/api/src/modules/generic-crud/generic-crud.service.spec.ts
- M apps/api/src/modules/generic-crud/generic-crud.service.ts
-?? docs/ops/bug-20260708-0004-a3-backend-critical-path.md |
+| Child waited seconds | 117 |
+| Worktree status before recovery | clean |
 | Baseline autopilot exit | 0 |
 
 ## Safety
@@ -22,28 +20,35 @@
 ## Baseline stdout excerpt
 
 ```text
-: 64cfbfef
-Target branch HEAD (w5-a3-backend-critical-path): bf10bcf1
+sync-and-merge.mjs w5-a3-backend-critical-path --yes --allow-code
+Main root: /Users/mac/phoenix-erp
+Target branch: w5-a3-backend-critical-path
+Target worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+Mode: yes
+Rebase completed.
+Merge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --yes --allow-code
+Current main HEAD: 22b38267
+Target branch HEAD (w5-a3-backend-critical-path): c4805726
 
 Diff file list:
-  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json
-  docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+  docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+  docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.md
 
 Diff stat:
- ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++
- ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++
+ ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
 
 Freeze boundary check: PASS
 
 Merging w5-a3-backend-critical-path into main with --ff-only...
-Updating 64cfbfef..bf10bcf1
+Updating 22b38267..c4805726
 Fast-forward
- ...3-Backend-Critical-Path-baseline-lifecycle.json | 28 ++++++++++++++++++++++
- ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++
- 2 files changed, 54 insertions(+)
- create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json
- create mode 100644 docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+ ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++
+ ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
+ create mode 100644 docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+ create mode 100644 docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.md
 
 Post-merge branch:
 main
@@ -52,14 +57,14 @@ Post-merge status:
 (clean)
 
 Recent log:
-bf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
-64cfbfef feat(api): record A3-Backend-Critical-Path result
-20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
-531c7139 feat(web): record A4-Frontend-UAT-Smoke result
-2dffe9b1 docs(ops): record baseline lifecycle report
-24d605c4 feat(api): record A3-Backend-Critical-Path result
-9890ad0f docs(ops): record baseline lifecycle report
-441d104f docs(ops): record baseline lifecycle report
+c4805726 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
+22b38267 docs(ops): record baseline lifecycle report
+3fd1f2d0 docs(ops): record BUG-20260708-0004 A3 redispatch report
+9df92d8b (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
+a4e3f062 docs(ops): record BUG-20260708-0007 A4 smoke
+5c36fa6e docs(ops): record baseline lifecycle report
+6b723e1b fix: repair sales order draft create
+85846da1 docs(ops): record baseline lifecycle report
 
 Running scripts/ci/check-freeze-boundaries.mjs...
 check-freeze-boundaries: 0 changed file(s) inspected
@@ -96,14 +101,14 @@ Final main status:
 (clean)
 
 Recent main log:
-bf10bcf1 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
-64cfbfef feat(api): record A3-Backend-Critical-Path result
-20fd0b7a (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
-531c7139 feat(web): record A4-Frontend-UAT-Smoke result
-2dffe9b1 docs(ops): record baseline lifecycle report
-24d605c4 feat(api): record A3-Backend-Critical-Path result
-9890ad0f docs(ops): record baseline lifecycle report
-441d104f docs(ops): record baseline lifecycle report
+c4805726 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report
+22b38267 docs(ops): record baseline lifecycle report
+3fd1f2d0 docs(ops): record BUG-20260708-0004 A3 redispatch report
+9df92d8b (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report
+a4e3f062 docs(ops): record BUG-20260708-0007 A4 smoke
+5c36fa6e docs(ops): record baseline lifecycle report
+6b723e1b fix: repair sales order draft create
+85846da1 docs(ops): record baseline lifecycle report
 
 Running W5 closeout gate:
 PASS: Phase 0 operating docs exist
@@ -143,20 +148,11 @@ Autopilot summary:
   "auto_commit_planned": [],
   "auto_commits": [
     {
-      "label": "target worktree",
-      "message": "feat(api): record A3-Backend-Critical-Path result",
-      "files": [
-        "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
-        "apps/api/src/modules/generic-crud/generic-crud.service.ts",
-        "docs/ops/bug-20260708-0004-a3-backend-critical-path.md"
-      ]
-    },
-    {
       "label": "baseline lifecycle report",
       "message": "docs(ops): record baseline lifecycle report",
       "files": [
-        "docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json",
-        "docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md"
+        "docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.json",
+        "docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.md"
       ]
     }
   ],
@@ -167,11 +163,11 @@ Autopilot summary:
   "deploy": "No",
   "migration_executed": "No",
   "database_written": "No",
-  "report_json": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json",
-  "report_md": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md"
+  "report_json": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.json",
+  "report_md": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.md"
 }
-Lifecycle report JSON: ../a3-backend-critical-path/docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.json
-Lifecycle report MD: ../a3-backend-critical-path/docs/ops/runs/2026-07-08T07-53-25-954Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+Lifecycle report JSON: ../a3-backend-critical-path/docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+Lifecycle report MD: ../a3-backend-critical-path/docs/ops/runs/2026-07-09T00-26-08-168Z-A3-Backend-Critical-Path-baseline-lifecycle.md
 Push executed: No
 Deploy executed: No
 Migration executed: No
