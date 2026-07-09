@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-09T01:15:45.325Z",
-  "updatedAt": "2026-07-09T01:44:03.364Z",
+  "updatedAt": "2026-07-09T01:44:05.046Z",
   "closedAt": null,
   "attachmentCount": 0,
   "description": "问题判断：\n库存查询、成品批次、仓库看板、入库管理、出入库流水没有使用同一套库存数据源，导致系统里明明有库存，但库存查询看不到；入库管理也没有形成“入库单 -> 库存余额 -> 库存台账/库存查询”的闭环。\n\n修复要求：\n1. 统一库存主账模型，至少包含：批次号、产品编码/SKU、仓库、库区、库位、库存数量、可用数量、状态、生产日期、保质期/到期日、归属组织/门店、来源单据、来源类型。\n2. 入库管理页面必须补齐：入库单列表、新建入库单、入库明细、保存草稿、提交/确认入库、状态流转。\n3. 入库单确认后必须同步写入库存余额，并生成库存台账流水。\n4. 库存查询必须读取真实库存余额，不能与成品批次库存割裂。\n5. 成品批次库存与仓储库存如需保留两套视图，也必须建立字段映射和数据同步关系。\n6. 仓库看板、库存查询、库存台账、成品批次的库存数量口径必须一致。\n7. 修复后请验证：新增一张入库单后，库存查询能查到对应批次，库存台账能看到入库流水，仓库看板总库存和今日入库统计同步变化。",
@@ -2276,12 +2276,53 @@
     "createdAt": "2026-07-09T01:16:36.916Z",
     "createdBy": "admin",
     "moduleCode": "____",
+    "agentResults": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260709-0002-01-A2",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0002-01-A2\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-09T01:44:03.361Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-01-A2-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "taskId": "BUGTASK-20260709-0002-04-A5",
+        "agent": "A5-Data-Readiness",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-04-A5-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-09T01:44:05.044Z"
+      }
+    ],
     "suggestedOwner": "_____",
     "repairGuardrails": {
       "autoRepairExecuted": false,
       "noProductionDeploy": true,
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
+    },
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260709-0002-04-A5",
+      "agent": "A5-Data-Readiness",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-04-A5-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260709-0002-04-A5\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-09T01:44:05.044Z"
     },
     "acceptanceCriteria": "按要求形成业务闭环",
     "agentPlanGeneratedAt": "2026-07-09T01:16:39.702Z",
@@ -2298,34 +2339,6 @@
         "push without release approval",
         "force push"
       ]
-    },
-    "agentResults": [
-      {
-        "taskId": "BUGTASK-20260709-0002-01-A2",
-        "agent": "A2-Security-Regression-Gate",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-01-A2-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0002-01-A2\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-09T01:44:03.361Z"
-      }
-    ],
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260709-0002-01-A2",
-      "agent": "A2-Security-Regression-Gate",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-01-A2-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260709-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260709-0002-01-A2\nTitle: Repair BUG-20260709-0002: 库存业务链路没有闭环 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-09T01:44:03.361Z"
     }
   },
   "updatedBy": "bug_intake_runner"
