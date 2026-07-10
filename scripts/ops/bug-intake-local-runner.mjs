@@ -1335,8 +1335,15 @@ async function runCycle(args, cycle) {
     });
   }
 
-  for (const task of preExistingProcesses.length > 0 ? [] : candidateTasks) {
-    if (workerRuns.length >= args.maxTasks) break;
+  const attemptedTaskIds = new Set();
+  while (preExistingProcesses.length === 0 && workerRuns.length < args.maxTasks) {
+    // Re-read the queue after every worker. An implementation can unlock A2/A1
+    // during this cycle; using the original candidate snapshot would skip those
+    // gates and start another bug instead, leaving the first repair half-closed.
+    const task = listRunnableBugTasks(args)
+      .find((candidate) => !attemptedTaskIds.has(candidate.task_id));
+    if (!task) break;
+    attemptedTaskIds.add(task.task_id);
     if (!taskUsesMainRootLocalWorker(task)) {
       const unblock = unblockDirtyWorktree(task, args);
       if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
