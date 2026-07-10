@@ -12,8 +12,10 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const LEASE_STATUSES = new Set(['running', 'claimed']);
-const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed', 'failed', 'HOLD', 'hold']);
-const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE']);
+const FINISHED_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed', 'failed', 'HOLD', 'hold']);
+const SUCCESS_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE']);
+const DEPENDENCY_SUCCESS_STATUSES = new Set([...SUCCESS_STATUSES, 'completed']);
+const DEPENDENCY_FAILURE_STATUSES = new Set(['HOLD', 'hold', 'failed']);
 const REMOTE_RUNNING_REPAIR_STATUSES = new Set(['AGENT_RUNNING', 'AGENT_APPROVED']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 const NODE_BIN = process.execPath;
@@ -369,21 +371,24 @@ function syncCommand(args) {
 }
 
 function listRunnableBugTasks(args) {
-  const tasks = readJson(TASKS_FILE, []);
+  const tasks = reconcileDependencyStates(args);
+  const byId = new Map(tasks.map((task) => [task.task_id, task]));
   const allowAgents = args.agents ? new Set(String(args.agents).split(',').map((s) => s.trim()).filter(Boolean)) : null;
   return tasks
     .filter((task) => task.source === 'bug-intake')
+    .filter((task) => task.route_active !== false)
     .filter((task) => RUNNABLE_STATUSES.has(task.status))
+    .filter((task) => (task.dependencies || []).every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status)))
     .filter((task) => !allowAgents || allowAgents.has(task.agent))
     .sort((a, b) => {
       const aBug = String(a.source_bug_no || a.task_id || '');
       const bBug = String(b.source_bug_no || b.task_id || '');
       if (aBug !== bBug) return aBug.localeCompare(bBug);
       const priority = {
-        'A2-Security-Regression-Gate': 1,
-        'A5-Data-Readiness': 2,
-        'A3-Backend-Critical-Path': 3,
-        'A4-Frontend-UAT-Smoke': 4,
+        'A5-Data-Readiness': 1,
+        'A3-Backend-Critical-Path': 2,
+        'A4-Frontend-UAT-Smoke': 3,
+        'A2-Security-Regression-Gate': 4,
         'A1-CI-Runtime-Gate': 5,
         'A6-Staging-Deploy-Runbook': 6,
         'A7-Final-QA-Gate': 7,
@@ -391,6 +396,37 @@ function listRunnableBugTasks(args) {
       return (priority[a.agent] || 99) - (priority[b.agent] || 99);
     })
     .slice(0, args.maxCandidateTasks);
+}
+
+function reconcileDependencyStates(args) {
+  const tasks = readJson(TASKS_FILE, []);
+  const byId = new Map(tasks.map((task) => [task.task_id, task]));
+  let changed = false;
+  for (const task of tasks) {
+    if (task.source !== 'bug-intake' || task.route_active === false || !RUNNABLE_STATUSES.has(task.status)) continue;
+    const dependencies = Array.isArray(task.dependencies) ? task.dependencies : [];
+    if (dependencies.length === 0) continue;
+    const missing = dependencies.filter((taskId) => !byId.has(taskId));
+    const failed = dependencies.filter((taskId) => DEPENDENCY_FAILURE_STATUSES.has(byId.get(taskId)?.status));
+    if (missing.length === 0 && failed.length === 0) continue;
+    task.status = 'HOLD';
+    task.completed_at = new Date().toISOString();
+    task.reason = missing.length
+      ? `dependency task missing: ${missing.join(', ')}`
+      : `blocked by failed dependency: ${failed.join(', ')}`;
+    task.evidence_gate = {
+      version: 1,
+      agent: task.agent,
+      passed: false,
+      role: 'dependency',
+      terminalStatus: 'HOLD',
+      reason: task.reason,
+      checkedAt: new Date().toISOString(),
+    };
+    changed = true;
+  }
+  if (changed && !args.dryRun) writeJson(TASKS_FILE, tasks);
+  return tasks;
 }
 
 function findTask(taskId) {
@@ -404,6 +440,59 @@ function patchTask(taskId, patch) {
   tasks[index] = { ...tasks[index], ...patch };
   writeJson(TASKS_FILE, tasks);
   return tasks[index];
+}
+
+function integrateImplementationTask(task, finalTask, args) {
+  if (args.dryRun || finalTask?.status !== 'IMPLEMENTATION_COMPLETED') {
+    return { skipped: true, reason: args.dryRun ? 'dry-run' : 'task has no verified implementation commit', task: finalTask };
+  }
+  const commitHash = finalTask.implementation_commit || finalTask.evidence_gate?.commitHash || '';
+  if (!/^[0-9a-f]{7,40}$/i.test(commitHash)) {
+    const next = patchTask(task.task_id, {
+      status: 'HOLD',
+      reason: 'verified implementation status did not include a valid commit hash',
+      completed_at: new Date().toISOString(),
+    });
+    return { skipped: false, ok: false, reason: 'missing implementation commit hash', task: next || finalTask };
+  }
+  const status = safeGit(['status', '--short'], args.mainRoot);
+  if (!status.ok || status.output.trim()) {
+    const next = patchTask(task.task_id, {
+      status: 'HOLD',
+      reason: `runner root must be clean before implementation integration: ${status.output || 'git status failed'}`,
+      completed_at: new Date().toISOString(),
+    });
+    return { skipped: false, ok: false, reason: 'runner root dirty', task: next || finalTask };
+  }
+  const alreadyMerged = safeGit(['merge-base', '--is-ancestor', commitHash, 'HEAD'], args.mainRoot);
+  let cherryPick = { ok: true, output: 'commit already integrated' };
+  if (!alreadyMerged.ok) cherryPick = safeGit(['cherry-pick', commitHash], args.mainRoot);
+  if (!cherryPick.ok) {
+    safeGit(['cherry-pick', '--abort'], args.mainRoot);
+    const next = patchTask(task.task_id, {
+      status: 'HOLD',
+      reason: `implementation cherry-pick failed and was aborted: ${cherryPick.output}`,
+      completed_at: new Date().toISOString(),
+    });
+    return { skipped: false, ok: false, reason: 'cherry-pick failed', output: cherryPick.output, task: next || finalTask };
+  }
+  const integratedHead = currentHead(args.mainRoot);
+  const next = patchTask(task.task_id, {
+    status: 'COMPLETED_MERGED',
+    integrated_commit: integratedHead,
+    integrated_at: new Date().toISOString(),
+    integration_method: alreadyMerged.ok ? 'already-ancestor' : 'cherry-pick-verified-agent-commit',
+    completed_at: new Date().toISOString(),
+  });
+  return {
+    skipped: false,
+    ok: true,
+    sourceCommit: commitHash,
+    integratedCommit: integratedHead,
+    method: alreadyMerged.ok ? 'already-ancestor' : 'cherry-pick',
+    output: cherryPick.output,
+    task: next || finalTask,
+  };
 }
 
 function taskHasActiveProcess(task, processes) {
@@ -530,8 +619,6 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
   if (!existsSync(task.worktree)) return { recovered: false, reason: `worktree does not exist: ${task.worktree}` };
 
   const before = gitStatusShort(task.worktree);
-  const command = baselineAutopilotCommand(task, args);
-  const result = run(command, { cwd: args.mainRoot, timeoutMs: args.childTimeoutMs });
   const reportFile = detachedRecoveryReportFile(task);
   const conclusion = 'HOLD';
   const text = `# Detached Worker Recovery
@@ -544,7 +631,7 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
 | Worker exit | ${worker?.status ?? 'unknown'} |
 | Child waited seconds | ${childWait ? Math.round(childWait.waited_ms / 1000) : 'n/a'} |
 | Worktree status before recovery | ${before.ok ? (before.output.trim() || 'clean') : before.output} |
-| Baseline autopilot exit | ${result.status} |
+| Baseline autopilot | REFUSED: no implementation evidence |
 
 ## Safety
 
@@ -553,17 +640,7 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
 - Migration: No
 - DB write: No
 
-## Baseline stdout excerpt
-
-\`\`\`text
-${String(result.stdout || '').slice(-6000)}
-\`\`\`
-
-## Baseline stderr excerpt
-
-\`\`\`text
-${String(result.stderr || '').slice(-3000)}
-\`\`\`
+An abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.
 `;
   writeMd(reportFile, text);
 
@@ -571,14 +648,12 @@ ${String(result.stderr || '').slice(-3000)}
     status: 'HOLD',
     completed_at: new Date().toISOString(),
     result_file: reportFile,
-    baseline_autopilot_exit_code: result.status,
-    reason: result.status === 0
-      ? 'detached worker baseline completed, but implementation evidence was not written back; manual evidence reconciliation required'
-      : `detached worker recovery failed; baseline autopilot exit=${result.status}; worker exit=${worker?.status ?? 'unknown'}`,
+    baseline_autopilot_exit_code: null,
+    reason: `detached worker did not write terminal implementation evidence; merge refused; worker exit=${worker?.status ?? 'unknown'}`,
   };
   return {
     recovered: false,
-    result,
+    result: { status: null, stdout: '', stderr: '', skipped: true, reason: 'strict evidence gate refused baseline merge' },
     reportFile,
     task: patchTask(task.task_id, patch),
   };
@@ -618,7 +693,23 @@ function unblockDirtyWorktree(task, args) {
       result: null,
     };
   }
-  const command = baselineAutopilotCommand(task, args);
+  const dirtyLines = before.output.split('\n').map((line) => line.trim()).filter(Boolean);
+  const dirtyFiles = dirtyLines.map((line) => line.slice(3).trim()).filter(Boolean);
+  const opsOnly = dirtyFiles.length > 0 && dirtyFiles.every((file) => file.startsWith('docs/ops/'));
+  const command = opsOnly
+    ? ['git', '-C', task.worktree, 'commit', '-m', 'docs(ops): preserve pending agent runtime artifacts']
+    : null;
+  if (!opsOnly) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'BLOCKED',
+      reason: 'dirty implementation worktree contains non-ops files; automatic merge/cleanup is forbidden before evidence validation',
+      before: before.output,
+      command: null,
+      result: null,
+    };
+  }
   if (!args.autoUnblockDirtyWorktrees) {
     return {
       task_id: task.task_id,
@@ -635,29 +726,26 @@ function unblockDirtyWorktree(task, args) {
       task_id: task.task_id,
       agent: task.agent,
       status: 'WOULD_UNBLOCK',
-      reason: 'dry-run would run baseline autopilot before worker execution',
+      reason: 'dry-run would locally commit docs/ops runtime artifacts before worker execution',
       before: before.output,
       command,
       result: null,
     };
   }
-  const result = run(command, { cwd: args.mainRoot, timeoutMs: args.childTimeoutMs });
-  let abort = null;
-  let after = gitStatusShort(task.worktree);
-  let clean = after.ok && after.output.trim() === '';
-  if (result.status !== 0 && !clean) {
-    abort = safeGit(['rebase', '--abort'], task.worktree);
-    after = gitStatusShort(task.worktree);
-    clean = after.ok && after.output.trim() === '';
-  }
+  const add = run(['git', '-C', task.worktree, 'add', '--', ...dirtyFiles], { cwd: args.mainRoot, timeoutMs: 30000 });
+  const result = add.status === 0
+    ? run(command, { cwd: args.mainRoot, timeoutMs: 30000 })
+    : add;
+  const after = gitStatusShort(task.worktree);
+  const clean = after.ok && after.output.trim() === '';
   return {
     task_id: task.task_id,
     agent: task.agent,
     status: result.status === 0 && clean ? 'UNBLOCKED' : 'BLOCKED',
-    reason: result.status === 0 && clean ? '' : `baseline autopilot exit ${result.status}; remaining status: ${after.output || '<none>'}`,
+    reason: result.status === 0 && clean ? '' : `ops-only local archive exit ${result.status}; remaining status: ${after.output || '<none>'}`,
     before: before.output,
     after: after.ok ? after.output : after.output,
-    abortRebase: abort,
+    abortRebase: null,
     command,
     result: { status: result.status, stdout: result.stdout, stderr: result.stderr },
   };
@@ -882,6 +970,15 @@ function readLatestInboxReports(args) {
 }
 
 function selectedAgentsForReport(report, localTasks) {
+  const activeTasks = localTasks.filter((task) => task.route_active !== false);
+  if (activeTasks.length > 0) {
+    const maxRedispatch = Math.max(...activeTasks.map((task) => Number(task.redispatch_count || 0)));
+    const currentAgents = [...new Set(activeTasks
+      .filter((task) => Number(task.redispatch_count || 0) === maxRedispatch)
+      .map((task) => String(task.agent || ''))
+      .filter(Boolean))];
+    if (currentAgents.length > 0) return currentAgents;
+  }
   const selected = report?.repairTaskPayload?.agentPlan?.selected_agents;
   const agents = Array.isArray(selected) ? selected.map((item) => String(item)).filter(Boolean) : [];
   if (agents.length > 0) return agents;
@@ -1216,7 +1313,14 @@ async function runCycle(args, cycle) {
       writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
     }
     const postWorkerCommit = commitOpsRuntimeArtifacts(args);
-    workerRuns.push({ task, worker, finalTask, writeback, retryRuns });
+    let implementationIntegration = { skipped: true, reason: 'worker runtime artifacts not committed', task: finalTask };
+    let postIntegrationCommit = { skipped: true, reason: 'no implementation integration' };
+    if (postWorkerCommit.skipped || postWorkerCommit.ok !== false) {
+      implementationIntegration = integrateImplementationTask(task, finalTask, args);
+      finalTask = implementationIntegration.task || finalTask;
+      if (!implementationIntegration.skipped) postIntegrationCommit = commitOpsRuntimeArtifacts(args);
+    }
+    workerRuns.push({ task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit });
     leftovers = activeAgentProcesses();
     if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
       blockedTasks.push({
@@ -1285,6 +1389,8 @@ async function runCycle(args, cycle) {
         reason: item.worker.detachedRecovery.reason || null,
       } : null,
       postWorkerCommit: item.postWorkerCommit ?? null,
+      implementationIntegration: item.implementationIntegration ?? null,
+      postIntegrationCommit: item.postIntegrationCommit ?? null,
       activeChildProcesses: item.activeChildProcesses || [],
     })),
     push,

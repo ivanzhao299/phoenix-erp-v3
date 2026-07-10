@@ -17,6 +17,7 @@ const BASELINE_MERGE_AGENTS = new Set([
   'A6-Staging-Deploy-Runbook',
   'A7-Final-QA-Gate',
 ]);
+const DEPENDENCY_SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed']);
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -175,15 +176,17 @@ function checkWorktree(task) {
   const status = safeGit(['status', '--short'], task.worktree).output;
   result.clean = status === '';
   if (!result.clean) result.errors.push(`dirty worktree: ${status}`);
-  const ancestor = safeGit(['merge-base', '--is-ancestor', task.branch, 'main'], task.worktree);
-  const reverse = safeGit(['merge-base', '--is-ancestor', 'main', task.branch], task.worktree);
+  const ancestor = safeGit(['merge-base', '--is-ancestor', task.branch, 'origin/main'], task.worktree);
+  const reverse = safeGit(['merge-base', '--is-ancestor', 'origin/main', task.branch], task.worktree);
   result.needsRebase = ancestor.ok && !reverse.ok;
   return result;
 }
 
 function rebaseMain(task, dryRun) {
   if (dryRun) return { skipped: true, reason: 'dry-run' };
-  const result = safeGit(['rebase', 'main'], task.worktree);
+  const fetch = safeGit(['fetch', 'origin', 'main'], task.worktree);
+  if (!fetch.ok) return { skipped: false, ok: false, error: `git fetch origin main failed: ${fetch.output}` };
+  const result = safeGit(['rebase', 'origin/main'], task.worktree);
   return result.ok ? { skipped: false, ok: true } : { skipped: false, ok: false, error: result.output };
 }
 
@@ -242,7 +245,9 @@ function runBaselineAutopilot(task) {
 }
 
 function shouldRunBaselineAutopilot(task) {
-  if (task.source === 'bug-intake' && task.agent === 'Codex-Orchestrator') return false;
+  // Bug-intake implementation commits are integrated by the resident parent
+  // runner only after the worker evidence and runtime-artifact commit pass.
+  if (task.source === 'bug-intake') return false;
   return BASELINE_MERGE_AGENTS.has(task.agent);
 }
 
@@ -459,10 +464,13 @@ ${JSON.stringify(payload.parentCommit || null, null, 2)}
 
 function runOne(args) {
   const tasks = readTasks();
+  const byId = new Map(tasks.map((item) => [item.task_id, item]));
   const task = tasks.find(
     (item) =>
       item.agent === args.agent &&
+      item.route_active !== false &&
       ['pending', 'claimed'].includes(item.status) &&
+      (item.dependencies || []).every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status)) &&
       (!args.requestId || item.request_id === args.requestId) &&
       (!args.taskId || item.task_id === args.taskId),
   );
@@ -621,7 +629,10 @@ if (args.loop && !args.dryRun) {
   while (true) {
     const code = runOne(args);
     if (code !== 0) process.exit(code);
-    const hasMore = readTasks().some((task) => task.agent === args.agent && task.status === 'pending');
+    const latest = readTasks();
+    const byId = new Map(latest.map((task) => [task.task_id, task]));
+    const hasMore = latest.some((task) => task.agent === args.agent && task.route_active !== false && task.status === 'pending'
+      && (task.dependencies || []).every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status)));
     if (!hasMore) break;
   }
 } else {

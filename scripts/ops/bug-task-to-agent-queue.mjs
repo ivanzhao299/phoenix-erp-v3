@@ -101,30 +101,42 @@ function collectSearchText(payload) {
     JSON.stringify(context.consoleErrors || []),
     JSON.stringify(context.failedRequests || []),
     JSON.stringify(context.clientContext || {}),
-    JSON.stringify(context.localEvidence || {}),
   ].filter(Boolean).join('\n').toLowerCase();
 }
 
 function refineRoutePlan(payload, routePlan) {
   const text = collectSearchText(payload);
-  const selected = new Set(routePlan.selected_agents || []);
+  const selected = new Set();
   const reasons = { ...(routePlan.bug_intake_policy_reasons || {}) };
   const add = (agent, reason) => {
     selected.add(agent);
     reasons[agent] = [...(reasons[agent] || []), reason];
   };
 
-  if (/dashboard|卡片|页面|ui|ux|样式|按钮|弹窗|抽屉|表格|表单|前端|mobile|手机端|web|截图|视觉|不好看|丑/.test(text)) {
+  const frontendSignal = /dashboard|卡片|页面|ui|ux|样式|按钮|弹窗|抽屉|表格|表单|前端|mobile|手机端|web|截图|视觉|不好看|丑/.test(text);
+  const backendSignal = /\b500\b|http 5|pg|sql|unhandled|api\/|接口|后端|controller|service|patch |post |get |delete |保存失败|提交失败|加载失败/.test(text);
+  const securitySignal = /\b401\b|\b403\b|rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|门禁|permission/.test(text);
+  const dataSignal = /数据字典|主数据|数据重复|数据缺失|数据不准|数据准备|readiness|公司映射|项目映射|供应商|客户映射|账户映射|好业财|chanjet/.test(text);
+  const releaseSignal = /预发|staging|deploy|部署|发布|rollback|回滚|final qa|终验/.test(text);
+
+  if (frontendSignal) {
     add('A4-Frontend-UAT-Smoke', 'bug-intake policy: UI/visual/page evidence requires A4');
   }
-  if (/500|http 5|pg|sql|unhandled|api\/|接口|后端|controller|service|patch |post |get |delete /.test(text)) {
+  if (backendSignal) {
     add('A3-Backend-Critical-Path', 'bug-intake policy: API/server/runtime evidence requires A3');
   }
-  if (/401|403|rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|门禁|permission/.test(text)) {
+  if (securitySignal) {
     add('A2-Security-Regression-Gate', 'bug-intake policy: RBAC/DataScope/auth evidence requires A2');
   }
-  if (/数据|字典|主数据|映射|mapping|readiness|公司|项目|供应商|客户|账户|好业财|chanjet/.test(text)) {
+  if (dataSignal) {
     add('A5-Data-Readiness', 'bug-intake policy: data/readiness/mapping evidence requires A5');
+  }
+  if (releaseSignal) {
+    add('A6-Staging-Deploy-Runbook', 'bug-intake policy: release/runbook evidence requires A6');
+    add('A7-Final-QA-Gate', 'bug-intake policy: release decision evidence requires A7');
+  }
+  if (!frontendSignal && !backendSignal && !securitySignal && !dataSignal && !releaseSignal) {
+    for (const agent of routePlan.selected_agents || []) selected.add(agent);
   }
   add('A1-CI-Runtime-Gate', 'bug-intake policy: every repair requires A1 validation');
 
@@ -146,6 +158,38 @@ function refineRoutePlan(payload, routePlan) {
     selected_agents: selectedAgents,
     selected_agents_after_bug_intake_policy: selectedAgents,
     bug_intake_policy_reasons: reasons,
+  };
+}
+
+function compactContractPayload(payload) {
+  const context = payload.context && typeof payload.context === 'object' ? payload.context : {};
+  const truncate = (value, max = 4000) => {
+    const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
+    return text.length <= max ? value : `${text.slice(0, max)}\n...[truncated by bug-intake contract builder]`;
+  };
+  return {
+    bugNo: payload.bugNo || payload.bug_no || '',
+    taskNo: payload.taskNo || payload.task_no || '',
+    title: payload.title || '',
+    description: truncate(payload.description || '', 6000),
+    route: payload.route || '',
+    url: payload.url || '',
+    priority: payload.priority || '',
+    severity: payload.severity || '',
+    moduleCode: payload.moduleCode || payload.module_code || '',
+    acceptanceCriteria: truncate(payload.acceptanceCriteria || '', 4000),
+    reporter: payload.reporter || null,
+    context: {
+      attachments: context.attachments || [],
+      consoleErrors: truncate(context.consoleErrors || [], 6000),
+      failedRequests: truncate(context.failedRequests || [], 6000),
+      clientContext: context.clientContext || null,
+      localEvidence: {
+        localAttachmentPaths: context.localEvidence?.localAttachmentPaths || payload.localEvidence?.localAttachmentPaths || [],
+      },
+    },
+    failureClassification: payload.failureClassification || null,
+    agentExecutionApproval: payload.agentExecutionApproval || null,
   };
 }
 
@@ -181,7 +225,7 @@ function taskContract(payload, agent) {
     `## Context`,
     ``,
     '```json',
-    JSON.stringify(payload, null, 2),
+    JSON.stringify(compactContractPayload(payload), null, 2),
     '```',
     ``,
     `## Local Evidence`,
@@ -199,7 +243,7 @@ function buildTasks(payload, plan, dispatchMap) {
   const selected = plan.selected_agents || [];
   const approval = getApproval(payload);
   const redispatchCount = Number(payload.redispatchCount || approval?.redispatchCount || 0);
-  return selected.map((agent, index) => {
+  const tasks = selected.map((agent, index) => {
     const cfg = dispatchMap[agent] || {};
     const short = agentShort(agent);
     const taskId = `${repairTaskNo}-${String(index + 1).padStart(2, '0')}-${short}`;
@@ -229,12 +273,37 @@ function buildTasks(payload, plan, dispatchMap) {
       result_file: null,
       next_agents: cfg.handoff_to || [],
       approval_required: true,
+      route_active: true,
+      route_selected_agents: selected,
       redispatch_count: redispatchCount,
       last_redispatch_at: Array.isArray(payload.redispatchHistory) && payload.redispatchHistory.length
         ? payload.redispatchHistory[payload.redispatchHistory.length - 1]?.redispatchedAt || null
         : null,
     };
   });
+  const byAgent = new Map(tasks.map((task) => [task.agent, task]));
+  const implementationIds = ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke']
+    .map((agent) => byAgent.get(agent)?.task_id)
+    .filter(Boolean);
+  const a5Id = byAgent.get('A5-Data-Readiness')?.task_id;
+  const a2Id = byAgent.get('A2-Security-Regression-Gate')?.task_id;
+  const a1Id = byAgent.get('A1-CI-Runtime-Gate')?.task_id;
+  const a6Id = byAgent.get('A6-Staging-Deploy-Runbook')?.task_id;
+
+  for (const task of tasks) {
+    if (task.agent === 'A3-Backend-Critical-Path' || task.agent === 'A4-Frontend-UAT-Smoke') {
+      task.dependencies = a5Id ? [a5Id] : [];
+    } else if (task.agent === 'A2-Security-Regression-Gate') {
+      task.dependencies = implementationIds;
+    } else if (task.agent === 'A1-CI-Runtime-Gate') {
+      task.dependencies = [...implementationIds, ...(a2Id ? [a2Id] : []), ...(a5Id ? [a5Id] : [])];
+    } else if (task.agent === 'A6-Staging-Deploy-Runbook') {
+      task.dependencies = [a1Id, a2Id].filter(Boolean);
+    } else if (task.agent === 'A7-Final-QA-Gate') {
+      task.dependencies = [a6Id || a1Id, a2Id].filter(Boolean);
+    }
+  }
+  return tasks;
 }
 
 function main() {
@@ -285,6 +354,22 @@ function main() {
     const skippedExisting = [];
     const approval = getApproval(payload);
     const redispatchRequested = approval?.redispatch === true;
+    const generatedIds = new Set(tasks.map((task) => task.task_id));
+    const sourceBugNo = payload.bugNo || payload.bug_no || '';
+    const superseded = [];
+    for (const existing of queue) {
+      if (existing.source !== 'bug-intake' || existing.source_bug_no !== sourceBugNo || generatedIds.has(existing.task_id)) continue;
+      if (existing.status === 'running') {
+        existing.route_active = false;
+        existing.route_superseded_reason = 'route refined while task was already running; result cannot satisfy current route';
+        continue;
+      }
+      existing.route_active = false;
+      existing.status = 'archived';
+      existing.completed_at = existing.completed_at || new Date().toISOString();
+      existing.route_superseded_reason = 'Agent removed by evidence-based bug-intake route refinement';
+      superseded.push(existing.task_id);
+    }
     for (const task of tasks) {
       if (!existingIndex.has(task.task_id)) {
         queue.push(task);
@@ -296,6 +381,16 @@ function main() {
       const previousRedispatchCount = Number(previous.redispatch_count || 0);
       const nextRedispatchCount = Number(task.redispatch_count || 0);
       if (!redispatchRequested || nextRedispatchCount <= previousRedispatchCount) {
+        queue[index] = {
+          ...previous,
+          dependencies: task.dependencies,
+          route_active: true,
+          route_selected_agents: task.route_selected_agents,
+          allowed_paths: task.allowed_paths,
+          forbidden_paths: task.forbidden_paths,
+          prompt_file: task.prompt_file,
+          contract_file: task.contract_file,
+        };
         skippedExisting.push(previous);
         continue;
       }
@@ -326,6 +421,7 @@ function main() {
     summary.added_tasks = incoming.map((task) => task.task_id);
     summary.requeued_tasks = requeued.map((task) => task.task_id);
     summary.skipped_existing_tasks = skippedExisting.map((task) => task.task_id);
+    summary.superseded_tasks = superseded;
   }
 
   console.log(JSON.stringify(summary, null, 2));

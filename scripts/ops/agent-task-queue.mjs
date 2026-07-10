@@ -168,7 +168,12 @@ if (args.list) {
 if (args.claim) {
   if (!args.agent) usage(1);
   const tasks = readTasks();
-  const task = tasks.find((item) => item.agent === args.agent && item.status === 'pending');
+  const dependencySuccessStatuses = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed']);
+  const byId = new Map(tasks.map((item) => [item.task_id, item]));
+  const task = tasks.find((item) => item.agent === args.agent
+    && item.route_active !== false
+    && item.status === 'pending'
+    && (item.dependencies || []).every((taskId) => dependencySuccessStatuses.has(byId.get(taskId)?.status)));
   if (!task) {
     console.log(`No pending task for ${args.agent}.`);
     process.exit(0);
