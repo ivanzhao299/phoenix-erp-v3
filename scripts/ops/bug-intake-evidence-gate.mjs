@@ -126,7 +126,13 @@ export function evaluateWorkerEvidence(input = {}) {
 
 export function evaluateBugReleaseEvidence(tasks = [], selectedAgents = []) {
   const selected = unique(selectedAgents);
-  const selectedTasks = selected.map((agent) => tasks.find((task) => task.agent === agent)).filter(Boolean);
+  const activeTasks = tasks.filter((task) => task.route_active !== false);
+  const routePool = activeTasks.length > 0 ? activeTasks : tasks;
+  const latestRedispatch = routePool.length > 0
+    ? Math.max(...routePool.map((task) => Number(task.redispatch_count || 0)))
+    : 0;
+  const latestRouteTasks = routePool.filter((task) => Number(task.redispatch_count || 0) === latestRedispatch);
+  const selectedTasks = selected.map((agent) => latestRouteTasks.find((task) => task.agent === agent)).filter(Boolean);
   const missingAgents = selected.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
   const unfinished = selectedTasks.filter((task) => !TERMINAL_SUCCESS.has(task.status) && !HOLD_STATUSES.has(task.status));
   const failed = selectedTasks.filter((task) => HOLD_STATUSES.has(task.status) || task.evidence_gate?.passed === false);
@@ -168,6 +174,13 @@ function selfTest() {
     { task_id: 'BUGTASK-X-05-A1', agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED', evidence_gate: { passed: true, role: 'validation' } },
   ], ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate']);
   if (!release.passed) throw new Error(`release evidence should pass: ${release.reasons.join('; ')}`);
+  const redispatchedRelease = evaluateBugReleaseEvidence([
+    { ...task, task_id: 'BUGTASK-X-OLD-A3', status: 'archived', route_active: false, redispatch_count: 0 },
+    { task_id: 'BUGTASK-X-OLD-A1', agent: 'A1-CI-Runtime-Gate', status: 'archived', route_active: false, redispatch_count: 0 },
+    { ...task, task_id: 'BUGTASK-X-A3', status: 'COMPLETED_MERGED', route_active: true, redispatch_count: 1, evidence_gate: valid },
+    { task_id: 'BUGTASK-X-A1', agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED', route_active: true, redispatch_count: 1, evidence_gate: { passed: true, role: 'validation' } },
+  ], ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate']);
+  if (!redispatchedRelease.passed) throw new Error(`latest redispatch evidence should pass: ${redispatchedRelease.reasons.join('; ')}`);
   console.log('BUG_INTAKE_EVIDENCE_GATE_SELF_TEST_PASS');
 }
 
