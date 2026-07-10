@@ -1,16 +1,16 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260710-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260710-0001/agent-result",
+  "bugNo": "BUG-20260710-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260710-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260710-0001-05-A1",
-    "agent": "A1-CI-Runtime-Gate",
-    "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+    "taskId": "BUGTASK-20260710-0002-01-A2",
+    "agent": "A2-Security-Regression-Gate",
+    "conclusion": "PASS WITH CONDITIONS",
+    "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --noEmit --pretty false\nexit: 1\nstdout:\nVersion 5.9.3\ntsc: The TypeScript Compiler - Version 5.9.3\n\nCOMMON COMMANDS\n\n  tsc\n  Compiles the current project (tsconfig.json in the working directory.)\n\n  tsc app.ts util.ts\n  Ignoring tsconfig.json, compiles the specified files with default compiler options.\n\n  tsc -b\n  Build a composite project in the working directory.\n\n  tsc --init\n  Creates a tsconfig.json with the recommended settings in the working directory.\n\n  tsc -p ./path/to/tsconfig.json\n  Compiles the TypeScript project located at the specified path.\n\n  tsc --help --all\n  An expanded version of this information, showing all possible compiler options\n\n  tsc --noEmit\n  tsc --target esnext\n  Compiles the current project, with additional settings.\n\nCOMMAND LINE FLAGS\n\n--help, -h\nPrint this message.\n\n--watch, -w\nWatch input files.\n\n--all\nShow all compiler options.\n\n--version, -v\nPrint the compiler's version.\n\n--init\nInitializes a TypeScript project and creates a tsconfig.json file.\n\n--project, -p\nCompile the project given the path to its configuration file, or to a folder with a 'tsconfig.json'.\n\n--showConfig\nPrint the final configuration instead of building.\n\n--build, -b\nBuild one or more projects and their dependencies, if out of date\n\nCOMMON COMPILER OPTIONS\n\n--pretty\nEnable color and formatting in TypeScript's output to make compiler errors easier to read.\ntype: boolean\ndefault: true\n\n--declaration, -d\nGenerate .d.ts files from TypeScript and JavaScript files in your project.\ntype: boolean\ndefault: `false`, unless `composite` is set\n\n--declarat",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 712,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T03:56:02.439Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n",
     "nextAction": ""
   }
 }

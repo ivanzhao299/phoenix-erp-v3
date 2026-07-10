@@ -6,6 +6,7 @@
 | Agent | A2-Security-Regression-Gate |
 | Dry run | No |
 | Exit code | 0 |
+| Evidence gate | VALIDATION_COMPLETED |
 
 ## Command
 
@@ -53,4 +54,27 @@ stderr:
 
 ```text
 
+```
+
+## Evidence Gate
+
+```json
+{
+  "version": 1,
+  "agent": "A2-Security-Regression-Gate",
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 712,
+  "beforeHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+  "afterHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
+  "checkedAt": "2026-07-10T03:56:02.439Z",
+  "passed": true,
+  "role": "validation",
+  "terminalStatus": "VALIDATION_COMPLETED",
+  "reason": "Validation evidence recorded; this is not implementation evidence"
+}
 ```
