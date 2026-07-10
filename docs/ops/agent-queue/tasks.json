@@ -15598,7 +15598,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15621,7 +15621,7 @@
     "dependencies": [],
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-10T07:48:23.596Z",
-    "completed_at": "2026-07-10T07:51:32.081Z",
+    "completed_at": "2026-07-10T07:51:33.706Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0003-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15678,7 +15678,10 @@
       "docs/ops/BUG-20260707-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
     ],
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "integrated_commit": "a9df4d2fe4b350ab644673d07d5c75769f62ebbc",
+    "integrated_at": "2026-07-10T07:51:33.706Z",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A1",
