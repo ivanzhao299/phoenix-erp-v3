@@ -382,19 +382,21 @@ function listRunnableBugTasks(args) {
     .filter((task) => (task.dependencies || []).every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status)))
     .filter((task) => !allowAgents || allowAgents.has(task.agent))
     .sort((a, b) => {
-      const aBug = String(a.source_bug_no || a.task_id || '');
-      const bBug = String(b.source_bug_no || b.task_id || '');
-      if (aBug !== bBug) return aBug.localeCompare(bBug);
       const priority = {
-        'A5-Data-Readiness': 1,
-        'A3-Backend-Critical-Path': 2,
-        'A4-Frontend-UAT-Smoke': 3,
-        'A2-Security-Regression-Gate': 4,
-        'A1-CI-Runtime-Gate': 5,
+        // Close an already implemented repair before opening another one.
+        'A2-Security-Regression-Gate': 1,
+        'A1-CI-Runtime-Gate': 2,
+        'A5-Data-Readiness': 3,
+        'A3-Backend-Critical-Path': 4,
+        'A4-Frontend-UAT-Smoke': 5,
         'A6-Staging-Deploy-Runbook': 6,
         'A7-Final-QA-Gate': 7,
       };
-      return (priority[a.agent] || 99) - (priority[b.agent] || 99);
+      const phaseDelta = (priority[a.agent] || 99) - (priority[b.agent] || 99);
+      if (phaseDelta !== 0) return phaseDelta;
+      const aBug = String(a.source_bug_no || a.task_id || '');
+      const bBug = String(b.source_bug_no || b.task_id || '');
+      return aBug.localeCompare(bBug);
     })
     .slice(0, args.maxCandidateTasks);
 }
