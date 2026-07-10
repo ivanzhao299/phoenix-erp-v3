@@ -6,6 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -22,25 +23,29 @@ Branch: w5-a3-backend-critical-path
 Prompt: docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260710-0001-02-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-assembled-prompt.md
-Assembled prompt chars: 24041
+Assembled prompt chars: 44710
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T01-26-32-261Z-A3-Backend-Critical-Path.md
-A3 backend dry-run completed: **HOLD / PASS WITH CONDITIONS**.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T03-52-46-212Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for A3 Backend.
 
-I found no backend-owned fix for the acceptance criterion. The “进入采购中心” behavior is defined in `apps/web`, so repairing the jump target belongs to A4 frontend scope. I did not edit frontend, DB, migrations, schema, entities, or DataScope.
+Preflight passed:
+- `pwd`: `/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path`
+- branch: `w5-a3-backend-critical-path`
+- `git status --short`: clean
+- HEAD: `06c563af docs(ops): record baseline lifecycle report`
 
-Report committed:
+Backend diagnosis:
+- Acceptance criterion is frontend navigation: clicking `进入采购中心` should land on `/procurement2/dashboard`.
+- No backend-owned repair point was found for that criterion.
+- Existing A3 report is present at [docs/ops/bug-20260710-0001-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260710-0001-a3-backend-critical-path.md).
+- The reported `/api/v2/finance/ap/invoices/8` 500 is finance AP detail scope, not the procurement CTA route acceptance path; it should be a separate backend bug if reproducible with server logs.
 
-- [docs/ops/bug-20260710-0001-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path/docs/ops/bug-20260710-0001-a3-backend-critical-path.md)
-- Commit: `9b60c09a docs(ops): record bug 20260710 0001 a3 report`
+Validation run:
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed.
+- Final `git status --short` remained clean.
 
-Validation:
-
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS
-- Final `git status --short` -> clean
-
-No push, deploy, migration execution, or database write was performed.
+Frozen-item statement: no migrations, DB writes, deploy, push, merge, frontend edits, schema/entity changes, or task-board writes were performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +62,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f49a1-06bb-78f3-bfc1-3ce10aca7ce5
+session id: 019f4a26-f876-7b32-bc23-4a7c3adfd42e
 --------
 user
 # Base Agent Prompt
@@ -862,16 +867,11 @@ Assigned agent: A3-Backend-Critical-Path
       "localAttachments": [
         {
           "fileName": "01-1783646402002-5879c8e9.png",
-          "originalName": "pasted-screenshot-1783646400620-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png",
-          "sizeBytes": 644476
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -951,21 +951,222 @@ Assigned agent: A3-Backend-Critical-Path
   "createdAt": "2026-07-10T01:21:21.116Z",
   "createdBy": "admin",
   "moduleCode": "_____",
+  "agentResults": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710012648",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 212 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0001-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "f84d24bc42fb64f8f0a878fc454c1d446bf61c97",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:26:49.310Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0001-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710013517",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 213 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0001-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0001-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:18.501Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0001-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0001-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0001-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.081Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:14.020Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0001-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.532Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:26:32.267Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0001-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.967Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:00.043Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0001-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:20.554Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:15.694Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0001-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:21.064Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:11.364Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ],
   "suggestedOwner": "",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260710-0001-05-A1",
+    "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+    "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+    "recordedAt": "2026-07-10T01:35:21.064Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+    "changedFiles": [],
+    "validationResults": {
+      "completedAt": "2026-07-10T01:35:11.364Z",
+      "localTaskStatus": "completed",
+      "aggregateBackfill": true,
+      "baselineAutopilotExitCode": 0
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T03:03:52.886Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_COMPLETED"
+    }
+  ],
   "acceptanceCriteria": "点击“进入采购中心”，跳转到采购管理-采购看板页面",
   "agentPlanGeneratedAt": "2026-07-10T01:21:22.274Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T01:21:23.420Z",
+    "approvedAt": "2026-07-10T03:03:52.886Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -973,13 +1174,173 @@ Assigned agent: A3-Backend-Critical-Path
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710012648",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 212 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0001-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "f84d24bc42fb64f8f0a878fc454c1d446bf61c97",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:26:49.310Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0001-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710013517",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 213 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0001-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0001-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:18.501Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0001-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0001-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0001-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.081Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:14.020Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0001-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.532Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:26:32.267Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0001-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.967Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:00.043Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0001-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:20.554Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:15.694Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0001-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:21.064Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:11.364Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ]
 }
 ```
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 
@@ -996,7 +1357,7 @@ Assigned agent: A3-Backend-Critical-Path
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我会先执行约定的目录、分支、状态和日志检查；如果 worktree 不干净或分支不符，会按任务要求先停下来报告。
+我会先执行合约要求的目录、分支、工作区和最近提交检查；如果任何一项不符合，就只报告不改文件。
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
@@ -1008,488 +1369,192 @@ exec
 w5-a3-backend-critical-path
 
 exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-f5d35a5a (HEAD -> w5-a3-backend-critical-path, w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
-ff064230 fix: restore sales pricing lifecycle actions
-3da4d2c5 docs(ops): record baseline lifecycle report
-5d72f4fa feat(api): record A3-Backend-Critical-Path result
-1663379c docs(ops): record baseline lifecycle report
-aeda4009 docs(ops): record baseline lifecycle report
-bf34bcf4 docs(ops): add bug 20260709 0004 a4 report
-68b4b323 docs(ops): record baseline lifecycle report
-
-exec
 /bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
+exec
+/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+06c563af (HEAD -> w5-a3-backend-critical-path, w5-a4-frontend-uat-smoke, main) docs(ops): record baseline lifecycle report
+4c23db03 docs(ops): record baseline lifecycle report
+09135c9b docs(ops): record baseline lifecycle report
+20a3c2c0 docs: align procurement cta priority comment
+4e82eb0a fix: repair procurement center cta route
+7d7a4d42 docs(ops): record baseline lifecycle report
+9b60c09a docs(ops): record bug 20260710 0001 a3 report
+f5d35a5a docs(ops): record baseline lifecycle report
+
 codex
-检查通过：目录、分支、worktree 都符合任务前置条件。现在做 dry-run 诊断，先定位“进入采购中心”和失败接口是否属于后端可修范围。
+初始门禁通过：目录和分支正确，工作区干净。最近提交显示这个 bug 已有修复和 ops 记录，我先做只读诊断，确认 A3 后端侧是否仍有未覆盖事项。
 exec
-/bin/zsh -lc "rg -n \"@Controller\\(['\\\"]v2/finance/ap|finance/ap|ap/invoices\" apps/api/src --glob '"'!node_modules'"'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+/bin/zsh -lc 'git show --stat --oneline --decorate 9b60c09a' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
  succeeded in 0ms:
-apps/api/src/modules/finance-v2/finance-v2.module.ts:62: *   FinApController    — /api/v2/finance/ap/* 路由
-apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:41:   * GET /api/v2/finance/ap/legacy-source
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:19: * 路由前缀：/api/v2/finance/ap
+9b60c09a docs(ops): record bug 20260710 0001 a3 report
+ .../bug-20260710-0001-a3-backend-critical-path.md  | 67 ++++++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+
+exec
+/bin/zsh -lc 'rg --files docs/ops | sort | tail -60' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-execution-summary.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md
+docs/ops/runs/router-v1-revalidate-case1-route-plan.json
+docs/ops/runs/router-v1-revalidate-case1-route-plan.md
+docs/ops/runs/router-v1-revalidate-case2-route-plan.json
+docs/ops/runs/router-v1-revalidate-case2-route-plan.md
+docs/ops/runs/router-v1-revalidate-case3-route-plan.json
+docs/ops/runs/router-v1-revalidate-case3-route-plan.md
+docs/ops/runs/router-v1-revalidate-case4-route-plan.json
+docs/ops/runs/router-v1-revalidate-case4-route-plan.md
+docs/ops/runs/router-v1-revalidate-case5-route-plan.json
+docs/ops/runs/router-v1-revalidate-case5-route-plan.md
+docs/ops/runs/router-v1-revalidate-case6-route-plan.json
+docs/ops/runs/router-v1-revalidate-case6-route-plan.md
+docs/ops/runs/seven-agent/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-seven-agent-summary.md
+docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt
+docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-execution-summary.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md
+docs/ops/runs/store-payment-closed-loop-fix-route-plan.json
+docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
+docs/ops/runs/store-payment-controlled-uat-smoke-static.json
+docs/ops/runs/store-payment-file-metadata-acl-static-check.json
+docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json
+docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json
+docs/ops/runs/store-payment-protected-streaming-static-check.json
+docs/ops/runs/store-payment-record-proof-db-evidence.json
+docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
+docs/ops/runs/store-payment-record-proof-page-smoke.json
+docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md
+docs/ops/runs/sys-dict-dedupe-latest.json
+docs/ops/runs/w1-db-gate-20260627/00_preflight_readonly.sql
+docs/ops/runs/w1-db-gate-20260627/02_verify.sql
+docs/ops/runs/w1-db-gate-20260627/03_rollback.md
+docs/ops/runs/w1-db-gate-20260627/README.md
+docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
+docs/ops/runtime-memory/DECISION_LOG.md
+docs/ops/runtime-memory/GUARDRAILS.md
+docs/ops/runtime-memory/NEXT_ACTIONS.md
+docs/ops/runtime-memory/PROJECT_STATE.json
+docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
+
+exec
+/bin/zsh -lc 'git show --stat --oneline --decorate 4e82eb0a' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+4e82eb0a fix: repair procurement center cta route
+ apps/web/src/app/(admin)/home/page.tsx             |  9 ++-
+ .../ops/bug-20260710-0001-a4-frontend-uat-smoke.md | 73 ++++++++++++++++++++++
+ 2 files changed, 80 insertions(+), 2 deletions(-)
+
+exec
+/bin/zsh -lc 'rg -n "BUG-20260710-0001|BUGTASK-20260710-0001|procurement center|进入采购中心|procurement2/dashboard|ap/invoices" docs apps/api apps/web' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
+ succeeded in 0ms:
+apps/web/src/locales/en.json:6335:  "prc2.entering_center": "Entering procurement center…",
+apps/api/scripts/finance-regression.sh:46:cyan "▶ T1: AP Invoice 创建 (V2 POST /api/v2/finance/ap/invoices)"
+apps/api/scripts/finance-regression.sh:47:R1=$(curl -s -o /tmp/fin_t1.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices" \
+apps/api/scripts/finance-regression.sh:64:cyan "▶ T2: AP Invoice 取消 (V2 POST /api/v2/finance/ap/invoices/:id/cancel)"
+apps/api/scripts/finance-regression.sh:65:R2=$(curl -s -o /tmp/fin_t2.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices/$AP_ID/cancel" \
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:22: *   GET    /api/v2/finance/ap/invoices          — 列表（分页、全筛选）
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:23: *   GET    /api/v2/finance/ap/invoices/:id      — 详情（含付款核销）
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:24: *   POST   /api/v2/finance/ap/invoices          — 手工创建
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:25: *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:26: *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:27: *   GET    /api/v2/finance/ap/aging             — AP Aging 明细
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:28: *   GET    /api/v2/finance/ap/summary           — AP 汇总统计
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:29: *   POST   /api/v2/finance/ap/import-from-prc2  — 从 prc2_ap_ledger 幂等导入
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:34:@Controller('api/v2/finance/ap')
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:42:   * GET /api/v2/finance/ap/invoices
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:54:   * GET /api/v2/finance/ap/invoices/:id
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:66:   * POST /api/v2/finance/ap/invoices
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:78:   * PATCH /api/v2/finance/ap/invoices/:id
 apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:93:   * POST /api/v2/finance/ap/invoices/:id/cancel
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:108:   * GET /api/v2/finance/ap/aging
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:121:   * GET /api/v2/finance/ap/summary
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:134:   * POST /api/v2/finance/ap/import-from-prc2
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:196:   * GET /api/v2/finance/ap/legacy-source
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:222:   * GET /api/v2/finance/ap/summary
-
-exec
-/bin/zsh -lc 'find docs/ops -maxdepth 1 -type f | sort | tail -30' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md
-docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md
-docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md
-docs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md
-docs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md
-docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md
-docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md
-docs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md
-docs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md
-docs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md
-docs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md
-docs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md
-docs/ops/bug-20260707-0009-a3-backend-critical-path.md
-docs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md
-docs/ops/bug-20260707-0009-a4-frontend-uat-report.md
-docs/ops/bug-20260707-0010-a3-backend-critical-path.md
-docs/ops/bug-20260708-0002-a3-backend-critical-path.md
-docs/ops/bug-20260708-0003-a3-backend-critical-path.md
-docs/ops/bug-20260708-0004-a3-backend-critical-path.md
-docs/ops/bug-20260708-0005-a3-backend-critical-path.md
-docs/ops/bug-20260708-0006-a3-backend-critical-path.md
-docs/ops/bug-20260709-0004-a3-backend-critical-path.md
-docs/ops/bug-20260709-0004-a4-frontend-uat-smoke.md
-
-exec
-/bin/zsh -lc "rg -n \"进入采购中心|采购中心|procurement2/dashboard|finance/ap/invoices|ap/invoices\" apps docs scripts --glob '"'!node_modules'"'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:22: *   GET    /api/v2/finance/ap/invoices          — 列表（分页、全筛选）
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:23: *   GET    /api/v2/finance/ap/invoices/:id      — 详情（含付款核销）
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:24: *   POST   /api/v2/finance/ap/invoices          — 手工创建
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:25: *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:26: *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:42:   * GET /api/v2/finance/ap/invoices
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:54:   * GET /api/v2/finance/ap/invoices/:id
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:66:   * POST /api/v2/finance/ap/invoices
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:78:   * PATCH /api/v2/finance/ap/invoices/:id
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:93:   * POST /api/v2/finance/ap/invoices/:id/cancel
-docs/navigation-final.md:86:| 采购看板 | `/procurement2/dashboard` | `MENU_PRC2` |
-docs/MULTI_AGENT_PHASE2_PLAN.md:166:- F4（R2-4 AP 手工付款端点）：新增 `POST /api/v2/finance/ap/invoices/:id/pay`，
-docs/finance-v2-clean-baseline.md:162:   - POST /api/v2/finance/ap/invoices    — 发起 AP Workflow
-docs/finance-v2-clean-baseline.md:163:   - GET  /api/v2/finance/ap/invoices    — fin_ap_invoices 列表（替换适配层）
-docs/finance-v2-clean-baseline.md:179:切换后：/api/v2/finance/ap/invoices      → fin_ap_invoices（原生）
-scripts/ops/repair-role-permission-matrix.mjs:22:  ['MENU_PRC2_DASHBOARD', '采购看板', 'PRC', 'MENU_PRC2_MASTER', 58, 'LayoutDashboard', '/procurement2/dashboard'],
-docs/FINANCE_AGENT_AUDIT.md:310:| 4 | **AP MANUAL/OPENING 路径无付款写流水** | 财务手工录入的应付付完款无法反映到资金账户 | fin_ap_invoices | 设计 `POST /api/v2/finance/ap/invoices/:id/pay`（参考 ar/receipts/confirm） |
+apps/web/src/locales/zh.json:4581:  "home.enterProcurement": "进入采购中心",
+apps/web/src/locales/zh.json:6312:  "prc2.entering_center": "正在进入采购中心…",
+apps/api/src/database/migrations/1782052418112-RepairRolePermissionMatrixAtomicity.ts:17:        ('MENU_PRC2_DASHBOARD', '采购看板', NULL, 'PRC', 'MENU_PRC2_MASTER', 58, 'LayoutDashboard', '/procurement2/dashboard'),
 docs/ui-ux-governance-phase-ui1-audit.md:52:| **驾驶舱页面** | dashboard、workflow/page、finance2/page、shareholders/dashboard、procurement2/dashboard、analytics | dashboard 示范,shareholders 高危 | `DashboardTemplate` = PageHeader + KPI_GRID + KpiCard + Chart + 排名/趋势 |
 docs/ui-ux-governance-phase-ui1-audit.md:107:| 内联 + 动态色 `style={{ background: \`${color}18\` }}` | procurement2/dashboard、analytics、mobile | 相对可接受(色来自参数/token),但缺组件封装 |
 docs/ui-ux-governance-phase-ui1-audit.md:159:| KPI 卡是否统一用 KpiCard | ❌ 部分:dashboard/shareholders-capital 用标准件;finance2/ap·ar·reports 各自重定义;procurement2/dashboard 自写 |
 docs/ui-ux-governance-phase-ui1-audit.md:161:| 深色模式是否可读 | ❌ shareholders(深蓝白字硬编码)、store-pos/uat(白底/深底硬编码)不可切换;procurement2/dashboard/mobile/workflow ✅ 可读 |
+apps/web/src/components/layout/Sidebar.tsx:137:    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD" },
+docs/MASTER_DATA_W4_REVIEW.md:304:| **F4** `POST /api/v2/finance/ap/invoices/:id/pay` 新端点 | 与主数据无关 | ✅ **可立即启动** |
+apps/api/migrations/20260527_v2_menu_rbac_seed.sql:27:  ('MENU_PRC2_DASHBOARD',  '采购V2 看板',       'PRC',    58, '/procurement2/dashboard'),
+docs/navigation-final.md:86:| 采购看板 | `/procurement2/dashboard` | `MENU_PRC2` |
+docs/MULTI_AGENT_PHASE2_PLAN.md:166:- F4（R2-4 AP 手工付款端点）：新增 `POST /api/v2/finance/ap/invoices/:id/pay`，
+docs/FINANCE_AGENT_AUDIT.md:310:| 4 | **AP MANUAL/OPENING 路径无付款写流水** | 财务手工录入的应付付完款无法反映到资金账户 | fin_ap_invoices | 设计 `POST /api/v2/finance/ap/invoices/:id/pay`（参考 ar/receipts/confirm） |
+docs/finance-v2-clean-baseline.md:162:   - POST /api/v2/finance/ap/invoices    — 发起 AP Workflow
+docs/finance-v2-clean-baseline.md:163:   - GET  /api/v2/finance/ap/invoices    — fin_ap_invoices 列表（替换适配层）
+docs/finance-v2-clean-baseline.md:179:切换后：/api/v2/finance/ap/invoices      → fin_ap_invoices（原生）
 docs/navigation-v2-architecture-audit.md:151:| prc2-dashboard | 采购看板 | `/procurement2/dashboard` | `MENU_PRC2` | 🟢 V2正式 | ✅ |
 docs/navigation-v2-architecture-audit.md:420:│   ├── 采购看板                       /procurement2/dashboard   MENU_PRC2
 docs/navigation-v2-architecture-audit.md:572:| 采购管理 → 看板 | `/procurement2/dashboard` | `MENU_PRC2` | ✅ 已注册 | |
 docs/production-smoke-test-report.md:82:| `GET /api/v2/finance/ap/invoices` | 401 | ✅ |
 docs/production-smoke-test-report.md:106:| `GET /api/v2/finance/ap/invoices` | ✅ 200 | |
-docs/g11-home-perm-redesign.md:34:| ShortcutsGrid 采购中心 | `MENU_PRC2` |
 docs/WAVE1_ACCEPTANCE_REVIEW.md:315:2. 跑 `bash scripts/g5c-rbac-audit.sh`，确认非超管对 `/api/v2/finance/ap/invoices/:id/pay` 端点的 403 行为符合预期（无 MENU_FIN2_AP:E 应 403）。
 docs/WAVE1_ACCEPTANCE_REVIEW.md:359:| C-2 | Finance 合入后 F2 加"NULL OR ANY 过渡"注释 + 跑 g5c 验 `/api/v2/finance/ap/invoices/:id/pay` 权限 | Finance Agent | 合入后 24h 内 |
 docs/WAVE1_ACCEPTANCE_REVIEW.md:420:  http://localhost:3100/api/v2/finance/ap/invoices/999/pay
-docs/MASTER_DATA_W4_REVIEW.md:304:| **F4** `POST /api/v2/finance/ap/invoices/:id/pay` 新端点 | 与主数据无关 | ✅ **可立即启动** |
-docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md:14:2. 采购中心卡片/按钮:进「付款管理」→ 按 D2,确认按钮 gating(若 W4 未上,按钮可能仍可见但后端拦)。
-apps/api/src/database/migrations/1782052418112-RepairRolePermissionMatrixAtomicity.ts:17:        ('MENU_PRC2_DASHBOARD', '采购看板', NULL, 'PRC', 'MENU_PRC2_MASTER', 58, 'LayoutDashboard', '/procurement2/dashboard'),
-docs/ops/FRONTEND_MENU_TREE_PERMISSION_GATE_20260626.md:15:- Procurement shortcut could point to `/procurement2/dashboard` even when the user only had a procurement child permission.
-docs/ops/FRONTEND_MENU_TREE_PERMISSION_GATE_20260626.md:46:- Procurement center shortcut no longer hard-codes `/procurement2/dashboard` when the user lacks that child permission.
-docs/ops/RBAC_FRONTEND_MENU_GATE_REMEDIATION_20260626.md:11:3. A user with a broad procurement permission could see "采购中心" and be sent to `/procurement2/dashboard`, even when the actual first permitted procurement leaf was a different page.
-apps/api/scripts/finance-regression.sh:46:cyan "▶ T1: AP Invoice 创建 (V2 POST /api/v2/finance/ap/invoices)"
-apps/api/scripts/finance-regression.sh:47:R1=$(curl -s -o /tmp/fin_t1.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices" \
-apps/api/scripts/finance-regression.sh:64:cyan "▶ T2: AP Invoice 取消 (V2 POST /api/v2/finance/ap/invoices/:id/cancel)"
-apps/api/scripts/finance-regression.sh:65:R2=$(curl -s -o /tmp/fin_t2.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices/$AP_ID/cancel" \
-docs/ops/runs/remediation-r3-menu-role-datascope-audit-20260624-122800/menu_inventory.txt:83:    1048 | MENU_PRC2_DASHBOARD           | 采购V2 看板       | PRC         | [NULL]            |         58 | /procurement2/dashboard         | 2026-05-28 07:09:03.627508
-apps/api/migrations/20260527_v2_menu_rbac_seed.sql:27:  ('MENU_PRC2_DASHBOARD',  '采购V2 看板',       'PRC',    58, '/procurement2/dashboard'),
-apps/web/src/app/(admin)/procurement2/page.tsx:13:    router.replace('/procurement2/dashboard');
-apps/web/src/app/(admin)/procurement2/page.tsx:16:  return <div className={u.emptyCenter}>{t('prc2.entering_center', '正在进入采购中心…')}</div>;
-apps/web/src/app/login/page.tsx:224:  ROLE_PRC_BUYER: "/procurement2/dashboard",
-apps/web/src/app/(admin)/home/page.tsx:61:  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
-apps/web/src/app/(admin)/home/page.tsx:95:    if (procurementPath) return { label: t('home.enterProcurement', '进入采购中心'), href: procurementPath, icon: ShoppingBag };
 apps/web/src/app/(admin)/layout.tsx:68:  "/procurement2/dashboard":       "menu.prc2-dashboard",
-apps/web/src/app/(admin)/finance2/ap/page.tsx:316:      await apiFetch('/api/v2/finance/ap/invoices', {
-apps/web/src/app/(admin)/finance2/ap/page.tsx:469:    apiFetch<ApDetail>(`/api/v2/finance/ap/invoices/${invoiceId}`).then(setDetail).catch(() => {}).finally(() => setLoading(false));
-apps/web/src/app/(admin)/finance2/ap/page.tsx:475:      await apiFetch(`/api/v2/finance/ap/invoices/${invoiceId}/cancel`, {
-apps/web/src/app/(admin)/finance2/ap/page.tsx:648:      }>(`/api/v2/finance/ap/invoices?${buildQuery(p)}`);
-apps/web/src/app/(admin)/dashboard/page.tsx:72:    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
-apps/web/src/components/layout/Sidebar.tsx:137:    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD" },
-apps/web/src/locales/zh.json:4581:  "home.enterProcurement": "进入采购中心",
-apps/web/src/locales/zh.json:4652:  "home.shortcut.procure": "采购中心",
-apps/web/src/locales/zh.json:6312:  "prc2.entering_center": "正在进入采购中心…",
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:1:# BUG-20260710-0001 A4 Frontend UAT Smoke Report
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:5:- Source bug: BUG-20260710-0001
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:6:- Source task: BUGTASK-20260710-0001
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:8:- Route: `/procurement2/dashboard`
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:9:- Issue: 运营工作台页面按钮“进入采购中心”跳转错误
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:10:- Acceptance: 点击“进入采购中心”，跳转到采购管理-采购看板页面
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:24:- Target route verified statically: `/procurement2/dashboard`
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:28:- Fixed the primary hero CTA routing decision for “进入采购中心”.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:29:- Users with `MENU_PRC2_DASHBOARD` now resolve the procurement entry directly to `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:35:- RBAC is preserved. The new route helper checks `hasPermission('MENU_PRC2_DASHBOARD')` before using `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:49:  - Inspected the submitted screenshot evidence; the highlighted “进入采购中心” button was on `/home` and the observed wrong landing page was 审批中心/待办.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:51:  - The “进入采购中心” CTA path now resolves to `/procurement2/dashboard` when dashboard permission exists.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:72:- Condition: The captured failed requests to `/api/v2/finance/ap/invoices/8` returned 500 and are outside A4 allowed scope; backend validation remains with A3.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:73:- Recommendation: Run integrated UAT with an authenticated admin/procurement user and click `/home` → “进入采购中心”; expected landing route is `/procurement2/dashboard` with 采购管理 / 采购看板 active.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:1:# BUG-20260710-0001 A3 Backend Critical Path Report
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:9:> 点击“进入采购中心”，跳转到采购管理-采购看板页面
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:13:- `apps/web/src/app/(admin)/home/page.tsx` defines the `进入采购中心` shortcut behavior and procurement shortcut `href`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:14:- `apps/web/src/app/(admin)/procurement2/page.tsx` redirects `/procurement2` to `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:15:- `apps/web/src/components/layout/Sidebar.tsx` defines the procurement sidebar leaf `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:19:The bug payload also listed failed requests to `GET /api/v2/finance/ap/invoices/8` with HTTP 500. That endpoint is not part of the stated acceptance criterion and belongs to finance AP detail, not procurement dashboard navigation. A3 inspected the backend AP controller/service and found the endpoint remains guarded and read-only:
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:21:- Controller: `FinApController.findById()` at `GET /api/v2/finance/ap/invoices/:id`
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:36:- `GET /api/v2/finance/ap/invoices/:id`
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:51:- `rg -n "进入采购中心|采购中心|procurement2/dashboard|finance/ap/invoices|ap/invoices" apps docs scripts --glob '!node_modules'` -> located frontend navigation ownership and AP endpoint references
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:57:- The AP 500 evidence may require a separate finance backend defect if it is reproducible with server logs, but it does not explain or satisfy the procurement center button navigation acceptance criterion.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:65:Route to A4 Frontend UAT Smoke for the approved repair: verify that clicking `进入采购中心` lands on `/procurement2/dashboard` and highlights `采购管理 -> 采购看板`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:67:If the AP 500 remains visible after the navigation fix, open a separate A3 finance AP detail task with reproducible request context and backend logs for `GET /api/v2/finance/ap/invoices/8`.
+apps/web/src/app/(admin)/home/page.tsx:61:  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', '
+```
 
-codex
-初步信号显示“进入采购中心”定义在 `apps/web` 首页快捷入口，属于前端导航；同时上报里的 500 是财务 AP 详情接口，不是 `/procurement2/dashboard` 的看板 API。接下来只读后端 AP 详情实现，确认是否存在可在 A3 范围内修复的安全或服务端错误。
-exec
-/bin/zsh -lc "sed -n '1,180p' apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-import {
-  Controller, Get, Post, Patch,
-  Param, Query, Body, UseGuards,
-  ParseIntPipe, DefaultValuePipe,
-} from '@nestjs/common';
-import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
-import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
-import { ApInvoicesService }      from '../services/ap-invoices.service';
-import {
-  CreateApInvoiceDto,
-  UpdateApInvoiceDto,
-  CancelApInvoiceDto,
-  QueryApInvoiceDto,
-} from '../dto/ap-invoice.dto';
+## Evidence Gate
 
-/**
- * Finance V2 AP Controller — Phase 1 AP Runtime
- *
- * 路由前缀：/api/v2/finance/ap
- *
- * 接口清单：
- *   GET    /api/v2/finance/ap/invoices          — 列表（分页、全筛选）
- *   GET    /api/v2/finance/ap/invoices/:id      — 详情（含付款核销）
- *   POST   /api/v2/finance/ap/invoices          — 手工创建
- *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）
- *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消
- *   GET    /api/v2/finance/ap/aging             — AP Aging 明细
- *   GET    /api/v2/finance/ap/summary           — AP 汇总统计
- *   POST   /api/v2/finance/ap/import-from-prc2  — 从 prc2_ap_ledger 幂等导入
- *
- * 权限：MENU_FIN2_AP（所有接口）
- *   import-from-prc2 要求 MENU_FIN2_AP:E，并继续受 DataScope 公司范围过滤。
- */
-@Controller('api/v2/finance/ap')
-@UseGuards(MenuGuard, DataScopeGuard)
-export class FinApController {
-  constructor(private readonly apSvc: ApInvoicesService) {}
-
-  // ── 列表 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * GET /api/v2/finance/ap/invoices
-   * AP 发票列表，支持分页、多维筛选、DataScope 过滤。
-   */
-  @Get('invoices')
-  @RequireMenu('MENU_FIN2_AP', 'V')
-  list(@Query() q: QueryApInvoiceDto) {
-    return this.apSvc.list(q);
-  }
-
-  // ── 详情 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * GET /api/v2/finance/ap/invoices/:id
-   * AP 发票详情，含付款核销记录。
-   */
-  @Get('invoices/:id')
-  @RequireMenu('MENU_FIN2_AP', 'V')
-  findById(@Param('id') id: string) {
-    return this.apSvc.findById(id);
-  }
-
-  // ── 创建 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * POST /api/v2/finance/ap/invoices
-   * 手工创建 AP Invoice（source_type = MANUAL）。
-   */
-  @Post('invoices')
-  @RequireMenu('MENU_FIN2_AP', 'E')
-  create(@Body() dto: CreateApInvoiceDto) {
-    return this.apSvc.createManual(dto);
-  }
-
-  // ── 更新 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * PATCH /api/v2/finance/ap/invoices/:id
-   * 更新 AP Invoice（仅 OPEN / PARTIALLY_PAID 状态可编辑）。
-   */
-  @Patch('invoices/:id')
-  @RequireMenu('MENU_FIN2_AP', 'E')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateApInvoiceDto,
-  ) {
-    return this.apSvc.update(id, dto);
-  }
-
-  // ── 取消 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * POST /api/v2/finance/ap/invoices/:id/cancel
-   * 取消 AP Invoice（未付款可取消；已全额付清不可取消）。
-   */
-  @Post('invoices/:id/cancel')
-  @RequireMenu('MENU_FIN2_AP', 'E')
-  cancel(
-    @Param('id') id: string,
-    @Body() dto: CancelApInvoiceDto,
-  ) {
-    return this.apSvc.cancel(id, dto);
-  }
-
-  // ── Aging ─────────────────────────────────────────────────────────────────
-
-  /**
-   * GET /api/v2/finance/ap/aging
-   * AP Aging 明细，按供应商+货币分组，五个账龄桶：
-   *   NOT_DUE / 0_30 / 31_60 / 61_90 / 90_PLUS
-   */
-  @Get('aging')
-  @RequireMenu('MENU_FIN2_AP', 'V')
-  getAging(@Query('companyCode') companyCode?: string) {
-    return this.apSvc.getAging(companyCode);
-  }
-
-  // ── Summary ───────────────────────────────────────────────────────────────
-
-  /**
-   * GET /api/v2/finance/ap/summary
-   * AP 汇总统计（基于 fin_ap_invoices）。
-   * 替代 Phase 0 adapter 版本的 /ap/summary。
-   */
-  @Get('summary')
-  @RequireMenu('MENU_FIN2_AP', 'V')
-  getSummary(@Query('companyCode') companyCode?: string) {
-    return this.apSvc.getSummary(companyCode);
-  }
-
-  // ── 导入 ──────────────────────────────────────────────────────────────────
-
-  /**
-   * POST /api/v2/finance/ap/import-from-prc2
-   * 从 prc2_ap_ledger 幂等导入历史 AP 数据。
-   * 额外角色校验在 service 层（ADMIN / FIN_CFO / GROUP_FINANCE）。
-   */
-  @Post('import-from-prc2')
-  @RequireMenu('MENU_FIN2_AP', 'E')
-  importFromPrc2(@Query('companyCode') companyCode?: string) {
-    return this.apSvc.importFromPrc2(companyCode);
-  }
+```json
+{
+  "version": 1,
+  "agent": "A3-Backend-Critical-Path",
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1118,
+  "beforeHead": "06c563af53cbc2c6debd07d1775413b27e174ac2",
+  "afterHead": "06c563af53cbc2c6debd07d1775413b27e174ac2",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
+  "checkedAt": "2026-07-10T03:52:46.240Z",
+  "passed": false,
+  "role": "implementation",
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
-
-exec
-/bin/zsh -lc "sed -n '1,160p' docs/ops/bug-20260709-0004-a3-backend-critical-path.md" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-# BUG-20260709-0004 A3 Backend Critical Path Report
-
-## Result
-
-GO
-
-`/workflow/todos` header count is driven by `GET /api/workflow/my-tasks.total`. Current branch already contains the backend repair from the matching prior defect `BUG-20260707-0010`: `WorkflowService.listMyTasks()` now builds ApprovalEngine and WorkflowEngine todos from one unified result set, applies `taskSource` / `bizType` / `keyword` filters before counting, and returns `total = filteredItems.length`.
-
-The reported screenshot shows one visible ApprovalEngine todo and header count `0`. With the current backend implementation, that response shape is covered by regression tests and should return `total = 1` for the same authorized filtered row set.
-
-## Changed Files
-
-- `docs/ops/bug-20260709-0004-a3-backend-critical-path.md`
-
-Backend implementation already present in current branch:
-
-- `apps/api/src/modules/workflow/workflow.service.ts`
-- `apps/api/src/modules/workflow/workflow.service.spec.ts`
-
-## APIs Implemented / Covered
-
-- `GET /api/workflow/my-tasks`
-  - Aggregates WorkflowEngine `wf_task` and ApprovalEngine `wf_approval_instance_steps`.
-  - Returns `items`, `total`, `page`, and `pageSize`.
-  - Keeps `taskSource`, `bizType`, `keyword`, `page`, and `pageSize` query support.
-  - Counts the same filtered authorized row set used for the visible list.
-
-## RBAC / DataScope / Audit Coverage
-
-- RBAC: unchanged. `WorkflowRuntimeController` remains guarded by `MenuGuard`; `GET /api/workflow/my-tasks` still requires `MENU_WORKFLOW_TODO:V`.
-- DataScope: unchanged. ApprovalEngine todo rows continue to use CLS `dataScope.allowedCompanyCodes`; non-global users are limited to authorized companies plus `company_code IS NULL`.
-- Admin override: unchanged. `ROLE_ADMIN` fallback remains limited to stuck approval steps.
-- Audit: no write path changed in this run; no audit record is required for read-only todo listing.
-- Attachment ACL: not involved; no attachment read/write path changed.
-
-## Tests Run
-
-- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` -> PASS, 1 suite / 3 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS.
-
-Note: an initial attempt with `pnpm --filter api exec jest ...` matched no workspace package and was not counted as validation.
-
-## Blockers
-
-None for backend. No DB write, migration, deployment, push, frontend edit, or task-board mutation was performed.
-
-## Frozen-Item Statement
-
-No migrations, schema/entity/table/column changes, production deploy, database writes, frontend changes, unrelated business modules, or DataScope service rewrites were performed.
-
-## Next Review Request
-
-A4/A1 should smoke the deployed `/workflow/todos` route after release with an account that has at least one ApprovalEngine todo. Expected result: header count equals the authorized filtered todo count and is at least the number of visible rows on the current page.
-
-exec
-/bin/zsh -lc "rg -n \"class FinAp|findOne|findById|getDetail|invoices.*id|payments\" apps/api/src/modules/finance-v2 -g '*.ts'" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-apps/api/src/modules/finance-v2/finance-v2.module.ts:56: *   - 不引用 fin_transactions / fin_payments / biz_cash_flow（旧表废弃）
-apps/api/src/modules/finance-v2/entities/fin-ap-invoice.entity.ts:30:export class FinApInvoiceEntity {
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:116:  async findById(id: string, user: any): Promise<FinCashAccountEntity> {
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:117:    const acc = await this.repo.findOne({ where: { id } });
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:128:    const exists = await this.repo.findOne({ where: { accountCode: code } });
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:155:    const acc = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:184:      const fresh = await this.repo.findOne({ where: { id } });
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:238:    const acc = await this.findById(id, user); // 含 DataScope 归属校验
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:256:    const target = await this.repo.findOne({ where: { id: targetAccountId } });
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:393:    const acc = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:401:    const acc = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/cash-accounts.service.ts:409:    const acc = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:145:  async findById(id: string, user: any): Promise<FinShareholderSettlementEntity> {
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:146:    const row = await this.repo.findOne({ where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:156:    const contrib = await this.contribRepo.findOne({ where: { id: dto.contributionId } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:217:      const created = await mgr.findOne(FinShareholderSettlementEntity, {
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:229:      const row = await mgr.findOne(FinShareholderSettlementEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:267:      const updated = await mgr.findOne(FinShareholderSettlementEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:276:      const row = await mgr.findOne(FinShareholderSettlementEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:291:      const updated = await mgr.findOne(FinShareholderSettlementEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:432:      const updated = await this.repo.findOne({ where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-settlements.service.ts:446:      const row = await mgr.findOne(FinShareholderSettlementEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:226:      return this.findByIdRaw(String(exp.id), mgr);
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:232:    const exp = await this.repo.findOne({ where: { id: id as any } });
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:298:      return this.findByIdRaw(id, mgr);
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:304:    const exp = await this.repo.findOne({ where: { id: id as any } });
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:370:  async findById(id: string, user: any): Promise<any> {
-apps/api/src/modules/finance-v2/services/expense-requests.service.ts:399:  private async findByIdRaw(id: string, mgr: import('typeorm').EntityManager): Promise<any> {
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:62:       FROM fin_ar_invoices WHERE id = $1`,
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:151:  async findById(id: string) {
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:166:      `SELECT * FROM fin_ar_invoices WHERE id = $1`, [id],
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:259:      `UPDATE fin_ar_invoices SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length}`,
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:262:    return this.findById(id);
-apps/api/src/modules/finance-v2/services/ar-invoices.service.ts:301:      `SELECT amount_original, received_amount_original, status FROM fin_ar_invoices WHERE id = $1`,
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:107:       FROM fin_ap_invoices WHERE id = $1`,
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:201:  async findById(id: string) {
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:369:      `UPDATE fin_ap_invoices SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length}`,
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:373:    return this.findById(id);
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:412:      `SELECT amount_original, paid_amount_original, status FROM fin_ap_invoices WHERE id = $1`, [id],
-apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:607:          `SELECT id FROM fin_ap_invoices WHERE source_type='PO' AND source_id = $1 LIMIT 1`,
-apps/api/src/modules/finance-v2/services/reimbursements.service.ts:131:  async findById(id: string, user: any): Promise<any> {
-apps/api/src/modules/finance-v2/services/reimbursements.service.ts:200:    const reimb = await this.repo.findOne({ where: { id: id as any } });
-apps/api/src/modules/finance-v2/services/reimbursements.service.ts:316:    const reimb = await this.repo.findOne({ where: { id: id as any } });
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:123:  async findById(id: string, user: any): Promise<FinFundTransferEntity> {
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:124:    const t = await this.repo.findOne({ where: { id } });
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:138:      this.accRepo.findOne({ where: { id: dto.fromAccountId } }),
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:139:      this.accRepo.findOne({ where: { id: dto.toAccountId } }),
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:178:    const t = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:188:    const t = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:201:    const t = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:214:    const transfer = await this.findById(id, user);
-apps/api/src/modules/finance-v2/services/fund-transfers.service.ts:311:      return this.repo.findOne({ where: { id } }) as Promise<FinFundTransferEntity>;
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:148:  async findById(id: string) {
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:155:       JOIN fin_ar_invoices i ON i.id = a.ar_invoice_id
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:237:           FROM fin_ar_invoices WHERE id = $1 FOR UPDATE`,
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:278:           FROM fin_ar_invoices WHERE id = $3`,
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:297:          `SELECT amount_original, received_amount_original, status FROM fin_ar_invoices WHERE id = $1`,
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:317:            `UPDATE fin_ar_invoices SET status=$1, collection_status=$2, updated_at=now() WHERE id=$3`,
-apps/api/src/modules/finance-v2/services/ar-receipts.service.ts:362:      return this.findById(receiptId);
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:189:  async findById(id: string, user: any) {
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:301:      const created = await mgr.findOne(FinShareholderContributionEntity, {
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:313:      const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:371:      const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:381:      const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:418:      const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:427:      const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:443:      const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/services/shareholder-contributions.service.ts:452:      const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:98:    return this.reimbSvc.findById(id, this.scopedUser);
-apps/api/src/modules/finance-v2/controllers/fin-expense.controller.ts:149:    return this.expenseSvc.findById(id, this.scopedUser);
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:23: *   GET    /api/v2/finance/ap/invoices/:id      — 详情（含付款核销）
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:25: *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:26: *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:36:export class FinApController {
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:54:   * GET /api/v2/finance/ap/invoices/:id
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:57:  @Get('invoices/:id')
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:59:  findById(@Param('id') id: string) {
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:60:    return this.apSvc.findById(id);
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:78:   * PATCH /api/v2/finance/ap/invoices/:id
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:81:  @Patch('invoices/:id')
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:93:   * POST /api/v2/finance/ap/invoices/:id/cancel
-apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:96:  @Post('invoices/:id/cancel')
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:80:        'fin_payments',
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:186:        tables:    ['fin_transactions', 'fin_payments', 'biz_cash_flow'],
-apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:187:        pages:     ['/finance', '/finance/payments', '/finance/receivables',
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:29: *   GET    /ar/invoices/:id          — 详情（含收款核销）
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:31: *   PATCH  /ar/invoices/:id          — 更新（OPEN/PARTIALLY_RECEIVED）
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:32: *   POST   /ar/invoices/:id/cancel   — 取消（未收款）
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:65:  @Get('invoices/:id')
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:68:    return this.arInvoicesSvc.findById(id);
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:77:  @Patch('invoices/:id')
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:86:  @Post('invoices/:id/cancel')
-apps/api/src/modules/finance-v2/controllers/fin-ar.controller.ts:108:    return this.arReceiptsSvc.findById(id);
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:74:    return this.contribSvc.findById(id, this.scopedUser);
-apps/api/src/modules/finance-v2/controllers/fin-shareholder.controller.ts:149:    return this.settleSvc.findById(id, this.scopedUser);
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:83:    return this.accSvc.findById(id, this.scopedUser);
-apps/api/src/modules/finance-v2/controllers/fin-cash.controller.ts:239:    return this.tfrSvc.findById(id, this.scopedUser);
-
-codex
-后端 AP 控制器具备 `MenuGuard` 和 `DataScopeGuard`，但问题描述的验收标准仍是一个导航跳转目标，不是后端写路径。为了避免越界改前端，我会把后端 500 证据也核一下，判断是否能在不碰 schema/DB 的情况下给出 A3 结论。
-exec
-/bin/zsh -lc "sed -n '1,260p' apps/api/src/modules/finance-v2/services/ap-invoices.service.ts" in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path
- succeeded in 0ms:
-import {
-  Injectable, Logger, NotFoundException,
-  ForbiddenException, BadRequestException,
-} from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource }       from 'typeorm';
-import { ClsService }       from 'nestjs-cls';
-import { DataScopeContext } from '../../org/services/data-scope.service';
-import {
-  CreateApInvoiceDto,
-  UpdateApInvoiceDto,
-  QueryApInvoiceDto,
-  CancelApInvoiceDto,
-} from '../dto/ap-invoice.dto';
-
-/**
- * ApInvoicesService — Finance V2 Phase 1 AP Runtime
- *
- * 正式 AP Runtime，基于 fin_ap_invoices。
- * 不依赖 prc2_ap_ledger（import-from-prc2 除外）。
- *
- * DataScope：所有列表接口严格按当前用户 companyCodes 过滤。
- * assertOwnership：详情/写操作验证 company_code 在 DataScope 范围内。
- */
-@Injectable()
-export class ApInvoicesService {
-  private readonly logger = new Logger(ApInvoicesService.name);
-
-  constructor(
-    @InjectDataSource()
-    private readonly ds: DataSource,
-    private readonly cls: ClsService,
-  ) {}
-
-  // ── 内部工具 ──────────────────────────────
 ```
