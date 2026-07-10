@@ -475,6 +475,10 @@ function CreateReceiptModal({
       setErr(t('fin2.ar.err_valid_receipt_amount', '请填写有效收款金额'));
       return;
     }
+    if (!form.receivedAccountCode.trim()) {
+      setErr(t('fin2.ar.err_select_receipt_account', '请选择收款账户'));
+      return;
+    }
     setSaving(true);
     setErr('');
     try {
@@ -494,15 +498,17 @@ function CreateReceiptModal({
           remark: form.remark.trim() || undefined
         })
       });
-      // 如果有指定 AR，立即发起 confirm 核销
-      if (selectedAr && receipt?.id) {
+      // confirm 才会进入资金账户流水/余额更新路径；有指定 AR 时同时核销到发票。
+      if (receipt?.id) {
         await apiFetch(`/api/v2/finance/ar/receipts/${receipt.id}/confirm`, {
           method: 'POST',
-          body: JSON.stringify({
+          body: JSON.stringify(selectedAr ? {
             allocations: [{
               arInvoiceId: selectedAr.id,
               allocatedAmountOriginal: Number(form.amountOriginal)
             }]
+          } : {
+            allocations: []
           })
         });
       }
