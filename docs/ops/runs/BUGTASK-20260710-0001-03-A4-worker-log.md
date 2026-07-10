@@ -6,6 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -22,28 +23,30 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260710-0001-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 24832
+Assembled prompt chars: 45501
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T01-35-00-038Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T03-55-56-613Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS for A4 frontend scope.
 
-Fixed the `/home` “进入采购中心” CTA routing so users with `MENU_PRC2_DASHBOARD` go directly to `/procurement2/dashboard`, while users without that permission still fall back through the existing permission-aware procurement menu logic. RBAC remains intact.
+Current branch already contained the approved CTA fix: `进入采购中心` resolves to `/procurement2/dashboard` when `MENU_PRC2_DASHBOARD` is visible, and the sidebar maps that route to `采购管理 -> 采购看板`.
 
-Changed:
-- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/home/page.tsx:75)
-- [A4 report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:1)
+I added the redispatch verification report only:
 
-Validation:
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed, 0 errors
-- `git diff --check` passed
-- Final worktree clean
+[docs/ops/bug-20260710-0001-a4-redispatch-verification.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260710-0001-a4-redispatch-verification.md)
 
-Commits:
-- `4e82eb0a fix: repair procurement center cta route`
-- `20a3c2c0 docs: align procurement cta priority comment`
+Validation run:
 
-No push, deploy, migration, DB write, backend change, or forbidden-scope edit was performed. Condition: captured `/api/v2/finance/ap/invoices/8` 500 remains outside A4 scope and should stay with A3/A1 validation.
+- `pwd` / branch / status / recent log: PASS
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS, 0 errors
+- `git diff --check`: PASS
+- Final `git status --short`: clean
+
+Local commit created, no push/merge/deploy/db/migration performed:
+
+`64c25e88 docs(ops): record bug 20260710 0001 a4 redispatch verification`
+
+Condition remains that final authenticated UAT should click `/home` -> `进入采购中心` in the integrated environment and confirm `/procurement2/dashboard` with `采购管理 / 采购看板` active.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -60,7 +63,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f49a7-73a0-78c1-b0e1-0acc7200bc42
+session id: 019f4a29-ba04-70e3-84fd-09e072286e2b
 --------
 user
 # Base Agent Prompt
@@ -905,16 +908,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "localAttachments": [
         {
           "fileName": "01-1783646402002-5879c8e9.png",
-          "originalName": "pasted-screenshot-1783646400620-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png",
-          "sizeBytes": 644476
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -994,21 +992,222 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "createdAt": "2026-07-10T01:21:21.116Z",
   "createdBy": "admin",
   "moduleCode": "_____",
+  "agentResults": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710012648",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 212 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0001-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "f84d24bc42fb64f8f0a878fc454c1d446bf61c97",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:26:49.310Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0001-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710013517",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 213 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0001-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0001-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:18.501Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0001-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0001-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0001-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.081Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:14.020Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0001-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.532Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:26:32.267Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0001-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.967Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:00.043Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0001-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:20.554Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:15.694Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0001-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:21.064Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:11.364Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ],
   "suggestedOwner": "",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260710-0001-05-A1",
+    "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+    "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+    "recordedAt": "2026-07-10T01:35:21.064Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+    "changedFiles": [],
+    "validationResults": {
+      "completedAt": "2026-07-10T01:35:11.364Z",
+      "localTaskStatus": "completed",
+      "aggregateBackfill": true,
+      "baselineAutopilotExitCode": 0
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REQUEUE",
+      "note": "管理员要求按原 Agent 计划重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T03:03:52.886Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "AGENT_COMPLETED"
+    }
+  ],
   "acceptanceCriteria": "点击“进入采购中心”，跳转到采购管理-采购看板页面",
   "agentPlanGeneratedAt": "2026-07-10T01:21:22.274Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T01:21:23.420Z",
+    "approvedAt": "2026-07-10T03:03:52.886Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1016,13 +1215,173 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710012648",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 212 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0001-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "f84d24bc42fb64f8f0a878fc454c1d446bf61c97",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:26:49.310Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0001-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0001-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0001-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710013517",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 213 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0001-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0001-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:18.501Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0001-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0001-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0001-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.081Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:14.020Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0001-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.532Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:26:32.267Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0001-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:19.967Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:00.043Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0001-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:20.554Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:25:15.694Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0001-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0001-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "894eb032474fff6a7ba724a5dadb2d3a7bd9e9b4",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T01:35:21.064Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T01:35:11.364Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ]
 }
 ```
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-092501/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 
@@ -1039,559 +1398,214 @@ Assigned agent: A4-Frontend-UAT-Smoke
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-I’ll first run the required dry-run checks and inspect the route wiring before touching files. If the worktree has unexpected dirty state or the fix points outside `apps/web/**` and `docs/ops/**`, I’ll stop.
-exec
-/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
-
+我先做合同要求的 dry-run 入口检查，确认当前 worktree、分支、未提交状态和最近提交；如果发现脏文件或分支不符会停下来说明。
 exec
 /bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
 w5-a4-frontend-uat-smoke
 
 exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-7d7a4d42 (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
-9b60c09a docs(ops): record bug 20260710 0001 a3 report
-f5d35a5a docs(ops): record baseline lifecycle report
-ff064230 fix: restore sales pricing lifecycle actions
-3da4d2c5 docs(ops): record baseline lifecycle report
-5d72f4fa feat(api): record A3-Backend-Critical-Path result
-1663379c docs(ops): record baseline lifecycle report
-aeda4009 docs(ops): record baseline lifecycle report
+/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
 
 exec
 /bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-codex
-Pre-check passed: correct worktree, correct branch, clean status. I’m tracing the `/procurement2/dashboard` page and the “进入采购中心” action now to confirm whether this is a frontend route mapping bug.
 exec
-/bin/zsh -lc 'find docs/ops -maxdepth 2 -type f | sort | tail -40' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-docs/ops/runs/router-v1-case3-route-plan.json
-docs/ops/runs/router-v1-case3-route-plan.md
-docs/ops/runs/router-v1-case4-route-plan.json
-docs/ops/runs/router-v1-case4-route-plan.md
-docs/ops/runs/router-v1-case5-route-plan.json
-docs/ops/runs/router-v1-case5-route-plan.md
-docs/ops/runs/router-v1-case6-route-plan.json
-docs/ops/runs/router-v1-case6-route-plan.md
-docs/ops/runs/router-v1-revalidate-case1-route-plan.json
-docs/ops/runs/router-v1-revalidate-case1-route-plan.md
-docs/ops/runs/router-v1-revalidate-case2-route-plan.json
-docs/ops/runs/router-v1-revalidate-case2-route-plan.md
-docs/ops/runs/router-v1-revalidate-case3-route-plan.json
-docs/ops/runs/router-v1-revalidate-case3-route-plan.md
-docs/ops/runs/router-v1-revalidate-case4-route-plan.json
-docs/ops/runs/router-v1-revalidate-case4-route-plan.md
-docs/ops/runs/router-v1-revalidate-case5-route-plan.json
-docs/ops/runs/router-v1-revalidate-case5-route-plan.md
-docs/ops/runs/router-v1-revalidate-case6-route-plan.json
-docs/ops/runs/router-v1-revalidate-case6-route-plan.md
-docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt
-docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
-docs/ops/runs/store-payment-controlled-uat-smoke-static.json
-docs/ops/runs/store-payment-file-metadata-acl-static-check.json
-docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json
-docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json
-docs/ops/runs/store-payment-protected-streaming-static-check.json
-docs/ops/runs/store-payment-record-proof-db-evidence.json
-docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
-docs/ops/runs/store-payment-record-proof-page-smoke.json
-docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md
-docs/ops/runs/sys-dict-dedupe-latest.json
-docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
-docs/ops/runtime-memory/DECISION_LOG.md
-docs/ops/runtime-memory/GUARDRAILS.md
-docs/ops/runtime-memory/NEXT_ACTIONS.md
-docs/ops/runtime-memory/PROJECT_STATE.json
-docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
+06c563af (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+4c23db03 docs(ops): record baseline lifecycle report
+09135c9b docs(ops): record baseline lifecycle report
+20a3c2c0 docs: align procurement cta priority comment
+4e82eb0a fix: repair procurement center cta route
+7d7a4d42 docs(ops): record baseline lifecycle report
+9b60c09a docs(ops): record bug 20260710 0001 a3 report
+f5d35a5a docs(ops): record baseline lifecycle report
 
+codex
+入口检查通过：目录和分支都匹配，工作区干净。现在我会定位 `/procurement2/dashboard` 页面里的“进入采购中心”按钮实现，先确认当前代码是否已经包含前序修复，再决定是否需要改动。
 exec
-/bin/zsh -lc "find apps/web -path '*procurement2*' -maxdepth 8 -type f | sort" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'rg --files apps/web | rg "procurement|dashboard|purchase"' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-apps/web/src/app/(admin)/procurement2/_shared/actionButtons.ts
-apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
-apps/web/src/app/(admin)/procurement2/init/page.tsx
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx
-apps/web/src/app/(admin)/procurement2/orders/[id]/edit/page.tsx
-apps/web/src/app/(admin)/procurement2/orders/new/page.tsx
-apps/web/src/app/(admin)/procurement2/orders/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx
+apps/web/src/app/(admin)/shareholders/dashboard/page.tsx
+apps/web/src/app/(mobile)/mobile/dashboard/page.tsx
 apps/web/src/app/(admin)/procurement2/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/[id]/edit/page.tsx
 apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx
-apps/web/src/app/(admin)/procurement2/payments/[id]/edit/page.tsx
-apps/web/src/app/(admin)/procurement2/payments/new/page.tsx
 apps/web/src/app/(admin)/procurement2/payments/page.tsx
-apps/web/src/app/(admin)/procurement2/projects/page.tsx
-apps/web/src/app/(admin)/procurement2/receipts/page.tsx
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx
+apps/web/src/app/(admin)/procurement2/orders/new/page.tsx
+apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx
+apps/web/src/app/(admin)/procurement2/requests/page.tsx
+apps/web/src/app/(admin)/procurement2/_shared/actionButtons.ts
+apps/web/src/app/(admin)/procurement2/payments/[id]/edit/page.tsx
+apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
 apps/web/src/app/(admin)/procurement2/requests/[id]/edit/page.tsx
 apps/web/src/app/(admin)/procurement2/requests/new/page.tsx
-apps/web/src/app/(admin)/procurement2/requests/page.tsx
-apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx
+apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx
+apps/web/src/app/(admin)/dashboard/page.tsx
+apps/web/src/app/(admin)/dashboard/dashboard.module.css
+apps/web/src/app/(admin)/procurement2/payments/new/page.tsx
+apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css
+apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx
 apps/web/src/app/(admin)/procurement2/shipments/page.tsx
 apps/web/src/app/(admin)/procurement2/shipments/shipments.module.css
+apps/web/src/app/(admin)/procurement2/init/page.tsx
+apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx
 apps/web/src/app/(admin)/procurement2/suppliers/page.tsx
+apps/web/src/app/(admin)/procurement2/projects/page.tsx
+apps/web/src/app/(admin)/procurement2/receipts/page.tsx
 
 exec
-/bin/zsh -lc 'rg -n "进入采购中心|procurement2/dashboard|采购看板|采购中心" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'rg --files docs/ops | tail -80' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-apps/web/src/app/(admin)/layout.tsx:68:  "/procurement2/dashboard":       "menu.prc2-dashboard",
-apps/web/src/app/(admin)/procurement2/page.tsx:13:    router.replace('/procurement2/dashboard');
-apps/web/src/app/(admin)/procurement2/page.tsx:16:  return <div className={u.emptyCenter}>{t('prc2.entering_center', '正在进入采购中心…')}</div>;
-apps/web/src/app/(admin)/procurement2/dashboard/page.tsx:163:      <PageHeader title={t('prc2.dashboard_title', '采购看板')} />
-apps/web/src/app/login/page.tsx:224:  ROLE_PRC_BUYER: "/procurement2/dashboard",
-apps/web/src/app/login/page.tsx:225:  // 采购专员 → 采购看板（/procurement2 无根页，会 404）
-apps/web/src/app/(admin)/home/page.tsx:61:  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
-apps/web/src/app/(admin)/home/page.tsx:95:    if (procurementPath) return { label: t('home.enterProcurement', '进入采购中心'), href: procurementPath, icon: ShoppingBag };
-apps/web/src/app/(admin)/dashboard/page.tsx:72:    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
-apps/web/src/components/layout/Sidebar.tsx:137:    { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2_DASHBOARD" },
-apps/web/src/locales/zh.json:4095:  "menu.prc2-dashboard": "采购看板",
-apps/web/src/locales/zh.json:4581:  "home.enterProcurement": "进入采购中心",
-apps/web/src/locales/zh.json:4652:  "home.shortcut.procure": "采购中心",
-apps/web/src/locales/zh.json:6312:  "prc2.entering_center": "正在进入采购中心…",
-apps/web/src/locales/zh.json:6411:  "prc2.dashboard_title": "采购看板",
-
-codex
-The likely button is on the admin home or main dashboard, not inside the procurement dashboard itself. I found existing links to `/procurement2/dashboard`; now I’m checking the permission fallback logic because the reported acceptance expects the button to land on “采购管理-采购看板” specifically.
-exec
-/bin/zsh -lc "sed -n '1,180p' 'apps/web/src/app/(admin)/home/page.tsx'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-"use client";
-
-/**
- * HOME-1 — Phoenix ERP 企业运营工作台（创意版）
- *
- * 布局：
- *   · Hero 欢迎横幅（左 70% 文案 + 主 CTA，右 30% 数字气泡）
- *   · 不对称双栏（左 60% 事务流 + 经营概览，右 40% 数据质量驾驶舱）
- *   · 8 大业务中心 tile 阵列
- *   · 角色化 CTA / 顺序
- */
-
-import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
-import {
-  Activity, Inbox, Clock, AlertTriangle, ShieldAlert, TrendingUp,
-  Users, ShoppingCart, ShoppingBag, Wallet, Building2, Warehouse,
-  Layers, GitBranch, ArrowRight, Sparkles,
-  CircleDollarSign, Receipt, CreditCard, Package, CheckCircle2,
-  Zap, Bell, Target, ChevronRight,
-  ClipboardList as ClipboardListIcon,
-  Bird, EggFried, LineChart, Wheat as WheatIcon, Droplets,
-} from "lucide-react";
-import request from "@/lib/api-client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
-import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
-
-// ── 数据类型 ─────────────────────────────────────────
-interface WorkflowSummary { todo: number; ccUnread: number; overdueTodo: number; running: number; startedRunning: number; }
-interface QualityScores { overall: number; masterData: number; alertCount: number; highAlertCount: number; }
-interface CenterMember { type: string; total: number; active: number; pending: number; frozen: number; }
-interface CenterStat { key: string; label: string; objectCount: number; pendingCount: number; riskCount: number; healthScore: number; members: CenterMember[]; }
-interface TodoTask { task_no: string; title: string; node_name: string; created_at: string; due_at?: string; starter_name?: string; }
-interface FarmKpiState { totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number; waterToday?: number; alarmCount?: number; }
-
-function localDateString(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function asRows(payload: any): any[] {
-  const rows = payload?.data?.rows ?? payload?.data ?? payload?.rows ?? payload;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function asNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-// ── 8 大业务中心 ─────────────────────────────────────
-// G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
-type Shortcut = { key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string; altPerms?: string[]; groupId?: string };
-const SHORTCUTS: Shortcut[] = [
-  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MD_CUSTOMER' },
-  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MD_SUPPLIER' },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2/dashboard', icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'], groupId: 'procurement' },
-  { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2_DASHBOARD', altPerms: ['MENU_SALES2_ORDER', 'MENU_SALES2_CUSTOMER', 'MENU_SALES2_PRICE', 'MENU_SALES2_DELIVERY', 'MENU_SALES2_RETURN', 'MENU_SALES2_CHANNEL', 'MENU_SALES2_REPORT'], groupId: 'sales' },
-  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'], groupId: 'finance' },
-  { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW', groupId: 'inventory' },
-  { key: 'workflow',  label: '审批工作台',   href: '/workflow/todos',          icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW_TODO', altPerms: ['MENU_WORKFLOW_HISTORY', 'MENU_WORKFLOW_NOTIFY'], groupId: 'approval' },
-  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_MD_QUALITY' },
-];
-
-// ── 角色对应主 CTA + 默认入口 ────────────────────────
-// 优先：每日工作台（高频用户专用）→ 待办 → 角色专属页面
-function hasAnyPerm(hasPermission: PermissionChecker, menuCodes: string[]) {
-  return menuCodes.some(code => hasPermission(code));
-}
-
-function ctaFor(role: string | undefined, todo: number, hasPermission: PermissionChecker, t: (k: string, f?: string) => string): { label: string; href: string; icon: any } {
-  // 高频作业角色：直接送到每日工作台（一站式录入入口）
-  if (hasPermission('MENU_DASHBOARD') && role && (
-    role.includes('PRODUCTION_DATA_SUPERVISOR') ||
-    role.includes('FARM') ||
-    role.includes('PKG') ||
-    role.includes('FARMER') ||
-    role.includes('CASHIER') ||
-    role.includes('STORE_MGR')
-  )) {
-    return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
-  }
-  if (todo > 0 && hasPermission('MENU_WORKFLOW_TODO')) return { label: `${t('home.handleNow', '立即处理')} ${todo} ${t('home.todosUnit', '个待办')}`, href: '/workflow/todos', icon: Inbox };
-  if ((role?.includes('CASH') || role?.includes('TREASURY')) && hasPermission('MENU_FIN2_CASH_VIEW')) return { label: t('home.enterCashCenter', '进入资金账户中心'), href: '/finance2/cash-accounts', icon: Wallet };
-  if (role?.includes('FIN')) {
-    const financePath = getFirstAccessiblePath(hasPermission, 'finance');
-    if (financePath) return { label: t('home.enterFinance', '进入财务中心'), href: financePath, icon: Wallet };
-  }
-  if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
-    const procurementPath = getFirstAccessiblePath(hasPermission, 'procurement');
-    if (procurementPath) return { label: t('home.enterProcurement', '进入采购中心'), href: procurementPath, icon: ShoppingBag };
-  }
-  if (role?.includes('SALES')) {
-    const salesPath = getFirstAccessiblePath(hasPermission, 'sales');
-    if (salesPath) return { label: t('home.enterSales', '进入销售中心'), href: salesPath, icon: ShoppingCart };
-  }
-  if (role?.includes('WMS')) {
-    const inventoryPath = getFirstAccessiblePath(hasPermission, 'inventory');
-    if (inventoryPath) return { label: t('home.enterInventory', '进入库存中心'), href: inventoryPath, icon: Warehouse };
-  }
-  const masterPath = getFirstAccessiblePath(hasPermission, 'master-data');
-  if (masterPath) return { label: t('home.enterMasterData', '进入主数据中心'), href: masterPath, icon: Sparkles };
-  if (hasPermission('MENU_MD_QUALITY')) return { label: t('home.enterDataQuality', '进入数据质量驾驶舱'), href: '/data-quality', icon: ShieldAlert };
-  if (hasPermission('MENU_DASHBOARD')) return { label: t('home.enterDailyWork', '进入每日工作台'), href: '/daily-work', icon: ClipboardListIcon };
-  const firstPath = getFirstAccessiblePath(hasPermission);
-  return { label: firstPath ? t('home.enterWorkspace', '进入我的工作区') : t('home.viewMyTodos', '查看我的待办'), href: firstPath || '/workflow/todos', icon: Inbox };
-}
-
-// G18-4 IA：home 不再 redirect 到 daily-work。
-//   home = 企业运营 KPI 看板（数字驱动）；daily-work = 录入入口（任务驱动）。
-//   两者业务边界划清，所有用户进 home 都看 KPI（按权限过滤数据源），
-//   有快速入口的 CTA 引导到 daily-work。
-
-// ── 主组件 ───────────────────────────────────────────
-export default function HomePage() {
-  const { user, hasPermission } = useAuth();
-  const { t } = useLanguage();
-  const masterDataPath = getFirstAccessiblePath(hasPermission, 'master-data');
-  // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
-  const hasQualityPerm = hasPermission('MENU_MD_QUALITY');
-  const hasCentersPerm = hasPermission('MENU_MD_CENTER');
-  const hasFarmDataPerm = hasPermission('MENU_FARM_DATA');
-  const hasDeviceMonitorPerm = hasPermission('MENU_DEVICE_MONITOR');
-  // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
-  //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
-  //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
-  const [summary, setSummary] = useState<WorkflowSummary | null>(null);
-  const [scores, setScores] = useState<QualityScores | null>(null);
-  const [centers, setCenters] = useState<CenterStat[]>([]);
-  const [todoList, setTodoList] = useState<TodoTask[]>([]);
-  // G19-E：养殖运营 KPI（拼合现有 farm/iot endpoint，不新建后端）
-  const [farmKpi, setFarmKpi] = useState<FarmKpiState | null>(null);
-
-  useEffect(() => {
-    // G11：按权限懒加载 — 无权用户不发对应请求
-    // 可选总览 widget：silent=true → 任何权限/数据问题静默降级，不弹全局 toast
-    const requests: Promise<any>[] = [
-      request<{ data: WorkflowSummary }>('/workflow/tasks/summary', { silent: true }).then(r => r.data).catch(() => null),
-      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6', { silent: true }).then(r => r.data || []).catch(() => [] as TodoTask[]),
-    ];
-    requests.push(hasQualityPerm
-      ? request<QualityScores>('/data-quality/scores', { silent: true }).catch(() => null)
-      : Promise.resolve(null));
-    requests.push(hasCentersPerm
-      ? request<CenterStat[]>('/master-data/operations/centers', { silent: true }).catch(() => [])
-      : Promise.resolve([]));
-
-    Promise.all(requests).then(([s, t, q, c]) => {
-      setSummary(s);
-      setTodoList(Array.isArray(t) ? t.slice(0, 6) : []);
-      setScores(q);
-      setCenters(c || []);
-    });
-
-    // G19-E：拼养殖 KPI（养殖数据与设备监控分域授权；无设备权限不请求 IoT 端点）
-    if (hasFarmDataPerm) {
-      const today = localDateString();
-      Promise.all([
-        request<any>(`/v3/farm/daily-hen-report?date=${today}`).catch(() => null),
-        hasDeviceMonitorPerm
-          ? request<any>(`/v3/iot/devices/all-summary`, { silent: true }).catch(() => null)
-          : Promise.resolve(null),
-        request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
-      ]).then(([hen, iot, dailyLogs]) => {
-        const rows = asRows(hen);
-        const dailyRows = asRows(dailyLogs);
-        const totalStock = rows.reduce((s: number, r: any) => s + (asNumber(r.current_qty) || asNumber(r.total_qty)), 0);
-        const eggsToday  = rows.reduce((s: number, r: any) => s + (asNumber(r.eggs) || asNumber(r.eggs_produced)), 0);
-        const layRate    = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
-        const summary    = iot?.data?.summary;
-        const houses     = iot?.data?.houses || [];
-        const henFeedKg  = hen?.data?.totals?.feed ?? hen?.totals?.feed;
-        const logFeedKg  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.feed_consumed), 0);
-        const logWaterL  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.water_consumed), 0);
-        const iotFeedKg  = Array.isArray(houses) ? houses.reduce((s: number, h: any) => s + asNumber(h.feedToday), 0) : 0;
-        // IoT overview uses the same field rendered as T on the device page; /home displays water in L.
+docs/ops/runs/production-readiness-p1-005-store-payment-remote-smoke-refresh-20260625-090139/remote_db_counts.txt
+docs/ops/runs/production-readiness-p1-005-store-payment-remote-smoke-refresh-20260625-090139/public_http_smoke.txt
+docs/ops/runs/production-readiness-p1-005-store-payment-remote-smoke-refresh-20260625-090139/remote_db_counts.exit
+docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-orchestration-plan.json
+docs/ops/runs/2026-06-22T17-02-29-890Z-A5-Data-Readiness-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-193726-MIGRATION-STORE-PAYMENT-RECORDS-approved-execution-summary.md
+docs/ops/runs/2026-06-22T16-34-22-341Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-requirement-spec.md
+docs/ops/runs/evolution-plan-latest.json
+docs/ops/runs/REQ-NL-20260624-150543-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/2026-07-06T02-37-40-048Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/acceptance/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-acceptance-drill.md
+docs/ops/runs/r1-schema-drift-reconciliation/manifest.json
+docs/ops/runs/r1-schema-drift-reconciliation/summary.md
+docs/ops/runs/2026-07-09T01-16-22-795Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/runs/2026-06-23T00-37-57-045Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/rollback_recommendation.txt
+docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-approved-execution-summary.md
+docs/ops/runs/2026-06-23T03-44-14-619Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-execution-summary.md
+docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/manifest.json
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/metadata_claim_execution_input_rows.json
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/metadata_claim_post_insert_verification.txt
+docs/ops/runs/2026-07-08T02-52-43-822Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-orchestration-plan.json
+docs/ops/runs/2026-07-07T11-32-12-513Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/metadata_claim_unresolved_hold_summary.txt
+docs/ops/runs/historical-uploads-metadata-claim-execution-20260624-120740/precheck_summary.txt
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/production-readiness-p1-003-manual-scope-review-package-20260624-172832/context.txt
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/production-readiness-p1-003-manual-scope-review-package-20260624-172832/manual_scope_candidate_sql_template.sql
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-execution-summary.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md
+docs/ops/runs/production-readiness-p1-003-manual-scope-review-package-20260624-172832/user_org_store_scope_inventory_source.txt
+docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/production-readiness-p1-003-manual-scope-review-package-20260624-172832/manual_scope_decision_matrix.csv
+docs/ops/runs/production-readiness-p1-003-manual-scope-review-package-20260624-172832/user_role_inventory_source.txt
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/repair_risk_summary.txt
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/rollback_role_permission_candidate.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/role_permission_repair_dry_run.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/repair_dry_run_summary.json
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/action_bit_mapping_dry_run.md
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/rollback_user_scope_candidate.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/manifest.json
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/user_scope_repair_dry_run.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/menu_repair_dry_run.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/rollback_menu_repair_candidate.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/file_list.txt
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/rollback_datascope_candidate.sql
+docs/ops/runs/remediation-r3-menu-role-datascope-repair-dry-run-20260624-130947/datascope_repair_dry_run.sql
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/deploy-chain-hardening-dry-run-20260624-1530/remote_deploy_chain_readonly.txt
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md
+docs/ops/runs/deploy-chain-hardening-dry-run-20260624-1530/manifest.json
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/deploy-chain-hardening-dry-run-20260624-1530/remote_repo_status_short.txt
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/deploy-chain-hardening-dry-run-20260624-1530/remote_deploy_chain_readonly.exit
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/deploy-chain-hardening-dry-run-20260624-1530/remote_repo_status_short.exit
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-execution-summary.md
 
 exec
-/bin/zsh -lc "sed -n '1,130p' 'apps/web/src/app/(admin)/dashboard/page.tsx'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'rg -n "进入采购中心|procurement2/dashboard|采购中心|purchase center|Procurement" apps/web docs/ops' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-'use client';
-import { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import {
-  Egg, Package, Archive, ShoppingCart, TrendingUp,
-  CheckCircle, BarChart2, Users, Truck, Wheat
-} from 'lucide-react';
-import PageHeader from '@/components/PageHeader';
-import DashboardKPIs from './_components/DashboardKPIs';
-import styles from './dashboard.module.css';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { getFirstAccessiblePath } from '@/components/layout/Sidebar';
+docs/ops/AI_DELIVERY_FACTORY_SETUP_REVIEW.md:160:| Procurement/sales/finance/POS core business | No |
+docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md:1:# Procurement P0 Flow Remediation - 2026-06-26
+docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md:72:2. Procurement request/order field density and visual polish.
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:1:# Procurement DataScope Write Remediation - 2026-06-26
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:21:### Procurement Request
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:35:### Procurement Order
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:51:### Procurement Receipt
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:64:### Procurement Payment
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:79:### Procurement Shipment
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:93:### Procurement Master Data
+docs/ops/PROCUREMENT_DATASCOPE_WRITE_REMEDIATION_20260626.md:116:- Procurement DataScope write gate: PASS
+docs/ops/A3_STORE_PAYMENT_APP_MODULE_WIRING_REPORT.md:47:- Procurement, sales, finance, POS, Chanjet, and unrelated business modules changed: no.
+docs/ops/PROCUREMENT_RBAC_ATOMIC_REQUIREMENU_REMEDIATION_20260625.md:1:# Procurement RBAC Atomic RequireMenu Remediation
+docs/ops/PROCUREMENT_MATERIAL_QUICK_CREATE_REMEDIATION_20260626.md:1:# Procurement Material Quick Create Remediation - 2026-06-26
+docs/ops/PROCUREMENT_PAYMENT_PROJECT_SELECTOR_FIX_20260626.md:1:# Procurement Payment Project Selector Fix - 2026-06-26
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:9:> 点击“进入采购中心”，跳转到采购管理-采购看板页面
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:13:- `apps/web/src/app/(admin)/home/page.tsx` defines the `进入采购中心` shortcut behavior and procurement shortcut `href`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:14:- `apps/web/src/app/(admin)/procurement2/page.tsx` redirects `/procurement2` to `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:15:- `apps/web/src/components/layout/Sidebar.tsx` defines the procurement sidebar leaf `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:51:- `rg -n "进入采购中心|采购中心|procurement2/dashboard|finance/ap/invoices|ap/invoices" apps docs scripts --glob '!node_modules'` -> located frontend navigation ownership and AP endpoint references
+docs/ops/bug-20260710-0001-a3-backend-critical-path.md:65:Route to A4 Frontend UAT Smoke for the approved repair: verify that clicking `进入采购中心` lands on `/procurement2/dashboard` and highlights `采购管理 -> 采购看板`.
+docs/ops/PROCUREMENT_CONTRACT_OCR_AUTOFILL_PLAN.md:1:# Procurement Contract OCR Autofill Plan
+docs/ops/PROCUREMENT_PAYMENT_PROJECT_LOOKUP_FALLBACK_20260626.md:1:# Procurement Payment Project Lookup Fallback - 2026-06-26
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:8:- Route: `/procurement2/dashboard`
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:9:- Issue: 运营工作台页面按钮“进入采购中心”跳转错误
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:10:- Acceptance: 点击“进入采购中心”，跳转到采购管理-采购看板页面
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:24:- Target route verified statically: `/procurement2/dashboard`
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:28:- Fixed the primary hero CTA routing decision for “进入采购中心”.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:29:- Users with `MENU_PRC2_DASHBOARD` now resolve the procurement entry directly to `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:30:- Procurement users without dashboard permission still fall back to their first visible procurement child route through `getFirstAccessiblePath`, preserving existing access behavior.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:35:- RBAC is preserved. The new route helper checks `hasPermission('MENU_PRC2_DASHBOARD')` before using `/procurement2/dashboard`.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:49:  - Inspected the submitted screenshot evidence; the highlighted “进入采购中心” button was on `/home` and the observed wrong landing page was 审批中心/待办.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:51:  - The “进入采购中心” CTA path now resolves to `/procurement2/dashboard` when dashboard permission exists.
+docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:73:- Recommendation: Run integrated UAT with an authenticated admin/procurement user and click `/home` → “进入采购中心”; expected landing route is `/procurement2/dashboard` with 采购管理 / 采购看板 active.
+docs/ops/POST_DEPLOY_5USER_SMOKE_CHECKLIST_20260627.md:14:2. 采购中心卡片/按钮:进「付款管理」→ 按 D2,确认按�
+```
 
-type QuickLink = {
-  path: string;
-  groupId?: string;
-  label: string;
-  desc: string;
-  color: string;
-  icon: ReactNode;
-  perm: string;
-  altPerms?: string[];
-};
+## Evidence Gate
 
-export default function DashboardPage() {
-  const { t } = useLanguage();
-  const { hasPermission, loading } = useAuth();
-  const router = useRouter();
-  const [initialData, setInitialData] = useState<Record<string, unknown>>({});
-
-  // 页面级守卫：按菜单权限决定入口，不再按角色名推断。
-  //   - MENU_DASHBOARD:V → 集团运营驾驶舱
-  //   - 财务驾驶舱权限但无 MENU_DASHBOARD → /finance2
-  //   - 其它 → /home
-  const [allowed, setAllowed] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (loading) return;
-    try {
-      if (hasPermission('MENU_DASHBOARD', 'V')) { setAllowed(true); return; }
-      const financePath = getFirstAccessiblePath(hasPermission, 'finance');
-      if (financePath) {
-        router.replace(financePath);
-        return;
-      }
-      router.replace('/home');
-    } catch { router.replace('/home'); }
-  }, [hasPermission, loading, router]);
-
-  useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_BASE || '';
-    const tok = typeof window !== 'undefined'
-      ? (sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '') : '';
-    fetch(`${base}/api/dashboard/kpi`, tok ? { headers: { Authorization: `Bearer ${tok}` } } : {})
-      .then(r => r.ok ? r.json() : null)
-      .then(json => {
-        if (json?.code === 200) setInitialData(json.data);
-      })
-      .catch(() => {});
-  }, []);
-
-  const QUICK_LINKS: QuickLink[] = [
-    { path: '/breeding', groupId: 'production', label: t('ui.养殖管理','养殖管理'), desc: t('ui.鸡舍 / 鸡群 / 日报','鸡舍 / 鸡群 / 日报'),   color: 'var(--status-success)', icon: <Egg size={22} />, perm: 'MENU_FARM_DATA' },
-    { path: '/packaging', groupId: 'production', label: t('ui.分级包装','分级包装'), desc: t('ui.集蛋 / 分级 / 包装','集蛋 / 分级 / 包装'),   color: 'var(--status-info)', icon: <Package size={22} />, perm: 'MENU_PKG_OP', altPerms: ['MENU_PKG_MGR'] },
-    { path: '/warehouse', groupId: 'inventory', label: t('ui.仓储库存','仓储库存'), desc: t('ui.入库 / 出库 / 盘点','入库 / 出库 / 盘点'),   color: 'var(--color-purple-500)', icon: <Archive size={22} />, perm: 'MENU_WMS_VIEW' },
-    { path: '/sales2/orders', groupId: 'sales', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: 'var(--status-warning)', icon: <ShoppingCart size={22} />, perm: 'MENU_SALES2_ORDER' },
-    { path: '/sales2/delivery', groupId: 'sales', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: 'var(--status-info)', icon: <Truck size={22} />, perm: 'MENU_SALES2_DELIVERY' },
-    { path: '/finance2', groupId: 'finance', label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: 'var(--status-warning)', icon: <TrendingUp size={22} />, perm: 'MENU_FIN2_REPORT', altPerms: ['MENU_FIN2_AR', 'MENU_FIN2_AR_LEDGER', 'MENU_FIN2_AP', 'MENU_FIN2_CASH_VIEW', 'MENU_FIN2_CASH_TRANSFER', 'MENU_FIN2_SHAREHOLDER', 'MENU_FIN2_EXPENSE', 'MENU_FIN2_REIMBURSE'] },
-    { path: '/quality', groupId: 'production', label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: 'var(--color-purple-500)', icon: <CheckCircle size={22} />, perm: 'MENU_QA_OP', altPerms: ['MENU_QA_MGR'] },
-    { path: '/procurement2/dashboard', groupId: 'procurement', label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'), color: 'var(--status-success)', icon: <Wheat size={22} />, perm: 'MENU_PRC2_DASHBOARD', altPerms: ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'] },
-    { path: '/analytics', groupId: 'analytics', label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: 'var(--violet-500)', icon: <BarChart2 size={22} />, perm: 'MENU_DASHBOARD' },
-    { path: '/settings', groupId: 'settings', label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: 'var(--slate-400)', icon: <Users size={22} />, perm: 'MENU_SETTINGS_USER' },
-  ];
-  const visibleQuickLinks = QUICK_LINKS
-    .map(q => ({ ...q, path: q.groupId ? (getFirstAccessiblePath(hasPermission, q.groupId) || '') : q.path }))
-    .filter(q => q.path && (hasPermission(q.perm, 'V') || (q.altPerms || []).some(p => hasPermission(p, 'V'))));
-
-  // 守卫未通过（无权或正在重定向）→ 不渲染任何内容，避免 CEO 画面闪现
-  if (allowed !== true) return null;
-
-  return (
-    <div>
-      <PageHeader
-        title={t('ui.系统仪表盘','系统仪表盘')}
-        subtitle={t('ui.Phoenix ERP 核心运营指标概览','Phoenix ERP 核心运营指标概览')}
-      />
-
-      {/* KPI 区域 + 图表 + 告警（Client Component，接受 SSR 初始数据） */}
-      <DashboardKPIs initialData={initialData} />
-
-      {/* 快速导航 */}
-      <div style={{ marginTop: 32 }}>
-        <p className={styles.sectionLabel}>{t('ui.快速导航','快速导航')}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-          {/* g200l(2026-06-20):去 emoji-color 风格,改白底 + 顶部 tone 色条 + 克制图标 */}
-          {visibleQuickLinks.map(q => (
-            <Link key={q.path} href={q.path} className={styles.quickLink} style={{ borderTop: `3px solid ${q.color}` }}>
-              <div style={{ color: q.color, flexShrink: 0 }}>
-                {q.icon}
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>{q.label}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{q.desc}</div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+```json
+{
+  "version": 1,
+  "agent": "A4-Frontend-UAT-Smoke",
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 972,
+  "beforeHead": "06c563af53cbc2c6debd07d1775413b27e174ac2",
+  "afterHead": "64c25e8848b4e84e8aee4ecc782acb0f7715abd1",
+  "commitHash": "64c25e8848b4e84e8aee4ecc782acb0f7715abd1",
+  "changedFiles": [
+    "docs/ops/bug-20260710-0001-a4-redispatch-verification.md"
+  ],
+  "businessChangedFiles": [],
+  "reportFiles": [
+    "docs/ops/bug-20260710-0001-a4-redispatch-verification.md"
+  ],
+  "checkedAt": "2026-07-10T03:55:56.668Z",
+  "passed": false,
+  "role": "implementation",
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change"
 }
-
-exec
-/bin/zsh -lc "sed -n '1,230p' 'apps/web/src/components/layout/Sidebar.tsx'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-"use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  LayoutDashboard, Egg, Package, Archive, Truck, Store, ShieldCheck,
-  ClipboardList, Users, ShoppingCart, BarChart2, Settings,
-  Home, Building2, Feather, Syringe, Pill, TrendingUp,
-  AlertTriangle, Tag, Layers, PackagePlus, PackageMinus,
-  ListChecks, Search, FileText, FilePlus, CreditCard,
-  Shield, Activity, BookOpen, Star, Receipt, MapPin,
-  Megaphone, Database, ChevronDown, ChevronRight, type LucideIcon,
-  Warehouse, MapPinned, Car, UserCheck, FileWarning,
-  ClipboardCheck, PackageCheck, BarChart, PieChart,
-  Wheat, ScrollText, FlaskConical, ArrowLeftRight, DollarSign,
-  History, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
-  BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
-  FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
-  Rocket, Server, ShieldAlert, Settings2, Landmark, Scale,
-} from "lucide-react";
-import styles from "./sidebar.module.css";
-import { useBrand } from "@/contexts/BrandContext";
-import { useLanguage } from "@/contexts/LanguageContext";
-
-// ── SubMenuAccordion ─────────────────────────────────────────────
-function Accordion({ open, children }: { open: boolean; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [maxH, setMaxH] = useState(open ? "none" : "0px");
-  const [visible, setVisible] = useState(open);
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    if (open) {
-      setVisible(true);
-      setMaxH(`${el.scrollHeight}px`);
-      const t = setTimeout(() => setMaxH("none"), 260);
-      return () => clearTimeout(t);
-    } else {
-      setMaxH(`${el.scrollHeight}px`);
-      requestAnimationFrame(() => requestAnimationFrame(() => setMaxH("0px")));
-      const t = setTimeout(() => setVisible(false), 260);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-  return (
-    <div ref={ref} style={{ maxHeight: maxH, overflow: "hidden", transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1)", background: "var(--overlay-black-15)" }}>
-      {visible && children}
-    </div>
-  );
-}
-
-// ── Menu Tree (Lucide icons) ─────────────────────────────────────
-export type MenuItem = {
-  id: string; path?: string; Icon: LucideIcon; label: string;
-  aliases?: string[];
-  perm: string | null;
-  requiredPerm?: string;
-  // 受控超级码兜底。高风险目录需优先拆到原子菜单，避免父权限透出无权限子菜单。
-  superPerm?: string;
-  // 过渡期兼容码：优先使用原子菜单码；老角色仍可通过旧粗粒度码看见同一入口。
-  altPerms?: string[];
-  children?: MenuItem[];
-};
-
-// ── V3 最终菜单架构 — Navigation Final 2026-05-30 ─────────────────
-// 12 个一级菜单，全部业务中文命名，无技术术语
-export const MENU: MenuItem[] = [
-
-  // 0. HOME-1 企业运营工作台（统一首页，登录直达）
-  { id: "home", path: "/home", Icon: LayoutDashboard, label: "运营工作台", perm: "MENU_DASHBOARD" },
-  // 0.1 每日工作台 — 一站式高频录入入口（生产/销售/办公人员均可见）
-  { id: "daily-work", path: "/daily-work", Icon: ClipboardList, label: "每日工作台", perm: "MENU_DASHBOARD" },
-
-  // 1. 经营仪表盘 = 集团总部经营驾驶舱
-  // P1-2 修:页面(dashboard/page.tsx)与后端(bff.controller api/dashboard)实际都按 MENU_DASHBOARD:V 放行,
-  //   原侧边栏 gate 误用 MENU_FIN_AUDIT(仅 5 角色)→ 31 个能进此页的角色看不到入口(断链)。
-  //   对齐到 MENU_DASHBOARD 与实际强制一致(不改后端=不改可达性,仅修入口可见)。
-  //   注:若业务要"仅高管可见",应改后端+页面 gate 收紧为 MENU_FIN_AUDIT,而非反向放宽侧边栏。
-  { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "经营仪表盘", perm: "MENU_DASHBOARD" },
-
-  // 2. 生产管理 — 养殖生产 + 分级包装 + 品质追溯 统一入口
-  { id: "production", Icon: Egg, label: "生产管理", perm: "MENU_FARM_DATA", children: [
-    // 养殖生产
-    { id: "brd-overview",   path: "/breeding",                Icon: Home,           label: "养殖总览",     perm: "MENU_FARM_DATA" },
-    { id: "brd-house",      path: "/breeding/henhouse",       Icon: Building2,      label: "鸡舍管理",     perm: "MENU_FARM_MASTER" },  // G56-C 鸡舍主档=FARM_MASTER(对齐后端 brd_houses)
-    { id: "brd-flock",      path: "/breeding/flock",          Icon: Feather,        label: "鸡群档案",     perm: "MENU_FARM_DATA" },
-    { id: "brd-daily",      path: "/breeding/daily",          Icon: ClipboardList,  label: "日生产日报",   perm: "MENU_FARM_DAILY" },   // G56-C 日报写入=FARM_DAILY(对齐 POST /api/v3/farm/daily-logs)
-    { id: "brd-immune",     path: "/breeding/immune",         Icon: Syringe,        label: "免疫计划",     perm: "MENU_FARM_VET"  },
-    { id: "brd-medicine",   path: "/breeding/medicine",       Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET"  },
-    { id: "brd-device",     path: "/breeding/device",         Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },
-    { id: "brd-alerts",     path: "/breeding/device-alerts",  Icon: AlertTriangle,  label: "环境预警",     perm: "MENU_DEVICE_MONITOR" },
-    { id: "brd-device-ops", path: "/breeding/device-ops",    Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
-    // G15：集蛋记录已废弃 — 蛋品统计合并到「日生产日报」（含 9 档 JSONB）
-    // 日产蛋入库（库存来源模式 P1A：临时生产入库模式下直接形成销售库存）
-    { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
-    // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
-    { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
-    { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "包装批次",     perm: "MENU_PKG_MGR" },
-    { id: "pkg-report",     path: "/packaging/daily-report",  Icon: BarChart2,      label: "包装日报",     perm: "MENU_PKG_MGR" },
-    { id: "pkg-except",     path: "/packaging/exceptions",    Icon: FileWarning,    label: "异常处理",     perm: "MENU_PKG_MGR" },
-    { id: "pkg-printlogs",  path: "/packaging/print-logs",    Icon: ScrollText,     label: "补打日志",     perm: "MENU_PKG_MGR" },
-    // 品质追溯
-    { id: "ql-ov",          path: "/quality",                 Icon: ShieldCheck,    label: "质检总览",     perm: "MENU_QA_OP"   },
-    { id: "ql-farm",        path: "/quality/farm",            Icon: Feather,        label: "场端质检",     perm: "MENU_QA_OP"   },
-    { id: "ql-prod",        path: "/quality/product",         Icon: ShieldCheck,    label: "成品质检",     perm: "MENU_QA_OP"   },
-    { id: "ql-nc",          path: "/quality/nonconformance",  Icon: AlertTriangle,  label: "不合格品处置", perm: "MENU_QA_MGR"  },
-    { id: "ql-fwd",         path: "/quality/forward",         Icon: Search,         label: "正向追溯",     perm: "MENU_QA_MGR"  },
-    { id: "ql-bwd",         path: "/quality/backward",        Icon: ArrowLeftRight, label: "反向追溯",     perm: "MENU_QA_MGR"  },
-    { id: "ql-std",         path: "/quality/standards",       Icon: FlaskConical,   label: "质量标准",     perm: "MENU_QA_MASTER" },
-  ]},
-
-  // 3. 库存管理 — 仓储库存 + 批次库存 + 临期库存 + 损耗管理
-  { id: "inventory", Icon: Warehouse, label: "库存管理", perm: "MENU_WMS_VIEW", children: [
-    { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
-    { id: "inv-batch",   path: "/sales2/inventory",       Icon: Layers,          label: "成品批次",   perm: "MENU_INV_BATCH" },
-    { id: "inv-srcmode", path: "/warehouse/source-mode",  Icon: Settings,        label: "库存来源模式", perm: "MENU_INV_SOURCE_MODE" },
-    { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "入库管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-stock",    path: "/warehouse/stocktake",    Icon: ListChecks,      label: "盘点管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-ledger",   path: "/warehouse/ledger",       Icon: ScrollText,      label: "出入库流水", perm: "MENU_WMS_VIEW"  },
-    { id: "wh-query",    path: "/warehouse/query",        Icon: Search,          label: "库存查询",   perm: "MENU_WMS_VIEW"  },
-    { id: "wh-expiry",   path: "/warehouse/expiry",       Icon: AlertTriangle,   label: "临期库存",   perm: "MENU_WMS_VIEW"  },
-    { id: "wh-daily",    path: "/warehouse/daily-close",  Icon: ClipboardCheck,  label: "日结对账",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-loss",     path: "/warehouse/loss-report",  Icon: TrendingDown,    label: "损耗管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-house",    path: "/warehouse/warehouses",   Icon: Warehouse,       label: "仓库主档",   perm: "MENU_WMS_MASTER" },
-    { id: "wh-zones",    path: "/warehouse/zones",        Icon: MapPinned,       label: "库区管理",   perm: "MENU_WMS_MASTER" },
-    { id: "wh-loc",      path: "/warehouse/locations",    Icon: MapPin,          label: "库位管理",   perm: "MENU_WMS_MASTER" },
-  ]},
-
-  // R5: �
 ```
