@@ -1,16 +1,16 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260705-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260705-0003/agent-result",
+  "bugNo": "BUG-20260706-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260705-0003-A4",
+    "taskId": "BUGTASK-20260706-0002-A4",
     "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-A4-detached-worker-recovery.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260705-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 1 |\n| Child waited seconds | 152 |\n| Worktree status before recovery | M apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx\n M apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css\n?? apps/web/src/lib/dashboard-kpi-format.test.ts\n?? apps/web/src/lib/dashboard-kpi-format.ts\n?? docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29422\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T06-14-01-472Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend-owned change for BUG-20260706-0002, but the task status is **HOLD** because required local web typecheck, Vitest, and desktop/mobile browser smoke are blocked by missing `node_modules` and unavailable offline pnpm tarballs.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:27): `/home` now delegates farm KPI aggregation to a helper; RBAC/request gates are unchanged.\n- [home-farm-kpi.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.ts:1): added robust frontend normalization for feed/water sources.\n- [home-farm-kpi.test.ts](/Users/mac/phoenix-erp-worktrees/bug",
     "nextAction": ""
   }
 }
