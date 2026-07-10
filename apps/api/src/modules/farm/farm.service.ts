@@ -120,6 +120,8 @@ const ALLOWED_DAILY_COLS = new Set([
   'site_code', 'company_code', 'project_code',  // MDM-1 主数据回填
 ]);
 
+const MISSING_HOUSE_MESSAGE = '请先选择鸡舍后再提交';
+
 @Injectable()
 export class FarmService {
   constructor(
@@ -141,6 +143,15 @@ export class FarmService {
   }
 
   async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
+    if (!body || typeof body !== 'object') {
+      throw new BadRequestException(MISSING_HOUSE_MESSAGE);
+    }
+    const houseCode = typeof body.house_code === 'string' ? body.house_code.trim() : body.house_code;
+    if (typeof houseCode !== 'string' || houseCode === '' || houseCode.startsWith('加载中')) {
+      throw new BadRequestException(MISSING_HOUSE_MESSAGE);
+    }
+    body.house_code = houseCode;
+
     // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
     // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
