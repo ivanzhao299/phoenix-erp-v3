@@ -1342,9 +1342,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
     "route_confidence": null,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-09T07:04:45.208Z",
+  "createdAt": "2026-07-10T00:47:20.379Z",
   "createdBy": "admin",
-  "moduleCode": "____-____",
+  "moduleCode": "____",
   "suggestedOwner": "_____",
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -1352,12 +1352,12 @@ Assigned agent: A4-Frontend-UAT-Smoke
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "销售管理-价格管理，将价格册名称为“孟赛标准价格册（试运行版）重建”的删除，并且将价格册名称为“孟赛标准价格册（试运行版）”恢复为正常状态",
-  "agentPlanGeneratedAt": "2026-07-09T07:04:46.411Z",
+  "acceptanceCriteria": "价格册只保留名称为“孟赛标准价格册（试运行版）”的，并且恢复为正常状态",
+  "agentPlanGeneratedAt": "2026-07-10T00:47:21.772Z",
   "agentPlanGeneratedBy": "admin",
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-09T07:04:47.771Z",
+    "approvedAt": "2026-07-10T00:47:23.921Z",
     "approvedBy": "admin",
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "forbiddenActions": [
