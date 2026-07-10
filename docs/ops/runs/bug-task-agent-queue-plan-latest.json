@@ -1,22 +1,18 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260707-0004",
+    "source_repair_task_no": "BUGTASK-20260707-0006",
     "selected_agents": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260707-0004-A2",
-      "BUGTASK-20260707-0004-A3",
-      "BUGTASK-20260707-0004-A4",
-      "BUGTASK-20260707-0004-A1"
+      "BUGTASK-20260707-0006-A4",
+      "BUGTASK-20260707-0006-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-10T04:38:18.820Z",
+      "approvedAt": "2026-07-10T04:38:04.924Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
       "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
@@ -32,7 +28,7 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260707-0004",
+    "source_bug_no": "BUG-20260707-0006",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
@@ -76,11 +72,25 @@
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "reasons": [
+          "deploy/runbook signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "reasons": [
+          "release gate signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
       }
     ],
     "selected_agents": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
@@ -92,22 +102,14 @@
       "human approval required before code repair execution"
     ],
     "route_confidence": 0.92,
-    "source_repair_task_no": "BUGTASK-20260707-0004",
+    "source_repair_task_no": "BUGTASK-20260707-0006",
     "selected_agents_after_bug_intake_policy": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
     "bug_intake_policy_reasons": {
-      "A2-Security-Regression-Gate": [
-        "bug-intake policy: RBAC/DataScope/auth evidence requires A2"
-      ],
-      "A3-Backend-Critical-Path": [
-        "bug-intake policy: security defect requires an implementation owner"
-      ],
       "A4-Frontend-UAT-Smoke": [
-        "bug-intake policy: user-facing security defect requires permission-aware UI repair"
+        "bug-intake policy: UI/visual/page evidence requires A4"
       ],
       "A1-CI-Runtime-Gate": [
         "bug-intake policy: every repair requires A1 validation"
@@ -116,109 +118,11 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260707-0004-A2",
-      "request_id": "BUGTASK-20260707-0004",
-      "title": "Repair BUG-20260707-0004: 用tangzhiwen账号库存查询无数据 (A2-Security-Regression-Gate)",
-      "source_bug_no": "BUG-20260707-0004",
-      "source_repair_task_no": "BUGTASK-20260707-0004",
-      "source": "bug-intake",
-      "agent": "A2-Security-Regression-Gate",
-      "status": "pending",
-      "priority": "P2",
-      "risk_level": "LOW/MEDIUM",
-      "allowed_paths": [
-        "docs/ops/**",
-        "scripts/ci/**",
-        "scripts/ops/**"
-      ],
-      "forbidden_paths": [
-        "apps/api/src/database/migrations/**",
-        "schema/entity/table/column",
-        "production deploy"
-      ],
-      "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0004-A2-contract.md",
-      "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
-      "branch": "w5-a2-security-regression-gate",
-      "dependencies": [
-        "BUGTASK-20260707-0004-A3",
-        "BUGTASK-20260707-0004-A4"
-      ],
-      "claimed_by": null,
-      "claimed_at": null,
-      "completed_at": null,
-      "result_file": null,
-      "next_agents": [
-        "A1-CI-Runtime-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A7-Final-QA-Gate"
-      ],
-      "approval_required": true,
-      "route_active": true,
-      "route_selected_agents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A1-CI-Runtime-Gate"
-      ],
-      "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T04:38:18.820Z"
-    },
-    {
-      "task_id": "BUGTASK-20260707-0004-A3",
-      "request_id": "BUGTASK-20260707-0004",
-      "title": "Repair BUG-20260707-0004: 用tangzhiwen账号库存查询无数据 (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260707-0004",
-      "source_repair_task_no": "BUGTASK-20260707-0004",
-      "source": "bug-intake",
-      "agent": "A3-Backend-Critical-Path",
-      "status": "pending",
-      "priority": "P2",
-      "risk_level": "MEDIUM/HIGH",
-      "allowed_paths": [
-        "apps/api/**",
-        "docs/ops/**"
-      ],
-      "forbidden_paths": [
-        "apps/web/**",
-        "apps/api/src/database/migrations/** unless schema gate approved",
-        "schema/entity/table/column unless schema gate approved",
-        "production deploy"
-      ],
-      "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0004-A3-contract.md",
-      "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-      "branch": "codex/bug-intake-a3",
-      "dependencies": [],
-      "claimed_by": null,
-      "claimed_at": null,
-      "completed_at": null,
-      "result_file": null,
-      "next_agents": [
-        "A2-Security-Regression-Gate",
-        "A1-CI-Runtime-Gate",
-        "A4-Frontend-UAT-Smoke"
-      ],
-      "approval_required": true,
-      "route_active": true,
-      "route_selected_agents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A1-CI-Runtime-Gate"
-      ],
-      "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T04:38:18.820Z"
-    },
-    {
-      "task_id": "BUGTASK-20260707-0004-A4",
-      "request_id": "BUGTASK-20260707-0004",
-      "title": "Repair BUG-20260707-0004: 用tangzhiwen账号库存查询无数据 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260707-0004",
-      "source_repair_task_no": "BUGTASK-20260707-0004",
+      "task_id": "BUGTASK-20260707-0006-A4",
+      "request_id": "BUGTASK-20260707-0006",
+      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260707-0006",
+      "source_repair_task_no": "BUGTASK-20260707-0006",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
@@ -237,7 +141,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0004-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
       "branch": "codex/bug-intake-a4",
@@ -255,20 +159,18 @@
       "approval_required": true,
       "route_active": true,
       "route_selected_agents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T04:38:18.820Z"
+      "last_redispatch_at": "2026-07-10T04:38:04.924Z"
     },
     {
-      "task_id": "BUGTASK-20260707-0004-A1",
-      "request_id": "BUGTASK-20260707-0004",
-      "title": "Repair BUG-20260707-0004: 用tangzhiwen账号库存查询无数据 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260707-0004",
-      "source_repair_task_no": "BUGTASK-20260707-0004",
+      "task_id": "BUGTASK-20260707-0006-A1",
+      "request_id": "BUGTASK-20260707-0006",
+      "title": "Repair BUG-20260707-0006: 近期日报记录下的淘汰原因不显示中文 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260707-0006",
+      "source_repair_task_no": "BUGTASK-20260707-0006",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -286,14 +188,12 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0004-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0006-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
       "dependencies": [
-        "BUGTASK-20260707-0004-A3",
-        "BUGTASK-20260707-0004-A4",
-        "BUGTASK-20260707-0004-A2"
+        "BUGTASK-20260707-0006-A4"
       ],
       "claimed_by": null,
       "claimed_at": null,
@@ -307,13 +207,11 @@
       "approval_required": true,
       "route_active": true,
       "route_selected_agents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T04:38:18.820Z"
+      "last_redispatch_at": "2026-07-10T04:38:04.924Z"
     }
   ]
 }
