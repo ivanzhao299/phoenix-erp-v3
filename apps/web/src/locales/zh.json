@@ -5130,6 +5130,7 @@
   "fin2.cash.page_subtitle": "资金账户管理 · 流水账本 · 转账审批",
   "fin2.cash.breadcrumb": "资金账户",
   "fin2.cash.new_account": "新建账户",
+  "fin2.cash.no_create_permission": "当前角色无权限新建账户",
   "fin2.cash.kpi_total_balance": "账户总余额",
   "fin2.cash.kpi_total_accounts": "账户总数",
   "fin2.cash.kpi_active_accounts": "正常账户",

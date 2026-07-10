@@ -5153,6 +5153,7 @@
   "fin2.cash.page_subtitle": "ຈັດການບັນຊີເງິນ · ບັນຊີລາຍການ · ອະนุมัติໂອນ",
   "fin2.cash.breadcrumb": "ບັນຊີເງິນສົດ",
   "fin2.cash.new_account": "ບັນຊີໃໝ່",
+  "fin2.cash.no_create_permission": "ບົດບາດປັດຈຸບັນບໍ່ມີສິດສ້າງບັນຊີເງິນ",
   "fin2.cash.kpi_total_balance": "ຍอดລວມບັນຊີ",
   "fin2.cash.kpi_total_accounts": "ຈຳນວນບັນຊີ",
   "fin2.cash.kpi_active_accounts": "ບັນຊີປົກກະຕິ",

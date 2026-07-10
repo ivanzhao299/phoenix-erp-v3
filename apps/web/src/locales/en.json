@@ -5153,6 +5153,7 @@
   "fin2.cash.page_subtitle": "Cash account management · Transaction ledger · Transfer approval",
   "fin2.cash.breadcrumb": "Cash Accounts",
   "fin2.cash.new_account": "New Account",
+  "fin2.cash.no_create_permission": "Your role cannot create cash accounts",
   "fin2.cash.kpi_total_balance": "Total Balance",
   "fin2.cash.kpi_total_accounts": "Total Accounts",
   "fin2.cash.kpi_active_accounts": "Active Accounts",

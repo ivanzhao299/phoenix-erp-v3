@@ -50,7 +50,7 @@ const ignoreChinese = [
 
 const localePrefixes = [
   'common.', 'ui.', 'menu.', 'status.', 'workflow.', 'approval.', 'settings.',
-  'md.', 'finance.', 'procurement.', 'sales.', 'warehouse.', 'breeding.',
+  'md.', 'finance.', 'fin2.', 'procurement.', 'sales.', 'warehouse.', 'breeding.',
   'quality.', 'dashboard.', 'system.', 'store.', 'mobile.', 'trace.', 'pos.',
   'auto.literal.',
 ];
