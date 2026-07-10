@@ -210,11 +210,11 @@ export class ArReceiptsService {
     if (rec.status !== 'DRAFT') {
       throw new BadRequestException(`收款单状态 ${rec.status} 不允许确认`);
     }
-    if (!dto.allocations || dto.allocations.length === 0) {
-      throw new BadRequestException('必须至少指定一条 AR 核销分摊');
-    }
+    // 允许未指定 AR 的普通收款先确认入账；有分摊时仍逐笔核销应收。
+    // 资金账户必须来自 DTO 的账户 ID 或创建草稿时保存的账户编码。
+    const allocations = dto.allocations ?? [];
 
-    const totalAllocated = dto.allocations.reduce(
+    const totalAllocated = allocations.reduce(
       (s, a) => s + Number(a.allocatedAmountOriginal), 0,
     );
     if (totalAllocated > Number(rec.amount_original) + 0.005) {
@@ -232,7 +232,7 @@ export class ArReceiptsService {
 
     try {
       // a. 逐条校验 AR 余额（行锁）
-      for (const alloc of dto.allocations) {
+      for (const alloc of allocations) {
         const arRows = await qr.query(
           `SELECT id, ar_no, balance_amount_original, currency_code, company_code
            FROM fin_ar_invoices WHERE id = $1 FOR UPDATE`,
@@ -266,7 +266,7 @@ export class ArReceiptsService {
       );
 
       // c. 写分摊记录 + 更新 AR 余额/状态
-      for (const alloc of dto.allocations) {
+      for (const alloc of allocations) {
         const exRate = Number(rec.exchange_rate ?? 1);
         const allocBase = Math.round(Number(alloc.allocatedAmountOriginal) * exRate * 100) / 100;
 
@@ -321,23 +321,31 @@ export class ArReceiptsService {
         }
       }
 
-      // d. 若指定收款账户，更新资金余额并写 IN 流水
-      if (dto.receiveAccountId) {
+      // d. 优先使用确认请求的账户 ID；否则使用草稿保存的账户编码。
+      const receiveAccountId = dto.receiveAccountId?.trim();
+      const receivedAccountCode = String(rec.received_account_code || '').trim();
+      if (receiveAccountId || receivedAccountCode) {
+        const accountLookup = receiveAccountId
+          ? { clause: 'id = $1', value: receiveAccountId, label: receiveAccountId }
+          : { clause: 'account_code = $1', value: receivedAccountCode, label: receivedAccountCode };
         const accRows = await qr.query(
           `SELECT id, account_code, account_name, company_code, company_name,
                   currency_code, current_balance, status
-           FROM fin_cash_accounts WHERE id = $1 FOR UPDATE`,
-          [dto.receiveAccountId],
+           FROM fin_cash_accounts WHERE ${accountLookup.clause} FOR UPDATE`,
+          [accountLookup.value],
         );
-        if (!accRows.length) throw new NotFoundException(`资金账户 ${dto.receiveAccountId} 不存在`);
+        if (!accRows.length) throw new NotFoundException(`资金账户 ${accountLookup.label} 不存在`);
         const acc = accRows[0];
+        if (acc.company_code !== rec.company_code) {
+          throw new ForbiddenException(`资金账户 ${acc.account_code} 不属于收款公司 ${rec.company_code}`);
+        }
         if (acc.status !== 'ACTIVE') {
           throw new BadRequestException(`资金账户状态 ${acc.status}，不允许入账`);
         }
 
         const amount = Number(rec.amount_original);
         const newBalance = await this.cashAccSvc.applyBalance(
-          qr, dto.receiveAccountId, amount, user.userId,
+          qr, String(acc.id), amount, user.userId,
         );
         await this.cashTxnSvc.writeTransaction({
           qr,
@@ -359,7 +367,7 @@ export class ArReceiptsService {
       }
 
       await qr.commitTransaction();
-      this.logger.log(`[AR] 确认收款 #${receiptId} (${rec.receipt_no}) 核销 ${dto.allocations.length} 条 AR`);
+      this.logger.log(`[AR] 确认收款 #${receiptId} (${rec.receipt_no}) 核销 ${allocations.length} 条 AR`);
       return this.findById(receiptId);
 
     } catch (err) {

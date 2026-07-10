@@ -104,4 +104,49 @@ describe('ArReceiptsService', () => {
       createdBy: 'u1',
     }));
   });
+
+  it('confirms an unallocated receipt and posts it to the saved cash account', async () => {
+    const { service, ds, qr, cashAccSvc, cashTxnSvc } = buildService();
+    jest.spyOn(service, 'findById').mockResolvedValue({ id: '11' } as never);
+    ds.query.mockResolvedValueOnce([{
+      id: '11',
+      receipt_no: 'RCP-202607-00002',
+      company_code: 'COMP-LAO-AGRI',
+      status: 'DRAFT',
+      amount_original: '25.00',
+      currency_code: 'CNY',
+      exchange_rate: '1',
+      received_account_code: 'CA-AR-002',
+      customer_name: '测试客户',
+    }]);
+    qr.query.mockImplementation((sql: string, params: unknown[]) => {
+      if (sql.includes('FROM fin_cash_accounts WHERE account_code = $1 FOR UPDATE')) {
+        expect(params).toEqual(['CA-AR-002']);
+        return Promise.resolve([{
+          id: '31',
+          account_code: 'CA-AR-002',
+          account_name: '普通收款账户',
+          company_code: 'COMP-LAO-AGRI',
+          company_name: '测试公司',
+          currency_code: 'CNY',
+          current_balance: '200.00',
+          status: 'ACTIVE',
+        }]);
+      }
+      return Promise.resolve([]);
+    });
+    cashAccSvc.applyBalance.mockResolvedValueOnce(225);
+
+    await service.confirm('11', { allocations: [] });
+
+    expect(qr.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(cashAccSvc.applyBalance).toHaveBeenCalledWith(qr, '31', 25, 'u1');
+    expect(cashTxnSvc.writeTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      accountCode: 'CA-AR-002',
+      sourceType: 'AR_RECEIPT',
+      sourceId: '11',
+      amount: 25,
+      balanceAfter: 225,
+    }));
+  });
 });

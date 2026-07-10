@@ -4954,6 +4954,7 @@
   "fin2.ar.err_valid_amount": "ກະລຸນາໃສ່ຈຳນວນໃບແຈ້ງໜີ້ທີ່ຖືກຕ້ອງ",
   "fin2.ar.err_select_receipt_date": "ກະລຸນາເລືອກວັນທີຮັບເງິນ",
   "fin2.ar.err_valid_receipt_amount": "ກະລຸນາໃສ່ຈຳນວນຮັບເງິນທີ່ຖືກຕ້ອງ",
+  "fin2.ar.err_select_receipt_account": "ກະລຸນາເລືອກບັນຊີຮັບເງິນ",
   "fin2.ar.kpi_total": "ຈຳນວນໃບແຈ້ງໜີ້ລູກໜີ້ທັງໝົດ",
   "fin2.ar.kpi_open": "ຍັງບໍ່ໄດ້ຮັບ",
   "fin2.ar.kpi_partial": "ຮັບບາງສ່ວນ",

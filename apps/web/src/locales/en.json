@@ -4954,6 +4954,7 @@
   "fin2.ar.err_valid_amount": "Please enter a valid invoice amount",
   "fin2.ar.err_select_receipt_date": "Please select a receipt date",
   "fin2.ar.err_valid_receipt_amount": "Please enter a valid receipt amount",
+  "fin2.ar.err_select_receipt_account": "Please select a receipt account",
   "fin2.ar.kpi_total": "Total AR Invoices",
   "fin2.ar.kpi_open": "Unreceived",
   "fin2.ar.kpi_partial": "Partially Received",

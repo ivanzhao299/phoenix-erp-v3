@@ -4931,6 +4931,7 @@
   "fin2.ar.err_valid_amount": "请填写有效的发票金额",
   "fin2.ar.err_select_receipt_date": "请选择收款日期",
   "fin2.ar.err_valid_receipt_amount": "请填写有效收款金额",
+  "fin2.ar.err_select_receipt_account": "请选择收款账户",
   "fin2.ar.kpi_total": "应收账单总数",
   "fin2.ar.kpi_open": "未收款",
   "fin2.ar.kpi_partial": "部分收款",
