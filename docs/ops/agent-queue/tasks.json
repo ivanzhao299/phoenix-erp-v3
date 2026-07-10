@@ -15398,7 +15398,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15422,7 +15422,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:34:08.844Z",
     "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
@@ -15431,7 +15431,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15439,7 +15439,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:04.235Z"
+    "last_redispatch_at": "2026-07-10T04:38:04.235Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A3",
@@ -15478,7 +15480,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15528,7 +15530,9 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integrated_commit": "9fe79574d60ecd5d0a19d2ff737022503016137a",
     "integrated_at": "2026-07-10T06:17:18.351Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A4",
@@ -15538,7 +15542,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15561,7 +15565,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:34:08.844Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15570,7 +15574,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15578,7 +15582,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:04.235Z"
+    "last_redispatch_at": "2026-07-10T04:38:04.235Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A1",
@@ -15588,7 +15594,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15614,7 +15620,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:34:08.844Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15622,7 +15628,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15630,7 +15636,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:04.235Z"
+    "last_redispatch_at": "2026-07-10T04:38:04.235Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A3",
@@ -15669,7 +15677,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -15708,7 +15716,9 @@
     ],
     "incomplete_worktree_detected_at": "2026-07-10T05:22:51.523Z",
     "quarantined_at": "2026-07-10T05:49:05.278Z",
-    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3"
+    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A4",
@@ -15750,7 +15760,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -15813,7 +15823,9 @@
     "recovery_count": 1,
     "integrated_commit": "3187399d",
     "integrated_at": "2026-07-10T06:21:00.000Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A1",
@@ -15856,7 +15868,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -15883,7 +15895,9 @@
       "terminalStatus": "HOLD",
       "reason": "blocked by failed dependency: BUGTASK-20260706-0002-A3",
       "checkedAt": "2026-07-10T05:58:32.194Z"
-    }
+    },
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260705-0003-A4",

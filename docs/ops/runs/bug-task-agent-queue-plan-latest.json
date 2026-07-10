@@ -1,24 +1,26 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260706-0002",
+    "source_repair_task_no": "BUGTASK-20260707-0002",
     "selected_agents": [
+      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260706-0002-A3",
-      "BUGTASK-20260706-0002-A4",
-      "BUGTASK-20260706-0002-A1"
+      "BUGTASK-20260707-0002-A2",
+      "BUGTASK-20260707-0002-A3",
+      "BUGTASK-20260707-0002-A4",
+      "BUGTASK-20260707-0002-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-10T05:08:10.682Z",
+      "approvedAt": "2026-07-10T04:38:08.339Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
-      "approvalScope": "Retry after dedicated Bug Intake worktree authorization fix. Strict implementation evidence, dependency-gated A2/A1 validation, CI/CD and production smoke required. No DB write or migration.",
-      "redispatchCount": 2,
+      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+      "redispatchCount": 1,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -30,7 +32,7 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260706-0002",
+    "source_bug_no": "BUG-20260707-0002",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
@@ -77,6 +79,7 @@
       }
     ],
     "selected_agents": [
+      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
@@ -89,18 +92,22 @@
       "human approval required before code repair execution"
     ],
     "route_confidence": 0.88,
-    "source_repair_task_no": "BUGTASK-20260706-0002",
+    "source_repair_task_no": "BUGTASK-20260707-0002",
     "selected_agents_after_bug_intake_policy": [
+      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
     "bug_intake_policy_reasons": {
+      "A2-Security-Regression-Gate": [
+        "bug-intake policy: RBAC/DataScope/auth evidence requires A2"
+      ],
       "A3-Backend-Critical-Path": [
-        "bug-intake fallback: backend diagnosis required because ownership is unclear"
+        "bug-intake policy: security defect requires an implementation owner"
       ],
       "A4-Frontend-UAT-Smoke": [
-        "bug-intake fallback: frontend diagnosis required because ownership is unclear"
+        "bug-intake policy: user-facing security defect requires permission-aware UI repair"
       ],
       "A1-CI-Runtime-Gate": [
         "bug-intake policy: every repair requires A1 validation"
@@ -109,11 +116,62 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260706-0002-A3",
-      "request_id": "BUGTASK-20260706-0002",
-      "title": "Repair BUG-20260706-0002: 运营工作台不显示今日饲料消耗、今日用水 (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260706-0002",
-      "source_repair_task_no": "BUGTASK-20260706-0002",
+      "task_id": "BUGTASK-20260707-0002-A2",
+      "request_id": "BUGTASK-20260707-0002",
+      "title": "Repair BUG-20260707-0002: 打开库存总览报错403 (A2-Security-Regression-Gate)",
+      "source_bug_no": "BUG-20260707-0002",
+      "source_repair_task_no": "BUGTASK-20260707-0002",
+      "source": "bug-intake",
+      "agent": "A2-Security-Regression-Gate",
+      "status": "pending",
+      "priority": "P2",
+      "risk_level": "LOW/MEDIUM",
+      "allowed_paths": [
+        "docs/ops/**",
+        "scripts/ci/**",
+        "scripts/ops/**"
+      ],
+      "forbidden_paths": [
+        "apps/api/src/database/migrations/**",
+        "schema/entity/table/column",
+        "production deploy"
+      ],
+      "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0002-A2-contract.md",
+      "request_spec": "",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "dependencies": [
+        "BUGTASK-20260707-0002-A3",
+        "BUGTASK-20260707-0002-A4"
+      ],
+      "claimed_by": null,
+      "claimed_at": null,
+      "completed_at": null,
+      "result_file": null,
+      "next_agents": [
+        "A1-CI-Runtime-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A7-Final-QA-Gate"
+      ],
+      "approval_required": true,
+      "route_active": true,
+      "route_selected_agents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A1-CI-Runtime-Gate"
+      ],
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-10T04:38:08.339Z"
+    },
+    {
+      "task_id": "BUGTASK-20260707-0002-A3",
+      "request_id": "BUGTASK-20260707-0002",
+      "title": "Repair BUG-20260707-0002: 打开库存总览报错403 (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260707-0002",
+      "source_repair_task_no": "BUGTASK-20260707-0002",
       "source": "bug-intake",
       "agent": "A3-Backend-Critical-Path",
       "status": "pending",
@@ -130,7 +188,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0002-A3-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
       "branch": "codex/bug-intake-a3",
@@ -147,19 +205,20 @@
       "approval_required": true,
       "route_active": true,
       "route_selected_agents": [
+        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 2,
-      "last_redispatch_at": "2026-07-10T05:08:10.682Z"
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-10T04:38:08.339Z"
     },
     {
-      "task_id": "BUGTASK-20260706-0002-A4",
-      "request_id": "BUGTASK-20260706-0002",
-      "title": "Repair BUG-20260706-0002: 运营工作台不显示今日饲料消耗、今日用水 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260706-0002",
-      "source_repair_task_no": "BUGTASK-20260706-0002",
+      "task_id": "BUGTASK-20260707-0002-A4",
+      "request_id": "BUGTASK-20260707-0002",
+      "title": "Repair BUG-20260707-0002: 打开库存总览报错403 (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260707-0002",
+      "source_repair_task_no": "BUGTASK-20260707-0002",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
@@ -178,7 +237,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0002-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
       "branch": "codex/bug-intake-a4",
@@ -196,19 +255,20 @@
       "approval_required": true,
       "route_active": true,
       "route_selected_agents": [
+        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 2,
-      "last_redispatch_at": "2026-07-10T05:08:10.682Z"
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-10T04:38:08.339Z"
     },
     {
-      "task_id": "BUGTASK-20260706-0002-A1",
-      "request_id": "BUGTASK-20260706-0002",
-      "title": "Repair BUG-20260706-0002: 运营工作台不显示今日饲料消耗、今日用水 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260706-0002",
-      "source_repair_task_no": "BUGTASK-20260706-0002",
+      "task_id": "BUGTASK-20260707-0002-A1",
+      "request_id": "BUGTASK-20260707-0002",
+      "title": "Repair BUG-20260707-0002: 打开库存总览报错403 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260707-0002",
+      "source_repair_task_no": "BUGTASK-20260707-0002",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -226,13 +286,14 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260706-0002-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260707-0002-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
       "dependencies": [
-        "BUGTASK-20260706-0002-A3",
-        "BUGTASK-20260706-0002-A4"
+        "BUGTASK-20260707-0002-A3",
+        "BUGTASK-20260707-0002-A4",
+        "BUGTASK-20260707-0002-A2"
       ],
       "claimed_by": null,
       "claimed_at": null,
@@ -246,12 +307,13 @@
       "approval_required": true,
       "route_active": true,
       "route_selected_agents": [
+        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 2,
-      "last_redispatch_at": "2026-07-10T05:08:10.682Z"
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-10T04:38:08.339Z"
     }
   ]
 }
