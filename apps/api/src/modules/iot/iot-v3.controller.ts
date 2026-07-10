@@ -23,6 +23,7 @@ export class IotV3Controller {
    * 汇总所有鸡舍的实时快照数据，供"设备监控总览"页面使用
    */
   @Get('all-summary')
+  @RequireMenu(DEVICE_MENU, 'V', ['MENU_DASHBOARD'])
   async getAllSummary() {
     try {
       const em = (this.monDeviceService as any).entityManager;
