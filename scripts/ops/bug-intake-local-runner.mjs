@@ -127,6 +127,7 @@ function run(command, options = {}) {
     encoding: 'utf8',
     env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH, ...(options.env || {}) },
     timeout: Number(options.timeoutMs || options.childTimeoutMs || 180000),
+    maxBuffer: 32 * 1024 * 1024,
   });
   const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
     .filter(Boolean)
@@ -1242,18 +1243,33 @@ async function runCycle(args, cycle) {
     if (!taskUsesMainRootLocalWorker(task)) {
       const unblock = unblockDirtyWorktree(task, args);
       if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
+        if (!args.dryRun && unblock.status === 'BLOCKED' && /non-ops files|implementation worktree/i.test(unblock.reason || '')) {
+          const dirtyFiles = String(unblock.before || '')
+            .split('\n')
+            .map((line) => line.trim().slice(3).trim())
+            .filter(Boolean);
+          const heldTask = patchTask(task.task_id, {
+            status: 'HOLD',
+            completed_at: new Date().toISOString(),
+            reason: `${unblock.reason}; incomplete files preserved for evidence-backed recovery`,
+            incomplete_worktree_files: dirtyFiles,
+            incomplete_worktree_detected_at: new Date().toISOString(),
+          });
+          unblock.status = 'HOLD';
+          unblock.task = heldTask;
+        }
         blockedTasks.push(unblock);
         if (args.skipBlocked) continue;
         break;
       }
     }
     runnableTasks.push(task);
-    let worker = run(workerCommand(task, args));
+    let worker = run(workerCommand(task, args), { timeoutMs: args.childTimeoutMs });
     let finalTask = findTask(task.task_id);
     const retryRuns = [];
     if (shouldRetryWorker(task, worker, finalTask, args)) {
       retryRuns.push({ reason: 'safe-ui-once retry', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
-      worker = run(workerCommand(task, args));
+      worker = run(workerCommand(task, args), { timeoutMs: args.childTimeoutMs });
       finalTask = findTask(task.task_id);
     }
     let leftovers = activeAgentProcesses();

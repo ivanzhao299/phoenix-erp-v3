@@ -27,6 +27,10 @@
 10. Task IDs use stable Agent suffixes (`-A3`, `-A4`, `-A1`) instead of route-order indexes, preventing a refined route from reusing another Agent's old task state.
 11. A3/A4 Bug Intake execution uses dedicated clean worktrees based on current `origin/main`; legacy Agent worktrees are retained for audit but no longer block the repair queue.
 12. Production report reads retry transient 429/5xx/network failures three times with backoff. A persistently failing detail is recorded and skipped for that cycle without aborting the remaining queue.
+13. Parent runner wait time now matches the configured Agent child timeout (15 minutes by default), instead of terminating a healthy 10-minute Agent run after 3 minutes.
+14. Codex, worker, and parent-runner subprocess buffers are raised to 32 MiB. Verbose Codex diagnostics can no longer trigger Node's default output-buffer termination and leave a zombie `running` lease.
+15. A completed run interrupted only at the parent boundary can be recovered only from an exit-0 run log plus an owned business diff, task-specific report, explicit PASS/GO conclusion, and a new commit. Missing any item remains HOLD.
+16. Dirty partial implementation worktrees are quarantined as explicit HOLD with their file list. They are preserved for diagnosis and cannot be repeatedly claimed or silently merged.
 
 ## Verification
 
@@ -35,6 +39,8 @@
 - Real historical UI report `BUG-20260705-0001`: refined route is A4 + A1 only.
 - Dependency check: A1 depends on the A4 implementation task.
 - Compact contract size: approximately 3 KB per Agent instead of more than 1 MB assembled context.
+- Parent/child timeout alignment and 32 MiB output-buffer regression checks: PASS.
+- Real A4 interrupted-run evidence (`BUGTASK-20260705-0003-A4`) was recovered only after an exit-0 Codex log, owned frontend changes, a task report, and a commit were all present.
 - Queue rebuild: active pending work reduced from 123 unordered tasks to 64 dependency-aware tasks; 201 legacy/superseded tasks are archived and excluded from dispatch.
 - Remote non-executable states (`HOLD`, `FIX_READY_FOR_UAT`, closed states) deactivate local pending tasks, preventing stale work from running after the server-side gate changes.
 - Push/deploy during hardening: No.

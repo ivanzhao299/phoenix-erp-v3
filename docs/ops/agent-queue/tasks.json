@@ -15561,7 +15561,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15580,9 +15580,9 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
+    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_at": "2026-07-10T05:16:05.708Z",
+    "completed_at": "2026-07-10T05:22:51.522Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15601,25 +15601,15 @@
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "2484c10d49f32c393dd16cfb0d532be155482220",
-      "afterHead": "2484c10d49f32c393dd16cfb0d532be155482220",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
-      "parentCommitRecovered": false,
-      "checkedAt": "2026-07-10T05:03:58.330Z",
       "passed": false,
-      "role": "execution",
+      "role": "implementation",
       "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "reason": "Agent subprocess ended without an exit-0 run log or task-specific report; partial backend files are preserved and must not be merged",
+      "checkedAt": "2026-07-10T05:22:51.523Z"
     },
     "implementation_commit": "",
     "changed_files": [],
-    "reason": "Agent process exited with 1",
+    "reason": "Agent subprocess ended without an exit-0 run log or task-specific report; partial backend files are preserved and must not be merged",
     "redispatched_at": "2026-07-10T05:08:10.682Z",
     "redispatch_history": [
       {
@@ -15629,7 +15619,15 @@
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
       }
-    ]
+    ],
+    "incomplete_worktree_files": [
+      "apps/api/src/modules/iot/farm-cabin.controller.ts",
+      "apps/api/src/modules/iot/iot-v3.controller.ts",
+      "apps/api/src/modules/iot/mon-device.service.ts",
+      "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
+      "apps/api/src/modules/iot/mon-device.service.spec.ts"
+    ],
+    "incomplete_worktree_detected_at": "2026-07-10T05:22:51.523Z"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A4",

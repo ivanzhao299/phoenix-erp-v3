@@ -388,6 +388,7 @@ const result = spawnSync(codexCli, command.slice(1), {
   encoding: 'utf8',
   cwd: process.cwd(),
   timeout: timeoutMs,
+  maxBuffer: 32 * 1024 * 1024,
 });
 const timedOut = result.error?.code === 'ETIMEDOUT';
 const exitCode = timedOut ? 124 : result.status ?? 1;
@@ -410,7 +411,7 @@ const logFile = writeRunLog({
 
 console.log(`Run log: ${logFile}`);
 if (result.stdout) process.stdout.write(result.stdout);
-if (result.stderr) process.stderr.write(result.stderr);
+if (result.stderr) process.stderr.write(`${summarize(result.stderr, 12000)}\n`);
 if (timedOut) console.error(`ERROR: codex execution timed out after ${timeoutMs} ms.`);
 let baselineExitCode = 0;
 if (!args['skip-baseline-autopilot']) {

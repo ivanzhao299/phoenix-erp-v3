@@ -439,6 +439,13 @@ function main() {
         claimed_at: null,
         completed_at: null,
         result_file: null,
+        reason: null,
+        evidence_gate: null,
+        implementation_commit: '',
+        integrated_commit: '',
+        integrated_at: null,
+        changed_files: [],
+        baseline_autopilot_exit_code: null,
         redispatch_count: Math.max(Number(previous.redispatch_count || 0), Number(task.redispatch_count || 0)),
         redispatched_at: task.last_redispatch_at || new Date().toISOString(),
         redispatch_history: [

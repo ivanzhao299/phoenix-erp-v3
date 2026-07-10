@@ -22,7 +22,8 @@ const DEPENDENCY_SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COM
 function usage(exitCode = 1) {
   console.log(`Usage:
   node scripts/ops/agent-worker.mjs --agent <agent> [--claim-next] [--once] [--loop] [--dry-run] [--request-id <id>] [--task-id <id>] [--approval-token <token>]
-  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-sandbox-commit --approval-token <token>`);
+  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-sandbox-commit --approval-token <token>
+  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-completed-run --run-log <file> --approval-token <token>`);
   process.exit(exitCode);
 }
 
@@ -31,7 +32,7 @@ function parseArgs(argv) {
   const values = { dryRun: true };
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
-    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit'].includes(arg)) {
+    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit', '--recover-completed-run'].includes(arg)) {
       values[arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = true;
       continue;
     }
@@ -518,6 +519,7 @@ function runOne(args) {
       cwd: process.cwd(),
       encoding: 'utf8',
       env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
+      maxBuffer: 32 * 1024 * 1024,
     });
   const parentCommit = !useLocalValidation && (result.status ?? 1) === 0
     ? commitSandboxChanges(task, `${result.stdout || ''}\n${result.stderr || ''}`)
@@ -622,11 +624,67 @@ function recoverSandboxCommit(args) {
   return task.status === 'COMPLETED_MERGED' ? 0 : 2;
 }
 
+function recoverCompletedRun(args) {
+  if (args.approvalToken !== APPROVAL_TOKEN) fail('completed run recovery requires --approval-token APPROVE_AGENT_EXECUTION');
+  if (!args.runLog) fail('completed run recovery requires --run-log <file>');
+  const runLog = path.resolve(process.cwd(), args.runLog);
+  if (!existsSync(runLog)) fail(`completed run log not found: ${args.runLog}`);
+  const runText = readFileSync(runLog, 'utf8');
+  if (!/\| Exit code \| 0 \|/.test(runText)) fail('completed run recovery refused: run log exit code is not 0');
+  if (!/\b(PASS|GO)(?: WITH CONDITIONS)?\b/i.test(runText)) {
+    fail('completed run recovery refused: run log has no explicit PASS/GO conclusion');
+  }
+
+  const tasks = readTasks();
+  const task = tasks.find((item) => item.task_id === args.taskId && item.agent === args.agent);
+  if (!task) fail(`task not found for completed run recovery: ${args.taskId}`);
+  if (!['HOLD', 'hold', 'running', 'claimed'].includes(task.status)) {
+    fail(`task is not recoverable from completed run: ${task.status}`);
+  }
+
+  const beforeHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  const parentCommit = commitSandboxChanges(task, runText);
+  if (!parentCommit.ok) fail(`completed run recovery refused: ${parentCommit.error || parentCommit.reason}`);
+  const afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: runText,
+    stderr: '',
+    beforeHead,
+    afterHead,
+    changedFiles: changedFilesBetween(task.worktree, beforeHead, afterHead),
+    parentCommitRecovered: false,
+  });
+  const log = writeWorkerLog(task, {
+    dryRun: false,
+    exitCode: 0,
+    command: ['parent-runner-completed-run-recovery', task.task_id, args.runLog],
+    stdout: runText,
+    stderr: '',
+    evidence,
+    parentCommit,
+  });
+  task.result_file = path.relative(process.cwd(), log);
+  task.evidence_gate = evidence;
+  task.implementation_commit = evidence.commitHash || '';
+  task.changed_files = evidence.changedFiles;
+  task.status = evidence.terminalStatus;
+  task.completed_at = new Date().toISOString();
+  task.recovered_from_run_log = path.relative(process.cwd(), runLog);
+  task.reason = evidence.passed ? 'completed Agent run recovered after parent timeout/output-buffer interruption' : evidence.reason;
+  writeTasks(tasks);
+  console.log(`${task.task_id} -> ${task.status}`);
+  console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
+  return evidence.passed ? 0 : 2;
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.agent) usage(1);
-if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit) usage(1);
+if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit && !args.recoverCompletedRun) usage(1);
 
 if (args.recoverSandboxCommit) process.exit(recoverSandboxCommit(args));
+if (args.recoverCompletedRun) process.exit(recoverCompletedRun(args));
 
 if (args.loop && !args.dryRun) {
   while (true) {
