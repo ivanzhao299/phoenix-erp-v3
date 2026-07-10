@@ -1,24 +1,24 @@
 {
-  "id": "27",
-  "bugNo": "BUG-20260710-0001",
-  "title": "运营工作台页面按钮跳转错误",
+  "id": "28",
+  "bugNo": "BUG-20260710-0002",
+  "title": "账户收款后，余额不变",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "_____",
+  "moduleCode": "______",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260710-0001",
-  "repairTaskStatus": "HOLD",
-  "route": "/procurement2/dashboard",
+  "repairTaskNo": "BUGTASK-20260710-0002",
+  "repairTaskStatus": "AGENT_RUNNING",
+  "route": "/finance2/ar",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-10T01:20:02.004Z",
-  "updatedAt": "2026-07-10T01:35:12.680Z",
+  "createdAt": "2026-07-10T02:12:13.351Z",
+  "updatedAt": "2026-07-10T02:19:22.187Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "运营工作台界面，点击“进入采购中心”，页面直接跳转到了审批中心我的待办，跳转不正确，应该跳转到采购管理-采购看板页面",
-  "url": "https://erp.eggslao.com/procurement2/dashboard",
+  "description": "在财务结算中心-应付账款，录入收款，选择收款账户确认收款后，账户余额不变，在资金账户界面点击重算余额后，余额也不变",
+  "url": "https://erp.eggslao.com/finance2/ar",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -47,13 +47,13 @@
   ],
   "attachments": [
     {
-      "sha256": "6eae98f93f253af720b04ac7af186e5b49d082d1e1194fdf9325fad2dcad0b12",
-      "fileName": "01-1783646402002-5879c8e9.png",
+      "sha256": "33031748bfc401e95ab11c96ffb073b78a2ca953260b44634c15664e61b28810",
+      "fileName": "01-1783649533350-f5c90f99.png",
       "mimeType": "image/png",
-      "sizeBytes": 644476,
-      "originalName": "pasted-screenshot-1783646400620-1.png",
-      "relativePath": "storage/bug-reports/2026/07/10/BUG-20260710-0001/01-1783646402002-5879c8e9.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png"
+      "sizeBytes": 686727,
+      "originalName": "pasted-screenshot-1783648622337-1.png",
+      "relativePath": "storage/bug-reports/2026/07/10/BUG-20260710-0002/01-1783649533350-f5c90f99.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png"
     }
   ],
   "clientContext": {
@@ -64,9 +64,9 @@
       "height": 961
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-10T01:20:02.003Z",
+    "capturedAt": "2026-07-10T02:12:13.351Z",
     "pageSnapshot": {
-      "route": "/procurement2/dashboard",
+      "route": "/finance2/ar",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -84,18 +84,21 @@
         "库存管理",
         "全链追溯",
         "采购管理",
-        "采购看板",
-        "供应商档案",
-        "采购项目",
-        "采购申请",
-        "采购订单",
-        "物流管理",
-        "收货管理",
-        "付款管理",
-        "股东资金",
-        "历史初始化",
         "销售管理",
         "财务结算中心",
+        "财务总览",
+        "应收账款",
+        "应收总账",
+        "应收三方对账",
+        "好业财同步",
+        "好业财中间层",
+        "应付账款",
+        "资金账户",
+        "资金调拨",
+        "股东资金",
+        "费用管理",
+        "报销管理",
+        "财务报表",
         "股东权益中心",
         "审批中心",
         "经营分析",
@@ -104,7 +107,6 @@
         "验收试运行",
         "系统运维",
         "个人中心 / 修改密码",
-        "应收账款",
         "99+",
         "反馈问题",
         "反馈页面问题",
@@ -118,83 +120,45 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783646400620-1.png",
+        "pasted-screenshot-1783648622337-1.png",
         "退出",
-        "至",
-        "采购订单数",
-        "合同金额 1,710,420,530.80",
-        "应付余额 (CNY)",
-        "待付账款",
-        "已付金额 (CNY)",
-        "付款合计",
-        "合计 3 笔",
-        "在途运单",
-        "运单总数 0",
-        "待审批",
-        "待审采购申请 0",
-        "应付账龄分布",
-        "账龄区间",
-        "笔数",
-        "余额",
-        "货币",
-        "未到期",
-        "2",
-        "72,168.00",
-        "CNY",
-        "逾期1-30天",
-        "3",
-        "224,500.00",
-        "运单状态分布",
-        "付款趋势",
-        "期间",
-        "金额（原币）",
-        "金额（基准）",
-        "2026-06",
-        "246,262.80",
-        "项目成本归集",
-        "项目",
+        "财务管理",
+        "/应收账款",
+        "/",
+        "应收账款管理",
+        "·客户应收账款 · 收款核销 · 账龄分析",
+        "·",
+        "应收账单总数",
+        "未收款",
+        "部分收款",
+        "已收清",
+        "逾期笔数",
+        "待收余额",
+        "应收编号",
+        "来源",
+        "客户",
         "公司",
-        "合同金额",
-        "预算",
-        "预算占用",
-        "已付",
-        "孟赛蛋鸡场经营项目 PRJ_MENGSAI_LAYER",
+        "发票日期",
+        "到期日",
+        "发票金额",
+        "状态",
+        "AR-202607-00004",
+        "手工",
+        "测试客户2 CUS-00002",
         "COMP-LAO-AGRI",
-        "LAK",
-        "4",
-        "1,709,626,000.00",
         "—",
-        "0.00",
-        "8",
-        "758,476.80",
-        "210,208.80",
-        "296,668.00",
-        "万象食品综合项目 PRJ_VIENTIANE_FOOD",
-        "COMP-LAO-FOOD",
-        "1",
-        "36,054.00",
-        "股东资金汇总",
-        "股东",
-        "类型",
-        "赵永伟",
-        "LOAN",
-        "供应商绩效 TOP 20",
-        "供应商",
-        "合同额",
-        "待付AP",
-        "胥总 LAK",
-        "1,603,226,000.00",
-        "万象蛋托厂 LAK",
-        "106,400,000.00",
-        "张鹏（装修工程） CNY",
-        "318,370.80",
-        "72,108.00",
-        "中粮鞠德清 CNY",
-        "251,600.00",
-        "罗成松 CNY",
-        "150,000.00",
-        "河南艾特米 CNY",
-        "74,560.00"
+        "¥10.00",
+        "¥0.00",
+        "AR-202607-00003",
+        "2026-07-10",
+        "2027-07-10",
+        "¥5.00",
+        "AR-202607-00002",
+        "AR-202607-00001",
+        "2028-07-09",
+        "¥100.00",
+        "共 4 条（第 1 / 1 页）",
+        "1 / 1"
       ],
       "interactiveElements": [
         {
@@ -271,7 +235,7 @@
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
             "w": 215,
@@ -282,15 +246,51 @@
           "disabled": false
         },
         {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 384
+          },
+          "label": "销售管理",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 422
+          },
+          "label": "财务结算中心",
+          "disabled": false
+        },
+        {
           "tag": "a",
           "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
           "rect": {
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 384
+            "y": 460
           },
-          "label": "采购看板",
+          "label": "财务总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 492
+          },
+          "label": "应收账款",
           "disabled": false
         },
         {
@@ -300,9 +300,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 416
+            "y": 524
           },
-          "label": "供应商档案",
+          "label": "应收总账",
           "disabled": false
         },
         {
@@ -312,9 +312,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 448
+            "y": 556
           },
-          "label": "采购项目",
+          "label": "应收三方对账",
           "disabled": false
         },
         {
@@ -324,9 +324,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 480
+            "y": 588
           },
-          "label": "采购申请",
+          "label": "好业财同步",
           "disabled": false
         },
         {
@@ -336,9 +336,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 512
+            "y": 620
           },
-          "label": "采购订单",
+          "label": "好业财中间层",
           "disabled": false
         },
         {
@@ -348,9 +348,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 544
+            "y": 652
           },
-          "label": "物流管理",
+          "label": "应付账款",
           "disabled": false
         },
         {
@@ -360,9 +360,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 576
+            "y": 684
           },
-          "label": "收货管理",
+          "label": "资金账户",
           "disabled": false
         },
         {
@@ -372,9 +372,9 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 608
+            "y": 716
           },
-          "label": "付款管理",
+          "label": "资金调拨",
           "disabled": false
         },
         {
@@ -384,7 +384,7 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 640
+            "y": 748
           },
           "label": "股东资金",
           "disabled": false
@@ -396,43 +396,43 @@
             "h": 32,
             "w": 215,
             "x": 0,
-            "y": 672
-          },
-          "label": "历史初始化",
-          "disabled": false
-        },
-        {
-          "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
-          "rect": {
-            "h": 38,
-            "w": 215,
-            "x": 0,
-            "y": 704
-          },
-          "label": "销售管理",
-          "disabled": false
-        },
-        {
-          "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
-          "rect": {
-            "h": 38,
-            "w": 215,
-            "x": 0,
-            "y": 742
-          },
-          "label": "财务结算中心",
-          "disabled": false
-        },
-        {
-          "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
-          "rect": {
-            "h": 38,
-            "w": 215,
-            "x": 0,
             "y": 780
+          },
+          "label": "费用管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 812
+          },
+          "label": "报销管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 844
+          },
+          "label": "财务报表",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 876
           },
           "label": "股东权益中心",
           "disabled": false
@@ -444,7 +444,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 818
+            "y": 914
           },
           "label": "审批中心",
           "disabled": false
@@ -456,7 +456,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 856
+            "y": 952
           },
           "label": "经营分析",
           "disabled": false
@@ -468,7 +468,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 894
+            "y": 990
           },
           "label": "主数据中心",
           "disabled": false
@@ -480,7 +480,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 932
+            "y": 1028
           },
           "label": "系统设置",
           "disabled": false
@@ -492,7 +492,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 970
+            "y": 1066
           },
           "label": "验收试运行",
           "disabled": false
@@ -504,7 +504,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 1008
+            "y": 1104
           },
           "label": "系统运维",
           "disabled": false
@@ -576,7 +576,7 @@
             "h": 26,
             "w": 26,
             "x": 1145,
-            "y": 117
+            "y": 115
           },
           "label": "关闭",
           "disabled": false
@@ -588,7 +588,7 @@
             "h": 41,
             "w": 570,
             "x": 601,
-            "y": 338
+            "y": 337
           },
           "label": "例如：采购付款单项目下拉为空",
           "disabled": false
@@ -600,7 +600,7 @@
             "h": 38,
             "w": 570,
             "x": 601,
-            "y": 419
+            "y": 418
           },
           "label": "低：样式/文案问题 中：影响局部流程 高：阻断业务操作 紧急：系统不可用/数据风险",
           "disabled": false
@@ -612,7 +612,7 @@
             "h": 99,
             "w": 570,
             "x": 601,
-            "y": 498
+            "y": 496
           },
           "label": "请描述你刚才做了什么、期望结果、实际结果。",
           "disabled": false
@@ -624,7 +624,7 @@
             "h": 39,
             "w": 100,
             "x": 601,
-            "y": 638
+            "y": 636
           },
           "label": "全屏截图",
           "disabled": false
@@ -636,7 +636,7 @@
             "h": 39,
             "w": 126,
             "x": 712,
-            "y": 638
+            "y": 636
           },
           "label": "框选区域截图",
           "disabled": false
@@ -647,8 +647,8 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 858,
-            "y": 815
+            "x": 857,
+            "y": 814
           },
           "label": "移除附件",
           "disabled": false
@@ -660,7 +660,7 @@
             "h": 42,
             "w": 61,
             "x": 1011,
-            "y": 869
+            "y": 867
           },
           "label": "取消",
           "disabled": false
@@ -672,7 +672,7 @@
             "h": 42,
             "w": 89,
             "x": 1082,
-            "y": 869
+            "y": 867
           },
           "label": "提交问题",
           "disabled": false
@@ -702,62 +702,182 @@
           "disabled": false
         },
         {
-          "tag": "input",
+          "tag": "button",
           "path": "",
           "rect": {
-            "h": 25,
-            "w": 140,
-            "x": 244,
-            "y": 154
+            "h": 35,
+            "w": 82,
+            "x": 1415,
+            "y": 89
           },
-          "label": "公司代码",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".admin-ui-module__B-1PDG__filterSelect",
-          "rect": {
-            "h": 36,
-            "w": 69,
-            "x": 697,
-            "y": 150
-          },
-          "label": "按月 按日",
+          "label": "刷新",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 108,
+            "x": 1505,
+            "y": 89
+          },
+          "label": "录入收款",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 133,
+            "x": 1621,
+            "y": 89
+          },
+          "label": "新建应收发票",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 45,
+            "w": 96,
+            "x": 244,
+            "y": 261
+          },
+          "label": "应收账单",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 45,
+            "w": 96,
+            "x": 340,
+            "y": 261
+          },
+          "label": "收款记录",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 45,
+            "w": 96,
+            "x": 436,
+            "y": 261
+          },
+          "label": "账龄分析",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 30,
+            "w": 65,
+            "x": 285,
+            "y": 340
+          },
+          "label": "未收款",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 30,
+            "w": 77,
+            "x": 360,
+            "y": 340
+          },
+          "label": "部分收款",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 30,
+            "w": 65,
+            "x": 447,
+            "y": 340
+          },
+          "label": "已收清",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 30,
+            "w": 65,
+            "x": 522,
+            "y": 340
+          },
+          "label": "已逾期",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 30,
+            "w": 65,
+            "x": 597,
+            "y": 340
+          },
+          "label": "已取消",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": "",
           "rect": {
             "h": 37,
-            "w": 82,
-            "x": 766,
-            "y": 147
+            "w": 240,
+            "x": 1408,
+            "y": 337
           },
-          "label": "刷新",
+          "label": "应收编号 / 客户 / 发票号…",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 37,
+            "w": 81,
+            "x": 1656,
+            "y": 337
+          },
+          "label": "搜索",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.7999999523162842
   },
-  "resolutionNote": "运营工作台界面，点击“进入采购中心”，页面直接跳转到了审批中心我的待办，跳转不正确，应该跳转到采购管理-采购看板页面",
+  "resolutionNote": "在财务结算中心-应付账款，录入收款，选择收款账户确认收款后，账户余额不变，在资金账户界面点击重算余额后，余额也不变",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/procurement2/dashboard",
-    "bugNo": "BUG-20260710-0001",
-    "route": "/procurement2/dashboard",
-    "title": "运营工作台页面按钮跳转错误",
-    "taskNo": "BUGTASK-20260710-0001",
+    "url": "https://erp.eggslao.com/finance2/ar",
+    "bugNo": "BUG-20260710-0002",
+    "route": "/finance2/ar",
+    "title": "账户收款后，余额不变",
+    "taskNo": "BUGTASK-20260710-0002",
     "context": {
       "attachments": [
         {
-          "sha256": "6eae98f93f253af720b04ac7af186e5b49d082d1e1194fdf9325fad2dcad0b12",
-          "fileName": "01-1783646402002-5879c8e9.png",
+          "sha256": "33031748bfc401e95ab11c96ffb073b78a2ca953260b44634c15664e61b28810",
+          "fileName": "01-1783649533350-f5c90f99.png",
           "mimeType": "image/png",
-          "sizeBytes": 644476,
-          "originalName": "pasted-screenshot-1783646400620-1.png",
-          "relativePath": "storage/bug-reports/2026/07/10/BUG-20260710-0001/01-1783646402002-5879c8e9.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260710-0001/attachments/01-1783646402002-5879c8e9.png"
+          "sizeBytes": 686727,
+          "originalName": "pasted-screenshot-1783648622337-1.png",
+          "relativePath": "storage/bug-reports/2026/07/10/BUG-20260710-0002/01-1783649533350-f5c90f99.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png"
         }
       ],
       "clientContext": {
@@ -768,9 +888,9 @@
           "height": 961
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-10T01:20:02.003Z",
+        "capturedAt": "2026-07-10T02:12:13.351Z",
         "pageSnapshot": {
-          "route": "/procurement2/dashboard",
+          "route": "/finance2/ar",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -788,18 +908,21 @@
             "库存管理",
             "全链追溯",
             "采购管理",
-            "采购看板",
-            "供应商档案",
-            "采购项目",
-            "采购申请",
-            "采购订单",
-            "物流管理",
-            "收货管理",
-            "付款管理",
-            "股东资金",
-            "历史初始化",
             "销售管理",
             "财务结算中心",
+            "财务总览",
+            "应收账款",
+            "应收总账",
+            "应收三方对账",
+            "好业财同步",
+            "好业财中间层",
+            "应付账款",
+            "资金账户",
+            "资金调拨",
+            "股东资金",
+            "费用管理",
+            "报销管理",
+            "财务报表",
             "股东权益中心",
             "审批中心",
             "经营分析",
@@ -808,7 +931,6 @@
             "验收试运行",
             "系统运维",
             "个人中心 / 修改密码",
-            "应收账款",
             "99+",
             "反馈问题",
             "反馈页面问题",
@@ -822,83 +944,45 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783646400620-1.png",
+            "pasted-screenshot-1783648622337-1.png",
             "退出",
-            "至",
-            "采购订单数",
-            "合同金额 1,710,420,530.80",
-            "应付余额 (CNY)",
-            "待付账款",
-            "已付金额 (CNY)",
-            "付款合计",
-            "合计 3 笔",
-            "在途运单",
-            "运单总数 0",
-            "待审批",
-            "待审采购申请 0",
-            "应付账龄分布",
-            "账龄区间",
-            "笔数",
-            "余额",
-            "货币",
-            "未到期",
-            "2",
-            "72,168.00",
-            "CNY",
-            "逾期1-30天",
-            "3",
-            "224,500.00",
-            "运单状态分布",
-            "付款趋势",
-            "期间",
-            "金额（原币）",
-            "金额（基准）",
-            "2026-06",
-            "246,262.80",
-            "项目成本归集",
-            "项目",
+            "财务管理",
+            "/应收账款",
+            "/",
+            "应收账款管理",
+            "·客户应收账款 · 收款核销 · 账龄分析",
+            "·",
+            "应收账单总数",
+            "未收款",
+            "部分收款",
+            "已收清",
+            "逾期笔数",
+            "待收余额",
+            "应收编号",
+            "来源",
+            "客户",
             "公司",
-            "合同金额",
-            "预算",
-            "预算占用",
-            "已付",
-            "孟赛蛋鸡场经营项目 PRJ_MENGSAI_LAYER",
+            "发票日期",
+            "到期日",
+            "发票金额",
+            "状态",
+            "AR-202607-00004",
+            "手工",
+            "测试客户2 CUS-00002",
             "COMP-LAO-AGRI",
-            "LAK",
-            "4",
-            "1,709,626,000.00",
             "—",
-            "0.00",
-            "8",
-            "758,476.80",
-            "210,208.80",
-            "296,668.00",
-            "万象食品综合项目 PRJ_VIENTIANE_FOOD",
-            "COMP-LAO-FOOD",
-            "1",
-            "36,054.00",
-            "股东资金汇总",
-            "股东",
-            "类型",
-            "赵永伟",
-            "LOAN",
-            "供应商绩效 TOP 20",
-            "供应商",
-            "合同额",
-            "待付AP",
-            "胥总 LAK",
-            "1,603,226,000.00",
-            "万象蛋托厂 LAK",
-            "106,400,000.00",
-            "张鹏（装修工程） CNY",
-            "318,370.80",
-            "72,108.00",
-            "中粮鞠德清 CNY",
-            "251,600.00",
-            "罗成松 CNY",
-            "150,000.00",
-            "河南艾特米 CNY",
-            "74,560.00"
+            "¥10.00",
+            "¥0.00",
+            "AR-202607-00003",
+            "2026-07-10",
+            "2027-07-10",
+            "¥5.00",
+            "AR-202607-00002",
+            "AR-202607-00001",
+            "2028-07-09",
+            "¥100.00",
+            "共 4 条（第 1 / 1 页）",
+            "1 / 1"
           ],
           "interactiveElements": [
             {
@@ -975,7 +1059,7 @@
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
                 "w": 215,
@@ -986,15 +1070,51 @@
               "disabled": false
             },
             {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 384
+              },
+              "label": "销售管理",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 422
+              },
+              "label": "财务结算中心",
+              "disabled": false
+            },
+            {
               "tag": "a",
               "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
               "rect": {
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 384
+                "y": 460
               },
-              "label": "采购看板",
+              "label": "财务总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 492
+              },
+              "label": "应收账款",
               "disabled": false
             },
             {
@@ -1004,9 +1124,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 416
+                "y": 524
               },
-              "label": "供应商档案",
+              "label": "应收总账",
               "disabled": false
             },
             {
@@ -1016,9 +1136,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 448
+                "y": 556
               },
-              "label": "采购项目",
+              "label": "应收三方对账",
               "disabled": false
             },
             {
@@ -1028,9 +1148,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 480
+                "y": 588
               },
-              "label": "采购申请",
+              "label": "好业财同步",
               "disabled": false
             },
             {
@@ -1040,9 +1160,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 512
+                "y": 620
               },
-              "label": "采购订单",
+              "label": "好业财中间层",
               "disabled": false
             },
             {
@@ -1052,9 +1172,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 544
+                "y": 652
               },
-              "label": "物流管理",
+              "label": "应付账款",
               "disabled": false
             },
             {
@@ -1064,9 +1184,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 576
+                "y": 684
               },
-              "label": "收货管理",
+              "label": "资金账户",
               "disabled": false
             },
             {
@@ -1076,9 +1196,9 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 608
+                "y": 716
               },
-              "label": "付款管理",
+              "label": "资金调拨",
               "disabled": false
             },
             {
@@ -1088,7 +1208,7 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 640
+                "y": 748
               },
               "label": "股东资金",
               "disabled": false
@@ -1100,43 +1220,43 @@
                 "h": 32,
                 "w": 215,
                 "x": 0,
-                "y": 672
-              },
-              "label": "历史初始化",
-              "disabled": false
-            },
-            {
-              "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
-              "rect": {
-                "h": 38,
-                "w": 215,
-                "x": 0,
-                "y": 704
-              },
-              "label": "销售管理",
-              "disabled": false
-            },
-            {
-              "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
-              "rect": {
-                "h": 38,
-                "w": 215,
-                "x": 0,
-                "y": 742
-              },
-              "label": "财务结算中心",
-              "disabled": false
-            },
-            {
-              "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
-              "rect": {
-                "h": 38,
-                "w": 215,
-                "x": 0,
                 "y": 780
+              },
+              "label": "费用管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 812
+              },
+              "label": "报销管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 844
+              },
+              "label": "财务报表",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 876
               },
               "label": "股东权益中心",
               "disabled": false
@@ -1148,7 +1268,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 818
+                "y": 914
               },
               "label": "审批中心",
               "disabled": false
@@ -1160,7 +1280,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 856
+                "y": 952
               },
               "label": "经营分析",
               "disabled": false
@@ -1172,7 +1292,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 894
+                "y": 990
               },
               "label": "主数据中心",
               "disabled": false
@@ -1184,7 +1304,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 932
+                "y": 1028
               },
               "label": "系统设置",
               "disabled": false
@@ -1196,7 +1316,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 970
+                "y": 1066
               },
               "label": "验收试运行",
               "disabled": false
@@ -1208,7 +1328,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 1008
+                "y": 1104
               },
               "label": "系统运维",
               "disabled": false
@@ -1280,7 +1400,7 @@
                 "h": 26,
                 "w": 26,
                 "x": 1145,
-                "y": 117
+                "y": 115
               },
               "label": "关闭",
               "disabled": false
@@ -1292,7 +1412,7 @@
                 "h": 41,
                 "w": 570,
                 "x": 601,
-                "y": 338
+                "y": 337
               },
               "label": "例如：采购付款单项目下拉为空",
               "disabled": false
@@ -1304,7 +1424,7 @@
                 "h": 38,
                 "w": 570,
                 "x": 601,
-                "y": 419
+                "y": 418
               },
               "label": "低：样式/文案问题 中：影响局部流程 高：阻断业务操作 紧急：系统不可用/数据风险",
               "disabled": false
@@ -1316,7 +1436,7 @@
                 "h": 99,
                 "w": 570,
                 "x": 601,
-                "y": 498
+                "y": 496
               },
               "label": "请描述你刚才做了什么、期望结果、实际结果。",
               "disabled": false
@@ -1328,7 +1448,7 @@
                 "h": 39,
                 "w": 100,
                 "x": 601,
-                "y": 638
+                "y": 636
               },
               "label": "全屏截图",
               "disabled": false
@@ -1340,7 +1460,7 @@
                 "h": 39,
                 "w": 126,
                 "x": 712,
-                "y": 638
+                "y": 636
               },
               "label": "框选区域截图",
               "disabled": false
@@ -1351,8 +1471,8 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 858,
-                "y": 815
+                "x": 857,
+                "y": 814
               },
               "label": "移除附件",
               "disabled": false
@@ -1364,7 +1484,7 @@
                 "h": 42,
                 "w": 61,
                 "x": 1011,
-                "y": 869
+                "y": 867
               },
               "label": "取消",
               "disabled": false
@@ -1376,7 +1496,7 @@
                 "h": 42,
                 "w": 89,
                 "x": 1082,
-                "y": 869
+                "y": 867
               },
               "label": "提交问题",
               "disabled": false
@@ -1406,39 +1526,159 @@
               "disabled": false
             },
             {
-              "tag": "input",
+              "tag": "button",
               "path": "",
               "rect": {
-                "h": 25,
-                "w": 140,
-                "x": 244,
-                "y": 154
+                "h": 35,
+                "w": 82,
+                "x": 1415,
+                "y": 89
               },
-              "label": "公司代码",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".admin-ui-module__B-1PDG__filterSelect",
-              "rect": {
-                "h": 36,
-                "w": 69,
-                "x": 697,
-                "y": 150
-              },
-              "label": "按月 按日",
+              "label": "刷新",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 108,
+                "x": 1505,
+                "y": 89
+              },
+              "label": "录入收款",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 133,
+                "x": 1621,
+                "y": 89
+              },
+              "label": "新建应收发票",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 45,
+                "w": 96,
+                "x": 244,
+                "y": 261
+              },
+              "label": "应收账单",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 45,
+                "w": 96,
+                "x": 340,
+                "y": 261
+              },
+              "label": "收款记录",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 45,
+                "w": 96,
+                "x": 436,
+                "y": 261
+              },
+              "label": "账龄分析",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 30,
+                "w": 65,
+                "x": 285,
+                "y": 340
+              },
+              "label": "未收款",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 30,
+                "w": 77,
+                "x": 360,
+                "y": 340
+              },
+              "label": "部分收款",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 30,
+                "w": 65,
+                "x": 447,
+                "y": 340
+              },
+              "label": "已收清",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 30,
+                "w": 65,
+                "x": 522,
+                "y": 340
+              },
+              "label": "已逾期",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 30,
+                "w": 65,
+                "x": 597,
+                "y": 340
+              },
+              "label": "已取消",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": "",
               "rect": {
                 "h": 37,
-                "w": 82,
-                "x": 766,
-                "y": 147
+                "w": 240,
+                "x": 1408,
+                "y": 337
               },
-              "label": "刷新",
+              "label": "应收编号 / 客户 / 发票号…",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 37,
+                "w": 81,
+                "x": 1656,
+                "y": 337
+              },
+              "label": "搜索",
               "disabled": false
             }
           ]
@@ -1478,7 +1718,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260710-0001",
+      "source_bug_no": "BUG-20260710-0002",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -1537,169 +1777,11 @@
         "human approval required before code repair execution"
       ],
       "route_confidence": null,
-      "source_repair_task_no": "BUGTASK-20260710-0001"
+      "source_repair_task_no": "BUGTASK-20260710-0002"
     },
-    "createdAt": "2026-07-10T01:21:21.116Z",
+    "createdAt": "2026-07-10T02:16:28.819Z",
     "createdBy": "admin",
-    "moduleCode": "_____",
-    "agentResults": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260710-0001-01-A2",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0001-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0001-01-A2\nTitle: Repair BUG-20260710-0001: 运营工作台页面按钮跳转错误 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-10T01:25:15.206Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260710-0001-04-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0001-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260710-0001-04-A5\nTitle: Repair BUG-20260710-0001: 运营工作台页面按钮跳转错误 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-10T01:25:16.913Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-04-A5-worker-log.md",
-        "changedFiles": [],
-        "validationResults": null
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260710-0001-02-A3",
-        "summary": "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:134:   * POST /api/v2/finance/ap/import-from-prc2\napps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:196:   * GET /api/v2/finance/ap/legacy-source\napps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:222:   * GET /api/v2/finance/ap/summary\n\nexec\n/bin/zsh -lc 'find docs/ops -maxdepth 1 -type f | sort | tail -30' in /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\n succeeded in 0ms:\ndocs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md\ndocs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md\ndocs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md\ndocs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md\ndocs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md\ndocs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md\ndocs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md\ndocs/ops/STORE_PAYMENT_STORE_CODE_NORMALIZATION_PLAN.md\ndocs/ops/SYS_DICT_DUPLICATE_AUDIT_AND_DEDUP_REPORT.md\ndocs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md\ndocs/ops/V3E_EVOLUTION_CENTER_REVIEW.md\ndocs/ops/WMS_DATASCOPE_WRITE_SCOPE_REMEDIATION_20260626.md\ndocs/ops/WMS_FRONTEND_ATOMIC_MENU_GATE_REMEDIATION_20260626.md\ndocs/ops/WORKFLOW_APPROVAL_ACTION_UX_REMEDIATION_20260626.md\ndocs/ops/WORKFLOW_APPROVER_DEFAULT_REMEDIATION_20260626.md\ndocs/ops/WORKFLOW_BIZ_REGISTRY_ATOMIC_MODULE_REMEDIATION_20260627.md\ndocs/ops/WORKFLOW_PERMISSION_ATOMIZATION_REMEDIATION_20260626.md\ndocs/ops/WORKFLOW_RBAC_ATOMIC_PERMISSION_REMEDIATION_20260625.md\ndocs/ops/bug-20260707-0002-a4-frontend-uat-smoke.md\ndocs/ops/bug-20260707-0009-a3-backend-critical-path.md\ndocs/ops/bug-20260707-0009-a4-frontend-redispatch-20260709.md\ndocs/ops/bug-20260707-0009-a4-frontend-uat-report.md\ndocs/ops/bug-20260707-0010-a3-backend-critical-path.md\ndocs/ops/bug-20260708-0002-a3-backend-critical-path.md\ndocs/ops/bug-20260708-0003-a3-backend-critical-path.md\ndocs/ops/bug-20260708-0004-a3-backend-critical-path.md\ndocs/ops/bug",
-        "commitHash": "",
-        "conclusion": "PASS",
-        "nextAction": "",
-        "recordedAt": "2026-07-10T01:26:42.109Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-02-A3-worker-log.md",
-        "changedFiles": [
-          "apps/api/src/modules/finance-v2/finance-v2.module.ts:62: *   FinApController    — /api/v2/finance/ap/* 路由",
-          "apps/api/src/modules/finance-v2/services/ap-adapter.service.ts:41:   * GET /api/v2/finance/ap/legacy-source",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:19: * 路由前缀：/api/v2/finance/ap",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:22: *   GET    /api/v2/finance/ap/invoices          — 列表（分页、全筛选）",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:23: *   GET    /api/v2/finance/ap/invoices/:id      — 详情（含付款核销）",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:24: *   POST   /api/v2/finance/ap/invoices          — 手工创建",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:25: *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:26: *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:27: *   GET    /api/v2/finance/ap/aging             — AP Aging 明细",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:28: *   GET    /api/v2/finance/ap/summary           — AP 汇总统计",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:29: *   POST   /api/v2/finance/ap/import-from-prc2  — 从 prc2_ap_ledger 幂等导入",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:34:@Controller('api/v2/finance/ap')",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:42:   * GET /api/v2/finance/ap/invoices",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:54:   * GET /api/v2/finance/ap/invoices/:id",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:66:   * POST /api/v2/finance/ap/invoices",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:78:   * PATCH /api/v2/finance/ap/invoices/:id",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:93:   * POST /api/v2/finance/ap/invoices/:id/cancel",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:108:   * GET /api/v2/finance/ap/aging",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:121:   * GET /api/v2/finance/ap/summary",
-          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts:134:   * POST /api/v2/finance/ap/import-from-prc2",
-          "apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:196:   * GET /api/v2/finance/ap/legacy-source",
-          "apps/api/src/modules/finance-v2/controllers/finance-v2.controller.ts:222:   * GET /api/v2/finance/ap/summary"
-        ],
-        "validationResults": null
-      },
-      {
-        "agent": "BugIntakeLocalRunner",
-        "taskId": "LOCAL-RUNNER-20260710012648",
-        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 212 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0001-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0001-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-        "commitHash": "f84d24bc42fb64f8f0a878fc454c1d446bf61c97",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T01:26:49.310Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "validationResults": {
-          "ci": "SKIPPED: wait-ci-after-push disabled",
-          "push": "PASS",
-          "sync": "PASS",
-          "workerRuns": [
-            {
-              "agent": "A2-Security-Regression-Gate",
-              "taskId": "BUGTASK-20260710-0001-01-A2",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A5-Data-Readiness",
-              "taskId": "BUGTASK-20260710-0001-04-A5",
-              "finalStatus": "completed",
-              "writebackStatus": 0
-            },
-            {
-              "agent": "A3-Backend-Critical-Path",
-              "taskId": "BUGTASK-20260710-0001-02-A3",
-              "finalStatus": "COMPLETED_MERGED",
-              "writebackStatus": 0
-            }
-          ]
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260710-0001-03-A4",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260710-0001-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260710-0001-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 24832\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T01-35-00-038Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS.\n\nFixed the `/home` “进入采购中心” CTA routing so users with `MENU_PRC2_DASHBOARD` go directly to `/procurement2/dashboard`, while users without that permission still fall back through the existing permission-aware procurement menu logic. RBAC remains intact.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/home/page.tsx:75)\n- [A4 report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md:1)\n\nValidation:\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed, 0 errors\n- `git diff --check` passed\n- Final worktree clean\n\nCommits:\n- `4e82eb0a fix: repair procure",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-10T01:35:10.858Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-03-A4-worker-log.md",
-        "changedFiles": [
-          "docs/ops/runs/router-v1-revalidate-case2-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case2-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case3-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case3-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case4-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case4-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case5-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case5-route-plan.md",
-          "docs/ops/runs/router-v1-revalidate-case6-route-plan.json",
-          "docs/ops/runs/router-v1-revalidate-case6-route-plan.md",
-          "docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt",
-          "docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json",
-          "docs/ops/runs/store-payment-closed-loop-fix-route-plan.json",
-          "docs/ops/runs/store-payment-closed-loop-fix-route-plan.md",
-          "docs/ops/runs/store-payment-controlled-uat-smoke-static.json",
-          "docs/ops/runs/store-payment-file-metadata-acl-static-check.json",
-          "docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json",
-          "docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json",
-          "docs/ops/runs/store-payment-protected-streaming-static-check.json",
-          "docs/ops/runs/store-payment-record-proof-db-evidence.json",
-          "docs/ops/runs/store-payment-record-proof-endpoint-smoke.json",
-          "docs/ops/runs/store-payment-record-proof-page-smoke.json",
-          "docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md",
-          "docs/ops/runs/sys-dict-dedupe-latest.json",
-          "docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md",
-          "docs/ops/runtime-memory/DECISION_LOG.md",
-          "docs/ops/runtime-memory/GUARDRAILS.md",
-          "docs/ops/runtime-memory/NEXT_ACTIONS.md",
-          "docs/ops/runtime-memory/PROJECT_STATE.json",
-          "docs/ops/runtime-memory/STORE_PAYMENT_STATE.md"
-        ],
-        "validationResults": null
-      },
-      {
-        "taskId": "BUGTASK-20260710-0001-05-A1",
-        "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-        "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-10T01:35:12.678Z"
-      }
-    ],
+    "moduleCode": "______",
     "suggestedOwner": "",
     "repairGuardrails": {
       "autoRepairExecuted": false,
@@ -1707,25 +1789,12 @@
       "noDbWriteWithoutGate": true,
       "requiresHumanApproval": true
     },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260710-0001-05-A1",
-      "agent": "A1-CI-Runtime-Gate",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0001-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-10T01:35:12.678Z"
-    },
-    "acceptanceCriteria": "点击“进入采购中心”，跳转到采购管理-采购看板页面",
-    "agentPlanGeneratedAt": "2026-07-10T01:21:22.274Z",
+    "acceptanceCriteria": "选择收款账户确认收款后，对应的账户余额需要根据收款金额进行准确的余额改变",
+    "agentPlanGeneratedAt": "2026-07-10T02:16:29.784Z",
     "agentPlanGeneratedBy": "admin",
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-10T01:21:23.420Z",
+      "approvedAt": "2026-07-10T02:16:30.774Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -1735,6 +1804,34 @@
         "push without release approval",
         "force push"
       ]
+    },
+    "agentResults": [
+      {
+        "taskId": "BUGTASK-20260710-0002-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-10T02:19:22.185Z"
+      }
+    ],
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260710-0002-01-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-10T02:19:22.185Z"
     }
   },
   "updatedBy": "bug_intake_runner"
