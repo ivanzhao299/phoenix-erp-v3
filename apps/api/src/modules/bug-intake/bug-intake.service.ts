@@ -1565,6 +1565,7 @@ export class BugIntakeService {
   }
 
   private runnerLifecycleEvidence(report: BugReportEntity, agentResult: Record<string, unknown>) {
+    // A release receipt can advance only a report whose implementation evidence was already aggregated.
     if (report.repairTaskStatus !== 'AGENT_EXECUTION_FINISHED') {
       return { passed: false, reason: `implementation evidence gate is not ready: ${report.repairTaskStatus || 'EMPTY'}` };
     }

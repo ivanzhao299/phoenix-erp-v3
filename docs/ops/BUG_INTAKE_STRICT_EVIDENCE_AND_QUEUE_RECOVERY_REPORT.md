@@ -47,6 +47,7 @@
 - 修复任务不能从技术完成状态直接关闭；必须先从 `FIX_READY_FOR_UAT` 标记 `RESOLVED`，再关闭。
 - 新增历史假完成 dry-run/apply 纠偏接口，保留审计记录并把可疑记录转为 `IN_PROGRESS + HOLD`。
 - Runner lifecycle 只有在当前问题已处于 `AGENT_EXECUTION_FINISHED` 时才接受；单独伪造 push/CI/smoke PASS 不能绕过实现证据门禁。
+- 独立 CI Security 使用 `--fail-on-uncovered`；本轮新增状态标签已全部进入三语 locale，严格 i18n 门禁为 PASS。
 
 ### 管理页面
 
