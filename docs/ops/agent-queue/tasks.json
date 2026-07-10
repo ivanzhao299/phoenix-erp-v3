@@ -15332,7 +15332,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15353,10 +15353,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-10T06:38:18.133Z",
+    "completed_at": "2026-07-10T06:48:18.285Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0002-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -15372,7 +15372,29 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:08.339Z"
+    "last_redispatch_at": "2026-07-10T04:38:08.339Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 124,
+      "conclusion": "",
+      "responseChars": 0,
+      "beforeHead": "37f644728ff0f0b95ababec5a915dac68c8b2c39",
+      "afterHead": "37f644728ff0f0b95ababec5a915dac68c8b2c39",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-10T06:48:18.285Z",
+      "passed": false,
+      "role": "execution",
+      "terminalStatus": "HOLD",
+      "reason": "Agent process exited with 124"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "reason": "Agent process exited with 124"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A1",
