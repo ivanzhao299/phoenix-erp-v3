@@ -6603,7 +6603,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0006",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "COMPLETED_MERGED",
     "priority": "P1",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -6622,10 +6622,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A3-Backend-Critical-Path",
+    "claimed_at": "2026-07-10T00:56:29.862Z",
+    "completed_at": "2026-07-10T01:00:04.706Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-detached-worker-recovery.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -6645,7 +6645,9 @@
         "source_bug_no": "BUG-20260708-0006",
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
-    ]
+    ],
+    "detached_worker_recovered_at": "2026-07-10T01:00:04.706Z",
+    "detached_worker_recovery": "baseline autopilot completed after parent worker exited before queue writeback"
   },
   {
     "task_id": "BUGTASK-20260708-0006-03-A4",

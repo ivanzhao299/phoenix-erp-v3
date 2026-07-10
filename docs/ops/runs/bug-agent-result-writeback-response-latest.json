@@ -9,12 +9,12 @@
   "assigneeUsername": "_____",
   "assigneeName": "",
   "repairTaskNo": "BUGTASK-20260708-0006",
-  "repairTaskStatus": "AGENT_COMPLETED",
+  "repairTaskStatus": "HOLD",
   "route": "/sales2/pricing",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-08T07:23:38.149Z",
-  "updatedAt": "2026-07-10T00:56:29.316Z",
+  "updatedAt": "2026-07-10T01:00:05.870Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
@@ -2570,6 +2570,177 @@
     "moduleCode": "____",
     "agentResults": [
       {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260708-0006-03-A4",
+        "summary": "Local bug-intake task BUGTASK-20260708-0006-03-A4 reached COMPLETED_MERGED.",
+        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+        "recordedAt": "2026-07-10T00:50:58.777Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-03-A4-worker-log.md",
+        "changedFiles": [],
+        "validationResults": {
+          "completedAt": "2026-07-08T08:35:42.693Z",
+          "localTaskStatus": "COMPLETED_MERGED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
+        }
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "taskId": "BUGTASK-20260708-0006-05-A1",
+        "summary": "Local bug-intake task BUGTASK-20260708-0006-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+        "recordedAt": "2026-07-10T00:50:59.777Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-05-A1-worker-log.md",
+        "changedFiles": [],
+        "validationResults": {
+          "completedAt": "2026-07-08T08:41:13.702Z",
+          "localTaskStatus": "completed",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
+        }
+      },
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260708-0006-01-A2",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0006-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0006-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260708-0006-01-A2\nTitle: Repair BUG-20260708-0006: 价格册恢复 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-10T00:56:27.463Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-01-A2-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "taskId": "BUGTASK-20260708-0006-04-A5",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0006-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0006-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0006-04-A5\nTitle: Repair BUG-20260708-0006: 价格册恢复 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-10T00:56:29.313Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "taskId": "BUGTASK-20260708-0006-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-detached-worker-recovery.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": null,
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0006-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 25 |\n| Worktree status before recovery | M apps/api/src/common/interceptors/operation-log.interceptor.ts\n M apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts\n M apps/api/src/modules/sales-v2/services/price-books.service.ts\n M docs/ops/bug-20260708-0006-a3-backend-critical-path.md\n?? apps/api/src/modules/sales-v2/services/price-books.service.spec.ts |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n6-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 5d72f4fa..3da4d2c5\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-792Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3da4d2c5 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n5d72f4fa feat(api): record A3-Backend-Critical-Path result\n1663379c (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\naeda4009 docs(ops): record baseline lifecycle report\nbf34bcf4 docs(ops): add bug 20260709 0004 a4 report\n68b4b323 docs(ops): record baseline lifecycle repor",
+        "nextAction": "",
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-10T01:00:05.867Z"
+      }
+    ],
+    "suggestedOwner": "_____",
+    "redispatchCount": 2,
+    "timeoutRecovery": {},
+    "repairGuardrails": {
+      "autoRepairExecuted": false,
+      "noProductionDeploy": true,
+      "noDbWriteWithoutGate": true,
+      "requiresHumanApproval": true
+    },
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260708-0006-02-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-detached-worker-recovery.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": null,
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0006-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 25 |\n| Worktree status before recovery | M apps/api/src/common/interceptors/operation-log.interceptor.ts\n M apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts\n M apps/api/src/modules/sales-v2/services/price-books.service.ts\n M docs/ops/bug-20260708-0006-a3-backend-critical-path.md\n?? apps/api/src/modules/sales-v2/services/price-books.service.spec.ts |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n6-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 5d72f4fa..3da4d2c5\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-792Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3da4d2c5 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n5d72f4fa feat(api): record A3-Backend-Critical-Path result\n1663379c (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\naeda4009 docs(ops): record baseline lifecycle report\nbf34bcf4 docs(ops): add bug 20260709 0004 a4 report\n68b4b323 docs(ops): record baseline lifecycle repor",
+      "nextAction": "",
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-10T01:00:05.867Z"
+    },
+    "redispatchHistory": [
+      {
+        "mode": "REPLAN_AND_REQUEUE",
+        "note": "管理员要求重算 Agent 计划后重新派发。",
+        "redispatchNo": 1,
+        "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-10T00:52:24.850Z",
+        "redispatchedBy": "admin",
+        "selectedAgents": [
+          "A2-Security-Regression-Gate",
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A5-Data-Readiness",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "AGENT_COMPLETED"
+      },
+      {
+        "mode": "REQUEUE",
+        "note": "管理员要求按原 Agent 计划重新派发。",
+        "redispatchNo": 2,
+        "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-10T00:58:44.269Z",
+        "redispatchedBy": "admin",
+        "selectedAgents": [
+          "A2-Security-Regression-Gate",
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A5-Data-Readiness",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "AGENT_COMPLETED"
+      }
+    ],
+    "acceptanceCriteria": "价格册只保留名称为“孟赛标准价格册（试运行版）”的，并且恢复为正常状态",
+    "agentPlanGeneratedAt": "2026-07-10T00:52:24.850Z",
+    "agentPlanGeneratedBy": "redispatch:admin",
+    "failureClassification": {
+      "category": "API_5XX",
+      "evidence": [
+        "API 5xx/异常信号"
+      ],
+      "priority": "P1",
+      "severity": "HIGH",
+      "confidence": 0.88,
+      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+      "autoFixEligible": true,
+      "recommendedAgents": [
+        "A3-Backend-Critical-Path",
+        "A1-CI-Runtime-Gate"
+      ],
+      "requiresHumanGate": true,
+      "ownerRecommendation": "A3-Backend-Critical-Path"
+    },
+    "agentExecutionApproval": {
+      "approved": true,
+      "approvedAt": "2026-07-10T00:58:44.269Z",
+      "approvedBy": "admin",
+      "redispatch": true,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "redispatchCount": 2,
+      "forbiddenActions": [
+        "production deploy without separate approval",
+        "database write without separate gate",
+        "migration execution without separate gate",
+        "push without release approval",
+        "force push"
+      ]
+    },
+    "failureClassificationUpdatedAt": "2026-07-10T00:52:24.850Z",
+    "previousAgentResultsBeforeRedispatch": [
+      {
         "agent": "A3-Backend-Critical-Path",
         "taskId": "BUGTASK-20260708-0006-02-A3",
         "summary": "Local bug-intake task BUGTASK-20260708-0006-02-A3 reached COMPLETED_MERGED.",
@@ -2637,186 +2808,17 @@
         "validationResults": null
       },
       {
-        "taskId": "BUGTASK-20260708-0006-04-A5",
         "agent": "A5-Data-Readiness",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": null,
+        "taskId": "BUGTASK-20260708-0006-04-A5",
         "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0006-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0006-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0006-04-A5\nTitle: Repair BUG-20260708-0006: 价格册恢复 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
+        "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "",
-        "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-10T00:56:29.313Z"
-      }
-    ],
-    "suggestedOwner": "_____",
-    "redispatchCount": 1,
-    "timeoutRecovery": {},
-    "repairGuardrails": {
-      "autoRepairExecuted": false,
-      "noProductionDeploy": true,
-      "noDbWriteWithoutGate": true,
-      "requiresHumanApproval": true
-    },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0006-04-A5",
-      "agent": "A5-Data-Readiness",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0006-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0006-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0006-04-A5\nTitle: Repair BUG-20260708-0006: 价格册恢复 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "nextAction": "",
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-10T00:56:29.313Z"
-    },
-    "redispatchHistory": [
-      {
-        "mode": "REPLAN_AND_REQUEUE",
-        "note": "管理员要求重算 Agent 计划后重新派发。",
-        "redispatchNo": 1,
-        "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-        "previousStatus": "IN_PROGRESS",
-        "redispatchedAt": "2026-07-10T00:52:24.850Z",
-        "redispatchedBy": "admin",
-        "selectedAgents": [
-          "A2-Security-Regression-Gate",
-          "A3-Backend-Critical-Path",
-          "A4-Frontend-UAT-Smoke",
-          "A5-Data-Readiness",
-          "A1-CI-Runtime-Gate"
-        ],
-        "previousRepairTaskStatus": "AGENT_COMPLETED"
-      }
-    ],
-    "acceptanceCriteria": "价格册只保留名称为“孟赛标准价格册（试运行版）”的，并且恢复为正常状态",
-    "agentPlanGeneratedAt": "2026-07-10T00:52:24.850Z",
-    "agentPlanGeneratedBy": "redispatch:admin",
-    "failureClassification": {
-      "category": "API_5XX",
-      "evidence": [
-        "API 5xx/异常信号"
-      ],
-      "priority": "P1",
-      "severity": "HIGH",
-      "confidence": 0.88,
-      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
-      "autoFixEligible": true,
-      "recommendedAgents": [
-        "A3-Backend-Critical-Path",
-        "A1-CI-Runtime-Gate"
-      ],
-      "requiresHumanGate": true,
-      "ownerRecommendation": "A3-Backend-Critical-Path"
-    },
-    "agentExecutionApproval": {
-      "approved": true,
-      "approvedAt": "2026-07-10T00:52:24.850Z",
-      "approvedBy": "admin",
-      "redispatch": true,
-      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "redispatchCount": 1,
-      "forbiddenActions": [
-        "production deploy without separate approval",
-        "database write without separate gate",
-        "migration execution without separate gate",
-        "push without release approval",
-        "force push"
-      ]
-    },
-    "failureClassificationUpdatedAt": "2026-07-10T00:52:24.850Z",
-    "previousAgentResultsBeforeRedispatch": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260708-0006-01-A2",
-        "summary": "Local bug-intake task BUGTASK-20260708-0006-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T00:50:57.728Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-01-A2-worker-log.md",
-        "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-08T08:25:31.420Z",
-          "localTaskStatus": "completed",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260708-0006-02-A3",
-        "summary": "Local bug-intake task BUGTASK-20260708-0006-02-A3 reached COMPLETED_MERGED.",
-        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T00:50:58.240Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-worker-log.md",
-        "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-08T08:33:34.700Z",
-          "localTaskStatus": "COMPLETED_MERGED",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260708-0006-03-A4",
-        "summary": "Local bug-intake task BUGTASK-20260708-0006-03-A4 reached COMPLETED_MERGED.",
-        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T00:50:58.777Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-03-A4-worker-log.md",
-        "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-08T08:35:42.693Z",
-          "localTaskStatus": "COMPLETED_MERGED",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260708-0006-04-A5",
-        "summary": "Local bug-intake task BUGTASK-20260708-0006-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T00:50:59.262Z",
+        "recordedAt": "2026-07-10T00:56:29.313Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
         "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-08T08:30:51.291Z",
-          "localTaskStatus": "completed",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260708-0006-05-A1",
-        "summary": "Local bug-intake task BUGTASK-20260708-0006-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T00:50:59.777Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-05-A1-worker-log.md",
-        "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-08T08:41:13.702Z",
-          "localTaskStatus": "completed",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
+        "validationResults": null
       }
     ]
   },

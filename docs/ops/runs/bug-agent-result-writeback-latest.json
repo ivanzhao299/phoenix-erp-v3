@@ -3,14 +3,14 @@
   "bugNo": "BUG-20260708-0006",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0006/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0006-04-A5",
-    "agent": "A5-Data-Readiness",
-    "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
+    "taskId": "BUGTASK-20260708-0006-02-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "conclusion": "HOLD",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-detached-worker-recovery.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0006-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0006-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0006-04-A5\nTitle: Repair BUG-20260708-0006: 价格册恢复 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0006-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 25 |\n| Worktree status before recovery | M apps/api/src/common/interceptors/operation-log.interceptor.ts\n M apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts\n M apps/api/src/modules/sales-v2/services/price-books.service.ts\n M docs/ops/bug-20260708-0006-a3-backend-critical-path.md\n?? apps/api/src/modules/sales-v2/services/price-books.service.spec.ts |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\n6-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 5d72f4fa..3da4d2c5\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 30 ++++++++++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 +++++++++++++++++++\n 2 files changed, 56 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-792Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-10T01-00-02-793Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n3da4d2c5 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n5d72f4fa feat(api): record A3-Backend-Critical-Path result\n1663379c (w5-a4-frontend-uat-smoke) docs(ops): record baseline lifecycle report\naeda4009 docs(ops): record baseline lifecycle report\nbf34bcf4 docs(ops): add bug 20260709 0004 a4 report\n68b4b323 docs(ops): record baseline lifecycle repor",
     "nextAction": ""
   }
 }
