@@ -1,6 +1,6 @@
 {
   "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
-  "generatedAt": "2026-07-10T06:00:17.707Z",
+  "generatedAt": "2026-07-10T06:21:22.963Z",
   "cycle": 1,
   "dryRun": false,
   "queueApply": "lease-recovery-only",
@@ -19,11 +19,11 @@
   "leaseRecovery": {
     "recovered": [
       {
-        "task_id": "BUGTASK-20260706-0002-A4",
-        "agent": "A4-Frontend-UAT-Smoke",
+        "task_id": "BUGTASK-20260707-0002-A3",
+        "agent": "A3-Backend-Critical-Path",
         "previous_status": "running",
-        "claimed_at": "2026-07-10T05:58:36.547Z",
-        "age_minutes": 2
+        "claimed_at": "2026-07-10T06:17:23.506Z",
+        "age_minutes": 4
       }
     ],
     "active_processes": [],
@@ -46,7 +46,7 @@
     "skipped": true,
     "reason": "recover-leases-only"
   },
-  "headSha": "75b2639b5c77299422a418810c9689f780beee75",
+  "headSha": "ef8a2e795273f6dc50684bb577a41d7b48e3f3a0",
   "tokenSource": "not-required",
   "lifecycleWriteback": {
     "skipped": true,

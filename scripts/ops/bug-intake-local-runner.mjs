@@ -670,10 +670,20 @@ function worktreeClean(cwd) {
   return status.ok && status.output.trim() === '';
 }
 
+function inferDirtyWorktreeOwner(task, statusOutput) {
+  const taskIds = [...String(statusOutput || '').matchAll(/BUGTASK-[A-Z0-9-]+-A[1-7](?=[^A-Z0-9]|$)/gi)]
+    .map((match) => match[0].toUpperCase());
+  const matchedTasks = [...new Set(taskIds)]
+    .map((taskId) => findTask(taskId))
+    .filter(Boolean);
+  return matchedTasks.length === 1 ? matchedTasks[0] : task;
+}
+
 function quarantineDirtyImplementationWorktree(task, args, before) {
   if (!args.autoUnblockDirtyWorktrees || !String(task.worktree || '').includes('/bug-intake-')) return null;
+  const ownerTask = inferDirtyWorktreeOwner(task, before.output);
   const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
-  const safeTaskId = String(task.task_id || 'unknown-task').replace(/[^A-Za-z0-9._-]/g, '-');
+  const safeTaskId = String(ownerTask.task_id || 'unknown-task').replace(/[^A-Za-z0-9._-]/g, '-');
   const quarantineRoot = path.join(path.dirname(task.worktree), 'bug-intake-quarantine');
   const quarantinePath = path.join(quarantineRoot, `${safeTaskId}-${timestamp}`);
   const quarantineBranch = `codex/quarantine/${safeTaskId.toLowerCase()}-${timestamp}`;
@@ -681,8 +691,9 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
 
   if (args.dryRun) {
     return {
-      task_id: task.task_id,
-      agent: task.agent,
+      task_id: ownerTask.task_id,
+      trigger_task_id: task.task_id,
+      agent: ownerTask.agent,
       status: 'WOULD_QUARANTINE',
       reason: 'dry-run would preserve the incomplete worktree and recreate a clean execution slot from origin/main',
       before: before.output,
@@ -710,7 +721,7 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
     quarantined_at: new Date().toISOString(),
     quarantine_source_worktree: task.worktree,
   };
-  const heldTask = patchTask(task.task_id, taskPatch);
+  const heldTask = patchTask(ownerTask.task_id, taskPatch);
   let recreated = { ok: false, output: 'skipped because quarantine branch rename failed' };
   if (renamed.ok) recreated = safeGit(['worktree', 'add', '-b', task.branch, task.worktree, 'origin/main'], args.mainRoot);
 
@@ -718,8 +729,9 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
 
 | Field | Value |
 | --- | --- |
-| Task | ${task.task_id} |
-| Agent | ${task.agent} |
+| Task | ${ownerTask.task_id} |
+| Trigger task | ${task.task_id} |
+| Agent | ${ownerTask.agent} |
 | Original worktree | \`${task.worktree}\` |
 | Quarantine worktree | \`${quarantinePath}\` |
 | Quarantine branch | \`${renamed.ok ? quarantineBranch : task.branch}\` |
@@ -739,8 +751,9 @@ ${recreated.ok ? '' : `Recreate error: ${recreated.output}`}
 `);
 
   return {
-    task_id: task.task_id,
-    agent: task.agent,
+    task_id: ownerTask.task_id,
+    trigger_task_id: task.task_id,
+    agent: ownerTask.agent,
     status: 'HOLD',
     reason: recreated.ok ? 'incomplete worktree quarantined; clean execution slot recreated' : `quarantine preserved, but clean slot recreation failed: ${recreated.output}`,
     before: before.output,

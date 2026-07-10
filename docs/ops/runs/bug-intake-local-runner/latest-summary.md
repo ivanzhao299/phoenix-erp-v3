@@ -37,7 +37,7 @@
 
 ## Stale Lease Recovery
 
-- BUGTASK-20260706-0002-A4: A4-Frontend-UAT-Smoke running -> pending (2 minutes old)
+- BUGTASK-20260707-0002-A3: A3-Backend-Critical-Path running -> pending (4 minutes old)
 
 ## Failure Classification
 
