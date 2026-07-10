@@ -91,7 +91,12 @@ function plistContent() {
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
-  <true/>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
   <key>StandardOutPath</key>
   <string>${path.join(LOG_DIR, 'bug-intake-runner.out.log')}</string>
   <key>StandardErrorPath</key>

@@ -98,3 +98,4 @@
 - Release evidence 结论：`RELEASE_EVIDENCE_HOLD`；push、CI wait、production smoke 均被正确拒绝，证明“退出码 0 假完成”已被阻断。
 - A1 回归发现根目录调用 `tsc` 未指定 project 的运行器缺陷，已改为显式加载 API/Web `tsconfig.json`。
 - 修复后验证：API typecheck PASS、Web typecheck PASS、evidence gate self-test PASS、W5 closeout PASS、严格 i18n 门禁 PASS。
+- LaunchAgent 改为仅在异常退出时重启，并设置 60 秒启动节流；正常 watch 进程持续运行，避免异常时形成登录风暴或触发 API 429。
