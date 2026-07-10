@@ -374,6 +374,12 @@ function syncCommand(args) {
 function listRunnableBugTasks(args) {
   const tasks = reconcileDependencyStates(args);
   const byId = new Map(tasks.map((task) => [task.task_id, task]));
+  const partiallyImplementedBugs = new Set(tasks
+    .filter((task) => task.source === 'bug-intake' && task.route_active !== false)
+    .filter((task) => ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke'].includes(task.agent))
+    .filter((task) => DEPENDENCY_SUCCESS_STATUSES.has(task.status))
+    .map((task) => task.source_bug_no)
+    .filter(Boolean));
   const allowAgents = args.agents ? new Set(String(args.agents).split(',').map((s) => s.trim()).filter(Boolean)) : null;
   return tasks
     .filter((task) => task.source === 'bug-intake')
@@ -386,13 +392,19 @@ function listRunnableBugTasks(args) {
         // Close an already implemented repair before opening another one.
         'A2-Security-Regression-Gate': 1,
         'A1-CI-Runtime-Gate': 2,
-        'A5-Data-Readiness': 3,
-        'A3-Backend-Critical-Path': 4,
-        'A4-Frontend-UAT-Smoke': 5,
-        'A6-Staging-Deploy-Runbook': 6,
-        'A7-Final-QA-Gate': 7,
+        'A5-Data-Readiness': 4,
+        'A3-Backend-Critical-Path': 5,
+        'A4-Frontend-UAT-Smoke': 6,
+        'A6-Staging-Deploy-Runbook': 7,
+        'A7-Final-QA-Gate': 8,
       };
-      const phaseDelta = (priority[a.agent] || 99) - (priority[b.agent] || 99);
+      const rank = (task) => (
+        ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke'].includes(task.agent)
+          && partiallyImplementedBugs.has(task.source_bug_no)
+          ? 3
+          : (priority[task.agent] || 99)
+      );
+      const phaseDelta = rank(a) - rank(b);
       if (phaseDelta !== 0) return phaseDelta;
       const aBug = String(a.source_bug_no || a.task_id || '');
       const bBug = String(b.source_bug_no || b.task_id || '');
