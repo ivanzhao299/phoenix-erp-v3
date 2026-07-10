@@ -783,11 +783,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:02.933Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-10T05:50:39.636Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-    "redispatchCount": 2,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

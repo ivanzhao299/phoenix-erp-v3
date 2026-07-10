@@ -12731,8 +12731,25 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 2,
-    "last_redispatch_at": "2026-07-10T04:38:02.932Z"
+    "redispatch_count": 3,
+    "last_redispatch_at": "2026-07-10T05:50:39.636Z",
+    "reason": null,
+    "evidence_gate": null,
+    "implementation_commit": "",
+    "integrated_commit": "",
+    "integrated_at": null,
+    "changed_files": [],
+    "baseline_autopilot_exit_code": null,
+    "redispatched_at": "2026-07-10T05:50:39.636Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-10T05:58:31.165Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260710-0001",
+        "source_repair_task_no": "BUGTASK-20260710-0001"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260710-0001-A1",
@@ -12779,8 +12796,25 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 2,
-    "last_redispatch_at": "2026-07-10T04:38:02.932Z"
+    "redispatch_count": 3,
+    "last_redispatch_at": "2026-07-10T05:50:39.636Z",
+    "reason": null,
+    "evidence_gate": null,
+    "implementation_commit": "",
+    "integrated_commit": "",
+    "integrated_at": null,
+    "changed_files": [],
+    "baseline_autopilot_exit_code": null,
+    "redispatched_at": "2026-07-10T05:50:39.636Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-10T05:58:31.166Z",
+        "previous_status": "pending",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260710-0001",
+        "source_repair_task_no": "BUGTASK-20260710-0001"
+      }
+    ]
   },
   {
     "task_id": "BUGTASK-20260709-0004-A3",
@@ -15577,8 +15611,8 @@
     "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
     "contract_file": "docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md",
     "request_spec": "",
-    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260706-0002-A3-20260710054901",
-    "branch": "codex/quarantine/bugtask-20260706-0002-a3-20260710054901",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-10T05:16:05.708Z",
@@ -15812,7 +15846,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
@@ -15874,7 +15908,9 @@
     "recovered_from_run_log": "docs/ops/runs/2026-07-10T05-16-00-867Z-A4-Frontend-UAT-Smoke.md",
     "integrated_commit": "44cb6273",
     "integrated_at": "2026-07-10T05:25:41.645Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260705-0003-A1",
@@ -15916,7 +15952,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
@@ -15955,6 +15991,8 @@
     "implementation_commit": "",
     "changed_files": [],
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT"
   }
 ]
