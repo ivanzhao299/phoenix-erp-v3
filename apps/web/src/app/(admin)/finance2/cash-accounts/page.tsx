@@ -8,6 +8,12 @@ import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 import { currencySymbol } from '@/lib/currency';
+import {
+  CASH_ACCOUNT_CREATE_DENIED_MESSAGE,
+  CASH_ACCOUNT_CREATE_PERMISSION,
+  FINANCE_CASH_MASTER_PERMISSION,
+  getCashAccountCreateButtonState,
+} from '@/lib/finance-cash-account-permissions';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -743,12 +749,18 @@ function TransactionDrawer({
 
 export default function CashAccountsPage() {
   const { t } = useLanguage();
+  const toast = useToast();
   // G20-2：按钮按子 menu 分流（A1 欠债治理）
-  //   新建账户 → MENU_FIN2_CASH_MASTER:C
+  //   新建账户 → MENU_MD_CASH_ACCOUNT:C（账户建档权限；后端 POST 同步校验）
   //   收/付款  → MENU_FIN2_CASH_TXN:C
-  //   宋明光持 TXN:C 但不持 MASTER:C，可记账不可建账户
-  const { canCreate: canCreateAccount, canEdit: canEditAccount } = usePermission('MENU_FIN2_CASH_MASTER');
+  //   宋明光持 TXN:C 但不持账户建档 C，可记账不可建账户
+  const { canCreate: canCreateFinanceCashMaster, canEdit: canEditAccount } = usePermission(FINANCE_CASH_MASTER_PERMISSION);
+  const { canCreate: canCreateCashAccount } = usePermission(CASH_ACCOUNT_CREATE_PERMISSION);
   const { canCreate: canCreateTxn, canEdit: canEditTxn, canDelete: canDeleteTxn } = usePermission('MENU_FIN2_CASH_TXN');
+  const createButtonState = useMemo(
+    () => getCashAccountCreateButtonState({ canCreateCashAccount, canCreateFinanceCashMaster }),
+    [canCreateCashAccount, canCreateFinanceCashMaster],
+  );
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -810,6 +822,13 @@ export default function CashAccountsPage() {
       setActionLoading(null);
     }
   }
+  function openCreateAccount() {
+    if (!createButtonState.allowCreate) {
+      toast.error(t('fin2.cash.no_create_permission', createButtonState.deniedMessage || CASH_ACCOUNT_CREATE_DENIED_MESSAGE));
+      return;
+    }
+    setShowCreate(true);
+  }
   // 账户总余额跨币种，单一符号会误导(USD/THB 账户被当人民币)。按币种分组展示。
   const totalBalanceDisplay = useMemo(() => {
     const rows = (summary?.byCurrency ?? []).filter(r => Number(r.balance) !== 0 || Number(r.cnt) > 0);
@@ -831,8 +850,8 @@ export default function CashAccountsPage() {
               <Plus size={13} /> {t('fin2.cash.pay','付款')}
             </button>
           )}
-          {canCreateAccount && (
-            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+          {createButtonState.renderButton && (
+            <button onClick={openCreateAccount} style={primaryActionButton}>
               <Plus size={15} /> {t('fin2.cash.new_account','新建账户')}
             </button>
           )}
