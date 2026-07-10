@@ -8498,7 +8498,7 @@
     "source_repair_task_no": "BUGTASK-20260710-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -8518,10 +8518,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A1-CI-Runtime-Gate",
+    "claimed_at": "2026-07-10T03:55:58.883Z",
+    "completed_at": "2026-07-10T03:56:00.667Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260710-0001-05-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -8541,7 +8541,28 @@
         "source_bug_no": "BUG-20260710-0001",
         "source_repair_task_no": "BUGTASK-20260710-0001"
       }
-    ]
+    ],
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 1,
+      "conclusion": "PASS",
+      "responseChars": 11465,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "checkedAt": "2026-07-10T03:56:00.666Z",
+      "passed": false,
+      "role": "execution",
+      "terminalStatus": "HOLD",
+      "reason": "Agent process exited with 1"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "reason": "Agent process exited with 1"
   },
   {
     "task_id": "BUGTASK-20260710-0002-01-A2",
