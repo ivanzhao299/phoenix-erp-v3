@@ -6,6 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -22,10 +23,29 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260710-0002-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260710-0002-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 27539
+Assembled prompt chars: 49468
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T02-25-45-789Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T04-14-47-317Z-A4-Frontend-UAT-Smoke.md
+HOLD: frontend fix and report are in the worktree, validation passed, but I could not create the required local commit because Git metadata is outside the writable sandbox.
+
+Changed:
+- [ar/page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/finance2/ar/page.tsx): receipt modal now requires a selected cash account and calls receipt `confirm` after creation, so the cash account balance update path is triggered.
+- [bug-20260710-0002-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/bug-20260710-0002-a4-frontend-uat-smoke.md): required A4 report with validation and HOLD status.
+
+Validation:
+- `apps/web` TypeScript: PASS
+- `apps/api` TypeScript: PASS
+- targeted master-data raw-input scope audit: PASS
+- `git diff --check`: PASS
+
+Commit blocker:
+- `git add ...` failed: `Operation not permitted` creating `/Users/mac/phoenix-erp/.git/worktrees/a4-frontend-uat-smoke/index.lock`.
+- Current status remains:
+  - `M apps/web/src/app/(admin)/finance2/ar/page.tsx`
+  - `?? docs/ops/bug-20260710-0002-a4-frontend-uat-smoke.md`
+
+No push, deploy, migration, or DB write was performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -42,7 +62,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f49d8-0907-7e90-958a-ad7c6f6d1aa9
+session id: 019f4a39-c1a2-74d2-b8fc-ab7c021d8090
 --------
 user
 # Base Agent Prompt
@@ -1007,16 +1027,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "localAttachments": [
         {
           "fileName": "01-1783649533350-f5c90f99.png",
-          "originalName": "pasted-screenshot-1783648622337-1.png",
-          "mimeType": "image/png",
           "sourceEndpoint": "/api/bug-intake/reports/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png",
-          "localPath": "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-101906/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png",
-          "sizeBytes": 686727
+          "downloadError": "GET /api/bug-intake/reports/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
         }
       ],
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-101906/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "priority": "P2",
@@ -1046,7 +1061,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification API_5XX"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -1070,6 +1086,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification API_5XX",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -1083,34 +1100,252 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "API_5XX",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.88,
     "source_repair_task_no": "BUGTASK-20260710-0002"
   },
   "createdAt": "2026-07-10T02:16:28.819Z",
   "createdBy": "admin",
   "moduleCode": "______",
+  "agentResults": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710021952",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 221 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0002-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0002-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0002-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0002-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0002-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0002-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "df7f854bbdb96c8908cd027259d3238031b2ec31",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:19:53.916Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0002-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0002-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0002-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710022602",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 222 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0002-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0002-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0002-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0002-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:03.337Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0002-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0002-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0002-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:03.805Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:20.873Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0002-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:04.296Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:38.314Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0002-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:04.820Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:25:45.792Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0002-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:05.334Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:22.644Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0002-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:05.831Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:25:55.637Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ],
   "suggestedOwner": "",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260710-0002-05-A1",
+    "summary": "Local bug-intake task BUGTASK-20260710-0002-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+    "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+    "recordedAt": "2026-07-10T02:26:05.831Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-05-A1-worker-log.md",
+    "changedFiles": [],
+    "validationResults": {
+      "completedAt": "2026-07-10T02:25:55.637Z",
+      "localTaskStatus": "completed",
+      "aggregateBackfill": true,
+      "baselineAutopilotExitCode": 0
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "Re-dispatch after false-completion reconciliation; require implementation commit, owned diff, report, A1, CI/CD and production smoke.",
+      "redispatchNo": 1,
+      "approvalScope": "User explicitly approved strict-evidence repair execution. No DB write, migration, force push, or direct production action outside CI/CD.",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T03:50:55.437Z",
+      "redispatchedBy": "bug_intake_runner",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "HOLD"
+    }
+  ],
   "acceptanceCriteria": "选择收款账户确认收款后，对应的账户余额需要根据收款金额进行准确的余额改变",
-  "agentPlanGeneratedAt": "2026-07-10T02:16:29.784Z",
-  "agentPlanGeneratedBy": "admin",
+  "agentPlanGeneratedAt": "2026-07-10T03:50:55.437Z",
+  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
+  "failureClassification": {
+    "category": "API_5XX",
+    "evidence": [
+      "API 5xx/异常信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T02:16:30.774Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-10T03:50:55.437Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "User explicitly approved strict-evidence repair execution. No DB write, migration, force push, or direct production action outside CI/CD.",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1118,13 +1353,181 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "evidenceReconciliation": {
+    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
+    "reconciledAt": "2026-07-10T03:29:30.666Z",
+    "reconciledBy": "bug_intake_runner",
+    "previousStatus": "IN_PROGRESS",
+    "previousRepairTaskStatus": "AGENT_COMPLETED"
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T03:50:55.437Z",
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710021952",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 221 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0002-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260710-0002-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260710-0002-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260710-0002-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0002-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260710-0002-02-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "df7f854bbdb96c8908cd027259d3238031b2ec31",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:19:53.916Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A2-Security-Regression-Gate",
+            "taskId": "BUGTASK-20260710-0002-01-A2",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A5-Data-Readiness",
+            "taskId": "BUGTASK-20260710-0002-04-A5",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A3-Backend-Critical-Path",
+            "taskId": "BUGTASK-20260710-0002-02-A3",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "BugIntakeLocalRunner",
+      "taskId": "LOCAL-RUNNER-20260710022602",
+      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 222 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 2 |\n| Worker runs | 2 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Result backfill | 0 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0002-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0002-05-A1 -> A1-CI-Runtime-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0002-03-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260710-0002-05-A1: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:03.337Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+      "changedFiles": [],
+      "validationResults": {
+        "ci": "SKIPPED: wait-ci-after-push disabled",
+        "push": "PASS",
+        "sync": "PASS",
+        "workerRuns": [
+          {
+            "agent": "A4-Frontend-UAT-Smoke",
+            "taskId": "BUGTASK-20260710-0002-03-A4",
+            "finalStatus": "COMPLETED_MERGED",
+            "writebackStatus": 0
+          },
+          {
+            "agent": "A1-CI-Runtime-Gate",
+            "taskId": "BUGTASK-20260710-0002-05-A1",
+            "finalStatus": "completed",
+            "writebackStatus": 0
+          }
+        ]
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0002-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:03.805Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:20.873Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260710-0002-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-02-A3 reached COMPLETED_MERGED.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:04.296Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-02-A3-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:38.314Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260710-0002-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:04.820Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-03-A4-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:25:45.792Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260710-0002-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:05.334Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:19:22.644Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260710-0002-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260710-0002-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-10T02:26:05.831Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-10T02:25:55.637Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ]
 }
 ```
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260710-101906/BUG-20260710-0002/attachments/01-1783649533350-f5c90f99.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 
@@ -1141,7 +1544,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我会先做合同要求的只读检查，确认当前目录、分支和工作树状态；如果发现非预期脏文件或分支不符会停止，不直接修复。
+I’ll start with the required worktree checks and then inspect the frontend AR page path plus prior run reports before touching anything.
 exec
 /bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
@@ -1149,415 +1552,228 @@ exec
 
 exec
 /bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-w5-a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
 exec
 /bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-4c23db03 (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+w5-a4-frontend-uat-smoke
+
+ succeeded in 0ms:
+64c25e88 (HEAD -> w5-a4-frontend-uat-smoke) docs(ops): record bug 20260710 0001 a4 redispatch verification
+06c563af docs(ops): record baseline lifecycle report
+4c23db03 docs(ops): record baseline lifecycle report
 09135c9b docs(ops): record baseline lifecycle report
 20a3c2c0 docs: align procurement cta priority comment
 4e82eb0a fix: repair procurement center cta route
 7d7a4d42 docs(ops): record baseline lifecycle report
 9b60c09a docs(ops): record bug 20260710 0001 a3 report
-f5d35a5a docs(ops): record baseline lifecycle report
-ff064230 fix: restore sales pricing lifecycle actions
 
-codex
-前置检查通过：目录、分支都匹配，工作树当前干净。接下来我只读检查 `/finance2/ar` 前端提交收款的路径，重点看“选择收款账户”是否被正确传给 API，以及提交后页面是否重新拉取余额相关数据。
 exec
-/bin/zsh -lc "find apps/web -path '*finance*' -o -path '*ar*' | head -200" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-apps/web/node_modules/class-variance-authority
-apps/web/node_modules/@radix-ui/react-separator
-apps/web/node_modules/recharts
-apps/web/src/middleware.ts
-apps/web/src/app/(mobile)/mobile/dashboard
-apps/web/src/app/(mobile)/mobile/dashboard/page.tsx
-apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover
-apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx
-apps/web/src/app/(terminal)/terminal/packaging/dashboard
-apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx
-apps/web/src/app/(admin)/quality/farm
-apps/web/src/app/(admin)/quality/farm/page.tsx
-apps/web/src/app/(admin)/quality/backward
-apps/web/src/app/(admin)/quality/backward/page.tsx
-apps/web/src/app/(admin)/quality/forward
-apps/web/src/app/(admin)/quality/forward/page.tsx
-apps/web/src/app/(admin)/quality/standards
-apps/web/src/app/(admin)/quality/standards/page.tsx
-apps/web/src/app/(admin)/procurement2/shareholder-funds
-apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx
-apps/web/src/app/(admin)/procurement2/dashboard
-apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
-apps/web/src/app/(admin)/procurement2/_shared
-apps/web/src/app/(admin)/procurement2/_shared/actionButtons.ts
-apps/web/src/app/(admin)/finance2
-apps/web/src/app/(admin)/finance2/ar-reconciliation
-apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx
-apps/web/src/app/(admin)/finance2/ap
-apps/web/src/app/(admin)/finance2/ap/page.tsx
-apps/web/src/app/(admin)/finance2/cash-accounts
-apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx
-apps/web/src/app/(admin)/finance2/expenses
-apps/web/src/app/(admin)/finance2/expenses/page.tsx
-apps/web/src/app/(admin)/finance2/chanjet-sync
-apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx
-apps/web/src/app/(admin)/finance2/shareholder-funds
-apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx
-apps/web/src/app/(admin)/finance2/reimbursements
-apps/web/src/app/(admin)/finance2/reimbursements/page.tsx
-apps/web/src/app/(admin)/finance2/ar-ledger
-apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx
-apps/web/src/app/(admin)/finance2/ar
-apps/web/src/app/(admin)/finance2/ar/page.tsx
-apps/web/src/app/(admin)/finance2/loading.tsx
-apps/web/src/app/(admin)/finance2/fund-transfers
-apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx
-apps/web/src/app/(admin)/finance2/page.tsx
-apps/web/src/app/(admin)/finance2/reports
-apps/web/src/app/(admin)/finance2/reports/page.tsx
-apps/web/src/app/(admin)/dashboard
-apps/web/src/app/(admin)/dashboard/dashboard.module.css
-apps/web/src/app/(admin)/dashboard/_components
-apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx
-apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css
-apps/web/src/app/(admin)/dashboard/page.tsx
-apps/web/src/app/(admin)/master-data/warehouses
-apps/web/src/app/(admin)/master-data/warehouses/page.tsx
-apps/web/src/app/(admin)/master-data/dictionaries
-apps/web/src/app/(admin)/master-data/dictionaries/page.tsx
-apps/web/src/app/(admin)/master/farms
-apps/web/src/app/(admin)/master/farms/page.tsx
-apps/web/src/app/(admin)/workflow/start
-apps/web/src/app/(admin)/workflow/start/page.tsx
-apps/web/src/app/(admin)/warehouse
-apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
-apps/web/src/app/(admin)/warehouse/ledger
-apps/web/src/app/(admin)/warehouse/ledger/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouses
-apps/web/src/app/(admin)/warehouse/warehouses/page.tsx
-apps/web/src/app/(admin)/warehouse/zones
-apps/web/src/app/(admin)/warehouse/zones/page.tsx
-apps/web/src/app/(admin)/warehouse/transfer
-apps/web/src/app/(admin)/warehouse/transfer/page.tsx
-apps/web/src/app/(admin)/warehouse/warehouse.module.css
-apps/web/src/app/(admin)/warehouse/source-mode
-apps/web/src/app/(admin)/warehouse/source-mode/page.tsx
-apps/web/src/app/(admin)/warehouse/stocktake
-apps/web/src/app/(admin)/warehouse/stocktake/page.tsx
-apps/web/src/app/(admin)/warehouse/locations
-apps/web/src/app/(admin)/warehouse/locations/page.tsx
-apps/web/src/app/(admin)/warehouse/inbound
-apps/web/src/app/(admin)/warehouse/inbound/page.tsx
-apps/web/src/app/(admin)/warehouse/loading.tsx
-apps/web/src/app/(admin)/warehouse/outbound
-apps/web/src/app/(admin)/warehouse/outbound/page.tsx
-apps/web/src/app/(admin)/warehouse/expiry
-apps/web/src/app/(admin)/warehouse/expiry/page.tsx
-apps/web/src/app/(admin)/warehouse/query
-apps/web/src/app/(admin)/warehouse/query/page.tsx
-apps/web/src/app/(admin)/warehouse/page.tsx
-apps/web/src/app/(admin)/warehouse/daily-close
-apps/web/src/app/(admin)/warehouse/daily-close/page.tsx
-apps/web/src/app/(admin)/warehouse/loss-report
-apps/web/src/app/(admin)/warehouse/loss-report/page.tsx
-apps/web/src/app/(admin)/shareholders
-apps/web/src/app/(admin)/shareholders/capital
-apps/web/src/app/(admin)/shareholders/capital/[id]
-apps/web/src/app/(admin)/shareholders/capital/[id]/page.tsx
-apps/web/src/app/(admin)/shareholders/capital/import
-apps/web/src/app/(admin)/shareholders/capital/import/page.tsx
-apps/web/src/app/(admin)/shareholders/capital/page.tsx
-apps/web/src/app/(admin)/shareholders/contributions
-apps/web/src/app/(admin)/shareholders/contributions/page.tsx
-apps/web/src/app/(admin)/shareholders/projects
-apps/web/src/app/(admin)/shareholders/projects/page.tsx
-apps/web/src/app/(admin)/shareholders/dashboard
-apps/web/src/app/(admin)/shareholders/dashboard/page.tsx
-apps/web/src/app/(admin)/shareholders/SummaryBar.tsx
-apps/web/src/app/(admin)/shareholders/equity
-apps/web/src/app/(admin)/shareholders/equity/page.tsx
-apps/web/src/app/(admin)/shareholders/page.tsx
-apps/web/src/app/(admin)/shareholders/scopes
-apps/web/src/app/(admin)/shareholders/scopes/page.tsx
-apps/web/src/components/packaging/KioskGuard.tsx
-apps/web/src/components/ui/KpiCard.tsx
-apps/web/src/components/ui/card.tsx
-apps/web/src/components/ui/NavCard.tsx
-apps/web/src/components/ui/QuickEntryCard.tsx
-apps/web/src/components/ui/separator.tsx
-apps/web/src/components/layout/sidebar.module.css
-apps/web/src/components/layout/Sidebar.tsx
-apps/web/src/components/cabin/KpiMetricCard.tsx
-apps/web/src/components/cabin/AlarmBanner.tsx
-apps/web/src/components/cabin/SystemSummaryCard.tsx
-apps/web/src/components/cabin/CabinHeaderCard.tsx
-apps/web/src/components/master-data/MasterDataSearch.tsx
-apps/web/src/components/finance
-apps/web/src/components/finance/LegacyFreezeBanner.tsx
-apps/web/src/components/shared-selectors
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx
-apps/web/src/components/shared-selectors/MaterialPicker.tsx
-apps/web/src/components/shared-selectors/DictSelect.tsx
-apps/web/src/components/shared-selectors/EnumLabel.tsx
-apps/web/src/components/design-system/forms/SearchInput.tsx
-apps/web/src/components/design-system/cards
-apps/web/src/components/design-system/cards/StatStripV2.tsx
-apps/web/src/components/design-system/cards/MetricCard.tsx
-apps/web/src/components/design-system/cards/WarningCard.tsx
-apps/web/src/components/design-system/cards/KpiCardV2.tsx
-apps/web/src/components/design-system/cards/NavCardV2.tsx
-apps/web/src/components/design-system/charts
-apps/web/src/components/design-system/charts/ChartCard.tsx
-apps/web/src/components/design-system/layouts/Toolbar.tsx
-apps/web/src/components/design-system/layouts/FilterBar.tsx
-apps/web/src/components/design-system/layouts/SearchBar.tsx
-apps/web/src/components/design-system/layouts/PageParts.tsx
-apps/web/src/components/design-system/workbench/WorkbenchParts.tsx
-apps/web/src/components/design-system/KpiCardV2.tsx
-apps/web/src/components/ErrorBoundary.tsx
-apps/web/src/__tests__/barcode.test.ts
-apps/web/src/lib/barcode.ts
+codex
+The guard checks pass: correct directory, correct branch, clean worktree. I’m narrowing the AR implementation now to see whether this is a frontend stale-state issue or only backend-owned.
+exec
+/bin/zsh -lc 'rg --files apps/web | rg "finance2|finance|ar|receiv|cash|account"' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ succeeded in 0ms:
 apps/web/src/lib/shareholder-api.ts
+apps/web/src/lib/barcode.ts
+apps/web/src/__tests__/barcode.test.ts
+apps/web/src/components/ErrorBoundary.tsx
+apps/web/src/components/layout/Sidebar.tsx
+apps/web/src/components/layout/sidebar.module.css
+apps/web/src/components/design-system/KpiCardV2.tsx
+apps/web/src/components/ui/separator.tsx
+apps/web/src/components/ui/QuickEntryCard.tsx
+apps/web/src/components/ui/NavCard.tsx
+apps/web/src/components/ui/card.tsx
+apps/web/src/components/ui/KpiCard.tsx
+apps/web/src/components/packaging/KioskGuard.tsx
+apps/web/src/components/design-system/workbench/WorkbenchParts.tsx
+apps/web/src/components/design-system/layouts/PageParts.tsx
+apps/web/src/components/design-system/layouts/SearchBar.tsx
+apps/web/src/components/design-system/layouts/FilterBar.tsx
+apps/web/src/components/design-system/layouts/Toolbar.tsx
+apps/web/src/app/(admin)/store/receiving/page.tsx
+apps/web/src/components/design-system/charts/ChartCard.tsx
+apps/web/src/components/design-system/cards/NavCardV2.tsx
+apps/web/src/components/design-system/cards/KpiCardV2.tsx
+apps/web/src/components/design-system/cards/WarningCard.tsx
+apps/web/src/components/design-system/cards/MetricCard.tsx
+apps/web/src/components/design-system/cards/StatStripV2.tsx
+apps/web/src/components/design-system/forms/SearchInput.tsx
+apps/web/src/components/shared-selectors/EnumLabel.tsx
+apps/web/src/components/shared-selectors/DictSelect.tsx
+apps/web/src/components/shared-selectors/MaterialPicker.tsx
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx
+apps/web/src/components/finance/LegacyFreezeBanner.tsx
+apps/web/src/components/master-data/MasterDataSearch.tsx
+apps/web/src/components/cabin/CabinHeaderCard.tsx
+apps/web/src/components/cabin/SystemSummaryCard.tsx
+apps/web/src/components/cabin/AlarmBanner.tsx
+apps/web/src/components/cabin/KpiMetricCard.tsx
+apps/web/src/app/(admin)/shareholders/scopes/page.tsx
+apps/web/src/app/(admin)/shareholders/page.tsx
+apps/web/src/app/(admin)/shareholders/equity/page.tsx
+apps/web/src/app/(admin)/shareholders/SummaryBar.tsx
+apps/web/src/app/(admin)/shareholders/dashboard/page.tsx
+apps/web/src/app/(admin)/quality/standards/page.tsx
+apps/web/src/app/(admin)/shareholders/projects/page.tsx
+apps/web/src/app/(admin)/quality/forward/page.tsx
+apps/web/src/app/(admin)/shareholders/contributions/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/page.tsx
+apps/web/src/app/(admin)/quality/backward/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/import/page.tsx
+apps/web/src/app/(admin)/shareholders/capital/[id]/page.tsx
+apps/web/src/app/(admin)/quality/farm/page.tsx
+apps/web/src/app/(admin)/warehouse/loss-report/page.tsx
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx
+apps/web/src/app/(admin)/warehouse/page.tsx
+apps/web/src/middleware.ts
+apps/web/src/app/(admin)/warehouse/query/page.tsx
+apps/web/src/app/(admin)/warehouse/expiry/page.tsx
+apps/web/src/app/(admin)/warehouse/outbound/page.tsx
+apps/web/src/app/(admin)/warehouse/loading.tsx
+apps/web/src/app/(admin)/warehouse/inbound/page.tsx
+apps/web/src/app/(mobile)/mobile/dashboard/page.tsx
+apps/web/src/app/(admin)/warehouse/locations/page.tsx
+apps/web/src/app/(admin)/warehouse/stocktake/page.tsx
+apps/web/src/app/(admin)/warehouse/source-mode/page.tsx
+apps/web/src/app/(admin)/warehouse/warehouse.module.css
+apps/web/src/app/(admin)/warehouse/transfer/page.tsx
+apps/web/src/app/(admin)/warehouse/zones/page.tsx
+apps/web/src/app/(admin)/warehouse/warehouses/page.tsx
+apps/web/src/app/(admin)/warehouse/ledger/page.tsx
+apps/web/src/app/(admin)/warehouse/readOnlyInventoryApi.ts
+apps/web/src/app/(admin)/workflow/start/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx
+apps/web/src/app/(admin)/master/farms/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx
+apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx
+apps/web/src/app/(admin)/master-data/dictionaries/page.tsx
+apps/web/src/app/(admin)/master-data/warehouses/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/new/page.tsx
+apps/web/src/app/(admin)/finance2/reports/page.tsx
+apps/web/src/app/(admin)/finance2/page.tsx
+apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx
+apps/web/src/app/(admin)/finance2/loading.tsx
+apps/web/src/app/(admin)/finance2/ar/page.tsx
+apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx
+apps/web/src/app/(admin)/procurement2/_shared/actionButtons.ts
+apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx
+apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts
+apps/web/src/app/(admin)/finance2/reimbursements/page.tsx
+apps/web/src/app/(admin)/procurement2/dashboard/page.tsx
+apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx
+apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx
+apps/web/src/app/(admin)/dashboard/page.tsx
+apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css
+apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx
+apps/web/src/app/(admin)/dashboard/dashboard.module.css
+apps/web/src/app/(admin)/finance2/expenses/page.tsx
+apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx
+apps/web/src/app/(admin)/finance2/ap/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/page.tsx
+apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/new/page.tsx
+apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx
+apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts
 
 exec
-/bin/zsh -lc 'rg -n "cash|account|账户|收款账户|payment|receipt|收款" apps/web/app apps/web/src' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- exited 2 in 0ms:
-rg: apps/web/app: No such file or directory (os error 2)
-apps/web/src/lib/workflow-templates.ts:69:    key: "payment",
-apps/web/src/lib/workflow-templates.ts:76:    formDescription: "包含收款方、付款金额、合同/发票、付款原因。",
-apps/web/src/lib/workflow-templates.ts:78:      { key: "payee", label: "收款方", type: "text", required: true },
-apps/web/src/lib/workflow-templates.ts:80:      { key: "payment_type", label: "付款类型", type: "select", required: true, options: [{ label: "预付款", value: "advance" }, { label: "到货款", value: "arrival" }, { label: "尾款", value: "final" }] },
-apps/web/src/lib/design-tokens.ts:220:  OPEN:              '未收款',
+/bin/zsh -lc 'rg -n "finance2/ar|应收账款|录入收款|收款记录|AR" apps/web -S' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ succeeded in 0ms:
+apps/web/src/lib/shareholder-api.ts:56:  LAYER_FARM: '蛋鸡养殖场', BROILER_FARM: '肉鸡养殖场', SLAUGHTER: '屠宰加工厂',
+apps/web/src/lib/shareholder-api.ts:61:  PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认',
+apps/web/src/lib/shareholder-api.ts:69:  SHAREHOLDER_ADVANCE: '股东垫资', GOODS_PAYMENT: '代付货款',
+apps/web/src/lib/shareholder-api.ts:71:  REVERSAL: '冲销', CASH: '现金', CAPITAL_SUMMARY_IMPORT: '历史实缴(汇总导入)', OTHER: '其他',
+apps/web/src/lib/shareholder-api.ts:76:  'SHAREHOLDER_ADVANCE', 'GOODS_PAYMENT', 'EQUIPMENT_INVESTMENT', 'LAND_INVESTMENT', 'OTHER',
+apps/web/src/lib/shareholder-api.ts:79:  LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表',
+apps/web/src/lib/workflow-data-catalog.ts:116:    code: "WMS_WAREHOUSES",
+apps/web/src/lib/workflow-templates.ts:178:    code: "FARM_MEDICINE_APPROVAL",
+apps/web/src/lib/workflow-templates.ts:180:    formCode: "FARM_MEDICINE_FORM",
+apps/web/src/lib/workflow-templates.ts:190:    approvals: [{ id: "vet_review", name: "驻场兽医审批", role: "ROLE_VET" }, { id: "farm_review", name: "养殖场长确认", role: "ROLE_FARM_MGR" }],
+apps/web/src/lib/design-tokens.ts:158:  | 'SUCCESS' | 'WARNING' | 'DANGER' | 'INFO'
+apps/web/src/lib/design-tokens.ts:166:  WARNING:   'text-amber-700   bg-amber-50    dark:text-amber-300   dark:bg-amber-950/40',
+apps/web/src/lib/design-tokens.ts:177:  // 应收账款状态
+apps/web/src/lib/design-tokens.ts:179:  PARTIALLY_RECEIVED: 'text-blue-700   bg-blue-50    dark:text-blue-300   dark:bg-blue-950/40',
+apps/web/src/lib/design-tokens.ts:185:  PARTIALLY_PAID: 'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
+apps/web/src/lib/design-tokens.ts:205:  WARNING:   '警告',
 apps/web/src/lib/design-tokens.ts:225:  PARTIALLY_RECEIVED: '部分收款',
-apps/web/src/lib/design-tokens.ts:232:  // 资金账户状态
-apps/web/src/lib/design-tokens.ts:246:  // 收款方式
-apps/web/src/lib/currency.ts:2:// Why：cash-accounts / finance2 / ar / ap 各自内联映射且缺币种 → 多币种账户(刘杰 USD/THB)
-apps/web/src/lib/dict-type-labels.ts:17:  FIN_PAYER_TYPE: "付款方类型", FIN_RECEIPT_METHOD: "收款方式",
-apps/web/src/lib/dict-type-labels.ts:31:  SAL_FULFILLMENT_TYPE: "履约方式", SAL_ORDER_TYPE: "订单类型", SAL_PAY_METHOD: "销售收款方式",
-apps/web/src/__tests__/currency.test.ts:6: * 关键约定：未知币种绝不默认贴 ¥，回退到币种代码文本（避免多币种账户符号错误）。
-apps/web/src/components/master-data/MasterDataSearch.tsx:23:  warehouse: '仓库', store: '门店', 'cash-account': '资金账户',
-apps/web/src/components/master-data/MasterDataSearch.tsx:24:  'bank-account': '银行账户', driver: '司机', vehicle: '车辆',
-apps/web/src/components/master-data/MasterDataSearch.tsx:36:  const ph = placeholder ?? t('ui.搜索客户 / 供应商 / SKU / 仓库 / 账户…','搜索客户 / 供应商 / SKU / 仓库 / 账户…');
-apps/web/src/components/master-data/detail-configs.tsx:185:    { key: 'payment_terms', label: '账期', format: (v) => v ? `${v} 天` : '—' },
-apps/web/src/components/master-data/detail-configs.tsx:396:// ── 配置：资金账户（UIX-9A）─────────────────────────────
-apps/web/src/components/master-data/detail-configs.tsx:397:export const cashAccountConfig: MasterDataConfig = {
-apps/web/src/components/master-data/detail-configs.tsx:398:  type: 'cash-account',
-apps/web/src/components/master-data/detail-configs.tsx:399:  centerName: '资金账户中心',
-apps/web/src/components/master-data/detail-configs.tsx:400:  nameKey: 'account_name',
-apps/web/src/components/master-data/detail-configs.tsx:403:    { key: 'txns', label: '资金流水', path: '/v2/finance/cash/transactions?account_code=:code&limit=10' },
-apps/web/src/components/master-data/detail-configs.tsx:407:    { label: '账户类型', icon: <Wallet size={16} />, value: (info) => ({ display: info?.account_type || '—' }) },
-apps/web/src/components/master-data/detail-configs.tsx:417:    { key: 'account_type',    label: '账户类型' },
-apps/web/src/components/master-data/detail-configs.tsx:419:    { key: 'bank_account_no', label: '银行账号' },
-apps/web/src/components/master-data/detail-configs.tsx:420:    { key: 'bank_acc_code',   label: '绑定银行账户' },
-apps/web/src/components/master-data/detail-configs.tsx:445:// ── 配置：银行账户（UIX-9A）─────────────────────────────
-apps/web/src/components/master-data/detail-configs.tsx:447:  type: 'bank-account',
-apps/web/src/components/master-data/detail-configs.tsx:448:  centerName: '银行账户中心',
-apps/web/src/components/master-data/detail-configs.tsx:452:    { key: 'linked', label: '绑定 ERP 账户', path: '/master-data/runtime/cash-account?bank_acc_code=:code&limit=10' },
-apps/web/src/components/master-data/detail-configs.tsx:458:      label: '绑定账户', icon: <Wallet size={16} />,
-apps/web/src/components/master-data/detail-configs.tsx:466:    { key: 'account_no',      label: '账号' },
-apps/web/src/components/master-data/detail-configs.tsx:467:    { key: 'account_holder',  label: '开户名' },
-apps/web/src/components/master-data/detail-configs.tsx:475:      title: '绑定 ERP 资金账户',
-apps/web/src/components/master-data/detail-configs.tsx:481:            getKey={(r) => String(r.id || r.account_code)}
-apps/web/src/components/master-data/detail-configs.tsx:482:            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.account_code}</code>}
-apps/web/src/components/master-data/detail-configs.tsx:483:            getSub={(r) => `${r.account_name || ''} · ${r.currency_code || ''}`}
-apps/web/src/components/master-data/detail-configs.tsx:484:            getRight={(r) => <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.account_type || ''}</span>}
-apps/web/src/components/master-data/MasterDataRuntimePanel.tsx:24: * 配置驱动：客户/供应商/项目/现金账户复用同一组件。
-apps/web/src/components/master-data/MasterDataRuntimePanel.tsx:43:  type: string;          // customer | supplier | project | cash-account
-apps/web/src/components/master-data/MasterDataRuntimePanel.tsx:133:  "cash-account": "MENU_MD_CASH_ACCOUNT", "bank-account": "MENU_MD_BANK_ACCOUNT", material: "MENU_MD_MATERIAL",
-apps/web/src/components/master-data/MasterDataRuntimePanel.tsx:140:  "customer", "supplier", "project", "material", "cash-account", "product",
-apps/web/src/components/master-data/MasterDataRuntimePanel.tsx:141:  "store", "bank-account", "sku", "warehouse", "grade", "spec", "driver",
-apps/web/src/components/layout/Sidebar.tsx:143:    { id: "prc2-receipt",   path: "/procurement2/receipts",          Icon: PackageCheck,    label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
-apps/web/src/components/layout/Sidebar.tsx:144:    { id: "prc2-payment",   path: "/procurement2/payments",          Icon: Banknote,        label: "付款管理",   perm: "MENU_PRC2_PAYMENT"  },
-apps/web/src/components/layout/Sidebar.tsx:160:    { id: "s2-store-payment", path: "/store-payment",     Icon: Landmark,        label: "统一收款",   perm: "MENU_STORE_PAYMENT"    },
-apps/web/src/components/layout/Sidebar.tsx:179:    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH_VIEW" },
-apps/web/src/components/layout/Sidebar.tsx:241:    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT" },
-apps/web/src/components/layout/Sidebar.tsx:242:    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT" },
-apps/web/src/components/design-system/cockpit-styles.ts:232:// G94：消灭 procurement2/orders·payments、sales2/pricing 等各自复制的 cellInp（3/6·圆角4）。
-apps/web/src/components/design-system/cockpit-styles.ts:722:// cash-accounts 抽出，全 finance2 + 推广模块共用）
-apps/web/src/components/design-system/cockpit-styles.ts:732:// 替代 cash-accounts 当前自写的 Tailwind 浅色背景 4 卡（视觉过重）。
-apps/web/src/components/design-system/cockpit-styles.ts:786:// 替代 cash-accounts 当前 6 种 Tailwind 长 className（颜色散乱）。
-apps/web/src/components/design-system/cockpit-styles.ts:840:// 替代 cash-accounts 抽屉里 Tailwind 浅绿/浅橙双色背景方案（暗模式漏覆盖、视觉吵）。
-apps/web/src/components/design-system/cockpit-styles.ts:852:// ── Drawer 内部 hero 余额块（克制白底 + 主色数字，替代 cash 抽屉的渐变蓝） ──
-apps/web/src/components/design-system/cockpit-styles.ts:877:// 用于:收款核销记录 / 付款明细 / 关联单据 / 历史动作行。
-apps/web/src/components/design-system/cockpit-styles.ts:925:// 用于:取消单据区 / 改挂账户区 / 流水编辑区等"展开后的操作面板"。
-apps/web/src/components/ui/CrudForm.tsx:55:  valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:18: *   - 资金账户/用户                                                 → /lookup/cash-accounts, /lookup/users
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:141:// ── 资金账户（fin_cash_accounts，仅 ACTIVE）────────────────────────────────────
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:144: *   - 'code'（默认）：value = account_code，适用于 fin_payment.payer_account 这类文本字段
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:145: *   - 'id'：value = uuid，适用于 fin_fund_transfer / fin_reimbursement / fin_ar_receipt 这类 FK
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:146: * currencyCode：可选过滤，仅显示该币种账户
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:151:  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择资金账户','请选择资金账户')}
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:154:      // G5-B 切 /api/lookup/cash-accounts；支持 currency / company query 直接过滤
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:158:      const url = qs.toString() ? `/lookup/cash-accounts?${qs.toString()}` : '/lookup/cash-accounts';
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:162:          const code = a.accountCode;
-apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:163:          const name = a.accountName;
-apps/web/src/components/finance/LegacyFreezeBanner.tsx:41:          • <strong>{t('ui.采购管理 → 付款管理','采购管理 → 付款管理')}</strong>（/procurement2/payments）— {t('ui.真实付款审批与应付核销','真实付款审批与应付核销')}
-apps/web/src/components/ui/NavCard.tsx:12: *   <NavCard icon={Wallet} title="资金账户管理"
-apps/web/src/components/ui/NavCard.tsx:13: *     description="多账户余额管理、流水账本、转账审批。"
-apps/web/src/components/ui/NavCard.tsx:14: *     href="/finance2/cash-accounts" accent="blue" />
-apps/web/src/components/workflow/WorkflowDataView.tsx:84:    payee: "收款方",
-apps/web/src/components/workflow/WorkflowDataView.tsx:85:    payment_type: "付款类型",
-apps/web/src/locales/en.json:15:  "menu.pos": "POS cashier front desk",
-apps/web/src/locales/en.json:22:  "pos.title": "Direct store cashier system",
-apps/web/src/locales/en.json:81:  "transport.receipt": "Sign for receipt at the store",
-apps/web/src/locales/en.json:208:  "ui.运输车辆调度及门店签收确认流水": "Transportation vehicle dispatching and store receipt confirmation flow",
-apps/web/src/locales/en.json:222:  "ui.实签收": "Actual receipt",
-apps/web/src/locales/en.json:256:  "ui.到店签收": "Sign for receipt at the store",
-apps/web/src/locales/en.json:260:  "ui.录入签收信息": "Enter the receipt information",
-apps/web/src/locales/en.json:267:  "ui.准时签收率": "On-time receipt rate",
-apps/web/src/locales/en.json:450:  "ui.针对不合格供货或采购异常批次发起退换货及款项保全记录": "Initiate returns, exchanges and payment preservation records for unqualified supplies or abnormal procurement batches",
-apps/web/src/locales/en.json:477:  "ui.到货收货": "Arrival and receipt of goods",
-apps/web/src/locales/en.json:513:  "ui.本月无损签收单": "This month’s non-destructive receipt",
-apps/web/src/locales/en.json:589:  "ui.成本核算": "cost accounting",
-apps/web/src/locales/en.json:608:  "ui.已收款": "Payment received",
-apps/web/src/locales/en.json:611:  "ui.部分收款": "Partial collection",
-apps/web/src/locales/en.json:636:  "ui.挂账余额": "Balance on account",
-apps/web/src/locales/en.json:643:  "ui.成功平账清缴户": "Successfully settled accounts",
-apps/web/src/locales/en.json:644:  "ui.轧账异常断链": "Abnormal disconnection of account settlement",
-apps/web/src/locales/en.json:648:  "ui.直营户头": "Direct account",
-apps/web/src/locales/en.json:649:  "ui.核算期段": "accounting period",
-apps/web/src/locales/en.json:653:  "ui.押运现钞": "Escort cash",
-apps/web/src/locales/en.json:859:  "ui.门店收货签收台": "Store receipt desk",
-apps/web/src/locales/en.json:902:  "ui.关联集蛋入库单": "Associated egg collection receipt",
-apps/web/src/locales/en.json:1027:  "ui.初始化集团红头文件的核心架构场区树角色网": "Initialize the core structure of the group's red head file (field tree, role network, basic account, etc.) for bare metal ignition on the first day of the system.",
-apps/web/src/locales/en.json:1038:  "ui.系统通行证动态全账": "System pass dynamic full account",
-apps/web/src/locales/en.json:1059:  "ui.扫码核对装车货品与配送运单防漏防错追责上": "Scan the QR code to check the loading goods and delivery waybills to prevent leakage, error prevention and accountability.",
-apps/web/src/locales/en.json:1091:  "ui.门店端签收流水": "Store receipt receipt process",
-apps/web/src/locales/en.json:1124:  "ui.实时跟踪配送车辆到店状态记录签收信息": "Track the arrival status of delivery vehicles in real time and record receipt information",
-apps/web/src/locales/en.json:1125:  "ui.今日到店签收单": "Sign the receipt at the store today",
-apps/web/src/locales/en.json:1127:  "ui.点击已到达状态行可录入签收信息": "💡 Click the \"Arrived\" status line to enter the receipt information",
-apps/web/src/locales/en.json:1221:  "ui.门店签收单号": "Store receipt number",
-apps/web/src/locales/en.json:1229:  "ui.支持POS订单签收单包装批次投诉单多维度": "Supports multi-dimensional reverse inspection of POS orders, receipt orders, packaging batches, and complaint forms",
-apps/web/src/locales/en.json:1238:  "ui.工号防御户名": "Work number/defense account name",
-apps/web/src/locales/en.json:1332:  "ui.收款成功": "Payment successful!",
-apps/web/src/locales/en.json:1333:  "ui.正在唤出小票打印机": "Calling out receipt printer...",
-apps/web/src/locales/en.json:1346:  "ui.应收款": "Accounts receivable",
-apps/web/src/locales/en.json:1347:  "ui.老挝金凤凰收银票据": "Laos Golden Phoenix cashier receipt",
-apps/web/src/locales/en.json:1350:  "ui.实收总计": "Total actual receipts:",
-apps/web/src/locales/en.json:1358:  "ui.搜索收货单供应商名称": "Search receipt, supplier name...",
-apps/web/src/locales/en.json:1365:  "ui.验收通过全部入账": "Acceptance passed (all accounted for)",
-apps/web/src/locales/en.json:1443:  "ui.特批指定政企账号主键": "Specially approved government and enterprise accounts (primary key)",
-apps/web/src/locales/en.json:1462:  "ui.对应开户抬头": "Corresponding account opening header",
-apps/web/src/locales/en.json:1479:  "ui.开户主体企业全称": "Full name of the main company that opens the account",
-apps/web/src/locales/en.json:1484:  "ui.现款现结": "cash settlement",
-apps/web/src/locales/en.json:1485:  "ui.货到付款": "cash on delivery",
-apps/web/src/locales/en.json:1506:  "ui.跟踪团购客户应收账款监控逾期风险与回款进": "Track group purchase customer accounts receivable, monitor overdue risks and payment recovery progress",
-apps/web/src/locales/en.json:1509:  "ui.本月应收款与逾期双轨对比万LAK": "Comparison of receivables and overdues this month (millions of LAK)",
-apps/web/src/locales/en.json:1510:  "ui.收款": "Collection",
-apps/web/src/locales/en.json:1526:  "ui.全局把控供应商应付账款资金蓄水池及打款拨": "Overall control of supplier accounts payable, capital pool and payment allocation flow",
-apps/web/src/locales/en.json:1527:  "ui.添列挂账凭证": "Add accounting voucher",
-apps/web/src/locales/en.json:1531:  "ui.已垫资打款额": "Advance payment amount",
-apps/web/src/locales/en.json:1533:  "ui.平账豁免": "Balance of accounts exemption",
-apps/web/src/locales/en.json:1534:  "ui.零售网点日间缴款轧账现钞电子核销入台账": "Daytime payments at retail outlets are debited, and cash/electronic write-offs are recorded in the ledger.",
-apps/web/src/locales/en.json:1536:  "ui.搜索直营户名字序列号": "Search direct account name/serial number...",
-apps/web/src/locales/en.json:1537:  "ui.解交网点户头": "Unlock branch account",
-apps/web/src/locales/en.json:1540:  "ui.账簿应得流水毛额": "The gross turnover due from the account book",
-apps/web/src/locales/en.json:1542:  "ui.物理解交现钞核算": "Physical cash payment accounting",
-apps/web/src/locales/en.json:1543:  "ui.网银POS电子入账": "Online banking/POS electronic payment",
-apps/web/src/locales/en.json:1637:  "ui.新建入库单": "Create a new warehouse receipt",
-apps/web/src/locales/en.json:1703:  "ui.采购申领款项": "Purchase requisition payment",
-apps/web/src/locales/en.json:1709:  "ui.例如南方车队二季度燃油费解交": "For example: Southern Racing Team’s second quarter fuel bill payment",
-apps/web/src/locales/en.json:1723:  "ui.系统应收现金": "System cash receivable",
-apps/web/src/locales/en.json:1724:  "ui.实点现金金额": "Real cash amount *",
-apps/web/src/locales/en.json:1725:  "ui.请输入实际清点现金": "Please enter actual cash counted...",
-apps/web/src/locales/en.json:1726:  "ui.现金差异": "cash difference",
-apps/web/src/locales/en.json:1729:  "ui.如有现金差异请说明原因": "If there is a cash difference, please explain the reason...",
-apps/web/src/locales/en.json:1762:  "ui.记录及追责人": "Records and accountability",
-apps/web/src/locales/en.json:1784:  "ui.检索收货队列中": "Retrieving the receipt queue...",
-apps/web/src/locales/en.json:1789:  "ui.实收": "Actual receipt *",
-apps/web/src/locales/en.json:2032:  "ui.底层SQLite通信嗅探器Verbose": "Directly generate accounts for President Wang, managers of major stores, and general commanders of stores and warehouses",
-apps/web/src/locales/en.json:2045:  "ui.系统特权总控帐号拒绝面板编辑配置已锁定": "The system privileged master control account refuses panel editing! Configuration is locked.",
-apps/web/src/locales/en.json:2049:  "ui.扫码二维码收款": "Scan code/QR code to collect payment",
-apps/web/src/locales/en.json:2061:  "ui.收货签收": "Sign for receipt",
-apps/web/src/locales/en.json:2066:  "ui.进入收银台": "💳 Enter the cashier",
-apps/web/src/locales/en.json:2076:  "ui.近期签收记录": "Recent receipt records",
-apps/web/src/locales/en.json:2111:  "ui.大客户台账": "Large customer account",
-apps/web/src/locales/en.json:2119:  "请输入实点现金金额！": "Please enter the actual cash amount!",
-apps/web/src/locales/en.json:2189:  "ui.落账并颁发批次号": "Post to account & assign batch number",
-apps/web/src/locales/en.json:2321:  "ui.查看个人账号信息并修改登录密码": "View account info and change login password",
-apps/web/src/locales/en.json:2324:  "ui.用户名登录账号": "Username (login account",
-apps/web/src/locales/en.json:2344:  "ui.新增冻结与调配系统登录账号": "Add, freeze and manage login accounts",
-apps/web/src/locales/en.json:2370:  "ui.以下配置变更将在终端下次同步时生效日结时": "Config changes take effect on next terminal sync. Notify cashiers before changing daily close time.",
-apps/web/src/locales/en.json:2402:  "ui.系统登录配置操作审批日志与账户安全状态总": "System login config, approval logs and account security overview",
-apps/web/src/locales/en.json:2409:  "ui.冻结账户": "Freeze Account",
-apps/web/src/locales/en.json:2410:  "ui.无冻结账户": "No Frozen Accounts",
-apps/web/src/locales/en.json:2548:  "ui.请告知用户初始密码登录后可在个人中心修改": "Inform the user of their initial password. They can change it in account settings.",
-apps/web/src/locales/en.json:2594:  "ui.正式呈级立案追责": "Formally filed for accountability",
-apps/web/src/locales/en.json:2773:  "ui.测试账号一谈": "Test account overview",
-apps/web/src/locales/en.json:2783:  "ui.请输入账号": "Please enter account",
-apps/web/src/locales/en.json:3023:  "ui.确认收款": "ConfirmReceipt",
-apps/web/src/locales/en.json:3067:  "ui.到货收单录入": "Arrival receipt entry",
-apps/web/src/locales/en.json:3069:  "ui.敲定收单事实": "Confirm receipt",
-apps/web/src/locales/en.json:3145:  "ui.发催款单仅财务会计可操作": "Collection notice only for finance/accounting",
-apps/web/src/locales/en.json:3317:  "ui.确认关账并上报": "Confirm close accounts and report",
-apps/web/src/locales/en.json:3366:  "ui.实时连线处理入账中": "Real-time online accounting in progress",
-apps/web/src/locales/en.json:3415:  "pos.printing": "Printing receipt...",
-apps/web/src/locales/en.json:3416:  "pos.receipt_title": "Phoenix Lao - Sales Receipt",
-apps/web/src/locales/en.json:3417:  "pos.receipt_store": "Store",
-apps/web/src/locales/en.json:3418:  "pos.receipt_order_no": "Order No.",
-apps/web/src/locales/en.json:3419:  "pos.receipt_time": "Time",
-apps/web/src/locales/en.json:3420:  "pos.receipt_member": "Member",
-apps/web/src/locales/en.json:3421:  "pos.receipt_item_name": "Item",
-apps/web/src/locales/en.json:3422:  "pos.receipt_qty": "Qty",
-apps/web/src/locales/en.json:3423:  "pos.receipt_amount": "Amount",
-apps/web/src/locales/en.json:3424:  "pos.receipt_subtotal": "Subtotal",
-apps/web/src/locales/en.json:3425:  "pos.receipt_discount": "Discount",
-apps/web/src/locales/en.json:3426:  "pos.receipt_net": "Net Total",
-apps/web/src/locales/en.json:3427:  "pos.receipt_thanks": "Thank you, please come again!",
-apps/web/src/locales/en.json:3437:  "ui.账户名": "Username",
-apps/web/src/locales/en.json:3439:  "ui.输入账户名": "Enter username",
-apps/web/src/locales/en.json:3441:  "ui.账户或密码错误": "Invalid username or password",
-apps/web/src/locales/en.json:3639:  "ui.管理系统用户": "Manage accounts",
-apps/web/src/locales/en.json:3758:  "ui.个人资料副标": "Manage account & password",
-apps/web/src/locales/en.json:3764:  "ui.系统登录配置、操": "系统登录配置、操作审批日志与账户安全状态",
-apps/web/src/locales/en.json:3771:  "ui.运输车辆调度及门": "Vehicle scheduling and store receipt confirmation ledger",
-apps/web/src/locales/en.json:3775:  "ui.实时跟踪配送车辆": "Track delivery vehicles and record store receipts in real time",
-apps/web/src/locales/en.json:3796:  "ui.全面掌握资金流向": "Full visibility of cash flow, revenue, cost and profit health",
-apps/web/src/locales/en.json:3799:  "ui.全局把控供应商应": "Global visibility of supplier AP pool and payment planning",
-apps/web/src/locales/en.json:3800:  "ui.零售网点日间缴款": "Retail cash collection, reconciliation and electronic posting",
-apps/web/src/locales/en.json:3819:  "ui.分发批次核验与到": "Batch verification and store receipt confirmation",
-apps/web/src/locales/en.json:3941:  "action_receipt": "Store Receipt",
-apps/web/src/locales/en.json:3975:  "receipt_success": "Receipt successful! Inventory updated",
-apps/web/src/locales/en.json:3976:  "receipt_order": "Receipt Order",
-apps/web/src/locales/en.json:3982:  "confirm_receipt_inbound": "Confirm Receipt & Inbound",
-apps/web/src/locales/en.json:3983:  "pending_receipt_list": "Pending Receipt List",
-apps/web/src/locales/en.json:3987:  "click_to_verify": "Click to start receipt verification >",
-apps/web/src/locales/en.json:3988:  "no_pending_receipt": "No pending receipt orders for current store",
-apps/web/src/locales/en.json:4025:  "account_period": "Account Period",
-apps/web/src/locales/en.json:4071:  "menu.tp-receipt": "Store Receipt",
-apps/web/src/locales/en.json:4100:  "menu.prc2-payment": "Payments",
-apps/web/src/locales/en.json:4103:  "menu.prc2-receipt": "Receipts",
-apps/web/src/locales/en.json:4123:  "menu.fn-payments": "Payment Orders",
-apps/web/src/locales/en.json:4126:  "menu.fn-cashflow": "Cash Flow",
-apps/web/src/locales/en.json:4411:  "ui.逐箱扫码核验仓库确认接收": "Scan each box, warehouse confirms receipt",
-apps/web/src/locales/en.json:4445:  "analytics.feed_recent_receipts": "Recent Receipts",
-apps/web/src/locales/en.json:4513:  "breeding.noCreatePerm": "Current account has no entry permission (requires MENU_PROD_INBOUND C permission)",
-apps/web/src/locales/en.json:4555:  "dwork.card.cash_in.title": "Cash Receipt",
-apps/web/src/locales/en.json:4556:  "dwork.card.cash_in.desc": "Direct stores / Customer receipts · LAK+RMB",
-apps/web/src/locales/en.json:4557:  "dwork.card.cash_out.title": "Cash Payment",
-apps/web/src/locales/en.json:4558:  "dwork.card.cash_out.desc": "Procurement / Salary / Freight",
-apps/web/src/locales/en.json:4561:  "dwork.card.sale_receipt.title": "AR Receipt",
-apps/web/src/locales/en.json:4562:  "dwork.card.sale_receipt.desc": "Customer payment registration",
-apps/web/src/locales/en.json:4800:  "dash.todayPosHint": "Today's in-store POS receipts",
-apps/web/src/locales/en.json:4866:  "fin2.ap.payment_records": "Payment Settlement Records",
-apps/web/src/locales/en.json:4867:  "fin2.ap.no_payment_records": "No payment records",
-apps/web/src/locales/en.json:4925:  "fin2.ar.confirm_receipt": "Confirm Receipt",
-apps/web/src/locales/en.json:4930:  "fin2.ar.new_receipt": "New Receipt",
-apps/web/src/locales/en.json:4931:  "fin2.ar.receipt_for": "Record Receipt",
-apps/web/src/locales/en.json:4932:  "fin2.ar.receipt_amount": "Receipt Amount",
-apps/web/src/locales/en.json:4933:  "fin2.ar.receipt_date": "Receipt Date",
-apps/web/src/locales/en.json:4934:  "fin2.ar.receipt_method": "Receipt Method",
-apps/web/src/locales/en.json:4935:  "fin2.ar.receipt_method_ph": "Select receipt method",
-apps/web/src/locales/en.json:4936:  "fin2.ar.receipt_account": "Receipt Account",
-apps/web/src/locales/en.json:4941:  "fin2.ar.receipt_records": "Receipt Settlement Records",
-apps/web/src/locales/en.json:4942:  "fin2.ar.no_receipt_records": "No receipt records",
-apps/web/src/locales/en.json:4946:  "fin2.ar.err_select_receipt_date": "Please select a receipt date",
-apps/web/src/locales/en.json:4947:  "fin2.ar.err_valid_receipt_amount": "Please enter a valid receipt amount",
-apps/web/src/locales/en.json:4956:  "fin2.ar.tab_rece
+apps/web/src/lib/design-tokens.ts:230:  PARTIALLY_PAID:     '部分付款',
+apps/web/src/lib/design-tokens.ts:286:export const CHART_PALETTE = {
+apps/web/src/lib/design-tokens.ts:322:  const s = CHART_PALETTE.series;
+apps/web/src/lib/qrcode.ts:32:const ALPHANUMERIC_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+apps/web/src/lib/qrcode.ts:38:const NUM_CHAR_COUNT_BITS = (m: Mode, ver: number): number => {
+apps/web/src/lib/qrcode.ts:62:    bb.push(ALPHANUMERIC_CHARSET.indexOf(s[i]) * 45 + ALPHANUMERIC_CHARSET.indexOf(s[i + 1]), 11);
+apps/web/src/lib/qrcode.ts:64:  if (s.length % 2 === 1) bb.push(ALPHANUMERIC_CHARSET.indexOf(s[s.length - 1]), 6);
+apps/web/src/lib/qrcode.ts:319:    bb.push(text.length, NUM_CHAR_COUNT_BITS(mode, version));
+apps/web/src/lib/mobile-api.ts:133:  alert:           'CRITICAL' | 'WARN' | null;
+apps/web/src/lib/mobile-api.ts:322:  /** 养殖日报（仅 ROLE_FARM_MGR/ROLE_ADMIN 可访问；其他角色返回 403 则降级） */
+apps/web/src/lib/mobile-roles.ts:28:  FARM_MGR:            'ROLE_FARM_MGR',
+apps/web/src/lib/mobile-roles.ts:51:  SHAREHOLDER_VIEW:    'ROLE_SHAREHOLDER_VIEW',
+apps/web/src/lib/mobile-roles.ts:56://   （ROLE_FARMER / ROLE_FIN_AR / ROLE_SHAREHOLDER_FINANCE / ROLE_*_TREASURER …）
+apps/web/src/lib/mobile-roles.ts:62:  ROLE_FARMER:                          R.BREEDER,
+apps/web/src/lib/mobile-roles.ts:63:  ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR: R.FARM_MGR,
+apps/web/src/lib/mobile-roles.ts:64:  ROLE_PILOT_MANAGER:                   R.FARM_MGR,
+apps/web/src/lib/mobile-roles.ts:66:  ROLE_FARM_QC_INSPECTOR:               R.QA_MGR,
+apps/web/src/lib/mobile-roles.ts:76:  ROLE_FARM_SHIPPER:                    R.LOG_MGR,
+apps/web/src/lib/mobile-roles.ts:83:  ROLE_FIN_AR:                          R.FIN_ACCT,
+apps/web/src/lib/mobile-roles.ts:91:  ROLE_FARM_CASHIER:                    R.CASHIER,
+apps/web/src/lib/mobile-roles.ts:95:  ROLE_SHAREHOLDER_FINANCE:             R.SHAREHOLDER_VIEW,
+apps/web/src/lib/mobile-roles.ts:113:  R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
+apps/web/src/lib/mobile-roles.ts:119:  R.GROUP_FINANCE, R.FACTORY_ACCOUNTANT, R.PROJECT_MGR, R.SHAREHOLDER_VIEW,
+apps/web/src/lib/mobile-roles.ts:134:    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
+apps/web/src/lib/mobile-roles.ts:140:    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
+apps/web/src/lib/mobile-roles.ts:141:    read:  [R.CEO, R.QA_MGR, R.AUDITOR, R.SHAREHOLDER_VIEW],
+apps/web/src/lib/mobile-roles.ts:146:    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
+apps/web/src/lib/mobile-roles.ts:147:    read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.SHAREHOLDER_VIEW],
+apps/web/src/lib/mobile-roles.ts:152:    write: [R.ADMIN, R.FARM_MGR],
+apps/web/src/lib/mobile-roles.ts:153:    read:  [R.CEO, R.VET, R.QA_MGR, R.AUDITOR, R.SHAREHOLDER_VIEW],
+apps/web/src/lib/mobile-roles.ts:158:    write: [R.ADMIN, R.FARM_MGR],
+apps/web/src/lib/mobile-roles.ts:159:    read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR, R.SHAREHOLDER_VIEW],
+apps/web/src/lib/mobile-roles.ts:165:    read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
+apps/web/src/lib/mobile-roles.ts:168:            R.LOG_MGR, R.BREEDER, R.PKG_MGR, R.SHAREHOLDER_VIEW],
+apps/web/src/lib/mobile-roles.ts:173:    write: [R.ADMIN, R.FARM_MGR, R.PKG_MGR],
+apps/web/src/lib/mobile-roles.ts:179:    write: [R.ADMIN, R.FARM_MGR, R.QA_MGR, R.VET],
+apps/web/src/lib/mobile-roles.ts:185:    write: [R.ADMIN, R.FARM_MGR, R.WMS_MGR],
+apps/web/src/lib/mobile-roles.ts:193:    write: [R.ADMIN, R.FARM_MGR, R.SALES_MGR, R.SALES_REP],
+apps/web/src/lib/mobile-roles.ts:200:    write: [R.ADMIN, R.FARM_MGR, R.VET],
+apps/web/src/lib/mobile-roles.ts:207:    read:  [R.CEO, R.WMS_MGR, R.FARM_MGR, R.STORE_MGR, R.SALES_MGR,
+apps/web/src/lib/mobile-roles.ts:214:    read:  [R.CEO, R.FARM_MGR, R.QA_MGR],
+apps/web/src/lib/mobile-roles.ts:219:    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER, R.WMS_MGR, R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.PRC_BUYER],
+apps/web/src/lib/mobile-roles.ts:239:      R.PRC_BUYER, R.FARM_MGR,
+apps/web/src/lib/mobile-roles.ts:242:    read: [R.AUDITOR, R.SHAREHOLDER_VIEW, R.VET, R.QA_MGR],
+apps/web/src/lib/mobile-roles.ts:253:    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER, R.WMS_MGR, R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.PRC_BUYER, R.PROJECT_MGR, R.FIN_ACCT],
+apps/web/src/lib/mobile-roles.ts:261:    read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.BREEDER, R.PKG_MGR],
+apps/web/src/lib/mobile-roles.ts:276:      'MENU_DASHBOARD',
+apps/web/src/lib/mobile-roles.ts:277:      'MENU_FARM_DATA',
+apps/web/src/lib/mobile-roles.ts:278:      'MENU_FARM_DAILY',
+apps/web/src/lib/mobile-roles.ts:279:      'MENU_FARM_VET',
+apps/web/src/lib/mobile-roles.ts:289:      'MENU_SALES2_DASHBOARD',
+apps/web/src/lib/mobile-roles.ts:296:    write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA'],
+apps/web/src/lib/mobile-roles.ts:2
+```
+
+## Evidence Gate
+
+```json
+{
+  "version": 1,
+  "agent": "A4-Frontend-UAT-Smoke",
+  "exitCode": 0,
+  "conclusion": "HOLD",
+  "responseChars": 1156,
+  "beforeHead": "64c25e8848b4e84e8aee4ecc782acb0f7715abd1",
+  "afterHead": "64c25e8848b4e84e8aee4ecc782acb0f7715abd1",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
+  "checkedAt": "2026-07-10T04:14:47.347Z",
+  "passed": false,
+  "role": "implementation",
+  "terminalStatus": "HOLD",
+  "reason": "Agent conclusion is HOLD"
+}
 ```
