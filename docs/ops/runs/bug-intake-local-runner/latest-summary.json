@@ -1,8 +1,8 @@
 {
-  "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_DRY_RUN",
-  "generatedAt": "2026-07-10T05:51:52.623Z",
+  "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
+  "generatedAt": "2026-07-10T06:00:17.707Z",
   "cycle": 1,
-  "dryRun": true,
+  "dryRun": false,
   "queueApply": "lease-recovery-only",
   "executeApproved": false,
   "pushAfterSuccess": false,
@@ -17,10 +17,18 @@
     "reason": "recover-leases-only"
   },
   "leaseRecovery": {
-    "recovered": [],
+    "recovered": [
+      {
+        "task_id": "BUGTASK-20260706-0002-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "previous_status": "running",
+        "claimed_at": "2026-07-10T05:58:36.547Z",
+        "age_minutes": 2
+      }
+    ],
     "active_processes": [],
-    "wrote_queue": false,
-    "stale_after_minutes": 15
+    "wrote_queue": true,
+    "stale_after_minutes": 1
   },
   "preWorkerCommit": {
     "skipped": true,
@@ -38,7 +46,7 @@
     "skipped": true,
     "reason": "recover-leases-only"
   },
-  "headSha": "6b0d83c5056bf4596b98a9c8f29e6475174f5d04",
+  "headSha": "75b2639b5c77299422a418810c9689f780beee75",
   "tokenSource": "not-required",
   "lifecycleWriteback": {
     "skipped": true,

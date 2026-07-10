@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Decision | BUG_INTAKE_LOCAL_RUNNER_RECOVERY_DRY_RUN |
-| Dry run | Yes |
+| Decision | BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED |
+| Dry run | No |
 | Cycle | 1 |
 | Synced | PASS |
 | Queue apply | lease-recovery-only |
 | Runnable tasks | 0 |
 | Worker runs | 0 |
 | Blocked/skipped tasks | 0 |
-| Stale leases recovered | 0 |
+| Stale leases recovered | 1 |
 | Auto-unblock dirty worktrees | Enabled |
 | Skip blocked tasks | Enabled |
 | Safe retry | Disabled |
@@ -37,7 +37,7 @@
 
 ## Stale Lease Recovery
 
-- None
+- BUGTASK-20260706-0002-A4: A4-Frontend-UAT-Smoke running -> pending (2 minutes old)
 
 ## Failure Classification
 

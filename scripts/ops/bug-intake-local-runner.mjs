@@ -60,7 +60,7 @@ function parseArgs(argv) {
     maxCandidateTasks: 0,
     childTimeoutMs: 900000,
     fetchTimeoutMs: 45000,
-    staleLeaseMinutes: 15,
+    staleLeaseMinutes: 1,
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   let explicitDryRun = false;
@@ -92,7 +92,7 @@ function parseArgs(argv) {
   args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
   args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 900000;
   args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
-  args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 15;
+  args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 1;
   if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
   if (!args.once && !args.watch) args.once = true;
   return args;
@@ -504,7 +504,7 @@ function recoverStaleTaskLeases(args) {
   const tasks = readJson(TASKS_FILE, []);
   const processes = activeAgentProcesses();
   const now = Date.now();
-  const staleAfterMs = Math.max(1, Number(args.staleLeaseMinutes || 15)) * 60 * 1000;
+  const staleAfterMs = Math.max(1, Number(args.staleLeaseMinutes || 1)) * 60 * 1000;
   const recovered = [];
   let changed = false;
 
@@ -546,7 +546,7 @@ function recoverStaleTaskLeases(args) {
     recovered,
     active_processes: processes.map((processInfo) => ({ pid: processInfo.pid, command: processInfo.command })),
     wrote_queue: changed && !args.dryRun,
-    stale_after_minutes: Math.max(1, Number(args.staleLeaseMinutes || 15)),
+    stale_after_minutes: Math.max(1, Number(args.staleLeaseMinutes || 1)),
   };
 }
 

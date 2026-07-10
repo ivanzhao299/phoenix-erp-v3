@@ -32,6 +32,7 @@
 15. A completed run interrupted only at the parent boundary can be recovered only from an exit-0 run log plus an owned business diff, task-specific report, explicit PASS/GO conclusion, and a new commit. Missing any item remains HOLD.
 16. Dirty partial implementation worktrees are quarantined as explicit HOLD with their file list. They are preserved for diagnosis and cannot be repeatedly claimed or silently merged.
 17. Dedicated Bug Intake worktrees now rotate non-destructively after an interrupted dirty run: the entire dirty worktree and branch move to a task-specific quarantine path, while a fresh execution slot is recreated from `origin/main`. This prevents one partial A3/A4 run from blocking every later bug.
+18. A claimed/running lease without a matching live Agent process is recovered after one minute. Live task processes remain authoritative, while crashes, runner restarts, and host reboots can no longer block the queue for the former 15-minute window.
 
 ## Verification
 

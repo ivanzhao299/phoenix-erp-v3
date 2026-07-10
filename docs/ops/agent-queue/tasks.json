@@ -15744,7 +15744,10 @@
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
       }
-    ]
+    ],
+    "last_recovered_at": "2026-07-10T06:00:17.704Z",
+    "last_recovery_reason": "stale bug-intake task lease without active agent process",
+    "recovery_count": 1
   },
   {
     "task_id": "BUGTASK-20260706-0002-A1",
@@ -15754,7 +15757,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15779,7 +15782,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T05:58:32.194Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15804,7 +15807,17 @@
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
       }
-    ]
+    ],
+    "reason": "blocked by failed dependency: BUGTASK-20260706-0002-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260706-0002-A3",
+      "checkedAt": "2026-07-10T05:58:32.194Z"
+    }
   },
   {
     "task_id": "BUGTASK-20260705-0003-A4",
