@@ -75,7 +75,8 @@ export class ArReceiptsService {
   /** assertOwnership for receipt */
   private async assertReceiptOwnership(receiptId: string): Promise<any> {
     const rows = await this.ds.query(
-      `SELECT id, receipt_no, company_code, status, amount_original, currency_code, customer_name
+      `SELECT id, receipt_no, company_code, status, amount_original, currency_code,
+              exchange_rate, received_account_code, customer_name
        FROM fin_ar_receipts WHERE id = $1`,
       [receiptId],
     );
