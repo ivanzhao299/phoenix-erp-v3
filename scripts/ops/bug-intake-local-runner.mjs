@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
@@ -682,6 +682,29 @@ function gitStatusShort(cwd) {
 function worktreeClean(cwd) {
   const status = gitStatusShort(cwd);
   return status.ok && status.output.trim() === '';
+}
+
+function ensureTaskWorktreeDependencies(task, args) {
+  if (args.dryRun || taskUsesMainRootLocalWorker(task)) return { ok: true, created: [], skipped: true };
+  const candidates = [
+    ['node_modules', 'node_modules'],
+    ['apps/api/node_modules', 'apps/api/node_modules'],
+    ['apps/web/node_modules', 'apps/web/node_modules'],
+  ];
+  const created = [];
+  try {
+    for (const [sourceRelative, targetRelative] of candidates) {
+      const source = path.join(args.mainRoot, sourceRelative);
+      const target = path.join(task.worktree, targetRelative);
+      if (!existsSync(source) || existsSync(target)) continue;
+      mkdirSync(path.dirname(target), { recursive: true });
+      symlinkSync(source, target, 'dir');
+      created.push(targetRelative);
+    }
+    return { ok: true, created, skipped: created.length === 0 };
+  } catch (error) {
+    return { ok: false, created, error: error.message };
+  }
 }
 
 function inferDirtyWorktreeOwner(task, statusOutput) {
@@ -1385,6 +1408,17 @@ async function runCycle(args, cycle) {
       .find((candidate) => !attemptedTaskIds.has(candidate.task_id));
     if (!task) break;
     attemptedTaskIds.add(task.task_id);
+    const dependencySetup = ensureTaskWorktreeDependencies(task, args);
+    if (!dependencySetup.ok) {
+      blockedTasks.push({
+        task_id: task.task_id,
+        agent: task.agent,
+        status: 'BLOCKED',
+        reason: `cannot prepare worktree dependencies: ${dependencySetup.error}`,
+      });
+      if (args.skipBlocked) continue;
+      break;
+    }
     if (!taskUsesMainRootLocalWorker(task)) {
       const unblock = unblockDirtyWorktree(task, args);
       if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
@@ -1481,7 +1515,7 @@ async function runCycle(args, cycle) {
       finalTask = implementationIntegration.task || finalTask;
       if (!implementationIntegration.skipped) postIntegrationCommit = commitOpsRuntimeArtifacts(args);
     }
-    workerRuns.push({ task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit });
+    workerRuns.push({ task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit, dependencySetup });
     leftovers = activeAgentProcesses();
     if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
       blockedTasks.push({
