@@ -173,11 +173,11 @@ function badgeColor(value: string) {
   return { bg: "var(--bg-muted)", color: "var(--text-secondary)" };
 }
 
-function repairStatusLabel(value: string) {
-  if (value === "AGENT_COMPLETED") return "历史完成结果（证据不足）";
-  if (value === "AGENT_EXECUTION_FINISHED") return "Agent 执行结束，等待发布验证";
-  if (value === "FIX_READY_FOR_UAT") return "已部署，等待业务验收";
-  if (value === "BUSINESS_VERIFIED") return "业务验收通过";
+function repairStatusLabel(value: string, t: (key: string, fallback?: string) => string) {
+  if (value === "AGENT_COMPLETED") return t("system.bugIntake.legacyCompletedInsufficient", "历史完成结果（证据不足）");
+  if (value === "AGENT_EXECUTION_FINISHED") return t("system.bugIntake.agentExecutionFinished", "Agent 执行结束，等待发布验证");
+  if (value === "FIX_READY_FOR_UAT") return t("system.bugIntake.fixReadyForUat", "已部署，等待业务验收");
+  if (value === "BUSINESS_VERIFIED") return t("system.bugIntake.businessVerified", "业务验收通过");
   if (value === "AGENT_APPROVED") return "已批准待执行";
   if (value === "AGENT_RUNNING") return "Agent 执行中";
   if (value === "HOLD") return "HOLD 待处理";
@@ -929,7 +929,7 @@ export default function BugReportsPage() {
                   <h4>{t("system.bugIntake.repairTaskTitle", "修复任务包")}</h4>
                   <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, fontSize: 13, marginBottom: 10 }}>
                     <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.repairTask", "修复任务")}</span><strong>{detail.repairTaskNo || "—"}</strong>
-                    <span style={{ color: "var(--text-secondary)" }}>{t("common.status", "状态")}</span><strong>{repairStatusLabel(detail.repairTaskStatus)}</strong>
+                    <span style={{ color: "var(--text-secondary)" }}>{t("common.status", "状态")}</span><strong>{repairStatusLabel(detail.repairTaskStatus, t)}</strong>
                     <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.redispatchCount", "重派")}</span><strong>{String((detail.repairTaskPayload?.redispatchCount as number | undefined) ?? 0)}</strong>
                   </div>
                   {["AGENT_COMPLETED", "AGENT_EXECUTION_FINISHED", "FIX_READY_FOR_UAT"].includes(detail.repairTaskStatus) && (
