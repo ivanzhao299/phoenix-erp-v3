@@ -2,11 +2,21 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { routeRequest } from './agent-route-request.mjs';
 
 const QUEUE_FILE = 'docs/ops/agent-queue/tasks.json';
 const DISPATCH_MAP_FILE = 'docs/ops/AGENT_DISPATCH_MAP.json';
 const RUNS_DIR = 'docs/ops/runs';
+const TERMINAL_TASK_STATUSES = new Set([
+  'completed',
+  'validation_completed',
+  'implementation_completed',
+  'hold',
+  'failed',
+  'archived',
+  'cancelled',
+]);
 const BUG_INTAKE_EXECUTION = {
   'A3-Backend-Critical-Path': {
     worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
@@ -339,6 +349,70 @@ function buildTasks(payload, plan, dispatchMap) {
   return tasks;
 }
 
+export function mergeExistingQueueTask(previous, task, { redispatchRequested = false } = {}) {
+  const previousRedispatchCount = Number(previous.redispatch_count || 0);
+  const nextRedispatchCount = Number(task.redispatch_count || 0);
+  const newerRedispatch = redispatchRequested && nextRedispatchCount > previousRedispatchCount;
+
+  if (!newerRedispatch) {
+    if (TERMINAL_TASK_STATUSES.has(String(previous.status || '').toLowerCase())) {
+      // Terminal evidence is immutable within one dispatch generation. In
+      // particular, keep quarantined worktree/branch pointers instead of
+      // silently restoring the shared A3/A4 execution slot on every sync.
+      return { action: 'skipped_terminal', task: previous };
+    }
+    return {
+      action: 'updated_existing',
+      task: {
+        ...previous,
+        agent: task.agent,
+        title: task.title,
+        dependencies: task.dependencies,
+        route_active: true,
+        route_selected_agents: task.route_selected_agents,
+        allowed_paths: task.allowed_paths,
+        forbidden_paths: task.forbidden_paths,
+        prompt_file: task.prompt_file,
+        contract_file: task.contract_file,
+        worktree: task.worktree,
+        branch: task.branch,
+      },
+    };
+  }
+
+  return {
+    action: 'requeued',
+    task: {
+      ...previous,
+      ...task,
+      status: 'pending',
+      claimed_by: null,
+      claimed_at: null,
+      completed_at: null,
+      result_file: null,
+      reason: null,
+      evidence_gate: null,
+      implementation_commit: '',
+      integrated_commit: '',
+      integrated_at: null,
+      changed_files: [],
+      baseline_autopilot_exit_code: null,
+      redispatch_count: Math.max(previousRedispatchCount, nextRedispatchCount),
+      redispatched_at: task.last_redispatch_at || new Date().toISOString(),
+      redispatch_history: [
+        ...(Array.isArray(previous.redispatch_history) ? previous.redispatch_history : []),
+        {
+          at: new Date().toISOString(),
+          previous_status: previous.status || '',
+          previous_result_file: previous.result_file || null,
+          source_bug_no: task.source_bug_no,
+          source_repair_task_no: task.source_repair_task_no,
+        },
+      ].slice(-20),
+    },
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.repairTaskJson) usage(1);
@@ -411,54 +485,12 @@ function main() {
       }
       const index = existingIndex.get(task.task_id);
       const previous = queue[index];
-      const previousRedispatchCount = Number(previous.redispatch_count || 0);
-      const nextRedispatchCount = Number(task.redispatch_count || 0);
-      if (!redispatchRequested || nextRedispatchCount <= previousRedispatchCount) {
-        queue[index] = {
-          ...previous,
-          agent: task.agent,
-          title: task.title,
-          dependencies: task.dependencies,
-          route_active: true,
-          route_selected_agents: task.route_selected_agents,
-          allowed_paths: task.allowed_paths,
-          forbidden_paths: task.forbidden_paths,
-          prompt_file: task.prompt_file,
-          contract_file: task.contract_file,
-          worktree: task.worktree,
-          branch: task.branch,
-        };
+      const merged = mergeExistingQueueTask(previous, task, { redispatchRequested });
+      queue[index] = merged.task;
+      if (merged.action !== 'requeued') {
         skippedExisting.push(previous);
         continue;
       }
-      queue[index] = {
-        ...previous,
-        ...task,
-        status: 'pending',
-        claimed_by: null,
-        claimed_at: null,
-        completed_at: null,
-        result_file: null,
-        reason: null,
-        evidence_gate: null,
-        implementation_commit: '',
-        integrated_commit: '',
-        integrated_at: null,
-        changed_files: [],
-        baseline_autopilot_exit_code: null,
-        redispatch_count: Math.max(Number(previous.redispatch_count || 0), Number(task.redispatch_count || 0)),
-        redispatched_at: task.last_redispatch_at || new Date().toISOString(),
-        redispatch_history: [
-          ...(Array.isArray(previous.redispatch_history) ? previous.redispatch_history : []),
-          {
-            at: new Date().toISOString(),
-            previous_status: previous.status || '',
-            previous_result_file: previous.result_file || null,
-            source_bug_no: task.source_bug_no,
-            source_repair_task_no: task.source_repair_task_no,
-          },
-        ].slice(-20),
-      };
       requeued.push(queue[index]);
     }
     writeJson(QUEUE_FILE, queue);
@@ -471,4 +503,6 @@ function main() {
   console.log(JSON.stringify(summary, null, 2));
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
