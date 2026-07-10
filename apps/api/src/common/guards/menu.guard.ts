@@ -35,13 +35,14 @@ export interface MenuRequirement {
   menu: string;
   perm: PermCode;
   altMenus?: string[];  // G20-1: 备选 menu code 数组（OR 关系），用于跨域兼容（如 sales2/inventory ↔ wms_view）
+  denialMessage?: string;
 }
 
 /** @RequireMenu('MENU_FARM_DATA', 'V')
  *  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW'])  // G20-1 备选 OR
  */
-export const RequireMenu = (menu: string, perm: PermCode, altMenus?: string[]) =>
-  SetMetadata(REQUIRE_MENU_KEY, { menu, perm, altMenus });
+export const RequireMenu = (menu: string, perm: PermCode, altMenus?: string[], denialMessage?: string) =>
+  SetMetadata(REQUIRE_MENU_KEY, { menu, perm, altMenus, denialMessage });
 
 /** @Public() — 无需 Token 的公开接口 */
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -102,6 +103,6 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
       }
     }
 
-    throw new ForbiddenException('MENU_PERMISSION_DENIED');
+    throw new ForbiddenException(requirement.denialMessage ?? 'MENU_PERMISSION_DENIED');
   }
 }

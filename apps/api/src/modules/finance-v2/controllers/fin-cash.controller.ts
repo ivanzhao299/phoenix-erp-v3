@@ -31,6 +31,7 @@ const MENU_VIEW     = 'MENU_FIN2_CASH_VIEW';      // 账户列表/详情/汇总
 const MENU_MASTER   = 'MENU_FIN2_CASH_MASTER';    // 账户主档（建/改/冻/关）
 const MENU_TXN      = 'MENU_FIN2_CASH_TXN';       // 流水（查/录）
 const MENU_TRANSFER = 'MENU_FIN2_CASH_TRANSFER';  // 资金转账（查/建/审/执/撤）
+const MENU_ACCOUNT_CREATE = 'MENU_MD_CASH_ACCOUNT'; // 账户建档归敏感主数据权限，不继承财务运行时权限
 
 @Controller('api/v2/finance/cash')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -84,7 +85,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/accounts */
   @Post('accounts')
-  @RequireMenu(MENU_MASTER, 'C')
+  @RequireMenu(MENU_ACCOUNT_CREATE, 'C', undefined, '当前角色无权限新建账户')
   async createAccount(@Body() dto: CreateCashAccountDto) {
     const acc = await this.accSvc.create(dto, this.scopedUser);
     // 如果有期初余额，写 OPENING 流水
