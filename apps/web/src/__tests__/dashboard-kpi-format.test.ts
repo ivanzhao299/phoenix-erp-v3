@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeDashboardMetric } from './dashboard-kpi-format';
+import { normalizeDashboardMetric } from '../lib/dashboard-kpi-format';
 
 describe('normalizeDashboardMetric', () => {
   it('formats raw LAK integer strings with grouping for dashboard cards', () => {

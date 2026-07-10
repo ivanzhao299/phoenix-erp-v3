@@ -17,7 +17,7 @@ Current code inspection found a dashboard-card defect that matches the reported 
 - `apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx`
 - `apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css`
 - `apps/web/src/lib/dashboard-kpi-format.ts`
-- `apps/web/src/lib/dashboard-kpi-format.test.ts`
+- `apps/web/src/__tests__/dashboard-kpi-format.test.ts`
 - `docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md`
 
 ## Fix Summary

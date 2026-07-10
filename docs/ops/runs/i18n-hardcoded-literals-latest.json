@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-10T03:10:51.633Z",
+  "generated_at": "2026-07-10T05:29:43.626Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3137,
+  "total_findings": 3133,
   "auto_translatable_findings": 3133,
-  "manual_componentization_findings": 4,
+  "manual_componentization_findings": 0,
   "affected_files": 171,
   "top_files": [
     {
@@ -3628,34 +3628,6 @@
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 177,
-      "kind": "string-literal",
-      "text": "历史完成结果（证据不足）",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 178,
-      "kind": "string-literal",
-      "text": "Agent 执行结束，等待发布验证",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 179,
-      "kind": "string-literal",
-      "text": "已部署，等待业务验收",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 180,
-      "kind": "string-literal",
-      "text": "业务验收通过",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
       "line": 181,
       "kind": "string-literal",
       "text": "已批准待执行",
@@ -3901,14 +3873,14 @@
     },
     {
       "file": "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
-      "line": 183,
+      "line": 177,
       "kind": "string-literal",
       "text": "POS 收银",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
-      "line": 187,
+      "line": 181,
       "kind": "string-literal",
       "text": "农场直销",
       "auto_translatable": true
@@ -4300,175 +4272,175 @@
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "应收编号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "来源",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "客户",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "发票日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "到期日",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "发票金额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "待收余额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1048,
+      "line": 1054,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "收款编号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "客户",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "收款日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "收款金额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "方式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "流水号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1123,
+      "line": 1129,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "客户",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "币种",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "未到期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "≤30天",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "31-60天",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "61-90天",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": ">90天",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
-      "line": 1249,
+      "line": 1255,
       "kind": "string-literal",
       "text": "合计",
       "auto_translatable": true
