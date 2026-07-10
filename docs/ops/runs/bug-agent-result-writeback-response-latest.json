@@ -1,71 +1,42 @@
 {
-  "id": "8",
-  "bugNo": "BUG-20260707-0003",
-  "title": "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
+  "id": "10",
+  "bugNo": "BUG-20260707-0005",
+  "title": "日生产日报不选择鸡舍也能提交成功",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "_____",
+  "moduleCode": "__________",
   "assigneeUsername": "_____",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260707-0003",
+  "repairTaskNo": "BUGTASK-20260707-0005",
   "repairTaskStatus": "HOLD",
-  "route": "/home",
-  "reporterUsername": "liuhantao",
-  "reporterName": "刘汉涛",
-  "createdAt": "2026-07-07T00:28:15.566Z",
-  "updatedAt": "2026-07-10T07:51:33.289Z",
+  "route": "/breeding/daily",
+  "reporterUsername": "admin",
+  "reporterName": "金凤凰总控",
+  "createdAt": "2026-07-07T00:58:10.770Z",
+  "updatedAt": "2026-07-10T07:53:45.706Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "账号：liuhantao，打开运营工作台报错[403] MENU_PERMISSION_DENIED，运营工作台是可视化界面，现在问题是能进入页面并且展示信息但是还报错403，要求右上角无报错",
-  "url": "https://erp.eggslao.com/home",
-  "reporterUserId": "4",
+  "description": "生产管理/日生产日报，不选择鸡舍也能提交成功，这就导致鸡舍是未知，在运营工作台查看今日产蛋就是0，在经营仪表盘查看的当日产蛋量是准确的，应该是运营工作台查询加了限制，查询时必须带鸡舍。处理方法很简单，日生产日报点击”提交日报“时检查是否选择鸡舍，鸡舍显示“加载中...”就是没选择，若没选择鸡舍给一个提示“请先选择鸡舍后再提交”",
+  "url": "https://erp.eggslao.com/breeding/daily?action=create&date=today",
+  "reporterUserId": "96",
   "roles": [
-    "ROLE_HQ_FINANCE",
-    "ROLE_FIN_COST",
-    "ROLE_TREASURY_MANAGER",
-    "ROLE_FINANCE_ANALYST",
-    "ROLE_COST_ACCOUNTING_MANAGER",
-    "ROLE_FIN_ACCOUNT_MASTER_MGR"
+    "ROLE_ADMIN",
+    "ROLE_MASTER_DATA_APPROVER"
   ],
   "companyCode": "",
   "projectCode": "",
   "consoleErrors": [],
-  "failedRequests": [
-    {
-      "url": "/api/v3/iot/devices/all-summary",
-      "method": "GET",
-      "status": 403,
-      "requestId": "",
-      "timestamp": "2026-07-07T00:23:44.898Z",
-      "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-    },
-    {
-      "url": "/api/v3/iot/devices/all-summary",
-      "method": "GET",
-      "status": 403,
-      "requestId": "",
-      "timestamp": "2026-07-07T00:23:56.948Z",
-      "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-    },
-    {
-      "url": "/api/v3/iot/devices/all-summary",
-      "method": "GET",
-      "status": 403,
-      "requestId": "",
-      "timestamp": "2026-07-07T00:24:04.879Z",
-      "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-    }
-  ],
+  "failedRequests": [],
   "attachments": [
     {
-      "sha256": "c855ed46adcfda3d042a0c130bc3f2da2778a4e6387e5e0001a603565c1d861f",
-      "fileName": "01-1783384095554-6aec182d.png",
+      "sha256": "f961c9036b46e2752abecf44d62b5ab3833fd389fac552159dceda6e5f880f77",
+      "fileName": "01-1783385890768-eec55765.png",
       "mimeType": "image/png",
-      "sizeBytes": 1216992,
-      "originalName": "pasted-screenshot-1783383887907-1.png",
-      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0003/01-1783384095554-6aec182d.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0003/attachments/01-1783384095554-6aec182d.png"
+      "sizeBytes": 841957,
+      "originalName": "pasted-screenshot-1783385734893-1.png",
+      "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0005/01-1783385890768-eec55765.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png"
     }
   ],
   "clientContext": {
@@ -76,9 +47,9 @@
       "height": 865
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-07T00:28:15.565Z",
+    "capturedAt": "2026-07-07T00:58:10.770Z",
     "pageSnapshot": {
-      "route": "/home",
+      "route": "/breeding/daily",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -93,6 +64,31 @@
         "每日工作台",
         "经营仪表盘",
         "生产管理",
+        "🖥️ 进入包装作业台",
+        "养殖总览",
+        "鸡舍管理",
+        "鸡群档案",
+        "日生产日报",
+        "免疫计划",
+        "用药记录",
+        "设备监控",
+        "环境预警",
+        "设备运维",
+        "日产蛋入库",
+        "包装作业",
+        "包装批次",
+        "包装日报",
+        "异常处理",
+        "补打日志",
+        "质检总览",
+        "场端质检",
+        "成品质检",
+        "不合格品处置",
+        "正向追溯",
+        "反向追溯",
+        "质量标准",
+        "库存管理",
+        "全链追溯",
         "采购管理",
         "销售管理",
         "财务结算中心",
@@ -100,10 +96,11 @@
         "审批中心",
         "经营分析",
         "主数据中心",
+        "系统设置",
+        "验收试运行",
+        "系统运维",
         "个人中心 / 修改密码",
-        "⚠️",
-        "影子模式：正在以 刘汉涛 身份查看（由 admin 发起）— 仅用于测试/排障，操作会以该用户身份执行",
-        "1",
+        "99+",
         "反馈问题",
         "反馈页面问题",
         "页面",
@@ -116,47 +113,81 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783383887907-1.png",
+        "pasted-screenshot-1783385734893-1.png",
         "退出",
+        "养殖管理",
+        "/日生产日报",
+        "/",
+        "日生产日报录入",
+        "·按班次录入当日生产数据",
         "·",
-        "2026年7月7日星期二",
-        "早上好，刘汉涛",
-        "今天没有紧急事项，可以专注做事。",
-        "待办",
-        "超时",
-        "高危告警",
+        "日期",
+        "鸡舍",
         "羽",
         "枚",
         "%",
         "kg",
-        "L",
-        "条",
-        "事务流 · 我的待办",
-        "共 0 单",
-        "经营概览",
-        "· 业务全景（4）",
-        "销售",
-        "订单 · 收款",
-        "现金",
-        "账户 · 流水",
-        "应收",
-        "发票 · 账龄",
-        "应付",
-        "账期 · 付款",
-        "数据质量驾驶舱",
-        "综合评分",
-        "需整改 · 7 维加权",
-        "主数据健康 98/100",
-        "业务中心",
-        "· 一键直达（5）"
+        "班次数据录入",
+        "早班",
+        "产蛋数(枚)",
+        "🟡 脏蛋(枚)",
+        "🔴 破损蛋(枚)",
+        "自用蛋(枚)",
+        "死亡(羽)",
+        "死亡原因",
+        "淘汰(羽)",
+        "淘汰原因",
+        "饲料(kg)",
+        "用水(L)",
+        "温度(℃)",
+        "湿度(%)",
+        "备注",
+        "晚班",
+        "近期日报记录",
+        "产蛋数",
+        "脏蛋",
+        "破损蛋",
+        "死亡",
+        "淘汰",
+        "温度",
+        "湿度",
+        "2026-07-07T00:00:00.000Z",
+        "未知",
+        "210",
+        "1",
+        "INJURY",
+        "10.00",
+        "30.00℃",
+        "28.00%",
+        "晚班测试",
+        "10",
+        "SICKNESS",
+        "白班测试",
+        "2026-07-06T00:00:00.000Z",
+        "测试鸡舍2",
+        "5",
+        "LOW_PRODUCTION",
+        "36.00℃",
+        "30.00%",
+        "鸡舍2晚班测试",
+        "AGE",
+        "鸡舍2早班测试",
+        "测试鸡舍",
+        "11",
+        "1.00",
+        "37.00℃",
+        "31.00%",
+        "早班测试",
+        "9",
+        "0"
       ],
       "interactiveElements": [
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 119
           },
@@ -168,7 +199,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 157
           },
@@ -180,7 +211,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 195
           },
@@ -189,10 +220,10 @@
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 233
           },
@@ -200,13 +231,313 @@
           "disabled": false
         },
         {
+          "tag": "a",
+          "path": "",
+          "rect": {
+            "h": 38,
+            "w": 199,
+            "x": 8,
+            "y": 277
+          },
+          "label": "🖥️ 进入包装作业台",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 317
+          },
+          "label": "养殖总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 349
+          },
+          "label": "鸡舍管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 381
+          },
+          "label": "鸡群档案",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 413
+          },
+          "label": "日生产日报",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 445
+          },
+          "label": "免疫计划",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 477
+          },
+          "label": "用药记录",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 509
+          },
+          "label": "设备监控",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 541
+          },
+          "label": "环境预警",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 573
+          },
+          "label": "设备运维",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 605
+          },
+          "label": "日产蛋入库",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 637
+          },
+          "label": "包装作业",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 669
+          },
+          "label": "包装批次",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 701
+          },
+          "label": "包装日报",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 733
+          },
+          "label": "异常处理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 765
+          },
+          "label": "补打日志",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 797
+          },
+          "label": "质检总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 829
+          },
+          "label": "场端质检",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 861
+          },
+          "label": "成品质检",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 893
+          },
+          "label": "不合格品处置",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 925
+          },
+          "label": "正向追溯",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 957
+          },
+          "label": "反向追溯",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 989
+          },
+          "label": "质量标准",
+          "disabled": false
+        },
+        {
           "tag": "div",
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 271
+            "y": 1021
+          },
+          "label": "库存管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1059
+          },
+          "label": "全链追溯",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1097
           },
           "label": "采购管理",
           "disabled": false
@@ -216,9 +547,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 309
+            "y": 1135
           },
           "label": "销售管理",
           "disabled": false
@@ -228,9 +559,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 347
+            "y": 1173
           },
           "label": "财务结算中心",
           "disabled": false
@@ -240,9 +571,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 385
+            "y": 1211
           },
           "label": "股东权益中心",
           "disabled": false
@@ -252,9 +583,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 423
+            "y": 1249
           },
           "label": "审批中心",
           "disabled": false
@@ -264,9 +595,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 461
+            "y": 1287
           },
           "label": "经营分析",
           "disabled": false
@@ -276,11 +607,47 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 499
+            "y": 1325
           },
           "label": "主数据中心",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1363
+          },
+          "label": "系统设置",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1401
+          },
+          "label": "验收试运行",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1439
+          },
+          "label": "系统运维",
           "disabled": false
         },
         {
@@ -296,25 +663,13 @@
           "disabled": false
         },
         {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 26,
-            "w": 100,
-            "x": 1482,
-            "y": 7
-          },
-          "label": "退出影子模式",
-          "disabled": false
-        },
-        {
           "tag": "select",
           "path": ".admin-module__uYgI-a__headerSelect",
           "rect": {
             "h": 30,
             "w": 96,
-            "x": 1057,
-            "y": 53
+            "x": 940,
+            "y": 13
           },
           "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
           "disabled": false
@@ -324,11 +679,23 @@
           "path": "",
           "rect": {
             "h": 34,
-            "w": 34,
-            "x": 1214,
-            "y": 51
+            "w": 93,
+            "x": 1097,
+            "y": 11
           },
-          "label": "1",
+          "label": "在线 1",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 34,
+            "w": 34,
+            "x": 1204,
+            "y": 11
+          },
+          "label": "99+",
           "disabled": false
         },
         {
@@ -337,8 +704,8 @@
           "rect": {
             "h": 40,
             "w": 122,
-            "x": 1262,
-            "y": 48
+            "x": 1252,
+            "y": 8
           },
           "label": "反馈问题",
           "disabled": false
@@ -350,7 +717,7 @@
             "h": 26,
             "w": 26,
             "x": 1056,
-            "y": -26
+            "y": 10
           },
           "label": "关闭",
           "disabled": false
@@ -421,7 +788,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 768,
+            "x": 769,
             "y": 715
           },
           "label": "移除附件",
@@ -456,11 +823,11 @@
           "path": ".admin-module__uYgI-a__userChip",
           "rect": {
             "h": 32,
-            "w": 100,
-            "x": 1398,
-            "y": 52
+            "w": 110,
+            "x": 1388,
+            "y": 12
           },
-          "label": "刘 刘汉涛 总部财务审计",
+          "label": "金 金凤凰总控 集团超级管理员",
           "disabled": false
         },
         {
@@ -470,177 +837,309 @@
             "h": 30,
             "w": 68,
             "x": 1512,
-            "y": 53
+            "y": 13
           },
           "label": "退出",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "button",
           "path": "",
           "rect": {
             "h": 36,
-            "w": 148,
-            "x": 293,
-            "y": 244
+            "w": 90,
+            "x": 1054,
+            "y": -512
           },
-          "label": "进入财务中心",
+          "label": "历史记录",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "button",
           "path": "",
           "rect": {
             "h": 36,
-            "w": 117,
-            "x": 449,
-            "y": 244
+            "w": 110,
+            "x": 1154,
+            "y": -512
           },
-          "label": "主数据中心",
+          "label": "导出报表",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "button",
           "path": "",
           "rect": {
-            "h": 18,
-            "w": 38,
-            "x": 995,
-            "y": 427
+            "h": 36,
+            "w": 178,
+            "x": 1274,
+            "y": -512
           },
-          "label": "全部",
+          "label": "⚡ 设备数据一键填入",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 36,
+            "w": 109,
+            "x": 1462,
+            "y": -512
+          },
+          "label": "提交日报",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 74,
-            "w": 180,
-            "x": 283,
-            "y": 671
+            "h": 38,
+            "w": 160,
+            "x": 265,
+            "y": -415
           },
-          "label": "销售 订单 · 收款",
+          "label": "2026-07-07",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "select",
+          "path": ".phx-select",
           "rect": {
-            "h": 74,
-            "w": 180,
-            "x": 473,
-            "y": 671
+            "h": 38,
+            "w": 200,
+            "x": 445,
+            "y": -415
           },
-          "label": "现金 账户 · 流水",
+          "label": "加载中… X 测试鸡舍 · 蛋鸡舍 测试鸡舍2 · 蛋鸡舍 2号鸡舍 · 蛋鸡舍 3号鸡舍 · 蛋鸡舍 4号鸡舍 · 蛋鸡舍 5号鸡舍 · 蛋鸡舍 6号鸡舍 · 蛋鸡舍",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "button",
           "path": "",
           "rect": {
-            "h": 74,
-            "w": 180,
-            "x": 663,
-            "y": 671
+            "h": 34,
+            "w": 92,
+            "x": 1447,
+            "y": -261
           },
-          "label": "应收 发票 · 账龄",
+          "label": "按 9 档分级",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 74,
-            "w": 180,
-            "x": 853,
-            "y": 671
+            "h": 36,
+            "w": 130,
+            "x": 291,
+            "y": -159
           },
-          "label": "应付 账期 · 付款",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 162,
-            "w": 487,
-            "x": 1060,
-            "y": 407
+            "h": 36,
+            "w": 130,
+            "x": 602,
+            "y": -159
           },
-          "label": "数据质量驾驶舱 79 / 100 综合评分 需整改 · 7 维加权 主数据健康 98/100",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 158,
-            "w": 487,
-            "x": 1060,
-            "y": 581
+            "h": 36,
+            "w": 130,
+            "x": 914,
+            "y": -159
           },
-          "label": "需立即关注 2 项高危告警 · 共 4 条",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 58,
-            "w": 243,
-            "x": 283,
-            "y": 825
+            "h": 36,
+            "w": 130,
+            "x": 1225,
+            "y": -159
           },
-          "label": "采购中心",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 58,
-            "w": 243,
-            "x": 534,
-            "y": 825
+            "h": 36,
+            "w": 130,
+            "x": 291,
+            "y": -44
           },
-          "label": "销售中心",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "select",
+          "path": ".phx-select",
           "rect": {
-            "h": 58,
-            "w": 243,
-            "x": 786,
-            "y": 825
+            "h": 38,
+            "w": 301,
+            "x": 602,
+            "y": -44
           },
-          "label": "财务中心",
+          "label": "请选择 疾病 外伤 热应激 自然 不明",
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
           "rect": {
-            "h": 58,
-            "w": 243,
-            "x": 1037,
-            "y": 825
+            "h": 36,
+            "w": 130,
+            "x": 914,
+            "y": -44
           },
-          "label": "审批工作台",
+          "label": "0",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "select",
+          "path": ".phx-select",
+          "rect": {
+            "h": 38,
+            "w": 301,
+            "x": 1225,
+            "y": -44
+          },
+          "label": "请选择 产蛋率低 患病 老龄 严重外伤 其它",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 291,
+            "y": 73
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 540,
+            "y": 73
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 789,
+            "y": 73
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 1038,
+            "y": 73
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 160,
+            "x": 1287,
+            "y": 73
+          },
+          "label": "备注...",
+          "disabled": false
+        },
+        {
+          "tag": "button",
           "path": "",
           "rect": {
-            "h": 58,
-            "w": 243,
-            "x": 1289,
-            "y": 825
+            "h": 34,
+            "w": 92,
+            "x": 1447,
+            "y": 164
           },
-          "label": "数据质量",
+          "label": "按 9 档分级",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 291,
+            "y": 266
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 602,
+            "y": 266
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 914,
+            "y": 266
+          },
+          "label": "0",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "path": ".admin-ui-module__B-1PDG__inp",
+          "rect": {
+            "h": 36,
+            "w": 130,
+            "x": 1225,
+            "y": 266
+          },
+          "label": "0",
           "disabled": false
         }
       ]
@@ -649,21 +1148,21 @@
   },
   "resolutionNote": "自动修复生命周期证据不完整，保持 HOLD：implementation evidence gate is not ready: HOLD",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/home",
-    "bugNo": "BUG-20260707-0003",
-    "route": "/home",
-    "title": "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
-    "taskNo": "BUGTASK-20260707-0003",
+    "url": "https://erp.eggslao.com/breeding/daily?action=create&date=today",
+    "bugNo": "BUG-20260707-0005",
+    "route": "/breeding/daily",
+    "title": "日生产日报不选择鸡舍也能提交成功",
+    "taskNo": "BUGTASK-20260707-0005",
     "context": {
       "attachments": [
         {
-          "sha256": "c855ed46adcfda3d042a0c130bc3f2da2778a4e6387e5e0001a603565c1d861f",
-          "fileName": "01-1783384095554-6aec182d.png",
+          "sha256": "f961c9036b46e2752abecf44d62b5ab3833fd389fac552159dceda6e5f880f77",
+          "fileName": "01-1783385890768-eec55765.png",
           "mimeType": "image/png",
-          "sizeBytes": 1216992,
-          "originalName": "pasted-screenshot-1783383887907-1.png",
-          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0003/01-1783384095554-6aec182d.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0003/attachments/01-1783384095554-6aec182d.png"
+          "sizeBytes": 841957,
+          "originalName": "pasted-screenshot-1783385734893-1.png",
+          "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0005/01-1783385890768-eec55765.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0005/attachments/01-1783385890768-eec55765.png"
         }
       ],
       "clientContext": {
@@ -674,9 +1173,9 @@
           "height": 865
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-07T00:28:15.565Z",
+        "capturedAt": "2026-07-07T00:58:10.770Z",
         "pageSnapshot": {
-          "route": "/home",
+          "route": "/breeding/daily",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -691,6 +1190,31 @@
             "每日工作台",
             "经营仪表盘",
             "生产管理",
+            "🖥️ 进入包装作业台",
+            "养殖总览",
+            "鸡舍管理",
+            "鸡群档案",
+            "日生产日报",
+            "免疫计划",
+            "用药记录",
+            "设备监控",
+            "环境预警",
+            "设备运维",
+            "日产蛋入库",
+            "包装作业",
+            "包装批次",
+            "包装日报",
+            "异常处理",
+            "补打日志",
+            "质检总览",
+            "场端质检",
+            "成品质检",
+            "不合格品处置",
+            "正向追溯",
+            "反向追溯",
+            "质量标准",
+            "库存管理",
+            "全链追溯",
             "采购管理",
             "销售管理",
             "财务结算中心",
@@ -698,10 +1222,11 @@
             "审批中心",
             "经营分析",
             "主数据中心",
+            "系统设置",
+            "验收试运行",
+            "系统运维",
             "个人中心 / 修改密码",
-            "⚠️",
-            "影子模式：正在以 刘汉涛 身份查看（由 admin 发起）— 仅用于测试/排障，操作会以该用户身份执行",
-            "1",
+            "99+",
             "反馈问题",
             "反馈页面问题",
             "页面",
@@ -714,47 +1239,81 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783383887907-1.png",
+            "pasted-screenshot-1783385734893-1.png",
             "退出",
+            "养殖管理",
+            "/日生产日报",
+            "/",
+            "日生产日报录入",
+            "·按班次录入当日生产数据",
             "·",
-            "2026年7月7日星期二",
-            "早上好，刘汉涛",
-            "今天没有紧急事项，可以专注做事。",
-            "待办",
-            "超时",
-            "高危告警",
+            "日期",
+            "鸡舍",
             "羽",
             "枚",
             "%",
             "kg",
-            "L",
-            "条",
-            "事务流 · 我的待办",
-            "共 0 单",
-            "经营概览",
-            "· 业务全景（4）",
-            "销售",
-            "订单 · 收款",
-            "现金",
-            "账户 · 流水",
-            "应收",
-            "发票 · 账龄",
-            "应付",
-            "账期 · 付款",
-            "数据质量驾驶舱",
-            "综合评分",
-            "需整改 · 7 维加权",
-            "主数据健康 98/100",
-            "业务中心",
-            "· 一键直达（5）"
+            "班次数据录入",
+            "早班",
+            "产蛋数(枚)",
+            "🟡 脏蛋(枚)",
+            "🔴 破损蛋(枚)",
+            "自用蛋(枚)",
+            "死亡(羽)",
+            "死亡原因",
+            "淘汰(羽)",
+            "淘汰原因",
+            "饲料(kg)",
+            "用水(L)",
+            "温度(℃)",
+            "湿度(%)",
+            "备注",
+            "晚班",
+            "近期日报记录",
+            "产蛋数",
+            "脏蛋",
+            "破损蛋",
+            "死亡",
+            "淘汰",
+            "温度",
+            "湿度",
+            "2026-07-07T00:00:00.000Z",
+            "未知",
+            "210",
+            "1",
+            "INJURY",
+            "10.00",
+            "30.00℃",
+            "28.00%",
+            "晚班测试",
+            "10",
+            "SICKNESS",
+            "白班测试",
+            "2026-07-06T00:00:00.000Z",
+            "测试鸡舍2",
+            "5",
+            "LOW_PRODUCTION",
+            "36.00℃",
+            "30.00%",
+            "鸡舍2晚班测试",
+            "AGE",
+            "鸡舍2早班测试",
+            "测试鸡舍",
+            "11",
+            "1.00",
+            "37.00℃",
+            "31.00%",
+            "早班测试",
+            "9",
+            "0"
           ],
           "interactiveElements": [
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 119
               },
@@ -766,7 +1325,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 157
               },
@@ -778,7 +1337,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 195
               },
@@ -787,10 +1346,10 @@
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 233
               },
@@ -798,13 +1357,313 @@
               "disabled": false
             },
             {
+              "tag": "a",
+              "path": "",
+              "rect": {
+                "h": 38,
+                "w": 199,
+                "x": 8,
+                "y": 277
+              },
+              "label": "🖥️ 进入包装作业台",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 317
+              },
+              "label": "养殖总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 349
+              },
+              "label": "鸡舍管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 381
+              },
+              "label": "鸡群档案",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 413
+              },
+              "label": "日生产日报",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 445
+              },
+              "label": "免疫计划",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 477
+              },
+              "label": "用药记录",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 509
+              },
+              "label": "设备监控",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 541
+              },
+              "label": "环境预警",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 573
+              },
+              "label": "设备运维",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 605
+              },
+              "label": "日产蛋入库",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 637
+              },
+              "label": "包装作业",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 669
+              },
+              "label": "包装批次",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 701
+              },
+              "label": "包装日报",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 733
+              },
+              "label": "异常处理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 765
+              },
+              "label": "补打日志",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 797
+              },
+              "label": "质检总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 829
+              },
+              "label": "场端质检",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 861
+              },
+              "label": "成品质检",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 893
+              },
+              "label": "不合格品处置",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 925
+              },
+              "label": "正向追溯",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 957
+              },
+              "label": "反向追溯",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 989
+              },
+              "label": "质量标准",
+              "disabled": false
+            },
+            {
               "tag": "div",
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 271
+                "y": 1021
+              },
+              "label": "库存管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1059
+              },
+              "label": "全链追溯",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1097
               },
               "label": "采购管理",
               "disabled": false
@@ -814,9 +1673,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 309
+                "y": 1135
               },
               "label": "销售管理",
               "disabled": false
@@ -826,9 +1685,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 347
+                "y": 1173
               },
               "label": "财务结算中心",
               "disabled": false
@@ -838,9 +1697,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 385
+                "y": 1211
               },
               "label": "股东权益中心",
               "disabled": false
@@ -850,9 +1709,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 423
+                "y": 1249
               },
               "label": "审批中心",
               "disabled": false
@@ -862,9 +1721,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 461
+                "y": 1287
               },
               "label": "经营分析",
               "disabled": false
@@ -874,11 +1733,47 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 499
+                "y": 1325
               },
               "label": "主数据中心",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1363
+              },
+              "label": "系统设置",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1401
+              },
+              "label": "验收试运行",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1439
+              },
+              "label": "系统运维",
               "disabled": false
             },
             {
@@ -894,25 +1789,13 @@
               "disabled": false
             },
             {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 26,
-                "w": 100,
-                "x": 1482,
-                "y": 7
-              },
-              "label": "退出影子模式",
-              "disabled": false
-            },
-            {
               "tag": "select",
               "path": ".admin-module__uYgI-a__headerSelect",
               "rect": {
                 "h": 30,
                 "w": 96,
-                "x": 1057,
-                "y": 53
+                "x": 940,
+                "y": 13
               },
               "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
               "disabled": false
@@ -922,11 +1805,23 @@
               "path": "",
               "rect": {
                 "h": 34,
-                "w": 34,
-                "x": 1214,
-                "y": 51
+                "w": 93,
+                "x": 1097,
+                "y": 11
               },
-              "label": "1",
+              "label": "在线 1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 34,
+                "w": 34,
+                "x": 1204,
+                "y": 11
+              },
+              "label": "99+",
               "disabled": false
             },
             {
@@ -935,8 +1830,8 @@
               "rect": {
                 "h": 40,
                 "w": 122,
-                "x": 1262,
-                "y": 48
+                "x": 1252,
+                "y": 8
               },
               "label": "反馈问题",
               "disabled": false
@@ -948,7 +1843,7 @@
                 "h": 26,
                 "w": 26,
                 "x": 1056,
-                "y": -26
+                "y": 10
               },
               "label": "关闭",
               "disabled": false
@@ -1019,7 +1914,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 768,
+                "x": 769,
                 "y": 715
               },
               "label": "移除附件",
@@ -1054,11 +1949,11 @@
               "path": ".admin-module__uYgI-a__userChip",
               "rect": {
                 "h": 32,
-                "w": 100,
-                "x": 1398,
-                "y": 52
+                "w": 110,
+                "x": 1388,
+                "y": 12
               },
-              "label": "刘 刘汉涛 总部财务审计",
+              "label": "金 金凤凰总控 集团超级管理员",
               "disabled": false
             },
             {
@@ -1068,177 +1963,309 @@
                 "h": 30,
                 "w": 68,
                 "x": 1512,
-                "y": 53
+                "y": 13
               },
               "label": "退出",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "button",
               "path": "",
               "rect": {
                 "h": 36,
-                "w": 148,
-                "x": 293,
-                "y": 244
+                "w": 90,
+                "x": 1054,
+                "y": -512
               },
-              "label": "进入财务中心",
+              "label": "历史记录",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "button",
               "path": "",
               "rect": {
                 "h": 36,
-                "w": 117,
-                "x": 449,
-                "y": 244
+                "w": 110,
+                "x": 1154,
+                "y": -512
               },
-              "label": "主数据中心",
+              "label": "导出报表",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "button",
               "path": "",
               "rect": {
-                "h": 18,
-                "w": 38,
-                "x": 995,
-                "y": 427
+                "h": 36,
+                "w": 178,
+                "x": 1274,
+                "y": -512
               },
-              "label": "全部",
+              "label": "⚡ 设备数据一键填入",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 36,
+                "w": 109,
+                "x": 1462,
+                "y": -512
+              },
+              "label": "提交日报",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 74,
-                "w": 180,
-                "x": 283,
-                "y": 671
+                "h": 38,
+                "w": 160,
+                "x": 265,
+                "y": -415
               },
-              "label": "销售 订单 · 收款",
+              "label": "2026-07-07",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "select",
+              "path": ".phx-select",
               "rect": {
-                "h": 74,
-                "w": 180,
-                "x": 473,
-                "y": 671
+                "h": 38,
+                "w": 200,
+                "x": 445,
+                "y": -415
               },
-              "label": "现金 账户 · 流水",
+              "label": "加载中… X 测试鸡舍 · 蛋鸡舍 测试鸡舍2 · 蛋鸡舍 2号鸡舍 · 蛋鸡舍 3号鸡舍 · 蛋鸡舍 4号鸡舍 · 蛋鸡舍 5号鸡舍 · 蛋鸡舍 6号鸡舍 · 蛋鸡舍",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "button",
               "path": "",
               "rect": {
-                "h": 74,
-                "w": 180,
-                "x": 663,
-                "y": 671
+                "h": 34,
+                "w": 92,
+                "x": 1447,
+                "y": -261
               },
-              "label": "应收 发票 · 账龄",
+              "label": "按 9 档分级",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 74,
-                "w": 180,
-                "x": 853,
-                "y": 671
+                "h": 36,
+                "w": 130,
+                "x": 291,
+                "y": -159
               },
-              "label": "应付 账期 · 付款",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 162,
-                "w": 487,
-                "x": 1060,
-                "y": 407
+                "h": 36,
+                "w": 130,
+                "x": 602,
+                "y": -159
               },
-              "label": "数据质量驾驶舱 79 / 100 综合评分 需整改 · 7 维加权 主数据健康 98/100",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 158,
-                "w": 487,
-                "x": 1060,
-                "y": 581
+                "h": 36,
+                "w": 130,
+                "x": 914,
+                "y": -159
               },
-              "label": "需立即关注 2 项高危告警 · 共 4 条",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 58,
-                "w": 243,
-                "x": 283,
-                "y": 825
+                "h": 36,
+                "w": 130,
+                "x": 1225,
+                "y": -159
               },
-              "label": "采购中心",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 58,
-                "w": 243,
-                "x": 534,
-                "y": 825
+                "h": 36,
+                "w": 130,
+                "x": 291,
+                "y": -44
               },
-              "label": "销售中心",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "select",
+              "path": ".phx-select",
               "rect": {
-                "h": 58,
-                "w": 243,
-                "x": 786,
-                "y": 825
+                "h": 38,
+                "w": 301,
+                "x": 602,
+                "y": -44
               },
-              "label": "财务中心",
+              "label": "请选择 疾病 外伤 热应激 自然 不明",
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
               "rect": {
-                "h": 58,
-                "w": 243,
-                "x": 1037,
-                "y": 825
+                "h": 36,
+                "w": 130,
+                "x": 914,
+                "y": -44
               },
-              "label": "审批工作台",
+              "label": "0",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "select",
+              "path": ".phx-select",
+              "rect": {
+                "h": 38,
+                "w": 301,
+                "x": 1225,
+                "y": -44
+              },
+              "label": "请选择 产蛋率低 患病 老龄 严重外伤 其它",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 291,
+                "y": 73
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 540,
+                "y": 73
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 789,
+                "y": 73
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 1038,
+                "y": 73
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 160,
+                "x": 1287,
+                "y": 73
+              },
+              "label": "备注...",
+              "disabled": false
+            },
+            {
+              "tag": "button",
               "path": "",
               "rect": {
-                "h": 58,
-                "w": 243,
-                "x": 1289,
-                "y": 825
+                "h": 34,
+                "w": 92,
+                "x": 1447,
+                "y": 164
               },
-              "label": "数据质量",
+              "label": "按 9 档分级",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 291,
+                "y": 266
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 602,
+                "y": 266
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 914,
+                "y": 266
+              },
+              "label": "0",
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "path": ".admin-ui-module__B-1PDG__inp",
+              "rect": {
+                "h": 36,
+                "w": 130,
+                "x": 1225,
+                "y": 266
+              },
+              "label": "0",
               "disabled": false
             }
           ]
@@ -1246,51 +2273,22 @@
         "devicePixelRatio": 2
       },
       "consoleErrors": [],
-      "failedRequests": [
-        {
-          "url": "/api/v3/iot/devices/all-summary",
-          "method": "GET",
-          "status": 403,
-          "requestId": "",
-          "timestamp": "2026-07-07T00:23:44.898Z",
-          "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-        },
-        {
-          "url": "/api/v3/iot/devices/all-summary",
-          "method": "GET",
-          "status": 403,
-          "requestId": "",
-          "timestamp": "2026-07-07T00:23:56.948Z",
-          "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-        },
-        {
-          "url": "/api/v3/iot/devices/all-summary",
-          "method": "GET",
-          "status": 403,
-          "requestId": "",
-          "timestamp": "2026-07-07T00:24:04.879Z",
-          "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-        }
-      ]
+      "failedRequests": []
     },
     "priority": "P2",
     "reporter": {
-      "name": "刘汉涛",
+      "name": "金凤凰总控",
       "roles": [
-        "ROLE_HQ_FINANCE",
-        "ROLE_FIN_COST",
-        "ROLE_TREASURY_MANAGER",
-        "ROLE_FINANCE_ANALYST",
-        "ROLE_COST_ACCOUNTING_MANAGER",
-        "ROLE_FIN_ACCOUNT_MASTER_MGR"
+        "ROLE_ADMIN",
+        "ROLE_MASTER_DATA_APPROVER"
       ],
-      "username": "liuhantao",
+      "username": "admin",
       "companyCode": "",
       "projectCode": ""
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260707-0003",
+      "source_bug_no": "BUG-20260707-0005",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -1334,6 +2332,22 @@
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
+        },
+        {
+          "agent": "A6-Staging-Deploy-Runbook",
+          "reasons": [
+            "deploy/runbook signal matched"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
+        },
+        {
+          "agent": "A7-Final-QA-Gate",
+          "reasons": [
+            "release gate signal matched"
+          ],
+          "execution_mode": "dry-run-first",
+          "approval_required": true
         }
       ],
       "selected_agents": [
@@ -1341,7 +2355,9 @@
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
+        "A1-CI-Runtime-Gate",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
       ],
       "failure_category": "PG_SQL",
       "hard_constraints": [
@@ -1351,11 +2367,11 @@
         "human approval required before code repair execution"
       ],
       "route_confidence": 0.92,
-      "source_repair_task_no": "BUGTASK-20260707-0003"
+      "source_repair_task_no": "BUGTASK-20260707-0005"
     },
-    "createdAt": "2026-07-07T00:29:35.583Z",
+    "createdAt": "2026-07-07T00:58:52.243Z",
     "createdBy": "admin",
-    "moduleCode": "_____",
+    "moduleCode": "__________",
     "agentResults": [
       {
         "agent": "BugIntakeLocalRunner",
@@ -1364,7 +2380,7 @@
         "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-07T14:49:10.499Z",
+        "recordedAt": "2026-07-07T14:49:11.435Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
@@ -1414,14 +2430,14 @@
       },
       {
         "agent": "Codex-Orchestrator",
-        "taskId": "BUGTASK-20260707-0003-ORCH",
-        "summary": "Home dashboard optional IoT KPI request is now gated by MENU_DEVICE_MONITOR and silent; workbench no longer fails for users without device monitor permission.",
+        "taskId": "BUGTASK-20260707-0005-ORCH",
+        "summary": "Daily report submit validation is in place: house selection is required before saving. Stale A7 HOLD reconciled.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-        "recordedAt": "2026-07-07T20:25:29.765Z",
+        "recordedAt": "2026-07-07T20:25:30.775Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1435,14 +2451,14 @@
       },
       {
         "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260707-0003-01-A2",
+        "taskId": "BUGTASK-20260707-0005-01-A2",
         "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:03.074Z",
+        "recordedAt": "2026-07-07T20:29:08.308Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1456,14 +2472,14 @@
       },
       {
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260707-0003-02-A3",
+        "taskId": "BUGTASK-20260707-0005-02-A3",
         "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:03.592Z",
+        "recordedAt": "2026-07-07T20:29:08.891Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1477,14 +2493,14 @@
       },
       {
         "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260707-0003-03-A4",
+        "taskId": "BUGTASK-20260707-0005-03-A4",
         "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:04.177Z",
+        "recordedAt": "2026-07-07T20:29:09.362Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1498,14 +2514,14 @@
       },
       {
         "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260707-0003-04-A5",
+        "taskId": "BUGTASK-20260707-0005-04-A5",
         "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:04.693Z",
+        "recordedAt": "2026-07-07T20:29:09.891Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1519,14 +2535,56 @@
       },
       {
         "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260707-0003-05-A1",
+        "taskId": "BUGTASK-20260707-0005-05-A1",
         "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:05.201Z",
+        "recordedAt": "2026-07-07T20:29:10.403Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
+        "changedFiles": [],
+        "validationResults": {
+          "dbWrite": "NO",
+          "i18nGate": "PASS",
+          "migration": "NO",
+          "apiTypecheck": "PASS",
+          "webTypecheck": "PASS",
+          "w5CloseoutGate": "PASS",
+          "productionDeploy": "PASS"
+        }
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "taskId": "BUGTASK-20260707-0005-06-A6",
+        "summary": "A6-Staging-Deploy-Runbook reconciled by Codex-Orchestrator after current production deployment.",
+        "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Business user verifies the fix in production.",
+        "recordedAt": "2026-07-07T20:29:10.936Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
+        "changedFiles": [],
+        "validationResults": {
+          "dbWrite": "NO",
+          "i18nGate": "PASS",
+          "migration": "NO",
+          "apiTypecheck": "PASS",
+          "webTypecheck": "PASS",
+          "w5CloseoutGate": "PASS",
+          "productionDeploy": "PASS"
+        }
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "taskId": "BUGTASK-20260707-0005-07-A7",
+        "summary": "A7-Final-QA-Gate reconciled by Codex-Orchestrator after current production deployment.",
+        "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Business user verifies the fix in production.",
+        "recordedAt": "2026-07-07T20:29:11.452Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1540,25 +2598,25 @@
       },
       {
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260707-0003-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19793\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T06-50-28-243Z-A3-Backend-Critical-Path.md\nImplemented the backend fix for `BUG-20260707-0003`.\n\nChanged [iot-v3.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/iot-v3.controller.ts:25): `GET /api/v3/iot/devices/all-summary` now accepts `MENU_DASHBOARD:V` as an alternate read permission while keeping the device-monitor permission as primary. `sync/realtime` remains restricted to `MENU_DEVICE_MONITOR:E`.\n\nAdded [iot-v3.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/iot-v3.controller.spec.ts:1) to lock the RBAC metadata boundary, and wrote the required report at [BUG-20260707-0003-A3-BACKEND-CRITICAL-PATH-RE",
+        "taskId": "BUGTASK-20260707-0005-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 31652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-06-46-769Z-A3-Backend-Critical-Path.md\nImplemented the backend fix for `BUG-20260707-0005`.\n\nChanged:\n- [farm.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm.service.ts:123): added pre-transaction `house_code` validation. Missing, blank, non-string, or `加载中.../加载中…` now throws `BadRequestException('请先选择鸡舍后再提交')`.\n- [farm.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm.service.spec.ts:1): added focused regression tests for missing/placeholder chicken house and normal selected-house insert.\n- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260707-0005-a3",
         "commitHash": "",
         "conclusion": "HOLD",
         "nextAction": "",
-        "recordedAt": "2026-07-10T06:50:29.696Z",
+        "recordedAt": "2026-07-10T07:06:48.451Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0003-A3-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-A3-worker-log.md",
         "changedFiles": [],
         "validationResults": null
       },
       {
         "agent": "BugIntakeLocalRunner",
-        "taskId": "LOCAL-RUNNER-BUG-20260707-0003-20260710065030",
-        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 1 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: release evidence is incomplete; refusing push |\n| CI wait | Skipped: push did not complete successfully |\n| Production route smoke | Skipped: push did not pass |\n| Release evidence | BUG-20260707-0002:RELEASE_EVIDENCE_HOLD, BUG-20260707-0003:RELEASE_EVIDENCE_HOLD |\n| Lifecycle writeback | Attempted |\n| Result backfill | 20 report(s) checked |\n| Failure classifications | 3 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0002-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0002-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260707-0003-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260707-0002-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0002-A4: worker=2, final=HOLD, writeback=0, retries=0\n- BUGTASK-20260707-0003-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260707-0002-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker reached non-success terminal status HOLD)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Result Backfill\n\n- BUG-20260710-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0004: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0003: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0002: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0007: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0006: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0005: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0004: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0003: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0002: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0009: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0008: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0007: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0006: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0005: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0004: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0003: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0002: skipped (local selected Agent tasks are not all terminal)\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
-        "commitHash": "6ca1db0cab858b510a665f7f435594738bef3ce8",
+        "taskId": "LOCAL-RUNNER-BUG-20260707-0005-20260710070649",
+        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 2 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: release evidence is incomplete; refusing push |\n| CI wait | Skipped: push did not complete successfully |\n| Production route smoke | Skipped: push did not pass |\n| Release evidence | BUG-20260707-0004:RELEASE_EVIDENCE_HOLD, BUG-20260707-0005:RELEASE_EVIDENCE_HOLD |\n| Lifecycle writeback | Attempted |\n| Result backfill | 18 report(s) checked |\n| Failure classifications | 0 (INFO) |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0004-A3 -> A3-Backend-Critical-Path\n- BUGTASK-20260707-0004-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260707-0005-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260707-0004-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0004-A4: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n- BUGTASK-20260707-0005-A3: worker=0, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- None\n\n## Result Backfill\n\n- BUG-20260710-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0004: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0003: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0002: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260709-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0007: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0006: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0005: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0004: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0003: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0002: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260708-0001: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0009: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0008: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0007: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0006: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0005: skipped (local selected Agent tasks are not all terminal)\n- BUG-20260707-0004: skipped (local selected Agent tasks are not all terminal)\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+        "commitHash": "70fab984d96022d80152e39a9c4fb249a5feba6d",
         "conclusion": "HOLD",
         "nextAction": "Keep the report in HOLD until implementation, CI/CD, and production route evidence all pass.",
-        "recordedAt": "2026-07-10T06:50:31.947Z",
+        "recordedAt": "2026-07-10T07:06:50.861Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
@@ -1571,7 +2629,7 @@
           "releaseEvidenceDetail": {
             "passed": false,
             "reasons": [
-              "unfinished tasks: BUGTASK-20260707-0003-01-A2, BUGTASK-20260707-0003-02-A3, BUGTASK-20260707-0003-03-A4, BUGTASK-20260707-0003-05-A1",
+              "unfinished tasks: BUGTASK-20260707-0005-02-A3, BUGTASK-20260707-0005-03-A4, BUGTASK-20260707-0005-05-A1",
               "no verified business implementation task",
               "A1 validation evidence is missing"
             ],
@@ -1582,16 +2640,14 @@
             "commitHashes": [],
             "missingAgents": [],
             "selectedAgents": [
-              "A2-Security-Regression-Gate",
               "A3-Backend-Critical-Path",
               "A4-Frontend-UAT-Smoke",
               "A1-CI-Runtime-Gate"
             ],
             "unfinishedTasks": [
-              "BUGTASK-20260707-0003-01-A2",
-              "BUGTASK-20260707-0003-02-A3",
-              "BUGTASK-20260707-0003-03-A4",
-              "BUGTASK-20260707-0003-05-A1"
+              "BUGTASK-20260707-0005-02-A3",
+              "BUGTASK-20260707-0005-03-A4",
+              "BUGTASK-20260707-0005-05-A1"
             ],
             "validationTasks": [],
             "implementationTasks": []
@@ -1599,17 +2655,17 @@
         }
       },
       {
-        "taskId": "BUGTASK-20260707-0003-A4",
+        "taskId": "BUGTASK-20260707-0005-A4",
         "agent": "A4-Frontend-UAT-Smoke",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0003-A4-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-A4-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19860\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-51-31-944Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend repair for BUG-20260707-0003 with status `PASS WITH CONDITIONS`.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:28): `/home` now uses a centralized request plan before calling the optional IoT summary endpoint.\n- [home-request-plan.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-request-plan.ts:1): added pure permission/request planning helper.\n- [home-request-plan.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-request-plan.test.ts:1): added focused regression cases proving finance/dashboard users do not plan",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 31719\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-53-44-331Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260707-0005` with a release gate still held.\n\nChanged:\n- [daily/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/daily/page.tsx:37): submit now uses a shared missing-house guard before any POST.\n- [breeding-daily.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.ts:1): added `isDailyReportHouseMissing`.\n- [breeding-daily.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.test.ts:1): added focused regression coverage for empty/loading selector values.\n- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-10T07:51:33.287Z"
+        "recordedAt": "2026-07-10T07:53:45.704Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1622,17 +2678,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260707-0003-A4",
+      "taskId": "BUGTASK-20260707-0005-A4",
       "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0003-A4-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0005-A4-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19860\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-51-31-944Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend repair for BUG-20260707-0003 with status `PASS WITH CONDITIONS`.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:28): `/home` now uses a centralized request plan before calling the optional IoT summary endpoint.\n- [home-request-plan.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-request-plan.ts:1): added pure permission/request planning helper.\n- [home-request-plan.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-request-plan.test.ts:1): added focused regression cases proving finance/dashboard users do not plan",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 31719\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-53-44-331Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260707-0005` with a release gate still held.\n\nChanged:\n- [daily/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/daily/page.tsx:37): submit now uses a shared missing-house guard before any POST.\n- [breeding-daily.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.ts:1): added `isDailyReportHouseMissing`.\n- [breeding-daily.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.test.ts:1): added focused regression coverage for empty/loading selector values.\n- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-10T07:51:33.287Z"
+      "recordedAt": "2026-07-10T07:53:45.704Z"
     },
     "redispatchHistory": [
       {
@@ -1641,20 +2697,22 @@
         "redispatchNo": 1,
         "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
         "previousStatus": "IN_PROGRESS",
-        "redispatchedAt": "2026-07-10T04:38:13.036Z",
+        "redispatchedAt": "2026-07-10T04:38:05.535Z",
         "redispatchedBy": "bug_intake_runner",
         "selectedAgents": [
           "A2-Security-Regression-Gate",
           "A3-Backend-Critical-Path",
           "A4-Frontend-UAT-Smoke",
           "A5-Data-Readiness",
-          "A1-CI-Runtime-Gate"
+          "A1-CI-Runtime-Gate",
+          "A6-Staging-Deploy-Runbook",
+          "A7-Final-QA-Gate"
         ],
         "previousRepairTaskStatus": "HOLD"
       }
     ],
-    "acceptanceCriteria": "可正常访问运营工作台，要求右上角不报[403] MENU_PERMISSION_DENIED",
-    "agentPlanGeneratedAt": "2026-07-10T04:38:13.036Z",
+    "acceptanceCriteria": "日生产日报点击”提交日报“时检查是否选择鸡舍，鸡舍显示“加载中...”就是没选择，若没选择鸡舍给一个提示“请先选择鸡舍后再提交”",
+    "agentPlanGeneratedAt": "2026-07-10T04:38:05.535Z",
     "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
     "failureClassification": {
       "category": "PG_SQL",
@@ -1675,7 +2733,7 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-10T04:38:13.036Z",
+      "approvedAt": "2026-07-10T04:38:05.535Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
       "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
@@ -1690,12 +2748,12 @@
     },
     "evidenceReconciliation": {
       "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
-      "reconciledAt": "2026-07-10T03:29:30.602Z",
+      "reconciledAt": "2026-07-10T03:29:30.731Z",
       "reconciledBy": "bug_intake_runner",
       "previousStatus": "CLOSED",
       "previousRepairTaskStatus": "AGENT_COMPLETED"
     },
-    "failureClassificationUpdatedAt": "2026-07-10T04:38:13.036Z",
+    "failureClassificationUpdatedAt": "2026-07-10T04:38:05.535Z",
     "previousAgentResultsBeforeRedispatch": [
       {
         "agent": "BugIntakeLocalRunner",
@@ -1704,7 +2762,7 @@
         "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business owner validates the fix in production.",
-        "recordedAt": "2026-07-07T14:49:10.499Z",
+        "recordedAt": "2026-07-07T14:49:11.435Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
@@ -1754,14 +2812,14 @@
       },
       {
         "agent": "Codex-Orchestrator",
-        "taskId": "BUGTASK-20260707-0003-ORCH",
-        "summary": "Home dashboard optional IoT KPI request is now gated by MENU_DEVICE_MONITOR and silent; workbench no longer fails for users without device monitor permission.",
+        "taskId": "BUGTASK-20260707-0005-ORCH",
+        "summary": "Daily report submit validation is in place: house selection is required before saving. Stale A7 HOLD reconciled.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-        "recordedAt": "2026-07-07T20:25:29.765Z",
+        "recordedAt": "2026-07-07T20:25:30.775Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1775,14 +2833,14 @@
       },
       {
         "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260707-0003-01-A2",
+        "taskId": "BUGTASK-20260707-0005-01-A2",
         "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:03.074Z",
+        "recordedAt": "2026-07-07T20:29:08.308Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1796,14 +2854,14 @@
       },
       {
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260707-0003-02-A3",
+        "taskId": "BUGTASK-20260707-0005-02-A3",
         "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:03.592Z",
+        "recordedAt": "2026-07-07T20:29:08.891Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1817,14 +2875,14 @@
       },
       {
         "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260707-0003-03-A4",
+        "taskId": "BUGTASK-20260707-0005-03-A4",
         "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:04.177Z",
+        "recordedAt": "2026-07-07T20:29:09.362Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1838,14 +2896,14 @@
       },
       {
         "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260707-0003-04-A5",
+        "taskId": "BUGTASK-20260707-0005-04-A5",
         "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:04.693Z",
+        "recordedAt": "2026-07-07T20:29:09.891Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
@@ -1859,14 +2917,56 @@
       },
       {
         "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260707-0003-05-A1",
+        "taskId": "BUGTASK-20260707-0005-05-A1",
         "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
         "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Business user verifies the fix in production.",
-        "recordedAt": "2026-07-07T20:29:05.201Z",
+        "recordedAt": "2026-07-07T20:29:10.403Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
+        "changedFiles": [],
+        "validationResults": {
+          "dbWrite": "NO",
+          "i18nGate": "PASS",
+          "migration": "NO",
+          "apiTypecheck": "PASS",
+          "webTypecheck": "PASS",
+          "w5CloseoutGate": "PASS",
+          "productionDeploy": "PASS"
+        }
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "taskId": "BUGTASK-20260707-0005-06-A6",
+        "summary": "A6-Staging-Deploy-Runbook reconciled by Codex-Orchestrator after current production deployment.",
+        "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Business user verifies the fix in production.",
+        "recordedAt": "2026-07-07T20:29:10.936Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
+        "changedFiles": [],
+        "validationResults": {
+          "dbWrite": "NO",
+          "i18nGate": "PASS",
+          "migration": "NO",
+          "apiTypecheck": "PASS",
+          "webTypecheck": "PASS",
+          "w5CloseoutGate": "PASS",
+          "productionDeploy": "PASS"
+        }
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "taskId": "BUGTASK-20260707-0005-07-A7",
+        "summary": "A7-Final-QA-Gate reconciled by Codex-Orchestrator after current production deployment.",
+        "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Business user verifies the fix in production.",
+        "recordedAt": "2026-07-07T20:29:11.452Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/BUG-20260707-0005_A7_FINAL_QA_GATE_REPORT.md",
         "changedFiles": [],
         "validationResults": {
           "dbWrite": "NO",
