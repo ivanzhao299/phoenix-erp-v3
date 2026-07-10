@@ -901,7 +901,22 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
   const reports = readLatestInboxReports(args);
   const reportByBug = new Map(reports.map((report) => [report.bugNo, report]));
   const tasks = readJson(TASKS_FILE, []);
-  const bugNos = [...new Set(workerRuns.map((item) => item.task.source_bug_no).filter(Boolean))];
+  const unpushed = safeGit(['rev-list', 'origin/main..HEAD'], args.mainRoot);
+  const unpushedCommits = unpushed.ok
+    ? unpushed.output.split('\n').map((sha) => sha.trim()).filter(Boolean)
+    : [];
+  const commitIsUnpushed = (commit) => {
+    const value = String(commit || '').trim();
+    return value && unpushedCommits.some((sha) => sha === value || sha.startsWith(value) || value.startsWith(sha));
+  };
+  const unpushedBugNos = tasks
+    .filter((task) => task.source === 'bug-intake' && task.source_bug_no)
+    .filter((task) => commitIsUnpushed(task.integrated_commit))
+    .map((task) => task.source_bug_no);
+  const bugNos = [...new Set([
+    ...workerRuns.map((item) => item.task.source_bug_no).filter(Boolean),
+    ...unpushedBugNos,
+  ])];
   return bugNos.map((bugNo) => {
     const report = reportByBug.get(bugNo) || {};
     const localTasks = tasks.filter((task) => task.source === 'bug-intake' && task.source_bug_no === bugNo);
@@ -917,7 +932,7 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
 function canPush(args, workerRuns, releaseEvidence) {
   if (args.dryRun || !args.pushAfterSuccess) return false;
   if (!workerRuns.length) return false;
-  return releaseEvidence.some((item) => item.evidence.passed);
+  return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
 }
 
 function runPushIfReady(args, workerRuns, releaseEvidence) {
