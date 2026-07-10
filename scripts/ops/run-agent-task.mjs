@@ -46,10 +46,22 @@ const AGENTS = {
     prompt: 'docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md',
   },
 };
+const BUG_INTAKE_OVERRIDES = {
+  'A3-Backend-Critical-Path': {
+    branch: 'codex/bug-intake-a3',
+    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
+    prompt: 'docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md',
+  },
+  'A4-Frontend-UAT-Smoke': {
+    branch: 'codex/bug-intake-a4',
+    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a4',
+    prompt: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
+  },
+};
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--timeout-ms <ms>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty]
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--timeout-ms <ms>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty] [--allow-bug-intake-worktree]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
@@ -75,6 +87,10 @@ function parseArgs(argv) {
     }
     if (arg === '--allow-ops-runtime-dirty') {
       values['allow-ops-runtime-dirty'] = true;
+      continue;
+    }
+    if (arg === '--allow-bug-intake-worktree') {
+      values['allow-bug-intake-worktree'] = true;
       continue;
     }
     if (arg === '--help' || arg === '-h') {
@@ -292,9 +308,11 @@ if (!config) {
   fail(`unknown agent: ${args.agent}`);
 }
 
+const override = args['allow-bug-intake-worktree'] ? BUG_INTAKE_OVERRIDES[args.agent] : null;
+const executionConfig = override || config;
 const worktree = path.resolve(args.worktree);
-if (worktree !== config.worktree) {
-  fail(`worktree mismatch for ${args.agent}; expected ${config.worktree}, got ${worktree}`);
+if (worktree !== executionConfig.worktree) {
+  fail(`worktree mismatch for ${args.agent}; expected ${executionConfig.worktree}, got ${worktree}`);
 }
 if (!existsSync(worktree)) {
   fail(`worktree does not exist: ${worktree}`);
@@ -303,8 +321,8 @@ if (!existsSync(worktree)) {
 ensureGitRepo(worktree);
 
 const branch = runGit(['branch', '--show-current'], worktree);
-if (branch !== config.branch) {
-  fail(`branch mismatch for ${args.agent}; expected ${config.branch}, got ${branch}`);
+if (branch !== executionConfig.branch) {
+  fail(`branch mismatch for ${args.agent}; expected ${executionConfig.branch}, got ${branch}`);
 }
 
 const status = runGit(['status', '--short'], worktree);
@@ -313,9 +331,9 @@ if (status && !(args['allow-ops-runtime-dirty'] && isOnlyAllowedOpsRuntimeDirty(
 }
 
 const promptFile = resolvePrompt(args.prompt);
-const expectedPrompt = path.resolve(process.cwd(), config.prompt);
+const expectedPrompt = path.resolve(process.cwd(), executionConfig.prompt);
 if (promptFile !== expectedPrompt) {
-  fail(`prompt mismatch for ${args.agent}; expected ${config.prompt}, got ${args.prompt}`);
+  fail(`prompt mismatch for ${args.agent}; expected ${executionConfig.prompt}, got ${args.prompt}`);
 }
 
 const requestSpecFile = args['request-spec'] ? resolvePrompt(args['request-spec']) : null;
