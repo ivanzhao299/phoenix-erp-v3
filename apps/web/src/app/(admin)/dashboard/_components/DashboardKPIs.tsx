@@ -6,6 +6,7 @@ import styles from './dashboard.module.css';
 import { usePolling } from '@/hooks/usePolling';
 import { useLanguage } from '@/contexts/LanguageContext';
 import u from "@/styles/uix-utils.module.css";
+import { normalizeDashboardMetric } from '@/lib/dashboard-kpi-format';
 const CARD_THEMES = [{
   accent: 'var(--status-info)',
   bg: 'rgba(14,165,233,0.08)'
@@ -32,18 +33,6 @@ const CARD_THEMES = [{
 } // 紫：农场直销
 ];
 
-function normalizeMetric(value?: string, unit?: string) {
-  const normalizedValue = value == null || String(value).trim() === '' ? '—' : String(value).trim();
-  const rawUnit = unit == null ? '' : String(unit).trim();
-  const normalizedUnit = rawUnit
-    .replace(/\s*\([^)]*\)\s*/g, '')
-    .replace(/\s*·.*$/g, '')
-    .replace(/^条.*$/, '条')
-    .trim();
-  const isLongValue = normalizedValue.length >= 9;
-  return { value: normalizedValue, unit: normalizedUnit, isLongValue };
-}
-
 function StatCard({
   title,
   value,
@@ -66,7 +55,12 @@ function StatCard({
   themeIdx?: number;
 }) {
   const theme = isAlert ? CARD_THEMES[3] : CARD_THEMES[themeIdx % CARD_THEMES.length];
-  const metric = normalizeMetric(value, unit);
+  const metric = normalizeDashboardMetric(value, unit);
+  const valueClass = [
+    styles.statValue,
+    metric.density === 'compact' ? styles.statValueCompact : '',
+    metric.density === 'dense' ? styles.statValueDense : ''
+  ].filter(Boolean).join(' ');
   return <div className={styles.statCard} style={{
     borderTop: `3px solid ${theme.accent}`
   }}>
@@ -87,7 +81,7 @@ function StatCard({
           {loading ? <div className={styles.skeleton} style={{
           height: 36,
           width: 110
-        }} /> : <span className={`${styles.statValue} ${metric.isLongValue ? styles.statValueCompact : ''}`} style={{ color: theme.accent }}>
+        }} /> : <span className={valueClass} style={{ color: theme.accent }}>
               {metric.value}
             </span>}
           {metric.unit && <span className={styles.statUnit}>{metric.unit}</span>}
@@ -258,7 +252,7 @@ export default function DashboardKPIs({
   }}>
 
       {/* Header row */}
-      <div className={u.flexBetween}>
+      <div className={styles.dashboardHeader}>
         <div>
           <h2 style={{
           fontSize: 20,
@@ -273,19 +267,7 @@ export default function DashboardKPIs({
             {t('dash.realtimeData', '实时数据')}{lastUpdated && <span> · {t('dash.lastUpdated', '最近更新：')}{lastUpdated}</span>}
           </p>
         </div>
-        <button type="button" onClick={fetchKpi} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '8px 16px',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-        fontSize: 13,
-        fontWeight: 600,
-        color: 'var(--text-primary)'
-      }}>
+        <button type="button" onClick={fetchKpi} className={styles.refreshButton}>
           <RefreshCw size={15} style={{
           animation: loading ? 'spin 1s linear infinite' : 'none'
         }} />{t('dash.refreshData', '刷新数据')}
@@ -293,11 +275,7 @@ export default function DashboardKPIs({
       </div>
 
       {/* KPI cards */}
-      <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
-      gap: 20
-    }}>
+      <div className={styles.kpiGrid}>
         <StatCard loading={loading} themeIdx={0} title={t('dash.eggsToday', '当日产蛋量')} value={stats.eggs.value} unit={stats.eggs.unit} icon={<Egg size={22} />} trend={stats.eggs.trend} hint={eggsHint} />
         <StatCard loading={loading} themeIdx={1} title={t('dash.totalStock', '可用库存（枚）')} value={stats.stock.value} unit={stats.stock.unit} icon={<PackageSearch size={22} />} trend={stats.stock.trend} hint={stockHint} />
         <StatCard loading={loading} themeIdx={2} title={t('dash.todayPos', '今日POS收银')} value={(stats.salesPos ?? stats.sales)?.value} unit={(stats.salesPos ?? stats.sales)?.unit} icon={<CreditCard size={22} />} trend={(stats.salesPos ?? stats.sales)?.trend} hint={posHint} />
@@ -407,11 +385,7 @@ export default function DashboardKPIs({
         </div>}
 
       {/* Chart + Alerts */}
-      <div style={{
-      display: 'grid',
-      gridTemplateColumns: '2fr 1fr',
-      gap: 20
-    }}>
+      <div className={styles.dashboardContentGrid}>
 
         {/* 7-day bar chart */}
         <div className={styles.glassCard} style={{
