@@ -24,6 +24,7 @@ import {
 import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { buildHomeFarmKpi, type HomeFarmKpiState } from "@/lib/home-farm-kpi";
 import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
 import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
@@ -33,23 +34,12 @@ interface QualityScores { overall: number; masterData: number; alertCount: numbe
 interface CenterMember { type: string; total: number; active: number; pending: number; frozen: number; }
 interface CenterStat { key: string; label: string; objectCount: number; pendingCount: number; riskCount: number; healthScore: number; members: CenterMember[]; }
 interface TodoTask { task_no: string; title: string; node_name: string; created_at: string; due_at?: string; starter_name?: string; }
-interface FarmKpiState { totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number | null; waterToday?: number | null; alarmCount?: number; }
 
 function localDateString(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-function asRows(payload: any): any[] {
-  const rows = payload?.data?.rows ?? payload?.data ?? payload?.rows ?? payload;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function asNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
 }
 
 // ── 8 大业务中心 ─────────────────────────────────────
@@ -132,7 +122,7 @@ export default function HomePage() {
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [todoList, setTodoList] = useState<TodoTask[]>([]);
   // G19-E：养殖运营 KPI（拼合现有 farm/iot endpoint，不新建后端）
-  const [farmKpi, setFarmKpi] = useState<FarmKpiState | null>(null);
+  const [farmKpi, setFarmKpi] = useState<HomeFarmKpiState | null>(null);
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
@@ -166,44 +156,7 @@ export default function HomePage() {
           : Promise.resolve(null),
         request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
       ]).then(([hen, iot, dailyLogs]) => {
-        const rows = asRows(hen);
-        const totals = hen?.totals || hen?.data?.totals || null;
-        const dailyRows = asRows(dailyLogs);
-        const totalStock = rows.reduce((s: number, r: any) => s + (asNumber(r.current_qty) || asNumber(r.total_qty)), 0);
-        const eggsToday  = rows.reduce((s: number, r: any) => s + (asNumber(r.eggs) || asNumber(r.eggs_produced)), 0);
-        const layRate    = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
-        const summary    = iot?.data?.summary;
-        const houses     = iot?.data?.houses || [];
-        const sumKnown = (field: 'feedToday' | 'waterToday') => {
-          if (!Array.isArray(houses)) return null;
-          let hasKnown = false;
-          const total = houses.reduce((s: number, h: any) => {
-            const raw = h?.[field];
-            if (raw == null || raw === '') return s;
-            const n = Number(raw);
-            if (!Number.isFinite(n)) return s;
-            hasKnown = true;
-            return s + n;
-          }, 0);
-          return hasKnown ? total : null;
-        };
-        const hasDailyLog = Number(totals?.logged_houses ?? 0) > 0;
-        const henFeedKg  = totals?.feed;
-        const henWaterL  = totals?.water;
-        const logFeedKg  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.feed_consumed), 0);
-        const logWaterL  = dailyRows.reduce((s: number, r: any) => s + asNumber(r.water_consumed), 0);
-        const iotFeedKg  = sumKnown('feedToday');
-        // IoT overview uses the same field rendered as T on the device page; /home displays water in L.
-        const iotWater = sumKnown('waterToday');
-        const iotWaterL = iotWater == null ? null : iotWater * 1000;
-        const feedToday = hasDailyLog
-          ? asNumber(henFeedKg)
-          : (iotFeedKg ?? (logFeedKg > 0 ? logFeedKg : null));
-        const waterToday = hasDailyLog
-          ? asNumber(henWaterL)
-          : (logWaterL > 0 ? logWaterL : iotWaterL);
-        const alarmCount = summary?.totalAlarms ?? 0;
-        setFarmKpi({ totalStock, layRate, eggsToday, feedToday, waterToday, alarmCount });
+        setFarmKpi(buildHomeFarmKpi(hen, iot, dailyLogs));
       });
     }
   }, [hasQualityPerm, hasCentersPerm, hasDeviceMonitorPerm, hasPermission]);
