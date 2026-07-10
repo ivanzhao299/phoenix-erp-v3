@@ -2673,7 +2673,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-02-A3",
@@ -2738,7 +2738,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-03-A4",
@@ -2805,7 +2805,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-04-A5",
@@ -2868,7 +2868,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-05-A1",
@@ -2936,7 +2936,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-01-A2",
@@ -3001,7 +3001,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-02-A3",
@@ -3057,7 +3057,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-03-A4",
@@ -3116,7 +3116,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-04-A5",
@@ -3171,7 +3171,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-05-A1",
@@ -3227,7 +3227,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-01-A2",
@@ -3293,7 +3293,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-02-A3",
@@ -3359,7 +3359,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-03-A4",
@@ -3428,7 +3428,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-04-A5",
@@ -3490,7 +3490,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-05-A1",
@@ -3558,7 +3558,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-01-A2",
@@ -3626,7 +3626,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-02-A3",
@@ -3692,7 +3692,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-03-A4",
@@ -3761,7 +3761,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-04-A5",
@@ -3823,7 +3823,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-05-A1",
@@ -3891,7 +3891,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-01-A2",
@@ -3955,7 +3955,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-02-A3",
@@ -4013,7 +4013,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-03-A4",
@@ -4073,7 +4073,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-04-A5",
@@ -4128,7 +4128,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-05-A1",
@@ -4184,7 +4184,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-06-A6",
@@ -4238,7 +4238,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-07-A7",
@@ -4293,7 +4293,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0006-01-A2",
@@ -12426,7 +12426,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:05.535Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-03-A5",
@@ -12475,7 +12475,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:05.535Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-04-A1",
@@ -12529,7 +12529,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:05.535Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-02-A4",
@@ -12583,7 +12583,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-03-A5",
@@ -12632,7 +12632,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-04-A1",
@@ -12686,7 +12686,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260705-0003-01-A4",
@@ -15002,7 +15002,7 @@
     "integrated_commit": "0c3fda19f0d21889707cccb7ab95ba56ecacf753",
     "integrated_at": "2026-07-10T07:06:48.902Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0005-A4",
@@ -15052,7 +15052,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:05.535Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -15145,7 +15145,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:05.535Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -15220,7 +15220,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:18.820Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -15345,7 +15345,7 @@
     "integrated_commit": "53a524f2772edd49467c6a749bd0c53e451f03a8",
     "integrated_at": "2026-07-10T07:00:07.327Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-A4",
@@ -15438,7 +15438,7 @@
     "integrated_commit": "8b7c7a8e42eca25fbee593274c7126c0b999a7f1",
     "integrated_at": "2026-07-10T07:03:48.964Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0004-A1",
@@ -15491,7 +15491,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:18.820Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -15566,7 +15566,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:13.036Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -15676,7 +15676,7 @@
     "integrated_commit": "d58ca756f00804b749896048cd9b9dc133957b03",
     "integrated_at": "2026-07-10T06:50:30.049Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A4",
@@ -15727,7 +15727,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:13.036Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -15822,7 +15822,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:13.036Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -15897,7 +15897,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:08.339Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -16007,7 +16007,7 @@
     "integrated_commit": "25541661697909a290be67d0a7369d0cdeda9a0c",
     "integrated_at": "2026-07-10T06:38:17.800Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A4",
@@ -16107,7 +16107,7 @@
     "integrated_commit": "c65b3ff9",
     "integrated_at": "2026-07-10T06:52:00.000Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A1",
@@ -16160,7 +16160,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:08.339Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -16235,7 +16235,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -16348,7 +16348,7 @@
     "integrated_commit": "9fe79574d60ecd5d0a19d2ff737022503016137a",
     "integrated_at": "2026-07-10T06:17:18.351Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A4",
@@ -16399,7 +16399,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -16494,7 +16494,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
