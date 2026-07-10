@@ -1344,101 +1344,9 @@ Assigned agent: A2-Security-Regression-Gate
     "route_confidence": 0.88,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-10T00:47:20.379Z",
+  "createdAt": "2026-07-10T01:02:24.334Z",
   "createdBy": "admin",
   "moduleCode": "____",
-  "agentResults": [
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0006-01-A2",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:57.728Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:31.420Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0006-02-A3",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-02-A3 reached COMPLETED_MERGED.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:58.240Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:33:34.700Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260708-0006-03-A4",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-03-A4 reached COMPLETED_MERGED.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:58.777Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-03-A4-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:35:42.693Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0006-04-A5",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:59.262Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:30:51.291Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260708-0006-05-A1",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:59.777Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:41:13.702Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    }
-  ],
   "suggestedOwner": "_____",
   "redispatchCount": 1,
   "timeoutRecovery": {},
@@ -1448,24 +1356,7 @@ Assigned agent: A2-Security-Regression-Gate
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "latestAgentResult": {
-    "agent": "A1-CI-Runtime-Gate",
-    "taskId": "BUGTASK-20260708-0006-05-A1",
-    "summary": "Local bug-intake task BUGTASK-20260708-0006-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-    "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-    "conclusion": "PASS_WITH_CONDITIONS",
-    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-    "recordedAt": "2026-07-10T00:50:59.777Z",
-    "recordedBy": "bug_intake_runner",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-05-A1-worker-log.md",
-    "changedFiles": [],
-    "validationResults": {
-      "completedAt": "2026-07-08T08:41:13.702Z",
-      "localTaskStatus": "completed",
-      "aggregateBackfill": true,
-      "baselineAutopilotExitCode": 0
-    }
-  },
+  "latestAgentResult": {},
   "redispatchHistory": [
     {
       "mode": "REPLAN_AND_REQUEUE",
@@ -1473,7 +1364,7 @@ Assigned agent: A2-Security-Regression-Gate
       "redispatchNo": 1,
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "previousStatus": "IN_PROGRESS",
-      "redispatchedAt": "2026-07-10T00:52:24.850Z",
+      "redispatchedAt": "2026-07-10T01:02:33.234Z",
       "redispatchedBy": "admin",
       "selectedAgents": [
         "A2-Security-Regression-Gate",
@@ -1482,11 +1373,11 @@ Assigned agent: A2-Security-Regression-Gate
         "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
-      "previousRepairTaskStatus": "AGENT_COMPLETED"
+      "previousRepairTaskStatus": "ROUTED"
     }
   ],
-  "acceptanceCriteria": "价格册只保留名称为“孟赛标准价格册（试运行版）”的，并且恢复为正常状态",
-  "agentPlanGeneratedAt": "2026-07-10T00:52:24.850Z",
+  "acceptanceCriteria": "将编号为“PB-20260708-00001”的价格册删除，将编号为“PB-MENGSE-2026-STD”保留并恢复为正常在用状态",
+  "agentPlanGeneratedAt": "2026-07-10T01:02:33.234Z",
   "agentPlanGeneratedBy": "redispatch:admin",
   "failureClassification": {
     "category": "API_5XX",
@@ -1507,7 +1398,7 @@ Assigned agent: A2-Security-Regression-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T00:52:24.850Z",
+    "approvedAt": "2026-07-10T01:02:33.234Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
@@ -1520,99 +1411,8 @@ Assigned agent: A2-Security-Regression-Gate
       "force push"
     ]
   },
-  "failureClassificationUpdatedAt": "2026-07-10T00:52:24.850Z",
-  "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0006-01-A2",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:57.728Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:31.420Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0006-02-A3",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-02-A3 reached COMPLETED_MERGED.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:58.240Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-02-A3-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:33:34.700Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260708-0006-03-A4",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-03-A4 reached COMPLETED_MERGED.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:58.777Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-03-A4-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:35:42.693Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0006-04-A5",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:59.262Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:30:51.291Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260708-0006-05-A1",
-      "summary": "Local bug-intake task BUGTASK-20260708-0006-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "95858bbb4309c978bbdb700767fa9900f411723f",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-10T00:50:59.777Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0006-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:41:13.702Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    }
-  ]
+  "failureClassificationUpdatedAt": "2026-07-10T01:02:33.234Z",
+  "previousAgentResultsBeforeRedispatch": []
 }
 ```
 

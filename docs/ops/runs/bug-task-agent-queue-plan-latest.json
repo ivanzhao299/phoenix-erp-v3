@@ -18,7 +18,7 @@
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-10T00:52:24.850Z",
+      "approvedAt": "2026-07-10T01:02:33.234Z",
       "approvedBy": "admin",
       "redispatch": true,
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
@@ -161,7 +161,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T00:52:24.850Z"
+      "last_redispatch_at": "2026-07-10T01:02:33.234Z"
     },
     {
       "task_id": "BUGTASK-20260708-0006-02-A3",
@@ -201,7 +201,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T00:52:24.850Z"
+      "last_redispatch_at": "2026-07-10T01:02:33.234Z"
     },
     {
       "task_id": "BUGTASK-20260708-0006-03-A4",
@@ -244,7 +244,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T00:52:24.850Z"
+      "last_redispatch_at": "2026-07-10T01:02:33.234Z"
     },
     {
       "task_id": "BUGTASK-20260708-0006-04-A5",
@@ -284,7 +284,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T00:52:24.850Z"
+      "last_redispatch_at": "2026-07-10T01:02:33.234Z"
     },
     {
       "task_id": "BUGTASK-20260708-0006-05-A1",
@@ -325,7 +325,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T00:52:24.850Z"
+      "last_redispatch_at": "2026-07-10T01:02:33.234Z"
     }
   ]
 }
