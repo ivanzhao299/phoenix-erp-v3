@@ -11329,7 +11329,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0001",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -11349,9 +11349,9 @@
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T04:39:17.360Z",
-    "completed_at": "2026-07-10T04:42:42.059Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260705-0001-01-A3-detached-worker-recovery.md",
+    "claimed_at": "2026-07-10T07:19:53.226Z",
+    "completed_at": "2026-07-10T07:23:41.736Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260705-0001-01-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -11361,9 +11361,36 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:18.222Z",
     "baseline_autopilot_exit_code": 0,
-    "reason": "detached worker baseline completed, but implementation evidence was not written back; manual evidence reconciliation required",
+    "reason": "Missing implementation evidence: approved business-file change",
     "route_active": true,
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 998,
+      "beforeHead": "c564cf3626d7de48bace17973edb25063dd9e270",
+      "afterHead": "4d4e33332fe56cd0d8d7fd901e5cb9b08fdb39c1",
+      "commitHash": "4d4e33332fe56cd0d8d7fd901e5cb9b08fdb39c1",
+      "changedFiles": [
+        "docs/ops/BUG-20260705-0001-A3-BACKEND-REDISPATCH-20260710.md"
+      ],
+      "businessChangedFiles": [],
+      "reportFiles": [
+        "docs/ops/BUG-20260705-0001-A3-BACKEND-REDISPATCH-20260710.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-10T07:23:41.736Z",
+      "passed": false,
+      "role": "implementation",
+      "terminalStatus": "HOLD",
+      "reason": "Missing implementation evidence: approved business-file change"
+    },
+    "implementation_commit": "4d4e33332fe56cd0d8d7fd901e5cb9b08fdb39c1",
+    "changed_files": [
+      "docs/ops/BUG-20260705-0001-A3-BACKEND-REDISPATCH-20260710.md"
+    ]
   },
   {
     "task_id": "BUGTASK-20260705-0001-02-A4",
@@ -14477,7 +14504,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0008",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -14502,7 +14529,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T07:19:52.979Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14518,7 +14545,17 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:03.613Z",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "reason": "blocked by failed dependency: BUGTASK-20260707-0008-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260707-0008-A3",
+      "checkedAt": "2026-07-10T07:19:52.979Z"
+    }
   },
   {
     "task_id": "BUGTASK-20260707-0007-A3",
