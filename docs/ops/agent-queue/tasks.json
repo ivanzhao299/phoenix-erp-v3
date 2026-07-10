@@ -15328,7 +15328,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0004",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "VALIDATION_COMPLETED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15352,10 +15352,10 @@
       "BUGTASK-20260707-0004-A4",
       "BUGTASK-20260707-0004-A2"
     ],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A1-CI-Runtime-Gate",
+    "claimed_at": "2026-07-10T07:35:37.417Z",
+    "completed_at": "2026-07-10T07:35:40.923Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -15371,7 +15371,30 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:18.820Z",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 1543,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-10T07:35:40.923Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A2",
