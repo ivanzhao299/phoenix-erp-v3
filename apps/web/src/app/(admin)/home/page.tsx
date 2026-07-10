@@ -25,6 +25,7 @@ import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { buildHomeFarmKpi, type HomeFarmKpiState } from "@/lib/home-farm-kpi";
+import { getHomeFarmKpiRequestPlan } from "@/lib/home-request-plan";
 import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
 import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
@@ -113,7 +114,7 @@ export default function HomePage() {
   // 数据质量与主数据运营统计只按原子菜单展示，避免父级主数据码透出无关子入口。
   const hasQualityPerm = hasPermission('MENU_MD_QUALITY', 'V');
   const hasCentersPerm = hasPermission('MENU_MD_CENTER', 'V');
-  const hasDeviceMonitorPerm = hasPermission('MENU_DEVICE_MONITOR', 'V');
+  const farmKpiRequestPlan = useMemo(() => getHomeFarmKpiRequestPlan(hasPermission), [hasPermission]);
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
@@ -147,11 +148,11 @@ export default function HomePage() {
 
     // G19-E：拼养殖 KPI。IoT 是独立设备权限，不能因有养殖数据权限就请求设备接口。
     // 无 MENU_DEVICE_MONITOR 时只拉日报/日志，避免运营工作台被可选设备 KPI 的 403 打扰。
-    if (hasPermission('MENU_FARM_DATA', 'V')) {
+    if (farmKpiRequestPlan.shouldLoadFarmKpi) {
       const today = localDateString();
       Promise.all([
         request<any>(`/v3/farm/daily-hen-report?date=${today}`, { silent: true }).catch(() => null),
-        hasDeviceMonitorPerm
+        farmKpiRequestPlan.shouldLoadIotSummary
           ? request<any>(`/v3/iot/devices/all-summary`, { silent: true }).catch(() => null)
           : Promise.resolve(null),
         request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
@@ -159,7 +160,7 @@ export default function HomePage() {
         setFarmKpi(buildHomeFarmKpi(hen, iot, dailyLogs));
       });
     }
-  }, [hasQualityPerm, hasCentersPerm, hasDeviceMonitorPerm, hasPermission]);
+  }, [hasQualityPerm, hasCentersPerm, farmKpiRequestPlan, hasPermission]);
 
   const totalObjects = useMemo(() => centers.reduce((s, c) => s + c.objectCount, 0), [centers]);
   const totalRisk = useMemo(() => centers.reduce((s, c) => s + c.riskCount, 0), [centers]);
@@ -208,7 +209,7 @@ export default function HomePage() {
       />
 
       {/* g200m(2026-06-20):养殖 KPI 6 卡 emoji→lucide,自写卡 → kpiCardCompact(tone) */}
-      {hasPermission('MENU_FARM_DATA', 'V') && farmKpi && (
+      {farmKpiRequestPlan.shouldLoadFarmKpi && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {([
             { label: t('home.kpiTotalStock', '当前总存栏'), value: farmKpi.totalStock != null ? farmKpi.totalStock.toLocaleString() : '--', unit: t('home.unitBird', '羽'), tone: 'info' as const, Icon: Bird },
