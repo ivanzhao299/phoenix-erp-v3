@@ -91,3 +91,10 @@
 - 纠偏后复查：`NO_FALSE_COMPLETIONS`，剩余候选 0。
 - `BUG-20260710-0002`（账户收款后余额不变）已从假完成恢复为 `IN_PROGRESS + HOLD`，不再向管理员显示已解决。
 - 保留的两条 `AGENT_COMPLETED` 分别为已有真实闭环记录和专用 smoke 记录，不属于本次历史纠偏候选。
+
+## 新版 Runner 受控回归
+
+- 首个新版周期处理 `BUG-20260710-0001`：A2/A5 仅记为 validation；A3 无实现 commit/diff/report，进入 HOLD；A4 只有 docs 报告、无 `apps/web/**` 变更，进入 HOLD。
+- Release evidence 结论：`RELEASE_EVIDENCE_HOLD`；push、CI wait、production smoke 均被正确拒绝，证明“退出码 0 假完成”已被阻断。
+- A1 回归发现根目录调用 `tsc` 未指定 project 的运行器缺陷，已改为显式加载 API/Web `tsconfig.json`。
+- 修复后验证：API typecheck PASS、Web typecheck PASS、evidence gate self-test PASS、W5 closeout PASS、严格 i18n 门禁 PASS。

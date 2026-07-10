@@ -177,8 +177,8 @@ function shouldUseLocalValidation(task) {
 function runLocalA1Validation(task) {
   const commands = [
     ['git', 'status', '--short'],
-    ['apps/api/node_modules/.bin/tsc', '--noEmit', '--pretty', 'false'],
-    ['apps/web/node_modules/.bin/tsc', '--noEmit', '--pretty', 'false'],
+    ['apps/api/node_modules/.bin/tsc', '--project', 'apps/api/tsconfig.json', '--noEmit', '--pretty', 'false'],
+    ['apps/web/node_modules/.bin/tsc', '--project', 'apps/web/tsconfig.json', '--noEmit', '--pretty', 'false'],
     [NODE_BIN, 'scripts/ci/check-w5-closeout-gate.mjs'],
     [NODE_BIN, '--check', 'scripts/ops/run-agent-task.mjs'],
     [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
