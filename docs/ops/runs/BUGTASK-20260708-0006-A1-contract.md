@@ -33,7 +33,7 @@ Assigned agent: A1-CI-Runtime-Gate
   "priority": "P1",
   "severity": "MEDIUM",
   "moduleCode": "____",
-  "acceptanceCriteria": "将编号为“PB-20260708-00001”的价格册删除，将编号为“PB-MENGSE-2026-STD”保留并恢复为正常在用状态",
+  "acceptanceCriteria": "将价格册名称为“孟赛标准价格册（试运行版）重建”的删除掉，将名称为“孟赛标准价格册（试运行版）”的价格册保留并恢复为正常在用的状态",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -1001,11 +1001,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:10.964Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-10T05:58:43.118Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-    "redispatchCount": 2,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
