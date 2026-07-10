@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-07-10T05:45:31.429Z",
+  "request": {
+    "taskId": "LOCAL-RUNNER-BUG-20260705-0003-20260710054049",
+    "agent": "BugIntakeLocalRunner",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "resultFile": "docs/ops/runs/bug-production-route-smoke-latest.json",
+    "commitHash": "6b0d83c5056bf4596b98a9c8f29e6475174f5d04",
+    "changedFiles": [
+      "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+      "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+      "apps/web/src/lib/dashboard-kpi-format.ts",
+      "apps/web/src/__tests__/dashboard-kpi-format.test.ts"
+    ],
+    "validationResults": {
+      "releaseEvidence": "PASS",
+      "push": "PASS",
+      "ci": "PASS",
+      "productionSmoke": "PASS",
+      "productionSmokeDetail": "GET /dashboard -> 307 authenticated-login redirect; route exists and no 5xx. Authenticated visual/business acceptance remains pending."
+    },
+    "summary": "Verified implementation evidence, push, four successful GitHub workflows, production web deploy, and read-only /dashboard route smoke passed. This is FIX_READY_FOR_UAT, not RESOLVED.",
+    "nextAction": "Administrator opens /dashboard and confirms KPI card formatting on desktop/mobile before resolving."
+  },
+  "response": {
+    "bugNo": "BUG-20260705-0003",
+    "status": "IN_PROGRESS",
+    "repairTaskStatus": "FIX_READY_FOR_UAT",
+    "resolutionNote": "实现证据、CI/CD 与生产路由 smoke 已通过，等待管理员执行业务验收；验收通过后方可标记已解决。"
+  }
+}

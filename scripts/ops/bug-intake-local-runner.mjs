@@ -33,7 +33,7 @@ function usage(code = 1) {
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
     [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] \\
     [--auto-unblock-dirty-worktrees | --no-auto-unblock-dirty-worktrees] \\
-    [--recover-leases-only] \\
+    [--recover-leases-only] [--quarantine-task-id BUGTASK-...] \\
     [--skip-blocked | --no-skip-blocked] [--dry-run]
 
 Fixture test:
@@ -670,6 +670,88 @@ function worktreeClean(cwd) {
   return status.ok && status.output.trim() === '';
 }
 
+function quarantineDirtyImplementationWorktree(task, args, before) {
+  if (!args.autoUnblockDirtyWorktrees || !String(task.worktree || '').includes('/bug-intake-')) return null;
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+  const safeTaskId = String(task.task_id || 'unknown-task').replace(/[^A-Za-z0-9._-]/g, '-');
+  const quarantineRoot = path.join(path.dirname(task.worktree), 'bug-intake-quarantine');
+  const quarantinePath = path.join(quarantineRoot, `${safeTaskId}-${timestamp}`);
+  const quarantineBranch = `codex/quarantine/${safeTaskId.toLowerCase()}-${timestamp}`;
+  const reportFile = `docs/ops/runs/${safeTaskId}-worktree-quarantine.md`;
+
+  if (args.dryRun) {
+    return {
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'WOULD_QUARANTINE',
+      reason: 'dry-run would preserve the incomplete worktree and recreate a clean execution slot from origin/main',
+      before: before.output,
+      quarantinePath,
+      quarantineBranch,
+      command: null,
+      result: null,
+    };
+  }
+
+  mkdirSync(quarantineRoot, { recursive: true });
+  const fetch = safeGit(['fetch', 'origin', 'main'], args.mainRoot);
+  if (!fetch.ok) return { task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot refresh origin/main before quarantine: ${fetch.output}`, before: before.output };
+  const moved = safeGit(['worktree', 'move', task.worktree, quarantinePath], args.mainRoot);
+  if (!moved.ok) return { task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot preserve dirty worktree: ${moved.output}`, before: before.output };
+  const renamed = safeGit(['branch', '-m', quarantineBranch], quarantinePath);
+  const taskPatch = {
+    status: 'HOLD',
+    worktree: quarantinePath,
+    branch: renamed.ok ? quarantineBranch : task.branch,
+    completed_at: new Date().toISOString(),
+    reason: renamed.ok
+      ? 'incomplete implementation worktree preserved in quarantine; no code merged'
+      : `worktree preserved but quarantine branch rename failed: ${renamed.output}`,
+    quarantined_at: new Date().toISOString(),
+    quarantine_source_worktree: task.worktree,
+  };
+  const heldTask = patchTask(task.task_id, taskPatch);
+  let recreated = { ok: false, output: 'skipped because quarantine branch rename failed' };
+  if (renamed.ok) recreated = safeGit(['worktree', 'add', '-b', task.branch, task.worktree, 'origin/main'], args.mainRoot);
+
+  writeMd(reportFile, `# Bug Intake Worktree Quarantine
+
+| Field | Value |
+| --- | --- |
+| Task | ${task.task_id} |
+| Agent | ${task.agent} |
+| Original worktree | \`${task.worktree}\` |
+| Quarantine worktree | \`${quarantinePath}\` |
+| Quarantine branch | \`${renamed.ok ? quarantineBranch : task.branch}\` |
+| Clean execution slot recreated | ${recreated.ok ? 'Yes' : 'No'} |
+
+## Preserved status
+
+\`\`\`text
+${before.output || '(unknown)'}
+\`\`\`
+
+## Decision
+
+HOLD. The incomplete files are preserved for diagnosis. They were not committed, merged, pushed, or deployed. A fresh dedicated worktree is created from \`origin/main\` only when every preservation step succeeds.
+
+${recreated.ok ? '' : `Recreate error: ${recreated.output}`}
+`);
+
+  return {
+    task_id: task.task_id,
+    agent: task.agent,
+    status: 'HOLD',
+    reason: recreated.ok ? 'incomplete worktree quarantined; clean execution slot recreated' : `quarantine preserved, but clean slot recreation failed: ${recreated.output}`,
+    before: before.output,
+    quarantinePath,
+    quarantineBranch: renamed.ok ? quarantineBranch : task.branch,
+    reportFile,
+    task: heldTask,
+    result: { moved: moved.ok, renamed: renamed.ok, recreated: recreated.ok },
+  };
+}
+
 function unblockDirtyWorktree(task, args) {
   const before = gitStatusShort(task.worktree);
   if (!before.ok) {
@@ -701,6 +783,8 @@ function unblockDirtyWorktree(task, args) {
     ? ['git', '-C', task.worktree, 'commit', '-m', 'docs(ops): preserve pending agent runtime artifacts']
     : null;
   if (!opsOnly) {
+    const quarantine = quarantineDirtyImplementationWorktree(task, args, before);
+    if (quarantine) return quarantine;
     return {
       task_id: task.task_id,
       agent: task.agent,
@@ -1242,7 +1326,7 @@ async function runCycle(args, cycle) {
     if (workerRuns.length >= args.maxTasks) break;
     if (!taskUsesMainRootLocalWorker(task)) {
       const unblock = unblockDirtyWorktree(task, args);
-      if (unblock.status === 'BLOCKED' || (unblock.status === 'WOULD_UNBLOCK' && args.dryRun)) {
+      if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
         if (!args.dryRun && unblock.status === 'BLOCKED' && /non-ops files|implementation worktree/i.test(unblock.reason || '')) {
           const dirtyFiles = String(unblock.before || '')
             .split('\n')
@@ -1450,6 +1534,21 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const lock = acquireRunnerLock();
   if (!lock.acquired) throw new Error(lock.reason);
+  if (args.quarantineTaskId) {
+    try {
+      const task = findTask(args.quarantineTaskId);
+      if (!task) throw new Error(`quarantine task not found: ${args.quarantineTaskId}`);
+      const before = gitStatusShort(task.worktree);
+      if (!before.ok || !before.output.trim()) throw new Error(`quarantine requires a dirty existing worktree: ${before.output || 'clean'}`);
+      const result = quarantineDirtyImplementationWorktree(task, args, before);
+      if (!result) throw new Error('quarantine is disabled or task is not using a dedicated Bug Intake worktree');
+      console.log(JSON.stringify(result, null, 2));
+      if (!['HOLD', 'WOULD_QUARANTINE'].includes(result.status)) process.exitCode = 2;
+      return;
+    } finally {
+      releaseRunnerLock();
+    }
+  }
   const cycles = args.watch ? args.maxCycles : 1;
   try {
     for (let cycle = 1; cycle <= cycles; cycle += 1) {

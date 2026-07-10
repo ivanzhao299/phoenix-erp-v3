@@ -1,27 +1,18 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-10T04:32:20.899Z",
+  "generated_at": "2026-07-10T05:40:49.031Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
-    "/finance2/ar",
-    "/api/health"
+    "/dashboard"
   ],
   "results": [
     {
-      "route": "/finance2/ar",
-      "url": "https://erp.eggslao.com/finance2/ar",
+      "route": "/dashboard",
+      "url": "https://erp.eggslao.com/dashboard",
       "status": 307,
       "ok": true,
-      "elapsedMs": 1356,
-      "excerpt": "/login?return=%2Ffinance2%2Far"
-    },
-    {
-      "route": "/api/health",
-      "url": "https://erp.eggslao.com/api/health",
-      "status": 200,
-      "ok": true,
-      "elapsedMs": 1216,
-      "excerpt": "{\"status\":\"OK\",\"service\":\"Phoenix ERP V3 API\",\"timestamp\":\"2026-07-10T04:32:20.797Z\",\"uptime\":50,\"boot_at\":\"2026-07-10T04:31:33.050Z\",\"env\":\"production\",\"node_version\":\"v20.20.2\",\"jwt\":{\"loaded\":true,\"fingerprint\":\"...317f\",\"rotation_active\":false,\"expires_in\":\"8h\",\"clock_tolerance_sec\":60},\"db\":{\"c"
+      "elapsedMs": 1282,
+      "excerpt": "/login?return=%2Fdashboard"
     }
   ],
   "safety": {

@@ -15577,12 +15577,12 @@
     "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
     "contract_file": "docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md",
     "request_spec": "",
-    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "branch": "codex/bug-intake-a3",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260706-0002-A3-20260710054901",
+    "branch": "codex/quarantine/bugtask-20260706-0002-a3-20260710054901",
     "dependencies": [],
     "claimed_by": "A3-Backend-Critical-Path",
     "claimed_at": "2026-07-10T05:16:05.708Z",
-    "completed_at": "2026-07-10T05:22:51.522Z",
+    "completed_at": "2026-07-10T05:49:05.278Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15609,7 +15609,7 @@
     },
     "implementation_commit": "",
     "changed_files": [],
-    "reason": "Agent subprocess ended without an exit-0 run log or task-specific report; partial backend files are preserved and must not be merged",
+    "reason": "incomplete implementation worktree preserved in quarantine; no code merged",
     "redispatched_at": "2026-07-10T05:08:10.682Z",
     "redispatch_history": [
       {
@@ -15627,7 +15627,9 @@
       "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
       "apps/api/src/modules/iot/mon-device.service.spec.ts"
     ],
-    "incomplete_worktree_detected_at": "2026-07-10T05:22:51.523Z"
+    "incomplete_worktree_detected_at": "2026-07-10T05:22:51.523Z",
+    "quarantined_at": "2026-07-10T05:49:05.278Z",
+    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A4",

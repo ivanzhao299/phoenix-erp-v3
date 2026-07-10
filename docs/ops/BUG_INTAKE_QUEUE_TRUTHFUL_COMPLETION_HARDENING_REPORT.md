@@ -31,6 +31,7 @@
 14. Codex, worker, and parent-runner subprocess buffers are raised to 32 MiB. Verbose Codex diagnostics can no longer trigger Node's default output-buffer termination and leave a zombie `running` lease.
 15. A completed run interrupted only at the parent boundary can be recovered only from an exit-0 run log plus an owned business diff, task-specific report, explicit PASS/GO conclusion, and a new commit. Missing any item remains HOLD.
 16. Dirty partial implementation worktrees are quarantined as explicit HOLD with their file list. They are preserved for diagnosis and cannot be repeatedly claimed or silently merged.
+17. Dedicated Bug Intake worktrees now rotate non-destructively after an interrupted dirty run: the entire dirty worktree and branch move to a task-specific quarantine path, while a fresh execution slot is recreated from `origin/main`. This prevents one partial A3/A4 run from blocking every later bug.
 
 ## Verification
 
