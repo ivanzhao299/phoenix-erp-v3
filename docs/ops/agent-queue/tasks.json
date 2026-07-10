@@ -14947,7 +14947,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14968,10 +14968,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-10T07:00:07.567Z",
+    "completed_at": "2026-07-10T07:03:47.155Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -14987,7 +14987,46 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:18.820Z"
+    "last_redispatch_at": "2026-07-10T04:38:18.820Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 1644,
+      "beforeHead": "c6ed51769f7c55892c6f2240b9f043d1d5fe46fb",
+      "afterHead": "9f7c5c1544c981502e8310682e08546ed8e85fc1",
+      "commitHash": "9f7c5c1544c981502e8310682e08546ed8e85fc1",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+        "apps/web/src/lib/warehouse-query.test.ts",
+        "apps/web/src/lib/warehouse-query.ts",
+        "docs/ops/bug-20260707-0004-a4-frontend-uat-smoke.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+        "apps/web/src/lib/warehouse-query.test.ts",
+        "apps/web/src/lib/warehouse-query.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-20260707-0004-a4-frontend-uat-smoke.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-10T07:03:47.155Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "9f7c5c1544c981502e8310682e08546ed8e85fc1",
+    "changed_files": [
+      "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+      "apps/web/src/lib/warehouse-query.test.ts",
+      "apps/web/src/lib/warehouse-query.ts",
+      "docs/ops/bug-20260707-0004-a4-frontend-uat-smoke.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260707-0004-A1",
