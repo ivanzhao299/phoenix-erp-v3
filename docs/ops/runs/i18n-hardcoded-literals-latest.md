@@ -1,10 +1,10 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-07T22:05:58.037Z
+Generated: 2026-07-10T00:33:31.642Z
 
-Total findings: 3149
-Auto-translatable by runtime bridge: 3133
-Still requiring componentization or dictionary modeling: 16
+Total findings: 3134
+Auto-translatable by runtime bridge: 3128
+Still requiring componentization or dictionary modeling: 6
 Affected files: 171
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
@@ -54,7 +54,6 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/sales2/customers/page.tsx` | 22 | 17:直营店<br>20:经销商<br>23:代理商<br>26:大客户<br>29:散客零售<br>33:正常<br>36:观察<br>39:黑名单 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
-| `apps/web/src/app/(admin)/bug-reports/page.tsx` | 21 | 435:AI 修复流水线运行面板<br>447:刷新面板<br>456:自动分类 / 恢复 / 分派<br>463:总待处理<br>464:需复核或重新分派<br>465:运行超时<br>465:AGENT_RUNNING 超时<br>466:批准待执行 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
 | `apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx` | 20 | 103:股权投资<br>104:借款<br>105:垫资<br>106:担保金<br>107:代付<br>117:草稿<br>118:待确认<br>119:已确认 |
 | `apps/web/src/app/(admin)/store-payment/page.tsx` | 20 | 24:万象直营店<br>162:附件预览待安全授权开通。<br>163:当前文件不可预览或下载。<br>164:权限不足，无法访问附件。<br>166:安全策略禁止裸链接访问。<br>168:当前仅显示受控附件状态。<br>214:文件元数据未配置<br>225:安全策略禁止裸链接访问 |
@@ -63,3 +62,4 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/finance2/ap/page.tsx` | 19 | 140:未到期<br>144:逾期 ≤30天<br>148:逾期 31-60天<br>152:逾期 61-90天<br>156:逾期 >90天<br>165:手工<br>169:采购订单<br>173:费用 |
 | `apps/web/src/app/(admin)/sales2/returns/page.tsx` | 18 | 94:草稿<br>98:已提交<br>102:待审批<br>106:质检中<br>110:回库中<br>114:已完成<br>118:已拒绝<br>122:已取消 |
 | `apps/web/src/app/(admin)/procurement2/suppliers/page.tsx` | 17 | 52:集团共享<br>58:公司专用<br>64:项目专用<br>72:老挝 LA<br>75:中国 CN<br>78:泰国 TH<br>81:越南 VN<br>84:美国 US |
+| `apps/web/src/app/(admin)/sales2/delivery/page.tsx` | 17 | 49:待装车<br>55:装车中<br>61:已装车<br>67:已发车<br>73:已到达<br>79:部分签收<br>85:已完成<br>91:已取消 |

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-07T22:05:58.037Z",
+  "generated_at": "2026-07-10T00:33:31.642Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3149,
-  "auto_translatable_findings": 3133,
-  "manual_componentization_findings": 16,
+  "total_findings": 3134,
+  "auto_translatable_findings": 3128,
+  "manual_componentization_findings": 6,
   "affected_files": 171,
   "top_files": [
     {
@@ -2549,68 +2549,6 @@
       ]
     },
     {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "count": 21,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 435,
-          "kind": "jsx-text",
-          "text": "AI 修复流水线运行面板",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 447,
-          "kind": "jsx-text",
-          "text": "刷新面板",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 456,
-          "kind": "jsx-text",
-          "text": "自动分类 / 恢复 / 分派",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 463,
-          "kind": "string-literal",
-          "text": "总待处理",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 464,
-          "kind": "string-literal",
-          "text": "需复核或重新分派",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 465,
-          "kind": "string-literal",
-          "text": "运行超时",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 465,
-          "kind": "string-literal",
-          "text": "AGENT_RUNNING 超时",
-          "auto_translatable": false
-        },
-        {
-          "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-          "line": 466,
-          "kind": "string-literal",
-          "text": "批准待执行",
-          "auto_translatable": false
-        }
-      ]
-    },
-    {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
       "count": 20,
       "samples": [
@@ -3102,6 +3040,68 @@
           "line": 84,
           "kind": "string-literal",
           "text": "美国 US",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "count": 17,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 49,
+          "kind": "string-literal",
+          "text": "待装车",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 55,
+          "kind": "string-literal",
+          "text": "装车中",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 61,
+          "kind": "string-literal",
+          "text": "已装车",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 67,
+          "kind": "string-literal",
+          "text": "已发车",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 73,
+          "kind": "string-literal",
+          "text": "已到达",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 79,
+          "kind": "string-literal",
+          "text": "部分签收",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 85,
+          "kind": "string-literal",
+          "text": "已完成",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+          "line": 91,
+          "kind": "string-literal",
+          "text": "已取消",
           "auto_translatable": true
         }
       ]
@@ -3628,149 +3628,44 @@
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 435,
-      "kind": "jsx-text",
-      "text": "AI 修复流水线运行面板",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 447,
-      "kind": "jsx-text",
-      "text": "刷新面板",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 456,
-      "kind": "jsx-text",
-      "text": "自动分类 / 恢复 / 分派",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 463,
+      "line": 175,
       "kind": "string-literal",
-      "text": "总待处理",
+      "text": "待业务验收",
       "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 464,
+      "line": 176,
       "kind": "string-literal",
-      "text": "需复核或重新分派",
+      "text": "已批准待执行",
       "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 465,
+      "line": 177,
       "kind": "string-literal",
-      "text": "运行超时",
+      "text": "Agent 执行中",
       "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 465,
+      "line": 178,
       "kind": "string-literal",
-      "text": "AGENT_RUNNING 超时",
+      "text": "HOLD 待处理",
       "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 466,
+      "line": 179,
       "kind": "string-literal",
-      "text": "批准待执行",
+      "text": "待批准入队",
       "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 466,
+      "line": 180,
       "kind": "string-literal",
-      "text": "AGENT_APPROVED 超时",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 467,
-      "kind": "string-literal",
-      "text": "Runner 状态",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 467,
-      "kind": "string-literal",
-      "text": "后端工作流判断",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 468,
-      "kind": "string-literal",
-      "text": "未处理告警",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 468,
-      "kind": "string-literal",
-      "text": "Bug Intake 告警",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 472,
-      "kind": "string-literal",
-      "text": "运行超时",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 482,
-      "kind": "jsx-text",
-      "text": "最近自动处理：",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 483,
-      "kind": "jsx-text",
-      "text": "处理",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 483,
-      "kind": "jsx-text",
-      "text": "条；HOLD 分派候选",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 483,
-      "kind": "jsx-text",
-      "text": "条。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 498,
-      "kind": "jsx-text",
-      "text": "分类：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 498,
-      "kind": "string-literal",
-      "text": "未分类",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 498,
-      "kind": "jsx-text",
-      "text": "· 建议 Agent：",
+      "text": "待生成计划",
       "auto_translatable": false
     },
     {
@@ -17236,49 +17131,49 @@
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 143,
+      "line": 150,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 147,
+      "line": 154,
       "kind": "string-literal",
       "text": "已通过",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 151,
+      "line": 158,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 155,
+      "line": 162,
       "kind": "string-literal",
       "text": "已跳过",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 159,
+      "line": 166,
       "kind": "string-literal",
       "text": "待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 190,
+      "line": 197,
       "kind": "string-literal",
       "text": "审批引擎",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 190,
+      "line": 197,
       "kind": "string-literal",
       "text": "通用流程",
       "auto_translatable": true
