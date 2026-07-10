@@ -35,19 +35,14 @@ Current code inspection found a dashboard-card defect that matches the reported 
 
 - `node --experimental-strip-types --input-type=module ... normalizeDashboardMetric checks` -> PASS.
 - `git diff --check` -> PASS.
-- `pnpm --filter web test -- dashboard-kpi-format.test.ts` -> BLOCKED: `vitest: command not found`; `apps/web/node_modules` missing.
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` -> BLOCKED: `./node_modules/.bin/tsc` missing.
-- `pnpm install --offline --frozen-lockfile` -> BLOCKED: local pnpm store missing `concurrently-8.2.2`; network download was not used.
-- Playwright wrapper smoke -> BLOCKED: wrapper hung while resolving CLI through `npx`; stopped with Ctrl-C.
+- Parent workspace `pnpm --filter web test -- dashboard-kpi-format.test.ts` -> PASS, 4/4 tests.
+- Parent workspace Web TypeScript check -> PASS.
+- Parent workspace API TypeScript check -> PASS.
+- W5 closeout gate with the authorized frontend diff -> PASS.
+- The dedicated Agent worktree did not contain dependencies; validation was therefore repeated in the dependency-complete parent workspace before integration.
 
 ## Conditions
 
-Before GO, run in an environment with dependencies installed:
-
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`
-- `pnpm --filter web test -- dashboard-kpi-format.test.ts`
-- Authenticated `/dashboard` desktop smoke at `1512x862`
-- Authenticated `/dashboard` mobile smoke around `390x844`
-- CI/CD, production smoke, and business acceptance
+Before business resolution, authenticated `/dashboard` desktop/mobile smoke, CI/CD, production smoke, and administrator business acceptance remain required.
 
 No backend, migration, database, deploy, push, RBAC, DataScope, audit, or attachment ACL changes were made.

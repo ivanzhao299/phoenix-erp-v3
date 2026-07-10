@@ -15778,7 +15778,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15801,7 +15801,7 @@
     "dependencies": [],
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-10T05:10:31.371Z",
-    "completed_at": "2026-07-10T05:24:00.209Z",
+    "completed_at": "2026-07-10T05:25:41.645Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15857,7 +15857,7 @@
       "apps/web/src/lib/dashboard-kpi-format.ts",
       "docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md"
     ],
-    "reason": "completed Agent run recovered after parent timeout/output-buffer interruption",
+    "reason": "verified A4 implementation integrated; awaiting A1, CI/CD, production smoke, and business acceptance",
     "redispatched_at": "2026-07-10T05:08:10.183Z",
     "redispatch_history": [
       {
@@ -15869,7 +15869,10 @@
       }
     ],
     "baseline_autopilot_exit_code": null,
-    "recovered_from_run_log": "docs/ops/runs/2026-07-10T05-16-00-867Z-A4-Frontend-UAT-Smoke.md"
+    "recovered_from_run_log": "docs/ops/runs/2026-07-10T05-16-00-867Z-A4-Frontend-UAT-Smoke.md",
+    "integrated_commit": "44cb6273",
+    "integrated_at": "2026-07-10T05:25:41.645Z",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260705-0003-A1",
