@@ -107,3 +107,5 @@
 - 仅当 Agent 输出明确证明是 sandbox git-index 权限阻断时，父提交才可把该 HOLD 恢复为 `PASS_WITH_CONDITIONS`；其他业务 HOLD 不会被覆盖。
 - `BUG-20260710-0002` 已找到并修复真实根因：确认收款查询遗漏 `received_account_code`，导致核销成功但资金账户交易分支被跳过；同时前端补齐收款账户必选与创建后确认调用。
 - A3/A4 父提交恢复与 Baseline safe merge 均 PASS，未执行 migration、DB 写入或直接部署。
+- 主编排器复核发现首版 A3 只查询但未消费账户编码，目标 Jest 回归实际失败；已继续修正为 ID 优先、账户编码回退，并允许普通未分摊收款确认入账。
+- 最终目标回归覆盖“有 AR 分摊”和“无 AR 普通收款”两条路径，2/2 PASS；API/Web typecheck、三语 key 门禁、严格 i18n 与 W5 均 PASS。
