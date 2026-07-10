@@ -121,6 +121,10 @@ export class GenericCrudController {
     // BUG-20260707-0002: 库存总览只读拉取 wms_* 汇总数据时应接受仓储查看权。
     // 保留 MENU_WMS_INOUT 作为 GET 备选，避免已有出入库作业角色因未显式持 MENU_WMS_VIEW 被误挡。
     if (method === 'GET' && table.startsWith('wms_')) return ['MENU_WMS_INOUT'];
+    // BUG-20260707-0004: 库存查询/台账是只读库存事实表，历史仓库作业角色常持
+    // MENU_INV_BATCH / MENU_INV_LEDGER / MENU_WMS_INOUT，而不一定持 MENU_WMS_VIEW。
+    if (method === 'GET' && table === 'inv_batches') return ['MENU_INV_BATCH', 'MENU_WMS_INOUT'];
+    if (method === 'GET' && table === 'inv_ledger') return ['MENU_INV_LEDGER', 'MENU_INV_BATCH', 'MENU_WMS_INOUT'];
     if (table === 'brd_vaccinations' || table === 'brd_medications') return ['MENU_FARM_VET'];
     return [];
   }
@@ -136,11 +140,22 @@ export class GenericCrudController {
   ]);
 
   private async resolveTableScope(table: string, req: any, method: string): Promise<DataScopeContext | null> {
-    const menu = this.tableToFallbackMenu(table, method);
+    const menu = this.resolveAccessMenu(table, req, method);
     const userId = String(req.user?.userId ?? req.user?.id ?? '');
     if (!menu || !userId) return null;
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : (req.user?.role ? [req.user.role] : []);
     return this.dataScopeService.resolve(userId, roles, menu);
+  }
+
+  private resolveAccessMenu(table: string, req: any, method: string): string | null {
+    const fallbackMenu = this.tableToFallbackMenu(table, method);
+    const requiredOp: PermCode = method === 'GET' ? 'V'
+      : method === 'POST'   ? 'C'
+      : method === 'DELETE' ? 'D'
+      : 'E';
+    const perms: string[] = req.user?.permissions || [];
+    if (!fallbackMenu || hasPerm(perms, fallbackMenu, requiredOp)) return fallbackMenu;
+    return this.tableToAltMenus(table, method).find((alt) => hasPerm(perms, alt, requiredOp)) ?? fallbackMenu;
   }
 
   private applyWarehouseScope(table: string, query: any, scope: DataScopeContext | null) {

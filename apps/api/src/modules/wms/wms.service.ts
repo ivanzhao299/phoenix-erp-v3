@@ -468,7 +468,7 @@ export class WmsService {
     try {
       const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM inv_batches WHERE qty > 0 AND ${scope.sql} ORDER BY created_at DESC LIMIT 200`,
+        `SELECT * FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 AND ${scope.sql} ORDER BY created_at DESC LIMIT 200`,
         scope.params,
       );
       return { code: 200, data };
@@ -488,7 +488,7 @@ export class WmsService {
     try {
       const scope = this.warehouseScope('warehouse_code', 0);
       const rows: any[] = await this.em.query(
-        `SELECT * FROM inv_batches WHERE qty > 0 AND ${scope.sql}`,
+        `SELECT * FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 AND ${scope.sql}`,
         scope.params,
       );
       const isActive = (s?: string) => !s || s === 'AVAILABLE' || s === 'LOCKED';

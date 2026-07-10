@@ -103,6 +103,82 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.findAll).not.toHaveBeenCalled();
   });
 
+  it('allows inventory batch reads with MENU_INV_BATCH and resolves scope against that menu', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({
+      isGlobal: false,
+      scopeLevel: 'COMPANY',
+      allowedCompanyCodes: ['LPH'],
+      allowedProjectCodes: [],
+      allowedWarehouseCodes: ['LPH_MS_EGG_SALES'],
+      allowedFarmCodes: [],
+      allowedSiteCodes: [],
+      userId: '42',
+    });
+
+    await expect(
+      controller.findAll(
+        'inv_batches',
+        { limit: '50', offset: '0' },
+        {
+          user: {
+            userId: '42',
+            id: 42,
+            username: 'tangzhiwen',
+            role: 'ROLE_WMS_OP',
+            roles: ['ROLE_WMS_OP'],
+            storeCode: 'SITE-MENGSAI-LAYER',
+            permissions: ['MENU_INV_BATCH:V'],
+          },
+        },
+      ),
+    ).resolves.toEqual({ code: 200, data: [] });
+
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_BATCH');
+    expect(svc.findAllInventoryScoped).toHaveBeenCalledWith(
+      'inv_batches',
+      { limit: '50', offset: '0' },
+      ['LPH_MS_EGG_SALES'],
+    );
+  });
+
+  it('allows inventory ledger reads with MENU_INV_LEDGER and keeps warehouse scoped lookup', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({
+      isGlobal: false,
+      scopeLevel: 'COMPANY',
+      allowedCompanyCodes: ['LPH'],
+      allowedProjectCodes: [],
+      allowedWarehouseCodes: ['LPH_MS_EGG_SALES'],
+      allowedFarmCodes: [],
+      allowedSiteCodes: [],
+      userId: '42',
+    });
+
+    await expect(
+      controller.findAll(
+        'inv_ledger',
+        { limit: '50', offset: '0' },
+        {
+          user: {
+            userId: '42',
+            id: 42,
+            username: 'tangzhiwen',
+            role: 'ROLE_WMS_OP',
+            roles: ['ROLE_WMS_OP'],
+            storeCode: 'SITE-MENGSAI-LAYER',
+            permissions: ['MENU_INV_LEDGER:V'],
+          },
+        },
+      ),
+    ).resolves.toEqual({ code: 200, data: [] });
+
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_LEDGER');
+    expect(svc.findAllInventoryScoped).toHaveBeenCalledWith(
+      'inv_ledger',
+      { limit: '50', offset: '0' },
+      ['LPH_MS_EGG_SALES'],
+    );
+  });
+
   it('returns no inventory rows when a non-global user has no warehouse scope', async () => {
     dataScopeService.resolve.mockResolvedValueOnce({
       isGlobal: false,

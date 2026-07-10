@@ -8,7 +8,8 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeService } from '../services/data-scope.service';
-import { REQUIRE_MENU_KEY } from '../../../common/guards/menu.guard';
+import { MenuRequirement, REQUIRE_MENU_KEY } from '../../../common/guards/menu.guard';
+import { hasPerm } from '../../../auth/permissions.util';
 
 @Injectable()
 export class DataScopeGuard implements CanActivate {
@@ -20,7 +21,7 @@ export class DataScopeGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 读取 @RequireMenu 元数据（MenuGuard 已注册同一 key）
-    const requirement = this.reflector.getAllAndOverride<{ menu: string; perm: string } | undefined>(
+    const requirement = this.reflector.getAllAndOverride<MenuRequirement | undefined>(
       REQUIRE_MENU_KEY,
       [context.getHandler(), context.getClass()],
     );
@@ -34,7 +35,8 @@ export class DataScopeGuard implements CanActivate {
     try {
       const roles: string[] = (user['roles'] as string[] | undefined) ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
-      const scope = await this.dataScopeService.resolve(userId, roles, requirement.menu);
+      const menuForScope = this.resolveMatchedMenu(user, requirement);
+      const scope = await this.dataScopeService.resolve(userId, roles, menuForScope);
       this.cls.set('dataScope', scope);
       // G125：同时挂到 req，供 farm 模块的纯函数 deriveOrgScope(req) 读取真实数据范围。
       const req = context.switchToHttp().getRequest();
@@ -45,5 +47,14 @@ export class DataScopeGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private resolveMatchedMenu(user: Record<string, unknown>, requirement: MenuRequirement): string {
+    const permissions = user['permissions'] as string[] | undefined;
+    if (hasPerm(permissions, requirement.menu, requirement.perm)) return requirement.menu;
+    for (const alt of requirement.altMenus ?? []) {
+      if (hasPerm(permissions, alt, requirement.perm)) return alt;
+    }
+    return requirement.menu;
   }
 }

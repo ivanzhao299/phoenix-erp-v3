@@ -29,14 +29,14 @@ export class InventoryController {
   constructor(private readonly wmsService: WmsService) {}
 
   @Get('batches')
-  @RequireMenu('MENU_WMS_VIEW', 'V')
+  @RequireMenu('MENU_WMS_VIEW', 'V', ['MENU_INV_BATCH', 'MENU_WMS_INOUT'])
   async getBatches() {
     return await this.wmsService.getInventoryBatches();
   }
 
   // 库存批次概览聚合：前端 analytics/inventory 改调本端点（服务端 reduce，覆盖全量在范围批次）
   @Get('batches/summary')
-  @RequireMenu('MENU_WMS_VIEW', 'V')
+  @RequireMenu('MENU_WMS_VIEW', 'V', ['MENU_INV_BATCH', 'MENU_WMS_INOUT'])
   async getBatchesSummary() {
     return await this.wmsService.getInventoryBatchesSummary();
   }
