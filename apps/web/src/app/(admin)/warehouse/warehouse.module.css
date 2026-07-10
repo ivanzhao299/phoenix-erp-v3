@@ -80,6 +80,27 @@
   50%      { opacity: 1;   }
 }
 
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.dashboardAside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dashboardGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
 /* Dark theme 覆盖 */
 [data-theme="dark"] .quickCard {
   background: #1e293b;

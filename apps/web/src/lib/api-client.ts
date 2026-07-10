@@ -229,7 +229,7 @@ export const crudApi = {
   list: <T = Record<string, unknown>>(
     table: string,
     params: PaginationParams = {},
-    opts: { signal?: AbortSignal } = {}
+    opts: { signal?: AbortSignal; silent?: boolean } = {}
   ): Promise<CrudListResponse<T>> => {
     const qs = new URLSearchParams();
     // 将 page/pageSize 转换为后端期望的 limit/offset
@@ -243,7 +243,7 @@ export const crudApi = {
     });
     return request<CrudListResponse<T>>(
       `/crud/${table}?${qs.toString()}`,
-      opts.signal ? { signal: opts.signal } : {}
+      { ...(opts.signal ? { signal: opts.signal } : {}), ...(opts.silent ? { silent: true } : {}) }
     );
   },
 

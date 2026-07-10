@@ -19,6 +19,8 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { NavCard } from "@/components/ui/NavCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { getWarehouseDashboardAccess } from "@/lib/warehouse-dashboard-access";
+import styles from "./warehouse.module.css";
 import {
   PackagePlus, PackageMinus, ListChecks, Search, ArrowDown, ArrowUp,
   Package, AlertTriangle, RefreshCw, MoveHorizontal, MapPin, BookOpen,
@@ -97,14 +99,21 @@ function ZoneCard({ zone, warningLabel }: { zone: Zone; warningLabel: string }) 
 export default function WarehouseDashboard() {
   const { t } = useLanguage();
   const { hasPermission, loading: authLoading } = useAuth();
-  const canViewWarehouse = hasPermission("MENU_WMS_VIEW", "V");
-  const canViewInout = hasPermission("MENU_WMS_INOUT", "V");
+  const {
+    canViewWarehouse,
+    canViewInout,
+    canLoadZones,
+    canLoadInbounds,
+    canLoadOutbounds,
+    canLoadBatches,
+  } = useMemo(() => getWarehouseDashboardAccess(hasPermission), [hasPermission]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [inbounds, setInbounds] = useState<InboundRow[]>([]);
   const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [expiry, setExpiry] = useState<BatchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     if (authLoading) return;
@@ -114,31 +123,47 @@ export default function WarehouseDashboard() {
       setOutbounds([]);
       setBatches([]);
       setExpiry([]);
+      setLoadError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setLoadError(null);
     const [zRes, ibRes, obRes, btRes] = await Promise.all([
-      canViewInout
-        ? crudApi.list<Zone>("wms_zones", { limit: 100 }).catch(() => ({ data: [] as Zone[], code: 0 }))
+      canLoadZones
+        ? crudApi.list<Zone>("wms_zones", { limit: 100 }, { silent: true }).catch(() => {
+            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
+            return { data: [] as Zone[], code: 0 };
+          })
         : Promise.resolve({ data: [] as Zone[], code: 0 }),
-      canViewInout
-        ? crudApi.list<InboundRow>("wms_inbound", { limit: 200 }).catch(() => ({ data: [] as InboundRow[], code: 0 }))
+      canLoadInbounds
+        ? crudApi.list<InboundRow>("wms_inbound", { limit: 200 }, { silent: true }).catch(() => {
+            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
+            return { data: [] as InboundRow[], code: 0 };
+          })
         : Promise.resolve({ data: [] as InboundRow[], code: 0 }),
-      canViewInout
-        ? crudApi.list<OutboundRow>("wms_outbound", { limit: 200 }).catch(() => ({ data: [] as OutboundRow[], code: 0 }))
+      canLoadOutbounds
+        ? crudApi.list<OutboundRow>("wms_outbound", { limit: 200 }, { silent: true }).catch(() => {
+            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
+            return { data: [] as OutboundRow[], code: 0 };
+          })
         : Promise.resolve({ data: [] as OutboundRow[], code: 0 }),
-      crudApi.list<BatchRow>("inv_batches", { limit: 500 }).catch(() => ({ data: [] as BatchRow[], code: 0 })),
+      canLoadBatches
+        ? crudApi.list<BatchRow>("inv_batches", { limit: 500 }, { silent: true }).catch(() => {
+            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
+            return { data: [] as BatchRow[], code: 0 };
+          })
+        : Promise.resolve({ data: [] as BatchRow[], code: 0 }),
     ]);
-    setZones(canViewInout ? (zRes.data ?? []) : []);
-    setInbounds(canViewInout ? (ibRes.data ?? []) : []);
-    setOutbounds(canViewInout ? (obRes.data ?? []) : []);
+    setZones(canLoadZones ? (zRes.data ?? []) : []);
+    setInbounds(canLoadInbounds ? (ibRes.data ?? []) : []);
+    setOutbounds(canLoadOutbounds ? (obRes.data ?? []) : []);
     setBatches(btRes.data ?? []);
     const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
     setExpiry((btRes.data ?? []).filter((b: BatchRow) => b.expire_date && b.expire_date <= in14 && b.expire_date >= today && b.qty_available > 0));
     setLoading(false);
-  }, [authLoading, canViewInout, canViewWarehouse]);
+  }, [authLoading, canLoadBatches, canLoadInbounds, canLoadOutbounds, canLoadZones, canViewWarehouse, t]);
   useEffect(() => { loadAll(); }, [loadAll]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -214,6 +239,11 @@ export default function WarehouseDashboard() {
           </button>
         }
       />
+      {loadError && (
+        <div style={{ ...inlineAlert("warning"), marginBottom: 16 }}>
+          {loadError}
+        </div>
+      )}
 
       {/* g200e KPI 4 卡 — kpiCardCompact(tone) */}
       <div style={{
@@ -239,12 +269,7 @@ export default function WarehouseDashboard() {
       </div>
 
       {/* 主内容区:库区 + 侧边栏 — 弹性 minmax 避免文本截断 */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0,2fr) minmax(320px,1fr)",
-        gap: 20,
-        alignItems: "start",
-      }}>
+      <div className={styles.dashboardGrid}>
         {/* 左:库区状态 + 快捷入口 */}
         <div>
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
@@ -287,7 +312,7 @@ export default function WarehouseDashboard() {
         </div>
 
         {/* 右:今日动态 + 本月汇总 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className={styles.dashboardAside}>
           {/* 今日出入库动态 — actionGroupBox 容器 + recordRow(tone) 行 */}
           <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: 14 }}>
             <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
