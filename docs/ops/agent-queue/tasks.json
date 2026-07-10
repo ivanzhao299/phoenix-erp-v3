@@ -15778,7 +15778,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15801,8 +15801,8 @@
     "dependencies": [],
     "claimed_by": "A4-Frontend-UAT-Smoke",
     "claimed_at": "2026-07-10T05:10:31.371Z",
-    "completed_at": "2026-07-10T05:16:03.380Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-detached-worker-recovery.md",
+    "completed_at": "2026-07-10T05:24:00.209Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -15820,25 +15820,44 @@
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "2484c10d49f32c393dd16cfb0d532be155482220",
-      "afterHead": "2484c10d49f32c393dd16cfb0d532be155482220",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 1647,
+      "beforeHead": "b3e2b3894ff91d7a99bfeb523026a61a27d83aa9",
+      "afterHead": "045867c0ccb846b8f0a801787453a0dfc486b1e6",
+      "commitHash": "045867c0ccb846b8f0a801787453a0dfc486b1e6",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+        "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+        "apps/web/src/lib/dashboard-kpi-format.test.ts",
+        "apps/web/src/lib/dashboard-kpi-format.ts",
+        "docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+        "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+        "apps/web/src/lib/dashboard-kpi-format.test.ts",
+        "apps/web/src/lib/dashboard-kpi-format.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-10T05:03:52.330Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "checkedAt": "2026-07-10T05:24:00.207Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "changed_files": [],
-    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=1",
+    "implementation_commit": "045867c0ccb846b8f0a801787453a0dfc486b1e6",
+    "changed_files": [
+      "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+      "apps/web/src/app/(admin)/dashboard/_components/dashboard.module.css",
+      "apps/web/src/lib/dashboard-kpi-format.test.ts",
+      "apps/web/src/lib/dashboard-kpi-format.ts",
+      "docs/ops/BUGTASK-20260705-0003-A4-FRONTEND-REPORT.md"
+    ],
+    "reason": "completed Agent run recovered after parent timeout/output-buffer interruption",
     "redispatched_at": "2026-07-10T05:08:10.183Z",
     "redispatch_history": [
       {
@@ -15849,7 +15868,8 @@
         "source_repair_task_no": "BUGTASK-20260705-0003"
       }
     ],
-    "baseline_autopilot_exit_code": null
+    "baseline_autopilot_exit_code": null,
+    "recovered_from_run_log": "docs/ops/runs/2026-07-10T05-16-00-867Z-A4-Frontend-UAT-Smoke.md"
   },
   {
     "task_id": "BUGTASK-20260705-0003-A1",

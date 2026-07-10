@@ -630,9 +630,11 @@ function recoverCompletedRun(args) {
   const runLog = path.resolve(process.cwd(), args.runLog);
   if (!existsSync(runLog)) fail(`completed run log not found: ${args.runLog}`);
   const runText = readFileSync(runLog, 'utf8');
+  const stdoutMatch = runText.match(/## Stdout Summary\s*\n\s*```text\s*\n([\s\S]*?)\n```/i);
+  const agentResult = stdoutMatch?.[1]?.trim() || '';
   if (!/\| Exit code \| 0 \|/.test(runText)) fail('completed run recovery refused: run log exit code is not 0');
-  if (!/\b(PASS|GO)(?: WITH CONDITIONS)?\b/i.test(runText)) {
-    fail('completed run recovery refused: run log has no explicit PASS/GO conclusion');
+  if (!agentResult || !/\b(PASS|GO)(?: WITH CONDITIONS)?\b/i.test(agentResult)) {
+    fail('completed run recovery refused: stdout summary has no explicit PASS/GO conclusion');
   }
 
   const tasks = readTasks();
@@ -642,14 +644,31 @@ function recoverCompletedRun(args) {
     fail(`task is not recoverable from completed run: ${task.status}`);
   }
 
-  const beforeHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
-  const parentCommit = commitSandboxChanges(task, runText);
-  if (!parentCommit.ok) fail(`completed run recovery refused: ${parentCommit.error || parentCommit.reason}`);
-  const afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  let afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  let beforeHead = afterHead;
+  let parentCommit;
+  const dirty = dirtyFiles(task.worktree);
+  if (!dirty.ok) fail(`completed run recovery refused: ${dirty.error}`);
+  if (dirty.files.length > 0) {
+    parentCommit = commitSandboxChanges(task, agentResult);
+    if (!parentCommit.ok) fail(`completed run recovery refused: ${parentCommit.error || parentCommit.reason}`);
+    afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  } else if (task.implementation_commit && task.implementation_commit === afterHead) {
+    beforeHead = safeGit(['rev-parse', `${afterHead}^`], task.worktree).output;
+    parentCommit = {
+      attempted: false,
+      ok: true,
+      existingCommit: true,
+      commitHash: afterHead,
+      files: changedFilesBetween(task.worktree, beforeHead, afterHead),
+    };
+  } else {
+    fail('completed run recovery refused: no dirty Agent files and no matching previously recovered commit');
+  }
   const evidence = evaluateWorkerEvidence({
     task,
     exitCode: 0,
-    stdout: runText,
+    stdout: agentResult,
     stderr: '',
     beforeHead,
     afterHead,
@@ -660,7 +679,7 @@ function recoverCompletedRun(args) {
     dryRun: false,
     exitCode: 0,
     command: ['parent-runner-completed-run-recovery', task.task_id, args.runLog],
-    stdout: runText,
+    stdout: agentResult,
     stderr: '',
     evidence,
     parentCommit,
