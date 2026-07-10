@@ -16035,7 +16035,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -16115,8 +16115,10 @@
       "docs/ops/BUGTASK-20260707-0001-A4-FRONTEND-UIUX-UAT-REPORT.md"
     ],
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "reason": "runner root must be clean before implementation integration: M scripts/ops/bug-intake-local-runner.mjs"
+    "baseline_autopilot_skipped": "implementation commit was preserved while the runner root was dirty; parent runner validated and integrated it after restoring a clean root",
+    "integrated_commit": "61f3d2f1",
+    "integrated_at": "2026-07-10T07:30:20.000Z",
+    "integration_method": "cherry-pick-after-parent-validation"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A1",
