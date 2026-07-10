@@ -1098,11 +1098,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:06.792Z",
+    "approvedAt": "2026-07-10T05:08:10.682Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-    "redispatchCount": 1,
+    "approvalScope": "Retry after dedicated Bug Intake worktree authorization fix. Strict implementation evidence, dependency-gated A2/A1 validation, CI/CD and production smoke required. No DB write or migration.",
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
