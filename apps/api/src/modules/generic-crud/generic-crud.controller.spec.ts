@@ -42,11 +42,20 @@ describe('GenericCrudController WMS RBAC', () => {
     );
   });
 
-  it('allows WMS overview reads with MENU_WMS_VIEW', async () => {
+  it('allows the captured warehouse overview WMS reads with MENU_WMS_VIEW', async () => {
+    await expect(
+      controller.findAll('wms_zones', { limit: '100', offset: '0' }, req(['MENU_WMS_VIEW:V'])),
+    ).resolves.toEqual({ code: 200, data: [] });
     await expect(
       controller.findAll('wms_inbound', { limit: '200', offset: '0' }, req(['MENU_WMS_VIEW:V'])),
     ).resolves.toEqual({ code: 200, data: [] });
+    await expect(
+      controller.findAll('wms_outbound', { limit: '200', offset: '0' }, req(['MENU_WMS_VIEW:V'])),
+    ).resolves.toEqual({ code: 200, data: [] });
+
+    expect(svc.findAll).toHaveBeenCalledWith('wms_zones', { limit: '100', offset: '0' });
     expect(svc.findAll).toHaveBeenCalledWith('wms_inbound', { limit: '200', offset: '0' });
+    expect(svc.findAll).toHaveBeenCalledWith('wms_outbound', { limit: '200', offset: '0' });
   });
 
   it('keeps legacy WMS inout permission valid for reads', async () => {
@@ -137,5 +146,12 @@ describe('GenericCrudController WMS RBAC', () => {
       controller.create('wms_outbound', { outbound_no: 'WO-1' }, req(['MENU_WMS_VIEW:V'])),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(svc.create).not.toHaveBeenCalled();
+  });
+
+  it('still rejects WMS reads when the user has no WMS view or inout permission', async () => {
+    await expect(
+      controller.findAll('wms_outbound', { limit: '200', offset: '0' }, req(['MENU_FIN2_CASH_VIEW:V'])),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(svc.findAll).not.toHaveBeenCalled();
   });
 });
