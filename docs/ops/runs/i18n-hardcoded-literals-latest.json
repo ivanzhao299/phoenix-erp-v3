@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-10T00:34:50.767Z",
+  "generated_at": "2026-07-10T03:10:51.633Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3134,
-  "auto_translatable_findings": 3134,
-  "manual_componentization_findings": 0,
+  "total_findings": 3137,
+  "auto_translatable_findings": 3133,
+  "manual_componentization_findings": 4,
   "affected_files": 171,
   "top_files": [
     {
@@ -3628,42 +3628,63 @@
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 175,
+      "line": 177,
       "kind": "string-literal",
-      "text": "待业务验收",
-      "auto_translatable": true
+      "text": "历史完成结果（证据不足）",
+      "auto_translatable": false
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 176,
+      "line": 178,
+      "kind": "string-literal",
+      "text": "Agent 执行结束，等待发布验证",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 179,
+      "kind": "string-literal",
+      "text": "已部署，等待业务验收",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 180,
+      "kind": "string-literal",
+      "text": "业务验收通过",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "line": 181,
       "kind": "string-literal",
       "text": "已批准待执行",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 177,
+      "line": 182,
       "kind": "string-literal",
       "text": "Agent 执行中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 178,
+      "line": 183,
       "kind": "string-literal",
       "text": "HOLD 待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 179,
+      "line": 184,
       "kind": "string-literal",
       "text": "待批准入队",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
-      "line": 180,
+      "line": 185,
       "kind": "string-literal",
       "text": "待生成计划",
       "auto_translatable": true

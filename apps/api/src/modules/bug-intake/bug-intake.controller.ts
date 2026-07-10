@@ -53,6 +53,15 @@ export class BugIntakeController {
     return this.service.autoTriagePipeline(req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('pipeline/reconcile-false-completions')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async reconcileFalseCompletions(
+    @Body() body: { apply?: boolean },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.reconcileFalseCompletions(body.apply === true, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Get('reports')
   @RequireMenu('MENU_BUG_REPORT', 'V')
   async list(

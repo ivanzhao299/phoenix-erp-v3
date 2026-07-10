@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
@@ -57,6 +58,12 @@ function safeGit(args, cwd) {
   } catch (error) {
     return { ok: false, output: error.stderr?.toString() || error.message };
   }
+}
+
+function changedFilesBetween(cwd, beforeHead, afterHead) {
+  if (!beforeHead || !afterHead || beforeHead === afterHead) return [];
+  const diff = safeGit(['diff', '--name-only', `${beforeHead}..${afterHead}`], cwd);
+  return diff.ok ? diff.output.split('\n').map((item) => item.trim()).filter(Boolean) : [];
 }
 
 function readTasks() {
@@ -169,7 +176,10 @@ function shouldUseLocalValidation(task) {
 
 function runLocalA1Validation(task) {
   const commands = [
-    ['git', '-C', task.worktree, 'status', '--short'],
+    ['git', 'status', '--short'],
+    ['apps/api/node_modules/.bin/tsc', '--noEmit', '--pretty', 'false'],
+    ['apps/web/node_modules/.bin/tsc', '--noEmit', '--pretty', 'false'],
+    [NODE_BIN, 'scripts/ci/check-w5-closeout-gate.mjs'],
     [NODE_BIN, '--check', 'scripts/ops/run-agent-task.mjs'],
     [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
     [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
@@ -180,8 +190,16 @@ function runLocalA1Validation(task) {
     const result = spawnSync(command[0], command.slice(1), {
       cwd: process.cwd(),
       encoding: 'utf8',
-      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
-      timeout: 120000,
+      env: {
+        ...process.env,
+        PATH: process.env.PATH || DEFAULT_PATH,
+        // Bug fixes are expected to touch guarded code paths. These flags do
+        // not bypass validation; they make W5 evaluate the authorized diff
+        // instead of rejecting the validation task solely for code ownership.
+        ALLOW_FREEZE_TOUCH: 'true',
+        ALLOW_SECURITY_TOUCH: 'true',
+      },
+      timeout: 300000,
     });
     const status = result.status ?? 1;
     if (status !== 0) failed = true;
@@ -323,6 +341,7 @@ function writeWorkerLog(task, payload) {
 | Agent | ${task.agent} |
 | Dry run | ${payload.dryRun ? 'Yes' : 'No'} |
 | Exit code | ${payload.exitCode} |
+| Evidence gate | ${payload.evidence?.terminalStatus || 'NOT_EVALUATED'} |
 
 ## Command
 
@@ -340,6 +359,12 @@ ${payload.stdout || ''}
 
 \`\`\`text
 ${payload.stderr || ''}
+\`\`\`
+
+## Evidence Gate
+
+\`\`\`json
+${JSON.stringify(payload.evidence || null, null, 2)}
 \`\`\`
 `,
   );
@@ -389,6 +414,7 @@ function runOne(args) {
   task.claimed_by = args.agent;
   task.claimed_at = new Date().toISOString();
   writeTasks(tasks);
+  const beforeHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
   const result = useLocalValidation
     ? runLocalValidation(task)
     : spawnSync(command[0], command.slice(1), {
@@ -396,17 +422,31 @@ function runOne(args) {
       encoding: 'utf8',
       env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH },
     });
+  const afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    beforeHead,
+    afterHead,
+    changedFiles: changedFilesBetween(task.worktree, beforeHead, afterHead),
+  });
   const log = writeWorkerLog(task, {
     dryRun: false,
     exitCode: result.status ?? 1,
     command: useLocalValidation ? ['local-a1-validation', task.task_id] : command,
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
+    evidence,
   });
   task.result_file = path.relative(process.cwd(), log);
-  task.status = (result.status ?? 1) === 0 ? 'completed' : 'failed';
+  task.evidence_gate = evidence;
+  task.implementation_commit = evidence.commitHash || '';
+  task.changed_files = evidence.changedFiles;
+  task.status = evidence.terminalStatus;
   task.completed_at = new Date().toISOString();
-  if ((result.status ?? 1) === 0 && shouldRunBaselineAutopilot(task)) {
+  if (evidence.passed && evidence.role === 'implementation' && shouldRunBaselineAutopilot(task)) {
     const baseline = runBaselineAutopilot(task);
     if (baseline.stdout) process.stdout.write(baseline.stdout);
     if (baseline.stderr) process.stderr.write(baseline.stderr);
@@ -414,13 +454,18 @@ function runOne(args) {
     task.baseline_autopilot_command = baseline.command.join(' ');
     task.status = baseline.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
     if (baseline.status !== 0) task.reason = `baseline autopilot failed with ${baseline.status}`;
-  } else if ((result.status ?? 1) === 0) {
+  } else if (evidence.passed) {
     task.baseline_autopilot_exit_code = 0;
-    task.baseline_autopilot_skipped = 'read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts';
+    task.baseline_autopilot_skipped = evidence.role === 'not_applicable'
+      ? 'not applicable to this Agent ownership boundary'
+      : 'read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts';
+  } else {
+    task.reason = evidence.reason;
   }
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
+  if (task.status === 'HOLD') return 2;
   if (task.baseline_autopilot_exit_code && task.baseline_autopilot_exit_code !== 0) return task.baseline_autopilot_exit_code;
   return result.status ?? 1;
 }

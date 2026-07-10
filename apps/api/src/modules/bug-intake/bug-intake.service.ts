@@ -164,14 +164,16 @@ export class BugIntakeService {
                 repair_task_no, repair_task_status, route, updated_at, repair_task_payload
            FROM bug_reports
           WHERE status IN ('OPEN','TRIAGED','IN_PROGRESS')
-             OR COALESCE(repair_task_status, '') IN ('READY','ROUTED','AGENT_APPROVED','AGENT_RUNNING','HOLD','AGENT_COMPLETED')
+             OR COALESCE(repair_task_status, '') IN ('READY','ROUTED','AGENT_APPROVED','AGENT_RUNNING','AGENT_EXECUTION_FINISHED','FIX_READY_FOR_UAT','HOLD','AGENT_COMPLETED')
           ORDER BY
             CASE COALESCE(repair_task_status, '')
               WHEN 'HOLD' THEN 0
               WHEN 'AGENT_RUNNING' THEN 1
-              WHEN 'AGENT_APPROVED' THEN 2
-              WHEN 'READY' THEN 3
-              WHEN 'ROUTED' THEN 4
+              WHEN 'AGENT_EXECUTION_FINISHED' THEN 2
+              WHEN 'FIX_READY_FOR_UAT' THEN 3
+              WHEN 'AGENT_APPROVED' THEN 4
+              WHEN 'READY' THEN 5
+              WHEN 'ROUTED' THEN 6
               ELSE 5
             END,
             updated_at DESC
@@ -238,6 +240,56 @@ export class BugIntakeService {
         localRunner: 'LaunchAgent + scripts/ops/bug-intake-local-runner.mjs',
       },
     };
+  }
+
+  async reconcileFalseCompletions(
+    apply: boolean,
+    user: BugReportUser,
+    reqMeta: { ip?: string; userAgent?: string },
+  ) {
+    const reports = await this.repo.find({ where: { repairTaskStatus: 'AGENT_COMPLETED' } });
+    const candidates = reports.filter((report) => (
+      report.status !== 'CLOSED' ||
+      this.safeText(report.resolutionNote, 10_000).startsWith('Agent 修复链路已完成')
+    ) && !this.safeText(report.title, 500).startsWith('[SMOKE]'));
+    if (!apply) {
+      return {
+        decision: candidates.length ? 'RECONCILIATION_REQUIRED' : 'NO_FALSE_COMPLETIONS',
+        apply: false,
+        count: candidates.length,
+        reports: candidates.map((report) => ({
+          bugNo: report.bugNo,
+          title: report.title,
+          status: report.status,
+          repairTaskStatus: report.repairTaskStatus,
+        })),
+      };
+    }
+
+    const reconciled = [];
+    for (const report of candidates) {
+      const before = this.toWorkflowSnapshot(report);
+      const payload = this.payloadObject(report.repairTaskPayload);
+      report.status = 'IN_PROGRESS';
+      report.closedAt = null;
+      report.repairTaskStatus = 'HOLD';
+      report.resolutionNote = '历史 Agent 结果缺少严格实现、验证或发布证据，已自动转为 HOLD；需要按新证据门禁重新派发和验收。';
+      report.repairTaskPayload = {
+        ...payload,
+        evidenceReconciliation: {
+          previousStatus: before.status,
+          previousRepairTaskStatus: before.repairTaskStatus,
+          reason: 'legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke',
+          reconciledAt: new Date().toISOString(),
+          reconciledBy: this.safeText(user.username ?? user.name ?? 'bug-intake-reconciler', 128),
+        },
+      };
+      report.updatedBy = this.safeText(user.username ?? user.name ?? 'bug-intake-reconciler', 128);
+      const saved = await this.repo.save(report);
+      await this.writeAudit('RECONCILE_FALSE_COMPLETION', saved.bugNo, user, before, this.toWorkflowSnapshot(saved), reqMeta);
+      reconciled.push(saved.bugNo);
+    }
+    return { decision: 'FALSE_COMPLETIONS_RECONCILED', apply: true, count: reconciled.length, bugNos: reconciled };
   }
 
   async autoTriagePipeline(user: BugReportUser, reqMeta: { ip?: string; userAgent?: string }) {
@@ -431,9 +483,12 @@ export class BugIntakeService {
     if (!body.status || !(VALID_STATUSES as readonly string[]).includes(body.status)) {
       throw new BadRequestException(`无效状态: ${body.status ?? ''}`);
     }
+    this.assertVerifiedClosure(report, body.status, body.resolutionNote);
     const before = { status: report.status, resolutionNote: report.resolutionNote };
     report.status = body.status;
     report.resolutionNote = this.safeText(body.resolutionNote ?? report.resolutionNote ?? '', 10_000);
+    if (body.status === 'RESOLVED' && report.repairTaskNo) report.repairTaskStatus = 'BUSINESS_VERIFIED';
+    report.closedAt = ['RESOLVED', 'CLOSED', 'REJECTED'].includes(body.status) ? (report.closedAt ?? new Date()) : null;
     report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
     const saved = await this.repo.save(report);
     await this.writeAudit('UPDATE', saved.bugNo, user, before, {
@@ -455,6 +510,7 @@ export class BugIntakeService {
     if (!(VALID_PRIORITIES as readonly string[]).includes(nextPriority)) {
       throw new BadRequestException(`无效优先级: ${nextPriority}`);
     }
+    this.assertVerifiedClosure(report, nextStatus, body.resolutionNote);
 
     const before = this.toWorkflowSnapshot(report);
     report.status = nextStatus;
@@ -464,6 +520,7 @@ export class BugIntakeService {
     report.assigneeName = this.safeText(body.assigneeName ?? report.assigneeName ?? '', 128);
     report.resolutionNote = this.safeText(body.resolutionNote ?? report.resolutionNote ?? '', 10_000);
     report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
+    if (nextStatus === 'RESOLVED' && report.repairTaskNo) report.repairTaskStatus = 'BUSINESS_VERIFIED';
     if (['RESOLVED', 'CLOSED', 'REJECTED'].includes(nextStatus)) {
       report.closedAt = report.closedAt ?? new Date();
     } else {
@@ -719,13 +776,24 @@ export class BugIntakeService {
       agentResults,
       latestAgentResult: agentResult,
     };
-    if (['HOLD', 'FAIL'].includes(normalizedConclusion)) {
+    const isRunnerLifecycle = agentResult.agent === 'BugIntakeLocalRunner';
+    if (isRunnerLifecycle) {
+      const lifecycle = this.runnerLifecycleEvidence(agentResult);
+      report.repairTaskStatus = lifecycle.passed ? 'FIX_READY_FOR_UAT' : 'HOLD';
+      report.status = 'IN_PROGRESS';
+      report.resolutionNote = lifecycle.passed
+        ? '实现证据、CI/CD 与生产路由 smoke 已通过，等待管理员执行业务验收；验收通过后方可标记已解决。'
+        : `自动修复生命周期证据不完整，保持 HOLD：${lifecycle.reason}`;
+    } else if (['HOLD', 'FAIL'].includes(normalizedConclusion)) {
       report.repairTaskStatus = 'HOLD';
       report.status = 'IN_PROGRESS';
     } else if (this.agentPlanCompleted(payload.agentPlan, agentResults)) {
-      report.repairTaskStatus = 'AGENT_COMPLETED';
+      const evidence = this.agentPlanEvidence(payload.agentPlan, agentResults);
+      report.repairTaskStatus = evidence.passed ? 'AGENT_EXECUTION_FINISHED' : 'HOLD';
       report.status = 'IN_PROGRESS';
-      report.resolutionNote = report.resolutionNote || 'Agent 修复链路已完成，等待管理员/业务验收；验收通过后再关闭，验收不通过可重新派发。';
+      report.resolutionNote = evidence.passed
+        ? 'Agent 执行证据已齐全，等待 push、CI/CD 和生产路由 smoke；此状态不代表问题已解决。'
+        : `Agent 任务虽然结束，但修复证据不完整，保持 HOLD：${evidence.reason}`;
     } else {
       report.repairTaskStatus = 'AGENT_RUNNING';
       report.status = report.status === 'OPEN' ? 'TRIAGED' : 'IN_PROGRESS';
@@ -1434,13 +1502,28 @@ export class BugIntakeService {
     return String(value ?? '').trim().slice(0, maxLength);
   }
 
+  private assertVerifiedClosure(report: BugReportEntity, nextStatus: string, resolutionNote: unknown) {
+    if (!report.repairTaskNo) return;
+    if (nextStatus === 'RESOLVED') {
+      if (report.repairTaskStatus !== 'FIX_READY_FOR_UAT') {
+        throw new BadRequestException('问题尚未通过实现证据、CI/CD 和生产 smoke，不能标记已解决');
+      }
+      if (this.safeText(resolutionNote ?? report.resolutionNote, 10_000).length < 5) {
+        throw new BadRequestException('业务验收通过后必须填写验收结论');
+      }
+    }
+    if (nextStatus === 'CLOSED' && !(report.status === 'RESOLVED' && report.repairTaskStatus === 'BUSINESS_VERIFIED')) {
+      throw new BadRequestException('问题必须先完成业务验收并标记已解决，之后才能关闭');
+    }
+  }
+
   private safeCode(value: unknown) {
     return String(value ?? '').trim().replace(/[^\w:.-]/g, '_').slice(0, 128);
   }
 
   private normalizeAgentConclusion(value: unknown) {
     const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '_');
-    if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS', 'HOLD', 'FAIL'].includes(normalized)) {
+    if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS', 'NOT_APPLICABLE', 'HOLD', 'FAIL'].includes(normalized)) {
       return normalized;
     }
     return 'HOLD';
@@ -1453,22 +1536,39 @@ export class BugIntakeService {
     const completedAgents = new Set<string>();
     for (const item of agentResults) {
       const conclusion = String(item.conclusion ?? '');
-      if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS'].includes(conclusion)) {
+      if (['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS', 'NOT_APPLICABLE'].includes(conclusion)) {
         completedAgents.add(String(item.agent ?? ''));
       }
 
-      const validationResults = item.validationResults && typeof item.validationResults === 'object'
-        ? item.validationResults as Record<string, unknown>
-        : {};
-      const workerRuns = Array.isArray(validationResults.workerRuns) ? validationResults.workerRuns : [];
-      for (const run of workerRuns) {
-        const row = run && typeof run === 'object' ? run as Record<string, unknown> : {};
-        const finalStatus = String(row.finalStatus ?? row.final_status ?? '');
-        if (['completed', 'COMPLETED_MERGED'].includes(finalStatus)) {
-          completedAgents.add(String(row.agent ?? ''));
-        }
-      }
     }
     return selectedAgents.every((agent) => completedAgents.has(agent));
+  }
+
+  private agentPlanEvidence(agentPlan: unknown, agentResults: Record<string, unknown>[]) {
+    const plan = this.payloadObject(agentPlan);
+    const selectedAgents = Array.isArray(plan.selected_agents) ? plan.selected_agents.map(String) : [];
+    const selectedResults = selectedAgents.map((agent) => [...agentResults].reverse().find((item) => String(item.agent ?? '') === agent));
+    if (selectedResults.some((item) => !item)) return { passed: false, reason: 'selected Agent result is missing' };
+    const implementation = selectedResults.filter((item) => {
+      const validation = this.payloadObject(item?.validationResults);
+      const gate = this.payloadObject(validation.evidenceGate);
+      return gate.passed === true && gate.role === 'implementation' &&
+        Array.isArray(item?.changedFiles) && item.changedFiles.length > 0 && Boolean(item?.commitHash);
+    });
+    if (implementation.length === 0) return { passed: false, reason: 'no Agent supplied verified business implementation evidence' };
+    if (selectedAgents.includes('A1-CI-Runtime-Gate')) {
+      const a1 = selectedResults.find((item) => String(item?.agent ?? '') === 'A1-CI-Runtime-Gate');
+      const a1Gate = this.payloadObject(this.payloadObject(a1?.validationResults).evidenceGate);
+      if (a1Gate.passed !== true || a1Gate.role !== 'validation') return { passed: false, reason: 'A1 validation evidence is missing' };
+    }
+    return { passed: true, reason: '' };
+  }
+
+  private runnerLifecycleEvidence(agentResult: Record<string, unknown>) {
+    const validation = this.payloadObject(agentResult.validationResults);
+    const required = ['releaseEvidence', 'push', 'ci', 'productionSmoke'];
+    const failed = required.filter((key) => String(validation[key] ?? '') !== 'PASS');
+    if (failed.length > 0) return { passed: false, reason: `missing PASS: ${failed.join(', ')}` };
+    return { passed: true, reason: '' };
   }
 }

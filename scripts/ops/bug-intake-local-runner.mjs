@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const MAIN_ROOT = process.cwd();
@@ -11,8 +12,8 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const LEASE_STATUSES = new Set(['running', 'claimed']);
-const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'completed', 'failed', 'HOLD', 'hold']);
-const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'completed']);
+const FINISHED_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed', 'failed', 'HOLD', 'hold']);
+const SUCCESS_STATUSES = new Set(['COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE']);
 const REMOTE_RUNNING_REPAIR_STATUSES = new Set(['AGENT_RUNNING', 'AGENT_APPROVED']);
 const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
 const NODE_BIN = process.execPath;
@@ -64,7 +65,7 @@ function parseArgs(argv) {
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--production-smoke-after-ci', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       if (arg === '--dry-run') explicitDryRun = true;
@@ -532,7 +533,7 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
   const command = baselineAutopilotCommand(task, args);
   const result = run(command, { cwd: args.mainRoot, timeoutMs: args.childTimeoutMs });
   const reportFile = detachedRecoveryReportFile(task);
-  const conclusion = result.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
+  const conclusion = 'HOLD';
   const text = `# Detached Worker Recovery
 
 | Field | Value |
@@ -566,24 +567,17 @@ ${String(result.stderr || '').slice(-3000)}
 `;
   writeMd(reportFile, text);
 
-  const patch = result.status === 0
-    ? {
-        status: 'COMPLETED_MERGED',
-        completed_at: new Date().toISOString(),
-        result_file: reportFile,
-        baseline_autopilot_exit_code: 0,
-        detached_worker_recovered_at: new Date().toISOString(),
-        detached_worker_recovery: 'baseline autopilot completed after parent worker exited before queue writeback',
-      }
-    : {
-        status: 'HOLD',
-        completed_at: new Date().toISOString(),
-        result_file: reportFile,
-        baseline_autopilot_exit_code: result.status,
-        reason: `detached worker recovery failed; baseline autopilot exit=${result.status}; worker exit=${worker?.status ?? 'unknown'}`,
-      };
+  const patch = {
+    status: 'HOLD',
+    completed_at: new Date().toISOString(),
+    result_file: reportFile,
+    baseline_autopilot_exit_code: result.status,
+    reason: result.status === 0
+      ? 'detached worker baseline completed, but implementation evidence was not written back; manual evidence reconciliation required'
+      : `detached worker recovery failed; baseline autopilot exit=${result.status}; worker exit=${worker?.status ?? 'unknown'}`,
+  };
   return {
-    recovered: result.status === 0,
+    recovered: false,
     result,
     reportFile,
     task: patchTask(task.task_id, patch),
@@ -715,17 +709,34 @@ function currentHead(cwd) {
   return sha.ok ? sha.output : '';
 }
 
-function canPush(args, workerRuns) {
-  if (args.dryRun || !args.pushAfterSuccess) return false;
-  if (!workerRuns.length) return false;
-  return workerRuns.some((item) => item.finalTask && FINISHED_STATUSES.has(item.finalTask.status) && SUCCESS_STATUSES.has(item.finalTask.status));
+function releaseEvidenceForWorkerRuns(args, workerRuns) {
+  const reports = readLatestInboxReports(args);
+  const reportByBug = new Map(reports.map((report) => [report.bugNo, report]));
+  const tasks = readJson(TASKS_FILE, []);
+  const bugNos = [...new Set(workerRuns.map((item) => item.task.source_bug_no).filter(Boolean))];
+  return bugNos.map((bugNo) => {
+    const report = reportByBug.get(bugNo) || {};
+    const localTasks = tasks.filter((task) => task.source === 'bug-intake' && task.source_bug_no === bugNo);
+    const selectedAgents = selectedAgentsForReport(report, localTasks);
+    return {
+      bugNo,
+      route: report.route || '',
+      evidence: evaluateBugReleaseEvidence(localTasks, selectedAgents),
+    };
+  });
 }
 
-function runPushIfReady(args, workerRuns) {
-  if (!canPush(args, workerRuns)) {
+function canPush(args, workerRuns, releaseEvidence) {
+  if (args.dryRun || !args.pushAfterSuccess) return false;
+  if (!workerRuns.length) return false;
+  return releaseEvidence.some((item) => item.evidence.passed);
+}
+
+function runPushIfReady(args, workerRuns, releaseEvidence) {
+  if (!canPush(args, workerRuns, releaseEvidence)) {
     return {
       skipped: true,
-      reason: args.pushAfterSuccess ? 'no successful completed worker run in this cycle' : 'push-after-success disabled',
+      reason: args.pushAfterSuccess ? 'release evidence is incomplete; refusing push' : 'push-after-success disabled',
     };
   }
   const branch = safeGit(['branch', '--show-current'], args.mainRoot);
@@ -733,6 +744,25 @@ function runPushIfReady(args, workerRuns) {
   if (!branch.ok) return { skipped: true, reason: `cannot read branch: ${branch.output}` };
   if (!status.ok || status.output !== '') return { skipped: true, reason: `main root dirty: ${status.output}` };
   return run(pushCommand(args), { cwd: args.mainRoot });
+}
+
+function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
+  if (!args.productionSmokeAfterCi) return { skipped: true, reason: 'production-smoke-after-ci disabled' };
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  if (push?.skipped || push?.status !== 0) return { skipped: true, reason: 'push did not pass' };
+  if (ci?.skipped || ci?.ok !== true) return { skipped: true, reason: 'CI/CD did not pass' };
+  const routes = [...new Set(releaseEvidence.filter((item) => item.evidence.passed).map((item) => item.route).filter(Boolean))];
+  if (routes.length === 0) return { skipped: true, reason: 'no production route available for release evidence' };
+  return run([
+    NODE_BIN,
+    'scripts/ops/bug-production-route-smoke.mjs',
+    '--base-url',
+    args.apiBase,
+    '--routes',
+    routes.join(','),
+    '--token-env',
+    args.childTokenEnv,
+  ], { env: childEnv, tokenEnv: args.childTokenEnv, childTokenEnv: args.childTokenEnv, timeoutMs: 120000 });
 }
 
 async function waitForGithubActionsIfRequested(args, push) {
@@ -803,33 +833,34 @@ async function postAgentResult(args, childEnv, bugNo, payload) {
 
 async function writebackRunnerLifecycle(args, childEnv, summary) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
-  const bugNos = [...new Set(summary.workerRuns.map((item) => item.task.source_bug_no).filter(Boolean))];
   const pushOk = !summary.push?.skipped && summary.push?.status === 0;
-  const ciOk = summary.ci?.skipped || summary.ci?.ok === true;
-  const conclusion = pushOk && ciOk ? 'PASS WITH CONDITIONS' : 'HOLD';
-  const payload = {
-    taskId: `LOCAL-RUNNER-${summary.generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
-    agent: 'BugIntakeLocalRunner',
-    conclusion,
-    resultFile: `${args.outputDir}/latest-summary.md`,
-    commitHash: summary.headSha || '',
-    changedFiles: [],
-    validationResults: {
-      sync: summary.sync.status === 0 ? 'PASS' : 'FAIL',
-      workerRuns: summary.workerRuns.map((item) => ({
-        taskId: item.task.task_id,
-        agent: item.task.agent,
-        finalStatus: item.finalTask?.status || 'unknown',
-        writebackStatus: item.writeback?.status ?? 'skipped',
-      })),
-      push: summary.push?.skipped ? `SKIPPED: ${summary.push.reason}` : (summary.push?.status === 0 ? 'PASS' : 'FAIL'),
-      ci: summary.ci?.skipped ? `SKIPPED: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD'),
-    },
-    summary: summaryMarkdown(summary).slice(0, 3900),
-    nextAction: conclusion === 'HOLD' ? 'Review runner lifecycle HOLD reason before closing bug.' : 'Business owner validates the fix in production.',
-  };
+  const ciOk = !summary.ci?.skipped && summary.ci?.ok === true;
+  const smokeOk = !summary.productionSmoke?.skipped && summary.productionSmoke?.status === 0;
   const results = [];
-  for (const bugNo of bugNos) {
+  for (const candidate of summary.releaseEvidence || []) {
+    const releaseOk = candidate.evidence?.passed === true;
+    const conclusion = releaseOk && pushOk && ciOk && smokeOk ? 'PASS_WITH_CONDITIONS' : 'HOLD';
+    const payload = {
+      taskId: `LOCAL-RUNNER-${candidate.bugNo}-${summary.generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+      agent: 'BugIntakeLocalRunner',
+      conclusion,
+      resultFile: `${args.outputDir}/latest-summary.md`,
+      commitHash: summary.headSha || '',
+      changedFiles: candidate.evidence?.changedFiles || [],
+      validationResults: {
+        sync: summary.sync.status === 0 ? 'PASS' : 'FAIL',
+        releaseEvidence: releaseOk ? 'PASS' : 'HOLD',
+        releaseEvidenceDetail: candidate.evidence,
+        push: pushOk ? 'PASS' : `HOLD: ${summary.push?.reason || summary.push?.status || 'not completed'}`,
+        ci: ciOk ? 'PASS' : `HOLD: ${summary.ci?.reason || summary.ci?.conclusion || 'not completed'}`,
+        productionSmoke: smokeOk ? 'PASS' : `HOLD: ${summary.productionSmoke?.reason || summary.productionSmoke?.status || 'not completed'}`,
+      },
+      summary: summaryMarkdown(summary).slice(0, 3900),
+      nextAction: conclusion === 'HOLD'
+        ? 'Keep the report in HOLD until implementation, CI/CD, and production route evidence all pass.'
+        : 'Technical release evidence passed; administrator performs business acceptance before resolving.',
+    };
+    const bugNo = candidate.bugNo;
     results.push({ bugNo, ...(await postAgentResult(args, childEnv, bugNo, payload)) });
   }
   return { skipped: false, results };
@@ -858,9 +889,10 @@ function selectedAgentsForReport(report, localTasks) {
 }
 
 function bugTaskConclusion(task) {
-  if (SUCCESS_STATUSES.has(task.status)) return 'PASS_WITH_CONDITIONS';
+  if (task.status === 'SKIPPED_NOT_APPLICABLE' && task.evidence_gate?.passed === true) return 'NOT_APPLICABLE';
+  if (SUCCESS_STATUSES.has(task.status) && task.evidence_gate?.passed === true) return 'PASS_WITH_CONDITIONS';
   if (['HOLD', 'hold', 'failed'].includes(task.status)) return 'HOLD';
-  return '';
+  return 'HOLD';
 }
 
 function buildTaskWritebackPayload(task, summary) {
@@ -870,13 +902,14 @@ function buildTaskWritebackPayload(task, summary) {
     agent: task.agent,
     conclusion,
     resultFile: task.result_file || `${summary?.outputDir || RUN_DIR}/latest-summary.md`,
-    commitHash: summary?.headSha || currentHead(MAIN_ROOT) || '',
-    changedFiles: [],
+    commitHash: task.evidence_gate?.commitHash || task.implementation_commit || '',
+    changedFiles: task.evidence_gate?.changedFiles || task.changed_files || [],
     validationResults: {
       localTaskStatus: task.status,
       completedAt: task.completed_at || null,
       baselineAutopilotExitCode: task.baseline_autopilot_exit_code ?? null,
       aggregateBackfill: true,
+      evidenceGate: task.evidence_gate || null,
     },
     summary: [
       `Local bug-intake task ${task.task_id} reached ${task.status}.`,
@@ -885,7 +918,9 @@ function buildTaskWritebackPayload(task, summary) {
     ].filter(Boolean).join('\n'),
     nextAction: conclusion === 'HOLD'
       ? 'Keep bug report in HOLD until the failed local Agent task is reviewed.'
-      : 'All selected local Agent tasks are complete; business owner validates the fix in production.',
+      : conclusion === 'NOT_APPLICABLE'
+        ? 'This Agent ownership boundary is not applicable; another implementation Agent must provide the fix.'
+        : 'Execution evidence recorded; release and production smoke must pass before business validation.',
   };
 }
 
@@ -966,6 +1001,8 @@ function summaryMarkdown(summary) {
 | Push after success | ${summary.pushAfterSuccess ? 'Enabled' : 'Disabled'} |
 | Push result | ${summary.push?.skipped ? `Skipped: ${summary.push.reason}` : `Exit ${summary.push?.status}`} |
 | CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
+| Production route smoke | ${summary.productionSmoke?.skipped ? `Skipped: ${summary.productionSmoke.reason}` : (summary.productionSmoke?.status === 0 ? 'PASS' : 'HOLD')} |
+| Release evidence | ${(summary.releaseEvidence || []).map((item) => `${item.bugNo}:${item.evidence?.decision || 'HOLD'}`).join(', ') || 'None'} |
 | Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
 | Result backfill | ${summary.resultBackfill?.skipped ? `Skipped: ${summary.resultBackfill.reason}` : `${summary.resultBackfill?.results?.length || 0} report(s) checked`} |
 | Failure classifications | ${summary.failureClassification?.total ?? 0} (${summary.failureClassification?.highestSeverity ?? 'INFO'}) |
@@ -1209,8 +1246,10 @@ async function runCycle(args, cycle) {
     workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
   }
 
-  const push = runPushIfReady(args, workerRuns);
+  const releaseEvidence = releaseEvidenceForWorkerRuns(args, workerRuns);
+  const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
+  const productionSmoke = runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence);
   const summary = {
     decision: args.dryRun ? 'BUG_INTAKE_LOCAL_RUNNER_DRY_RUN' : 'BUG_INTAKE_LOCAL_RUNNER_EXECUTED',
     generatedAt: new Date().toISOString(),
@@ -1231,7 +1270,12 @@ async function runCycle(args, cycle) {
     workerRuns: workerRuns.map((item) => ({
       task: { task_id: item.task.task_id, agent: item.task.agent, source_bug_no: item.task.source_bug_no },
       worker: { status: item.worker.status, stdout: item.worker.stdout, stderr: item.worker.stderr },
-      finalTask: item.finalTask ? { status: item.finalTask.status, result_file: item.finalTask.result_file, baseline_autopilot_exit_code: item.finalTask.baseline_autopilot_exit_code } : null,
+      finalTask: item.finalTask ? {
+        status: item.finalTask.status,
+        result_file: item.finalTask.result_file,
+        baseline_autopilot_exit_code: item.finalTask.baseline_autopilot_exit_code,
+        evidence_gate: item.finalTask.evidence_gate || null,
+      } : null,
       writeback: item.writeback ? { status: item.writeback.status, stdout: item.writeback.stdout, stderr: item.writeback.stderr } : null,
       retryRuns: item.retryRuns || [],
       detachedRecovery: item.worker.detachedRecovery ? {
@@ -1245,6 +1289,8 @@ async function runCycle(args, cycle) {
     })),
     push,
     ci,
+    productionSmoke,
+    releaseEvidence,
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
     outputDir: args.outputDir,
@@ -1253,14 +1299,14 @@ async function runCycle(args, cycle) {
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
   try {
-    summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
-  } catch (error) {
-    summary.lifecycleWriteback = { skipped: false, ok: false, error: error.message };
-  }
-  try {
     summary.resultBackfill = await backfillCompletedBugReports(args, childEnv, summary);
   } catch (error) {
     summary.resultBackfill = { skipped: false, ok: false, error: error.message };
+  }
+  try {
+    summary.lifecycleWriteback = await writebackRunnerLifecycle(args, childEnv, summary);
+  } catch (error) {
+    summary.lifecycleWriteback = { skipped: false, ok: false, error: error.message };
   }
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));

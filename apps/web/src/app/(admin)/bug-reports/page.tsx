@@ -167,18 +167,30 @@ function badgeColor(value: string) {
   if (value === "CRITICAL" || value === "REJECTED") return { bg: "var(--status-danger-bg-faint)", color: "var(--status-danger)" };
   if (value === "HIGH" || value === "OPEN") return { bg: "var(--status-warning-bg-faint)", color: "var(--status-warning)" };
   if (value === "RESOLVED" || value === "CLOSED") return { bg: "var(--status-success-bg-faint)", color: "var(--status-success)" };
-  if (value === "AGENT_COMPLETED") return { bg: "var(--status-warning-bg-faint)", color: "var(--status-warning)" };
+  if (value === "HOLD" || value === "AGENT_COMPLETED") return { bg: "var(--status-danger-bg-faint)", color: "var(--status-danger)" };
+  if (value === "FIX_READY_FOR_UAT" || value === "AGENT_EXECUTION_FINISHED") return { bg: "var(--status-warning-bg-faint)", color: "var(--status-warning)" };
+  if (value === "BUSINESS_VERIFIED") return { bg: "var(--status-success-bg-faint)", color: "var(--status-success)" };
   return { bg: "var(--bg-muted)", color: "var(--text-secondary)" };
 }
 
 function repairStatusLabel(value: string) {
-  if (value === "AGENT_COMPLETED") return "待业务验收";
+  if (value === "AGENT_COMPLETED") return "历史完成结果（证据不足）";
+  if (value === "AGENT_EXECUTION_FINISHED") return "Agent 执行结束，等待发布验证";
+  if (value === "FIX_READY_FOR_UAT") return "已部署，等待业务验收";
+  if (value === "BUSINESS_VERIFIED") return "业务验收通过";
   if (value === "AGENT_APPROVED") return "已批准待执行";
   if (value === "AGENT_RUNNING") return "Agent 执行中";
   if (value === "HOLD") return "HOLD 待处理";
   if (value === "ROUTED") return "待批准入队";
   if (value === "READY") return "待生成计划";
   return value || "—";
+}
+
+function workflowStatusDisabled(detail: BugReportDetail, status: string) {
+  if (!detail.repairTaskNo) return false;
+  if (status === "RESOLVED") return detail.repairTaskStatus !== "FIX_READY_FOR_UAT";
+  if (status === "CLOSED") return !(detail.status === "RESOLVED" && detail.repairTaskStatus === "BUSINESS_VERIFIED");
+  return false;
 }
 
 function JsonBlock({ value }: { value: unknown }) {
@@ -247,7 +259,7 @@ function BugRepairTimeline({ detail, t }: { detail: BugReportDetail; t: (key: st
     },
     {
       label: t("system.bugIntake.timelineWorkerResult", "Worker 结果"),
-      status: workerResults.length ? (workerResults.some(r => /HOLD|FAIL/.test(String(r.conclusion || ""))) ? "HOLD" : "COMPLETED") : "PENDING",
+      status: workerResults.length ? (workerResults.some(r => /HOLD|FAIL/.test(String(r.conclusion || ""))) ? "HOLD" : "EVIDENCE_RECORDED") : "PENDING",
       meta: workerResults.length ? t("system.bugIntake.agentResultCount", "{count} 条 Agent 结果").replace("{count}", String(workerResults.length)) : t("system.bugIntake.waitingLocalWorker", "等待本地 worker"),
       detail: workerResults.map(r => `${r.agent || "Agent"}: ${r.conclusion || "—"}`).join("；") || t("system.bugIntake.noAgentResult", "暂无"),
     },
@@ -869,7 +881,11 @@ export default function BugReportsPage() {
                       <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.processingStatus", "处理状态")}</span>
                       <select value={triage.status} onChange={e => setTriage(prev => ({ ...prev, status: e.target.value }))} disabled={saving}
                         style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-                        {STATUSES.map(item => <option key={item} value={item}>{item}</option>)}
+                        {STATUSES.map(item => (
+                          <option key={item} value={item} disabled={workflowStatusDisabled(detail, item)}>
+                            {item}{workflowStatusDisabled(detail, item) ? ` · ${t("system.bugIntake.evidenceRequired", "需先通过证据门禁")}` : ""}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <label style={{ display: "grid", gap: 6 }}>
@@ -916,10 +932,12 @@ export default function BugReportsPage() {
                     <span style={{ color: "var(--text-secondary)" }}>{t("common.status", "状态")}</span><strong>{repairStatusLabel(detail.repairTaskStatus)}</strong>
                     <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.redispatchCount", "重派")}</span><strong>{String((detail.repairTaskPayload?.redispatchCount as number | undefined) ?? 0)}</strong>
                   </div>
-                  {detail.repairTaskStatus === "AGENT_COMPLETED" && (
+                  {["AGENT_COMPLETED", "AGENT_EXECUTION_FINISHED", "FIX_READY_FOR_UAT"].includes(detail.repairTaskStatus) && (
                     <div style={{ marginBottom: 12, padding: 12, border: "1px solid var(--status-warning)", borderRadius: "var(--radius-md)", background: "var(--status-warning-bg-faint)", color: "var(--text-primary)", fontSize: 13, lineHeight: 1.6 }}>
-                      <strong>{t("system.bugIntake.agentCompletedVerifyTitle", "Agent 已完成，等待业务验收。")}</strong>
-                      <div>{t("system.bugIntake.agentCompletedVerifyText", "这不代表问题已真正解决。若管理员或业务反馈仍有问题，可直接点击“重新派发原任务”或“重算计划并重新派发”。验收通过后再关闭问题。")}</div>
+                      <strong>{detail.repairTaskStatus === "FIX_READY_FOR_UAT"
+                        ? t("system.bugIntake.fixReadyForUatTitle", "技术发布验证已通过，等待业务验收。")
+                        : t("system.bugIntake.agentCompletedVerifyTitle", "Agent 执行结束，但问题尚未证明已解决。")}</strong>
+                      <div>{t("system.bugIntake.agentCompletedVerifyText", "只有实现证据、CI/CD 和生产 smoke 全部通过后才能进入业务验收；业务验收通过后才能标记已解决，再关闭问题。证据不足或问题仍存在时请重新派发。")}</div>
                     </div>
                   )}
                   <textarea value={acceptanceCriteria} onChange={e => setAcceptanceCriteria(e.target.value)}

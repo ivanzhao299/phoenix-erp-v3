@@ -71,7 +71,9 @@ exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs \\
   --apply-queue \\
   --execute-approved \\
   --approval-token "APPROVE_AGENT_EXECUTION" \\
-  --push-after-success
+  --push-after-success \\
+  --wait-ci-after-push \\
+  --production-smoke-after-ci
 `;
 }
 
