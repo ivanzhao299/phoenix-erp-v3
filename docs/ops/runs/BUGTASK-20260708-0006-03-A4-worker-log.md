@@ -22,20 +22,30 @@ Branch: w5-a4-frontend-uat-smoke
 Prompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0006-03-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0006-03-A4-worker-assembled-prompt.md
-Assembled prompt chars: 46288
+Assembled prompt chars: 47685
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-35-42-687Z-A4-Frontend-UAT-Smoke.md
-HOLD.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T01-08-26-967Z-A4-Frontend-UAT-Smoke.md
+Implemented and committed the A4 frontend fix.
 
-A4 前端诊断完成并已提交本地 commit，不推送、不部署、不写库。
+Commit: `ff064230 fix: restore sales pricing lifecycle actions`
 
-报告：[BUG-20260708-0006-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/runs/BUG-20260708-0006-a4-frontend-uat-smoke.md)  
-Commit：`70433bc1 docs(ops): record BUG-20260708-0006 frontend hold`
+Changed:
+- [pricing/page.tsx](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/apps/web/src/app/(admin)/sales2/pricing/page.tsx)
+- [A4 report](/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke/docs/ops/BUG-20260708-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md)
 
-关键结论：验收要求“恢复第二条已取消价格册、删除第一条草稿价格册”需要数据写入或后端受控接口确认，超出 A4 前端边界。当前前端 `/sales2/pricing` 只有新建/编辑/提交审批/激活/失效/取消入口，没有恢复或删除草稿价格册入口。
+What changed:
+- Added permission-aware “恢复” for `CANCELLED` price books using `MENU_SALES2_PRICE:A`.
+- Added permission-aware “删除” for `DRAFT` price books using `MENU_SALES2_PRICE:D`.
+- Added danger confirmation for delete.
+- Gated “新建价格册” behind `MENU_SALES2_PRICE:C`.
 
-验证已跑：`cd apps/web && ./node_modules/.bin/tsc --noEmit`，0 errors。工作区最终 clean。
+Validation:
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed.
+- `git diff --check` passed.
+- Local browser smoke was blocked by sandbox port binding: `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3000`.
+
+No push, no deploy, no DB write, no migration, no backend changes. Result is `PASS WITH CONDITIONS`: frontend path is implemented, but actual deletion/restoration of `PB-20260708-00001` and `PB-MENGSE-2026-STD` still requires approved runtime/data operation.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -52,7 +62,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f40dc-976e-7a31-afcf-58e5610781aa
+session id: 019f498f-1a4f-7df3-8dbf-23321c6c5128
 --------
 user
 # Base Agent Prompt
@@ -1416,7 +1426,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
+  "priority": "P1",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -1443,7 +1453,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification API_5XX"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -1467,6 +1478,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification API_5XX",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -1480,34 +1492,75 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "API_5XX",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.88,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-08T07:24:18.940Z",
+  "createdAt": "2026-07-10T01:02:24.334Z",
   "createdBy": "admin",
   "moduleCode": "____",
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
-  "agentPlanGeneratedAt": "2026-07-08T07:24:20.277Z",
-  "agentPlanGeneratedBy": "admin",
+  "latestAgentResult": {},
+  "redispatchHistory": [
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "管理员要求重算 Agent 计划后重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T01:02:33.234Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "ROUTED"
+    }
+  ],
+  "acceptanceCriteria": "将编号为“PB-20260708-00001”的价格册删除，将编号为“PB-MENGSE-2026-STD”保留并恢复为正常在用状态",
+  "agentPlanGeneratedAt": "2026-07-10T01:02:33.234Z",
+  "agentPlanGeneratedBy": "redispatch:admin",
+  "failureClassification": {
+    "category": "API_5XX",
+    "evidence": [
+      "API 5xx/异常信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T07:24:22.163Z",
+    "approvedAt": "2026-07-10T01:02:33.234Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1515,7 +1568,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T01:02:33.234Z",
+  "previousAgentResultsBeforeRedispatch": []
 }
 ```
 
@@ -1538,174 +1593,163 @@ Assigned agent: A4-Frontend-UAT-Smoke
 9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.
 
 codex
-我先做要求的 dry-run/诊断前置检查：确认目录、分支、工作区和最近提交，再决定是否能继续。
+先做任务要求的入口检查，只看当前 worktree、分支、状态和最近提交；如果发现不符合合同的状态，我会停在诊断报告。
 exec
-/bin/zsh -lc pwd in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc 'pwd && git branch --show-current && git status --short && git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
 /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
-
-exec
-/bin/zsh -lc 'git branch --show-current' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
 w5-a4-frontend-uat-smoke
+3da4d2c5 (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
+5d72f4fa feat(api): record A3-Backend-Critical-Path result
+1663379c docs(ops): record baseline lifecycle report
+aeda4009 docs(ops): record baseline lifecycle report
+bf34bcf4 docs(ops): add bug 20260709 0004 a4 report
+68b4b323 docs(ops): record baseline lifecycle report
+5c0a4720 docs(ops): add bug 20260709 0004 backend report
+8f6d9249 (w5-a7-final-qa-gate) docs(ops): record baseline lifecycle report
 
-exec
-/bin/zsh -lc 'git log --oneline --decorate -8' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-9ceb2994 (HEAD -> w5-a4-frontend-uat-smoke, w5-a3-backend-critical-path, main) docs(ops): record baseline lifecycle report
-c2912d7e docs: record BUG-20260708-0006 backend hold
-6664fc7d docs(ops): record baseline lifecycle report
-0d76d956 docs(ops): record baseline lifecycle report
-8d0f1995 fix: repair sales customer status update
-271aa7cf (w5-a7-final-qa-gate) docs(ops): record baseline lifecycle report
-fba60481 docs(ops): record BUG-20260708-0004 A7 final QA gate
-858ca13d docs(ops): record BUG-20260707-0006 A7 final QA gate
-
-exec
-/bin/zsh -lc 'git status --short' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
 codex
-前置检查通过：目录和分支匹配，工作区干净。现在只做本地前端诊断，重点看 `/sales2/pricing` 的页面动作是否有“恢复/删除”能力，以及是否会触发后端或数据操作边界。
+入口检查通过：目录和分支匹配，`git status --short` 没有输出，当前 worktree 干净。现在做 dry-run 诊断，先定位 `/sales2/pricing` 的前端实现和报告目录，不碰后端、不写数据库。
 exec
-/bin/zsh -lc 'find docs/ops -maxdepth 2 -type f | sort | tail -40' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+/bin/zsh -lc "find apps/web/app -path '*pricing*' -o -path '*sales2*'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
+ exited 1 in 0ms:
+find: apps/web/app: No such file or directory
+
+exec
+/bin/zsh -lc "rg --files docs/ops apps/web | rg 'sales2|pricing|ops|Sales|Pricing'" in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
  succeeded in 0ms:
-docs/ops/runs/router-v1-case3-route-plan.json
-docs/ops/runs/router-v1-case3-route-plan.md
-docs/ops/runs/router-v1-case4-route-plan.json
-docs/ops/runs/router-v1-case4-route-plan.md
-docs/ops/runs/router-v1-case5-route-plan.json
-docs/ops/runs/router-v1-case5-route-plan.md
-docs/ops/runs/router-v1-case6-route-plan.json
-docs/ops/runs/router-v1-case6-route-plan.md
-docs/ops/runs/router-v1-revalidate-case1-route-plan.json
-docs/ops/runs/router-v1-revalidate-case1-route-plan.md
-docs/ops/runs/router-v1-revalidate-case2-route-plan.json
-docs/ops/runs/router-v1-revalidate-case2-route-plan.md
-docs/ops/runs/router-v1-revalidate-case3-route-plan.json
-docs/ops/runs/router-v1-revalidate-case3-route-plan.md
-docs/ops/runs/router-v1-revalidate-case4-route-plan.json
-docs/ops/runs/router-v1-revalidate-case4-route-plan.md
-docs/ops/runs/router-v1-revalidate-case5-route-plan.json
+docs/ops/RBAC_SETTINGS_AND_MENU_GATE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_REMEDIATION_HIGH_THROUGHPUT_BATCH_PLAN.md
+docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R2_UPLOADS_EXPOSURE_HARDENING_REPORT.md
+docs/ops/PRODUCTION_READINESS_P1_002_ACTION_BIT_CLEANUP_PLAN.md
+docs/ops/BUG-20260707-0004-a4-frontend-uat-report.md
+docs/ops/AI_DELIVERY_FACTORY_SETUP_REVIEW.md
+docs/ops/bug-20260708-0006-a3-backend-critical-path.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_PLAN.md
+docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md
+docs/ops/A4_STORE_PAYMENT_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT_REPORT.md
+docs/ops/AI_DELIVERY_AGENT_PLATFORM_V2_REVIEW.md
+docs/ops/REMAINING_AUDIT_ISSUES_CONSOLIDATED_PLAN_20260627.md
+docs/ops/MASTER_DATA_HOME_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3_A2-Security-Regression-Gate_REPORT.md
+docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md
+docs/ops/AGENT_INBOX_SHORT_COMMAND_MODE_V1_REPORT.md
+docs/ops/PROCUREMENT_P0_FLOW_REMEDIATION_20260626.md
+docs/ops/AGENT_ROUTER_CONSTRAINT_PARSER_FIX_REVIEW.md
+docs/ops/AGENT_ROUTER_STORE_PAYMENT_CLOSED_LOOP_FIX_REVIEW.md
+docs/ops/SETTINGS_HUB_SECURITY_PAGE_PERMISSION_REMEDIATION_20260627.md
+docs/ops/AP_INVOICES_DATASCOPE_WRITE_GATE_REMEDIATION_20260626.md
+docs/ops/PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIR_EXECUTION_REPORT.md
+docs/ops/MASTER_DATA_RUNTIME_WRITE_SCOPE_GUARD_20260626.md
+docs/ops/A4_STORE_PAYMENT_FRONTEND_GATE_UIUX_UAT_REPORT.md
+docs/ops/MOBILE_DASHBOARD_SALES_PERMISSION_ATOMICITY_REMEDIATION_20260627.md
+docs/ops/PRODUCTION_DEPLOY_CHAIN_BACKUP_ARTIFACT_HYGIENE_REPORT.md
+docs/ops/runs/2026-06-23T00-36-29-043Z-A1-CI-Runtime-Gate-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md
+docs/ops/runs/2026-07-07T11-23-36-919Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-184150-MIGRATION-STORE-PAYMENT-RECORDS-requirement-spec.md
+docs/ops/runs/2026-06-23T03-06-43-049Z-A2-Security-Regression-Gate-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260623-003408-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md
 docs/ops/runs/router-v1-revalidate-case5-route-plan.md
-docs/ops/runs/router-v1-revalidate-case6-route-plan.json
-docs/ops/runs/router-v1-revalidate-case6-route-plan.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/2026-07-07T11-28-49-738Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/BUG-20260708-0006-a4-frontend-uat-smoke.md
+docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-approved-execution-result.json
+docs/ops/runs/2026-06-23T14-15-15-405Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md
+docs/ops/runs/2026-07-08T01-56-24-082Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md
+docs/ops/runs/2026-06-24T04-54-47-831Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/a1-runtime-security-remediation-20260624/freeze-boundary-default.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/api-jest-result.json
+docs/ops/runs/a1-runtime-security-remediation-20260624/freeze-boundary-allow.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/dev-login-failfast.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/dev-login-failfast.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/w5-closeout-allow.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/freeze-boundary-default.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/security-regression-default.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/procurement-jest-result.json
+docs/ops/runs/a1-runtime-security-remediation-20260624/api-tsc.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/security-regression-allow.txt
+docs/ops/runs/a1-runtime-security-remediation-20260624/w5-closeout-allow.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/security-regression-allow.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/freeze-boundary-allow.exit
+docs/ops/runs/a1-runtime-security-remediation-20260624/security-regression-default.txt
+docs/ops/runs/2026-06-24T04-31-38-429Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/role-permission-matrix-repair-latest.md
+docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/2026-06-23T00-37-57-046Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/2026-07-07T12-18-53-054Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-orchestration-plan.md
+docs/ops/runs/2026-07-07T18-33-21-401Z-A3-Backend-Critical-Path-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md
+docs/ops/runs/REQ-NL-20260622-232813-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-execution-summary.md
+docs/ops/runs/2026-07-09T02-03-42-294Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/REQ-NL-20260622-234451-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-execution-summary.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md
+docs/ops/runs/2026-07-08T08-58-31-820Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md
+docs/ops/runs/REQ-NL-20260622-231822-STORE-PAYMENT-READINESS-DOCS-OPS-MIGRATION-orchestration-plan.json
+docs/ops/runs/2026-06-24T07-17-23-517Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-execution-summary.md
+docs/ops/runs/REQ-NL-20260622-213126-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/2026-06-23T02-53-55-022Z-Codex-Orchestrator-baseline-lifecycle.json
+docs/ops/runs/router-v1-revalidate-case1-route-plan.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-execution-summary.md
+docs/ops/runs/router-v1-case2-route-plan.json
+docs/ops/runs/a2-app-module-wiring-next-agent-plan.raw.json
+docs/ops/runs/2026-07-09T00-24-04-323Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-003928-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/local_authorized_w5.txt
+docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/remote_permission_columns.txt
+docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/remote_db_go_nogo_snapshot.txt
+docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/local_go_nogo_snapshot.txt
+docs/ops/runs/production-go-no-go-reevaluation-20260625-095458/remote_permission_go_nogo_snapshot.txt
+docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-requirement-spec.md
+docs/ops/runs/router-v1-case1-route-plan.md
+docs/ops/runs/2026-07-08T02-52-43-823Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-212837-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md
+docs/ops/runs/2026-06-23T02-53-12-456Z-A1-CI-Runtime-Gate-baseline-lifecycle.json
+docs/ops/runs/2026-07-08T05-48-38-627Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md
+docs/ops/runs/2026-07-07T18-55-01-658Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/2026-07-08T06-24-41-679Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/2026-07-08T06-56-29-242Z-A3-Backend-Critical-Path-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260622-202514-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md
+docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A7-Final-QA-Gate.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json
 docs/ops/runs/store-payment-attachment-metadata-uat-db-evidence.txt
-docs/ops/runs/store-payment-attachment-metadata-uat-endpoint-smoke.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.json
-docs/ops/runs/store-payment-closed-loop-fix-route-plan.md
-docs/ops/runs/store-payment-controlled-uat-smoke-static.json
-docs/ops/runs/store-payment-file-metadata-acl-static-check.json
-docs/ops/runs/store-payment-protected-attachment-uat-page-smoke.json
-docs/ops/runs/store-payment-protected-attachment-uat-ui-static-check.json
-docs/ops/runs/store-payment-protected-streaming-static-check.json
-docs/ops/runs/store-payment-record-proof-db-evidence.json
-docs/ops/runs/store-payment-record-proof-endpoint-smoke.json
-docs/ops/runs/store-payment-record-proof-page-smoke.json
+docs/ops/runs/REQ-NL-20260624-150535-PRD-P0-001-APPROVE-INITIAL-DATA-IMPORT-REPAIR-DI-requirement-spec.md
+docs/ops/runs/2026-07-08T08-35-49-856Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md
+docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json
+docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-requirement-spec.md
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md
+docs/ops/runs/2026-07-09T08-40-22-359Z-A4-Frontend-UAT-Smoke-baseline-lifecycle.json
+docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-assembled-prompt-A2-Security-Regression-Gate.md
+docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-assembled-prompt-A1-CI-Runtime-Gate.md
+docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md
+docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-execution-summary.md
+docs/ops/runs/2026-06-23T03-14-48-115Z-Codex-Orchestrator-baseline-lifecycle.md
+docs/ops/runs/REQ-NL-20260623-004237-STORE-PAYMENT-UI-A4-orchestration-plan.md
+docs/ops/runs/REQ-NL-20260622-193139-MIGRATION-STORE-PAYMENT-RECORDS-orchestration-plan.md
 docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md
-docs/ops/runs/sys-dict-dedupe-latest.json
-docs/ops/runtime-memory/CODEX_ORCHESTRATOR_MEMORY.md
-docs/ops/runtime-memory/DECISION_LOG.md
-docs/ops/runtime-memory/GUARDRAILS.md
-docs/ops/runtime-memory/NEXT_ACTIONS.md
-docs/ops/runtime-memory/PROJECT_STATE.json
-docs/ops/runtime-memory/STORE_PAYMENT_STATE.md
-
-exec
-/bin/zsh -lc 'rg --files apps/web | rg "pricing|sales2|sales"' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/app/(mobile)/mobile/sales/page.tsx
-apps/web/src/app/(admin)/sales2/channels/page.tsx
-apps/web/src/app/(admin)/sales2/reports/page.tsx
-apps/web/src/app/(admin)/sales2/pricing/page.tsx
-apps/web/src/app/(admin)/sales2/page.tsx
-apps/web/src/app/(admin)/sales2/orders/page.tsx
-apps/web/src/app/(admin)/sales2/returns/page.tsx
-apps/web/src/app/(admin)/sales2/loading.tsx
-apps/web/src/app/(admin)/sales2/delivery/page.tsx
-apps/web/src/app/(admin)/sales2/inventory/page.tsx
-apps/web/src/app/(admin)/sales2/credit/page.tsx
-apps/web/src/app/(admin)/sales2/customers/page.tsx
-
-exec
-/bin/zsh -lc 'rg -n "sales2/pricing|pricing/books|价格册|价格管理|Price" apps/web' in /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke
- succeeded in 0ms:
-apps/web/src/hooks/useLabelConfig.ts:17:  showPrice: boolean;    // 显示零售价
-apps/web/src/hooks/useLabelConfig.ts:43:  showPrice: false,
-apps/web/src/hooks/useLabelConfig.ts:89:      showPrice:   (t.showPrice  ?? p.showPrice   ?? DEFAULTS.showPrice)  as boolean,
-apps/web/src/app/(admin)/analytics/price-review/page.tsx:15:interface PriceRecord {
-apps/web/src/app/(admin)/analytics/price-review/page.tsx:32:export default function PriceReviewPage() {
-apps/web/src/app/(admin)/analytics/price-review/page.tsx:36:  const [prices, setPrices] = useState<PriceRecord[]>([]);
-apps/web/src/app/(admin)/analytics/price-review/page.tsx:40:    Promise.all([crudApi.list<PriceRecord>("ord_prices", {
-apps/web/src/app/(admin)/analytics/price-review/page.tsx:45:      setPrices(pRes.data ?? []);
-apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx:385:      key: 'showBatch' | 'showDate' | 'showExpiry' | 'showShift' | 'showPrice';
-apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx:405:      key: 'showPrice',
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:11: *           { supplierCode/Name, expectedDate?, payDeadline?, remark?, items:[{id,unitPrice}] }
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:32:  unit?: string; estimatedUnitPrice?: number | string;
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:58:  const [prices, setPrices] = useState<Record<string, string>>({});
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:109:      (d.items ?? []).forEach(it => { p[it.id] = String(num(it.estimatedUnitPrice) || ''); });
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:110:      setPrices(p);
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:129:        items: (detail.items ?? []).map(it => ({ id: String(it.id), unitPrice: num(prices[it.id]) })),
-apps/web/src/app/(mobile)/mobile/prc-order/page.tsx:236:                  <div><span style={labelSt}>{tt('mob.biz.unit_price_required', '单价 *')}</span><input type="number" inputMode="decimal" style={inputSt} value={prices[it.id] ?? ''} onChange={e => setPrices(p => ({ ...p, [it.id]: e.target.value }))} placeholder={tt('mob.biz.bargain_unit_price', '议价单价')} /></div>
-apps/web/src/app/(admin)/procurement2/orders/page.tsx:27:  unitPrice: number | string;
-apps/web/src/app/(admin)/procurement2/orders/page.tsx:779:                  }}>{it.unitPrice ?? "—"}</td>
-apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/exception/page.tsx:49:  const unitPrice    = searchParams.get('unitPrice')    ?? '';
-apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/exception/page.tsx:95:          unitPrice:      unitPrice ? Number(unitPrice) : undefined,
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:40:  unitPrice: number | string;
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:82:  unitPrice: "",
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:114:  unitPrice?: string;
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:208:      if (field === "qty" || field === "unitPrice") {
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:211:        const price = parseFloat(String(it.unitPrice)) || 0;
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:273:          unitPrice: parseFloat(String(it.unitPrice)) || 0,
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:346:          const unitPrice = row.unitPrice ? String(row.unitPrice).replace(/,/g, "") : "";
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:353:            unitPrice,
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:354:            amount: amount || (qty && unitPrice ? String(Math.round(Number(qty) * Number(unitPrice) * 100) / 100) : ""),
-apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:598:              }} type="number" min="0" value={it.unitPrice} onChange={e => setItemField(idx, "unitPrice", e.target.value)} /></td>
-apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx:55:  unitPrice?: number;
-apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx:239:      unitPrice:    String(item.unitPrice  ?? ''),
-apps/web/src/app/(mobile)/mobile/delivery/receipt/[orderId]/page.tsx:39:  unitPrice?: number;
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:41:// 禁止任何价格硬编码 — 必须通过 Price Runtime API
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:71:  // Sales V2 Phase 2: 动态价格（从 Price Runtime API 加载，替代 DEFAULT_PRICES 硬编码）
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:72:  const [dynamicPrices, setDynamicPrices] = useState<Record<string, number>>({});
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:89:  // Sales V2 Phase 2: 加载动态价格（Price Runtime API）
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:100:      unitPrice: number;
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:105:          priceMap[item.gradeCode] = item.unitPrice;
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:109:        setDynamicPrices(priceMap);
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:131:  // Sales V2 Phase 2: 优先使用用户录入价格，其次 dynamicPrices（API），不再硬编码
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:132:  const getPrice = (g: string) => entries[g]?.unit_price ?? dynamicPrices[g] ?? 0;
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:139:          unit_price: getPrice(grade)
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:147:  const totalAmount = EGG_GRADES.reduce((s, g) => s + getQty(g.code) * getPrice(g.code), 0);
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:158:      unit_price: getPrice(g.code)
-apps/web/src/app/(mobile)/mobile/sales/page.tsx:413:            const price = getPrice(g.code);
-apps/web/src/app/(admin)/procurement2/requests/page.tsx:26:  estimatedUnitPrice?: number | string;
-apps/web/src/app/(admin)/procurement2/requests/page.tsx:696:                  }}>{it.estimatedUnitPrice ?? "—"}</td>
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:51:  estimatedUnitPrice: string;
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:98:    estimatedUnitPrice: ''
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:458:    const p = parseFloat(row.estimatedUnitPrice) || 0;
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:491:        estimatedUnitPrice: r.estimatedUnitPrice ? parseFloat(r.estimatedUnitPrice) : undefined,
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:492:        estimatedAmount: (parseFloat(r.qty) || 0) * (parseFloat(r.estimatedUnitPrice) || 0) || undefined
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:1045:                        <input type="number" inputMode="decimal" style={inputSt} value={row.estimatedUnitPrice} onChange={e => updateItem(row.key, 'estimatedUnitPrice', e.target.value)} placeholder={tt('mob.biz.optional2', '可选')} disabled={readonly} />
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:1050:                    {row.qty && row.estimatedUnitPrice && <div style={{
-apps/web/src/app/(mobile)/mobile/prc-request/page.tsx:1056:                        {tt('mob.biz.subtotal_label', '小计：')}{((parseFloat(row.qty) || 0) * (parseFloat(row.estimatedUnitPrice) || 0)).toLocaleString()} {currencyCode}
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:30:  estimatedUnitPrice?: number | string;
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:67:  unitPrice?: string;
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:77:  estimatedUnitPrice: "",
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:189:      if (field === "qty" || field === "estimatedUnitPrice") {
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:192:        const price = parseFloat(String(it.estimatedUnitPrice)) || 0;
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:229:          const price = parseNumberText(row.unitPrice);
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:236:            estimatedUnitPrice: price,
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:337:          estimatedUnitPrice: parseFloat(String(it.estimatedUnitPrice)) || 0,
-apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx:497:                <input style={{ ...cellInpStyle, width: 90 }} type="number" min="0" value={it.estimatedUnitPrice ?? ""} onChange={e => setItemField(idx, "estimatedUnitPrice", e.target.value)} />
-apps/web/src/components/layout/Sidebar.tsx:154:    { id: "s2-pricing",     path: "/sales2/pricing",     Icon: Tag,             label: "价格管理",   perm: "MENU_SALES2_PRICE"     },
-apps/web/src/components/design-system/cockpit-styles.ts:232:// G94：消灭 procurement2/orders·payments、sales2/pricing 等各自复制的 cellInp（3/6·圆角4）。
-apps/web/src/locales/lo.json:2209:  "ui.合同价格管理": "ສັນຍາ ລາຄາ Management",
-apps/web/src/locales/lo.json:8975:  "ui.价格册": "ປຶ້ມລາຄາ",
-apps/web/src/locales/lo.json:8976:  "ui.价格册 ID": "ID ປຶ້ມລາຄາ",
-apps/web/src/locales/lo.json:8977:  "ui.价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据": "ປຶ້ມລາຄາ · ລາຍລະອຽດລາຄາ · ເຄື່ອງກຳນົດລາຄາລວມ · ແຍກຂໍ້ມູນຕາມບໍລິສັດ",
-apps/web/src/locales/lo.json:8978:  "ui.价格册名称": "ຊື່ປຶ້ມລາຄາ",
-apps/web/src/locales/lo.json:8982:  "ui.价格管理": "ການຈັດການລາຄາ",
-apps/web/src/locales/lo.json:9482:  "ui.客户档案 · 价格管理 · 订单 · 配送 · 信用控制 · 经营分析": "ຂໍ້ມູນລູກຄ້າ · ການຈັດການລາຄາ · ຄຳສັ່ງຊື້ · ການຈັດສົ່ງ · ການຄວບຄຸມສິນເຊື່ອ · ການວິເຄາະທຸລະກິດ",
-apps/web/src/locales/lo.json:9839:  "ui.搜索价格册名称 / 编号…": "ຄົ້ນຫາຊື່ / ເລກປຶ້ມລາຄາ…",
-apps/web/src/locales/lo.json:9913:  "ui.新建价格册": "ສ້າງປຶ້ມລາຄາ",
-apps/web/src/locales/lo.json:9994:  "ui.暂无价格册": "ບໍ່ມີປຶ້ມລາຄາ",
-apps/web/src/locales/lo.json:9995:  "ui.暂无价格�
+docs/ops/runs/REQ-NL-20260623-003323-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md
+docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json
+docs/ops/runs/remediation-r4-initial-data-import-repair-dry-run-20260624-1514/manifest.json
+docs/ops/runs/remediation-r4-initial-data-import-repair-dry-run-20260624-1514/readonly_diagnostics.txt
+docs/ops/runs/remediation-r4-initial-data-import-repair-dry-run-20260624-1514/readonly_identity_tables.txt
+docs/ops/runs/router-v1-case5-route-plan.md
+docs/ops/runs/2026-06-23T09-36-42-068Z-Code
 ```

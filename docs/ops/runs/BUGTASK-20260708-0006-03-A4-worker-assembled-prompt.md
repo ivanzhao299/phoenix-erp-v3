@@ -1359,7 +1359,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
+  "priority": "P1",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -1386,7 +1386,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification API_5XX"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -1410,6 +1411,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification API_5XX",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -1423,34 +1425,75 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "API_5XX",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.88,
     "source_repair_task_no": "BUGTASK-20260708-0006"
   },
-  "createdAt": "2026-07-08T07:24:18.940Z",
+  "createdAt": "2026-07-10T01:02:24.334Z",
   "createdBy": "admin",
   "moduleCode": "____",
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
-  "acceptanceCriteria": "将第二条状态为已取消的价格册恢复正常状态，并且将第一条草稿价格册删除",
-  "agentPlanGeneratedAt": "2026-07-08T07:24:20.277Z",
-  "agentPlanGeneratedBy": "admin",
+  "latestAgentResult": {},
+  "redispatchHistory": [
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "管理员要求重算 Agent 计划后重新派发。",
+      "redispatchNo": 1,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T01:02:33.234Z",
+      "redispatchedBy": "admin",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "ROUTED"
+    }
+  ],
+  "acceptanceCriteria": "将编号为“PB-20260708-00001”的价格册删除，将编号为“PB-MENGSE-2026-STD”保留并恢复为正常在用状态",
+  "agentPlanGeneratedAt": "2026-07-10T01:02:33.234Z",
+  "agentPlanGeneratedBy": "redispatch:admin",
+  "failureClassification": {
+    "category": "API_5XX",
+    "evidence": [
+      "API 5xx/异常信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-08T07:24:22.163Z",
+    "approvedAt": "2026-07-10T01:02:33.234Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1458,7 +1501,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T01:02:33.234Z",
+  "previousAgentResultsBeforeRedispatch": []
 }
 ```
 
