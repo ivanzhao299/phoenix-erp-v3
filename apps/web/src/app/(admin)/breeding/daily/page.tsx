@@ -34,6 +34,7 @@ import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { isDailyReportHouseMissing } from '@/lib/breeding-daily';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -251,7 +252,7 @@ export default function DailyPage() {
     Object.values(gradeQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const handleSubmit = async () => {
-    if (!selectedHouse) {
+    if (isDailyReportHouseMissing(selectedHouse)) {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }

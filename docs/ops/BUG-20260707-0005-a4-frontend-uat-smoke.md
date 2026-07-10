@@ -2,79 +2,79 @@
 
 ## Result
 
-- Repair status: PASS WITH CONDITIONS
-- Release gate: HOLD until web dependency links are restored and `tsc --noEmit` / browser smoke can run.
-- Bug: 日生产日报不选择鸡舍也能提交成功
+- Status: PASS WITH CONDITIONS
+- Release gate: HOLD until CI/CD, browser smoke, production smoke, and business acceptance are complete.
+- Source bug: BUG-20260707-0005
+- Source task: BUGTASK-20260707-0005
 - Route: `/breeding/daily`
-- Task: BUGTASK-20260707-0005
+- Issue: 日生产日报不选择鸡舍也能提交成功
+
+## Root Cause
+
+- The affected state is the chicken-house selector carrying the empty value used by the loading/placeholder option (`加载中…` / `请选择鸡舍`).
+- The page must block submit before any daily-log POST when that value is empty.
+- This branch already had the visible toast guard; this pass made the guard reusable and added focused regression coverage for the exact empty/loading selector value.
 
 ## Changed Files
 
 - `apps/web/src/app/(admin)/breeding/daily/page.tsx`
+- `apps/web/src/lib/breeding-daily.ts`
+- `apps/web/src/lib/breeding-daily.test.ts`
 - `docs/ops/BUG-20260707-0005-a4-frontend-uat-smoke.md`
 
-## Page / Component List
+## Frontend Fix
 
-- Page: `/breeding/daily`
-- Component usage: `HouseSelector`
-- Submit handler: `handleSubmit`
+- Added `isDailyReportHouseMissing()` and used it at the top of `handleSubmit`.
+- Empty, blank, `null`, and `undefined` chicken-house values are treated as missing.
+- The toast remains exactly: `请先选择鸡舍后再提交`.
+- The guard returns before `/api/v3/farm/daily-logs` is called.
+- Submit buttons remain clickable so users get a visible prompt instead of a silent disabled action.
 
-## UI / UX Adjustment Summary
+## Permission / State Preservation
 
-- Added a submit-time guard before any other validation or network request.
-- When `selectedHouse` is empty, the page shows: `请先选择鸡舍后再提交`.
-- Marked the chicken house field as required with a red `*`.
-- Kept the submit button clickable so users receive the required prompt instead of a silent disabled state.
-- Kept existing RBAC-controlled visibility for submit/export/device actions unchanged.
+- RBAC visibility is unchanged: existing `usePermission('MENU_FARM_DAILY')` gates still control submit/export/device actions.
+- DataScope behavior is unchanged; the fix does not alter selector data loading or backend query scope.
+- No attachment ACL, audit, backend, migration, schema, entity, table, or column changes were made.
+- Empty/loading/error behavior is preserved: `HouseSelector` still renders an empty-value loading option and the submit guard handles that state.
 
-## Permission Visibility Notes
+## Desktop / Mobile Check
 
-- No permission logic changed.
-- Existing `usePermission('MENU_FARM_DAILY')` gates remain unchanged.
-- No RBAC bypass, DataScope bypass, attachment ACL change, or hidden shortcut was added.
+- Static responsive check: PASS WITH CONDITIONS.
+- The changed UI path is validation-only; no layout dimensions, breakpoints, cards, tables, or mobile-specific files changed.
+- Browser desktop/mobile smoke: HOLD because this worktree cannot start the web app without installing missing dependencies.
 
-## Responsive Behavior Notes
+## Verification
 
-- The required marker is inline with the existing label and does not alter the flex layout.
-- The `HouseSelector` width and wrapping behavior remain unchanged.
-- No mobile-specific layout files were changed.
-
-## UAT Smoke Result
-
-- Static route diagnosis: PASS
-  - Confirmed `/breeding/daily` implementation is `apps/web/src/app/(admin)/breeding/daily/page.tsx`.
-  - Confirmed global users may initialize `selectedHouse` as `''`.
-  - Confirmed new guard returns before `fetch('/api/v3/farm/daily-logs')`.
-- UI/browser smoke: HOLD
-  - Not executed because this worktree has incomplete frontend dependency links.
-- Web typecheck: HOLD
-  - `cd apps/web && ./node_modules/.bin/tsc --noEmit` failed: `no such file or directory`.
-  - `pnpm exec tsc --noEmit` failed: `packages field missing or empty`.
-  - `pnpm install --offline` failed because the local store is missing required tarballs.
-- Forbidden scope check: PASS
-  - No `apps/api/**`, migration, schema, entity, table, column, deployment, or database files changed.
-
-## Validation Commands
+Commands run:
 
 ```bash
-pwd
-git branch --show-current
-git status --short
-git log --oneline --decorate -8
+git diff --check
+rg -n "isDailyReportHouseMissing|请先选择鸡舍后再提交|/api/v3/farm/daily-logs|HouseSelector" \
+  'apps/web/src/app/(admin)/breeding/daily/page.tsx' \
+  apps/web/src/lib/breeding-daily.ts \
+  apps/web/src/lib/breeding-daily.test.ts \
+  apps/web/src/components/shared-selectors/MasterDataSelectors.tsx
+pnpm --filter web test -- src/lib/breeding-daily.test.ts
 cd apps/web && ./node_modules/.bin/tsc --noEmit
-pnpm exec tsc --noEmit
-pnpm install --offline
 pnpm install --offline --filter web
-git diff --name-only
 ```
 
-## A2 / A1 Notes
+Results:
 
-- A2 security review required: Yes, if release policy requires authoritative server-side rejection of empty `house_code`. A4 added only the frontend guard and did not change backend validation.
-- A1 validation required: Yes. Web typecheck and browser smoke are still blocked by local dependency state.
+- `git diff --check`: PASS.
+- Static route/component verification: PASS. The missing-house guard is before the `/api/v3/farm/daily-logs` fetch.
+- Focused regression test execution: HOLD. `vitest` is not linked in this worktree.
+- Web typecheck: HOLD. `apps/web/node_modules/.bin/tsc` does not exist.
+- Offline dependency restore: HOLD. `pnpm install --offline --filter web` failed because `@radix-ui/primitive-1.1.3.tgz` is missing from the local pnpm store.
 
-## Blockers And Next Recommendation
+## Required Follow-up Gate
 
-- Blocker: frontend dependencies are not fully linked in this worktree; `tsc` and app runtime are unavailable.
-- Recommendation: restore/install web dependencies, then run web typecheck and browser smoke on `/breeding/daily?action=create&date=today`.
-- Expected UAT check after dependencies are restored: leave chicken house as `请选择鸡舍` / `加载中…`, enter any daily data, click `提交日报`, confirm toast `请先选择鸡舍后再提交`, and confirm no POST to `/api/v3/farm/daily-logs` is sent.
+- Restore web dependencies or run CI in an environment with package access.
+- Run `cd apps/web && ./node_modules/.bin/tsc --noEmit`.
+- Run `pnpm --filter web test -- src/lib/breeding-daily.test.ts`.
+- Browser-smoke `/breeding/daily?action=create&date=today` at desktop and mobile widths:
+  - leave chicken house as `加载中…` / `请选择鸡舍`;
+  - enter daily data;
+  - click `提交日报`;
+  - confirm toast `请先选择鸡舍后再提交`;
+  - confirm no POST is sent to `/api/v3/farm/daily-logs`.
