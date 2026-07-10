@@ -1188,7 +1188,8 @@ Assigned agent: A2-Security-Regression-Gate
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification PG_SQL"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -1212,6 +1213,7 @@ Assigned agent: A2-Security-Regression-Gate
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification PG_SQL",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -1243,32 +1245,267 @@ Assigned agent: A2-Security-Regression-Gate
       "A6-Staging-Deploy-Runbook",
       "A7-Final-QA-Gate"
     ],
+    "failure_category": "PG_SQL",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
+    "route_confidence": 0.92,
     "source_repair_task_no": "BUGTASK-20260707-0006"
   },
   "createdAt": "2026-07-07T01:10:33.816Z",
   "createdBy": "admin",
   "moduleCode": "",
+  "agentResults": [
+    {
+      "agent": "Codex-Orchestrator",
+      "taskId": "BUGTASK-20260707-0006-ORCH",
+      "summary": "Recent daily report culling reason display uses dictionary-enriched Chinese labels. Stale A7 HOLD reconciled.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
+      "recordedAt": "2026-07-07T20:25:31.253Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0006-01-A2",
+      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:11.979Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0006-02-A3",
+      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:12.502Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260707-0006-03-A4",
+      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:13.031Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0006-04-A5",
+      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:13.552Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0006-05-A1",
+      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:14.108Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "taskId": "BUGTASK-20260707-0006-06-A6",
+      "summary": "A6-Staging-Deploy-Runbook reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:14.599Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "taskId": "BUGTASK-20260707-0006-07-A7",
+      "summary": "A7-Final-QA-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:15.123Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    }
+  ],
   "suggestedOwner": "",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "A7-Final-QA-Gate",
+    "taskId": "BUGTASK-20260707-0006-07-A7",
+    "summary": "A7-Final-QA-Gate reconciled by Codex-Orchestrator after current production deployment.",
+    "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "Business user verifies the fix in production.",
+    "recordedAt": "2026-07-07T20:29:15.123Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+    "changedFiles": [],
+    "validationResults": {
+      "dbWrite": "NO",
+      "i18nGate": "PASS",
+      "migration": "NO",
+      "apiTypecheck": "PASS",
+      "webTypecheck": "PASS",
+      "w5CloseoutGate": "PASS",
+      "productionDeploy": "PASS"
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
+      "redispatchNo": 1,
+      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T04:38:04.924Z",
+      "redispatchedBy": "bug_intake_runner",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "previousRepairTaskStatus": "HOLD"
+    }
+  ],
   "acceptanceCriteria": "要求近期日报记录下的淘汰原因显示中文",
-  "agentPlanGeneratedAt": "2026-07-07T01:10:34.939Z",
-  "agentPlanGeneratedBy": "admin",
+  "agentPlanGeneratedAt": "2026-07-10T04:38:04.924Z",
+  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
+  "failureClassification": {
+    "category": "PG_SQL",
+    "evidence": [
+      "数据库/PG/SQL 信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-07T01:10:36.157Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-10T04:38:04.924Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1276,7 +1513,185 @@ Assigned agent: A2-Security-Regression-Gate
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "evidenceReconciliation": {
+    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
+    "reconciledAt": "2026-07-10T03:29:30.737Z",
+    "reconciledBy": "bug_intake_runner",
+    "previousStatus": "CLOSED",
+    "previousRepairTaskStatus": "AGENT_COMPLETED"
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T04:38:04.924Z",
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "Codex-Orchestrator",
+      "taskId": "BUGTASK-20260707-0006-ORCH",
+      "summary": "Recent daily report culling reason display uses dictionary-enriched Chinese labels. Stale A7 HOLD reconciled.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
+      "recordedAt": "2026-07-07T20:25:31.253Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260707-0006-01-A2",
+      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:11.979Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0006-02-A3",
+      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:12.502Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260707-0006-03-A4",
+      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:13.031Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260707-0006-04-A5",
+      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:13.552Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260707-0006-05-A1",
+      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:14.108Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "taskId": "BUGTASK-20260707-0006-06-A6",
+      "summary": "A6-Staging-Deploy-Runbook reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:14.599Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "taskId": "BUGTASK-20260707-0006-07-A7",
+      "summary": "A7-Final-QA-Gate reconciled by Codex-Orchestrator after current production deployment.",
+      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "Business user verifies the fix in production.",
+      "recordedAt": "2026-07-07T20:29:15.123Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/BUG-20260707-0006_A7_FINAL_QA_GATE_REPORT.md",
+      "changedFiles": [],
+      "validationResults": {
+        "dbWrite": "NO",
+        "i18nGate": "PASS",
+        "migration": "NO",
+        "apiTypecheck": "PASS",
+        "webTypecheck": "PASS",
+        "w5CloseoutGate": "PASS",
+        "productionDeploy": "PASS"
+      }
+    }
+  ]
 }
 ```
 

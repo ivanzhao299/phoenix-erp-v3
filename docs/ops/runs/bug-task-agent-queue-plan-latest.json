@@ -1,27 +1,25 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260710-0002",
+    "source_repair_task_no": "BUGTASK-20260705-0001",
     "selected_agents": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260710-0002-01-A2",
-      "BUGTASK-20260710-0002-02-A3",
-      "BUGTASK-20260710-0002-03-A4",
-      "BUGTASK-20260710-0002-04-A5",
-      "BUGTASK-20260710-0002-05-A1"
+      "BUGTASK-20260705-0001-01-A3",
+      "BUGTASK-20260705-0001-02-A4",
+      "BUGTASK-20260705-0001-03-A5",
+      "BUGTASK-20260705-0001-04-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-10T03:50:55.437Z",
+      "approvedAt": "2026-07-10T04:38:18.222Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
-      "approvalScope": "User explicitly approved strict-evidence repair execution. No DB write, migration, force push, or direct production action outside CI/CD.",
+      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
       "redispatchCount": 1,
       "forbiddenActions": [
         "production deploy without separate approval",
@@ -34,22 +32,13 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260710-0002",
+    "source_bug_no": "BUG-20260705-0001",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
-        "agent": "A2-Security-Regression-Gate",
-        "reasons": [
-          "security/RBAC/DataScope signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched",
-          "failure classification API_5XX"
+          "failure classification PG_SQL"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -73,7 +62,7 @@
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
-          "failure classification API_5XX",
+          "failure classification PG_SQL",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -81,23 +70,21 @@
       }
     ],
     "selected_agents": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": "API_5XX",
+    "failure_category": "PG_SQL",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": 0.88,
-    "source_repair_task_no": "BUGTASK-20260710-0002",
+    "route_confidence": 0.92,
+    "source_repair_task_no": "BUGTASK-20260705-0001",
     "selected_agents_after_bug_intake_policy": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A5-Data-Readiness",
@@ -106,12 +93,6 @@
     "bug_intake_policy_reasons": {
       "A4-Frontend-UAT-Smoke": [
         "bug-intake policy: UI/visual/page evidence requires A4"
-      ],
-      "A3-Backend-Critical-Path": [
-        "bug-intake policy: API/server/runtime evidence requires A3"
-      ],
-      "A2-Security-Regression-Gate": [
-        "bug-intake policy: RBAC/DataScope/auth evidence requires A2"
       ],
       "A5-Data-Readiness": [
         "bug-intake policy: data/readiness/mapping evidence requires A5"
@@ -123,52 +104,11 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260710-0002-01-A2",
-      "request_id": "BUGTASK-20260710-0002",
-      "title": "Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)",
-      "source_bug_no": "BUG-20260710-0002",
-      "source_repair_task_no": "BUGTASK-20260710-0002",
-      "source": "bug-intake",
-      "agent": "A2-Security-Regression-Gate",
-      "status": "pending",
-      "priority": "P2",
-      "risk_level": "LOW/MEDIUM",
-      "allowed_paths": [
-        "docs/ops/**",
-        "scripts/ci/**",
-        "scripts/ops/**"
-      ],
-      "forbidden_paths": [
-        "apps/api/src/database/migrations/**",
-        "schema/entity/table/column",
-        "production deploy"
-      ],
-      "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-contract.md",
-      "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
-      "branch": "w5-a2-security-regression-gate",
-      "dependencies": [],
-      "claimed_by": null,
-      "claimed_at": null,
-      "completed_at": null,
-      "result_file": null,
-      "next_agents": [
-        "A1-CI-Runtime-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A7-Final-QA-Gate"
-      ],
-      "approval_required": true,
-      "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T03:50:55.437Z"
-    },
-    {
-      "task_id": "BUGTASK-20260710-0002-02-A3",
-      "request_id": "BUGTASK-20260710-0002",
-      "title": "Repair BUG-20260710-0002: 账户收款后，余额不变 (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260710-0002",
-      "source_repair_task_no": "BUGTASK-20260710-0002",
+      "task_id": "BUGTASK-20260705-0001-01-A3",
+      "request_id": "BUGTASK-20260705-0001",
+      "title": "Repair BUG-20260705-0001: 验收试运行里面试运行项目页面奇丑无比 (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260705-0001",
+      "source_repair_task_no": "BUGTASK-20260705-0001",
       "source": "bug-intake",
       "agent": "A3-Backend-Critical-Path",
       "status": "pending",
@@ -185,7 +125,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260710-0002-02-A3-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260705-0001-01-A3-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
       "branch": "w5-a3-backend-critical-path",
@@ -201,14 +141,14 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T03:50:55.437Z"
+      "last_redispatch_at": "2026-07-10T04:38:18.222Z"
     },
     {
-      "task_id": "BUGTASK-20260710-0002-03-A4",
-      "request_id": "BUGTASK-20260710-0002",
-      "title": "Repair BUG-20260710-0002: 账户收款后，余额不变 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260710-0002",
-      "source_repair_task_no": "BUGTASK-20260710-0002",
+      "task_id": "BUGTASK-20260705-0001-02-A4",
+      "request_id": "BUGTASK-20260705-0001",
+      "title": "Repair BUG-20260705-0001: 验收试运行里面试运行项目页面奇丑无比 (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260705-0001",
+      "source_repair_task_no": "BUGTASK-20260705-0001",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
@@ -227,7 +167,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260710-0002-03-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260705-0001-02-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
       "branch": "w5-a4-frontend-uat-smoke",
@@ -244,14 +184,14 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T03:50:55.437Z"
+      "last_redispatch_at": "2026-07-10T04:38:18.222Z"
     },
     {
-      "task_id": "BUGTASK-20260710-0002-04-A5",
-      "request_id": "BUGTASK-20260710-0002",
-      "title": "Repair BUG-20260710-0002: 账户收款后，余额不变 (A5-Data-Readiness)",
-      "source_bug_no": "BUG-20260710-0002",
-      "source_repair_task_no": "BUGTASK-20260710-0002",
+      "task_id": "BUGTASK-20260705-0001-03-A5",
+      "request_id": "BUGTASK-20260705-0001",
+      "title": "Repair BUG-20260705-0001: 验收试运行里面试运行项目页面奇丑无比 (A5-Data-Readiness)",
+      "source_bug_no": "BUG-20260705-0001",
+      "source_repair_task_no": "BUGTASK-20260705-0001",
       "source": "bug-intake",
       "agent": "A5-Data-Readiness",
       "status": "pending",
@@ -269,7 +209,7 @@
         "DB write"
       ],
       "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260705-0001-03-A5-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
       "branch": "w5-a5-data-readiness",
@@ -284,14 +224,14 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T03:50:55.437Z"
+      "last_redispatch_at": "2026-07-10T04:38:18.222Z"
     },
     {
-      "task_id": "BUGTASK-20260710-0002-05-A1",
-      "request_id": "BUGTASK-20260710-0002",
-      "title": "Repair BUG-20260710-0002: 账户收款后，余额不变 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260710-0002",
-      "source_repair_task_no": "BUGTASK-20260710-0002",
+      "task_id": "BUGTASK-20260705-0001-04-A1",
+      "request_id": "BUGTASK-20260705-0001",
+      "title": "Repair BUG-20260705-0001: 验收试运行里面试运行项目页面奇丑无比 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260705-0001",
+      "source_repair_task_no": "BUGTASK-20260705-0001",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -309,7 +249,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260710-0002-05-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260705-0001-04-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
@@ -325,7 +265,7 @@
       ],
       "approval_required": true,
       "redispatch_count": 1,
-      "last_redispatch_at": "2026-07-10T03:50:55.437Z"
+      "last_redispatch_at": "2026-07-10T04:38:18.222Z"
     }
   ]
 }

@@ -628,7 +628,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification PG_SQL"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -652,6 +653,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification PG_SQL",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -665,34 +667,184 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "PG_SQL",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.92,
     "source_repair_task_no": "BUGTASK-20260708-0007"
   },
   "createdAt": "2026-07-09T01:28:10.627Z",
   "createdBy": "admin",
   "moduleCode": "____",
+  "agentResults": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0007-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:04.902Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:41:15.648Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0007-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:05.329Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:52:05.570Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0007-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-03-A4 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:05.748Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-03-A4-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:58:34.128Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0007-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:06.301Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:41:17.425Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260708-0007-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:06.736Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:58:36.096Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ],
   "suggestedOwner": "_____",
+  "redispatchCount": 1,
+  "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
     "noProductionDeploy": true,
     "noDbWriteWithoutGate": true,
     "requiresHumanApproval": true
   },
+  "latestAgentResult": {
+    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260708-0007-05-A1",
+    "summary": "Local bug-intake task BUGTASK-20260708-0007-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+    "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+    "recordedAt": "2026-07-09T06:12:06.736Z",
+    "recordedBy": "bug_intake_runner",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-05-A1-worker-log.md",
+    "changedFiles": [],
+    "validationResults": {
+      "completedAt": "2026-07-08T08:58:36.096Z",
+      "localTaskStatus": "completed",
+      "aggregateBackfill": true,
+      "baselineAutopilotExitCode": 0
+    }
+  },
+  "redispatchHistory": [
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
+      "redispatchNo": 1,
+      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T04:38:07.547Z",
+      "redispatchedBy": "bug_intake_runner",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "HOLD"
+    }
+  ],
   "acceptanceCriteria": "在销售订单页面右上角点击“新建订单”，填完信息后点击“保存草稿”报错“HTTP 400”，要求保存不报错，可以成功创建销售订单",
-  "agentPlanGeneratedAt": "2026-07-09T01:28:11.926Z",
-  "agentPlanGeneratedBy": "admin",
+  "agentPlanGeneratedAt": "2026-07-10T04:38:07.547Z",
+  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
+  "failureClassification": {
+    "category": "PG_SQL",
+    "evidence": [
+      "数据库/PG/SQL 信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-09T01:28:14.555Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-10T04:38:07.547Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -700,7 +852,107 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  }
+  },
+  "evidenceReconciliation": {
+    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
+    "reconciledAt": "2026-07-10T03:29:30.694Z",
+    "reconciledBy": "bug_intake_runner",
+    "previousStatus": "IN_PROGRESS",
+    "previousRepairTaskStatus": "AGENT_COMPLETED"
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T04:38:07.547Z",
+  "previousAgentResultsBeforeRedispatch": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0007-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:04.902Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:41:15.648Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0007-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:05.329Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:52:05.570Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0007-03-A4",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-03-A4 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:05.748Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-03-A4-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:58:34.128Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0007-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:06.301Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:41:17.425Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260708-0007-05-A1",
+      "summary": "Local bug-intake task BUGTASK-20260708-0007-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:06.736Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-05-A1-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:58:36.096Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    }
+  ]
 }
 ```
 

@@ -2,7 +2,6 @@
 
 ## Selected Agents
 
-- A2-Security-Regression-Gate
 - A3-Backend-Critical-Path
 - A4-Frontend-UAT-Smoke
 - A5-Data-Readiness
@@ -10,8 +9,7 @@
 
 ## Generated Tasks
 
-- BUGTASK-20260710-0002-01-A2 -> A2-Security-Regression-Gate
-- BUGTASK-20260710-0002-02-A3 -> A3-Backend-Critical-Path
-- BUGTASK-20260710-0002-03-A4 -> A4-Frontend-UAT-Smoke
-- BUGTASK-20260710-0002-04-A5 -> A5-Data-Readiness
-- BUGTASK-20260710-0002-05-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260705-0001-01-A3 -> A3-Backend-Critical-Path
+- BUGTASK-20260705-0001-02-A4 -> A4-Frontend-UAT-Smoke
+- BUGTASK-20260705-0001-03-A5 -> A5-Data-Readiness
+- BUGTASK-20260705-0001-04-A1 -> A1-CI-Runtime-Gate

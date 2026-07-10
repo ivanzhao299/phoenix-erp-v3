@@ -1458,7 +1458,8 @@ Assigned agent: A1-CI-Runtime-Gate
       {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched"
+          "backend/API/error route matched",
+          "failure classification API_5XX"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -1482,6 +1483,7 @@ Assigned agent: A1-CI-Runtime-Gate
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
+          "failure classification API_5XX",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -1495,59 +1497,20 @@ Assigned agent: A1-CI-Runtime-Gate
       "A5-Data-Readiness",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": null,
+    "failure_category": "API_5XX",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": null,
+    "route_confidence": 0.88,
     "source_repair_task_no": "BUGTASK-20260708-0005"
   },
   "createdAt": "2026-07-08T07:18:02.505Z",
   "createdBy": "admin",
   "moduleCode": "____",
   "agentResults": [
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0005-01-A2",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260708-0005-01-A2\nTitle: Repair BUG-20260708-0005: 销售管理-客户管理， (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:13:55.260Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0005-04-A5",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0005-04-A5\nTitle: Repair BUG-20260708-0005: 销售管理-客户管理， (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:13:57.065Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0005-02-A3",
-      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0005-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 127 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\ns/mac/phoenix-erp\nTarget branch: w5-a3-backend-critical-path\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --yes --allow-code\nCurrent main HEAD: 8d0f1995\nTarget branch HEAD (w5-a3-backend-critical-path): 0d76d956\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 8d0f1995..0d76d956\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n0d76d956 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n8d0f1995 fix: repair sales customer status update\n271aa7cf (w5-a7-final-qa-gate) docs(ops): record baseline lifecycle report\nfba60481 docs(o",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:19:14.803Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
     {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708081920",
@@ -1586,65 +1549,98 @@ Assigned agent: A1-CI-Runtime-Gate
       }
     },
     {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0005-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:09.873Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:13:54.076Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0005-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:10.395Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:19:13.687Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
       "agent": "A4-Frontend-UAT-Smoke",
       "taskId": "BUGTASK-20260708-0005-03-A4",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0005-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0005-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 49959\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-25-19-318Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f40d4-3428-7600-8878-42a3d53148e3\n--------\nuser\n# Base Agent Prompt\n\n# A4 Frontend Task Prompt\n\n## Agent Identity\n\nYou are `A4-Frontend-UIUX-UAT`.\n\nThe canonical branch/worktree name remains `A4-Frontend-UAT-Smoke` for compatibility, but your responsibility is expanded to frontend implementation, UI/UX polish, styling, responsive layout, permiss",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:25:28.953Z",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:10.923Z",
       "recordedBy": "bug_intake_runner",
       "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-log.md",
-      "changedFiles": [
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:376:                {customers.map(c => <button key={c.customer_code} onClick={() => setSelCustomer(c)} style={{",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:379:              background: selCustomer?.customer_code === c.customer_code ? 'var(--status-success-bg-medium)' : t.btnBg,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:380:              border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.btnBorder}`,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:381:              color: selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.textSub,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:599:          <button onClick={handleSubmit} disabled={submitting || totalQty === 0 || !selCustomer} style={{",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:10:import { mobileApi, EggStockRow, EggLedgerEntry, FarmCustomer } from '@/lib/mobile-api';",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:82:  const [customers, setCustomers] = useState<FarmCustomer[]>([]);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:90:  const [selectedCustomer, setSelectedCustomer] = useState('');",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:131:    mobileApi.getFarmCustomers().then(data => {",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:132:      setCustomers(data);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:133:      if (data.length > 0) setSelectedCustomer(c => c || data[0].customer_code);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:444:                  <button key={c.customer_code} onClick={() => setSelectedCustomer(c.customer_code)}",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:447:                      background: selectedCustomer === c.customer_code ? 'var(--status-danger-bg-medium)' : t.btnBg,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:448:                      border: `1px solid ${selectedCustomer === c.customer_code ? 'var(--status-danger)' : t.btnBorder}`,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:449:                      color: selectedCustomer === c.customer_code ? 'var(--status-danger)' : t.textSub,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:465:                const outQty   = getOutbound(selectedCustomer, g.code);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:481:                        onChange={v => setOutbound(selectedCustomer, g.code, v)}",
-        "apps/web/src/components/ui/CrudForm.tsx:7:  CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,",
-        "apps/web/src/components/ui/CrudForm.tsx:215:              <CustomerSelector",
-        "apps/web/src/app/(admin)/settings/roles/page.tsx:146:  SALES: \"销售营销角色，负责客户档案维护、订单管理、B2B 分销及会员营销活动，不兼任财务审计岗位。\",",
-        "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx:83:  SALES: \"销售营销角色，负责客户档案维护、订单管理、B2B 分销及会员营销活动，不兼任财务审计岗位。\",",
-        "apps/web/src/locales/lo.json:566:  \"ui.客户档案\": \"ໂປຣໄຟລ໌ລູກຄ້າ\",",
-        "apps/web/src/locales/lo.json:1474:  \"ui.2B大客户档案中心\": \"ສູນເອກະສານລູກຄ້າຫຼັກ 2B\",",
-        "apps/web/src/locales/lo.json:9474:  \"ui.客户主档\": \"ຂໍ້ມູນຫຼັກລູກຄ້າ\",",
-        "apps/web/src/locales/lo.json:9482:  \"ui.客户档案 · 价格管理 · 订单 · 配送 · 信用控制 · 经营分析\": \"ຂໍ້ມູນລູກຄ້າ · ການຈັດການລາຄາ · ຄຳສັ່ງຊື້ · ການຈັດສົ່ງ · ການຄວບຄຸມສິນເຊື່ອ · ການວິເຄາະທຸລະກິດ\",",
-        "apps/web/src/locales/lo.json:10443:  \"ui.统一客户主档 · 渠道管理 · 按公司隔离数据\": \"ຂໍ້ມູນຫຼັກລູກຄ້າລວມ · ການຈັດການຊ່ອງທາງ · ແຍກຂໍ້ມູນຕາມບໍລິສັດ\",",
-        "apps/web/src/types/index.ts:210:export interface CustomerRow {",
-        "apps/web/src/locales/en.json:449:  \"ui.客诉供应商退货\": \"Customer Complaint / Supplier Return\",",
-        "apps/web/src/locales/en.json:456:  \"ui.客诉追偿中\": \"Customer complaint is being recovered\",",
-        "apps/web/src/locales/en.json:539:  \"ui.客户分析\": \"Customer analysis\","
-      ],
-      "validationResults": null
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:25:19.322Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0005-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:11.446Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:13:55.874Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
     },
     {
       "agent": "A1-CI-Runtime-Gate",
       "taskId": "BUGTASK-20260708-0005-05-A1",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:25:30.722Z",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:11.974Z",
       "recordedBy": "bug_intake_runner",
       "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
       "changedFiles": [],
-      "validationResults": null
+      "validationResults": {
+        "completedAt": "2026-07-08T08:25:29.539Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
     }
   ],
   "suggestedOwner": "_____",
-  "redispatchCount": 1,
+  "redispatchCount": 2,
   "timeoutRecovery": {},
   "repairGuardrails": {
     "autoRepairExecuted": false,
@@ -1655,15 +1651,20 @@ Assigned agent: A1-CI-Runtime-Gate
   "latestAgentResult": {
     "agent": "A1-CI-Runtime-Gate",
     "taskId": "BUGTASK-20260708-0005-05-A1",
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-    "commitHash": "",
-    "conclusion": "HOLD",
-    "nextAction": "",
-    "recordedAt": "2026-07-08T08:25:30.722Z",
+    "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+    "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+    "conclusion": "PASS_WITH_CONDITIONS",
+    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+    "recordedAt": "2026-07-09T06:12:11.974Z",
     "recordedBy": "bug_intake_runner",
     "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
     "changedFiles": [],
-    "validationResults": null
+    "validationResults": {
+      "completedAt": "2026-07-08T08:25:29.539Z",
+      "localTaskStatus": "completed",
+      "aggregateBackfill": true,
+      "baselineAutopilotExitCode": 0
+    }
   },
   "redispatchHistory": [
     {
@@ -1682,16 +1683,52 @@ Assigned agent: A1-CI-Runtime-Gate
         "A1-CI-Runtime-Gate"
       ],
       "previousRepairTaskStatus": "HOLD"
+    },
+    {
+      "mode": "REPLAN_AND_REQUEUE",
+      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
+      "redispatchNo": 2,
+      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+      "previousStatus": "IN_PROGRESS",
+      "redispatchedAt": "2026-07-10T04:38:08.991Z",
+      "redispatchedBy": "bug_intake_runner",
+      "selectedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A4-Frontend-UAT-Smoke",
+        "A5-Data-Readiness",
+        "A1-CI-Runtime-Gate"
+      ],
+      "previousRepairTaskStatus": "HOLD"
     }
   ],
   "acceptanceCriteria": "要求在编辑页面添加状态下拉框，状态和风险等级保存时都可成功",
-  "agentPlanGeneratedAt": "2026-07-08T07:18:03.581Z",
-  "agentPlanGeneratedBy": "admin",
+  "agentPlanGeneratedAt": "2026-07-10T04:38:08.991Z",
+  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
+  "failureClassification": {
+    "category": "API_5XX",
+    "evidence": [
+      "API 5xx/异常信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-09T01:07:28.962Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-10T04:38:08.991Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1700,46 +1737,15 @@ Assigned agent: A1-CI-Runtime-Gate
       "force push"
     ]
   },
+  "evidenceReconciliation": {
+    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
+    "reconciledAt": "2026-07-10T03:29:30.673Z",
+    "reconciledBy": "bug_intake_runner",
+    "previousStatus": "IN_PROGRESS",
+    "previousRepairTaskStatus": "AGENT_COMPLETED"
+  },
+  "failureClassificationUpdatedAt": "2026-07-10T04:38:08.991Z",
   "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0005-01-A2",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260708-0005-01-A2\nTitle: Repair BUG-20260708-0005: 销售管理-客户管理， (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:13:55.260Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0005-04-A5",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260708-0005-04-A5\nTitle: Repair BUG-20260708-0005: 销售管理-客户管理， (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:13:57.065Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0005-02-A3",
-      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260708-0005-02-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | COMPLETED_MERGED |\n| Worker exit | 1 |\n| Child waited seconds | 127 |\n| Worktree status before recovery | clean |\n| Baseline autopilot exit | 0 |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\n## Baseline stdout excerpt\n\n```text\ns/mac/phoenix-erp\nTarget branch: w5-a3-backend-critical-path\nTarget worktree: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path\nMode: yes\nRebase completed.\nMerge preflight command: node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --yes --allow-code\nCurrent main HEAD: 8d0f1995\nTarget branch HEAD (w5-a3-backend-critical-path): 0d76d956\n\nDiff file list:\n  docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n  docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nDiff stat:\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n\nFreeze boundary check: PASS\n\nMerging w5-a3-backend-critical-path into main with --ff-only...\nUpdating 8d0f1995..0d76d956\nFast-forward\n ...3-Backend-Critical-Path-baseline-lifecycle.json | 18 +++++++++++++++\n ...-A3-Backend-Critical-Path-baseline-lifecycle.md | 26 ++++++++++++++++++++++\n 2 files changed, 44 insertions(+)\n create mode 100644 docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.json\n create mode 100644 docs/ops/runs/2026-07-08T08-19-11-514Z-A3-Backend-Critical-Path-baseline-lifecycle.md\n\nPost-merge branch:\nmain\n\nPost-merge status:\n(clean)\n\nRecent log:\n0d76d956 (HEAD -> main, w5-a3-backend-critical-path) docs(ops): record baseline lifecycle report\n8d0f1995 fix: repair sales customer status update\n271aa7cf (w5-a7-final-qa-gate) docs(ops): record baseline lifecycle report\nfba60481 docs(o",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:19:14.803Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
-      "changedFiles": [],
-      "validationResults": null
-    },
     {
       "agent": "BugIntakeLocalRunner",
       "taskId": "LOCAL-RUNNER-20260708081920",
@@ -1778,61 +1784,94 @@ Assigned agent: A1-CI-Runtime-Gate
       }
     },
     {
+      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260708-0005-01-A2",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:09.873Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:13:54.076Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0005-02-A3",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:10.395Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:19:13.687Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
       "agent": "A4-Frontend-UAT-Smoke",
       "taskId": "BUGTASK-20260708-0005-03-A4",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-03-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0005-03-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nBranch: w5-a4-frontend-uat-smoke\nPrompt: docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0005-03-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-assembled-prompt.md\nAssembled prompt chars: 49959\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-08T08-25-19-318Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f40d4-3428-7600-8878-42a3d53148e3\n--------\nuser\n# Base Agent Prompt\n\n# A4 Frontend Task Prompt\n\n## Agent Identity\n\nYou are `A4-Frontend-UIUX-UAT`.\n\nThe canonical branch/worktree name remains `A4-Frontend-UAT-Smoke` for compatibility, but your responsibility is expanded to frontend implementation, UI/UX polish, styling, responsive layout, permiss",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:25:28.953Z",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-03-A4 reached COMPLETED_MERGED.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:10.923Z",
       "recordedBy": "bug_intake_runner",
       "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-log.md",
-      "changedFiles": [
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:376:                {customers.map(c => <button key={c.customer_code} onClick={() => setSelCustomer(c)} style={{",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:379:              background: selCustomer?.customer_code === c.customer_code ? 'var(--status-success-bg-medium)' : t.btnBg,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:380:              border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.btnBorder}`,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:381:              color: selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.textSub,",
-        "apps/web/src/app/(mobile)/mobile/sales/page.tsx:599:          <button onClick={handleSubmit} disabled={submitting || totalQty === 0 || !selCustomer} style={{",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:10:import { mobileApi, EggStockRow, EggLedgerEntry, FarmCustomer } from '@/lib/mobile-api';",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:82:  const [customers, setCustomers] = useState<FarmCustomer[]>([]);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:90:  const [selectedCustomer, setSelectedCustomer] = useState('');",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:131:    mobileApi.getFarmCustomers().then(data => {",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:132:      setCustomers(data);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:133:      if (data.length > 0) setSelectedCustomer(c => c || data[0].customer_code);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:444:                  <button key={c.customer_code} onClick={() => setSelectedCustomer(c.customer_code)}",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:447:                      background: selectedCustomer === c.customer_code ? 'var(--status-danger-bg-medium)' : t.btnBg,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:448:                      border: `1px solid ${selectedCustomer === c.customer_code ? 'var(--status-danger)' : t.btnBorder}`,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:449:                      color: selectedCustomer === c.customer_code ? 'var(--status-danger)' : t.textSub,",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:465:                const outQty   = getOutbound(selectedCustomer, g.code);",
-        "apps/web/src/app/(mobile)/mobile/egg/page.tsx:481:                        onChange={v => setOutbound(selectedCustomer, g.code, v)}",
-        "apps/web/src/components/ui/CrudForm.tsx:7:  CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,",
-        "apps/web/src/components/ui/CrudForm.tsx:215:              <CustomerSelector",
-        "apps/web/src/app/(admin)/settings/roles/page.tsx:146:  SALES: \"销售营销角色，负责客户档案维护、订单管理、B2B 分销及会员营销活动，不兼任财务审计岗位。\",",
-        "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx:83:  SALES: \"销售营销角色，负责客户档案维护、订单管理、B2B 分销及会员营销活动，不兼任财务审计岗位。\",",
-        "apps/web/src/locales/lo.json:566:  \"ui.客户档案\": \"ໂປຣໄຟລ໌ລູກຄ້າ\",",
-        "apps/web/src/locales/lo.json:1474:  \"ui.2B大客户档案中心\": \"ສູນເອກະສານລູກຄ້າຫຼັກ 2B\",",
-        "apps/web/src/locales/lo.json:9474:  \"ui.客户主档\": \"ຂໍ້ມູນຫຼັກລູກຄ້າ\",",
-        "apps/web/src/locales/lo.json:9482:  \"ui.客户档案 · 价格管理 · 订单 · 配送 · 信用控制 · 经营分析\": \"ຂໍ້ມູນລູກຄ້າ · ການຈັດການລາຄາ · ຄຳສັ່ງຊື້ · ການຈັດສົ່ງ · ການຄວບຄຸມສິນເຊື່ອ · ການວິເຄາະທຸລະກິດ\",",
-        "apps/web/src/locales/lo.json:10443:  \"ui.统一客户主档 · 渠道管理 · 按公司隔离数据\": \"ຂໍ້ມູນຫຼັກລູກຄ້າລວມ · ການຈັດການຊ່ອງທາງ · ແຍກຂໍ້ມູນຕາມບໍລິສັດ\",",
-        "apps/web/src/types/index.ts:210:export interface CustomerRow {",
-        "apps/web/src/locales/en.json:449:  \"ui.客诉供应商退货\": \"Customer Complaint / Supplier Return\",",
-        "apps/web/src/locales/en.json:456:  \"ui.客诉追偿中\": \"Customer complaint is being recovered\",",
-        "apps/web/src/locales/en.json:539:  \"ui.客户分析\": \"Customer analysis\","
-      ],
-      "validationResults": null
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:25:19.322Z",
+        "localTaskStatus": "COMPLETED_MERGED",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "taskId": "BUGTASK-20260708-0005-04-A5",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:11.446Z",
+      "recordedBy": "bug_intake_runner",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
+      "changedFiles": [],
+      "validationResults": {
+        "completedAt": "2026-07-08T08:13:55.874Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
     },
     {
       "agent": "A1-CI-Runtime-Gate",
       "taskId": "BUGTASK-20260708-0005-05-A1",
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-05-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-05-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git -C /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate status --short\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```",
-      "commitHash": "",
-      "conclusion": "HOLD",
-      "nextAction": "",
-      "recordedAt": "2026-07-08T08:25:30.722Z",
+      "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
+      "recordedAt": "2026-07-09T06:12:11.974Z",
       "recordedBy": "bug_intake_runner",
       "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
       "changedFiles": [],
-      "validationResults": null
+      "validationResults": {
+        "completedAt": "2026-07-08T08:25:29.539Z",
+        "localTaskStatus": "completed",
+        "aggregateBackfill": true,
+        "baselineAutopilotExitCode": 0
+      }
     }
   ]
 }
