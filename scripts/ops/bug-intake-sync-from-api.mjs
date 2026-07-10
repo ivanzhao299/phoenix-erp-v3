@@ -10,6 +10,11 @@ const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
 const APPROVED_REPAIR_STATUS = 'AGENT_APPROVED';
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+const FETCH_ERRORS = [];
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -84,13 +89,29 @@ async function apiGet(args, endpoint) {
   if (!args.apiBase) throw new Error('--api-base is required without --fixture-json');
   if (!token) throw new Error('--token or --token-env is required without --fixture-json');
   const url = `${args.apiBase.replace(/\/$/, '')}${endpoint}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
-    .finally(() => clearTimeout(timeout));
-  const text = await res.text();
-  if (!res.ok) throw new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 500)}`);
-  return text ? JSON.parse(text) : {};
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+      const text = await res.text();
+      if (!res.ok) {
+        const error = new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 500)}`);
+        error.retryable = res.status >= 500 || res.status === 429;
+        throw error;
+      }
+      return text ? JSON.parse(text) : {};
+    } catch (error) {
+      lastError = error;
+      const retryable = error.retryable === true || error.name === 'AbortError' || /fetch failed|timeout|socket|econn/i.test(error.message);
+      if (!retryable || attempt >= 3) break;
+      await sleep(attempt * 1000);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError;
 }
 
 async function apiDownload(args, endpoint) {
@@ -124,7 +145,11 @@ async function fetchReports(args) {
       if (items.length === 0) break;
       for (const item of items) {
         if (!item.bugNo || details.length >= args.limit) continue;
-        details.push(await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(item.bugNo)}`));
+        try {
+          details.push(await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(item.bugNo)}`));
+        } catch (error) {
+          FETCH_ERRORS.push({ bugNo: item.bugNo, endpoint: `/api/bug-intake/reports/${item.bugNo}`, error: error.message });
+        }
       }
       if (items.length < 50) break;
       page += 1;
@@ -290,6 +315,12 @@ function writeMarkdownSummary(file, summary) {
     ...(summary.not_ready.length
       ? summary.not_ready.map((item) => `- ${item.bugNo}: ${item.reason}`)
       : ['- None']),
+    '',
+    '## Fetch Errors',
+    '',
+    ...(summary.fetch_errors.length
+      ? summary.fetch_errors.map((item) => `- ${item.bugNo || item.endpoint}: ${item.error}`)
+      : ['- None']),
   ];
   writeFileSync(resolveFile(file), `${lines.join('\n')}\n`);
 }
@@ -354,6 +385,7 @@ async function main() {
     not_ready: notReady,
     queue_results: queueResults,
     deactivated_not_ready_tasks: deactivatedNotReadyTasks,
+    fetch_errors: FETCH_ERRORS,
     safety: {
       codex_cli_executed: false,
       business_code_modified: false,

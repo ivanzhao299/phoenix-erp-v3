@@ -7,6 +7,18 @@ import { routeRequest } from './agent-route-request.mjs';
 const QUEUE_FILE = 'docs/ops/agent-queue/tasks.json';
 const DISPATCH_MAP_FILE = 'docs/ops/AGENT_DISPATCH_MAP.json';
 const RUNS_DIR = 'docs/ops/runs';
+const BUG_INTAKE_EXECUTION = {
+  'A3-Backend-Critical-Path': {
+    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
+    branch: 'codex/bug-intake-a3',
+    prompt_file: 'docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md',
+  },
+  'A4-Frontend-UAT-Smoke': {
+    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a4',
+    branch: 'codex/bug-intake-a4',
+    prompt_file: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
+  },
+};
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -265,7 +277,7 @@ function buildTasks(payload, plan, dispatchMap) {
   const approval = getApproval(payload);
   const redispatchCount = Number(payload.redispatchCount || approval?.redispatchCount || 0);
   const tasks = selected.map((agent) => {
-    const cfg = dispatchMap[agent] || {};
+    const cfg = { ...(dispatchMap[agent] || {}), ...(BUG_INTAKE_EXECUTION[agent] || {}) };
     const short = agentShort(agent);
     const taskId = `${repairTaskNo}-${short}`;
     const contractFile = `${RUNS_DIR}/${taskId}-contract.md`;
@@ -404,6 +416,8 @@ function main() {
       if (!redispatchRequested || nextRedispatchCount <= previousRedispatchCount) {
         queue[index] = {
           ...previous,
+          agent: task.agent,
+          title: task.title,
           dependencies: task.dependencies,
           route_active: true,
           route_selected_agents: task.route_selected_agents,
@@ -411,6 +425,8 @@ function main() {
           forbidden_paths: task.forbidden_paths,
           prompt_file: task.prompt_file,
           contract_file: task.contract_file,
+          worktree: task.worktree,
+          branch: task.branch,
         };
         skippedExisting.push(previous);
         continue;

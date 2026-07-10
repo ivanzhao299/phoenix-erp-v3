@@ -25,6 +25,8 @@
 8. Bug-intake worktrees fetch and rebase against `origin/main`.
 9. Verified Agent commits are integrated by the resident runner with a precise cherry-pick only after the worker evidence gate passes. Cherry-pick conflicts are aborted and the task becomes HOLD.
 10. Task IDs use stable Agent suffixes (`-A3`, `-A4`, `-A1`) instead of route-order indexes, preventing a refined route from reusing another Agent's old task state.
+11. A3/A4 Bug Intake execution uses dedicated clean worktrees based on current `origin/main`; legacy Agent worktrees are retained for audit but no longer block the repair queue.
+12. Production report reads retry transient 429/5xx/network failures three times with backoff. A persistently failing detail is recorded and skipped for that cycle without aborting the remaining queue.
 
 ## Verification
 

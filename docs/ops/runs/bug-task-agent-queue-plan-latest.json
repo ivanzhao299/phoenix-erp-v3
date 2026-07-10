@@ -25,7 +25,7 @@
         "force push"
       ]
     },
-    "apply": true
+    "apply": false
   },
   "routePlan": {
     "source_bug_no": "BUG-20260705-0003",
@@ -108,11 +108,11 @@
         "deploy scripts",
         "production deploy"
       ],
-      "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
+      "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
       "contract_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-contract.md",
       "request_spec": "",
-      "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
-      "branch": "w5-a4-frontend-uat-smoke",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+      "branch": "codex/bug-intake-a4",
       "dependencies": [],
       "claimed_by": null,
       "claimed_at": null,
