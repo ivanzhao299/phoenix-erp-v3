@@ -15718,7 +15718,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15797,7 +15797,7 @@
       "docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md",
       "docs/ops/runs/BUGTASK-20260706-0002-a4-frontend-uat-smoke.md"
     ],
-    "reason": "Parent runner completed formal Vitest, Web typecheck, W5 validation, and preserved the implementation commit",
+    "reason": "Parent runner completed formal Vitest, Web typecheck, W5 validation, and integrated the implementation commit",
     "redispatched_at": "2026-07-10T05:08:10.682Z",
     "redispatch_history": [
       {
@@ -15810,7 +15810,10 @@
     ],
     "last_recovered_at": "2026-07-10T06:00:17.704Z",
     "last_recovery_reason": "stale bug-intake task lease without active agent process",
-    "recovery_count": 1
+    "recovery_count": 1,
+    "integrated_commit": "3187399d",
+    "integrated_at": "2026-07-10T06:21:00.000Z",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260706-0002-A1",

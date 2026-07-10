@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { REQUIRE_MENU_KEY, type MenuRequirement } from '../../../common/guards/menu.guard';
+import { REQUIRE_MENU_KEY } from '../../../common/guards/menu.guard';
+import type { MenuRequirement } from '../../../common/guards/menu.guard';
 import { FinCashController } from './fin-cash.controller';
 
 describe('FinCashController RBAC metadata', () => {
