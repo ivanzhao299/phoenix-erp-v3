@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-10T02:12:13.351Z",
-  "updatedAt": "2026-07-10T03:56:03.679Z",
+  "updatedAt": "2026-07-10T04:06:16.036Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "在财务结算中心-应付账款，录入收款，选择收款账户确认收款后，账户余额不变，在资金账户界面点击重算余额后，余额也不变",
@@ -1890,24 +1890,6 @@
         }
       },
       {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260710-0002-04-A5",
-        "summary": "Local bug-intake task BUGTASK-20260710-0002-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "ff2073c86fd35fea3fa81d9a37e843e04ffeb4fd",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-        "recordedAt": "2026-07-10T02:26:05.334Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
-        "changedFiles": [],
-        "validationResults": {
-          "completedAt": "2026-07-10T02:19:22.644Z",
-          "localTaskStatus": "completed",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
         "agent": "A1-CI-Runtime-Gate",
         "taskId": "BUGTASK-20260710-0002-05-A1",
         "summary": "Local bug-intake task BUGTASK-20260710-0002-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
@@ -1926,17 +1908,80 @@
         }
       },
       {
-        "taskId": "BUGTASK-20260710-0002-01-A2",
         "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260710-0002-01-A2",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 712,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T03:56:02.439Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```",
+        "commitHash": "",
         "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-10T03:56:03.676Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+        "changedFiles": [],
+        "validationResults": null
+      },
+      {
+        "agent": "BugIntakeLocalRunner",
+        "taskId": "LOCAL-RUNNER-BUG-20260710-0002-20260710035604",
+        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 2 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Skipped: release evidence is incomplete; refusing push |\n| CI wait | Skipped: push did not complete successfully |\n| Production route smoke | Skipped: push did not pass |\n| Release evidence | BUG-20260710-0001:RELEASE_EVIDENCE_HOLD, BUG-20260710-0002:RELEASE_EVIDENCE_HOLD |\n| Lifecycle writeback | Attempted |\n| Result backfill | 1 report(s) checked |\n| Failure classifications | 6 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260710-0001-03-A4 -> A4-Frontend-UAT-Smoke\n- BUGTASK-20260710-0001-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260710-0002-01-A2 -> A2-Security-Regression-Gate\n\n## Worker Runs\n\n- BUGTASK-20260710-0001-03-A4: worker=2, final=HOLD, writeback=0, retries=0\n- BUGTASK-20260710-0001-05-A1: worker=2, final=HOLD, writeback=0, retries=0\n- BUGTASK-20260710-0002-01-A2: worker=0, final=VALIDATION_COMPLETED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- BUGTASK-20260710-0001-03-A4: A4-Frontend-UAT-Smoke -> BLOCKED (worker reached non-success terminal status HOLD)\n- BUGTASK-20260710-0001-05-A1: A1-CI-Runtime-Gate -> BLOCKED (worker reached non-success terminal status HOLD)\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- VALIDATION_FAILURE [WARNING]: validation; recovery=route to A1 and keep bug in HOLD\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n- VALIDATION_FAILURE [WARNING]: validation; recovery=route to A1 and keep bug in HOLD\n- VALIDATION_FAILURE [WARNING]: validation; recovery=route to A1 and keep bug in HOLD\n\n## Result Backfill\n\n- BUG-20260710-0002: skipped (local selected Agent tasks are not all terminal)\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: No\n- Production deploy: No\n- DB write / migration: not performed by this runner",
+        "commitHash": "cc1b7e8cc28dc63d4da1d3f687fbd5109cd68ee6",
+        "conclusion": "HOLD",
+        "nextAction": "Keep the report in HOLD until implementation, CI/CD, and production route evidence all pass.",
+        "recordedAt": "2026-07-10T03:56:06.131Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "validationResults": {
+          "ci": "HOLD: push did not complete successfully",
+          "push": "HOLD: release evidence is incomplete; refusing push",
+          "sync": "PASS",
+          "productionSmoke": "HOLD: push did not pass",
+          "releaseEvidence": "HOLD",
+          "releaseEvidenceDetail": {
+            "passed": false,
+            "reasons": [
+              "unfinished tasks: BUGTASK-20260710-0002-02-A3, BUGTASK-20260710-0002-03-A4, BUGTASK-20260710-0002-04-A5, BUGTASK-20260710-0002-05-A1",
+              "no verified business implementation task",
+              "A1 validation evidence is missing"
+            ],
+            "version": 1,
+            "decision": "RELEASE_EVIDENCE_HOLD",
+            "failedTasks": [],
+            "changedFiles": [],
+            "commitHashes": [],
+            "missingAgents": [],
+            "selectedAgents": [
+              "A2-Security-Regression-Gate",
+              "A3-Backend-Critical-Path",
+              "A4-Frontend-UAT-Smoke",
+              "A5-Data-Readiness",
+              "A1-CI-Runtime-Gate"
+            ],
+            "unfinishedTasks": [
+              "BUGTASK-20260710-0002-02-A3",
+              "BUGTASK-20260710-0002-03-A4",
+              "BUGTASK-20260710-0002-04-A5",
+              "BUGTASK-20260710-0002-05-A1"
+            ],
+            "validationTasks": [
+              "BUGTASK-20260710-0002-01-A2"
+            ],
+            "implementationTasks": []
+          }
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260710-0002-04-A5",
+        "agent": "A5-Data-Readiness",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": null,
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 712,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T03:56:02.439Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260710-0002-04-A5\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 738,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T04:06:14.691Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```",
         "nextAction": "",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-10T03:56:03.676Z"
+        "recordedAt": "2026-07-10T04:06:16.031Z"
       }
     ],
     "suggestedOwner": "",
@@ -1949,17 +1994,17 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260710-0002-01-A2",
-      "agent": "A2-Security-Regression-Gate",
+      "taskId": "BUGTASK-20260710-0002-04-A5",
+      "agent": "A5-Data-Readiness",
       "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": null,
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-01-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-01-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260710-0002-01-A2\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 712,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T03:56:02.439Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0002-04-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260710-0002-04-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260710-0002-04-A5\nTitle: Repair BUG-20260710-0002: 账户收款后，余额不变 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 738,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"checkedAt\": \"2026-07-10T04:06:14.691Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```",
       "nextAction": "",
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-10T03:56:03.676Z"
+      "recordedAt": "2026-07-10T04:06:16.031Z"
     },
     "redispatchHistory": [
       {

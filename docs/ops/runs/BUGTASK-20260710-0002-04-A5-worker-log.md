@@ -6,6 +6,7 @@
 | Agent | A5-Data-Readiness |
 | Dry run | No |
 | Exit code | 0 |
+| Evidence gate | VALIDATION_COMPLETED |
 
 ## Command
 
@@ -53,4 +54,27 @@ stderr:
 
 ```text
 
+```
+
+## Evidence Gate
+
+```json
+{
+  "version": 1,
+  "agent": "A5-Data-Readiness",
+  "exitCode": 0,
+  "conclusion": "GO_WITH_CONDITIONS",
+  "responseChars": 738,
+  "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+  "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
+  "checkedAt": "2026-07-10T04:06:14.691Z",
+  "passed": true,
+  "role": "validation",
+  "terminalStatus": "VALIDATION_COMPLETED",
+  "reason": "Validation evidence recorded; this is not implementation evidence"
+}
 ```
