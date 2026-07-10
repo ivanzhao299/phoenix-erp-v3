@@ -7,5 +7,5 @@
 
 ## Generated Tasks
 
-- BUGTASK-20260705-0001-01-A4 -> A4-Frontend-UAT-Smoke
-- BUGTASK-20260705-0001-02-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260705-0003-A4 -> A4-Frontend-UAT-Smoke
+- BUGTASK-20260705-0003-A1 -> A1-CI-Runtime-Gate

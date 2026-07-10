@@ -24,11 +24,30 @@ Assigned agent: A5-Data-Readiness
 
 ```json
 {
-  "url": "https://erp.eggslao.com/home",
   "bugNo": "BUG-20260707-0003",
-  "route": "/home",
-  "title": "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
   "taskNo": "BUGTASK-20260707-0003",
+  "title": "打开运营工作台报错[403] MENU_PERMISSION_DENIED",
+  "description": "",
+  "route": "/home",
+  "url": "https://erp.eggslao.com/home",
+  "priority": "P2",
+  "severity": "MEDIUM",
+  "moduleCode": "_____",
+  "acceptanceCriteria": "可正常访问运营工作台，要求右上角不报[403] MENU_PERMISSION_DENIED",
+  "reporter": {
+    "name": "刘汉涛",
+    "roles": [
+      "ROLE_HQ_FINANCE",
+      "ROLE_FIN_COST",
+      "ROLE_TREASURY_MANAGER",
+      "ROLE_FINANCE_ANALYST",
+      "ROLE_COST_ACCOUNTING_MANAGER",
+      "ROLE_FIN_ACCOUNT_MASTER_MGR"
+    ],
+    "username": "liuhantao",
+    "companyCode": "",
+    "projectCode": ""
+  },
   "context": {
     "attachments": [
       {
@@ -39,6 +58,33 @@ Assigned agent: A5-Data-Readiness
         "originalName": "pasted-screenshot-1783383887907-1.png",
         "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0003/01-1783384095554-6aec182d.png",
         "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0003/attachments/01-1783384095554-6aec182d.png"
+      }
+    ],
+    "consoleErrors": [],
+    "failedRequests": [
+      {
+        "url": "/api/v3/iot/devices/all-summary",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:23:44.898Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v3/iot/devices/all-summary",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:23:56.948Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v3/iot/devices/all-summary",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:24:04.879Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
       }
     ],
     "clientContext": {
@@ -620,362 +666,10 @@ Assigned agent: A5-Data-Readiness
       },
       "devicePixelRatio": 2
     },
-    "consoleErrors": [],
-    "failedRequests": [
-      {
-        "url": "/api/v3/iot/devices/all-summary",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:23:44.898Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v3/iot/devices/all-summary",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:23:56.948Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v3/iot/devices/all-summary",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:24:04.879Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      }
-    ],
     "localEvidence": {
-      "localAttachments": [
-        {
-          "fileName": "01-1783384095554-6aec182d.png",
-          "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0003/attachments/01-1783384095554-6aec182d.png",
-          "downloadError": "GET /api/bug-intake/reports/BUG-20260707-0003/attachments/01-1783384095554-6aec182d.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
-        }
-      ],
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
-  "reporter": {
-    "name": "刘汉涛",
-    "roles": [
-      "ROLE_HQ_FINANCE",
-      "ROLE_FIN_COST",
-      "ROLE_TREASURY_MANAGER",
-      "ROLE_FINANCE_ANALYST",
-      "ROLE_COST_ACCOUNTING_MANAGER",
-      "ROLE_FIN_ACCOUNT_MASTER_MGR"
-    ],
-    "username": "liuhantao",
-    "companyCode": "",
-    "projectCode": ""
-  },
-  "severity": "MEDIUM",
-  "agentPlan": {
-    "source_bug_no": "BUG-20260707-0003",
-    "route_decision": "PLAN_READY",
-    "split_strategy": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "reasons": [
-          "security/RBAC/DataScope signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "reasons": [
-          "backend/API/error route matched",
-          "failure classification PG_SQL"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "reasons": [
-          "frontend/UI route or wording matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "reasons": [
-          "data readiness/master data signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "reasons": [
-          "failure classification PG_SQL",
-          "required validation after repair"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      }
-    ],
-    "selected_agents": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
-      "A4-Frontend-UAT-Smoke",
-      "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate"
-    ],
-    "failure_category": "PG_SQL",
-    "hard_constraints": [
-      "no automatic production deploy",
-      "no automatic DB write",
-      "no automatic migration",
-      "human approval required before code repair execution"
-    ],
-    "route_confidence": 0.92,
-    "source_repair_task_no": "BUGTASK-20260707-0003"
-  },
-  "createdAt": "2026-07-07T00:29:35.583Z",
-  "createdBy": "admin",
-  "moduleCode": "_____",
-  "agentResults": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260707144909",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 6 |\n| Worker runs | 6 |\n| Blocked/skipped tasks | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0003-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0005-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0003-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-07T14:49:10.499Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0001-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0003-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0004-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A1-CI-Runtime-Gate",
-            "taskId": "BUGTASK-20260707-0004-05-A1",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260707-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "Codex-Orchestrator",
-      "taskId": "BUGTASK-20260707-0003-ORCH",
-      "summary": "Home dashboard optional IoT KPI request is now gated by MENU_DEVICE_MONITOR and silent; workbench no longer fails for users without device monitor permission.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-      "recordedAt": "2026-07-07T20:25:29.765Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260707-0003-01-A2",
-      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:03.074Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260707-0003-02-A3",
-      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:03.592Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260707-0003-03-A4",
-      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:04.177Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0003-04-A5",
-      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:04.693Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0003-05-A1",
-      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:05.201Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    }
-  ],
-  "suggestedOwner": "_____",
-  "redispatchCount": 1,
-  "timeoutRecovery": {},
-  "repairGuardrails": {
-    "autoRepairExecuted": false,
-    "noProductionDeploy": true,
-    "noDbWriteWithoutGate": true,
-    "requiresHumanApproval": true
-  },
-  "latestAgentResult": {
-    "agent": "A1-CI-Runtime-Gate",
-    "taskId": "BUGTASK-20260707-0003-05-A1",
-    "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-    "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-    "conclusion": "PASS_WITH_CONDITIONS",
-    "nextAction": "Business user verifies the fix in production.",
-    "recordedAt": "2026-07-07T20:29:05.201Z",
-    "recordedBy": "bug_intake_runner",
-    "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-    "changedFiles": [],
-    "validationResults": {
-      "dbWrite": "NO",
-      "i18nGate": "PASS",
-      "migration": "NO",
-      "apiTypecheck": "PASS",
-      "webTypecheck": "PASS",
-      "w5CloseoutGate": "PASS",
-      "productionDeploy": "PASS"
-    }
-  },
-  "redispatchHistory": [
-    {
-      "mode": "REPLAN_AND_REQUEUE",
-      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
-      "redispatchNo": 1,
-      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-      "previousStatus": "IN_PROGRESS",
-      "redispatchedAt": "2026-07-10T04:38:13.036Z",
-      "redispatchedBy": "bug_intake_runner",
-      "selectedAgents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
-      ],
-      "previousRepairTaskStatus": "HOLD"
-    }
-  ],
-  "acceptanceCriteria": "可正常访问运营工作台，要求右上角不报[403] MENU_PERMISSION_DENIED",
-  "agentPlanGeneratedAt": "2026-07-10T04:38:13.036Z",
-  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
   "failureClassification": {
     "category": "PG_SQL",
     "evidence": [
@@ -1007,198 +701,7 @@ Assigned agent: A5-Data-Readiness
       "push without release approval",
       "force push"
     ]
-  },
-  "evidenceReconciliation": {
-    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
-    "reconciledAt": "2026-07-10T03:29:30.602Z",
-    "reconciledBy": "bug_intake_runner",
-    "previousStatus": "CLOSED",
-    "previousRepairTaskStatus": "AGENT_COMPLETED"
-  },
-  "failureClassificationUpdatedAt": "2026-07-10T04:38:13.036Z",
-  "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260707144909",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 6 |\n| Worker runs | 6 |\n| Blocked/skipped tasks | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0003-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0005-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0003-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-07T14:49:10.499Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0001-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0003-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0004-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A1-CI-Runtime-Gate",
-            "taskId": "BUGTASK-20260707-0004-05-A1",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260707-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "Codex-Orchestrator",
-      "taskId": "BUGTASK-20260707-0003-ORCH",
-      "summary": "Home dashboard optional IoT KPI request is now gated by MENU_DEVICE_MONITOR and silent; workbench no longer fails for users without device monitor permission.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-      "recordedAt": "2026-07-07T20:25:29.765Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260707-0003-01-A2",
-      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:03.074Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260707-0003-02-A3",
-      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:03.592Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260707-0003-03-A4",
-      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:04.177Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0003-04-A5",
-      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:04.693Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0003-05-A1",
-      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:05.201Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0003_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    }
-  ]
+  }
 }
 ```
 

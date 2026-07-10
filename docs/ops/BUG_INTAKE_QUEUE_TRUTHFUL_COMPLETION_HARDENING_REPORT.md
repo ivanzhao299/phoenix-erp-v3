@@ -15,6 +15,7 @@
 ## Repairs
 
 1. Bug routing is rebuilt from current title, route, console errors, and failed requests. Pure UI issues route to A4 plus A1; backend, security, data, and release Agents require matching evidence.
+   The submitted issue title/description is authoritative; ambient browser errors are secondary evidence and cannot expand a clearly scoped UI issue.
 2. Task dependencies are generated as implementation -> A2 review -> A1 validation -> A6/A7 release gates. A5 readiness, when relevant, precedes implementation.
 3. Pending tasks with missing or failed dependencies become explicit HOLD instead of remaining pending forever.
 4. Contracts contain a bounded evidence snapshot only. Historical Agent result arrays are excluded and large fields are truncated.
@@ -23,6 +24,7 @@
 7. Dirty worktrees containing business files are never auto-cleaned or auto-merged. Only `docs/ops/**` runtime artifacts can be locally preserved before a new run.
 8. Bug-intake worktrees fetch and rebase against `origin/main`.
 9. Verified Agent commits are integrated by the resident runner with a precise cherry-pick only after the worker evidence gate passes. Cherry-pick conflicts are aborted and the task becomes HOLD.
+10. Task IDs use stable Agent suffixes (`-A3`, `-A4`, `-A1`) instead of route-order indexes, preventing a refined route from reusing another Agent's old task state.
 
 ## Verification
 
@@ -31,6 +33,8 @@
 - Real historical UI report `BUG-20260705-0001`: refined route is A4 + A1 only.
 - Dependency check: A1 depends on the A4 implementation task.
 - Compact contract size: approximately 3 KB per Agent instead of more than 1 MB assembled context.
+- Queue rebuild: active pending work reduced from 123 unordered tasks to 64 dependency-aware tasks; 201 legacy/superseded tasks are archived and excluded from dispatch.
+- Remote non-executable states (`HOLD`, `FIX_READY_FOR_UAT`, closed states) deactivate local pending tasks, preventing stale work from running after the server-side gate changes.
 - Push/deploy during hardening: No.
 - Migration/DB write: No.
 

@@ -24,11 +24,28 @@ Assigned agent: A2-Security-Regression-Gate
 
 ```json
 {
-  "url": "https://erp.eggslao.com/warehouse/query",
   "bugNo": "BUG-20260707-0004",
-  "route": "/warehouse/query",
-  "title": "用tangzhiwen账号库存查询无数据",
   "taskNo": "BUGTASK-20260707-0004",
+  "title": "用tangzhiwen账号库存查询无数据",
+  "description": "",
+  "route": "/warehouse/query",
+  "url": "https://erp.eggslao.com/warehouse/query",
+  "priority": "P2",
+  "severity": "MEDIUM",
+  "moduleCode": "",
+  "acceptanceCriteria": "用tangzhiwen账号库存查询、库存台账能查出数据",
+  "reporter": {
+    "name": "唐治文",
+    "roles": [
+      "ROLE_FARM_CASHIER",
+      "ROLE_WMS_OP",
+      "ROLE_WAREHOUSE_MASTER_MGR",
+      "ROLE_FARM_QC_INSPECTOR"
+    ],
+    "username": "tangzhiwen",
+    "companyCode": "",
+    "projectCode": ""
+  },
   "context": {
     "attachments": [
       {
@@ -39,6 +56,129 @@ Assigned agent: A2-Security-Regression-Gate
         "originalName": "pasted-screenshot-1783384649126-1.png",
         "relativePath": "storage/bug-reports/2026/07/07/BUG-20260707-0004/01-1783384655247-989a8cd3.png",
         "previewEndpoint": "/api/bug-intake/reports/BUG-20260707-0004/attachments/01-1783384655247-989a8cd3.png"
+      }
+    ],
+    "consoleErrors": [],
+    "failedRequests": [
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:31:06.581Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:31:16.657Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:32:06.937Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:33:06.923Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:34:06.934Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:34:45.853Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:34:54.899Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:35:04.222Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:35:06.578Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:35:42.386Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:36:06.570Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:36:28.318Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:37:01.204Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:37:06.565Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-07T00:37:26.713Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
       }
     ],
     "clientContext": {
@@ -523,456 +663,10 @@ Assigned agent: A2-Security-Regression-Gate
       },
       "devicePixelRatio": 2
     },
-    "consoleErrors": [],
-    "failedRequests": [
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:31:06.581Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:31:16.657Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:32:06.937Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:33:06.923Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:34:06.934Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:34:45.853Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:34:54.899Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:35:04.222Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:35:06.578Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:35:42.386Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:36:06.570Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:36:28.318Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:37:01.204Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:37:06.565Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-07T00:37:26.713Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"MENU_PERMISSION_DENIED\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      }
-    ],
     "localEvidence": {
-      "localAttachments": [
-        {
-          "fileName": "01-1783384655247-989a8cd3.png",
-          "sourceEndpoint": "/api/bug-intake/reports/BUG-20260707-0004/attachments/01-1783384655247-989a8cd3.png",
-          "downloadError": "GET /api/bug-intake/reports/BUG-20260707-0004/attachments/01-1783384655247-989a8cd3.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
-        }
-      ],
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
-  "reporter": {
-    "name": "唐治文",
-    "roles": [
-      "ROLE_FARM_CASHIER",
-      "ROLE_WMS_OP",
-      "ROLE_WAREHOUSE_MASTER_MGR",
-      "ROLE_FARM_QC_INSPECTOR"
-    ],
-    "username": "tangzhiwen",
-    "companyCode": "",
-    "projectCode": ""
-  },
-  "severity": "MEDIUM",
-  "agentPlan": {
-    "source_bug_no": "BUG-20260707-0004",
-    "route_decision": "PLAN_READY",
-    "split_strategy": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "reasons": [
-          "security/RBAC/DataScope signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "reasons": [
-          "backend/API/error route matched",
-          "failure classification PG_SQL"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "reasons": [
-          "frontend/UI route or wording matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "reasons": [
-          "data readiness/master data signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "reasons": [
-          "failure classification PG_SQL",
-          "required validation after repair"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      }
-    ],
-    "selected_agents": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
-      "A4-Frontend-UAT-Smoke",
-      "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate"
-    ],
-    "failure_category": "PG_SQL",
-    "hard_constraints": [
-      "no automatic production deploy",
-      "no automatic DB write",
-      "no automatic migration",
-      "human approval required before code repair execution"
-    ],
-    "route_confidence": 0.92,
-    "source_repair_task_no": "BUGTASK-20260707-0004"
-  },
-  "createdAt": "2026-07-07T00:38:15.219Z",
-  "createdBy": "admin",
-  "moduleCode": "",
-  "agentResults": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260707144909",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 6 |\n| Worker runs | 6 |\n| Blocked/skipped tasks | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0003-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0005-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0003-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-07T14:49:10.974Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0001-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0003-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0004-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A1-CI-Runtime-Gate",
-            "taskId": "BUGTASK-20260707-0004-05-A1",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260707-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "Codex-Orchestrator",
-      "taskId": "BUGTASK-20260707-0004-ORCH",
-      "summary": "Warehouse query page now uses the dedicated /api/inventory/batches endpoint and explicit permission/scope messaging. Production read-only evidence confirmed inventory exists under company scope.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-      "recordedAt": "2026-07-07T20:25:30.206Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260707-0004-01-A2",
-      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:05.687Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260707-0004-02-A3",
-      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:06.208Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260707-0004-03-A4",
-      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:06.741Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0004-04-A5",
-      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:07.359Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0004-05-A1",
-      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:07.782Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    }
-  ],
-  "suggestedOwner": "",
-  "redispatchCount": 1,
-  "timeoutRecovery": {},
-  "repairGuardrails": {
-    "autoRepairExecuted": false,
-    "noProductionDeploy": true,
-    "noDbWriteWithoutGate": true,
-    "requiresHumanApproval": true
-  },
-  "latestAgentResult": {
-    "agent": "A1-CI-Runtime-Gate",
-    "taskId": "BUGTASK-20260707-0004-05-A1",
-    "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-    "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-    "conclusion": "PASS_WITH_CONDITIONS",
-    "nextAction": "Business user verifies the fix in production.",
-    "recordedAt": "2026-07-07T20:29:07.782Z",
-    "recordedBy": "bug_intake_runner",
-    "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-    "changedFiles": [],
-    "validationResults": {
-      "dbWrite": "NO",
-      "i18nGate": "PASS",
-      "migration": "NO",
-      "apiTypecheck": "PASS",
-      "webTypecheck": "PASS",
-      "w5CloseoutGate": "PASS",
-      "productionDeploy": "PASS"
-    }
-  },
-  "redispatchHistory": [
-    {
-      "mode": "REPLAN_AND_REQUEUE",
-      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
-      "redispatchNo": 1,
-      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-      "previousStatus": "IN_PROGRESS",
-      "redispatchedAt": "2026-07-10T04:38:18.820Z",
-      "redispatchedBy": "bug_intake_runner",
-      "selectedAgents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
-      ],
-      "previousRepairTaskStatus": "HOLD"
-    }
-  ],
-  "acceptanceCriteria": "用tangzhiwen账号库存查询、库存台账能查出数据",
-  "agentPlanGeneratedAt": "2026-07-10T04:38:18.820Z",
-  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
   "failureClassification": {
     "category": "PG_SQL",
     "evidence": [
@@ -1004,198 +698,7 @@ Assigned agent: A2-Security-Regression-Gate
       "push without release approval",
       "force push"
     ]
-  },
-  "evidenceReconciliation": {
-    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
-    "reconciledAt": "2026-07-10T03:29:30.460Z",
-    "reconciledBy": "bug_intake_runner",
-    "previousStatus": "CLOSED",
-    "previousRepairTaskStatus": "AGENT_COMPLETED"
-  },
-  "failureClassificationUpdatedAt": "2026-07-10T04:38:18.820Z",
-  "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260707144909",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 6 |\n| Worker runs | 6 |\n| Blocked/skipped tasks | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n\n## Runnable Tasks\n\n- BUGTASK-20260707-0001-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0003-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260707-0004-05-A1 -> A1-CI-Runtime-Gate\n- BUGTASK-20260707-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260707-0005-04-A5 -> A5-Data-Readiness\n\n## Worker Runs\n\n- BUGTASK-20260707-0001-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0003-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0004-05-A1: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260707-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "8c81bad58ca4fa333c764bae39a00a4b7453c739",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-07T14:49:10.974Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0001-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0003-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0004-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A1-CI-Runtime-Gate",
-            "taskId": "BUGTASK-20260707-0004-05-A1",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260707-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260707-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "Codex-Orchestrator",
-      "taskId": "BUGTASK-20260707-0004-ORCH",
-      "summary": "Warehouse query page now uses the dedicated /api/inventory/batches endpoint and explicit permission/scope messaging. Production read-only evidence confirmed inventory exists under company scope.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production; reopen with a new bug report if still reproducible.",
-      "recordedAt": "2026-07-07T20:25:30.206Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260707-0004-01-A2",
-      "summary": "A2-Security-Regression-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:05.687Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260707-0004-02-A3",
-      "summary": "A3-Backend-Critical-Path reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:06.208Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260707-0004-03-A4",
-      "summary": "A4-Frontend-UAT-Smoke reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:06.741Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260707-0004-04-A5",
-      "summary": "A5-Data-Readiness reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:07.359Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260707-0004-05-A1",
-      "summary": "A1-CI-Runtime-Gate reconciled by Codex-Orchestrator after current production deployment.",
-      "commitHash": "cc80f59762ff279cf2d65b4fca2a69c25a2aa25e",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business user verifies the fix in production.",
-      "recordedAt": "2026-07-07T20:29:07.782Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/BUG-20260707-0004_ORCHESTRATOR_REPAIR_REPORT.md",
-      "changedFiles": [],
-      "validationResults": {
-        "dbWrite": "NO",
-        "i18nGate": "PASS",
-        "migration": "NO",
-        "apiTypecheck": "PASS",
-        "webTypecheck": "PASS",
-        "w5CloseoutGate": "PASS",
-        "productionDeploy": "PASS"
-      }
-    }
-  ]
+  }
 }
 ```
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const DEFAULT_OUTPUT_DIR = 'docs/ops/runs/bug-intake-inbox';
+const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
 const APPROVED_REPAIR_STATUS = 'AGENT_APPROVED';
 const NODE_BIN = process.execPath;
@@ -244,6 +245,30 @@ function queueHandoff(file, apply) {
   };
 }
 
+function deactivateNotReadyQueueTasks(reports, apply) {
+  if (!apply || !existsSync(resolveFile(TASKS_FILE))) return [];
+  const notReadyByBug = new Map(reports
+    .filter((report) => !isQueueCandidate(report) && report?.bugNo)
+    .map((report) => [report.bugNo, report.repairTaskStatus || 'NOT_READY']));
+  if (notReadyByBug.size === 0) return [];
+  const tasks = readJson(TASKS_FILE);
+  const deactivated = [];
+  for (const task of tasks) {
+    const remoteStatus = notReadyByBug.get(task.source_bug_no);
+    if (!remoteStatus || task.source !== 'bug-intake' || task.route_active === false) continue;
+    task.route_active = false;
+    task.remote_repair_status = remoteStatus;
+    task.route_superseded_reason = `remote bug is not executable: ${remoteStatus}`;
+    if (['pending', 'claimed'].includes(task.status)) {
+      task.status = 'archived';
+      task.completed_at = task.completed_at || new Date().toISOString();
+    }
+    deactivated.push({ task_id: task.task_id, bugNo: task.source_bug_no, remoteStatus });
+  }
+  if (deactivated.length > 0) writeJson(TASKS_FILE, tasks);
+  return deactivated;
+}
+
 function writeMarkdownSummary(file, summary) {
   const lines = [
     '# Bug Intake Local Inbox Sync',
@@ -310,6 +335,7 @@ async function main() {
       throw new Error(`queue handoff failed for ${report.bugNo}: ${result.stderr || result.stdout}`);
     }
   }
+  const deactivatedNotReadyTasks = deactivateNotReadyQueueTasks(enrichedReports, Boolean(args.applyQueue));
 
   const summary = {
     decision: args.applyQueue ? 'BUG_INTAKE_QUEUE_APPLIED' : 'BUG_INTAKE_SYNC_DRY_RUN',
@@ -327,6 +353,7 @@ async function main() {
     })),
     not_ready: notReady,
     queue_results: queueResults,
+    deactivated_not_ready_tasks: deactivatedNotReadyTasks,
     safety: {
       codex_cli_executed: false,
       business_code_modified: false,

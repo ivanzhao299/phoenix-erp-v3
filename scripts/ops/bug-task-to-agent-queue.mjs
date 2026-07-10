@@ -105,7 +105,19 @@ function collectSearchText(payload) {
 }
 
 function refineRoutePlan(payload, routePlan) {
-  const text = collectSearchText(payload);
+  const context = payload.context && typeof payload.context === 'object' ? payload.context : {};
+  const issueText = [
+    payload.title,
+    payload.description,
+    payload.moduleCode || payload.module_code,
+    payload.route,
+    payload.url,
+    payload.acceptanceCriteria,
+  ].filter(Boolean).join('\n').toLowerCase();
+  const errorText = [
+    JSON.stringify(context.consoleErrors || []),
+    JSON.stringify(context.failedRequests || []),
+  ].join('\n').toLowerCase();
   const selected = new Set();
   const reasons = { ...(routePlan.bug_intake_policy_reasons || {}) };
   const add = (agent, reason) => {
@@ -113,11 +125,14 @@ function refineRoutePlan(payload, routePlan) {
     reasons[agent] = [...(reasons[agent] || []), reason];
   };
 
-  const frontendSignal = /dashboard|卡片|页面|ui|ux|样式|按钮|弹窗|抽屉|表格|表单|前端|mobile|手机端|web|截图|视觉|不好看|丑/.test(text);
-  const backendSignal = /\b500\b|http 5|pg|sql|unhandled|api\/|接口|后端|controller|service|patch |post |get |delete |保存失败|提交失败|加载失败/.test(text);
-  const securitySignal = /\b401\b|\b403\b|rbac|datascope|权限|角色|越权|菜单|guard|acl|auth|门禁|permission/.test(text);
-  const dataSignal = /数据字典|主数据|数据重复|数据缺失|数据不准|数据准备|readiness|公司映射|项目映射|供应商|客户映射|账户映射|好业财|chanjet/.test(text);
-  const releaseSignal = /预发|staging|deploy|部署|发布|rollback|回滚|final qa|终验/.test(text);
+  const frontendSignal = /dashboard|卡片|页面|ui|ux|样式|按钮|弹窗|抽屉|表格|表单|前端|mobile|手机端|web|截图|视觉|不好看|丑|不显示中文|英文代码|转换.*中文|中文显示|标题/.test(issueText);
+  const explicitBackendSignal = /\b500\b|http [45]|http[45]|报错.*http|pg|sql|unhandled|api\/|接口|后端|controller|service|patch |post |get |delete |保存失败|保存.*报错|提交失败|加载失败/.test(issueText);
+  const ambientBackendSignal = /\b500\b|http 5|pg|sql|unhandled|request failed|internal server error/.test(errorText);
+  const backendSignal = explicitBackendSignal || (!frontendSignal && ambientBackendSignal);
+  const explicitSecuritySignal = /\b401\b|\b403\b|rbac|datascope|权限|角色|越权|菜单权限|guard|acl|auth|门禁|permission/.test(issueText);
+  const securitySignal = explicitSecuritySignal || (!frontendSignal && /\b401\b|\b403\b|forbidden|permission denied/.test(errorText));
+  const dataSignal = /数据字典|主数据|数据重复|数据缺失|数据不准|数据准备|readiness|公司映射|项目映射|供应商|客户映射|账户映射|好业财|chanjet|库存.*(为0|不变)|数量.*(为0|不变)/.test(issueText);
+  const releaseSignal = /预发|staging|deploy|部署|发布|rollback|回滚|final qa|终验/.test(issueText);
 
   if (frontendSignal) {
     add('A4-Frontend-UAT-Smoke', 'bug-intake policy: UI/visual/page evidence requires A4');
@@ -127,16 +142,22 @@ function refineRoutePlan(payload, routePlan) {
   }
   if (securitySignal) {
     add('A2-Security-Regression-Gate', 'bug-intake policy: RBAC/DataScope/auth evidence requires A2');
+    add('A3-Backend-Critical-Path', 'bug-intake policy: security defect requires an implementation owner');
+    if (/页面|打开|菜单|按钮|前端|账号|用户/.test(issueText)) {
+      add('A4-Frontend-UAT-Smoke', 'bug-intake policy: user-facing security defect requires permission-aware UI repair');
+    }
   }
   if (dataSignal) {
     add('A5-Data-Readiness', 'bug-intake policy: data/readiness/mapping evidence requires A5');
+    add('A3-Backend-Critical-Path', 'bug-intake policy: data defect requires backend query/write-path implementation review');
   }
   if (releaseSignal) {
     add('A6-Staging-Deploy-Runbook', 'bug-intake policy: release/runbook evidence requires A6');
     add('A7-Final-QA-Gate', 'bug-intake policy: release decision evidence requires A7');
   }
   if (!frontendSignal && !backendSignal && !securitySignal && !dataSignal && !releaseSignal) {
-    for (const agent of routePlan.selected_agents || []) selected.add(agent);
+    add('A3-Backend-Critical-Path', 'bug-intake fallback: backend diagnosis required because ownership is unclear');
+    add('A4-Frontend-UAT-Smoke', 'bug-intake fallback: frontend diagnosis required because ownership is unclear');
   }
   add('A1-CI-Runtime-Gate', 'bug-intake policy: every repair requires A1 validation');
 
@@ -243,10 +264,10 @@ function buildTasks(payload, plan, dispatchMap) {
   const selected = plan.selected_agents || [];
   const approval = getApproval(payload);
   const redispatchCount = Number(payload.redispatchCount || approval?.redispatchCount || 0);
-  const tasks = selected.map((agent, index) => {
+  const tasks = selected.map((agent) => {
     const cfg = dispatchMap[agent] || {};
     const short = agentShort(agent);
-    const taskId = `${repairTaskNo}-${String(index + 1).padStart(2, '0')}-${short}`;
+    const taskId = `${repairTaskNo}-${short}`;
     const contractFile = `${RUNS_DIR}/${taskId}-contract.md`;
     return {
       task_id: taskId,

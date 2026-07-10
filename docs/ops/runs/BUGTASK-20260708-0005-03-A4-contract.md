@@ -24,11 +24,26 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "url": "https://erp.eggslao.com/sales2/customers",
   "bugNo": "BUG-20260708-0005",
-  "route": "/sales2/customers",
-  "title": "销售管理-客户管理，",
   "taskNo": "BUGTASK-20260708-0005",
+  "title": "销售管理-客户管理，",
+  "description": "",
+  "route": "/sales2/customers",
+  "url": "https://erp.eggslao.com/sales2/customers",
+  "priority": "P2",
+  "severity": "MEDIUM",
+  "moduleCode": "____",
+  "acceptanceCriteria": "要求在编辑页面添加状态下拉框，状态和风险等级保存时都可成功",
+  "reporter": {
+    "name": "金凤凰总控",
+    "roles": [
+      "ROLE_ADMIN",
+      "ROLE_MASTER_DATA_APPROVER"
+    ],
+    "username": "admin",
+    "companyCode": "",
+    "projectCode": ""
+  },
   "context": {
     "attachments": [
       {
@@ -39,6 +54,169 @@ Assigned agent: A4-Frontend-UAT-Smoke
         "originalName": "pasted-screenshot-1783495023020-1.png",
         "relativePath": "storage/bug-reports/2026/07/08/BUG-20260708-0005/01-1783495029417-1f3996f4.png",
         "previewEndpoint": "/api/bug-intake/reports/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png"
+      }
+    ],
+    "consoleErrors": "[{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:23.854Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:26.257Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:28.459Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:39.445Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:44.870Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:48.284Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:52.967Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:03.390Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:22.689Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:23.770Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:24.378Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:25.141Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:10:32.408Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:11:36.402Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:11:44.765Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:\n...[truncated by bug-intake contract builder]",
+    "failedRequests": [
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:23.852Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:26.254Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:28.457Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:39.444Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:44.869Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:48.282Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:07:52.965Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:03.387Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:22.687Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:23.769Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:24.376Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:08:25.140Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:10:32.406Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:11:36.400Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:11:44.764Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:06.660Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:07.569Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/v2/sales/customers/10951",
+        "method": "PATCH",
+        "status": 403,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:12:11.058Z",
+        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
+      },
+      {
+        "url": "/api/system/online-count",
+        "method": "GET",
+        "status": 502,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:13:55.183Z",
+        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
+      },
+      {
+        "url": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 502,
+        "requestId": "",
+        "timestamp": "2026-07-08T07:13:55.183Z",
+        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
       }
     ],
     "clientContext": {
@@ -1148,563 +1326,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
       },
       "devicePixelRatio": 2
     },
-    "consoleErrors": [
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:23.854Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:26.257Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:28.459Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:39.445Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:44.870Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:48.284Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:07:52.967Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:08:03.390Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:08:22.689Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:08:23.770Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:08:24.378Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:08:25.141Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:10:32.408Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:11:36.402Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:11:44.765Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:12:06.662Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:12:07.571Z"
-      },
-      {
-        "type": "unhandledrejection",
-        "stack": "Error: 黑名单客户不可编辑，请先解除黑名单\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929",
-        "message": "黑名单客户不可编辑，请先解除黑名单",
-        "timestamp": "2026-07-08T07:12:11.059Z"
-      }
-    ],
-    "failedRequests": [
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:23.852Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:26.254Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:28.457Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:39.444Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:44.869Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:48.282Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:07:52.965Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:08:03.387Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:08:22.687Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:08:23.769Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:08:24.376Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:08:25.140Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:10:32.406Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:11:36.400Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:11:44.764Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:12:06.660Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:12:07.569Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/v2/sales/customers/10951",
-        "method": "PATCH",
-        "status": 403,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:12:11.058Z",
-        "responseExcerpt": "{\"code\":403,\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"error\":\"Forbidden\",\"statusCode\":403}"
-      },
-      {
-        "url": "/api/system/online-count",
-        "method": "GET",
-        "status": 502,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:13:55.183Z",
-        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
-      },
-      {
-        "url": "/api/notifications/unread-count",
-        "method": "GET",
-        "status": 502,
-        "requestId": "",
-        "timestamp": "2026-07-08T07:13:55.183Z",
-        "responseExcerpt": "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n<!-- a padding to disable MSIE and Chrome friendly error page -->\r\n"
-      }
-    ],
     "localEvidence": {
-      "localAttachments": [
-        {
-          "fileName": "01-1783495029417-1f3996f4.png",
-          "sourceEndpoint": "/api/bug-intake/reports/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png",
-          "downloadError": "GET /api/bug-intake/reports/BUG-20260708-0005/attachments/01-1783495029417-1f3996f4.png failed HTTP 404: {\"code\":404,\"message\":\"附件文件不存在\",\"error\":\"Not Found\",\"statusCode\":404}"
-        }
-      ],
       "localAttachmentPaths": []
     }
   },
-  "priority": "P2",
-  "reporter": {
-    "name": "金凤凰总控",
-    "roles": [
-      "ROLE_ADMIN",
-      "ROLE_MASTER_DATA_APPROVER"
-    ],
-    "username": "admin",
-    "companyCode": "",
-    "projectCode": ""
-  },
-  "severity": "MEDIUM",
-  "agentPlan": {
-    "source_bug_no": "BUG-20260708-0005",
-    "route_decision": "PLAN_READY",
-    "split_strategy": [
-      {
-        "agent": "A2-Security-Regression-Gate",
-        "reasons": [
-          "security/RBAC/DataScope signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "reasons": [
-          "backend/API/error route matched",
-          "failure classification API_5XX"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "reasons": [
-          "frontend/UI route or wording matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "reasons": [
-          "data readiness/master data signal matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "reasons": [
-          "failure classification API_5XX",
-          "required validation after repair"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      }
-    ],
-    "selected_agents": [
-      "A2-Security-Regression-Gate",
-      "A3-Backend-Critical-Path",
-      "A4-Frontend-UAT-Smoke",
-      "A5-Data-Readiness",
-      "A1-CI-Runtime-Gate"
-    ],
-    "failure_category": "API_5XX",
-    "hard_constraints": [
-      "no automatic production deploy",
-      "no automatic DB write",
-      "no automatic migration",
-      "human approval required before code repair execution"
-    ],
-    "route_confidence": 0.88,
-    "source_repair_task_no": "BUGTASK-20260708-0005"
-  },
-  "createdAt": "2026-07-08T07:18:02.505Z",
-  "createdBy": "admin",
-  "moduleCode": "____",
-  "agentResults": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260708081920",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 52 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0005-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260708-0005-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260708-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0005-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "6d063645aa20bd53a659b4ea85bebbe76428d060",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-08T08:19:21.364Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260708-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260708-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A3-Backend-Critical-Path",
-            "taskId": "BUGTASK-20260708-0005-02-A3",
-            "finalStatus": "COMPLETED_MERGED",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0005-01-A2",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:09.873Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:13:54.076Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0005-02-A3",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:10.395Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:19:13.687Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260708-0005-03-A4",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-03-A4 reached COMPLETED_MERGED.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:10.923Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:19.322Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0005-04-A5",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:11.446Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:13:55.874Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260708-0005-05-A1",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:11.974Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:29.539Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    }
-  ],
-  "suggestedOwner": "_____",
-  "redispatchCount": 2,
-  "timeoutRecovery": {},
-  "repairGuardrails": {
-    "autoRepairExecuted": false,
-    "noProductionDeploy": true,
-    "noDbWriteWithoutGate": true,
-    "requiresHumanApproval": true
-  },
-  "latestAgentResult": {
-    "agent": "A1-CI-Runtime-Gate",
-    "taskId": "BUGTASK-20260708-0005-05-A1",
-    "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-    "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-    "conclusion": "PASS_WITH_CONDITIONS",
-    "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-    "recordedAt": "2026-07-09T06:12:11.974Z",
-    "recordedBy": "bug_intake_runner",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
-    "changedFiles": [],
-    "validationResults": {
-      "completedAt": "2026-07-08T08:25:29.539Z",
-      "localTaskStatus": "completed",
-      "aggregateBackfill": true,
-      "baselineAutopilotExitCode": 0
-    }
-  },
-  "redispatchHistory": [
-    {
-      "mode": "REQUEUE",
-      "note": "管理员要求按原 Agent 计划重新派发。",
-      "redispatchNo": 1,
-      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "previousStatus": "IN_PROGRESS",
-      "redispatchedAt": "2026-07-09T01:07:25.444Z",
-      "redispatchedBy": "admin",
-      "selectedAgents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
-      ],
-      "previousRepairTaskStatus": "HOLD"
-    },
-    {
-      "mode": "REPLAN_AND_REQUEUE",
-      "note": "Re-dispatch after strict-evidence workflow hardening. Require owned business diff, task report, commit, A1 validation, CI/CD, production smoke, then business UAT before RESOLVED.",
-      "redispatchNo": 2,
-      "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-      "previousStatus": "IN_PROGRESS",
-      "redispatchedAt": "2026-07-10T04:38:08.991Z",
-      "redispatchedBy": "bug_intake_runner",
-      "selectedAgents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A4-Frontend-UAT-Smoke",
-        "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate"
-      ],
-      "previousRepairTaskStatus": "HOLD"
-    }
-  ],
-  "acceptanceCriteria": "要求在编辑页面添加状态下拉框，状态和风险等级保存时都可成功",
-  "agentPlanGeneratedAt": "2026-07-10T04:38:08.991Z",
-  "agentPlanGeneratedBy": "redispatch:bug_intake_runner",
   "failureClassification": {
     "category": "API_5XX",
     "evidence": [
@@ -1736,144 +1361,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "push without release approval",
       "force push"
     ]
-  },
-  "evidenceReconciliation": {
-    "reason": "legacy AGENT_COMPLETED did not prove implementation commit, acceptance validation, CI/CD, and production smoke",
-    "reconciledAt": "2026-07-10T03:29:30.673Z",
-    "reconciledBy": "bug_intake_runner",
-    "previousStatus": "IN_PROGRESS",
-    "previousRepairTaskStatus": "AGENT_COMPLETED"
-  },
-  "failureClassificationUpdatedAt": "2026-07-10T04:38:08.991Z",
-  "previousAgentResultsBeforeRedispatch": [
-    {
-      "agent": "BugIntakeLocalRunner",
-      "taskId": "LOCAL-RUNNER-20260708081920",
-      "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 52 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 3 |\n| Worker runs | 3 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | Skipped: wait-ci-after-push disabled |\n| Lifecycle writeback | Attempted |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- BUGTASK-20260708-0005-01-A2 -> A2-Security-Regression-Gate\n- BUGTASK-20260708-0005-04-A5 -> A5-Data-Readiness\n- BUGTASK-20260708-0005-02-A3 -> A3-Backend-Critical-Path\n\n## Worker Runs\n\n- BUGTASK-20260708-0005-01-A2: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0005-04-A5: worker=0, final=completed, writeback=0, retries=0\n- BUGTASK-20260708-0005-02-A3: worker=1, final=COMPLETED_MERGED, writeback=0, retries=0\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- UNKNOWN_RUNNER_FAILURE [WARNING]: no stable failure signature matched; recovery=HOLD and require route review\n\n## Safety\n\n- Codex CLI real execution: Yes, approval token required\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
-      "commitHash": "6d063645aa20bd53a659b4ea85bebbe76428d060",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "Business owner validates the fix in production.",
-      "recordedAt": "2026-07-08T08:19:21.364Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-      "changedFiles": [],
-      "validationResults": {
-        "ci": "SKIPPED: wait-ci-after-push disabled",
-        "push": "PASS",
-        "sync": "PASS",
-        "workerRuns": [
-          {
-            "agent": "A2-Security-Regression-Gate",
-            "taskId": "BUGTASK-20260708-0005-01-A2",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A5-Data-Readiness",
-            "taskId": "BUGTASK-20260708-0005-04-A5",
-            "finalStatus": "completed",
-            "writebackStatus": 0
-          },
-          {
-            "agent": "A3-Backend-Critical-Path",
-            "taskId": "BUGTASK-20260708-0005-02-A3",
-            "finalStatus": "COMPLETED_MERGED",
-            "writebackStatus": 0
-          }
-        ]
-      }
-    },
-    {
-      "agent": "A2-Security-Regression-Gate",
-      "taskId": "BUGTASK-20260708-0005-01-A2",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-01-A2 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:09.873Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-01-A2-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:13:54.076Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A3-Backend-Critical-Path",
-      "taskId": "BUGTASK-20260708-0005-02-A3",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-02-A3 reached COMPLETED_MERGED.\nDetached worker recovery: baseline autopilot completed after parent worker exited before queue writeback.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:10.395Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-02-A3-detached-worker-recovery.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:19:13.687Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A4-Frontend-UAT-Smoke",
-      "taskId": "BUGTASK-20260708-0005-03-A4",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-03-A4 reached COMPLETED_MERGED.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:10.923Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-03-A4-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:19.322Z",
-        "localTaskStatus": "COMPLETED_MERGED",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A5-Data-Readiness",
-      "taskId": "BUGTASK-20260708-0005-04-A5",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-04-A5 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:11.446Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-04-A5-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:13:55.874Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    },
-    {
-      "agent": "A1-CI-Runtime-Gate",
-      "taskId": "BUGTASK-20260708-0005-05-A1",
-      "summary": "Local bug-intake task BUGTASK-20260708-0005-05-A1 reached completed.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-      "commitHash": "bcb1d279387ee48f24ada062a437089032fa8bd7",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "nextAction": "All selected local Agent tasks are complete; business owner validates the fix in production.",
-      "recordedAt": "2026-07-09T06:12:11.974Z",
-      "recordedBy": "bug_intake_runner",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-05-A1-worker-log.md",
-      "changedFiles": [],
-      "validationResults": {
-        "completedAt": "2026-07-08T08:25:29.539Z",
-        "localTaskStatus": "completed",
-        "aggregateBackfill": true,
-        "baselineAutopilotExitCode": 0
-      }
-    }
-  ]
+  }
 }
 ```
 
