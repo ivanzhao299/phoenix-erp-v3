@@ -778,7 +778,7 @@ export class BugIntakeService {
     };
     const isRunnerLifecycle = agentResult.agent === 'BugIntakeLocalRunner';
     if (isRunnerLifecycle) {
-      const lifecycle = this.runnerLifecycleEvidence(agentResult);
+      const lifecycle = this.runnerLifecycleEvidence(report, agentResult);
       report.repairTaskStatus = lifecycle.passed ? 'FIX_READY_FOR_UAT' : 'HOLD';
       report.status = 'IN_PROGRESS';
       report.resolutionNote = lifecycle.passed
@@ -1564,7 +1564,10 @@ export class BugIntakeService {
     return { passed: true, reason: '' };
   }
 
-  private runnerLifecycleEvidence(agentResult: Record<string, unknown>) {
+  private runnerLifecycleEvidence(report: BugReportEntity, agentResult: Record<string, unknown>) {
+    if (report.repairTaskStatus !== 'AGENT_EXECUTION_FINISHED') {
+      return { passed: false, reason: `implementation evidence gate is not ready: ${report.repairTaskStatus || 'EMPTY'}` };
+    }
     const validation = this.payloadObject(agentResult.validationResults);
     const required = ['releaseEvidence', 'push', 'ci', 'productionSmoke'];
     const failed = required.filter((key) => String(validation[key] ?? '') !== 'PASS');

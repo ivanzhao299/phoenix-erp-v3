@@ -91,6 +91,19 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.status).toBe('IN_PROGRESS');
   });
 
+  it('rejects runner lifecycle PASS when implementation evidence is not ready', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'AGENT_APPROVED';
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'RUNNER-BYPASS', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('HOLD');
+    expect(row.resolutionNote).toContain('implementation evidence gate is not ready');
+  });
+
   it('blocks direct close until business verification follows FIX_READY_FOR_UAT', async () => {
     const { row, service } = build();
     await expect(service.updateStatus(row.bugNo, { status: 'CLOSED', resolutionNote: 'done' }, user, meta))

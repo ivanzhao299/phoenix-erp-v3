@@ -4,7 +4,7 @@
 
 本轮修复解决了 Bug Intake 自动工作流把“Agent 进程正常退出”误判为“问题已经解决”的根因。新的状态机要求实现证据、A1 验证、push、CI/CD、生产路由 smoke 和业务验收逐级成立，任何一级缺失都保持 `HOLD` 或等待验证，不再自动关闭问题。
 
-当前结论：`GO WITH CONDITIONS`。代码与本地验证已完成；生产部署、历史状态纠偏和常驻 runner 恢复结果将在部署审计段更新。
+当前结论：`GO WITH CONDITIONS`。严格证据门禁已部署，历史状态纠偏已完成；常驻 runner 将在最终防绕过补丁部署后恢复。
 
 ## 问题现象
 
@@ -46,6 +46,7 @@
 - `BUSINESS_VERIFIED`：管理员/业务方实际验收通过。
 - 修复任务不能从技术完成状态直接关闭；必须先从 `FIX_READY_FOR_UAT` 标记 `RESOLVED`，再关闭。
 - 新增历史假完成 dry-run/apply 纠偏接口，保留审计记录并把可疑记录转为 `IN_PROGRESS + HOLD`。
+- Runner lifecycle 只有在当前问题已处于 `AGENT_EXECUTION_FINISHED` 时才接受；单独伪造 push/CI/smoke PASS 不能绕过实现证据门禁。
 
 ### 管理页面
 
@@ -80,3 +81,12 @@
 4. 重新安装并加载 LaunchAgent，确认启用 CI 等待和生产 smoke。
 5. 观察首个新周期，确认无空结果假完成、无证据 push 和队列卡死。
 
+## 生产纠偏结果
+
+- 首次部署 commit：`8ed0e482`。
+- GitHub Actions `CI/CD — Build & Deploy`：PASS；API/Web build、DDL gate、entity drift gate、system/breeding/packaging/WMS/finance regression 与 full deploy 全部 PASS。
+- 历史纠偏 dry-run：发现 25 条证据不足的 `AGENT_COMPLETED`。
+- 历史纠偏 apply：25 条全部写入 `IN_PROGRESS + HOLD`，包含 8 条曾被提前关闭的记录；原状态写入 `evidenceReconciliation` 并记录 audit log。
+- 纠偏后复查：`NO_FALSE_COMPLETIONS`，剩余候选 0。
+- `BUG-20260710-0002`（账户收款后余额不变）已从假完成恢复为 `IN_PROGRESS + HOLD`，不再向管理员显示已解决。
+- 保留的两条 `AGENT_COMPLETED` 分别为已有真实闭环记录和专用 smoke 记录，不属于本次历史纠偏候选。
