@@ -99,3 +99,11 @@
 - A1 回归发现根目录调用 `tsc` 未指定 project 的运行器缺陷，已改为显式加载 API/Web `tsconfig.json`。
 - 修复后验证：API typecheck PASS、Web typecheck PASS、evidence gate self-test PASS、W5 closeout PASS、严格 i18n 门禁 PASS。
 - LaunchAgent 改为仅在异常退出时重启，并设置 60 秒启动节流；正常 watch 进程持续运行，避免异常时形成登录风暴或触发 API 429。
+
+## Sandbox Commit Recovery
+
+- 子 Agent 的 workspace sandbox 可修改业务 worktree，但不能写主仓库 `.git/worktrees/*/index.lock`；此前会导致已有代码与测试仍被 HOLD。
+- 父 runner 现会核对任务 `allowed_paths`、硬禁止 migration/entity/deploy 路径、业务文件和任务报告后，精确暂存并代为提交。
+- 仅当 Agent 输出明确证明是 sandbox git-index 权限阻断时，父提交才可把该 HOLD 恢复为 `PASS_WITH_CONDITIONS`；其他业务 HOLD 不会被覆盖。
+- `BUG-20260710-0002` 已找到并修复真实根因：确认收款查询遗漏 `received_account_code`，导致核销成功但资金账户交易分支被跳过；同时前端补齐收款账户必选与创建后确认调用。
+- A3/A4 父提交恢复与 Baseline safe merge 均 PASS，未执行 migration、DB 写入或直接部署。

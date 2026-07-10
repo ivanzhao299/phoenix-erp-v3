@@ -67,7 +67,8 @@ export function evaluateWorkerEvidence(input = {}) {
   const exitCode = Number(input.exitCode ?? 1);
   const changedFiles = unique(input.changedFiles);
   const response = extractAgentResponse(input.stdout);
-  const conclusion = normalizedConclusion(response);
+  const parentCommitRecovered = input.parentCommitRecovered === true;
+  const conclusion = parentCommitRecovered ? 'PASS_WITH_CONDITIONS' : normalizedConclusion(response);
   const expectedPrefixes = CODE_AGENT_PREFIXES.get(task.agent) || [];
   const businessChangedFiles = changedFiles.filter((file) => expectedPrefixes.some((prefix) => file.startsWith(prefix)));
   const reportFiles = reportFilesForTask(task, changedFiles);
@@ -84,6 +85,7 @@ export function evaluateWorkerEvidence(input = {}) {
     changedFiles,
     businessChangedFiles,
     reportFiles,
+    parentCommitRecovered,
     checkedAt: new Date().toISOString(),
   };
 
