@@ -15780,7 +15780,7 @@
     "source_repair_task_no": "BUGTASK-20260705-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15801,10 +15801,10 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": null,
-    "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "claimed_by": "A4-Frontend-UAT-Smoke",
+    "claimed_at": "2026-07-10T05:10:31.371Z",
+    "completed_at": "2026-07-10T05:16:03.380Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-detached-worker-recovery.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -15840,7 +15840,7 @@
     },
     "implementation_commit": "",
     "changed_files": [],
-    "reason": "Agent process exited with 1",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=1",
     "redispatched_at": "2026-07-10T05:08:10.183Z",
     "redispatch_history": [
       {
@@ -15850,7 +15850,8 @@
         "source_bug_no": "BUG-20260705-0003",
         "source_repair_task_no": "BUGTASK-20260705-0003"
       }
-    ]
+    ],
+    "baseline_autopilot_exit_code": null
   },
   {
     "task_id": "BUGTASK-20260705-0003-A1",
