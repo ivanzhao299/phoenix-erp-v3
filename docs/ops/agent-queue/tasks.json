@@ -14995,7 +14995,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0003",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15019,7 +15019,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:56:01.720Z",
     "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
@@ -15028,7 +15028,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15036,7 +15036,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:13.036Z"
+    "last_redispatch_at": "2026-07-10T04:38:13.036Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A3",
@@ -15075,7 +15077,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15122,7 +15124,9 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integrated_commit": "d58ca756f00804b749896048cd9b9dc133957b03",
     "integrated_at": "2026-07-10T06:50:30.049Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A4",
@@ -15132,7 +15136,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15155,7 +15159,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:56:01.720Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15164,7 +15168,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15172,7 +15176,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:13.036Z"
+    "last_redispatch_at": "2026-07-10T04:38:13.036Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0003-A1",
@@ -15182,7 +15188,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0003",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15208,7 +15214,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:56:01.720Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15216,7 +15222,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15224,7 +15230,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:13.036Z"
+    "last_redispatch_at": "2026-07-10T04:38:13.036Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A2",
@@ -15234,7 +15242,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15258,7 +15266,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:56:01.720Z",
     "result_file": null,
     "next_agents": [
       "A1-CI-Runtime-Gate",
@@ -15267,7 +15275,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15275,7 +15283,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:08.339Z"
+    "last_redispatch_at": "2026-07-10T04:38:08.339Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A3",
@@ -15314,7 +15324,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15361,7 +15371,9 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integrated_commit": "25541661697909a290be67d0a7369d0cdeda9a0c",
     "integrated_at": "2026-07-10T06:38:17.800Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A4",
@@ -15403,7 +15415,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15460,7 +15472,9 @@
     "reason": "Parent runner completed formal Vitest, Web typecheck, W5 validation, and integrated the implementation commit",
     "integrated_commit": "c65b3ff9",
     "integrated_at": "2026-07-10T06:52:00.000Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0002-A1",
@@ -15470,7 +15484,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15496,7 +15510,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-10T06:56:01.720Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15504,7 +15518,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
@@ -15512,7 +15526,9 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-10T04:38:08.339Z"
+    "last_redispatch_at": "2026-07-10T04:38:08.339Z",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A2",
