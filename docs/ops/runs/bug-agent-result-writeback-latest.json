@@ -1,16 +1,16 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260705-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260705-0003/agent-result",
+  "bugNo": "BUG-20260706-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260705-0003-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260706-0002-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260705-0003-A4-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260705-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260705-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260705-0003-A4-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree mismatch for A4-Frontend-UAT-Smoke; expected /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke, got /Users/mac/phoenix-erp-worktrees/bug-intake-a4\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A4-Frontend-UAT-Smoke\",\n  \"exitCode\": 1,\n  \"conclusion\": \"\",\n  \"responseChars\": 0,\n  \"beforeHead\": \"2484c10d49f32c393dd16cfb0d532be155482220\",\n  \"afterHead\": \"2484c10d49f32c393dd16cfb0d532be155482220\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"checkedAt\": \"2026-07-10T05:03:52.330Z\",\n  \"passed\": false,\n  \"role\": \"execution\",\n  \"terminalStatus\": \"HOLD\",\n  \"reason\": \"Agent process exited with 1\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```\n",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree mismatch for A3-Backend-Critical-Path; expected /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path, got /Users/mac/phoenix-erp-worktrees/bug-intake-a3\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A3-Backend-Critical-Path\",\n  \"exitCode\": 1,\n  \"conclusion\": \"\",\n  \"responseChars\": 0,\n  \"beforeHead\": \"2484c10d49f32c393dd16cfb0d532be155482220\",\n  \"afterHead\": \"2484c10d49f32c393dd16cfb0d532be155482220\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"checkedAt\": \"2026-07-10T05:03:58.330Z\",\n  \"passed\": false,\n  \"role\": \"execution\",\n  \"terminalStatus\": \"HOLD\",\n  \"reason\": \"Agent process exited with 1\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```\n",
     "nextAction": ""
   }
 }
