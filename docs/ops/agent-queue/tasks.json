@@ -2007,8 +2007,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-05T14:27:58.095Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-05T14:27:58.201Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0003-01-A1-worker-log.md",
     "next_agents": [
@@ -2054,8 +2054,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "branch": "codex/orchestrator-main-sync-20260701",
     "dependencies": [],
-    "claimed_by": "Codex-Orchestrator",
-    "claimed_at": "2026-07-05T14:35:29.020Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-05T14:36:24.663Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0003-02-ORCH-worker-log.md",
     "next_agents": [
@@ -2105,8 +2105,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-06T02:29:54.076Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-06T02:31:56.165Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0001-01-A2-worker-log.md",
     "next_agents": [
@@ -2146,8 +2146,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "Codex-Orchestrator",
-    "claimed_at": "2026-07-06T02:31:58.229Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-06T02:34:53.063Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0001-02-A3-worker-log.md",
     "next_agents": [
@@ -2189,8 +2189,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-06T02:34:55.332Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-06T02:37:39.788Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0001-03-A4-worker-log.md",
     "next_agents": [
@@ -2232,8 +2232,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-06T02:37:49.477Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-06T02:40:27.587Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0001-04-A5-worker-log.md",
     "next_agents": [
@@ -2272,8 +2272,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-06T02:40:29.476Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-06T02:40:29.623Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0001-05-A1-worker-log.md",
     "next_agents": [
@@ -6032,8 +6032,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-08T06:07:21.364Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-08T06:07:21.427Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0010-01-A2-worker-log.md",
     "next_agents": [
@@ -6129,8 +6129,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-08T06:07:24.818Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-08T06:08:36.329Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0010-02-A3-worker-log.md",
     "next_agents": [
@@ -6233,8 +6233,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-08T06:46:45.196Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-08T06:48:27.301Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0010-03-A4-worker-log.md",
     "next_agents": [
@@ -6337,8 +6337,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-08T06:07:23.042Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-08T06:07:23.106Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0010-04-A5-worker-log.md",
     "next_agents": [
@@ -6433,8 +6433,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-08T06:53:53.791Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-08T06:53:53.876Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0010-05-A1-worker-log.md",
     "next_agents": [
@@ -10823,8 +10823,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "dependencies": [],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-10T03:56:02.347Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T03:56:02.439Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0002-01-A2-worker-log.md",
     "next_agents": [
@@ -10898,8 +10898,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T04:09:37.855Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:17:17.645Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0002-02-A3-worker-log.md",
     "next_agents": [
@@ -10988,8 +10988,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T04:12:06.755Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:17:35.808Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0002-03-A4-worker-log.md",
     "next_agents": [
@@ -11075,8 +11075,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-10T04:06:14.585Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:06:14.691Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0002-04-A5-worker-log.md",
     "next_agents": [
@@ -11149,8 +11149,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T04:14:49.074Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:14:53.707Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0002-05-A1-worker-log.md",
     "next_agents": [
@@ -11353,8 +11353,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T07:19:53.226Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:23:41.736Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0001-01-A3-worker-log.md",
     "next_agents": [
@@ -11426,8 +11426,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T04:42:44.036Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:43:09.127Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0001-02-A4-worker-log.md",
     "next_agents": [
@@ -11492,8 +11492,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "dependencies": [],
-    "claimed_by": "A5-Data-Readiness",
-    "claimed_at": "2026-07-10T04:39:15.418Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T04:39:15.516Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0001-03-A5-worker-log.md",
     "next_agents": [
@@ -11557,8 +11557,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "dependencies": [],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:23:43.447Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:23:46.947Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0001-04-A1-worker-log.md",
     "next_agents": [
@@ -14342,8 +14342,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T07:35:42.763Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:37:58.542Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0009-A3-worker-log.md",
     "next_agents": [
@@ -14482,8 +14482,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T07:16:25.485Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:18:48.803Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0008-A3-worker-log.md",
     "next_agents": [
@@ -14662,8 +14662,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T07:13:20.756Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:16:23.474Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0007-A3-worker-log.md",
     "next_agents": [
@@ -14801,8 +14801,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T07:10:33.823Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:13:18.935Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0006-A4-worker-log.md",
     "next_agents": [
@@ -14945,8 +14945,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T07:03:49.195Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:06:48.902Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0005-A3-worker-log.md",
     "next_agents": [
@@ -15033,8 +15033,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T07:51:33.952Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:53:44.487Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0005-A4-worker-log.md",
     "next_agents": [
@@ -15127,8 +15127,8 @@
       "BUGTASK-20260707-0005-A3",
       "BUGTASK-20260707-0005-A4"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:59:13.526Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:59:17.039Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0005-A1-worker-log.md",
     "next_agents": [
@@ -15200,8 +15200,8 @@
       "BUGTASK-20260707-0004-A3",
       "BUGTASK-20260707-0004-A4"
     ],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-10T07:33:07.634Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:33:07.721Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A2-worker-log.md",
     "next_agents": [
@@ -15272,8 +15272,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T06:56:01.977Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:00:07.327Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A3-worker-log.md",
     "next_agents": [
@@ -15376,8 +15376,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T07:00:07.567Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:03:48.964Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A4-worker-log.md",
     "next_agents": [
@@ -15472,8 +15472,8 @@
       "BUGTASK-20260707-0004-A4",
       "BUGTASK-20260707-0004-A2"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:35:37.417Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:35:40.923Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0004-A1-worker-log.md",
     "next_agents": [
@@ -15546,8 +15546,8 @@
       "BUGTASK-20260707-0003-A3",
       "BUGTASK-20260707-0003-A4"
     ],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-10T07:59:06.352Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:59:06.437Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0003-A2-worker-log.md",
     "next_agents": [
@@ -15618,8 +15618,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T06:48:20.379Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T06:50:30.049Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0003-A3-worker-log.md",
     "next_agents": [
@@ -15707,8 +15707,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T07:48:23.596Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:51:33.706Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0003-A4-worker-log.md",
     "next_agents": [
@@ -15803,8 +15803,8 @@
       "BUGTASK-20260707-0003-A4",
       "BUGTASK-20260707-0003-A2"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:59:08.270Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:59:11.797Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0003-A1-worker-log.md",
     "next_agents": [
@@ -15877,8 +15877,8 @@
       "BUGTASK-20260707-0002-A3",
       "BUGTASK-20260707-0002-A4"
     ],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-10T07:33:05.755Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:33:05.842Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0002-A2-worker-log.md",
     "next_agents": [
@@ -15949,8 +15949,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T06:34:09.159Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T06:38:17.800Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0002-A3-worker-log.md",
     "next_agents": [
@@ -16038,8 +16038,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T06:38:18.133Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T06:48:18.285Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0002-A4-worker-log.md",
     "next_agents": [
@@ -16141,8 +16141,8 @@
       "BUGTASK-20260707-0002-A4",
       "BUGTASK-20260707-0002-A2"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:35:32.033Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:35:35.511Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0002-A1-worker-log.md",
     "next_agents": [
@@ -16215,8 +16215,8 @@
       "BUGTASK-20260707-0001-A3",
       "BUGTASK-20260707-0001-A4"
     ],
-    "claimed_by": "A2-Security-Regression-Gate",
-    "claimed_at": "2026-07-10T07:32:36.098Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:32:36.187Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0001-A2-worker-log.md",
     "next_agents": [
@@ -16287,8 +16287,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T06:14:07.739Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T06:17:18.352Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0001-A3-worker-log.md",
     "next_agents": [
@@ -16379,8 +16379,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T07:23:48.770Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:27:06.789Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0001-A4-worker-log.md",
     "next_agents": [
@@ -16475,8 +16475,8 @@
       "BUGTASK-20260707-0001-A4",
       "BUGTASK-20260707-0001-A2"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T07:33:09.324Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T07:33:12.779Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0001-A1-worker-log.md",
     "next_agents": [
@@ -16546,8 +16546,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "branch": "codex/bug-intake-a3",
     "dependencies": [],
-    "claimed_by": "A3-Backend-Critical-Path",
-    "claimed_at": "2026-07-10T05:16:05.708Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T05:49:05.278Z",
     "result_file": null,
     "next_agents": [
@@ -16627,8 +16627,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260706-0002-A4-20260710061718",
     "branch": "codex/quarantine/bugtask-20260706-0002-a4-20260710061718",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T06:08:17.576Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T06:14:01.590Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
     "next_agents": [
@@ -16804,8 +16804,8 @@
     "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "branch": "codex/bug-intake-a4",
     "dependencies": [],
-    "claimed_by": "A4-Frontend-UAT-Smoke",
-    "claimed_at": "2026-07-10T05:10:31.371Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T05:25:41.645Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A4-worker-log.md",
     "next_agents": [
@@ -16910,8 +16910,8 @@
     "dependencies": [
       "BUGTASK-20260705-0003-A4"
     ],
-    "claimed_by": "A1-CI-Runtime-Gate",
-    "claimed_at": "2026-07-10T05:25:53.426Z",
+    "claimed_by": null,
+    "claimed_at": null,
     "completed_at": "2026-07-10T05:25:57.303Z",
     "result_file": "docs/ops/runs/BUGTASK-20260705-0003-A1-worker-log.md",
     "next_agents": [

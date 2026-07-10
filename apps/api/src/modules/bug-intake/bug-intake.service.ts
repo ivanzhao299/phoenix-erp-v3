@@ -69,6 +69,7 @@ interface BugRedispatchPayload {
   mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE';
   approvalScope?: string;
   note?: string;
+  selectedAgents?: string[];
 }
 
 interface BugAgentResultPayload {
@@ -651,6 +652,42 @@ export class BugIntakeService {
       };
     }
 
+    const allowedAgents = new Set([
+      'Codex-Orchestrator',
+      'A1-CI-Runtime-Gate',
+      'A2-Security-Regression-Gate',
+      'A3-Backend-Critical-Path',
+      'A4-Frontend-UAT-Smoke',
+      'A5-Data-Readiness',
+      'A6-Staging-Deploy-Runbook',
+      'A7-Final-QA-Gate',
+    ]);
+    const requestedAgents = Array.isArray(body.selectedAgents)
+      ? [...new Set(body.selectedAgents.map(String).filter((agent) => allowedAgents.has(agent)))]
+      : [];
+    if (requestedAgents.length > 0) {
+      if (!requestedAgents.includes('A1-CI-Runtime-Gate')) {
+        throw new BadRequestException('重新派发的 Agent 清单必须包含 A1-CI-Runtime-Gate');
+      }
+      agentPlan = {
+        ...agentPlan,
+        route_decision: 'PLAN_READY',
+        selected_agents: requestedAgents,
+        split_strategy: requestedAgents.map((agent) => ({
+          agent,
+          reasons: ['administrator-approved redispatch scope'],
+          approval_required: true,
+          execution_mode: 'approved-execution',
+        })),
+      };
+      payload = {
+        ...payload,
+        agentPlan,
+        agentPlanGeneratedAt: new Date().toISOString(),
+        agentPlanGeneratedBy: `redispatch-explicit:${operator}`,
+      };
+    }
+
     const selectedAgents = Array.isArray(agentPlan.selected_agents) ? agentPlan.selected_agents.map(String) : [];
     if (selectedAgents.length === 0 || agentPlan.route_decision === 'HOLD') {
       report.repairTaskNo = taskNo;
@@ -714,9 +751,19 @@ export class BugIntakeService {
       },
       redispatchCount,
       redispatchHistory,
-      previousAgentResultsBeforeRedispatch: previousResults.slice(-10),
+      previousAgentResultsBeforeRedispatch: [
+        ...(Array.isArray(payload.previousAgentResultsBeforeRedispatch)
+          ? payload.previousAgentResultsBeforeRedispatch
+          : []),
+        ...previousResults,
+      ].slice(-50),
+      // A new dispatch is a new evidence generation. Keeping the prior
+      // agentResults here allowed one fresh callback to combine with old
+      // callbacks and immediately report a false completion.
+      agentResults: [],
+      latestAgentResult: null,
+      activeRedispatchCount: redispatchCount,
       timeoutRecovery: this.payloadObject(payload.timeoutRecovery),
-      latestAgentResult: this.payloadObject(payload.latestAgentResult),
     };
     report.updatedBy = operator;
 
@@ -762,10 +809,13 @@ export class BugIntakeService {
       validationResults: body.validationResults ?? null,
       summary: this.safeText(body.summary ?? '', 4000),
       nextAction: this.safeText(body.nextAction ?? '', 1000),
+      redispatchCount: Number(payload.redispatchCount || 0),
       recordedBy: this.safeText(user.username ?? user.name ?? 'agent-result-sync', 128),
       recordedAt: new Date().toISOString(),
     };
-    const existing = Array.isArray(payload.agentResults) ? payload.agentResults as Record<string, unknown>[] : [];
+    const activeRedispatchCount = Number(payload.redispatchCount || 0);
+    const existing = (Array.isArray(payload.agentResults) ? payload.agentResults as Record<string, unknown>[] : [])
+      .filter((item) => Number(item.redispatchCount || 0) === activeRedispatchCount);
     const agentResults = [
       ...existing.filter((item) => item.taskId !== agentResult.taskId || !agentResult.taskId),
       agentResult,

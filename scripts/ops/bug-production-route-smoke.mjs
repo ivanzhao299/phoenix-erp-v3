@@ -47,14 +47,19 @@ async function probe(baseUrl, route, token) {
     const res = await fetch(url, {
       method: 'GET',
       redirect: 'manual',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: token ? {
+        Authorization: `Bearer ${token}`,
+        Cookie: `phoenix_access_token=${token}`,
+      } : {},
     });
     const text = await res.text().catch(() => '');
+    const location = res.headers.get('location') || '';
     return {
       route,
       url,
       status: res.status,
-      ok: res.status >= 200 && res.status < 400,
+      ok: res.status >= 200 && res.status < 300,
+      location,
       elapsedMs: Date.now() - startedAt,
       excerpt: text.slice(0, 300),
     };

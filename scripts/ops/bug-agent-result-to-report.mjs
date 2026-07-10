@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 const RUNS_DIR = 'docs/ops/runs';
+const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -57,6 +58,15 @@ function readResult(file) {
   return { raw, json: null };
 }
 
+function readQueueTask(taskId) {
+  try {
+    const tasks = JSON.parse(readFileSync(resolveFile(TASKS_FILE), 'utf8'));
+    return Array.isArray(tasks) ? tasks.find((item) => item.task_id === taskId) || null : null;
+  } catch {
+    return null;
+  }
+}
+
 function firstMatch(text, patterns) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -98,6 +108,10 @@ function parseChangedFiles(text, json) {
 
 function parsePayload(args) {
   const { raw, json } = readResult(args.resultFile);
+  const queueTask = readQueueTask(args.taskId);
+  const queueEvidence = queueTask?.evidence_gate && typeof queueTask.evidence_gate === 'object'
+    ? queueTask.evidence_gate
+    : null;
   const parsedConclusion = json?.conclusion || json?.final_conclusion || firstMatch(raw, [
     /当前结论[:：]\s*([A-Z_ ]+)/i,
     /最终结论[:：]\s*([A-Z_ ]+)/i,
@@ -106,7 +120,7 @@ function parsePayload(args) {
     /^##+\s+结论\s*\n+\s*([A-Z_ ]+)/im,
   ]);
   const conclusion = normalizeConclusion(parsedConclusion) || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
-  const commitHash = json?.commit_hash || json?.commitHash || firstMatch(raw, [
+  const commitHash = json?.commit_hash || json?.commitHash || queueEvidence?.commitHash || queueTask?.implementation_commit || firstMatch(raw, [
     /commit hash[:：]\s*([0-9a-f]{7,40})/i,
     /commit[:：]\s*([0-9a-f]{7,40})/i,
   ]);
@@ -114,14 +128,21 @@ function parsePayload(args) {
     /摘要[:：]\s*([\s\S]{1,2000})/i,
     /Summary\s*\n+([\s\S]{1,2000})/i,
   ]) || raw.slice(0, 2000);
+  const parsedChangedFiles = parseChangedFiles(raw, json);
   return {
     taskId: args.taskId,
     agent: args.agent,
     conclusion,
     resultFile: args.resultFile,
     commitHash,
-    changedFiles: parseChangedFiles(raw, json),
-    validationResults: json?.validation_results || json?.validationResults || null,
+    changedFiles: parsedChangedFiles.length > 0
+      ? parsedChangedFiles
+      : (queueEvidence?.changedFiles || queueTask?.changed_files || []),
+    validationResults: json?.validation_results || json?.validationResults || (queueEvidence ? {
+      evidenceGate: queueEvidence,
+      queueStatus: queueTask?.status || '',
+      integratedCommit: queueTask?.integrated_commit || '',
+    } : null),
     summary,
     nextAction: json?.next_action || json?.nextAction || '',
   };

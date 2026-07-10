@@ -1,6 +1,6 @@
 {
   "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
-  "generatedAt": "2026-07-07T15:24:44.074Z",
+  "generatedAt": "2026-07-10T08:30:22.605Z",
   "cycle": 1,
   "dryRun": false,
   "queueApply": "lease-recovery-only",
@@ -18,8 +18,250 @@
   },
   "leaseRecovery": {
     "recovered": [],
+    "released_terminal_leases": [
+      {
+        "task_id": "BUGTASK-20260705-0003-01-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "archived"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0003-02-ORCH",
+        "agent": "Codex-Orchestrator",
+        "status": "archived"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0001-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0001-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0001-03-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0001-04-A5",
+        "agent": "A5-Data-Readiness",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0001-05-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0010-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0010-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0010-03-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0010-04-A5",
+        "agent": "A5-Data-Readiness",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0010-05-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "completed"
+      },
+      {
+        "task_id": "BUGTASK-20260710-0002-01-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260710-0002-02-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260710-0002-03-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260710-0002-04-A5",
+        "agent": "A5-Data-Readiness",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260710-0002-05-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0001-01-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0001-02-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0001-03-A5",
+        "agent": "A5-Data-Readiness",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0001-04-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0009-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0008-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0007-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0006-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "HOLD"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0005-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0005-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0005-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0004-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0004-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0004-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0004-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0003-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0003-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0003-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0003-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0002-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0002-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0002-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0002-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0001-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0001-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0001-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260707-0001-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0002-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "status": "IMPLEMENTATION_COMPLETED"
+      },
+      {
+        "task_id": "BUGTASK-20260706-0002-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0003-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "status": "COMPLETED_MERGED"
+      },
+      {
+        "task_id": "BUGTASK-20260705-0003-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "status": "VALIDATION_COMPLETED"
+      }
+    ],
     "active_processes": [],
-    "wrote_queue": false,
+    "wrote_queue": true,
     "stale_after_minutes": 1
   },
   "preWorkerCommit": {
@@ -38,10 +280,16 @@
     "skipped": true,
     "reason": "recover-leases-only"
   },
-  "headSha": "a7c44e4d0c08f12d19d9488f7c172f1be18c48c7",
+  "headSha": "ae417d90f90975bd50305eb414f9ed82c3ced44f",
   "tokenSource": "not-required",
   "lifecycleWriteback": {
     "skipped": true,
     "reason": "recover-leases-only"
+  },
+  "failureClassification": {
+    "total": 0,
+    "byCategory": {},
+    "highestSeverity": "INFO",
+    "items": []
   }
 }

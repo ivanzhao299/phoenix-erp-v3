@@ -1,18 +1,49 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-10T05:40:49.031Z",
+  "generated_at": "2026-07-10T08:30:44.910Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
-    "/dashboard"
+    "/home",
+    "/warehouse/query",
+    "/breeding/daily",
+    "/finance2/cash-accounts"
   ],
   "results": [
     {
-      "route": "/dashboard",
-      "url": "https://erp.eggslao.com/dashboard",
-      "status": 307,
+      "route": "/home",
+      "url": "https://erp.eggslao.com/home",
+      "status": 200,
       "ok": true,
-      "elapsedMs": 1282,
-      "excerpt": "/login?return=%2Fdashboard"
+      "location": "",
+      "elapsedMs": 1254,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/warehouse/query",
+      "url": "https://erp.eggslao.com/warehouse/query",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 566,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/breeding/daily",
+      "url": "https://erp.eggslao.com/breeding/daily",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 507,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/finance2/cash-accounts",
+      "url": "https://erp.eggslao.com/finance2/cash-accounts",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 515,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],
   "safety": {

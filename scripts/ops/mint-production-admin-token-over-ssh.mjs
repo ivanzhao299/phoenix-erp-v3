@@ -90,9 +90,16 @@ try {
     process.exit(ssh.status || 1);
   }
 
-  const token = (ssh.stdout || '').trim();
-  if (!/^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(token)) {
-    console.error('Remote command did not return a JWT token.');
+  // docker compose/SSH may emit harmless informational text around stdout.
+  // Extract the final JWT instead of treating any wrapper output as a failed mint.
+  const tokens = (ssh.stdout || '').match(/eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g) || [];
+  const token = tokens.at(-1) || '';
+  if (!token) {
+    const sanitized = (ssh.stdout || '')
+      .replace(/[A-Za-z0-9_-]{20,}/g, '[REDACTED]')
+      .replace(/[^\x20-\x7E\n\r\t]/g, '?')
+      .slice(0, 500);
+    console.error(`Remote command did not return a JWT token (stdout bytes=${Buffer.byteLength(ssh.stdout || '')}, sanitized=${JSON.stringify(sanitized)}).`);
     process.exit(6);
   }
   process.stdout.write(token);

@@ -104,6 +104,41 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.resolutionNote).toContain('implementation evidence gate is not ready');
   });
 
+  it('isolates redispatch evidence so prior agent results cannot cause false completion', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'HOLD';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'], route_decision: 'PLAN_READY' },
+      agentResults: [
+        {
+          taskId: 'OLD-A3', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', changedFiles: ['apps/api/src/old.ts'],
+          validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+        },
+        {
+          taskId: 'OLD-A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+      ],
+    };
+
+    await service.redispatchRepairTask(row.bugNo, {
+      mode: 'REQUEUE',
+      selectedAgents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'],
+    }, user, meta);
+    const payload = row.repairTaskPayload as Record<string, any>;
+    expect(payload.agentResults).toEqual([]);
+    expect(payload.previousAgentResultsBeforeRedispatch).toHaveLength(2);
+    expect(payload.activeRedispatchCount).toBe(1);
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'NEW-A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('AGENT_RUNNING');
+  });
+
   it('blocks direct close until business verification follows FIX_READY_FOR_UAT', async () => {
     const { row, service } = build();
     await expect(service.updateStatus(row.bugNo, { status: 'CLOSED', resolutionNote: 'done' }, user, meta))

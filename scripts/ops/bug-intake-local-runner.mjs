@@ -425,6 +425,8 @@ function reconcileDependencyStates(args) {
     const failed = dependencies.filter((taskId) => DEPENDENCY_FAILURE_STATUSES.has(byId.get(taskId)?.status));
     if (missing.length === 0 && failed.length === 0) continue;
     task.status = 'HOLD';
+    task.claimed_by = null;
+    task.claimed_at = null;
     task.completed_at = new Date().toISOString();
     task.reason = missing.length
       ? `dependency task missing: ${missing.join(', ')}`
@@ -453,6 +455,10 @@ function patchTask(taskId, patch) {
   const index = tasks.findIndex((task) => task.task_id === taskId);
   if (index < 0) return null;
   tasks[index] = { ...tasks[index], ...patch };
+  if (!['claimed', 'running'].includes(tasks[index].status)) {
+    tasks[index].claimed_by = null;
+    tasks[index].claimed_at = null;
+  }
   writeJson(TASKS_FILE, tasks);
   return tasks[index];
 }
@@ -520,11 +526,21 @@ function recoverStaleTaskLeases(args) {
   const now = Date.now();
   const staleAfterMs = Math.max(1, Number(args.staleLeaseMinutes || 1)) * 60 * 1000;
   const recovered = [];
+  const releasedTerminal = [];
   let changed = false;
 
   const nextTasks = tasks.map((task) => {
     if (task.source !== 'bug-intake') return task;
-    if (!LEASE_STATUSES.has(task.status)) return task;
+    if (!LEASE_STATUSES.has(task.status)) {
+      if (!task.claimed_by && !task.claimed_at) return task;
+      releasedTerminal.push({ task_id: task.task_id, agent: task.agent, status: task.status });
+      changed = true;
+      if (!args.dryRun) {
+        const lockFile = path.resolve(args.mainRoot, `docs/ops/agent-queue/locks/${task.task_id}.lock`);
+        rmSync(lockFile, { force: true });
+      }
+      return { ...task, claimed_by: null, claimed_at: null };
+    }
     if (FINISHED_STATUSES.has(task.status)) return task;
     if (taskHasActiveProcess(task, processes)) return task;
 
@@ -558,6 +574,7 @@ function recoverStaleTaskLeases(args) {
   if (changed && !args.dryRun) writeJson(TASKS_FILE, nextTasks);
   return {
     recovered,
+    released_terminal_leases: releasedTerminal,
     active_processes: processes.map((processInfo) => ({ pid: processInfo.pid, command: processInfo.command })),
     wrote_queue: changed && !args.dryRun,
     stale_after_minutes: Math.max(1, Number(args.staleLeaseMinutes || 1)),

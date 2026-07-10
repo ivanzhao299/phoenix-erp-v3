@@ -201,6 +201,10 @@ function updateTask(status) {
     process.exit(1);
   }
   task.status = status;
+  if (['completed', 'failed', 'hold'].includes(status)) {
+    task.claimed_by = null;
+    task.claimed_at = null;
+  }
   if (status === 'pending') {
     task.claimed_by = null;
     task.claimed_at = null;

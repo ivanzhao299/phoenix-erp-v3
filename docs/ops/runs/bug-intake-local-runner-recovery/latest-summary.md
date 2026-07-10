@@ -17,7 +17,11 @@
 | Push after success | Disabled |
 | Push result | Skipped: recover-leases-only |
 | CI wait | Skipped: recover-leases-only |
+| Production route smoke | HOLD |
+| Release evidence | None |
 | Lifecycle writeback | Skipped: recover-leases-only |
+| Result backfill | 0 report(s) checked |
+| Failure classifications | 0 (INFO) |
 
 ## Runnable Tasks
 
@@ -32,6 +36,14 @@
 - None
 
 ## Stale Lease Recovery
+
+- None
+
+## Failure Classification
+
+- None
+
+## Result Backfill
 
 - None
 

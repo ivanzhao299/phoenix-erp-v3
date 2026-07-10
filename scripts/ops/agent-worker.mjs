@@ -566,6 +566,10 @@ function runOne(args) {
   } else {
     task.reason = evidence.reason;
   }
+  if (!['claimed', 'running'].includes(task.status)) {
+    task.claimed_by = null;
+    task.claimed_at = null;
+  }
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
@@ -618,6 +622,10 @@ function recoverSandboxCommit(args) {
     task.baseline_autopilot_command = baseline.command.join(' ');
     task.status = baseline.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
     if (baseline.status !== 0) task.reason = `baseline autopilot failed with ${baseline.status}`;
+  }
+  if (!['claimed', 'running'].includes(task.status)) {
+    task.claimed_by = null;
+    task.claimed_at = null;
   }
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);
