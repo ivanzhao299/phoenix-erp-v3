@@ -8,6 +8,7 @@ const DEFAULT_OUTPUT_DIR = 'docs/ops/runs/bug-intake-inbox';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
 const APPROVED_REPAIR_STATUS = 'AGENT_APPROVED';
+const ACTIVE_REPORT_STATUSES = new Set(['OPEN', 'TRIAGED', 'IN_PROGRESS']);
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 const FETCH_ERRORS = [];
@@ -274,14 +275,46 @@ function deactivateNotReadyQueueTasks(reports, apply) {
   if (!apply || !existsSync(resolveFile(TASKS_FILE))) return [];
   const notReadyByBug = new Map(reports
     .filter((report) => !isQueueCandidate(report) && report?.bugNo)
-    .map((report) => [report.bugNo, report.repairTaskStatus || 'NOT_READY']));
+    .map((report) => [report.bugNo, report]));
   if (notReadyByBug.size === 0) return [];
   const tasks = readJson(TASKS_FILE);
   const deactivated = [];
+  let changed = false;
+  const latestRedispatchByBug = new Map();
   for (const task of tasks) {
-    const remoteStatus = notReadyByBug.get(task.source_bug_no);
-    if (!remoteStatus || task.source !== 'bug-intake' || task.route_active === false) continue;
+    if (task.source !== 'bug-intake' || !task.source_bug_no) continue;
+    latestRedispatchByBug.set(
+      task.source_bug_no,
+      Math.max(latestRedispatchByBug.get(task.source_bug_no) ?? -1, Number(task.redispatch_count || 0)),
+    );
+  }
+  for (const task of tasks) {
+    const report = notReadyByBug.get(task.source_bug_no);
+    if (!report || task.source !== 'bug-intake') continue;
+    const remoteStatus = report.repairTaskStatus || 'NOT_READY';
+    const latestRedispatch = latestRedispatchByBug.get(task.source_bug_no) ?? 0;
+    const isLatestRoute = Number(task.redispatch_count || 0) === latestRedispatch;
+    const approvalActive = report?.repairTaskPayload?.agentExecutionApproval?.approved === true;
+    const preserveLocalRoute = approvalActive
+      && ACTIVE_REPORT_STATUSES.has(String(report.status || ''))
+      && isLatestRoute;
+
+    if (preserveLocalRoute) {
+      task.remote_repair_status = remoteStatus;
+      changed = true;
+      if (task.route_active === false && /^remote bug is not executable:/.test(task.route_superseded_reason || '')) {
+        task.route_active = true;
+        delete task.route_superseded_reason;
+        if (task.status === 'archived' && !task.result_file && !task.evidence_gate) {
+          task.status = 'pending';
+          task.completed_at = null;
+        }
+      }
+      continue;
+    }
+    if (task.route_active === false) continue;
     task.route_active = false;
+    changed = true;
     task.remote_repair_status = remoteStatus;
     task.route_superseded_reason = `remote bug is not executable: ${remoteStatus}`;
     if (['pending', 'claimed'].includes(task.status)) {
@@ -290,7 +323,7 @@ function deactivateNotReadyQueueTasks(reports, apply) {
     }
     deactivated.push({ task_id: task.task_id, bugNo: task.source_bug_no, remoteStatus });
   }
-  if (deactivated.length > 0) writeJson(TASKS_FILE, tasks);
+  if (changed) writeJson(TASKS_FILE, tasks);
   return deactivated;
 }
 

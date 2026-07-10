@@ -1025,6 +1025,18 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
   const results = [];
   for (const candidate of summary.releaseEvidence || []) {
     const releaseOk = candidate.evidence?.passed === true;
+    // A partial Agent batch is not a release failure. Posting a runner-level
+    // HOLD here used to replace AGENT_RUNNING on the server, and the next sync
+    // then archived the still-pending A2/A1 tasks. Leave the report in its
+    // execution state until all selected Agent evidence is complete.
+    if (!releaseOk) {
+      results.push({
+        bugNo: candidate.bugNo,
+        skipped: true,
+        reason: 'release evidence incomplete; preserve Agent execution state',
+      });
+      continue;
+    }
     const conclusion = releaseOk && pushOk && ciOk && smokeOk ? 'PASS_WITH_CONDITIONS' : 'HOLD';
     const payload = {
       taskId: `LOCAL-RUNNER-${candidate.bugNo}-${summary.generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
