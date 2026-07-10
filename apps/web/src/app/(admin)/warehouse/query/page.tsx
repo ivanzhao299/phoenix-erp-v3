@@ -6,51 +6,37 @@ import PageHeader from "@/components/PageHeader";
 import request, { crudApi, type ApiError } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { moneyCell } from "@/components/design-system/cockpit-styles";
-
-interface InvBatch {
-  id?: number;
-  batch_no?: string;
-  product_code?: string;
-  qty?: number;
-  quantity_kg?: number;
-  qty_available?: number;
-  warehouse_code?: string;
-  location_code?: string;
-  expire_date?: string;
-  expiry_date?: string;
-  store_code?: string;
-  status?: string;
-}
-
-function asRows(payload: unknown): InvBatch[] {
-  const p = payload as any;
-  const rows = p?.data?.data ?? p?.data ?? p?.rows ?? p;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function formatDate(v?: string) {
-  return v ? String(v).slice(0, 10) : "—";
-}
+import {
+  filterWarehouseBatchRows,
+  formatWarehouseBatchDate,
+  getWarehouseBatchQuantity,
+  normalizeWarehouseBatchRows,
+  type WarehouseQueryBatch,
+} from "@/lib/warehouse-query";
 
 export default function StockQueryPage() {
   const { t } = useLanguage();
-  const [rows, setRows] = useState<InvBatch[]>([]);
+  const [rows, setRows] = useState<WarehouseQueryBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [keyword, setKeyword] = useState("");
+  const [keyword, setKeyword] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const q = new URLSearchParams(window.location.search).get("q") ?? "";
+    return q.trim() ? q : "";
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      let data: InvBatch[] = [];
+      let data: WarehouseQueryBatch[] = [];
       try {
-        data = asRows(await request("/inventory/batches", { silent: true }));
+        data = normalizeWarehouseBatchRows(await request("/inventory/batches", { silent: true }));
       } catch (e) {
         const err = e as ApiError;
         if (err.status !== 404) throw e;
-        const fallback = await crudApi.list<InvBatch>("inv_batches", { limit: 1000, offset: 0 });
-        data = Array.isArray(fallback) ? fallback : (fallback.data ?? []);
+        const fallback = await crudApi.list<WarehouseQueryBatch>("inv_batches", { limit: 1000, offset: 0 });
+        data = normalizeWarehouseBatchRows(fallback);
       }
       setRows(data);
     } catch (e) {
@@ -66,27 +52,16 @@ export default function StockQueryPage() {
     }
   }, [t]);
 
-  useEffect(() => { load(); }, [load]);
-
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q") ?? "";
-    if (q.trim()) setKeyword(q);
-  }, []);
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const filteredRows = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => [
-      row.batch_no,
-      row.product_code,
-      row.warehouse_code,
-      row.location_code,
-      row.store_code,
-      row.status,
-    ].some((value) => String(value ?? "").toLowerCase().includes(q)));
+    return filterWarehouseBatchRows(rows, keyword);
   }, [rows, keyword]);
 
-  const totalQty = useMemo(() => filteredRows.reduce((sum, row) => sum + Number(row.qty_available ?? row.qty ?? row.quantity_kg ?? 0), 0), [filteredRows]);
+  const totalQty = useMemo(() => filteredRows.reduce((sum, row) => sum + getWarehouseBatchQuantity(row), 0), [filteredRows]);
 
   return (
     <div>
@@ -116,6 +91,7 @@ export default function StockQueryPage() {
         display: "flex",
         gap: 12,
         alignItems: "center",
+        flexWrap: "wrap",
         background: "var(--bg-card)",
         border: "1px solid var(--border)",
         borderRadius: 10,
@@ -129,6 +105,7 @@ export default function StockQueryPage() {
           placeholder={t("ui.搜索批次产品仓库库位门店", "搜索批次号、产品编码、仓库、库位或门店")}
           style={{
             flex: 1,
+            minWidth: 180,
             border: "none",
             outline: "none",
             background: "transparent",
@@ -150,44 +127,46 @@ export default function StockQueryPage() {
         borderRadius: 10,
         overflow: "hidden",
       }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
-              <th style={thStyle}>{t("ui.批次号", "批次号")}</th>
-              <th style={thStyle}>{t("ui.产品编码", "产品编码")}</th>
-              <th style={thStyle}>{t("ui.仓库", "仓库")}</th>
-              <th style={thStyle}>{t("ui.库位", "库位")}</th>
-              <th style={thRightStyle}>{t("ui.库存数量", "库存数量")}</th>
-              <th style={thStyle}>{t("ui.状态", "状态")}</th>
-              <th style={thStyle}>{t("ui.保质期至", "保质期至")}</th>
-              <th style={thStyle}>{t("ui.归属门店", "归属门店")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
-            ) : filteredRows.length === 0 ? (
-              <tr><td colSpan={8} style={emptyStyle}>
-                <Warehouse size={24} />
-                {error ? t("ui.请先处理上方提示", "请先处理上方提示") : t("ui.当前权限范围内暂无库存批次", "当前权限范围内暂无库存批次")}
-              </td></tr>
-            ) : filteredRows.map((row, index) => {
-              const qty = Number(row.qty_available ?? row.qty ?? row.quantity_kg ?? 0);
-              return (
-                <tr key={`${row.id ?? row.batch_no ?? index}`} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={tdStrongStyle}>{row.batch_no || "—"}</td>
-                  <td style={tdStyle}>{row.product_code || "—"}</td>
-                  <td style={tdStyle}>{row.warehouse_code || "—"}</td>
-                  <td style={tdStyle}>{row.location_code || "—"}</td>
-                  <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>{qty.toLocaleString()}</td>
-                  <td style={tdStyle}><span style={statusPillStyle}>{row.status || "AVAILABLE"}</span></td>
-                  <td style={tdStyle}>{formatDate(row.expire_date || row.expiry_date)}</td>
-                  <td style={tdStyle}>{row.store_code || "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 860, borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
+                <th style={thStyle}>{t("ui.批次号", "批次号")}</th>
+                <th style={thStyle}>{t("ui.产品编码", "产品编码")}</th>
+                <th style={thStyle}>{t("ui.仓库", "仓库")}</th>
+                <th style={thStyle}>{t("ui.库位", "库位")}</th>
+                <th style={thRightStyle}>{t("ui.库存数量", "库存数量")}</th>
+                <th style={thStyle}>{t("ui.状态", "状态")}</th>
+                <th style={thStyle}>{t("ui.保质期至", "保质期至")}</th>
+                <th style={thStyle}>{t("ui.归属门店", "归属门店")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
+              ) : filteredRows.length === 0 ? (
+                <tr><td colSpan={8} style={emptyStyle}>
+                  <Warehouse size={24} />
+                  {error ? t("ui.请先处理上方提示", "请先处理上方提示") : t("ui.当前权限范围内暂无库存批次", "当前权限范围内暂无库存批次")}
+                </td></tr>
+              ) : filteredRows.map((row, index) => {
+                const qty = getWarehouseBatchQuantity(row);
+                return (
+                  <tr key={`${row.id ?? row.batch_no ?? index}`} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={tdStrongStyle}>{row.batch_no || "—"}</td>
+                    <td style={tdStyle}>{row.product_code || "—"}</td>
+                    <td style={tdStyle}>{row.warehouse_code || "—"}</td>
+                    <td style={tdStyle}>{row.location_code || "—"}</td>
+                    <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>{qty.toLocaleString()}</td>
+                    <td style={tdStyle}><span style={statusPillStyle}>{row.status || "AVAILABLE"}</span></td>
+                    <td style={tdStyle}>{formatWarehouseBatchDate(row.expire_date || row.expiry_date)}</td>
+                    <td style={tdStyle}>{row.store_code || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
