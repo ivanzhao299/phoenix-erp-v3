@@ -109,3 +109,5 @@
 - A3/A4 父提交恢复与 Baseline safe merge 均 PASS，未执行 migration、DB 写入或直接部署。
 - 主编排器复核发现首版 A3 只查询但未消费账户编码，目标 Jest 回归实际失败；已继续修正为 ID 优先、账户编码回退，并允许普通未分摊收款确认入账。
 - 最终目标回归覆盖“有 AR 分摊”和“无 AR 普通收款”两条路径，2/2 PASS；API/Web typecheck、三语 key 门禁、严格 i18n 与 W5 均 PASS。
+- 生产提交 `ec4db7e3` 的 Security、Web Unit、Build、CI/CD Full Deploy 四条流水线全部 PASS；`/finance2/ar` 与 `/api/health` 生产 smoke PASS。
+- 线上 `BUG-20260710-0002` 已按 A2/A3/A4/A5/A1 → CI/CD → runner lifecycle 顺序回写，当前为 `FIX_READY_FOR_UAT`，不会在业务验收前伪装为 RESOLVED。

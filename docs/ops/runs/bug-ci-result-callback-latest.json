@@ -1,22 +1,22 @@
 {
-  "decision": "BUG_CI_RESULT_CALLBACK_DRY_RUN",
-  "bugNo": "BUG-20260706-DRYRUN",
+  "decision": "BUG_CI_RESULT_CALLBACK_APPLY",
+  "bugNo": "BUG-20260710-0002",
   "payload": {
-    "taskId": "CICD-testcommit",
+    "taskId": "CICD-ec4db7e36409",
     "agent": "BugIntakeCICD",
     "conclusion": "PASS",
-    "resultFile": "https://github.com/ivanzhao299/phoenix-erp-v3/actions",
-    "commitHash": "testcommit",
+    "resultFile": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/29068970282",
+    "commitHash": "ec4db7e3640977dac2113de668ceb90dc91f7c01",
     "changedFiles": [],
     "validationResults": {
-      "githubRunUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions",
-      "githubRunId": "",
+      "githubRunUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/29068970282",
+      "githubRunId": "29068970282",
       "deployEnvironment": "production",
-      "deployMode": "",
+      "deployMode": "full",
       "conclusion": "success",
       "deployed": true
     },
-    "summary": "CI/CD result: success\nCommit: testcommit\nRun: https://github.com/ivanzhao299/phoenix-erp-v3/actions\nEnvironment: production",
+    "summary": "CI/CD result: success\nCommit: ec4db7e3640977dac2113de668ceb90dc91f7c01\nRun: https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/29068970282\nEnvironment: production",
     "nextAction": "Business owner validates the production fix."
   },
   "safety": {

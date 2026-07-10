@@ -1,6 +1,6 @@
 # Authenticated Business Smoke
 
-Generated at: 2026-07-02T05:42:13.896Z
+Generated at: 2026-07-10T04:32:31.796Z
 Profile: generic-authenticated-user
 Base URL: https://erp.eggslao.com
 API URL: https://erp.eggslao.com
