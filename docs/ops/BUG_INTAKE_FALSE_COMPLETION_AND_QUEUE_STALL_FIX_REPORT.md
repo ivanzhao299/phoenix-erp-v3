@@ -28,6 +28,8 @@
 - Remaining claimed/running tasks without a live process: 0.
 - Production route smoke: `/home`, `/warehouse/query`, `/breeding/daily`, and `/finance2/cash-accounts` returned HTTP 200.
 - Business-role API smoke is not inferred from the least-privilege Bug Intake service account. Role-specific acceptance remains a separate UAT gate.
+- `BUG-20260707-0001` through `BUG-20260707-0005` were rebuilt from current-generation queue evidence and now remain `IN_PROGRESS / FIX_READY_FOR_UAT`.
+- No report was automatically changed to `RESOLVED` or `CLOSED`.
 
 ## Verification
 
@@ -36,7 +38,7 @@
 - API TypeScript: PASS.
 - Agent result writeback dry-run: implementation commit, changed files, and evidence gate preserved.
 - W5 closeout gate: PASS.
-- CI/CD and production deployment must pass for the final commit before this report is considered released.
+- Commit `51fa0865` passed Security, Web Unit, Build, full regression, image build, and full production deployment.
 
 ## Safety
 
@@ -44,4 +46,3 @@
 - Migration: No.
 - Destructive cleanup/reset: No.
 - Automatic business acceptance: No.
-
