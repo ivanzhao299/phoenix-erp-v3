@@ -17786,5 +17786,98 @@
       "checkedAt": "2026-07-11T02:04:02.108Z"
     },
     "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260711-0005-A3",
+    "request_id": "BUGTASK-20260711-0005",
+    "title": "Repair BUG-20260711-0005: 财务结算中心-应付账款，新建应付发票之后，点击生成的应付发票，右边加载不出来，没发付钱 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260711-0005",
+    "source_repair_task_no": "BUGTASK-20260711-0005",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260711-0005-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260711-0005-A1",
+    "request_id": "BUGTASK-20260711-0005",
+    "title": "Repair BUG-20260711-0005: 财务结算中心-应付账款，新建应付发票之后，点击生成的应付发票，右边加载不出来，没发付钱 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260711-0005",
+    "source_repair_task_no": "BUGTASK-20260711-0005",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260711-0005-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260711-0005-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
   }
 ]
