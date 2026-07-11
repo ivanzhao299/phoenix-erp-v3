@@ -6,8 +6,8 @@
 | Trigger task | BUGTASK-20260708-0002-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Original worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-a4` |
-| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0002-A4-20260711012437` |
-| Quarantine branch | `codex/quarantine/bugtask-20260708-0002-a4-20260711012437` |
+| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0002-A4-20260711063220` |
+| Quarantine branch | `codex/quarantine/bugtask-20260708-0002-a4-20260711063220` |
 | Clean execution slot recreated | Yes |
 
 ## Preserved status

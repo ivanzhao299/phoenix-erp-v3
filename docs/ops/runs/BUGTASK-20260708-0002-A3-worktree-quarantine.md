@@ -6,8 +6,8 @@
 | Trigger task | BUGTASK-20260708-0002-A3 |
 | Agent | A3-Backend-Critical-Path |
 | Original worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-a3` |
-| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0002-A3-20260711012432` |
-| Quarantine branch | `codex/quarantine/bugtask-20260708-0002-a3-20260711012432` |
+| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0002-A3-20260711063209` |
+| Quarantine branch | `codex/quarantine/bugtask-20260708-0002-a3-20260711063209` |
 | Clean execution slot recreated | Yes |
 
 ## Preserved status
