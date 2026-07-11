@@ -948,16 +948,34 @@ Assigned agent: A1-CI-Runtime-Gate
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-090149/BUG-20260711-0002/attachments/01-1783731492990-93b06a27.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-142558/BUG-20260711-0002/attachments/01-1783731492990-93b06a27.png"
       ]
     }
   },
-  "failureClassification": null,
+  "failureClassification": {
+    "category": "API_5XX",
+    "evidence": [
+      "API 5xx/异常信号"
+    ],
+    "priority": "P1",
+    "severity": "HIGH",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "autoFixEligible": true,
+    "recommendedAgents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "requiresHumanGate": true,
+    "ownerRecommendation": "A3-Backend-Critical-Path"
+  },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-11T00:59:39.934Z",
+    "approvedAt": "2026-07-11T06:20:12.636Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -971,4 +989,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-090149/BUG-20260711-0002/attachments/01-1783731492990-93b06a27.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-142558/BUG-20260711-0002/attachments/01-1783731492990-93b06a27.png
