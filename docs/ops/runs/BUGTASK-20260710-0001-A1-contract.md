@@ -33,7 +33,7 @@ Assigned agent: A1-CI-Runtime-Gate
   "priority": "P2",
   "severity": "MEDIUM",
   "moduleCode": "_____",
-  "acceptanceCriteria": "点击“进入采购中心”，跳转到采购管理-采购看板页面",
+  "acceptanceCriteria": "都修复好了，现在怎么又还原了，再给我修复一遍，不要还原回去",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -765,14 +765,14 @@ Assigned agent: A1-CI-Runtime-Gate
     }
   },
   "failureClassification": {
-    "category": "PG_SQL",
+    "category": "API_5XX",
     "evidence": [
-      "数据库/PG/SQL 信号"
+      "API 5xx/异常信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.92,
-    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -783,11 +783,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T05:50:39.636Z",
+    "approvedAt": "2026-07-11T00:37:08.466Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 3,
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
