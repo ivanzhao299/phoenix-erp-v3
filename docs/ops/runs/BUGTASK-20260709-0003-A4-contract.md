@@ -33,7 +33,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "priority": "P2",
   "severity": "MEDIUM",
   "moduleCode": "____",
-  "acceptanceCriteria": "事务类型一栏显示的是英文代码，需要转换成对应的中文，比如FARM_OUT_MEDICATION、TEMP_PRODUCTION_INBOUND、FARM_IN等，都转换为中文显示",
+  "acceptanceCriteria": "要求显示中文",
   "reporter": {
     "name": "金凤凰总控",
     "roles": [
@@ -801,10 +801,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:17.506Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-11T00:40:59.787Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
     "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
