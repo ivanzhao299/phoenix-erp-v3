@@ -12799,7 +12799,7 @@
     "source_repair_task_no": "BUGTASK-20260710-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -12817,12 +12817,12 @@
     "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
     "contract_file": "docs/ops/runs/BUGTASK-20260710-0001-A4-contract.md",
     "request_spec": "",
-    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "branch": "codex/bug-intake-a4",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260710-0001-A4-20260711085756",
+    "branch": "codex/quarantine/bugtask-20260710-0001-a4-20260711085756",
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-11T08:58:00.645Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -12838,7 +12838,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-11T08:54:17.017Z",
-    "reason": null,
+    "reason": "incomplete implementation worktree preserved in quarantine; no code merged",
     "evidence_gate": null,
     "implementation_commit": "",
     "integrated_commit": "",
@@ -12876,7 +12876,7 @@
         "source_repair_task_no": "BUGTASK-20260710-0001"
       }
     ],
-    "quarantined_at": "2026-07-11T07:23:06.827Z",
+    "quarantined_at": "2026-07-11T08:58:00.645Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4"
   },
   {
@@ -12887,7 +12887,7 @@
     "source_repair_task_no": "BUGTASK-20260710-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -12911,7 +12911,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-11T08:58:01.435Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -12926,8 +12926,16 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-11T08:54:17.017Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260710-0001-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260710-0001-A4",
+      "checkedAt": "2026-07-11T08:58:01.435Z"
+    },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
