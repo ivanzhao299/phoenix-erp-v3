@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260711-0001-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
-| Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Exit code | 1 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,20 +23,10 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260711-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260711-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 19643
+Assembled prompt chars: 19678
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-48-59-069Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend repair for `BUG-20260711-0001`.
-
-Changed [zh.json](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/locales/zh.json:4280) so `menu.dashboard` now displays `经营仪表盘`, matching the existing `/dashboard` menu config. Added focused regression coverage in [dashboard-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/dashboard-menu-label.test.ts:1). Wrote the required task report at [BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md:1).
-
-Verification:
-- `pnpm --filter web test -- dashboard-menu-label.test.ts` -> PASS
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` -> PASS
-- `git diff --check` -> PASS
-
-Status: `PASS WITH CONDITIONS`. Local browser desktop/mobile smoke could not run because the sandbox blocks Next dev server socket binding with `EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3014`. No production resolution is claimed until CI/CD, authenticated desktop/mobile smoke, production smoke, and business acceptance pass.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-26-55-056Z-A4-Frontend-UAT-Smoke.md
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -53,7 +43,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f565d-e02b-7a21-917d-dbce5790d61c
+session id: 019f575e-172d-7fc1-9fe9-6eb76a7b5caa
 --------
 user
 # Base Agent Prompt
@@ -512,7 +502,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "tag": "button",
             "path": ".bug-intake-module__OBjRZW__iconButton",
      
-...<truncated 479461 chars>
+...<truncated 8242 chars>
 
 ```
 
@@ -522,30 +512,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
 {
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
-  "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1098,
-  "beforeHead": "70d42edbcf61ef53056b7d1d0c64c27761228e34",
-  "afterHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-  "commitHash": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-  "changedFiles": [
-    "apps/web/src/lib/dashboard-menu-label.test.ts",
-    "apps/web/src/locales/zh.json",
-    "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/lib/dashboard-menu-label.test.ts",
-    "apps/web/src/locales/zh.json"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
-  ],
+  "exitCode": 1,
+  "conclusion": "",
+  "responseChars": 0,
+  "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:48:59.243Z",
-  "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "checkedAt": "2026-07-12T17:26:55.076Z",
+  "passed": false,
+  "role": "execution",
+  "terminalStatus": "HOLD",
+  "reason": "Agent process exited with 1"
 }
 ```
 
@@ -553,22 +534,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/locales/zh.json",
-    "apps/web/src/lib/dashboard-menu-label.test.ts",
-    "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/locales/zh.json",
-    "apps/web/src/lib/dashboard-menu-label.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
-  ],
-  "commitHash": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 5cc04e9e] fix(web): repair BUG-20260711-0001\n 3 files changed, 60 insertions(+), 1 deletion(-)\n create mode 100644 apps/web/src/lib/dashboard-menu-label.test.ts\n create mode 100644 docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "not an eligible implementation execution"
 }
 ```
