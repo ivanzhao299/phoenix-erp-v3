@@ -7,6 +7,11 @@ const pageSource = readFileSync(
   "utf8",
 );
 
+const ordersPageSource = readFileSync(
+  join(process.cwd(), "src/app/(admin)/procurement2/orders/page.tsx"),
+  "utf8",
+);
+
 const cssSource = readFileSync(
   join(process.cwd(), "src/app/(admin)/procurement2/shipments/shipments.module.css"),
   "utf8",
@@ -27,5 +32,23 @@ describe("procurement shipments drawer layout", () => {
     expect(cssSource).toContain("grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
     expect(cssSource).toContain("@media (max-width: 768px)");
     expect(cssSource).toContain("grid-template-columns: minmax(0, 1fr)");
+  });
+
+  it("lets approved procurement orders start a shipment with locked PO prefill", () => {
+    expect(ordersPageSource).toContain('usePermission("MENU_PRC2_SHIPMENT")');
+    expect(ordersPageSource).toContain("shipmentPerm.canCreate");
+    expect(ordersPageSource).toContain('create: "1"');
+    expect(ordersPageSource).toContain("poId: row.id");
+    expect(ordersPageSource).toContain("poNo: row.poNo");
+    expect(ordersPageSource).toContain("/procurement2/shipments?");
+    expect(pageSource).toContain('usePermission("MENU_PRC2_SHIPMENT")');
+    expect(pageSource).toContain('params.get("create") !== "1"');
+    expect(pageSource).toContain('params.get("poId")?.trim()');
+    expect(pageSource).toContain('params.get("poNo")?.trim()');
+    expect(pageSource).toContain("if (!shipmentPerm.canCreate) return");
+    expect(pageSource).toContain("{shipmentPerm.canCreate && <button");
+    expect(pageSource).toContain("openNew({");
+    expect(pageSource).toContain("readOnly={poLocked}");
+    expect(pageSource).toContain("aria-readonly={poLocked}");
   });
 });

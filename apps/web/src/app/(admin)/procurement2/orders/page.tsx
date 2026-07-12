@@ -5,13 +5,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, ChevronLeft, ChevronRight, GitMerge, Clock } from "lucide-react";
+import { Plus, RefreshCw, ChevronLeft, ChevronRight, GitMerge, Clock, Truck } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { ModalV2 } from "@/components/design-system"; // G155 全局模态
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePermission } from "@/hooks/usePermission";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -219,11 +220,30 @@ const inlineSelect: React.CSSProperties = {
   ...inlineInput,
   flex: "0 0 auto"
 };
+const SHIPMENT_CREATABLE_ORDER_STATUSES = new Set([
+  "APPROVED",
+  "PARTIALLY_PAID",
+  "PAID",
+  "IN_TRANSIT",
+  "PARTIALLY_RECEIVED"
+]);
+function shipmentCreateHref(row: PurchaseOrder) {
+  const params = new URLSearchParams({
+    create: "1",
+    poId: row.id,
+    poNo: row.poNo
+  });
+  if (typeof row.crossBorderFlag === "boolean") {
+    params.set("shipmentType", row.crossBorderFlag ? "CROSS_BORDER" : "LOCAL");
+  }
+  return `/procurement2/shipments?${params.toString()}`;
+}
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {
   const toast = useToast();
   const { t } = useLanguage();
+  const shipmentPerm = usePermission("MENU_PRC2_SHIPMENT");
   const STATUS_MAP = buildStatusMap(t);
   const PURCHASE_TYPE_OPTS = buildPurchaseTypeOpts(t);
   const [data, setData] = useState<PageResult>({
@@ -403,6 +423,9 @@ export default function PurchaseOrdersPage() {
     } finally {
       setActionSubmitting(false);
     }
+  }
+  function canCreateShipment(row: PurchaseOrder | null) {
+    return !!row && shipmentPerm.canCreate && SHIPMENT_CREATABLE_ORDER_STATUSES.has(row.status);
   }
 
   // ── PR 转 PO ──────────────────────────────────────────────────────────────
@@ -602,6 +625,11 @@ export default function PurchaseOrdersPage() {
                       {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
                         <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title={t('prc2.go_approve_title', '审批请前往『工作流·待办』')}>{t('prc2.go_approve', '前往审批')}</Link>
                       )}
+                      {canCreateShipment(row) && (
+                        <Link href={shipmentCreateHref(row)} style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}>
+                          <Truck size={12} /> {t('ui.创建运单', '创建运单')}
+                        </Link>
+                      )}
                       {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
                         <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>{t('prc2.cancel', '取消')}</button>
                       )}
@@ -701,6 +729,11 @@ export default function PurchaseOrdersPage() {
               <span className={`${s.badge} ${s.badgeNeutral}`}>
                 {PURCHASE_TYPE_OPTS.find(o => o.value === detailData.purchaseType)?.label ?? detailData.purchaseType ?? "—"}
               </span>
+              {canCreateShipment(detailData) && (
+                <Link href={shipmentCreateHref(detailData)} className={`${s.btnSecondary} ${u.flexRow}`} style={{ marginLeft: "auto", textDecoration: "none" }}>
+                  <Truck size={14} /> {t('ui.创建运单', '创建运单')}
+                </Link>
+              )}
             </div>
 
             {/* 明细行 */}

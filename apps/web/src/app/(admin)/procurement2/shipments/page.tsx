@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
@@ -12,6 +12,7 @@ import styles from "./shipments.module.css";
 import DictSelect from "@/components/shared-selectors/DictSelect";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, Send, Truck, Package, X, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface ReceiptSummary {
   status: string;
   receiptDate: string;
 }
+type ShipmentPrefill = Pick<Partial<Shipment>, "poId" | "poNo" | "shipmentType">;
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,7 @@ function hdr() {
 export default function ShipmentsPage() {
   const { t } = useLanguage();
   const toast = useToast();
+  const shipmentPerm = usePermission("MENU_PRC2_SHIPMENT");
 
   // ── List state ────────────────────────────────────────────────────────────
   const [items, setItems] = useState<Shipment[]>([]);
@@ -108,6 +111,8 @@ export default function ShipmentsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Shipment>>({});
   const [formSaving, setFormSaving] = useState(false);
+  const [poLocked, setPoLocked] = useState(false);
+  const linkedPoHandledRef = useRef(false);
 
   // ── Drawer: detail ────────────────────────────────────────────────────────
   const [detail, setDetail] = useState<Shipment | null>(null);
@@ -172,17 +177,46 @@ export default function ShipmentsPage() {
       toast.error(String(e));
     }
   };
-  const openNew = () => {
+  const openNew = useCallback((prefill: ShipmentPrefill = {}) => {
+    const hasLinkedPo = Boolean(prefill.poId && prefill.poNo);
+    setPoLocked(hasLinkedPo);
     setFormData({
-      shipmentType: "CROSS_BORDER",
+      shipmentType: prefill.shipmentType || "CROSS_BORDER",
       originCountry: "CN",
       destinationCountry: "LA",
-      customsRequired: true
+      customsRequired: true,
+      poId: prefill.poId,
+      poNo: prefill.poNo
     });
     setFormOpen(true);
+  }, []);
+  const closeForm = () => {
+    setFormOpen(false);
+    setPoLocked(false);
   };
+  useEffect(() => {
+    if (linkedPoHandledRef.current || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") !== "1") return;
+    const poId = params.get("poId")?.trim();
+    const poNo = params.get("poNo")?.trim();
+    if (!poId || !poNo) return;
+    if (!shipmentPerm.canCreate) return;
+    linkedPoHandledRef.current = true;
+    openNew({
+      poId,
+      poNo,
+      shipmentType: params.get("shipmentType")?.trim() || undefined
+    });
+    setKeyword(poNo);
+  }, [openNew, shipmentPerm.canCreate]);
   const handleSave = async () => {
-    if (!formData.poId || !formData.poNo) {
+    const payload = {
+      ...formData,
+      poId: formData.poId?.trim(),
+      poNo: formData.poNo?.trim()
+    };
+    if (!payload.poId || !payload.poNo) {
       toast.error(t('ui.请填写关联PO','请填写关联PO'));
       return;
     }
@@ -191,11 +225,11 @@ export default function ShipmentsPage() {
       const res = await fetch("/api/v2/procurement/shipments", {
         method: "POST",
         headers: hdr(),
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success(t('ui.运单创建成功','运单创建成功'));
-      setFormOpen(false);
+      closeForm();
       loadList(1);
     } catch (e) {
       toast.error(String(e));
@@ -327,14 +361,14 @@ export default function ShipmentsPage() {
       }}>
           <RefreshCw size={13} /> {t('ui.重置','重置')}
         </button>
-        <button className={s.btnPrimary} onClick={openNew} style={{
+        {shipmentPerm.canCreate && <button className={s.btnPrimary} onClick={() => openNew()} style={{
         display: "flex",
         alignItems: "center",
         gap: 4,
         marginLeft: 4
       }}>
           <Plus size={13} /> {t('ui.新建运单','新建运单')}
-        </button>
+        </button>}
         <span style={{
         marginLeft: "auto",
         fontSize: 12,
@@ -422,12 +456,12 @@ export default function ShipmentsPage() {
       {/* ── New Shipment Drawer ── */}
       <RightDrawer
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        onClose={closeForm}
         title={t('ui.新建物流运单','新建物流运单')}
         width={760}
         footer={formOpen ? (
           <div className={styles.drawerActions}>
-            <button type="button" className={s.btnSecondary} onClick={() => setFormOpen(false)}>{t('ui.取消','取消')}</button>
+            <button type="button" className={s.btnSecondary} onClick={closeForm}>{t('ui.取消','取消')}</button>
             <button type="button" className={s.btnPrimary} onClick={handleSave} disabled={formSaving}>
               {formSaving ? t('ui.保存中...','保存中...') : t('ui.创建运单','创建运单')}
             </button>
@@ -446,7 +480,10 @@ export default function ShipmentsPage() {
                 <input className={s.inp} value={formData.poId ?? ""} onChange={e => setFormData(p => ({
                 ...p,
                 poId: e.target.value
-              }))} placeholder={t('ui.PO内部ID','PO内部ID')} />
+              }))} placeholder={t('ui.PO内部ID','PO内部ID')} readOnly={poLocked} aria-readonly={poLocked} style={poLocked ? {
+                background: "var(--bg-muted)",
+                cursor: "not-allowed"
+              } : undefined} />
               </div>
               <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.采购订单号','采购订单号')} <span style={{
@@ -455,7 +492,10 @@ export default function ShipmentsPage() {
                 <input className={s.inp} value={formData.poNo ?? ""} onChange={e => setFormData(p => ({
                 ...p,
                 poNo: e.target.value
-              }))} placeholder="PO2-..." />
+              }))} placeholder="PO2-..." readOnly={poLocked} aria-readonly={poLocked} style={poLocked ? {
+                background: "var(--bg-muted)",
+                cursor: "not-allowed"
+              } : undefined} />
               </div>
             </div>
           </section>
