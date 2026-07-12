@@ -23,23 +23,20 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0002-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0002-A3-worker-assembled-prompt.md
-Assembled prompt chars: 21825
+Assembled prompt chars: 21839
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-16-02-612Z-A3-Backend-Critical-Path.md
-A3 result: `HOLD / NOT APPLICABLE TO BACKEND`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-55-29-765Z-A3-Backend-Critical-Path.md
+A3 backend result: `HOLD / NOT APPLICABLE`.
 
-I found no backend-owned fix for `BUG-20260708-0002`. The task evidence has no `failedRequests` or `consoleErrors`; the concrete defect signal is frontend layout-only: the new shipment drawer close button is at `x: 2148` while the viewport width is `1600`.
+The reported defect is a frontend layout issue for the new shipment drawer/form. Backend evidence shows shipment APIs are JSON handlers with RBAC/DataScope guards only, and the task evidence has `consoleErrors: []`, `failedRequests: []`, plus drawer positioning outside the viewport. No backend-owned fix was made.
 
-Backend checks:
-- Shipment routes already use `MenuGuard + DataScopeGuard`.
-- `MENU_PRC2_SHIPMENT` is present in the fallback menu registry.
-- Shipment service applies DataScope/ownership checks on list, detail, create, update, and transitions.
-- API typecheck passed: `apps/api ./node_modules/.bin/tsc --noEmit`.
+Report written: [docs/ops/BUGTASK-20260708-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260708-0002-a3-backend-report.md)
 
-Report written: [bug-20260708-0002-a3-backend-critical-path-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260708-0002-a3-backend-critical-path-20260712.md)
+Validation:
+`cd apps/api && ./node_modules/.bin/tsc --noEmit` passed with exit code `0`.
 
-No backend code, frontend files, migrations, schema, database, deploy, push, or merge actions were changed/executed. The source bug should not be marked resolved from this A3 result; it still needs frontend layout repair plus normal CI/CD, smoke, and business acceptance.
+No claim that the production bug is resolved; it needs frontend layout repair plus CI/CD, smoke, and business acceptance. Untracked `node_modules` directories were already present and left untouched.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +53,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5609-726f-7423-af76-211748717b58
+session id: 019f56d2-8921-7b00-8cc4-fd145934dd8a
 --------
 user
 # Base Agent Prompt
@@ -512,7 +509,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "div",
             "path": ".sidebar-module__C8A-ya__
-...<truncated 177180 chars>
+...<truncated 226960 chars>
 
 ```
 
@@ -524,15 +521,15 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "HOLD",
-  "responseChars": 1078,
-  "beforeHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
-  "afterHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
+  "responseChars": 821,
+  "beforeHead": "a791143e5e3b143f3cf6d2cae86dc2ac69cc58b9",
+  "afterHead": "a791143e5e3b143f3cf6d2cae86dc2ac69cc58b9",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:16:02.703Z",
+  "checkedAt": "2026-07-12T14:55:29.854Z",
   "passed": true,
   "role": "not_applicable",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",
@@ -547,7 +544,7 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": false,
   "files": [
-    "docs/ops/bug-20260708-0002-a3-backend-critical-path-20260712.md"
+    "docs/ops/BUGTASK-20260708-0002-a3-backend-report.md"
   ],
   "error": "no apps/api/ implementation file"
 }
