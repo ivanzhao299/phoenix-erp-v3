@@ -21194,7 +21194,7 @@
     "integrated_commit": "6803e1477741e82bc5e789e97e9d355a9a763fe8",
     "integrated_at": "2026-07-12T18:23:58.432Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-12T18:22:07.130Z",
     "redispatch_history": [
@@ -21255,7 +21255,7 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-12T18:22:07.130Z",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
