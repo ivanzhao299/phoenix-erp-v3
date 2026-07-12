@@ -23,22 +23,22 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0010-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0010-A3-worker-assembled-prompt.md
-Assembled prompt chars: 21044
+Assembled prompt chars: 21058
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-37-56-995Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-43-42-270Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for BUG-20260707-0010 backend.
 
-I added a focused backend regression test for `BUG-20260707-0010` in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:66). It covers the exact case from the report: one ApprovalEngine-only todo for `PR2-20260707-00002` must return `total === 1`.
+Added a focused regression test in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:82) covering the captured ApprovalEngine todo `PR2-20260707-00002`: one visible approval task must return `total === 1`.
 
-I also added the redispatch report at [bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md:1).
+Updated the task report at [bug-20260707-0010-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260707-0010-a3-backend-critical-path.md:1) with source bug, root cause, changed files, validation, and conditions.
 
-Validation completed:
+Validation run:
 - `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` -> PASS, 4 tests
 - `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS
 - `git diff --check` -> PASS
 
-No frontend files, migrations, schema/entity/table/column changes, DB writes, deploys, pushes, or task-board writes. Existing untracked `node_modules` directories were already present and left untouched. Final business closure still depends on CI/CD, production `/workflow/todos` smoke, and business acceptance.
+No frontend edits, migrations, schema/entity/table/column changes, DB writes, deploys, pushes, or task-board writes. Final closure still needs CI/CD, production or approved staging smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +55,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f561c-9125-72b2-ae7c-b8b40828973a
+session id: 019f56c6-e159-7171-84f1-4c3994085112
 --------
 user
 # Base Agent Prompt
@@ -512,7 +512,7 @@ Assigned agent: A3-Backend-Critical-Path
               "y": 875
             },
             "labe
-...<truncated 1353540 chars>
+...<truncated 605377 chars>
 
 ```
 
@@ -524,22 +524,22 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1092,
-  "beforeHead": "8e01a9998932dacc507f3b97e788ad60a036e950",
-  "afterHead": "02ecb03305aeafd6750f5e0b592cd6bec5351ebd",
-  "commitHash": "02ecb03305aeafd6750f5e0b592cd6bec5351ebd",
+  "responseChars": 996,
+  "beforeHead": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
+  "afterHead": "f8a45bbc1d7c10865d23a5f8d0d8e7ab4359838b",
+  "commitHash": "f8a45bbc1d7c10865d23a5f8d0d8e7ab4359838b",
   "changedFiles": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md"
+    "docs/ops/bug-20260707-0010-a3-backend-critical-path.md"
   ],
   "businessChangedFiles": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md"
+    "docs/ops/bug-20260707-0010-a3-backend-critical-path.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:37:57.151Z",
+  "checkedAt": "2026-07-12T14:43:42.427Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -555,16 +555,16 @@ Assigned agent: A3-Backend-Critical-Path
   "ok": true,
   "files": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md"
+    "docs/ops/bug-20260707-0010-a3-backend-critical-path.md"
   ],
   "businessFiles": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md"
+    "docs/ops/bug-20260707-0010-a3-backend-critical-path.md"
   ],
-  "commitHash": "02ecb03305aeafd6750f5e0b592cd6bec5351ebd",
+  "commitHash": "f8a45bbc1d7c10865d23a5f8d0d8e7ab4359838b",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 02ecb033] fix(api): repair BUG-20260707-0010\n 2 files changed, 124 insertions(+)\n create mode 100644 docs/ops/bug-20260707-0010-a3-backend-critical-path-redispatch-20260712.md"
+  "output": "[codex/bug-intake-a3 f8a45bbc] fix(api): repair BUG-20260707-0010\n 2 files changed, 69 insertions(+), 29 deletions(-)"
 }
 ```
