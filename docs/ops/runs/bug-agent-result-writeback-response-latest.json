@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-08T06:13:45.446Z",
-  "updatedAt": "2026-07-12T15:03:06.667Z",
+  "updatedAt": "2026-07-12T15:08:05.135Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "新建物流运单关联采购订单，需要填写采购订单ID和采购订单号，但是采购订单里并没有采购订单ID这个字段",
@@ -1310,43 +1310,95 @@
     "moduleCode": "______",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260708-0003-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
+        "taskId": "BUGTASK-20260708-0003-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19102\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-03-05-140Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend repair for `BUG-20260708-0003`.\n\nChanged:\n- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): `poId` / `poNo` can now be submitted independently.\n- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:75): shipment create/update now resolves the referenced purchase order, backfills `po_id`/`po_no`, inherits missing company/project ownership, and rejects mismatched PO/company/project references.\n- [shipments.service.spec.ts](/Users/mac/phoenix-erp-wor",
         "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T15:03:06.665Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
         "changedFiles": [
           "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
           "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
           "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
           "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
         ],
+        "redispatchCount": 3,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1462,
-            "beforeHead": "227352a68cf4ae6ebdef418c5fbf74599e3addda",
             "afterHead": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+            "checkedAt": "2026-07-12T15:03:05.315Z",
+            "beforeHead": "227352a68cf4ae6ebdef418c5fbf74599e3addda",
             "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
+            ],
             "changedFiles": [
               "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
               "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
               "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
               "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
             ],
+            "responseChars": 1462,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
               "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
               "apps/api/src/modules/procurement-v2/services/shipments.service.ts"
             ],
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260708-0003-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A4-worker-log.md",
+        "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+        "changedFiles": [
+          "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+          "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+          "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+          "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+        ],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A4-Frontend-UAT-Smoke",
+            "exitCode": 0,
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1298,
+            "beforeHead": "bd6c494029b8cd8cc6fc9fcf017f9ecbfb976018",
+            "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+            "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+            "changedFiles": [
+              "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+              "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+              "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+              "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+              "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+              "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
+            ],
             "reportFiles": [
-              "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
+              "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
             ],
             "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T15:03:05.315Z",
+            "checkedAt": "2026-07-12T15:08:03.461Z",
             "passed": true,
             "role": "implementation",
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -1355,11 +1407,11 @@
           "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19102\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-03-05-140Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend repair for `BUG-20260708-0003`.\n\nChanged:\n- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): `poId` / `poNo` can now be submitted independently.\n- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:75): shipment create/update now resolves the referenced purchase order, backfills `po_id`/`po_no`, inherits missing company/project ownership, and rejects mismatched PO/company/project references.\n- [shipments.service.spec.ts](/Users/mac/phoenix-erp-wor",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19169\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-08-03-294Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260708-0003`.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): added `MENU_PRC2_SHIPMENT:C` gated “创建运单” actions from list and detail drawer.\n- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): supports `create=1&poId&poNo` prefill, auto-opens the drawer, locks PO fields, and gates direct prefill/new button by shipment create permission.\n- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement",
         "nextAction": "",
         "redispatchCount": 3,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T15:03:06.665Z"
+        "recordedAt": "2026-07-12T15:08:05.130Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1372,43 +1424,43 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0003-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260708-0003-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
-      "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A4-worker-log.md",
+      "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
       "changedFiles": [
-        "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-        "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
-        "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
-        "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
+        "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+        "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+        "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+        "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
       ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1462,
-          "beforeHead": "227352a68cf4ae6ebdef418c5fbf74599e3addda",
-          "afterHead": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
-          "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+          "responseChars": 1298,
+          "beforeHead": "bd6c494029b8cd8cc6fc9fcf017f9ecbfb976018",
+          "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+          "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
           "changedFiles": [
-            "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-            "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
-            "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
-            "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
+            "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+            "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+            "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+            "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
           ],
           "businessChangedFiles": [
-            "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-            "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
-            "apps/api/src/modules/procurement-v2/services/shipments.service.ts"
+            "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+            "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+            "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
           ],
           "reportFiles": [
-            "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
+            "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
           ],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T15:03:05.315Z",
+          "checkedAt": "2026-07-12T15:08:03.461Z",
           "passed": true,
           "role": "implementation",
           "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -1417,11 +1469,11 @@
         "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19102\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-03-05-140Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend repair for `BUG-20260708-0003`.\n\nChanged:\n- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): `poId` / `poNo` can now be submitted independently.\n- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:75): shipment create/update now resolves the referenced purchase order, backfills `po_id`/`po_no`, inherits missing company/project ownership, and rejects mismatched PO/company/project references.\n- [shipments.service.spec.ts](/Users/mac/phoenix-erp-wor",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19169\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-08-03-294Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260708-0003`.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): added `MENU_PRC2_SHIPMENT:C` gated “创建运单” actions from list and detail drawer.\n- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): supports `create=1&poId&poNo` prefill, auto-opens the drawer, locks PO fields, and gates direct prefill/new button by shipment create permission.\n- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement",
       "nextAction": "",
       "redispatchCount": 3,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T15:03:06.665Z"
+      "recordedAt": "2026-07-12T15:08:05.130Z"
     },
     "redispatchHistory": [
       {

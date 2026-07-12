@@ -23,26 +23,24 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md
-Assembled prompt chars: 19155
+Assembled prompt chars: 19169
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-08-19-678Z-A4-Frontend-UAT-Smoke.md
-Implemented the A4 frontend repair for `BUG-20260708-0003` with `PASS WITH CONDITIONS`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-08-03-294Z-A4-Frontend-UAT-Smoke.md
+Implemented the frontend repair for `BUG-20260708-0003`.
 
 Changed:
-- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): adds `建运单` action for shippable purchase orders.
-- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): replaces manual PO ID/PO number entry with backend-backed purchase order candidate selection and supports prefill from the PO list.
-- [procurement-shipments.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/procurement-shipments.ts): helper logic for candidates, prefill URLs, and shippable status visibility.
-- [procurement-shipments.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/procurement-shipments.test.ts): focused regression coverage.
-- [bug-20260708-0003-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md): required report.
+- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): added `MENU_PRC2_SHIPMENT:C` gated “创建运单” actions from list and detail drawer.
+- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): supports `create=1&poId&poNo` prefill, auto-opens the drawer, locks PO fields, and gates direct prefill/new button by shipment create permission.
+- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement-shipments-layout.test.ts): added focused regression coverage.
+- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md): status `PASS WITH CONDITIONS`.
 
-Validation run:
-- `cd apps/web && ./node_modules/.bin/vitest run src/lib/procurement-shipments.test.ts` PASS, 4 tests.
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` PASS.
-- `cd apps/web && ./node_modules/.bin/next build --webpack --experimental-build-mode compile --debug-build-paths 'src/app/(admin)/procurement2/orders/page.tsx,src/app/(admin)/procurement2/shipments/page.tsx'` PASS.
-- `git diff --check` PASS.
+Validation passed:
+- `pnpm --filter web test -- src/__tests__/procurement-shipments-layout.test.ts`
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`
+- `git diff --check`
 
-Condition: real desktop/mobile browser smoke could not be completed because this sandbox rejects local server listening with `listen EPERM 127.0.0.1:3005`. I did not deploy, push, write DB, run migrations, or touch backend source. CI/CD, production smoke, and business acceptance are still required before calling the bug resolved.
+Condition: local browser smoke could not run because the sandbox rejected `next dev` port binding with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`. No deploy, push, merge, DB write, migration, or backend/API change was performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -59,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5636-9429-76a2-be04-f2d7dd74dd1f
+session id: 019f56db-1fca-7b62-b385-2f0c300ab06c
 --------
 user
 # Base Agent Prompt
@@ -506,7 +504,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           {
             "tag": "a",
             "path": ".admin-ui-module__B-1PDG__btnPrimary
-...<truncated 1009836 chars>
+...<truncated 748426 chars>
 
 ```
 
@@ -518,28 +516,26 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1803,
-  "beforeHead": "85723f72f8fe7b8c8f0fb16829f1fd3806e6498d",
-  "afterHead": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
-  "commitHash": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+  "responseChars": 1298,
+  "beforeHead": "bd6c494029b8cd8cc6fc9fcf017f9ecbfb976018",
+  "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+  "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
   "changedFiles": [
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
     "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
     "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "apps/web/src/lib/procurement-shipments.test.ts",
-    "apps/web/src/lib/procurement-shipments.ts",
-    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
   ],
   "businessChangedFiles": [
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
     "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "apps/web/src/lib/procurement-shipments.test.ts",
-    "apps/web/src/lib/procurement-shipments.ts"
+    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:08:19.839Z",
+  "checkedAt": "2026-07-12T15:08:03.461Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -554,23 +550,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "attempted": true,
   "ok": true,
   "files": [
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
     "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
     "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "apps/web/src/lib/procurement-shipments.test.ts",
-    "apps/web/src/lib/procurement-shipments.ts",
-    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
   ],
   "businessFiles": [
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
     "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "apps/web/src/lib/procurement-shipments.test.ts",
-    "apps/web/src/lib/procurement-shipments.ts"
+    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
   ],
-  "commitHash": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+  "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 f62d2ce8] fix(web): repair BUG-20260708-0003\n 5 files changed, 438 insertions(+), 18 deletions(-)\n create mode 100644 apps/web/src/lib/procurement-shipments.test.ts\n create mode 100644 apps/web/src/lib/procurement-shipments.ts\n create mode 100644 docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+  "output": "[codex/bug-intake-a4 c544affa] fix(web): repair BUG-20260708-0003\n 4 files changed, 160 insertions(+), 14 deletions(-)\n create mode 100644 docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
 }
 ```
