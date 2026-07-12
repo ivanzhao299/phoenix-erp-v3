@@ -4,8 +4,10 @@ import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { useLanguage } from "@/contexts/LanguageContext";
 // g200e 模板 token(2026-06-20)
 import { moneyCell, actionPill } from "@/components/design-system/cockpit-styles";
-
-type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+import {
+  formatWarehouseLedgerChangeType,
+  getWarehouseLedgerChangeTone,
+} from "@/lib/warehouse-ledger-change-type";
 
 // B6: inv_ledger 真实列 — batch_no / change_type / qty_change / operator / store_code / ref_no / note / created_at
 interface InvLedger {
@@ -20,20 +22,6 @@ interface InvLedger {
   created_at:  string;
 }
 
-// g200e:tone 替代 s.textXxx 老 css
-const TXN_TONE: Record<string, Tone> = {
-  FARM_IN:       "success",
-  EGG_IN:        "success",
-  PACK_DONE:     "success",
-  TRANSFER_IN:   "info",
-  SALE_OUT:      "danger",
-  TRANSFER_OUT:  "warning",
-  EGG_REVERSED:  "danger",
-  FARM_REVERSED: "danger",
-  ADJUST:        "warning",
-  SCRAP:         "default",
-};
-
 export default function LedgerPage() {
   const { t } = useLanguage();
 
@@ -42,7 +30,7 @@ export default function LedgerPage() {
       render: v => v ? String(v).slice(0,16).replace("T"," ") : "—" },
     { key: "batch_no",    title: t("ui.批次号", "批次号"),   width: 200 },
     { key: "change_type", title: t("ui.事务类型", "事务类型"), width: 130,
-      render: v => <span style={actionPill(TXN_TONE[String(v)] ?? "default")}>{String(v)}</span> },
+      render: v => <span title={String(v ?? "")} style={actionPill(getWarehouseLedgerChangeTone(v))}>{formatWarehouseLedgerChangeType(v)}</span> },
     { key: "qty_change",  title: t("ui.数量变动", "数量变动"), width: 100, align: "right",
       render: v => <span style={moneyCell(Number(v) >= 0 ? "success" : "danger", "md")}>{Number(v) >= 0 ? `+${v}` : String(v)}</span> },
     { key: "ref_no",      title: t("ui.关联单据", "关联单据"), width: 160 },
