@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,23 +23,24 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0009-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0009-A3-worker-assembled-prompt.md
-Assembled prompt chars: 20925
+Assembled prompt chars: 20939
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-35-36-402Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUGTASK-20260707-0009`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-38-21-898Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for A3 backend redispatch.
 
-Changed:
-- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts): carries farm/site scope into medicine stock reads and movement writes, stamps `store_code`, prevents scoped outbound from touching other scope rows, rejects no-op submissions.
-- [farm-medicine.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.controller.ts): passes `req.user` / `req.dataScope` into the service.
-- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts): added scoped inbound/outbound/overview regression coverage.
-- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md): decision is `PASS WITH CONDITIONS`.
+The backend repair for `BUG-20260707-0009` is already present in this worktree, so I did not make a new backend source change. Current source verifies the required path: medicine stock reads aggregate `inv_batches` by `product_code`, inbound upserts stock before `MED_INBOUND`, and outbound deducts stock before `MED_OUTBOUND` while preserving warehouse write scope checks.
 
-Validation:
-- `pnpm --dir apps/api test -- farm-medicine.service.spec.ts --runInBand` passed, `10 passed`.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed, `0 errors`.
+Report added: [BUG-20260707-0009_A3_BACKEND_REDISPATCH_20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0009_A3_BACKEND_REDISPATCH_20260712.md:1)
 
-No frontend files, migrations, schema/entity changes, DB writes, deploys, pushes, or commits were done. Existing untracked `node_modules` entries remain untouched. Business resolution still needs CI/CD, scoped environment smoke, and acceptance confirmation.
+Evidence:
+- Backend logic: [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts:48)
+- Regression tests: [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts:23)
+- `cd apps/api && ./node_modules/.bin/jest src/modules/farm/farm-medicine.service.spec.ts --runInBand` passed: 5 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed
+- `git diff --check` passed
+
+No deploy, push, merge, migration, DB write, schema/entity/table/column change, frontend edit, or task-board update was performed. Final business resolution still depends on integrated CI/CD, deployed smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5618-91f8-7a40-b99c-3ba293030f93
+session id: 019f56c2-9082-7a10-803b-d0abab3e694d
 --------
 user
 # Base Agent Prompt
@@ -495,7 +496,7 @@ Assigned agent: A3-Backend-Critical-Path
             },
             "label": "系统运维",
             "disabled": f
-...<truncated 1083644 chars>
+...<truncated 577396 chars>
 
 ```
 
@@ -507,30 +508,19 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1368,
-  "beforeHead": "0030e8a099552246188069549a20245ca28c6abf",
-  "afterHead": "8e01a9998932dacc507f3b97e788ad60a036e950",
-  "commitHash": "8e01a9998932dacc507f3b97e788ad60a036e950",
-  "changedFiles": [
-    "apps/api/src/modules/farm/farm-medicine.controller.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.ts",
-    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
-  ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/farm/farm-medicine.controller.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
-  ],
+  "responseChars": 1358,
+  "beforeHead": "aa6dbcf0bec6b6313d48a7d3ae887054e49fce7c",
+  "afterHead": "aa6dbcf0bec6b6313d48a7d3ae887054e49fce7c",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:35:36.572Z",
+  "checkedAt": "2026-07-12T14:38:21.987Z",
   "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "role": "not_applicable",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent proved this task has no implementation in its ownership boundary"
 }
 ```
 
@@ -539,23 +529,10 @@ Assigned agent: A3-Backend-Critical-Path
 ```json
 {
   "attempted": true,
-  "ok": true,
+  "ok": false,
   "files": [
-    "apps/api/src/modules/farm/farm-medicine.controller.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.ts",
-    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
+    "docs/ops/BUG-20260707-0009_A3_BACKEND_REDISPATCH_20260712.md"
   ],
-  "businessFiles": [
-    "apps/api/src/modules/farm/farm-medicine.controller.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
-    "apps/api/src/modules/farm/farm-medicine.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
-  ],
-  "commitHash": "8e01a9998932dacc507f3b97e788ad60a036e950",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 8e01a999] fix(api): repair BUG-20260707-0009\n 4 files changed, 252 insertions(+), 36 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
+  "error": "no apps/api/ implementation file"
 }
 ```
