@@ -13095,7 +13095,8 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A4",
@@ -13184,7 +13185,8 @@
         "source_bug_no": "BUG-20260709-0004",
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A1",
@@ -13280,7 +13282,8 @@
         "source_bug_no": "BUG-20260709-0004",
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260709-0003-A4",
