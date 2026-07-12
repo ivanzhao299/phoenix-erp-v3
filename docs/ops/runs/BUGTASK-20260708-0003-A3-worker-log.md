@@ -23,25 +23,24 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md
-Assembled prompt chars: 19088
+Assembled prompt chars: 19102
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-25-04-638Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUG-20260708-0003` with result `PASS WITH CONDITIONS`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-03-05-140Z-A3-Backend-Critical-Path.md
+Implemented the A3 backend repair for `BUG-20260708-0003`.
 
 Changed:
-- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): shipment creation now accepts either `poId` or `poNo`.
-- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:82): resolves and validates linked PO server-side, backfills canonical company/project fields, and rejects mismatched scope/linkage.
-- [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:260): PO detail now returns linked `shipments`; process log includes logistics waybills.
-- Added focused regression tests in `shipments.service.spec.ts`.
-- Wrote the required report: [BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md:1).
+- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): `poId` / `poNo` can now be submitted independently.
+- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:75): shipment create/update now resolves the referenced purchase order, backfills `po_id`/`po_no`, inherits missing company/project ownership, and rejects mismatched PO/company/project references.
+- [shipments.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts:63): added focused regression tests.
+- [BUGTASK-20260708-0003-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md:1): task report with root cause, changed files, validation, and result.
 
-Validation passed:
-- `pnpm --dir apps/api test -- shipments.service.spec.ts --runInBand`
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`
-- `git diff --check`
+Validation:
+- `pnpm test -- shipments.service.spec.ts --runInBand` passed: 4/4 tests.
+- `./node_modules/.bin/tsc --noEmit` passed: 0 API type errors.
+- `git diff --check` passed.
 
-No migrations, schema/entity changes, DB writes, deploy, push, merge, or frontend edits were performed. `node_modules` untracked entries were already present in the worktree and left untouched.
+Result: `PASS WITH CONDITIONS`. No database writes, migrations, deploy, push, web edits, schema/entity/table/column changes, or task board mutations were performed. Production resolution still needs CI/CD, approved deployment, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f560f-8b97-7312-8e92-dc5009a85554
+session id: 019f56d8-5629-76d2-916a-ed77a78f1ce7
 --------
 user
 # Base Agent Prompt
@@ -506,7 +505,7 @@ Assigned agent: A3-Backend-Critical-Path
             "path": ".admin-ui-module__B-1PDG__btnPrimary.admin-ui-module__B-1PDG__btn",
             "rect": {
              
-...<truncated 469511 chars>
+...<truncated 486916 chars>
 
 ```
 
@@ -518,28 +517,26 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1409,
-  "beforeHead": "d32fd11c020368608795b1697d2698ba74e43b1a",
-  "afterHead": "0030e8a099552246188069549a20245ca28c6abf",
-  "commitHash": "0030e8a099552246188069549a20245ca28c6abf",
+  "responseChars": 1462,
+  "beforeHead": "227352a68cf4ae6ebdef418c5fbf74599e3addda",
+  "afterHead": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
+  "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
   "changedFiles": [
     "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
-    "docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
   ],
   "businessChangedFiles": [
     "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:25:04.808Z",
+  "checkedAt": "2026-07-12T15:03:05.315Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -555,22 +552,20 @@ Assigned agent: A3-Backend-Critical-Path
   "ok": true,
   "files": [
     "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
-    "docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
   ],
   "businessFiles": [
     "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
-    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.ts",
     "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    "docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
   ],
-  "commitHash": "0030e8a099552246188069549a20245ca28c6abf",
+  "commitHash": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 0030e8a0] fix(api): repair BUG-20260708-0003\n 5 files changed, 243 insertions(+), 27 deletions(-)\n create mode 100644 apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts\n create mode 100644 docs/ops/BUG-20260708-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+  "output": "[codex/bug-intake-a3 8a39c8bf] fix(api): repair BUG-20260708-0003\n 4 files changed, 251 insertions(+), 16 deletions(-)\n create mode 100644 apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-report.md"
 }
 ```
