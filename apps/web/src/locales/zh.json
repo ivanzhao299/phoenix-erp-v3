@@ -13497,5 +13497,10 @@
   "fin2.ap.status_partially_paid": "部分付款",
   "fin2.ap.status_paid": "已付清",
   "fin2.ap.status_disputed": "争议中",
-  "fin2.ap.status_cancelled": "已取消"
+  "fin2.ap.status_cancelled": "已取消",
+  "breeding.culling_reason.low_production": "产蛋率低",
+  "breeding.culling_reason.sickness": "患病",
+  "breeding.culling_reason.age": "老龄",
+  "breeding.culling_reason.injury": "严重外伤",
+  "ui.pilot_ready": "可上线"
 }

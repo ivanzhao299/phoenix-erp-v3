@@ -13497,5 +13497,10 @@
   "fin2.ap.status_partially_paid": "Partially paid",
   "fin2.ap.status_paid": "Paid",
   "fin2.ap.status_disputed": "Disputed",
-  "fin2.ap.status_cancelled": "Cancelled"
+  "fin2.ap.status_cancelled": "Cancelled",
+  "breeding.culling_reason.low_production": "Low egg production",
+  "breeding.culling_reason.sickness": "Illness",
+  "breeding.culling_reason.age": "Age",
+  "breeding.culling_reason.injury": "Severe injury",
+  "ui.pilot_ready": "Ready to go live"
 }

@@ -82,6 +82,7 @@ function walk(dir, out = []) {
       if (!['node_modules', '.next', 'dist'].includes(entry.name)) walk(file, out);
       continue;
     }
+    if (/\.(test|spec)\.(tsx?|jsx?)$/.test(entry.name)) continue;
     if (/\.(tsx?|jsx?)$/.test(entry.name) && !ignoreFiles.some((part) => file.includes(part))) out.push(file);
   }
   return out;
