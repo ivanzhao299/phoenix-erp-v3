@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,25 +23,21 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0007-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0007-A3-worker-assembled-prompt.md
-Assembled prompt chars: 27175
+Assembled prompt chars: 27139
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-16-23-313Z-A3-Backend-Critical-Path.md
-Implemented the backend-side redispatch work for BUG-20260707-0007 as a regression guard, without changing production API logic.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-34-23-226Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for BUG-20260707-0007 A3 backend.
 
 Changed:
-- Added a focused Generic CRUD controller regression test at [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:68) covering:
-  - `POST /api/crud/wms_zones` with `MENU_WMS_INOUT:C`
-  - `GET /api/crud/wms_zones` filtered by `warehouse_code/status` with `MENU_WMS_VIEW:V`
-- Added the required task report at [BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md:1)
+- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:7): added regression coverage proving `PUT /api/crud/wms_locations/LOC-A-01` resolves by `location_code`, preserving `MENU_WMS_INOUT:E`.
+- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md:1): refreshed task-specific report with root cause, changed files, validation, and guardrails.
 
-Validation:
-- `git diff --check`: PASS
-- Focused Jest: BLOCKED, `jest` not installed/resolvable
-- API typecheck: BLOCKED, `tsc` not installed/resolvable
-- Offline dependency recovery also blocked by missing pnpm tarballs for `concurrently` and `@nestjs/common`
+Validation run:
+- `cd apps/api && ./node_modules/.bin/jest src/modules/generic-crud/generic-crud.service.spec.ts src/modules/generic-crud/generic-crud.controller.spec.ts --runInBand` → PASS, 2 suites / 20 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` → PASS, 0 errors
 
-Result: `HOLD`. Backend contract evidence is positive, but I am not claiming the bug resolved because required Jest/typecheck could not run in this worktree. No migrations, DB writes, deploy, push, frontend edits, or production code changes were performed.
+No frontend edits, migrations, schema/entity changes, DB writes, deploys, pushes, or task-board writes. I did not claim the business bug fully resolved; it still needs CI/CD, production smoke, and business acceptance. Untracked `node_modules` entries were already present and left untouched.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f4adf-b4d9-70c2-a6bb-1a0693546535
+session id: 019f56be-6d1b-7180-af3f-c731a9c20b9b
 --------
 user
 # Base Agent Prompt
@@ -431,7 +427,7 @@ Assigned agent: A3-Backend-Critical-Path
             "path": ".sidebar-module__C8A-ya__subItem.",
             "rect": {
  
-...<truncated 285782 chars>
+...<truncated 259871 chars>
 
 ```
 
@@ -442,27 +438,27 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1221,
-  "beforeHead": "5adef282b36e4dbf78dda44b0e00978437218207",
-  "afterHead": "f68fd331ddff4e5f662750e9264c22ecde41bfeb",
-  "commitHash": "f68fd331ddff4e5f662750e9264c22ecde41bfeb",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1143,
+  "beforeHead": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
+  "afterHead": "98fd1d75d5de5b93090903e58d4399567b3c2212",
+  "commitHash": "98fd1d75d5de5b93090903e58d4399567b3c2212",
   "changedFiles": [
     "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md"
+    "docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessChangedFiles": [
     "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md"
+    "docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-10T07:16:23.474Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T14:34:23.381Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is HOLD"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -474,16 +470,16 @@ Assigned agent: A3-Backend-Critical-Path
   "ok": true,
   "files": [
     "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md"
+    "docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessFiles": [
     "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md"
+    "docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
-  "commitHash": "f68fd331ddff4e5f662750e9264c22ecde41bfeb",
+  "commitHash": "98fd1d75d5de5b93090903e58d4399567b3c2212",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 f68fd331] fix(api): repair BUG-20260707-0007\n 2 files changed, 118 insertions(+)\n create mode 100644 docs/ops/BUG-20260707-0007_A3_BACKEND_REDISPATCH_REPORT.md"
+  "output": "[codex/bug-intake-a3 98fd1d75] fix(api): repair BUG-20260707-0007\n 2 files changed, 60 insertions(+), 34 deletions(-)"
 }
 ```
