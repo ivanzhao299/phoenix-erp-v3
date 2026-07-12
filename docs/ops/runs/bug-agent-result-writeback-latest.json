@@ -1,12 +1,12 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0003/agent-result",
+  "bugNo": "BUG-20260706-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0003-A3",
+    "taskId": "BUGTASK-20260706-0002-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": {
@@ -14,16 +14,16 @@
         "version": 1,
         "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 1127,
-        "beforeHead": "206afb395c7da786fb0ffd94c0a4f0600dc9e799",
-        "afterHead": "206afb395c7da786fb0ffd94c0a4f0600dc9e799",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 1309,
+        "beforeHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
+        "afterHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
         "commitHash": "",
         "changedFiles": [],
         "businessChangedFiles": [],
         "reportFiles": [],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T15:27:37.802Z",
+        "checkedAt": "2026-07-12T15:36:32.747Z",
         "passed": true,
         "role": "implementation_verified_existing",
         "terminalStatus": "SKIPPED_NOT_APPLICABLE",
@@ -32,7 +32,7 @@
       "queueStatus": "SKIPPED_NOT_APPLICABLE",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19022\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-27-37-714Z-A3-Backend-Critical-Path.md\nBackend repair evidence is validated for `BUG-20260708-0003`.\n\nThe backend fix was already integrated in commit `c6fdce84 fix(api): repair BUG-20260708-0003`: shipment create/update now resolves purchase orders by `poId` or `poNo`, backfills the missing linkage and ownership fields, rejects mismatched PO references, and preserves DataScope write checks. I did not make a new backend code change because `codex/bug-intake-a3` and `origin/main` already point to the same fixed commit.\n\nUpdated the task report: [BUGTASK-20260708-0003-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0003-A3-backend-",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29257\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-36-32-657Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nThe backend repair for `BUG-20260706-0002` is already implemented in commit `ff4bb175 fix(api): repair BUG-20260706-0002`, which is an ancestor of `origin/main`. I did not add new code in this redispatch because the exact backend fix and task report are already present.\n\nEvidence:\n- Added captured compatibility route: [farm-cabin.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/farm-cabin.controller.ts:53)\n- Added feed/water realtime fallback: [mon-device.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/mon-device.service.ts:422)\n- Task report: [BUG-2026",
     "nextAction": ""
   }
 }
