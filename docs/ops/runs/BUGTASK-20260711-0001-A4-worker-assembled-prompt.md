@@ -725,11 +725,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "failureClassification": null,
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:27:20.008Z",
+    "approvedAt": "2026-07-12T17:31:22.867Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
-    "redispatchCount": 2,
+    "approvalScope": "Final frontend evidence replay after transient Codex exit or manually reconciled integration.",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
