@@ -14669,7 +14669,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0005",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14692,7 +14692,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:15:57.770Z",
+    "completed_at": "2026-07-12T17:15:59.754Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0005-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14740,8 +14740,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "3b8de2b423e7d225bfc7769be5a5d9f3e71d2815",
+    "integrated_at": "2026-07-12T17:15:59.754Z",
     "changed_files": [
       "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
       "apps/web/src/app/(admin)/sales2/customers/page.tsx",
@@ -14780,7 +14780,8 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260708-0005-A1",
