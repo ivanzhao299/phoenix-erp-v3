@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,27 +23,20 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md
-Assembled prompt chars: 29899
+Assembled prompt chars: 29913
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-34-27-485Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend repair for BUGTASK-20260709-0002 with result `PASS WITH CONDITIONS`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-12-36-586Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS for `BUG-20260709-0002`.
 
-Changed:
-- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:129): approval now calls `POST /api/inbound/confirm` instead of directly setting `wms_inbound.status = COMPLETED`.
-- [warehouse-inbound-confirm.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-confirm.ts:19): added payload builder with missing-field guards.
-- [warehouse-inbound-confirm.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-confirm.test.ts): added focused regression tests.
-- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md:5): task-specific report.
+I added the task report: [BUG-20260709-0002-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md). No new frontend source edit was needed in this pass because the branch already contains the frontend repair: `/warehouse/inbound` confirms pending rows through `/api/inbound/confirm` instead of a status-only CRUD update, with helper coverage in [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:30).
 
-Verified:
-- `./node_modules/.bin/vitest run src/lib/warehouse-inbound-confirm.test.ts src/lib/warehouse-query.test.ts` passed, 9 tests.
-- `./node_modules/.bin/tsc --noEmit` passed.
-- `git diff --check` passed.
+Validation run:
+- `pnpm --filter web test -- src/lib/warehouse-inbound.test.ts src/lib/warehouse-query.test.ts` PASS, 9 tests.
+- `pnpm --filter web typecheck` PASS.
+- `git diff --check` PASS.
 
-Conditions:
-- Local desktop/mobile browser smoke could not run because the sandbox rejects listening on local ports with `EPERM`.
-- `next build` was blocked by current environment/dependency layout: Turbopack rejects the `node_modules` symlink, and webpack fallback also hit blocked Google Fonts plus symlink path ENOENT.
-- No deploy, push, migration, database write, or backend edit was performed.
+Desktop/mobile behavior was source-checked; live local browser smoke was blocked by sandbox port permissions: `listen EPERM 127.0.0.1:3014`. No deploy, push, migration, or DB write was performed. Final resolution still needs CI/CD, staging or production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -60,7 +53,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f564e-c51b-7363-bc60-0b3d703c3efb
+session id: 019f5717-89a8-7fb2-9f21-3b84c02ddf86
 --------
 user
 # Base Agent Prompt
@@ -533,7 +526,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 826
             },
     
-...<truncated 549230 chars>
+...<truncated 434726 chars>
 
 ```
 
@@ -545,30 +538,19 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1451,
-  "beforeHead": "611118f114a6221ef03108dfa5a16277e10f3867",
-  "afterHead": "6fc42b4743961be2aa62d7c0c52fe6f39340c500",
-  "commitHash": "6fc42b4743961be2aa62d7c0c52fe6f39340c500",
-  "changedFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound-confirm.test.ts",
-    "apps/web/src/lib/warehouse-inbound-confirm.ts",
-    "docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound-confirm.test.ts",
-    "apps/web/src/lib/warehouse-inbound-confirm.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md"
-  ],
+  "responseChars": 1066,
+  "beforeHead": "1828fab134f97cd993459f24f35be93e1958cb43",
+  "afterHead": "1828fab134f97cd993459f24f35be93e1958cb43",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:34:27.657Z",
-  "passed": true,
+  "checkedAt": "2026-07-12T16:12:36.682Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -577,23 +559,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
 ```json
 {
   "attempted": true,
-  "ok": true,
+  "ok": false,
   "files": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound-confirm.test.ts",
-    "apps/web/src/lib/warehouse-inbound-confirm.ts",
-    "docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md"
+    "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
   ],
-  "businessFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound-confirm.test.ts",
-    "apps/web/src/lib/warehouse-inbound-confirm.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md"
-  ],
-  "commitHash": "6fc42b4743961be2aa62d7c0c52fe6f39340c500",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 6fc42b47] fix(web): repair BUG-20260709-0002\n 4 files changed, 253 insertions(+), 9 deletions(-)\n create mode 100644 apps/web/src/lib/warehouse-inbound-confirm.test.ts\n create mode 100644 apps/web/src/lib/warehouse-inbound-confirm.ts\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260709-0002-a4-frontend-uat-report.md"
+  "error": "no apps/web/ implementation file"
 }
 ```
