@@ -13487,5 +13487,10 @@
   "ui.产品编码物料编码": "Product/material code",
   "ui.产品编码物料编码placeholder": "E.g. PRD-EGG-1 / LPH-MED-003 / corn",
   "ui.入库数量": "Inbound quantity",
-  "ui.查库存": "Check stock"
+  "ui.查库存": "Check stock",
+  "ui.入库单缺少任务号无法确认": "The inbound document has no task number and cannot be confirmed",
+  "ui.入库单缺少产品编码无法确认": "The inbound document has no product code and cannot be confirmed",
+  "ui.入库数量必须大于0": "Inbound quantity must be greater than 0",
+  "ui.入库确认失败": "Inbound confirmation failed",
+  "ui.确认后将写入库存查询": "Confirmation writes to the inventory ledger and makes the stock searchable"
 }
