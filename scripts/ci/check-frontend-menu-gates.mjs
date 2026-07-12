@@ -33,7 +33,10 @@ const checks = [
     pass: /getFirstAccessiblePath/.test(content.home)
       && /groupId:\s*'procurement'/.test(content.home)
       && /groupId:\s*'approval'/.test(content.home)
-      && /const href = s\.groupId \?/.test(content.home),
+      && (
+        /const href = s\.groupId \?/.test(content.home)
+        || (/const getShortcutHref =/.test(content.home) && /const href = getShortcutHref\(s\)/.test(content.home))
+      ),
   },
   {
     name: 'home workflow shortcut does not point to workflow root',

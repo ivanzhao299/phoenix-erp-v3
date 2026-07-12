@@ -12803,7 +12803,7 @@
     "source_repair_task_no": "BUGTASK-20260710-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -12826,7 +12826,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:33:02.461Z",
+    "completed_at": "2026-07-12T17:41:26.415Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0001-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -12842,31 +12842,69 @@
     ],
     "redispatch_count": 9,
     "last_redispatch_at": "2026-07-12T17:31:20.520Z",
-    "reason": "Agent process exited with 1",
+    "reason": "verified integrated implementation evidence",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "43506f625565b7323ad3317f11ba3206b7ed8d57",
+      "afterHead": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "commitHash": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json",
+        "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+        "scripts/ops/agent-worker.mjs",
+        "scripts/ops/bug-intake-evidence-gate.mjs",
+        "scripts/ops/bug-intake-local-runner.mjs",
+        "scripts/ops/bug-intake-local-runner.test.mjs"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T17:33:02.460Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:26.414Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "implementation_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_at": "2026-07-12T17:41:26.415Z",
+    "changed_files": [
+      "apps/web/src/app/(admin)/home/page.tsx",
+      "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+      "apps/web/src/lib/dashboard-menu-label.test.ts",
+      "apps/web/src/lib/home-navigation.test.ts",
+      "apps/web/src/lib/home-navigation.ts",
+      "apps/web/src/locales/zh.json",
+      "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+      "scripts/ops/agent-worker.mjs",
+      "scripts/ops/bug-intake-evidence-gate.mjs",
+      "scripts/ops/bug-intake-local-runner.mjs",
+      "scripts/ops/bug-intake-local-runner.test.mjs"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:20.520Z",
     "redispatch_history": [
       {
@@ -12921,8 +12959,9 @@
     ],
     "quarantined_at": "2026-07-11T08:58:00.645Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260710-0001-A1",
@@ -12956,8 +12995,8 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:33:04.229Z",
-    "result_file": null,
+    "completed_at": "2026-07-12T17:41:55.204Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260710-0001-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -12971,15 +13010,26 @@
     ],
     "redispatch_count": 9,
     "last_redispatch_at": "2026-07-12T17:31:20.520Z",
-    "reason": "blocked by failed dependency: BUGTASK-20260710-0001-A4",
+    "reason": "Agent process exited with 1",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 1,
+      "conclusion": "PASS",
+      "responseChars": 1864,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:55.203Z",
       "passed": false,
-      "role": "dependency",
+      "role": "execution",
       "terminalStatus": "HOLD",
-      "reason": "blocked by failed dependency: BUGTASK-20260710-0001-A4",
-      "checkedAt": "2026-07-12T17:33:04.229Z"
+      "reason": "Agent process exited with 1"
     },
     "implementation_commit": "",
     "integrated_commit": "",
@@ -13038,7 +13088,8 @@
         "source_repair_task_no": "BUGTASK-20260710-0001"
       }
     ],
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0004-A3",
@@ -13417,7 +13468,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13440,7 +13491,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:32:12.243Z",
+    "completed_at": "2026-07-12T17:41:26.540Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0003-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13456,33 +13507,71 @@
     ],
     "redispatch_count": 4,
     "last_redispatch_at": "2026-07-12T17:31:21.863Z",
-    "reason": "Agent process exited with 1",
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-10T08:54:46.062Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "43506f625565b7323ad3317f11ba3206b7ed8d57",
+      "afterHead": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "commitHash": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json",
+        "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+        "scripts/ops/agent-worker.mjs",
+        "scripts/ops/bug-intake-evidence-gate.mjs",
+        "scripts/ops/bug-intake-local-runner.mjs",
+        "scripts/ops/bug-intake-local-runner.test.mjs"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T17:32:12.242Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:26.540Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "implementation_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_at": "2026-07-12T17:41:26.540Z",
+    "changed_files": [
+      "apps/web/src/app/(admin)/home/page.tsx",
+      "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+      "apps/web/src/lib/dashboard-menu-label.test.ts",
+      "apps/web/src/lib/home-navigation.test.ts",
+      "apps/web/src/lib/home-navigation.ts",
+      "apps/web/src/locales/zh.json",
+      "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+      "scripts/ops/agent-worker.mjs",
+      "scripts/ops/bug-intake-evidence-gate.mjs",
+      "scripts/ops/bug-intake-local-runner.mjs",
+      "scripts/ops/bug-intake-local-runner.test.mjs"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:21.863Z",
     "redispatch_history": [
       {
@@ -13507,8 +13596,9 @@
         "source_repair_task_no": "BUGTASK-20260709-0003"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0003-A1",
@@ -13542,8 +13632,8 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:32:57.185Z",
-    "result_file": null,
+    "completed_at": "2026-07-12T17:41:58.946Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260709-0003-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -13557,15 +13647,26 @@
     ],
     "redispatch_count": 4,
     "last_redispatch_at": "2026-07-12T17:31:21.863Z",
-    "reason": "blocked by failed dependency: BUGTASK-20260709-0003-A4",
+    "reason": "Agent process exited with 1",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 1,
+      "conclusion": "PASS",
+      "responseChars": 1920,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:58.946Z",
       "passed": false,
-      "role": "dependency",
+      "role": "execution",
       "terminalStatus": "HOLD",
-      "reason": "blocked by failed dependency: BUGTASK-20260709-0003-A4",
-      "checkedAt": "2026-07-12T17:32:57.185Z"
+      "reason": "Agent process exited with 1"
     },
     "implementation_commit": "",
     "integrated_commit": "",
@@ -13596,7 +13697,8 @@
         "source_repair_task_no": "BUGTASK-20260709-0003"
       }
     ],
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0002-A3",
@@ -13606,7 +13708,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13627,7 +13729,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:32:01.645Z",
+    "completed_at": "2026-07-12T17:41:26.790Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0002-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13643,33 +13745,50 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-12T17:31:22.355Z",
-    "reason": "Agent process exited with 1",
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-12T10:53:23.637Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "4a56c897018d833c4825d09bedc797a2151907d7",
-      "afterHead": "4a56c897018d833c4825d09bedc797a2151907d7",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "1ca245576cb4cca54fb75d9cd751b8876e4653aa",
+      "afterHead": "193e5b56101da4fcc58b2fc36a8cf8362abe14b0",
+      "commitHash": "193e5b56101da4fcc58b2fc36a8cf8362abe14b0",
+      "changedFiles": [
+        "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+        "apps/api/src/modules/wms/wms.service.spec.ts",
+        "apps/api/src/modules/wms/wms.service.ts",
+        "docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+        "apps/api/src/modules/wms/wms.service.spec.ts",
+        "apps/api/src/modules/wms/wms.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T17:32:01.645Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:26.790Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "implementation_commit": "193e5b56101da4fcc58b2fc36a8cf8362abe14b0",
+    "integrated_commit": "193e5b56101da4fcc58b2fc36a8cf8362abe14b0",
+    "integrated_at": "2026-07-12T17:41:26.790Z",
+    "changed_files": [
+      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+      "apps/api/src/modules/wms/wms.service.spec.ts",
+      "apps/api/src/modules/wms/wms.service.ts",
+      "docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:22.355Z",
     "redispatch_history": [
       {
@@ -13702,8 +13821,9 @@
       }
     ],
     "remote_repair_status": "HOLD",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0002-A4",
@@ -13713,7 +13833,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13736,7 +13856,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:32:07.112Z",
+    "completed_at": "2026-07-12T17:41:26.913Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0002-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13753,33 +13873,50 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-12T17:31:22.355Z",
-    "reason": "Agent process exited with 1",
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-10T08:54:41.049Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "fd4c8ad77d226f8cb457637d51a7e3aa47e300bd",
+      "afterHead": "798a84e00c110c82626b117d12941615a9feb9b3",
+      "commitHash": "798a84e00c110c82626b117d12941615a9feb9b3",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+        "apps/web/src/lib/warehouse-inbound.test.ts",
+        "apps/web/src/lib/warehouse-inbound.ts",
+        "docs/ops/bug-intake/BUG-20260709-0002-INTEGRATION-RESOLUTION.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+        "apps/web/src/lib/warehouse-inbound.test.ts",
+        "apps/web/src/lib/warehouse-inbound.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260709-0002-INTEGRATION-RESOLUTION.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T17:32:07.111Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:26.912Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "implementation_commit": "798a84e00c110c82626b117d12941615a9feb9b3",
+    "integrated_commit": "798a84e00c110c82626b117d12941615a9feb9b3",
+    "integrated_at": "2026-07-12T17:41:26.913Z",
+    "changed_files": [
+      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+      "apps/web/src/lib/warehouse-inbound.test.ts",
+      "apps/web/src/lib/warehouse-inbound.ts",
+      "docs/ops/bug-intake/BUG-20260709-0002-INTEGRATION-RESOLUTION.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:22.355Z",
     "redispatch_history": [
       {
@@ -13811,8 +13948,9 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0002-A1",
@@ -13847,8 +13985,8 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:32:03.369Z",
-    "result_file": null,
+    "completed_at": "2026-07-12T17:42:02.689Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260709-0002-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -13863,15 +14001,26 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-12T17:31:22.355Z",
-    "reason": "blocked by failed dependency: BUGTASK-20260709-0002-A3",
+    "reason": "Agent process exited with 1",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 1,
+      "conclusion": "PASS",
+      "responseChars": 1976,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:42:02.689Z",
       "passed": false,
-      "role": "dependency",
+      "role": "execution",
       "terminalStatus": "HOLD",
-      "reason": "blocked by failed dependency: BUGTASK-20260709-0002-A3",
-      "checkedAt": "2026-07-12T17:32:03.369Z"
+      "reason": "Agent process exited with 1"
     },
     "implementation_commit": "",
     "integrated_commit": "",
@@ -13909,7 +14058,8 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260709-0001-A4",
@@ -19349,7 +19499,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -19372,7 +19522,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:33:07.796Z",
+    "completed_at": "2026-07-12T17:41:26.665Z",
     "result_file": "docs/ops/runs/BUGTASK-20260711-0001-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -19388,34 +19538,72 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-12T17:31:22.867Z",
-    "reason": "Agent process exited with 1",
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-11T00:50:56.989Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 1,
-      "conclusion": "",
-      "responseChars": 0,
-      "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "43506f625565b7323ad3317f11ba3206b7ed8d57",
+      "afterHead": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "commitHash": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json",
+        "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+        "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+        "scripts/ops/agent-worker.mjs",
+        "scripts/ops/bug-intake-evidence-gate.mjs",
+        "scripts/ops/bug-intake-local-runner.mjs",
+        "scripts/ops/bug-intake-local-runner.test.mjs"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/home/page.tsx",
+        "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+        "apps/web/src/lib/dashboard-menu-label.test.ts",
+        "apps/web/src/lib/home-navigation.test.ts",
+        "apps/web/src/lib/home-navigation.ts",
+        "apps/web/src/locales/zh.json"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T17:33:07.796Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:41:26.664Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "implementation_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_commit": "76710f764b1c377f2a7d7e2a94015c220cb789d0",
+    "integrated_at": "2026-07-12T17:41:26.665Z",
+    "changed_files": [
+      "apps/web/src/app/(admin)/home/page.tsx",
+      "apps/web/src/lib/bug-20260709-0003-warehouse-ledger.test.ts",
+      "apps/web/src/lib/dashboard-menu-label.test.ts",
+      "apps/web/src/lib/home-navigation.test.ts",
+      "apps/web/src/lib/home-navigation.ts",
+      "apps/web/src/locales/zh.json",
+      "docs/ops/bug-intake/BUG-20260709-0003-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260710-0001-INTEGRATED-REPAIR.md",
+      "docs/ops/bug-intake/BUG-20260711-0001-INTEGRATED-REPAIR.md",
+      "scripts/ops/agent-worker.mjs",
+      "scripts/ops/bug-intake-evidence-gate.mjs",
+      "scripts/ops/bug-intake-local-runner.mjs",
+      "scripts/ops/bug-intake-local-runner.test.mjs"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:22.867Z",
     "redispatch_history": [
       {
@@ -19440,7 +19628,8 @@
         "source_repair_task_no": "BUGTASK-20260711-0001"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260711-0001-A1",
@@ -19474,8 +19663,8 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:33:09.443Z",
-    "result_file": null,
+    "completed_at": "2026-07-12T17:42:06.475Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260711-0001-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A4-Frontend-UAT-Smoke",
@@ -19489,15 +19678,26 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-12T17:31:22.867Z",
-    "reason": "blocked by failed dependency: BUGTASK-20260711-0001-A4",
+    "reason": "Agent process exited with 1",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 1,
+      "conclusion": "PASS",
+      "responseChars": 2032,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T17:42:06.474Z",
       "passed": false,
-      "role": "dependency",
+      "role": "execution",
       "terminalStatus": "HOLD",
-      "reason": "blocked by failed dependency: BUGTASK-20260711-0001-A4",
-      "checkedAt": "2026-07-12T17:33:09.443Z"
+      "reason": "Agent process exited with 1"
     },
     "remote_repair_status": "HOLD",
     "implementation_commit": "",
@@ -19528,7 +19728,8 @@
         "source_bug_no": "BUG-20260711-0001",
         "source_repair_task_no": "BUGTASK-20260711-0001"
       }
-    ]
+    ],
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260711-0002-A3",
