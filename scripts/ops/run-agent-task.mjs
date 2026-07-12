@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 
 const AGENTS = {
   'Codex-Orchestrator': {
@@ -325,7 +326,7 @@ if (branch !== executionConfig.branch) {
   fail(`branch mismatch for ${args.agent}; expected ${executionConfig.branch}, got ${branch}`);
 }
 
-const status = runGit(['status', '--short'], worktree);
+const status = filterRunnerRuntimeStatus(runGit(['status', '--short'], worktree));
 if (status && !(args['allow-ops-runtime-dirty'] && isOnlyAllowedOpsRuntimeDirty(status))) {
   fail(`worktree is not clean:\n${status}`);
 }

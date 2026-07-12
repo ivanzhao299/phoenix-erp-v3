@@ -5,6 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
+import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const MAIN_ROOT = process.cwd();
@@ -24,11 +25,6 @@ const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bi
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
 const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
 const TOKEN_CACHE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-token.json';
-const RUNNER_RUNTIME_DEPENDENCY_PATHS = new Set([
-  'node_modules',
-  'apps/api/node_modules',
-  'apps/web/node_modules',
-]);
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -720,18 +716,6 @@ An abnormal/detached worker result is never allowed to merge. The task remains H
     reportFile,
     task: patchTask(task.task_id, patch),
   };
-}
-
-export function filterRunnerRuntimeStatus(statusOutput) {
-  return String(statusOutput || '')
-    .split('\n')
-    .filter((line) => {
-      const file = line.length >= 3 ? line.slice(3).trim() : line.trim();
-      const normalized = file.replace(/\/$/, '');
-      return !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(normalized);
-    })
-    .filter(Boolean)
-    .join('\n');
 }
 
 function gitStatusShort(cwd) {

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { filterRunnerRuntimeStatus, selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
+import { selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
+import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 
 test('runner-created dependency links do not make a worktree dirty', () => {
   assert.equal(filterRunnerRuntimeStatus([

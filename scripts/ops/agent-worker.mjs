@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
-import { filterRunnerRuntimeStatus } from './bug-intake-local-runner.mjs';
+import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';

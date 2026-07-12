@@ -9,7 +9,7 @@ The queue was not healthy. Production reports could remain `AGENT_APPROVED` or `
 1. `bug-intake-local-runner.mjs` linked the main repository dependency directories into dedicated task worktrees.
 2. The same runner read `git status --short` without excluding those runtime links.
 3. A worktree containing only `node_modules` links was classified as a dirty implementation worktree.
-   The classification existed independently in both the resident parent runner and `agent-worker.mjs`; both layers must use the same runtime-path filter.
+   The classification existed independently in the resident parent runner, `agent-worker.mjs`, and `run-agent-task.mjs`; all layers must use the same runtime-path filter.
 4. The worktree was quarantined and the implementation task entered `HOLD`; dependent A1/A2 tasks then entered dependency `HOLD`.
 5. A same-generation sync correctly preserved terminal evidence, so the approved remote report could not become runnable without a new redispatch generation.
 6. Observer and Evolution Planner were only manually callable. Their last applied state predated the incident, so repeated quarantine evidence did not trigger an improvement lifecycle.
@@ -17,7 +17,7 @@ The queue was not healthy. Production reports could remain `AGENT_APPROVED` or `
 ## Repair
 
 - Ignore only the three dependency links created by the runner: root, API, and Web `node_modules`.
-- Apply the same filter in the parent runner and child Agent worker preflight.
+- Apply one shared filter module in the parent runner, child Agent worker, and CLI task runner preflight.
 - Preserve detection of every real business or ops file modification.
 - Detect approved reports whose current local generation is entirely terminal for runner-owned quarantine/dependency reasons.
 - Create a bounded new generation automatically, at most twice per report and at most three reports per cycle.
