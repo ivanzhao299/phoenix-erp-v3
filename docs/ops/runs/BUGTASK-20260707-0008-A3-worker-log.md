@@ -23,23 +23,18 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md
-Assembled prompt chars: 26299
+Assembled prompt chars: 26263
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-18-48-706Z-A3-Backend-Critical-Path.md
-HOLD for current redispatch.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-36-55-544Z-A3-Backend-Critical-Path.md
+Backend A3 redispatch is complete: current branch already contains the backend fix in `a5e169f5` for `BUG-20260707-0008`, so I did not make another backend source edit. I added the current task report at [docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md:1).
 
-`HEAD` already contains the backend fix for `BUG-20260707-0008` in commit `a5e169f5`: [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2172) normalizes `brd_daily_logs.log_date` / `business_date` to `YYYY-MM-DD`, with focused regression coverage in [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:67). I did not make additional backend source edits.
+Validation passed:
+- `pnpm --dir apps/api test -- generic-crud.service.spec.ts --runInBand`: 11/11 tests passed.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: passed.
+- `git diff --check -- apps/api docs/ops`: passed.
 
-I added the redispatch report here: [BUG-20260707-0008-A3-REDISPATCH-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0008-A3-REDISPATCH-REPORT.md:1).
-
-Validation:
-- `git diff --check` passed.
-- Static evidence check found the normalization code and regression tests.
-- API tests/typecheck are blocked because `apps/api/node_modules` is absent.
-- Offline install is also blocked: missing cached tarballs for `concurrently@8.2.2` and `@nestjs/common@10.4.22`.
-
-No migrations, DB writes, deploys, pushes, or forbidden scope changes were performed.
+Result: `PASS WITH CONDITIONS`, release gate remains `HOLD` until CI/CD, production smoke, and business acceptance confirm `/breeding` against real daily report rows. No DB writes, migrations, deploys, pushes, merges, task-board updates, or frontend edits were performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -47,6 +42,8 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-12T14:35:14.042967Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit
+2026-07-12T14:35:14.042945Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -56,7 +53,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f4ae2-86c6-7291-bb24-dd1ce8296512
+session id: 019f56c0-f4fc-75f2-b41e-cc9b7a5783f7
 --------
 user
 # Base Agent Prompt
@@ -510,20 +507,8 @@ Assigned agent: A3-Backend-Critical-Path
           },
           {
             "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 397
-            },
-            "label": "质检总览",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path
-...<truncated 539638 chars>
+            "path": ".sid
+...<truncated 706214 chars>
 
 ```
 
@@ -534,20 +519,20 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1132,
-  "beforeHead": "f68fd331ddff4e5f662750e9264c22ecde41bfeb",
-  "afterHead": "f68fd331ddff4e5f662750e9264c22ecde41bfeb",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 877,
+  "beforeHead": "98fd1d75d5de5b93090903e58d4399567b3c2212",
+  "afterHead": "98fd1d75d5de5b93090903e58d4399567b3c2212",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-10T07:18:48.802Z",
+  "checkedAt": "2026-07-12T14:36:55.636Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is HOLD"
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -558,7 +543,7 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": false,
   "files": [
-    "docs/ops/BUG-20260707-0008-A3-REDISPATCH-REPORT.md"
+    "docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md"
   ],
   "error": "no apps/api/ implementation file"
 }
