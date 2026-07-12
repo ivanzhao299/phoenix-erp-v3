@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260709-0003-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
-| Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Exit code | 1 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,21 +23,10 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0003-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0003-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23248
+Assembled prompt chars: 23262
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-36-23-232Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS for `BUG-20260709-0003`.
-
-I added a focused frontend regression test in [inventory-ledger-labels.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/inventory-ledger-labels.test.ts:21) so the reported ledger codes cannot regress to raw English display, and wrote the task report at [BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md:1).
-
-Validation run:
-- `pnpm --filter web exec vitest run src/lib/inventory-ledger-labels.test.ts`: PASS, 6 tests
-- `pnpm --filter web exec eslint 'src/app/(admin)/warehouse/ledger/page.tsx' src/lib/inventory-ledger-labels.ts src/lib/inventory-ledger-labels.test.ts`: PASS
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
-
-Local live browser smoke is a condition: Next dev could not bind in this sandbox with `listen EPERM 127.0.0.1:3304`, so production closure still needs CI/CD, `/warehouse/ledger` production smoke, and business acceptance. No backend, DB, migration, push, deploy, or merge actions were performed.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-26-42-555Z-A4-Frontend-UAT-Smoke.md
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,7 +43,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5652-6acb-7781-95c6-fb26136a9daa
+session id: 019f575d-e628-73c3-85d6-8a1d72acdb85
 --------
 user
 # Base Agent Prompt
@@ -482,7 +471,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
             "tag": "a
-...<truncated 371488 chars>
+...<truncated 11826 chars>
 
 ```
 
@@ -492,28 +481,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
 {
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
-  "exitCode": 0,
-  "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1135,
-  "beforeHead": "6fc42b4743961be2aa62d7c0c52fe6f39340c500",
-  "afterHead": "e4ec41f2ee8219efd405c1ae811c2f3372221f98",
-  "commitHash": "e4ec41f2ee8219efd405c1ae811c2f3372221f98",
-  "changedFiles": [
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/lib/inventory-ledger-labels.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-  ],
+  "exitCode": 1,
+  "conclusion": "",
+  "responseChars": 0,
+  "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:36:23.394Z",
-  "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "checkedAt": "2026-07-12T17:26:42.575Z",
+  "passed": false,
+  "role": "execution",
+  "terminalStatus": "HOLD",
+  "reason": "Agent process exited with 1"
 }
 ```
 
@@ -521,20 +503,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/lib/inventory-ledger-labels.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-  ],
-  "commitHash": "e4ec41f2ee8219efd405c1ae811c2f3372221f98",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 e4ec41f2] fix(web): repair BUG-20260709-0003\n 2 files changed, 80 insertions(+)\n create mode 100644 docs/ops/BUG-20260709-0003_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "not an eligible implementation execution"
 }
 ```
