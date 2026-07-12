@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-09T01:15:45.325Z",
-  "updatedAt": "2026-07-12T17:32:03.065Z",
+  "updatedAt": "2026-07-12T17:32:08.499Z",
   "closedAt": null,
   "attachmentCount": 0,
   "description": "问题判断：\n库存查询、成品批次、仓库看板、入库管理、出入库流水没有使用同一套库存数据源，导致系统里明明有库存，但库存查询看不到；入库管理也没有形成“入库单 -> 库存余额 -> 库存台账/库存查询”的闭环。\n\n修复要求：\n1. 统一库存主账模型，至少包含：批次号、产品编码/SKU、仓库、库区、库位、库存数量、可用数量、状态、生产日期、保质期/到期日、归属组织/门店、来源单据、来源类型。\n2. 入库管理页面必须补齐：入库单列表、新建入库单、入库明细、保存草稿、提交/确认入库、状态流转。\n3. 入库单确认后必须同步写入库存余额，并生成库存台账流水。\n4. 库存查询必须读取真实库存余额，不能与成品批次库存割裂。\n5. 成品批次库存与仓储库存如需保留两套视图，也必须建立字段映射和数据同步关系。\n6. 仓库看板、库存查询、库存台账、成品批次的库存数量口径必须一致。\n7. 修复后请验证：新增一张入库单后，库存查询能查到对应批次，库存台账能看到入库流水，仓库看板总库存和今日入库统计同步变化。",
@@ -2251,27 +2251,63 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260709-0002-A3",
         "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260709-0002-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29786\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-01-625Z-A3-Backend-Critical-Path.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f5762-c3f0-7bc2-bd81-1b331a521310\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A3 Backend Repair Prompt\n\n## Identity\n\nYou are `A3-Backend-Critical-Path` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a3`\n\nBranch: `codex/bug-intake-a3`\n\n## Mission\n\nImplement the backe",
+        "commitHash": "",
         "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T17:32:03.061Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A3-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 5,
+        "validationResults": {
+          "queueStatus": "HOLD",
+          "evidenceGate": {
+            "role": "execution",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": false,
+            "reason": "Agent process exited with 1",
+            "version": 1,
+            "exitCode": 1,
+            "afterHead": "4a56c897018d833c4825d09bedc797a2151907d7",
+            "checkedAt": "2026-07-12T17:32:01.645Z",
+            "beforeHead": "4a56c897018d833c4825d09bedc797a2151907d7",
+            "commitHash": "",
+            "conclusion": "",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 0,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260709-0002-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A4-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A3-Backend-Critical-Path",
+            "agent": "A4-Frontend-UAT-Smoke",
             "exitCode": 1,
             "conclusion": "",
             "responseChars": 0,
-            "beforeHead": "4a56c897018d833c4825d09bedc797a2151907d7",
-            "afterHead": "4a56c897018d833c4825d09bedc797a2151907d7",
+            "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+            "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
             "commitHash": "",
             "changedFiles": [],
             "businessChangedFiles": [],
             "reportFiles": [],
             "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T17:32:01.645Z",
+            "checkedAt": "2026-07-12T17:32:07.111Z",
             "passed": false,
             "role": "execution",
             "terminalStatus": "HOLD",
@@ -2280,11 +2316,11 @@
           "queueStatus": "HOLD",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29786\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-01-625Z-A3-Backend-Critical-Path.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f5762-c3f0-7bc2-bd81-1b331a521310\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A3 Backend Repair Prompt\n\n## Identity\n\nYou are `A3-Backend-Critical-Path` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a3`\n\nBranch: `codex/bug-intake-a3`\n\n## Mission\n\nImplement the backe",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29853\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-07-091Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f5762-d8b8-7de2-8b3f-2dcde699a64e\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A4 Frontend Repair Prompt\n\n## Identity\n\nYou are `A4-Frontend-UIUX-UAT` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a4`\n\nBranch: `codex/bug-intake-a4`\n\n## Mission\n\nImplement the frontend portion of",
         "nextAction": "",
         "redispatchCount": 5,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T17:32:03.061Z"
+        "recordedAt": "2026-07-12T17:32:08.495Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -2297,27 +2333,27 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260709-0002-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260709-0002-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A3-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A4-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 1,
           "conclusion": "",
           "responseChars": 0,
-          "beforeHead": "4a56c897018d833c4825d09bedc797a2151907d7",
-          "afterHead": "4a56c897018d833c4825d09bedc797a2151907d7",
+          "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+          "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
           "commitHash": "",
           "changedFiles": [],
           "businessChangedFiles": [],
           "reportFiles": [],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T17:32:01.645Z",
+          "checkedAt": "2026-07-12T17:32:07.111Z",
           "passed": false,
           "role": "execution",
           "terminalStatus": "HOLD",
@@ -2326,11 +2362,11 @@
         "queueStatus": "HOLD",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29786\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-01-625Z-A3-Backend-Critical-Path.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f5762-c3f0-7bc2-bd81-1b331a521310\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A3 Backend Repair Prompt\n\n## Identity\n\nYou are `A3-Backend-Critical-Path` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a3`\n\nBranch: `codex/bug-intake-a3`\n\n## Mission\n\nImplement the backe",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29853\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-07-091Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: high\nreasoning summaries: none\nsession id: 019f5762-d8b8-7de2-8b3f-2dcde699a64e\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A4 Frontend Repair Prompt\n\n## Identity\n\nYou are `A4-Frontend-UIUX-UAT` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a4`\n\nBranch: `codex/bug-intake-a4`\n\n## Mission\n\nImplement the frontend portion of",
       "nextAction": "",
       "redispatchCount": 5,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T17:32:03.061Z"
+      "recordedAt": "2026-07-12T17:32:08.495Z"
     },
     "redispatchHistory": [
       {

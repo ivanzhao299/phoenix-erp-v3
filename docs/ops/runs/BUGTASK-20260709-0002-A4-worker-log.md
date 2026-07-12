@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260709-0002-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
-| Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Exit code | 1 |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,27 +23,10 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md
-Assembled prompt chars: 29848
+Assembled prompt chars: 29853
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-32-14-423Z-A4-Frontend-UAT-Smoke.md
-Implemented the A4 frontend fix for BUG-20260709-0002.
-
-Root cause found: `/warehouse/inbound` still allowed `status` editing in the drawer, so users could save `COMPLETED` through generic CRUD and bypass `/api/inbound/confirm`.
-
-Changed:
-- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:76): removed writable status field and routes save payloads through a sanitizer.
-- [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:46): added safe save payload builder, forcing creates to `PENDING` and stripping `status` on edits.
-- [warehouse-inbound.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.test.ts:7): added regression coverage.
-- [A4 report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md:1): updated with evidence and result.
-
-Validation:
-- `pnpm --filter web test -- src/lib/warehouse-inbound.test.ts src/lib/warehouse-query.test.ts` PASS, 11 tests.
-- `pnpm --filter web typecheck` PASS.
-- `git diff --check -- apps/web docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md` PASS.
-- Local browser smoke HOLD condition: Next dev server cannot bind in this sandbox, `listen EPERM 127.0.0.1:3014`.
-
-Result: `PASS WITH CONDITIONS`; release gate remains `HOLD` until CI/CD, staging or production smoke, and business acceptance verify real inbound rows become visible inventory.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-07-091Z-A4-Frontend-UAT-Smoke.md
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -60,7 +43,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5728-f099-73f1-ace2-4a7517d4c53e
+session id: 019f5762-d8b8-7de2-8b3f-2dcde699a64e
 --------
 user
 # Base Agent Prompt
@@ -533,7 +516,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 826
             },
     
-...<truncated 362091 chars>
+...<truncated 18417 chars>
 
 ```
 
@@ -543,32 +526,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
 {
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
-  "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1519,
-  "beforeHead": "c036e8e0038b0dc790ab651ca3cd5fcd9c906b9f",
-  "afterHead": "f87738b8161f2f817a23dc40497af711f8bca91b",
-  "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
-  "changedFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound.test.ts",
-    "apps/web/src/lib/warehouse-inbound.ts",
-    "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound.test.ts",
-    "apps/web/src/lib/warehouse-inbound.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
-  ],
+  "exitCode": 1,
+  "conclusion": "",
+  "responseChars": 0,
+  "beforeHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T16:32:14.596Z",
-  "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "checkedAt": "2026-07-12T17:32:07.111Z",
+  "passed": false,
+  "role": "execution",
+  "terminalStatus": "HOLD",
+  "reason": "Agent process exited with 1"
 }
 ```
 
@@ -576,24 +548,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound.test.ts",
-    "apps/web/src/lib/warehouse-inbound.ts",
-    "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/lib/warehouse-inbound.test.ts",
-    "apps/web/src/lib/warehouse-inbound.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
-  ],
-  "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 f87738b8] fix(web): repair BUG-20260709-0002\n 4 files changed, 101 insertions(+), 29 deletions(-)"
+  "attempted": false,
+  "ok": false,
+  "reason": "not an eligible implementation execution"
 }
 ```
