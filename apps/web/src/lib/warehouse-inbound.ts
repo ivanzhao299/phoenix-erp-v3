@@ -12,6 +12,12 @@ export interface WarehouseInboundConfirmPayload {
   items: WarehouseInboundConfirmItem[];
 }
 
+export interface WarehouseInboundSaveOptions {
+  isEditing?: boolean;
+  now?: Date;
+  random?: () => number;
+}
+
 export type WarehouseInboundConfirmBuildResult =
   | { ok: true; payload: WarehouseInboundConfirmPayload }
   | { ok: false; reason: "missing_task_no" | "missing_product_code" | "invalid_qty" };
@@ -25,6 +31,34 @@ function stringValue(value: unknown): string {
 function intValue(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+}
+
+function buildTaskNo(now: Date, random: () => number): string {
+  const ymd = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "0");
+  return `INB-${ymd}-${suffix}`;
+}
+
+function buildInboundNo(now: Date): string {
+  return `WI-${now.getTime().toString().slice(-6)}`;
+}
+
+export function buildWarehouseInboundSavePayload(
+  values: Record<string, unknown>,
+  options: WarehouseInboundSaveOptions = {},
+): Record<string, unknown> {
+  const { status: _status, ...payload } = values;
+  if (options.isEditing) return payload;
+
+  const now = options.now ?? new Date();
+  const random = options.random ?? Math.random;
+  return {
+    ...payload,
+    task_no: stringValue(payload.task_no) || buildTaskNo(now, random),
+    inbound_no: stringValue(payload.inbound_no) || buildInboundNo(now),
+    status: "PENDING",
+    date: stringValue(payload.date) || now.toISOString().slice(0, 10),
+  };
 }
 
 export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseInboundConfirmBuildResult {

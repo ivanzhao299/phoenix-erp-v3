@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CheckSquare, Plus } from "lucide-react";
 import {
   buildWarehouseInboundConfirmPayload,
+  buildWarehouseInboundSavePayload,
   getWarehouseInboundConfirmKeyword,
 } from "@/lib/warehouse-inbound";
 // g200e 模板 token(2026-06-20)
@@ -84,12 +85,6 @@ export default function InboundPage() {
     { key: "operator",       label: t("ui.操作员",   "操作员（留空=当前用户）"),    type: "user"   },
     { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
     { key: "remark",         label: t("common.remark","备注"),     type: "textarea" },
-    { key: "status", label: t("common.status", "状态"), type: "select", options: [
-      { label: t("status.pending",   "待审核"), value: "PENDING"    },
-      { label: t("ui.审核中",        "审核中"), value: "PROCESSING" },
-      { label: t("ui.已入库",        "已入库"), value: "COMPLETED"  },
-      { label: t("status.cancelled", "已取消"), value: "CANCELLED"  },
-    ]},
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -100,16 +95,7 @@ export default function InboundPage() {
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
     try {
-      // B5（packaging 同款）: task_no 是 wms_inbound 的 NOT NULL PK，必须前端生成
-      const payload = editing?.id
-        ? values
-        : {
-            ...values,
-            task_no:    values.task_no    || ("INB-" + new Date().toISOString().slice(0,10).replace(/-/g,'') + "-" + Math.random().toString(36).slice(2,6).toUpperCase()),
-            inbound_no: values.inbound_no || ("WI-"  + Date.now().toString().slice(-6)),
-            status:     values.status     || "PENDING",
-            date:       values.date       || new Date().toISOString().slice(0, 10),
-          };
+      const payload = buildWarehouseInboundSavePayload(values, { isEditing: Boolean(editing?.id) });
       editing?.id
         ? await crudApi.update(TABLE, editing.id as number, payload)
         : await crudApi.create(TABLE, payload);

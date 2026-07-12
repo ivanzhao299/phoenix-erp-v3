@@ -1,10 +1,40 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWarehouseInboundConfirmPayload,
+  buildWarehouseInboundSavePayload,
   getWarehouseInboundConfirmKeyword,
 } from "./warehouse-inbound";
 
 describe("warehouse inbound helpers", () => {
+  it("forces new rows to pending so inventory changes only through confirm", () => {
+    expect(buildWarehouseInboundSavePayload({
+      item: "PRD-EGG-1",
+      qty: 12,
+      status: "COMPLETED",
+    }, {
+      now: new Date("2026-07-09T01:15:45.325Z"),
+      random: () => 0.123456,
+    })).toMatchObject({
+      inbound_no: "WI-745325",
+      task_no: "INB-20260709-4FZY",
+      date: "2026-07-09",
+      status: "PENDING",
+    });
+  });
+
+  it("strips generic status edits so CRUD cannot bypass confirmation", () => {
+    expect(buildWarehouseInboundSavePayload({
+      item: "PRD-EGG-1",
+      qty: 12,
+      status: "COMPLETED",
+      remark: "fix qty only",
+    }, { isEditing: true })).toEqual({
+      item: "PRD-EGG-1",
+      qty: 12,
+      remark: "fix qty only",
+    });
+  });
+
   it("builds WMS confirm payloads from admin inbound rows", () => {
     expect(buildWarehouseInboundConfirmPayload({
       task_no: "INB-20260708-ABCD",
