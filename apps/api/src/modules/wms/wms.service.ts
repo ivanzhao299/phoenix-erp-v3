@@ -135,10 +135,12 @@ export class WmsService {
 
     // V2 fidelity: 严格校验 expected = actual + broken（若提供 expected_qty）
     const validationErrors: string[] = [];
+    let hasEffectiveInboundLine = false;
     for (const it of items) {
       const actual = Number(it.actual_qty ?? it.qty) || 0;
       const broken = Number(it.broken_qty) || 0;
       const expected = it.expected_qty != null ? Number(it.expected_qty) : null;
+      const productCode = String(it.product_code || '').trim();
       if (expected != null && actual + broken !== expected) {
         validationErrors.push(
           `批次 ${it.batch_no || it.product_code}: actual(${actual}) + broken(${broken}) ≠ expected(${expected})`,
@@ -149,6 +151,15 @@ export class WmsService {
           `批次 ${it.batch_no || it.product_code}: actual_qty / broken_qty 不可为负`,
         );
       }
+      if (actual > 0 || broken > 0) {
+        hasEffectiveInboundLine = true;
+        if (!productCode) {
+          validationErrors.push(`批次 ${it.batch_no || '(未指定)'}: product_code 必填`);
+        }
+      }
+    }
+    if (!hasEffectiveInboundLine) {
+      validationErrors.push('入库确认至少需要一条实收或破损数量大于 0 的明细');
     }
     if (validationErrors.length > 0) {
       throw new BadRequestException({ code: 400, msg: '入库数据校验失败', errors: validationErrors });

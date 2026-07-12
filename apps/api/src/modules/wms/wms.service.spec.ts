@@ -44,4 +44,56 @@ describe('WmsService inventory read queries', () => {
       [['LPH_MS_EGG_SALES']],
     );
   });
+
+  it('rejects inbound confirmation before completing the task when no stock line can be posted', async () => {
+    const em = {
+      transaction: jest.fn(),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(
+      service.confirmInbound(
+        {
+          task_no: 'WI-NO-STOCK',
+          items: [{ product_code: 'PRD-EGG-1', actual_qty: 0, broken_qty: 0 }],
+        },
+        { username: 'admin' },
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        msg: '入库数据校验失败',
+        errors: expect.arrayContaining(['入库确认至少需要一条实收或破损数量大于 0 的明细']),
+      }),
+    });
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects inbound confirmation before completing the task when an effective line lacks product code', async () => {
+    const em = {
+      transaction: jest.fn(),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(
+      service.confirmInbound(
+        {
+          task_no: 'WI-NO-PRODUCT',
+          items: [{ actual_qty: 5, broken_qty: 0 }],
+        },
+        { username: 'admin' },
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        msg: '入库数据校验失败',
+        errors: expect.arrayContaining(['批次 (未指定): product_code 必填']),
+      }),
+    });
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
 });

@@ -306,4 +306,62 @@ describe('GenericCrudController WMS RBAC', () => {
     );
     expect(svc.update).not.toHaveBeenCalled();
   });
+
+  it('persists inbound detail edits before WMS confirmation without directly completing the row', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 8,
+      task_no: 'WI-535598',
+      status: 'PENDING',
+      item: 'OLD-ITEM',
+      qty: 1,
+      warehouse_code: 'LPH_MS_RAW',
+      location_code: 'OLD-LOC',
+      store_code: 'ALL',
+    });
+
+    await expect(
+      controller.updateWithColumn(
+        'wms_inbound',
+        'id',
+        '8',
+        {
+          status: 'COMPLETED',
+          item: '监控摄像头测试',
+          actual_qty: 50,
+          batch_no: 'WI-535598-B1',
+          location_code: 'RAW-IN-01',
+        },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: '入库确认成功' });
+
+    expect(svc.update).toHaveBeenCalledTimes(1);
+    expect(svc.update).toHaveBeenCalledWith(
+      'wms_inbound',
+      'id',
+      '8',
+      {
+        item: '监控摄像头测试',
+        actual_qty: 50,
+        batch_no: 'WI-535598-B1',
+        location_code: 'RAW-IN-01',
+      },
+    );
+    expect(wmsService.confirmInbound).toHaveBeenCalledWith(
+      {
+        task_no: 'WI-535598',
+        items: [{
+          product_code: '监控摄像头测试',
+          qty: 50,
+          actual_qty: 50,
+          expected_qty: undefined,
+          broken_qty: undefined,
+          warehouse_code: 'LPH_MS_RAW',
+          location_code: 'RAW-IN-01',
+          batch_no: 'WI-535598-B1',
+        }],
+      },
+      expect.objectContaining({ username: 'wangweihua' }),
+    );
+  });
 });
