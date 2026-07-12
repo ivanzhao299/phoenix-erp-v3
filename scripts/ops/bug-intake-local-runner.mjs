@@ -1313,7 +1313,11 @@ async function recoverTechnicalGenerationDrift(args, childEnv) {
 }
 
 function bugTaskConclusion(task) {
-  if (task.status === 'SKIPPED_NOT_APPLICABLE' && task.evidence_gate?.passed === true) return 'NOT_APPLICABLE';
+  if (task.status === 'SKIPPED_NOT_APPLICABLE' && task.evidence_gate?.passed === true) {
+    return task.evidence_gate?.role === 'implementation_verified_existing'
+      ? 'PASS_WITH_CONDITIONS'
+      : 'NOT_APPLICABLE';
+  }
   if (SUCCESS_STATUSES.has(task.status) && task.evidence_gate?.passed === true) return 'PASS_WITH_CONDITIONS';
   if (['HOLD', 'hold', 'failed'].includes(task.status)) return 'HOLD';
   return 'HOLD';
@@ -1366,7 +1370,9 @@ async function backfillCompletedBugReports(args, childEnv, summary) {
   for (const report of reports) {
     const remoteRepairStatus = String(report.repairTaskStatus || '');
     const remoteStatus = String(report.status || '');
-    if (!REMOTE_RUNNING_REPAIR_STATUSES.has(remoteRepairStatus)) continue;
+    const approvedHold = remoteRepairStatus === 'HOLD'
+      && report?.repairTaskPayload?.agentExecutionApproval?.approved === true;
+    if (!REMOTE_RUNNING_REPAIR_STATUSES.has(remoteRepairStatus) && !approvedHold) continue;
     if (['RESOLVED', 'CLOSED', 'REJECTED'].includes(remoteStatus)) continue;
 
     const localTasks = tasksByBug.get(report.bugNo) || [];
@@ -1375,9 +1381,14 @@ async function backfillCompletedBugReports(args, childEnv, summary) {
       continue;
     }
 
-    const selectedAgents = selectedAgentsForReport(report, localTasks);
+    const activeTasks = localTasks.filter((task) => task.route_active !== false);
+    const maxRedispatch = activeTasks.length > 0
+      ? Math.max(...activeTasks.map((task) => Number(task.redispatch_count || 0)))
+      : 0;
+    const currentRouteTasks = activeTasks.filter((task) => Number(task.redispatch_count || 0) === maxRedispatch);
+    const selectedAgents = selectedAgentsForReport(report, currentRouteTasks);
     const selectedTasks = selectedAgents
-      .map((agent) => localTasks.find((task) => task.agent === agent))
+      .map((agent) => currentRouteTasks.find((task) => task.agent === agent))
       .filter(Boolean);
     const missingAgents = selectedAgents.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
     const unfinishedTasks = selectedTasks.filter((task) => !FINISHED_STATUSES.has(task.status));

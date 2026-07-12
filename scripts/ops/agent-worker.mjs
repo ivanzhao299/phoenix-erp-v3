@@ -716,7 +716,7 @@ function recoverIntegratedCommit(args) {
   const tasks = readTasks();
   const task = tasks.find((item) => item.task_id === args.taskId && item.agent === args.agent);
   if (!task) fail(`task not found for integrated commit recovery: ${args.taskId}`);
-  if (!['HOLD', 'hold', 'WAITING_CAPACITY', 'failed'].includes(task.status)) fail(`task is not recoverable from integrated commit: ${task.status}`);
+  if (!['HOLD', 'hold', 'WAITING_CAPACITY', 'SKIPPED_NOT_APPLICABLE', 'failed'].includes(task.status)) fail(`task is not recoverable from integrated commit: ${task.status}`);
 
   const commit = safeGit(['rev-parse', args.commit], process.cwd());
   if (!commit.ok) fail(`integrated commit not found: ${args.commit}`);

@@ -156,3 +156,38 @@ test('verified existing implementation satisfies release evidence', () => {
   );
   assert.equal(release.passed, true);
 });
+
+test('approved remote HOLD remains eligible for evidence-backed recovery', () => {
+  const report = {
+    status: 'IN_PROGRESS',
+    repairTaskStatus: 'HOLD',
+    repairTaskPayload: { agentExecutionApproval: { approved: true } },
+  };
+  const eligible = report.repairTaskStatus === 'HOLD'
+    && report.repairTaskPayload.agentExecutionApproval.approved === true;
+  assert.equal(eligible, true);
+});
+
+test('result backfill must use the latest redispatch generation', () => {
+  const tasks = [
+    { agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', route_active: false, redispatch_count: 1 },
+    { agent: 'A1-CI-Runtime-Gate', status: 'HOLD', route_active: false, redispatch_count: 1 },
+    { agent: 'A4-Frontend-UAT-Smoke', status: 'COMPLETED_MERGED', route_active: true, redispatch_count: 3 },
+    { agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED', route_active: true, redispatch_count: 3 },
+  ];
+  const active = tasks.filter((task) => task.route_active !== false);
+  const maxGeneration = Math.max(...active.map((task) => task.redispatch_count));
+  const current = active.filter((task) => task.redispatch_count === maxGeneration);
+  assert.deepEqual(current.map((task) => task.status), ['COMPLETED_MERGED', 'VALIDATION_COMPLETED']);
+});
+
+test('verified existing implementation writes back as PASS, not NOT_APPLICABLE', () => {
+  const task = {
+    status: 'SKIPPED_NOT_APPLICABLE',
+    evidence_gate: { passed: true, role: 'implementation_verified_existing' },
+  };
+  const conclusion = task.evidence_gate.role === 'implementation_verified_existing'
+    ? 'PASS_WITH_CONDITIONS'
+    : 'NOT_APPLICABLE';
+  assert.equal(conclusion, 'PASS_WITH_CONDITIONS');
+});

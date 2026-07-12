@@ -126,6 +126,7 @@ export class BugIntakeService {
       this.ds.query<any[]>(
         `SELECT COALESCE(repair_task_status, 'NONE') AS status, COUNT(*)::int AS count
            FROM bug_reports
+          WHERE status IN ('OPEN','TRIAGED','IN_PROGRESS')
           GROUP BY COALESCE(repair_task_status, 'NONE')
           ORDER BY status`,
       ),
@@ -133,6 +134,7 @@ export class BugIntakeService {
         `SELECT bug_no, title, repair_task_status, updated_at
            FROM bug_reports
           WHERE repair_task_status = 'AGENT_RUNNING'
+            AND status IN ('OPEN','TRIAGED','IN_PROGRESS')
             AND updated_at < NOW() - ($1 || ' minutes')::interval
           ORDER BY updated_at ASC
           LIMIT 20`,
@@ -142,6 +144,7 @@ export class BugIntakeService {
         `SELECT bug_no, title, repair_task_status, updated_at
            FROM bug_reports
           WHERE repair_task_status = 'AGENT_APPROVED'
+            AND status IN ('OPEN','TRIAGED','IN_PROGRESS')
             AND updated_at < NOW() - ($1 || ' minutes')::interval
           ORDER BY updated_at ASC
           LIMIT 20`,
@@ -151,6 +154,7 @@ export class BugIntakeService {
         `SELECT bug_no, title, severity, priority, repair_task_status, updated_at, repair_task_payload
            FROM bug_reports
           WHERE repair_task_status = 'HOLD'
+            AND status IN ('OPEN','TRIAGED','IN_PROGRESS')
           ORDER BY updated_at DESC
           LIMIT 20`,
       ),
@@ -165,7 +169,7 @@ export class BugIntakeService {
                 repair_task_no, repair_task_status, route, updated_at, repair_task_payload
            FROM bug_reports
           WHERE status IN ('OPEN','TRIAGED','IN_PROGRESS')
-             OR COALESCE(repair_task_status, '') IN ('READY','ROUTED','AGENT_APPROVED','AGENT_RUNNING','AGENT_EXECUTION_FINISHED','FIX_READY_FOR_UAT','HOLD','AGENT_COMPLETED')
+            AND COALESCE(repair_task_status, '') IN ('READY','ROUTED','AGENT_APPROVED','AGENT_RUNNING','AGENT_EXECUTION_FINISHED','FIX_READY_FOR_UAT','HOLD','AGENT_COMPLETED')
           ORDER BY
             CASE COALESCE(repair_task_status, '')
               WHEN 'HOLD' THEN 0
