@@ -15238,7 +15238,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15261,7 +15261,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T14:51:29.740Z",
+    "completed_at": "2026-07-12T14:51:31.404Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0001-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15312,8 +15312,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "264214e02ef64144db17bd65b76163ca03abb835",
+    "integrated_at": "2026-07-12T14:51:31.404Z",
     "changed_files": [
       "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
       "apps/web/src/lib/warehouse-inbound.test.ts",
@@ -15339,7 +15339,8 @@
       }
     ],
     "remote_repair_status": "HOLD",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260708-0001-A1",
