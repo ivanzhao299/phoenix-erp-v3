@@ -1001,11 +1001,11 @@ Assigned agent: A2-Security-Regression-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:27:14.227Z",
+    "approvedAt": "2026-07-12T15:14:21.764Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
-    "redispatchCount": 5,
+    "approvalScope": "Reconcile already-integrated verified agent commit after parent runner interruption.",
+    "redispatchCount": 6,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

@@ -1098,11 +1098,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:39:16.194Z",
+    "approvedAt": "2026-07-12T15:13:17.884Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Verify already-present frontend fix without redundant code churn.",
-    "redispatchCount": 4,
+    "approvalScope": "Verify existing approved fix evidence and rerun validation without redundant code churn.",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
