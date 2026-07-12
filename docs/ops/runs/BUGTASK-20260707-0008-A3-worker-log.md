@@ -23,18 +23,27 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md
-Assembled prompt chars: 26263
+Assembled prompt chars: 26202
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-36-55-544Z-A3-Backend-Critical-Path.md
-Backend A3 redispatch is complete: current branch already contains the backend fix in `a5e169f5` for `BUG-20260707-0008`, so I did not make another backend source edit. I added the current task report at [docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md:1).
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-50-25-172Z-A3-Backend-Critical-Path.md
+完成 A3 后端复核，结果：`PASS WITH CONDITIONS`。
 
-Validation passed:
-- `pnpm --dir apps/api test -- generic-crud.service.spec.ts --runInBand`: 11/11 tests passed.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: passed.
-- `git diff --check -- apps/api docs/ops`: passed.
+后端修复已在当前基线提交 `a5e169f5 fix(app): normalize breeding daily overview metrics` 中集成，本次没有再改 backend 代码。根因是 `GET /api/crud/brd_daily_logs` 返回的 `log_date/business_date` 可能是 ISO timestamp，导致 `/breeding` 今日聚合按 `YYYY-MM-DD` 严格匹配时漏掉今日日报。现有后端逻辑已归一化为 `YYYY-MM-DD`，对应文件是：
 
-Result: `PASS WITH CONDITIONS`, release gate remains `HOLD` until CI/CD, production smoke, and business acceptance confirm `/breeding` against real daily report rows. No DB writes, migrations, deploys, pushes, merges, task-board updates, or frontend edits were performed.
+- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2142)
+- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:67)
+
+我更新了本次任务报告：  
+[BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md:1)
+
+验证已跑：
+
+- `pnpm --dir apps/api test -- generic-crud.service.spec.ts --runInBand`：通过，11 tests passed
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`：通过
+- `git diff --check ...`：通过
+
+未执行数据库写入、迁移、部署、push、merge，也未修改前端。生产上仍需 CI/CD、生产 smoke 和业务验收确认 `/breeding` 今日产蛋/今日死淘与实际提交日报总数一致。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -42,8 +51,6 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-12T14:35:14.042967Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit
-2026-07-12T14:35:14.042945Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -53,7 +60,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56c0-f4fc-75f2-b41e-cc9b7a5783f7
+session id: 019f5703-ee56-7d82-a826-c89072108e9a
 --------
 user
 # Base Agent Prompt
@@ -507,8 +514,20 @@ Assigned agent: A3-Backend-Critical-Path
           },
           {
             "tag": "a",
-            "path": ".sid
-...<truncated 706214 chars>
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 397
+            },
+            "label": "质检总览",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path
+...<truncated 479196 chars>
 
 ```
 
@@ -520,15 +539,15 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 877,
-  "beforeHead": "98fd1d75d5de5b93090903e58d4399567b3c2212",
-  "afterHead": "98fd1d75d5de5b93090903e58d4399567b3c2212",
+  "responseChars": 1045,
+  "beforeHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
+  "afterHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T14:36:55.636Z",
+  "checkedAt": "2026-07-12T15:50:25.264Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
@@ -543,7 +562,7 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": false,
   "files": [
-    "docs/ops/BUG-20260707-0008-A3-BACKEND-REDISPATCH-20260712.md"
+    "docs/ops/BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "error": "no apps/api/ implementation file"
 }
