@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-12T19:44:14.851Z |
+| Generated at | 2026-07-12T20:50:56.696Z |
 | Repeated patterns | 8 |
 | Existing backlog | 6 |
 | Candidates | 6 |
@@ -13,5 +13,5 @@
 - IMPROVE-BUG-INTAKE-QUEUE-RECOVERY / P0 / Codex-Orchestrator: Prevent runner-owned false quarantine and recover terminal generations
 - IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE / P0 / Codex-Orchestrator: Attach baseline autopilot to every Agent lifecycle path
 - IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT / P0 / Codex-Orchestrator: Harden A2/A3 routing for authorization and protected attachment
-- IMPROVE-REPORT-SCHEMA-COMPLIANCE / P1 / A1-CI-Runtime-Gate or Codex-Orchestrator: Enforce Agent report schema compliance before decision
+- IMPROVE-REPORT-SCHEMA-COMPLIANCE / P0 / A1-CI-Runtime-Gate or Codex-Orchestrator: Enforce Agent report schema compliance before decision
 - IMPROVE-QUEUE-CONFLICT-REDUCTION / P1 / Codex-Orchestrator: Reduce queue JSON conflicts
