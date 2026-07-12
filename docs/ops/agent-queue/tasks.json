@@ -13008,7 +13008,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0004",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13029,7 +13029,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T16:14:50.895Z",
+    "completed_at": "2026-07-12T16:14:52.583Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13075,8 +13075,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "a3f215a133052e0c7c2e36430a975df0faa9d93d",
+    "integrated_at": "2026-07-12T16:14:52.583Z",
     "changed_files": [
       "apps/api/src/modules/workflow/workflow.service.spec.ts",
       "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
@@ -13121,7 +13121,8 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A4",
