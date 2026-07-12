@@ -23,25 +23,25 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 22865
+Assembled prompt chars: 22879
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-17-07-144Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend fix for `BUG-20260708-0004` on `/warehouse/ledger`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-12-46-118Z-A4-Frontend-UAT-Smoke.md
+Implemented the frontend display repair for `BUG-20260708-0004`.
 
 Changed:
-- [ledger/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/ledger/page.tsx): transaction type now displays `change_type_label` first, then Chinese fallback labels for known codes like `FARM_OUT_MEDICATION`, `TEMP_PRODUCTION_INBOUND`, `FARM_IN`, `MED_INBOUND`, `MED_OUTBOUND`.
-- [inventory-ledger-labels.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/inventory-ledger-labels.ts): added pure label/normalization helpers.
-- [inventory-ledger-labels.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/inventory-ledger-labels.test.ts): added focused regression tests.
-- [BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md): required task report.
+- [warehouse ledger page](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/ledger/page.tsx:32): `change_type` now renders Chinese labels while preserving the raw audit code in `title`.
+- [warehouse-ledger-change-type.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-ledger-change-type.ts:3): added label/tone mapping for the reported codes.
+- [warehouse-ledger-change-type.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-ledger-change-type.test.ts:1): added focused regression coverage.
+- [A4 report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md:1): result is `PASS WITH CONDITIONS`.
 
-Verification:
-- `pnpm --filter web exec vitest run src/lib/inventory-ledger-labels.test.ts`: PASS
-- `pnpm --filter web exec eslint ...`: PASS
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
+Validation passed:
+- `vitest run src/lib/warehouse-ledger-change-type.test.ts`
+- `tsc --noEmit`
+- focused `eslint`
+- `git diff --check`
 
-Result: `PASS WITH CONDITIONS`. Local desktop/mobile browser smoke is held because the sandbox blocks localhost binding: `listen EPERM: operation not permitted 127.0.0.1:3304`. No push, deploy, migration, database write, or backend edit was performed. I am not claiming production resolution before CI/CD, production smoke, and business acceptance.
+Local browser smoke was attempted, but Next dev server binding is blocked in this sandbox with `listen EPERM` on `127.0.0.1:3024`. No backend, migration, database, deploy, push, or task-board changes were made. Final closure still needs CI/CD, staging or production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f563f-a7b6-77f3-b866-ecd3d981d375
+session id: 019f574f-4a6e-7f50-95da-d11346972b67
 --------
 user
 # Base Agent Prompt
@@ -491,7 +491,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "tag": "a",
             "path": ".sidebar-module__C8A-ya__subItem.",
             "re
-...<truncated 455525 chars>
+...<truncated 559487 chars>
 
 ```
 
@@ -502,27 +502,27 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1497,
-  "beforeHead": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
-  "afterHead": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
-  "commitHash": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1256,
+  "beforeHead": "ce4c975420075ddbb1a2a3692be8df8cdd19ce56",
+  "afterHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
+  "commitHash": "0c6d019c5d11908f96da0a20198c4489135afc6d",
   "changedFiles": [
     "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "apps/web/src/lib/inventory-ledger-labels.ts",
-    "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+    "apps/web/src/lib/warehouse-ledger-change-type.ts",
+    "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "apps/web/src/lib/inventory-ledger-labels.ts"
+    "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+    "apps/web/src/lib/warehouse-ledger-change-type.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:17:07.323Z",
+  "checkedAt": "2026-07-12T17:12:46.277Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -538,20 +538,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "apps/web/src/lib/inventory-ledger-labels.ts",
-    "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+    "apps/web/src/lib/warehouse-ledger-change-type.ts",
+    "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
   ],
   "businessFiles": [
     "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
-    "apps/web/src/lib/inventory-ledger-labels.test.ts",
-    "apps/web/src/lib/inventory-ledger-labels.ts"
+    "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+    "apps/web/src/lib/warehouse-ledger-change-type.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
   ],
-  "commitHash": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+  "commitHash": "0c6d019c5d11908f96da0a20198c4489135afc6d",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 903f469a] fix(web): repair BUG-20260708-0004\n 4 files changed, 212 insertions(+), 1 deletion(-)\n create mode 100644 apps/web/src/lib/inventory-ledger-labels.test.ts\n create mode 100644 apps/web/src/lib/inventory-ledger-labels.ts\n create mode 100644 docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+  "output": "[codex/bug-intake-a4 0c6d019c] fix(web): repair BUG-20260708-0004\n 4 files changed, 155 insertions(+), 17 deletions(-)\n create mode 100644 apps/web/src/lib/warehouse-ledger-change-type.test.ts\n create mode 100644 apps/web/src/lib/warehouse-ledger-change-type.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
 }
 ```

@@ -14846,7 +14846,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14869,8 +14869,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T17:12:46.278Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -14888,12 +14888,46 @@
     "reason": null,
     "quarantined_at": "2026-07-10T08:54:20.776Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "evidence_gate": null,
-    "implementation_commit": "",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 1256,
+      "beforeHead": "ce4c975420075ddbb1a2a3692be8df8cdd19ce56",
+      "afterHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
+      "commitHash": "0c6d019c5d11908f96da0a20198c4489135afc6d",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+        "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+        "apps/web/src/lib/warehouse-ledger-change-type.ts",
+        "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+        "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+        "apps/web/src/lib/warehouse-ledger-change-type.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-12T17:12:46.277Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "0c6d019c5d11908f96da0a20198c4489135afc6d",
     "integrated_commit": "",
     "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "changed_files": [
+      "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "apps/web/src/lib/warehouse-ledger-change-type.test.ts",
+      "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "docs/ops/bug-intake/BUG-20260708-0004-a4-frontend-uat-smoke.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T14:27:15.273Z",
     "redispatch_history": [
       {
