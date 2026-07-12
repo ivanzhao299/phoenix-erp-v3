@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-07T01:58:57.722Z",
-  "updatedAt": "2026-07-12T15:58:51.277Z",
+  "updatedAt": "2026-07-12T16:03:27.025Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "日生产日报提交了产蛋数、死淘数，但是在养殖总览的今日产蛋、今日死淘都显示0",
@@ -1904,40 +1904,92 @@
     "moduleCode": "_________",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260707-0008-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A3-worker-log.md",
+        "taskId": "BUGTASK-20260707-0008-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26167\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-58-49-818Z-A3-Backend-Critical-Path.md\nBUG-20260707-0008 backend replay is complete.\n\nThe backend fix was already integrated in current code via `a5e169f5 fix(app): normalize breeding daily overview metrics`:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts)\n\nRoot cause: `/breeding` aggregates `/api/crud/brd_daily_logs` by `YYYY-MM-DD`, while backend daily log dates could serialize as ISO timestamps. The integrated backend path normalizes `log_date` / `business_d",
         "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T15:58:51.274Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A3-worker-log.md",
         "changedFiles": [],
+        "redispatchCount": 6,
+        "validationResults": {
+          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "evidenceGate": {
+            "role": "implementation_verified_existing",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
+            "checkedAt": "2026-07-12T15:58:49.911Z",
+            "beforeHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 1373,
+            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+            "businessChangedFiles": [],
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260707-0008-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A4-worker-log.md",
+        "commitHash": "1828fab134f97cd993459f24f35be93e1958cb43",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/breeding/page.tsx",
+          "apps/web/src/lib/breeding-overview-metrics.test.ts",
+          "apps/web/src/lib/breeding-overview-metrics.ts",
+          "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A3-Backend-Critical-Path",
+            "agent": "A4-Frontend-UAT-Smoke",
             "exitCode": 0,
             "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1373,
-            "beforeHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
-            "afterHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "responseChars": 1405,
+            "beforeHead": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+            "afterHead": "1828fab134f97cd993459f24f35be93e1958cb43",
+            "commitHash": "1828fab134f97cd993459f24f35be93e1958cb43",
+            "changedFiles": [
+              "apps/web/src/app/(admin)/breeding/page.tsx",
+              "apps/web/src/lib/breeding-overview-metrics.test.ts",
+              "apps/web/src/lib/breeding-overview-metrics.ts",
+              "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/app/(admin)/breeding/page.tsx",
+              "apps/web/src/lib/breeding-overview-metrics.test.ts",
+              "apps/web/src/lib/breeding-overview-metrics.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+            ],
             "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T15:58:49.911Z",
+            "checkedAt": "2026-07-12T16:03:25.645Z",
             "passed": true,
-            "role": "implementation_verified_existing",
-            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26167\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-58-49-818Z-A3-Backend-Critical-Path.md\nBUG-20260707-0008 backend replay is complete.\n\nThe backend fix was already integrated in current code via `a5e169f5 fix(app): normalize breeding daily overview metrics`:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts)\n\nRoot cause: `/breeding` aggregates `/api/crud/brd_daily_logs` by `YYYY-MM-DD`, while backend daily log dates could serialize as ISO timestamps. The integrated backend path normalizes `log_date` / `business_d",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26234\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-03-25-476Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260707-0008` on `/breeding`.\n\nChanged:\n- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/page.tsx): today KPI cards now use a date-filtered daily-log read, normalized date comparison, and `mortality_qty + elimination_qty`.\n- [breeding-overview-metrics.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-overview-metrics.ts): added pure metric helpers.\n- [breeding-overview-metrics.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-overview-metrics.test.ts): added focused regression coverage.\n- [BUG-20260707-0008_A4_FRON",
         "nextAction": "",
         "redispatchCount": 6,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T15:58:51.274Z"
+        "recordedAt": "2026-07-12T16:03:27.023Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1950,40 +2002,56 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260707-0008-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260707-0008-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A3-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A4-worker-log.md",
+      "commitHash": "1828fab134f97cd993459f24f35be93e1958cb43",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/breeding/page.tsx",
+        "apps/web/src/lib/breeding-overview-metrics.test.ts",
+        "apps/web/src/lib/breeding-overview-metrics.ts",
+        "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1373,
-          "beforeHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
-          "afterHead": "ddd8de3cb354e05901fffd30db0721313eab591f",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "responseChars": 1405,
+          "beforeHead": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+          "afterHead": "1828fab134f97cd993459f24f35be93e1958cb43",
+          "commitHash": "1828fab134f97cd993459f24f35be93e1958cb43",
+          "changedFiles": [
+            "apps/web/src/app/(admin)/breeding/page.tsx",
+            "apps/web/src/lib/breeding-overview-metrics.test.ts",
+            "apps/web/src/lib/breeding-overview-metrics.ts",
+            "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+          ],
+          "businessChangedFiles": [
+            "apps/web/src/app/(admin)/breeding/page.tsx",
+            "apps/web/src/lib/breeding-overview-metrics.test.ts",
+            "apps/web/src/lib/breeding-overview-metrics.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+          ],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T15:58:49.911Z",
+          "checkedAt": "2026-07-12T16:03:25.645Z",
           "passed": true,
-          "role": "implementation_verified_existing",
-          "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-          "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "SKIPPED_NOT_APPLICABLE",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26167\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-58-49-818Z-A3-Backend-Critical-Path.md\nBUG-20260707-0008 backend replay is complete.\n\nThe backend fix was already integrated in current code via `a5e169f5 fix(app): normalize breeding daily overview metrics`:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts)\n\nRoot cause: `/breeding` aggregates `/api/crud/brd_daily_logs` by `YYYY-MM-DD`, while backend daily log dates could serialize as ISO timestamps. The integrated backend path normalizes `log_date` / `business_d",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26234\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-03-25-476Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260707-0008` on `/breeding`.\n\nChanged:\n- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/page.tsx): today KPI cards now use a date-filtered daily-log read, normalized date comparison, and `mortality_qty + elimination_qty`.\n- [breeding-overview-metrics.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-overview-metrics.ts): added pure metric helpers.\n- [breeding-overview-metrics.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-overview-metrics.test.ts): added focused regression coverage.\n- [BUG-20260707-0008_A4_FRON",
       "nextAction": "",
       "redispatchCount": 6,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T15:58:51.274Z"
+      "recordedAt": "2026-07-12T16:03:27.023Z"
     },
     "redispatchHistory": [
       {
