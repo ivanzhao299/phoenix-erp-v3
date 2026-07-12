@@ -1140,11 +1140,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T05:08:10.682Z",
+    "approvedAt": "2026-07-12T14:27:19.488Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Retry after dedicated Bug Intake worktree authorization fix. Strict implementation evidence, dependency-gated A2/A1 validation, CI/CD and production smoke required. No DB write or migration.",
-    "redispatchCount": 2,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
