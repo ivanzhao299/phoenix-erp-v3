@@ -67,11 +67,35 @@ function reportFilesForTask(task, changedFiles) {
   });
 }
 
+function capacityRetryAfter(text, now = new Date()) {
+  const match = String(text || '').match(/try again at\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+  let hour = Number(match[1]) % 12;
+  if (match[3].toUpperCase() === 'PM') hour += 12;
+  const retry = new Date(now);
+  retry.setHours(hour, Number(match[2]), 0, 0);
+  if (retry <= now) retry.setDate(retry.getDate() + 1);
+  return retry.toISOString();
+}
+
+function classifyInfrastructureFailure(stderr) {
+  const text = String(stderr || '');
+  if (/hit your usage limit|usage limit.*try again/i.test(text)) {
+    return {
+      code: 'CODEX_USAGE_LIMIT',
+      retryAfter: capacityRetryAfter(text),
+      reason: 'Codex CLI usage capacity is exhausted; task is waiting for automatic retry',
+    };
+  }
+  return null;
+}
+
 export function evaluateWorkerEvidence(input = {}) {
   const task = input.task || {};
   const exitCode = Number(input.exitCode ?? 1);
   const changedFiles = unique(input.changedFiles);
   const response = extractAgentResponse(input.stdout);
+  const infrastructureFailure = classifyInfrastructureFailure(input.stderr);
   const parentCommitRecovered = input.parentCommitRecovered === true;
   const conclusion = parentCommitRecovered ? 'PASS_WITH_CONDITIONS' : normalizedConclusion(response);
   const expectedPrefixes = CODE_AGENT_PREFIXES.get(task.agent) || [];
@@ -91,10 +115,21 @@ export function evaluateWorkerEvidence(input = {}) {
     businessChangedFiles,
     reportFiles,
     parentCommitRecovered,
+    infrastructureFailure,
     checkedAt: new Date().toISOString(),
   };
 
   if (exitCode !== 0) {
+    if (infrastructureFailure) {
+      return {
+        ...base,
+        passed: false,
+        role: 'infrastructure',
+        terminalStatus: 'WAITING_CAPACITY',
+        reason: infrastructureFailure.reason,
+        retryAfter: infrastructureFailure.retryAfter,
+      };
+    }
     return { ...base, passed: false, role: 'execution', terminalStatus: 'HOLD', reason: `Agent process exited with ${exitCode}` };
   }
 
@@ -181,6 +216,8 @@ function selfTest() {
   const task = { task_id: 'BUGTASK-X-02-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' };
   const empty = evaluateWorkerEvidence({ task, exitCode: 0, stdout: 'Run log: x\nBaseline autopilot skipped by caller', beforeHead: 'a', afterHead: 'a', changedFiles: [] });
   if (empty.passed || empty.terminalStatus !== 'HOLD') throw new Error('empty Agent result must HOLD');
+  const limited = evaluateWorkerEvidence({ task, exitCode: 1, stderr: "You've hit your usage limit. try again at 3:25 AM", beforeHead: 'a', afterHead: 'a' });
+  if (limited.terminalStatus !== 'WAITING_CAPACITY' || limited.role !== 'infrastructure' || !limited.retryAfter) throw new Error('usage limit must wait for capacity');
   const valid = evaluateWorkerEvidence({ task, exitCode: 0, stdout: 'Run log: x\nPASS WITH CONDITIONS\nChanged backend service', beforeHead: 'a', afterHead: 'b', changedFiles: ['apps/api/src/x.ts', 'docs/ops/BUG-X_A3_REPORT.md'] });
   if (!valid.passed || valid.role !== 'implementation') throw new Error('valid implementation evidence must pass');
   const release = evaluateBugReleaseEvidence([

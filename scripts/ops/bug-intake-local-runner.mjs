@@ -14,7 +14,7 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const LEASE_STATUSES = new Set(['running', 'claimed']);
-const FINISHED_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'completed', 'failed', 'HOLD', 'hold']);
+const FINISHED_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'WAITING_CAPACITY', 'completed', 'failed', 'HOLD', 'hold']);
 const SUCCESS_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE']);
 const DEPENDENCY_SUCCESS_STATUSES = new Set([...SUCCESS_STATUSES, 'completed']);
 const DEPENDENCY_FAILURE_STATUSES = new Set(['HOLD', 'hold', 'failed']);
@@ -407,6 +407,9 @@ function syncCommand(args) {
 }
 
 function listRunnableBugTasks(args) {
+  const queued = readJson(TASKS_FILE, []);
+  const capacityChanged = requeueExpiredCapacityWaits(queued);
+  if (capacityChanged && !args.dryRun) writeJson(TASKS_FILE, queued);
   const tasks = reconcileDependencyStates(args);
   const byId = new Map(tasks.map((task) => [task.task_id, task]));
   const partiallyImplementedBugs = new Set(tasks
@@ -1221,7 +1224,24 @@ const TECHNICAL_HOLD_PATTERNS = [
   /blocked by failed dependency/i,
   /runner-created dependency/i,
   /runner root must be clean[\s\S]*(OBSERVER_FINDINGS_REPORT|docs\/ops\/evolution)/i,
+  /Codex CLI usage capacity is exhausted/i,
 ];
+
+export function requeueExpiredCapacityWaits(tasks, now = new Date()) {
+  let changed = false;
+  for (const task of tasks || []) {
+    if (task.route_active === false || task.status !== 'WAITING_CAPACITY') continue;
+    const retryAt = Date.parse(task.retry_after || task.evidence_gate?.retryAfter || '');
+    if (!Number.isFinite(retryAt) || retryAt > now.getTime()) continue;
+    task.status = 'pending';
+    task.reason = 'Codex CLI capacity retry window reached; automatically requeued';
+    task.claimed_by = null;
+    task.claimed_at = null;
+    task.completed_at = null;
+    changed = true;
+  }
+  return changed;
+}
 
 export function selectAutomaticRedispatchCandidates(reports, tasks, options = {}) {
   const maxRecoveries = Number(options.maxAutoRecoveries || 2);

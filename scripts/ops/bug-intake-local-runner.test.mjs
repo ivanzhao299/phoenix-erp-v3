@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
+import { requeueExpiredCapacityWaits, selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
@@ -58,6 +58,12 @@ test('technical quarantine generation is eligible for one safe redispatch', () =
     recoveryCount: 0,
     reasons: ['incomplete implementation worktree preserved in quarantine; no code merged', 'blocked by failed dependency: A3'],
   }]);
+});
+
+test('expired Codex capacity waits requeue without becoming business HOLD', () => {
+  const tasks = [{ status: 'WAITING_CAPACITY', route_active: true, retry_after: '2026-07-12T01:00:00.000Z' }];
+  assert.equal(requeueExpiredCapacityWaits(tasks, new Date('2026-07-12T02:00:00.000Z')), true);
+  assert.equal(tasks[0].status, 'pending');
 });
 
 test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {

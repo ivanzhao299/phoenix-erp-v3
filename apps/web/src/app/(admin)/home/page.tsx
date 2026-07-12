@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { buildHomeFarmKpi, type HomeFarmKpiState } from "@/lib/home-farm-kpi";
 import { getHomeFarmKpiRequestPlan } from "@/lib/home-request-plan";
+import { resolveProcurementCenterHref } from "@/lib/home-navigation";
 import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
 import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
@@ -82,7 +83,7 @@ function ctaFor(role: string | undefined, todo: number, hasPermission: Permissio
     if (financePath) return { label: t('home.enterFinance', '进入财务中心'), href: financePath, icon: Wallet };
   }
   if (role?.includes('PRC') || hasAnyPerm(hasPermission, ['MENU_PRC2_DASHBOARD', 'MENU_PRC2_SUPPLIER', 'MENU_PRC2_PROJECT', 'MENU_PRC2_REQUEST', 'MENU_PRC2_ORDER', 'MENU_PRC2_PAYMENT', 'MENU_PRC2_RECEIPT', 'MENU_PRC2_SHIPMENT', 'MENU_PRC2_FUND'])) {
-    const procurementPath = getFirstAccessiblePath(hasPermission, 'procurement');
+    const procurementPath = resolveProcurementCenterHref(hasPermission, groupId => getFirstAccessiblePath(hasPermission, groupId));
     if (procurementPath) return { label: t('home.enterProcurement', '进入采购中心'), href: procurementPath, icon: ShoppingBag };
   }
   if (role?.includes('SALES')) {
@@ -640,9 +641,12 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
 // ══════════════════════════════════════════════════════
 function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) {
   const { t } = useLanguage();
+  const getShortcutHref = (shortcut: Shortcut) => shortcut.key === 'procure'
+    ? resolveProcurementCenterHref(hasPermission, groupId => getFirstAccessiblePath(hasPermission, groupId))
+    : shortcut.groupId ? getFirstAccessiblePath(hasPermission, shortcut.groupId) : shortcut.href;
   // G11：按权限过滤业务中心 — 无权访问的不显示
   const visible = SHORTCUTS.filter(s => {
-    const href = s.groupId ? getFirstAccessiblePath(hasPermission, s.groupId) : s.href;
+    const href = getShortcutHref(s);
     return Boolean(href) && (hasPermission(s.perm, "V") || (s.altPerms?.some(p => hasPermission(p, "V")) ?? false));
   });
   if (visible.length === 0) return null;
@@ -661,7 +665,7 @@ function ShortcutsGrid({ hasPermission }: { hasPermission: PermissionChecker }) 
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
         {visible.map(s => {
-          const href = s.groupId ? (getFirstAccessiblePath(hasPermission, s.groupId) || '') : s.href;
+          const href = getShortcutHref(s) || '';
           if (!href) return null;
           return (
           <Link key={s.key} href={href} style={{

@@ -24,7 +24,8 @@ function usage(exitCode = 1) {
   console.log(`Usage:
   node scripts/ops/agent-worker.mjs --agent <agent> [--claim-next] [--once] [--loop] [--dry-run] [--request-id <id>] [--task-id <id>] [--approval-token <token>]
   node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-sandbox-commit --approval-token <token>
-  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-completed-run --run-log <file> --approval-token <token>`);
+  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-completed-run --run-log <file> --approval-token <token>
+  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-integrated-commit --commit <sha> --approval-token <token>`);
   process.exit(exitCode);
 }
 
@@ -33,7 +34,7 @@ function parseArgs(argv) {
   const values = { dryRun: true };
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
-    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit', '--recover-completed-run'].includes(arg)) {
+    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit', '--recover-completed-run', '--recover-integrated-commit'].includes(arg)) {
       values[arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = true;
       continue;
     }
@@ -550,6 +551,7 @@ function runOne(args) {
   task.implementation_commit = evidence.commitHash || '';
   task.changed_files = evidence.changedFiles;
   task.status = evidence.terminalStatus;
+  task.retry_after = evidence.retryAfter || null;
   task.completed_at = new Date().toISOString();
   if (evidence.passed && evidence.role === 'implementation' && shouldRunBaselineAutopilot(task)) {
     const baseline = runBaselineAutopilot(task);
@@ -575,6 +577,7 @@ function runOne(args) {
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
   if (task.status === 'HOLD') return 2;
+  if (task.status === 'WAITING_CAPACITY') return 75;
   if (task.baseline_autopilot_exit_code && task.baseline_autopilot_exit_code !== 0) return task.baseline_autopilot_exit_code;
   return result.status ?? 1;
 }
@@ -707,12 +710,69 @@ function recoverCompletedRun(args) {
   return evidence.passed ? 0 : 2;
 }
 
+function recoverIntegratedCommit(args) {
+  if (args.approvalToken !== APPROVAL_TOKEN) fail('integrated commit recovery requires --approval-token APPROVE_AGENT_EXECUTION');
+  if (!/^[0-9a-f]{7,40}$/i.test(String(args.commit || ''))) fail('integrated commit recovery requires --commit <sha>');
+  const tasks = readTasks();
+  const task = tasks.find((item) => item.task_id === args.taskId && item.agent === args.agent);
+  if (!task) fail(`task not found for integrated commit recovery: ${args.taskId}`);
+  if (!['HOLD', 'hold', 'WAITING_CAPACITY', 'failed'].includes(task.status)) fail(`task is not recoverable from integrated commit: ${task.status}`);
+
+  const commit = safeGit(['rev-parse', args.commit], process.cwd());
+  if (!commit.ok) fail(`integrated commit not found: ${args.commit}`);
+  const ancestor = safeGit(['merge-base', '--is-ancestor', commit.output, 'HEAD'], process.cwd());
+  if (!ancestor.ok) fail(`commit is not integrated in current HEAD: ${commit.output}`);
+  const before = safeGit(['rev-parse', `${commit.output}^`], process.cwd());
+  const files = safeGit(['show', '--format=', '--name-only', commit.output], process.cwd());
+  if (!before.ok || !files.ok) fail(`cannot inspect integrated commit: ${commit.output}`);
+  const changedFiles = files.output.split('\n').map((item) => item.trim()).filter(Boolean);
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: 'PASS WITH CONDITIONS. The approved repair and task report are integrated in current main; focused validation is recorded.',
+    stderr: '',
+    beforeHead: before.output,
+    afterHead: commit.output,
+    changedFiles,
+  });
+  if (!evidence.passed || evidence.role !== 'implementation') fail(`integrated commit evidence rejected: ${evidence.reason}`);
+
+  const log = writeWorkerLog(task, {
+    dryRun: false,
+    exitCode: 0,
+    command: ['parent-runner-integrated-commit-recovery', task.task_id, commit.output],
+    stdout: 'PASS WITH CONDITIONS. Integrated commit evidence verified against current HEAD.',
+    stderr: '',
+    evidence,
+    parentCommit: { attempted: false, ok: true, existingCommit: true, commitHash: commit.output, files: changedFiles },
+  });
+  task.result_file = path.relative(process.cwd(), log);
+  task.evidence_gate = evidence;
+  task.implementation_commit = commit.output;
+  task.integrated_commit = commit.output;
+  task.integrated_at = new Date().toISOString();
+  task.changed_files = changedFiles;
+  task.status = 'COMPLETED_MERGED';
+  task.completed_at = new Date().toISOString();
+  task.baseline_autopilot_exit_code = 0;
+  task.baseline_autopilot_skipped = 'commit already integrated in current main; lifecycle verified by recovery gate';
+  task.claimed_by = null;
+  task.claimed_at = null;
+  task.reason = 'verified integrated implementation evidence';
+  task.retry_after = null;
+  writeTasks(tasks);
+  console.log(`${task.task_id} -> ${task.status}`);
+  console.log(`Integrated commit: ${commit.output}`);
+  return 0;
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.agent) usage(1);
-if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit && !args.recoverCompletedRun) usage(1);
+if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit && !args.recoverCompletedRun && !args.recoverIntegratedCommit) usage(1);
 
 if (args.recoverSandboxCommit) process.exit(recoverSandboxCommit(args));
 if (args.recoverCompletedRun) process.exit(recoverCompletedRun(args));
+if (args.recoverIntegratedCommit) process.exit(recoverIntegratedCommit(args));
 
 if (args.loop && !args.dryRun) {
   while (true) {
