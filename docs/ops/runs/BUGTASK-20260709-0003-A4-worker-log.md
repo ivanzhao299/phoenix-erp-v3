@@ -23,10 +23,10 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0003-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0003-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23262
+Assembled prompt chars: 23202
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-26-42-555Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-32-12-217Z-A4-Frontend-UAT-Smoke.md
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -43,7 +43,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f575d-e628-73c3-85d6-8a1d72acdb85
+session id: 019f5762-ee08-73c1-b85b-1957a9b67433
 --------
 user
 # Base Agent Prompt
@@ -471,7 +471,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
             "tag": "a
-...<truncated 11826 chars>
+...<truncated 11766 chars>
 
 ```
 
@@ -491,7 +491,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T17:26:42.575Z",
+  "checkedAt": "2026-07-12T17:32:12.242Z",
   "passed": false,
   "role": "execution",
   "terminalStatus": "HOLD",
