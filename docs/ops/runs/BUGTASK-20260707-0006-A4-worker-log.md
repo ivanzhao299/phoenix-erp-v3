@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,25 +23,25 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0006-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0006-A4-worker-assembled-prompt.md
-Assembled prompt chars: 31652
+Assembled prompt chars: 31616
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-13-18-772Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend fix for `BUG-20260707-0006`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-02-08-644Z-A4-Frontend-UAT-Smoke.md
+Implemented the frontend display fix for BUG-20260707-0006.
 
 Changed:
-- [daily/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/daily/page.tsx:37) now formats recent-record `cullingReason` through `BRD_CULLING_REASON` labels.
-- Added [breeding-daily-reasons.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily-reasons.ts:1) with fallback Chinese labels for `LOW_PRODUCTION`, `SICKNESS`, `AGE`, `INJURY`, `OTHER`.
-- Added focused regression test [breeding-daily-reasons.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily-reasons.test.ts:1).
-- Added report [BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md:1).
+- [daily/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/daily/page.tsx:115): loads `BRD_CULLING_REASON` labels and uses them in recent records and CSV export.
+- [breeding-daily.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.ts:5): added `cullingReasonLabel()` fallback mapping for `INJURY`, `SICKNESS`, `LOW_PRODUCTION`, `AGE`, `OTHER`.
+- [breeding-daily.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/breeding-daily.test.ts:17): added regression tests.
+- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md:1): status is `PASS WITH CONDITIONS`.
 
-Validation:
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` PASS
-- `cd apps/web && ./node_modules/.bin/vitest run src/lib/breeding-daily-reasons.test.ts` PASS, 3 tests
-- `git diff --check` PASS
-- Local browser smoke HOLD: sandbox blocks `next dev` bind with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`.
+Validation run:
+- `pnpm --filter web test -- src/lib/breeding-daily.test.ts` PASS, 4 tests.
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit` PASS.
+- `git diff --check ...` PASS.
+- Focused lint for changed utility/test files PASS.
 
-Result: `PASS WITH CONDITIONS`. No backend, migration, DB, deploy, push, or forbidden-scope files touched.
+Condition noted: real desktop/mobile browser UAT could not be captured because local Next dev server binding failed with `listen EPERM` on both `0.0.0.0:3001` and `127.0.0.1:3001`. I did not deploy, push, merge, run migrations, or touch backend/database files.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f4add-21fc-7e03-b738-809d362451f5
+session id: 019f5745-423d-73d1-87d5-a5e637da98fd
 --------
 user
 # Base Agent Prompt
@@ -529,7 +529,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "rect": {
               "h": 32,
              
-...<truncated 316901 chars>
+...<truncated 510049 chars>
 
 ```
 
@@ -540,31 +540,31 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1251,
-  "beforeHead": "9f7c5c1544c981502e8310682e08546ed8e85fc1",
-  "afterHead": "38d5088cdb5c1e821a05596dd3b2f1521f8a2e36",
-  "commitHash": "38d5088cdb5c1e821a05596dd3b2f1521f8a2e36",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1290,
+  "beforeHead": "fb62e5b8c250ac96dd21795e5e4079ad10b9a9d6",
+  "afterHead": "ce4c975420075ddbb1a2a3692be8df8cdd19ce56",
+  "commitHash": "ce4c975420075ddbb1a2a3692be8df8cdd19ce56",
   "changedFiles": [
     "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-    "apps/web/src/lib/breeding-daily-reasons.test.ts",
-    "apps/web/src/lib/breeding-daily-reasons.ts",
-    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "apps/web/src/lib/breeding-daily.test.ts",
+    "apps/web/src/lib/breeding-daily.ts",
+    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-    "apps/web/src/lib/breeding-daily-reasons.test.ts",
-    "apps/web/src/lib/breeding-daily-reasons.ts"
+    "apps/web/src/lib/breeding-daily.test.ts",
+    "apps/web/src/lib/breeding-daily.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-10T07:13:18.935Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T17:02:08.811Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is HOLD"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -576,20 +576,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-    "apps/web/src/lib/breeding-daily-reasons.test.ts",
-    "apps/web/src/lib/breeding-daily-reasons.ts",
-    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "apps/web/src/lib/breeding-daily.test.ts",
+    "apps/web/src/lib/breeding-daily.ts",
+    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
   ],
   "businessFiles": [
     "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-    "apps/web/src/lib/breeding-daily-reasons.test.ts",
-    "apps/web/src/lib/breeding-daily-reasons.ts"
+    "apps/web/src/lib/breeding-daily.test.ts",
+    "apps/web/src/lib/breeding-daily.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
   ],
-  "commitHash": "38d5088cdb5c1e821a05596dd3b2f1521f8a2e36",
+  "commitHash": "ce4c975420075ddbb1a2a3692be8df8cdd19ce56",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 38d5088c] fix(web): repair BUG-20260707-0006\n 4 files changed, 123 insertions(+), 1 deletion(-)\n create mode 100644 apps/web/src/lib/breeding-daily-reasons.test.ts\n create mode 100644 apps/web/src/lib/breeding-daily-reasons.ts\n create mode 100644 docs/ops/BUG-20260707-0006_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+  "output": "[codex/bug-intake-a4 ce4c9754] fix(web): repair BUG-20260707-0006\n 4 files changed, 134 insertions(+), 4 deletions(-)\n create mode 100644 docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
 }
 ```
