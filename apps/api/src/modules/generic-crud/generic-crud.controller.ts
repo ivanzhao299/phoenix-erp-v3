@@ -12,11 +12,13 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ALLOWED_TABLES } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
+import { WmsService } from '../wms/wms.service';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
@@ -24,6 +26,8 @@ export class GenericCrudController {
   constructor(
     private readonly crudService: GenericCrudService,
     private readonly dataScopeService: DataScopeService,
+    private readonly wmsService: WmsService,
+    private readonly cls: ClsService,
   ) {}
 
   /**
@@ -293,7 +297,37 @@ export class GenericCrudController {
     return safeBody;
   }
 
+  private isCompletingWmsInbound(table: string, existing: any, body: any): boolean {
+    if (table !== 'wms_inbound') return false;
+    const nextStatus = String(body?.status ?? '').trim().toUpperCase();
+    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
+    return nextStatus === 'COMPLETED' && currentStatus !== 'COMPLETED';
+  }
 
+  private buildWmsInboundConfirmPayload(existing: any, body: any) {
+    const row = { ...(existing || {}), ...(body || {}) };
+    const taskNo = String(row.task_no || row.inbound_no || '').trim();
+    if (!taskNo) {
+      throw new BadRequestException('wms_inbound task_no 必填，无法确认入库');
+    }
+
+    const qty = Number(row.actual_qty ?? row.qty ?? row.expected_qty) || 0;
+    const productCode = row.product_code || row.sku_code || row.item;
+    const item: Record<string, any> = {
+      product_code: productCode,
+      qty,
+      actual_qty: row.actual_qty ?? qty,
+      expected_qty: row.expected_qty,
+      broken_qty: row.broken_qty,
+      warehouse_code: row.warehouse_code,
+      location_code: row.location_code,
+    };
+    if (row.batch_no || row.batch_code) {
+      item.batch_no = row.batch_no || row.batch_code;
+    }
+
+    return { task_no: taskNo, items: [item] };
+  }
 
   @Get(':table')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
@@ -444,6 +478,19 @@ export class GenericCrudController {
     const fields = Object.keys(safeBody);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f)) || !/^[a-zA-Z0-9_]+$/.test(idColumn)) {
       throw new BadRequestException('Security Violation: Invalid field names detected');
+    }
+
+    if (this.isCompletingWmsInbound(table, existing, safeBody)) {
+      const detailFields = { ...safeBody };
+      delete detailFields.status;
+      if (Object.keys(detailFields).length > 0) {
+        await this.crudService.update(table, idColumn, id, detailFields);
+      }
+      if (tableScope) {
+        this.cls.set('dataScope', tableScope);
+      }
+      const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
+      return await this.wmsService.confirmInbound(payload, req.user);
     }
 
     const result = await this.crudService.update(table, idColumn, id, safeBody);

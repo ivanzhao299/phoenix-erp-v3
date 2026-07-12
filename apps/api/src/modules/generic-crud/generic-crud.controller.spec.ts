@@ -6,6 +6,8 @@ describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
   let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create' | 'findOneByColumn' | 'update'>>;
   let dataScopeService: { resolve: jest.Mock };
+  let wmsService: { confirmInbound: jest.Mock };
+  let cls: { set: jest.Mock };
 
   const req = (permissions: string[]) => ({
     user: {
@@ -38,9 +40,17 @@ describe('GenericCrudController WMS RBAC', () => {
         userId: '1',
       }),
     };
+    wmsService = {
+      confirmInbound: jest.fn().mockResolvedValue({ code: 200, msg: '入库确认成功' }),
+    };
+    cls = {
+      set: jest.fn(),
+    };
     controller = new GenericCrudController(
       svc as unknown as GenericCrudService,
       dataScopeService as any,
+      wmsService as any,
+      cls as any,
     );
   });
 
@@ -251,5 +261,49 @@ describe('GenericCrudController WMS RBAC', () => {
       controller.findAll('wms_outbound', { limit: '200', offset: '0' }, req(['MENU_FIN2_CASH_VIEW:V'])),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(svc.findAll).not.toHaveBeenCalled();
+  });
+
+  it('routes wms_inbound completion through WmsService so inventory batches are created', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 7,
+      task_no: 'IN-20260708-001',
+      status: 'PENDING',
+      item: 'PRD-EGG-1',
+      qty: 12,
+      warehouse_code: 'LPH_MS_EGG_SALES',
+      location_code: 'LOC-01',
+      store_code: 'ALL',
+    });
+
+    await expect(
+      controller.updateWithColumn(
+        'wms_inbound',
+        'id',
+        '7',
+        { status: 'COMPLETED' },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: '入库确认成功' });
+
+    expect(wmsService.confirmInbound).toHaveBeenCalledWith(
+      {
+        task_no: 'IN-20260708-001',
+        items: [{
+          product_code: 'PRD-EGG-1',
+          qty: 12,
+          actual_qty: 12,
+          expected_qty: undefined,
+          broken_qty: undefined,
+          warehouse_code: 'LPH_MS_EGG_SALES',
+          location_code: 'LOC-01',
+        }],
+      },
+      expect.objectContaining({ username: 'wangweihua' }),
+    );
+    expect(cls.set).toHaveBeenCalledWith(
+      'dataScope',
+      expect.objectContaining({ isGlobal: true }),
+    );
+    expect(svc.update).not.toHaveBeenCalled();
   });
 });
