@@ -100,3 +100,16 @@ test('already-fixed implementation ownership is accepted without redundant code 
   assert.equal(evidence.passed, true);
   assert.equal(evidence.terminalStatus, 'SKIPPED_NOT_APPLICABLE');
 });
+
+test('existing-fix wording variants remain idempotent', () => {
+  for (const response of [
+    'PASS WITH CONDITIONS. The branch already contains the backend fix in abc123. Tests PASS.',
+    'PASS WITH CONDITIONS。当前分支已有后端修复提交 abc123，Jest PASS。',
+  ]) {
+    const evidence = evaluateWorkerEvidence({
+      task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },
+      exitCode: 0, stdout: `Run log: x\n${response}`, beforeHead: 'a', afterHead: 'a', changedFiles: [],
+    });
+    assert.equal(evidence.terminalStatus, 'SKIPPED_NOT_APPLICABLE');
+  }
+});
