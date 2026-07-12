@@ -18127,7 +18127,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -18150,7 +18150,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T15:40:30.027Z",
+    "completed_at": "2026-07-12T15:40:31.752Z",
     "result_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -18250,8 +18250,8 @@
     "last_recovered_at": "2026-07-10T06:00:17.704Z",
     "last_recovery_reason": "stale bug-intake task lease without active agent process",
     "recovery_count": 1,
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "c769ff773e8a2f0728cc8ae2ec102cd2cba2c0a5",
+    "integrated_at": "2026-07-12T15:40:31.752Z",
     "integration_method": "cherry-pick-verified-agent-commit",
     "remote_repair_status": "HOLD",
     "baseline_autopilot_exit_code": 0,
