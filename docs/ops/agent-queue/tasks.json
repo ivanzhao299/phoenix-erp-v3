@@ -14272,7 +14272,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0007",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "SKIPPED_NOT_APPLICABLE",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14293,7 +14293,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T16:23:50.457Z",
+    "completed_at": "2026-07-12T18:10:21.069Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0007-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14309,7 +14309,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T16:17:37.940Z",
-    "reason": null,
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-12T11:14:44.371Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "evidence_gate": {
@@ -14317,24 +14317,38 @@
       "agent": "A3-Backend-Critical-Path",
       "exitCode": 0,
       "conclusion": "PASS_WITH_CONDITIONS",
-      "responseChars": 1237,
-      "beforeHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
-      "afterHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "responseChars": 121,
+      "beforeHead": "640293cce3e789a752f0e5c162c04f9b1ac2e6f0",
+      "afterHead": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+      "commitHash": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+      "changedFiles": [
+        "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
+        "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/sales-orders.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T16:23:50.456Z",
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T18:10:21.068Z",
       "passed": true,
-      "role": "implementation_verified_existing",
-      "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-      "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
+    "implementation_commit": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+    "integrated_commit": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+    "integrated_at": "2026-07-12T18:10:21.069Z",
+    "changed_files": [
+      "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
+      "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
+      "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
+    ],
     "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T16:17:37.940Z",
     "redispatch_history": [
@@ -14375,7 +14389,8 @@
       }
     ],
     "remote_repair_status": "HOLD",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260708-0007-A4",
@@ -14730,7 +14745,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0006",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "SKIPPED_NOT_APPLICABLE",
+    "status": "COMPLETED_MERGED",
     "priority": "P1",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14751,7 +14766,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T16:22:14.583Z",
+    "completed_at": "2026-07-12T18:10:20.943Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0006-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14767,7 +14782,7 @@
     ],
     "redispatch_count": 7,
     "last_redispatch_at": "2026-07-12T16:17:38.360Z",
-    "reason": null,
+    "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-11T06:26:19.704Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "evidence_gate": {
@@ -14775,24 +14790,41 @@
       "agent": "A3-Backend-Critical-Path",
       "exitCode": 0,
       "conclusion": "PASS_WITH_CONDITIONS",
-      "responseChars": 1109,
-      "beforeHead": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
-      "afterHead": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "responseChars": 121,
+      "beforeHead": "25416a7496784cc2a23f8a02b8f05f7b168d2b26",
+      "afterHead": "635d840a62989fbb9a8437255ffafaada074a841",
+      "commitHash": "635d840a62989fbb9a8437255ffafaada074a841",
+      "changedFiles": [
+        "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
+        "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/price-books.service.ts",
+        "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
+        "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/price-books.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T16:22:14.581Z",
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T18:10:20.942Z",
       "passed": true,
-      "role": "implementation_verified_existing",
-      "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-      "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "integrated_commit": "",
-    "integrated_at": null,
-    "changed_files": [],
+    "implementation_commit": "635d840a62989fbb9a8437255ffafaada074a841",
+    "integrated_commit": "635d840a62989fbb9a8437255ffafaada074a841",
+    "integrated_at": "2026-07-12T18:10:20.943Z",
+    "changed_files": [
+      "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
+      "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
+      "apps/api/src/modules/sales-v2/services/price-books.service.ts",
+      "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    ],
     "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T16:17:38.360Z",
     "redispatch_history": [
@@ -14832,8 +14864,9 @@
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "remote_repair_status": "HOLD",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260708-0006-A1",
@@ -16400,7 +16433,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "SKIPPED_NOT_APPLICABLE",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -16421,7 +16454,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T14:38:21.988Z",
+    "completed_at": "2026-07-12T18:10:20.812Z",
     "result_file": "docs/ops/runs/BUGTASK-20260707-0009-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -16441,26 +16474,40 @@
       "agent": "A3-Backend-Critical-Path",
       "exitCode": 0,
       "conclusion": "PASS_WITH_CONDITIONS",
-      "responseChars": 1358,
-      "beforeHead": "aa6dbcf0bec6b6313d48a7d3ae887054e49fce7c",
-      "afterHead": "aa6dbcf0bec6b6313d48a7d3ae887054e49fce7c",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
+      "responseChars": 121,
+      "beforeHead": "a9b01a8ca966bcde312339e729f9c4e058927da6",
+      "afterHead": "49dd3552f5416df2ac4ecd74654753c136397e3e",
+      "commitHash": "49dd3552f5416df2ac4ecd74654753c136397e3e",
+      "changedFiles": [
+        "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.ts",
+        "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
+      ],
       "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T14:38:21.987Z",
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-12T18:10:20.811Z",
       "passed": true,
-      "role": "not_applicable",
-      "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-      "reason": "Agent proved this task has no implementation in its ownership boundary"
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
     },
-    "implementation_commit": "",
-    "changed_files": [],
-    "reason": null,
+    "implementation_commit": "49dd3552f5416df2ac4ecd74654753c136397e3e",
+    "changed_files": [
+      "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+      "apps/api/src/modules/farm/farm-medicine.service.ts",
+      "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
+    ],
+    "reason": "verified integrated implementation evidence",
     "remote_repair_status": "HOLD",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "49dd3552f5416df2ac4ecd74654753c136397e3e",
+    "integrated_at": "2026-07-12T18:10:20.812Z",
     "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T14:27:17.374Z",
     "redispatch_history": [
@@ -16488,7 +16535,8 @@
     ],
     "quarantined_at": "2026-07-11T07:06:04.786Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "baseline_autopilot_skipped": "not applicable to this Agent ownership boundary"
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
+    "retry_after": null
   },
   {
     "task_id": "BUGTASK-20260707-0009-A1",
