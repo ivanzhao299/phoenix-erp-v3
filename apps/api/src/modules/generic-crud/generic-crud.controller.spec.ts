@@ -4,7 +4,7 @@ import { GenericCrudService } from './generic-crud.service';
 
 describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
-  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create'>>;
+  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create' | 'findOneByColumn' | 'update'>>;
   let dataScopeService: { resolve: jest.Mock };
 
   const req = (permissions: string[]) => ({
@@ -23,6 +23,8 @@ describe('GenericCrudController WMS RBAC', () => {
       findAll: jest.fn().mockResolvedValue([]),
       findAllInventoryScoped: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ msg: 'ok' }),
+      findOneByColumn: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({ msg: 'ok' }),
     };
     dataScopeService = {
       resolve: jest.fn().mockResolvedValue({
@@ -222,6 +224,26 @@ describe('GenericCrudController WMS RBAC', () => {
       controller.create('wms_outbound', { outbound_no: 'WO-1' }, req(['MENU_WMS_VIEW:V'])),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(svc.create).not.toHaveBeenCalled();
+  });
+
+  it('updates WMS locations through the short CRUD route by location_code', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      location_code: 'LOC-A-01',
+      warehouse_code: 'WH-A',
+      zone_code: 'ZONE-A',
+    });
+
+    await expect(
+      controller.update(
+        'wms_locations',
+        'LOC-A-01',
+        { zone_code: 'ZONE-B' },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: 'ok' });
+
+    expect(svc.findOneByColumn).toHaveBeenCalledWith('wms_locations', 'location_code', 'LOC-A-01');
+    expect(svc.update).toHaveBeenCalledWith('wms_locations', 'location_code', 'LOC-A-01', { zone_code: 'ZONE-B' });
   });
 
   it('still rejects WMS reads when the user has no WMS view or inout permission', async () => {
