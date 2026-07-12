@@ -23,25 +23,28 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md
-Assembled prompt chars: 45604
+Assembled prompt chars: 45618
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-20-22-332Z-A4-Frontend-UAT-Smoke.md
-Implemented the scoped frontend repair for BUG-20260708-0005.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-15-57-607Z-A4-Frontend-UAT-Smoke.md
+已完成 BUG-20260708-0005 的前端修复，结果为 **PASS WITH CONDITIONS**，未部署、未 push、未改 API/迁移/数据库。
 
-Changed:
-- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx): added `状态` dropdown, preserved `风险等级`, split status transitions through existing `activate/freeze/blacklist` endpoints, and added visible drawer save errors instead of unhandled rejections.
-- [sales-customers-form.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/sales-customers-form.ts): added form mapping/status options.
-- [sales-customers-form.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/sales-customers-form.test.ts): added focused regression coverage.
-- [BUG-20260708-0005-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md): result report marked `PASS WITH CONDITIONS`.
+改动：
+- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:41)：新增客户状态选项。
+- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:238)：保存时拆分 `status`，走现有 `activate/freeze/blacklist` 动作接口，避免直接 PATCH 黑名单客户。
+- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:360)：编辑抽屉新增“状态”下拉。
+- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:621)：新增保存错误提示，避免 403 变成 unhandled rejection。
+- [sales-customers-status-edit.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/sales-customers-status-edit.test.ts:1)：新增 focused 回归测试。
+- [BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md:1)：任务报告已写明根因、文件、验证和条件。
 
-Validation:
-- `pnpm --filter web test -- src/lib/sales-customers-form.test.ts` passed: 3 tests.
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed: 0 errors.
-- `git diff --check` passed.
-- Local browser smoke could not run because Next dev port binding is denied in this sandbox: `listen EPERM 127.0.0.1:3001`.
+验证：
+- PASS `cd apps/web && ./node_modules/.bin/tsc --noEmit`
+- PASS `cd apps/web && ./node_modules/.bin/vitest run src/__tests__/sales-customers-status-edit.test.ts`
+- PASS `git diff --check`
+- HOLD：本沙箱禁止监听端口，`next dev` 在 `0.0.0.0` 和 `127.0.0.1` 都返回 `listen EPERM`，所以无法捕获真实桌面/移动浏览器快照。
+- HOLD：`next build` 因本地 `node_modules` symlink 指向沙箱 root 外触发 Turbopack panic，未到业务路由编译阶段。
 
-No API, migration, schema, database, deploy, push, or merge actions were performed. Existing untracked `node_modules` entries were left untouched.
+工作区里已有未跟踪的 `node_modules`、`apps/api/node_modules` 保持未处理。此修复还需要 CI/CD、生产 smoke 和业务验收后，才能对外确认 bug resolved。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +61,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5642-8c4f-7243-b44f-5d47908d1ef5
+session id: 019f5751-53bd-7ea3-a952-5b89c3c65350
 --------
 user
 # Base Agent Prompt
@@ -225,7 +228,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
         "method": "PATCH",
         "status": 403,
         "request
-...<truncated 958418 chars>
+...<truncated 387730 chars>
 
 ```
 
@@ -237,26 +240,24 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1366,
-  "beforeHead": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
-  "afterHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
-  "commitHash": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
+  "responseChars": 1555,
+  "beforeHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
+  "afterHead": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+  "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
   "changedFiles": [
+    "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
     "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-    "apps/web/src/lib/sales-customers-form.test.ts",
-    "apps/web/src/lib/sales-customers-form.ts",
-    "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+    "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
   "businessChangedFiles": [
-    "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-    "apps/web/src/lib/sales-customers-form.test.ts",
-    "apps/web/src/lib/sales-customers-form.ts"
+    "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
+    "apps/web/src/app/(admin)/sales2/customers/page.tsx"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+    "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:20:22.500Z",
+  "checkedAt": "2026-07-12T17:15:57.769Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -272,20 +273,18 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-    "apps/web/src/lib/sales-customers-form.test.ts",
-    "apps/web/src/lib/sales-customers-form.ts",
-    "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+    "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
+    "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
   "businessFiles": [
     "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-    "apps/web/src/lib/sales-customers-form.test.ts",
-    "apps/web/src/lib/sales-customers-form.ts"
+    "apps/web/src/__tests__/sales-customers-status-edit.test.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+    "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
-  "commitHash": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
+  "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 3cee1ef2] fix(web): repair BUG-20260708-0005\n 4 files changed, 176 insertions(+), 19 deletions(-)\n create mode 100644 apps/web/src/lib/sales-customers-form.test.ts\n create mode 100644 apps/web/src/lib/sales-customers-form.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+  "output": "[codex/bug-intake-a4 021cf7ae] fix(web): repair BUG-20260708-0005\n 3 files changed, 170 insertions(+), 9 deletions(-)\n create mode 100644 apps/web/src/__tests__/sales-customers-status-edit.test.ts\n create mode 100644 docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
 }
 ```
