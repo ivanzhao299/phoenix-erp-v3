@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,26 +23,34 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md
-Assembled prompt chars: 29318
+Assembled prompt chars: 29230
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-30-23-652Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUG-20260706-0002`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-41-40-080Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS.
 
-Changed:
-- [farm-cabin.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/farm-cabin.controller.ts:53): added `POST /api/farm-device/cabins/daily-report/generate`, preserving `MENU_DEVICE_MONITOR:E`.
-- [mon-device.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/mon-device.service.ts:422): added realtime snapshot fallback for `feedToday` / `waterToday` when daily aggregate rows are missing.
-- Added focused regression tests:
-  - [farm-cabin.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/farm-cabin.controller.spec.ts:1)
-  - [mon-device.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/mon-device.service.spec.ts:1)
-- Wrote report: [BUG-20260706-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md:1)
+已复验 `BUG-20260706-0002` 的 A3 后端修复。当前分支已有后端修复提交 `9058574b fix(api): repair BUG-20260706-0002`，覆盖：
 
-Validation run:
-- `pnpm test -- src/modules/iot/farm-cabin.controller.spec.ts src/modules/iot/mon-device.service.spec.ts src/modules/iot/iot-v3.controller.spec.ts --runInBand` passed: 3 suites, 5 tests.
-- `./node_modules/.bin/tsc --noEmit` passed with 0 errors.
-- `git diff --check` passed.
+- `POST /api/farm-device/cabins/daily-report/generate` 兼容路由，避免截图中的 404
+- `MonDeviceService.getAllSummary()` 在 daily agg 缺失时用实时累计快照 fallback 计算 `feedToday` / `waterToday`
 
-Status: `PASS WITH CONDITIONS`. Backend is locally repaired and validated, but production resolution still needs CI/CD, production smoke, and business acceptance. No deploy, push, DB write, migration, schema/entity change, or task-board update was performed. Untracked `node_modules` directories were already present and left untouched.
+本次 redispatch 未改后端业务代码，只新增复验报告并本地提交：
+
+- [BUG-20260706-0002-a3-backend-redispatch-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md)
+- 提交：`0dcc1454 docs(ops): record BUG-20260706-0002 backend redispatch`
+
+验证已跑：
+
+```bash
+cd apps/api
+pnpm test -- src/modules/iot/farm-cabin.controller.spec.ts src/modules/iot/mon-device.service.spec.ts src/modules/iot/iot-v3.controller.spec.ts --runInBand
+./node_modules/.bin/tsc --noEmit
+git diff --check
+```
+
+结果：Jest 3 suites / 5 tests PASS，API typecheck 0 errors，diff check PASS。
+
+未推送、未部署、未执行迁移、未写数据库、未改 schema/entity/table/column、未改 `apps/web`。当前仅剩既有未跟踪目录 `node_modules` / `apps/api/node_modules`。生产是否 resolved 仍需 CI/CD、部署后 `/home` smoke 和业务验收确认。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -59,7 +67,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56ba-5027-7d01-9a9e-eb69a6ced578
+session id: 019f56c5-4b7e-7be1-8142-db18381d63b6
 --------
 user
 # Base Agent Prompt
@@ -518,7 +526,7 @@ Assigned agent: A3-Backend-Critical-Path
             "disabled": false
           },
    
-...<truncated 324219 chars>
+...<truncated 869461 chars>
 
 ```
 
@@ -530,32 +538,23 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1627,
-  "beforeHead": "60e916eb5f990794feaa5466d6d42c47f1341622",
-  "afterHead": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
-  "commitHash": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
+  "responseChars": 1055,
+  "beforeHead": "8e7782b02cbb19c12de9edf20ac7d932a42aed0e",
+  "afterHead": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
+  "commitHash": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
   "changedFiles": [
-    "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-    "apps/api/src/modules/iot/farm-cabin.controller.ts",
-    "apps/api/src/modules/iot/mon-device.service.spec.ts",
-    "apps/api/src/modules/iot/mon-device.service.ts",
-    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
+    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md"
   ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-    "apps/api/src/modules/iot/farm-cabin.controller.ts",
-    "apps/api/src/modules/iot/mon-device.service.spec.ts",
-    "apps/api/src/modules/iot/mon-device.service.ts"
-  ],
+  "businessChangedFiles": [],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
+    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T14:30:23.812Z",
-  "passed": true,
+  "checkedAt": "2026-07-12T14:41:40.180Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change"
 }
 ```
 
@@ -563,26 +562,9 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/api/src/modules/iot/farm-cabin.controller.ts",
-    "apps/api/src/modules/iot/mon-device.service.ts",
-    "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-    "apps/api/src/modules/iot/mon-device.service.spec.ts",
-    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
-  ],
-  "businessFiles": [
-    "apps/api/src/modules/iot/farm-cabin.controller.ts",
-    "apps/api/src/modules/iot/mon-device.service.ts",
-    "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-    "apps/api/src/modules/iot/mon-device.service.spec.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
-  ],
-  "commitHash": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 9058574b] fix(api): repair BUG-20260706-0002\n 5 files changed, 188 insertions(+), 3 deletions(-)\n create mode 100644 apps/api/src/modules/iot/farm-cabin.controller.spec.ts\n create mode 100644 apps/api/src/modules/iot/mon-device.service.spec.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

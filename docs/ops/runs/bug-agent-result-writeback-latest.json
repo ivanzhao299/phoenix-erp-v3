@@ -1,38 +1,44 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260707-0009",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260707-0009/agent-result",
+  "bugNo": "BUG-20260706-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260707-0009-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260706-0002-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260707-0009-A1-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
+    "commitHash": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
+    "changedFiles": [
+      "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A1-CI-Runtime-Gate",
+        "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 1543,
-        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "commitHash": "",
-        "changedFiles": [],
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 1055,
+        "beforeHead": "8e7782b02cbb19c12de9edf20ac7d932a42aed0e",
+        "afterHead": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
+        "commitHash": "0dcc1454081d5ada2012fd38393d85c4d9dce773",
+        "changedFiles": [
+          "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md"
+        ],
         "businessChangedFiles": [],
-        "reportFiles": [],
+        "reportFiles": [
+          "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T14:39:53.920Z",
-        "passed": true,
-        "role": "validation",
-        "terminalStatus": "VALIDATION_COMPLETED",
-        "reason": "Validation evidence recorded; this is not implementation evidence"
+        "checkedAt": "2026-07-12T14:41:40.180Z",
+        "passed": false,
+        "role": "implementation",
+        "terminalStatus": "HOLD",
+        "reason": "Missing implementation evidence: approved business-file change"
       },
-      "queueStatus": "VALIDATION_COMPLETED",
+      "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0009-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260707-0009-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\": ",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29230\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-41-40-080Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\n已复验 `BUG-20260706-0002` 的 A3 后端修复。当前分支已有后端修复提交 `9058574b fix(api): repair BUG-20260706-0002`，覆盖：\n\n- `POST /api/farm-device/cabins/daily-report/generate` 兼容路由，避免截图中的 404\n- `MonDeviceService.getAllSummary()` 在 daily agg 缺失时用实时累计快照 fallback 计算 `feedToday` / `waterToday`\n\n本次 redispatch 未改后端业务代码，只新增复验报告并本地提交：\n\n- [BUG-20260706-0002-a3-backend-redispatch-20260712.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260706-0002-a3-backend-redispatch-20260712.md)\n- 提交：`0dcc1454 docs(ops): record BUG-20260706-0002 backend redispatch`\n\n验证已跑：\n\n```bash\ncd apps/api\npnpm test -- src/modules/iot/farm-cabin.controller.spec.ts src/module",
     "nextAction": ""
   }
 }
