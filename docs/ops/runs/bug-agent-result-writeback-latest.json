@@ -1,16 +1,38 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260711-0005",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0005/agent-result",
+  "bugNo": "BUG-20260709-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260711-0005-A3",
+    "taskId": "BUGTASK-20260709-0004-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260711-0005-A3-detached-worker-recovery.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
-    "validationResults": null,
-    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260711-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
+    "validationResults": {
+      "evidenceGate": {
+        "version": 1,
+        "agent": "A3-Backend-Critical-Path",
+        "exitCode": 1,
+        "conclusion": "",
+        "responseChars": 0,
+        "beforeHead": "0323e82f4541b4420618390f4e36ec18e04dc788",
+        "afterHead": "0323e82f4541b4420618390f4e36ec18e04dc788",
+        "commitHash": "",
+        "changedFiles": [],
+        "businessChangedFiles": [],
+        "reportFiles": [],
+        "parentCommitRecovered": false,
+        "checkedAt": "2026-07-12T10:45:54.527Z",
+        "passed": false,
+        "role": "execution",
+        "terminalStatus": "HOLD",
+        "reason": "Agent process exited with 1"
+      },
+      "queueStatus": "HOLD",
+      "integratedCommit": ""
+    },
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\n\n```\n\n## Stderr\n\n```text\nERROR: worktree is not clean:\n?? apps/api/node_modules\n?? node_modules\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A3-Backend-Critical-Path\",\n  \"exitCode\": 1,\n  \"conclusion\": \"\",\n  \"responseChars\": 0,\n  \"beforeHead\": \"0323e82f4541b4420618390f4e36ec18e04dc788\",\n  \"afterHead\": \"0323e82f4541b4420618390f4e36ec18e04dc788\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"checkedAt\": \"2026-07-12T10:45:54.527Z\",\n  \"passed\": false,\n  \"role\": \"execution\",\n  \"terminalStatus\": \"HOLD\",\n  \"reason\": \"Agent process exited with 1\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```\n",
     "nextAction": ""
   }
 }
