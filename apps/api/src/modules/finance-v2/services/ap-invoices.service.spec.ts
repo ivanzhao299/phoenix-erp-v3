@@ -71,4 +71,85 @@ describe('ApInvoicesService status labels', () => {
       allocations: [],
     }));
   });
+
+  it('falls back to legacy AP payments when allocation table is missing', async () => {
+    const missingAllocationTable = Object.assign(new Error('relation "fin_ap_payment_allocations" does not exist'), {
+      code: '42P01',
+    });
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: '9',
+          ap_no: 'AP-202607-00009',
+          company_code: 'COMP-LAO-AGRI',
+          supplier_name: '测试供应商',
+          amount_original: '88.00',
+          paid_amount_original: '20.00',
+          balance_amount_original: '68.00',
+          status: 'PARTIALLY_PAID',
+          payment_status: 'PARTIAL',
+        },
+      ])
+      .mockRejectedValueOnce(missingAllocationTable)
+      .mockResolvedValueOnce([
+        {
+          id: '101',
+          alloc_no: 'PAY-202607-00101',
+          amount_original: '20.00',
+          currency_code: 'CNY',
+          payment_date: '2026-07-11',
+          payment_method: 'BANK_TRANSFER',
+          reference_no: 'BANK-REF-1',
+          remark: 'legacy payment',
+          created_at: '2026-07-11T04:00:00.000Z',
+        },
+      ]);
+    const service = buildService(query);
+
+    const result = await service.findById('9');
+
+    expect(result.allocations).toEqual([
+      expect.objectContaining({
+        alloc_no: 'PAY-202607-00101',
+        amount_original: '20.00',
+      }),
+    ]);
+    expect(query).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('FROM fin_ap_payments WHERE invoice_id = $1'),
+      ['9'],
+    );
+  });
+
+  it('returns AP invoice detail with empty allocations when no payment history table exists', async () => {
+    const missingTable = Object.assign(new Error('relation does not exist'), { code: '42P01' });
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: '8',
+          ap_no: 'AP-202607-00008',
+          company_code: 'COMP-LAO-AGRI',
+          supplier_name: '测试供应商',
+          amount_original: '50.00',
+          paid_amount_original: '0.00',
+          balance_amount_original: '50.00',
+          status: 'OPEN',
+          payment_status: 'UNPAID',
+        },
+      ])
+      .mockRejectedValueOnce(missingTable)
+      .mockRejectedValueOnce(missingTable);
+    const service = buildService(query);
+
+    const result = await service.findById('8');
+
+    expect(result).toEqual(expect.objectContaining({
+      id: '8',
+      status_label: '未付款',
+      payment_status_label: '未付款',
+      allocations: [],
+    }));
+  });
 });

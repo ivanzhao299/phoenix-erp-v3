@@ -59,6 +59,10 @@ export class ApInvoicesService {
     };
   }
 
+  private isUndefinedTableError(err: unknown): boolean {
+    return !!err && typeof err === 'object' && (err as { code?: string }).code === '42P01';
+  }
+
   private currentUser() {
     const u = this.cls.get('user') as any;
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
@@ -126,9 +130,15 @@ export class ApInvoicesService {
   /** assertOwnership：确认 invoice 的 company_code 在当前用户 DataScope 内 */
   private async assertOwnership(invoiceId: string): Promise<any> {
     const rows = await this.ds.query(
-      `SELECT id, ap_no, company_code, status, payment_status,
+      `SELECT id, ap_no, source_type, source_id, source_no,
+              company_code, company_name, project_code, project_name,
+              supplier_id, supplier_code, supplier_name,
+              invoice_no, invoice_date, due_date,
               amount_original, paid_amount_original, balance_amount_original,
-              currency_code, supplier_name
+              currency_code, exchange_rate, amount_base, base_currency,
+              paid_amount_base, balance_amount_base,
+              status, payment_status, tax_amount, tax_rate,
+              wf_instance_id, remark, created_by, updated_by, created_at, updated_at
        FROM fin_ap_invoices WHERE id = $1`,
       [invoiceId],
     );
@@ -143,6 +153,33 @@ export class ApInvoicesService {
       throw new ForbiddenException(`无权访问公司 ${inv.company_code} 的 AP Invoice`);
     }
     return inv;
+  }
+
+  private async loadPaymentAllocations(invoiceId: string): Promise<any[]> {
+    try {
+      return await this.ds.query(
+        `SELECT id, alloc_no, amount_original, currency_code,
+                payment_date, payment_method, reference_no, remark, created_at
+         FROM fin_ap_payment_allocations WHERE invoice_id = $1 ORDER BY payment_date DESC`,
+        [invoiceId],
+      );
+    } catch (err) {
+      if (!this.isUndefinedTableError(err)) throw err;
+      this.logger.warn('[AP] fin_ap_payment_allocations missing; falling back to legacy fin_ap_payments for invoice detail');
+    }
+
+    try {
+      return await this.ds.query(
+        `SELECT id, payment_no AS alloc_no, amount AS amount_original, currency_code,
+                payment_date, payment_method, reference_no, note AS remark, created_at
+         FROM fin_ap_payments WHERE invoice_id = $1 ORDER BY payment_date DESC`,
+        [invoiceId],
+      );
+    } catch (err) {
+      if (!this.isUndefinedTableError(err)) throw err;
+      this.logger.warn('[AP] no AP payment history table is available; returning invoice detail without allocations');
+      return [];
+    }
   }
 
   // ── 1. 列表 ───────────────────────────────────────────────────────────────
@@ -225,13 +262,7 @@ export class ApInvoicesService {
 
   async findById(id: string) {
     const inv = await this.assertOwnership(id);
-    // 取付款核销记录
-    const allocs = await this.ds.query(
-      `SELECT id, alloc_no, amount_original, currency_code,
-              payment_date, payment_method, reference_no, remark, created_at
-       FROM fin_ap_payment_allocations WHERE invoice_id = $1 ORDER BY payment_date DESC`,
-      [id],
-    );
+    const allocs = await this.loadPaymentAllocations(id);
     return { ...this.withStatusLabels(inv), allocations: allocs };
   }
 
