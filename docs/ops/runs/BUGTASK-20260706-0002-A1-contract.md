@@ -1098,11 +1098,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:27:19.488Z",
+    "approvedAt": "2026-07-12T14:39:16.194Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
-    "redispatchCount": 3,
+    "approvalScope": "Verify already-present frontend fix without redundant code churn.",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

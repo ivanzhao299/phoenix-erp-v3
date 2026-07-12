@@ -17671,7 +17671,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "COMPLETED_MERGED",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -17692,8 +17692,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T14:30:25.642Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -17706,50 +17706,13 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-12T14:27:19.488Z",
-    "evidence_gate": {
-      "version": 1,
-      "agent": "A3-Backend-Critical-Path",
-      "exitCode": 0,
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "responseChars": 1627,
-      "beforeHead": "60e916eb5f990794feaa5466d6d42c47f1341622",
-      "afterHead": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
-      "commitHash": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
-      "changedFiles": [
-        "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-        "apps/api/src/modules/iot/farm-cabin.controller.ts",
-        "apps/api/src/modules/iot/mon-device.service.spec.ts",
-        "apps/api/src/modules/iot/mon-device.service.ts",
-        "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
-      ],
-      "businessChangedFiles": [
-        "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-        "apps/api/src/modules/iot/farm-cabin.controller.ts",
-        "apps/api/src/modules/iot/mon-device.service.spec.ts",
-        "apps/api/src/modules/iot/mon-device.service.ts"
-      ],
-      "reportFiles": [
-        "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
-      ],
-      "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T14:30:23.812Z",
-      "passed": true,
-      "role": "implementation",
-      "terminalStatus": "IMPLEMENTATION_COMPLETED",
-      "reason": "Business change, task report, commit, and conclusion are present"
-    },
-    "implementation_commit": "9058574bdb9ef769c98c9b1eccbf0f754da57066",
-    "changed_files": [
-      "apps/api/src/modules/iot/farm-cabin.controller.spec.ts",
-      "apps/api/src/modules/iot/farm-cabin.controller.ts",
-      "apps/api/src/modules/iot/mon-device.service.spec.ts",
-      "apps/api/src/modules/iot/mon-device.service.ts",
-      "docs/ops/bug-intake/BUG-20260706-0002-a3-backend-report.md"
-    ],
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-12T14:39:16.194Z",
+    "evidence_gate": null,
+    "implementation_commit": "",
+    "changed_files": [],
     "reason": null,
-    "redispatched_at": "2026-07-12T14:27:19.488Z",
+    "redispatched_at": "2026-07-12T14:39:16.194Z",
     "redispatch_history": [
       {
         "at": "2026-07-10T05:08:44.191Z",
@@ -17762,6 +17725,13 @@
         "at": "2026-07-12T14:27:56.198Z",
         "previous_status": "IMPLEMENTATION_COMPLETED",
         "previous_result_file": null,
+        "source_bug_no": "BUG-20260706-0002",
+        "source_repair_task_no": "BUGTASK-20260706-0002"
+      },
+      {
+        "at": "2026-07-12T14:39:50.121Z",
+        "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
       }
@@ -17777,9 +17747,9 @@
     "quarantined_at": "2026-07-10T05:49:05.278Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "remote_repair_status": "HOLD",
-    "integrated_commit": "ff4bb175cfe593834377809f562d3fe0e0d1b44b",
-    "integrated_at": "2026-07-12T14:30:25.642Z",
-    "baseline_autopilot_exit_code": 0,
+    "integrated_commit": "",
+    "integrated_at": null,
+    "baseline_autopilot_exit_code": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -17791,7 +17761,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -17814,8 +17784,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T14:32:24.526Z",
-    "result_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
+    "completed_at": null,
+    "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -17829,31 +17799,13 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-12T14:27:19.488Z",
-    "evidence_gate": {
-      "version": 1,
-      "agent": "A4-Frontend-UAT-Smoke",
-      "exitCode": 0,
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "responseChars": 1145,
-      "beforeHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-      "afterHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-      "commitHash": "",
-      "changedFiles": [],
-      "businessChangedFiles": [],
-      "reportFiles": [],
-      "parentCommitRecovered": false,
-      "checkedAt": "2026-07-12T14:32:24.525Z",
-      "passed": false,
-      "role": "implementation",
-      "terminalStatus": "HOLD",
-      "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
-    },
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-12T14:39:16.194Z",
+    "evidence_gate": null,
     "implementation_commit": "",
     "changed_files": [],
-    "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
-    "redispatched_at": "2026-07-12T14:27:19.488Z",
+    "reason": null,
+    "redispatched_at": "2026-07-12T14:39:16.194Z",
     "redispatch_history": [
       {
         "at": "2026-07-10T05:08:44.192Z",
@@ -17865,6 +17817,13 @@
       {
         "at": "2026-07-12T14:27:56.198Z",
         "previous_status": "COMPLETED_MERGED",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
+        "source_bug_no": "BUG-20260706-0002",
+        "source_repair_task_no": "BUGTASK-20260706-0002"
+      },
+      {
+        "at": "2026-07-12T14:39:50.122Z",
+        "previous_status": "HOLD",
         "previous_result_file": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
@@ -17887,7 +17846,7 @@
     "source_repair_task_no": "BUGTASK-20260706-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "HOLD",
+    "status": "pending",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -17912,7 +17871,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T14:32:26.231Z",
+    "completed_at": null,
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -17926,9 +17885,9 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-12T14:27:19.488Z",
-    "redispatched_at": "2026-07-12T14:27:19.488Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-12T14:39:16.194Z",
+    "redispatched_at": "2026-07-12T14:39:16.194Z",
     "redispatch_history": [
       {
         "at": "2026-07-10T05:08:44.192Z",
@@ -17943,18 +17902,17 @@
         "previous_result_file": null,
         "source_bug_no": "BUG-20260706-0002",
         "source_repair_task_no": "BUGTASK-20260706-0002"
+      },
+      {
+        "at": "2026-07-12T14:39:50.122Z",
+        "previous_status": "HOLD",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260706-0002",
+        "source_repair_task_no": "BUGTASK-20260706-0002"
       }
     ],
-    "reason": "blocked by failed dependency: BUGTASK-20260706-0002-A4",
-    "evidence_gate": {
-      "version": 1,
-      "agent": "A1-CI-Runtime-Gate",
-      "passed": false,
-      "role": "dependency",
-      "terminalStatus": "HOLD",
-      "reason": "blocked by failed dependency: BUGTASK-20260706-0002-A4",
-      "checkedAt": "2026-07-12T14:32:26.231Z"
-    },
+    "reason": null,
+    "evidence_gate": null,
     "remote_repair_status": "HOLD",
     "implementation_commit": "",
     "integrated_commit": "",
