@@ -14636,7 +14636,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0003",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14657,7 +14657,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T15:03:05.315Z",
+    "completed_at": "2026-07-12T15:03:07.029Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14707,8 +14707,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "c6fdce84c556d512db3dd06d85353e7b7f2aefe3",
+    "integrated_at": "2026-07-12T15:03:07.029Z",
     "changed_files": [
       "apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts",
       "apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts",
@@ -14734,7 +14734,8 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260708-0003-A4",
