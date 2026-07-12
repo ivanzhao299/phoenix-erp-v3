@@ -3,6 +3,14 @@ import { FarmMedicineService } from './farm-medicine.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
+function extractItems(body: any): unknown {
+  if (Array.isArray(body?.items)) return body.items;
+  if (Array.isArray(body?.lines)) return body.lines;
+  if (body?.item) return [body.item];
+  if (body?.medication_code || body?.medicationCode || body?.medicine_code || body?.code) return [body];
+  return body?.items;
+}
+
 // [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 // [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/farm/medicine')
@@ -31,8 +39,8 @@ export class FarmMedicineController {
    */
   @Post('inbound')
   @RequireMenu('MENU_FARM_VET', 'E')
-  async inbound(@Body() body: { date: string; items: Array<{ medication_code: string; qty: number; note?: string }>; operator?: string }) {
-    await this.svc.inbound(body.date, body.items, body.operator ?? 'mobile');
+  async inbound(@Body() body: { date?: string; log_date?: string; items?: unknown; operator?: string }) {
+    await this.svc.inbound(body.date ?? body.log_date ?? '', extractItems(body), body.operator ?? 'mobile');
     return { code: 200, message: '入库成功' };
   }
 
@@ -41,8 +49,8 @@ export class FarmMedicineController {
    */
   @Post('outbound')
   @RequireMenu('MENU_FARM_VET', 'E')
-  async outbound(@Body() body: { date: string; items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>; operator?: string }) {
-    await this.svc.outbound(body.date, body.items, body.operator ?? 'mobile');
+  async outbound(@Body() body: { date?: string; log_date?: string; items?: unknown; operator?: string }) {
+    await this.svc.outbound(body.date ?? body.log_date ?? '', extractItems(body), body.operator ?? 'mobile');
     return { code: 200, message: '出库成功' };
   }
 }

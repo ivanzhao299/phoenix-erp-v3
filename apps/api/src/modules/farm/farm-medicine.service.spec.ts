@@ -39,10 +39,12 @@ describe('FarmMedicineService', () => {
     expect(ds.query).toHaveBeenCalledTimes(2);
     expect(ds.query.mock.calls[0][0]).toContain('FROM brd_medications');
     expect(ds.query.mock.calls[1][0]).toContain('SUM(COALESCE(qty_available, qty, 0))');
+    expect(ds.query.mock.calls[1][0]).toContain('warehouse_code = ANY($1)');
+    expect(ds.query.mock.calls[1][1]).toEqual([['LPH_MS_MEDICINE', 'MEDICINE']]);
     expect(ds.query.mock.calls.some(call => String(call[0]).includes('INSERT INTO inv_batches'))).toBe(false);
   });
 
-  it('inbound upserts medicine stock before writing ledger', async () => {
+  it('inbound upserts medicine stock with governed warehouse ownership before writing ledger', async () => {
     const { manager, scopeHelper, svc } = buildSvc();
     manager.query
       .mockResolvedValueOnce([{ batch_no: 'MED-STOCK-MED001' }])
@@ -50,14 +52,68 @@ describe('FarmMedicineService', () => {
 
     await svc.inbound('2026-07-07', [{ medication_code: 'MED001', qty: 12 }], 'admin');
 
-    expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('MEDICINE', '药品库存');
+    expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('LPH_MS_MEDICINE', '药品库存');
     expect(manager.query).toHaveBeenCalledTimes(2);
     expect(manager.query.mock.calls[0][0]).toContain('INSERT INTO inv_batches');
     expect(manager.query.mock.calls[0][0]).toContain('ON CONFLICT (batch_no) DO UPDATE');
     expect(manager.query.mock.calls[0][0]).toContain('qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty');
-    expect(manager.query.mock.calls[0][1]).toEqual(['MED-STOCK-MED001', 'MED001', 12, 'MEDICINE']);
+    expect(manager.query.mock.calls[0][0]).toContain('company_code');
+    expect(manager.query.mock.calls[0][0]).toContain('source_type');
+    expect(manager.query.mock.calls[0][1]).toEqual([
+      'MED-STOCK-MED001',
+      'MED001',
+      12,
+      'LPH_MS_MEDICINE',
+      'SITE-MENGSAI-LAYER',
+      'COMP-LAO-AGRI',
+      'FARM_MEDICINE',
+      'MED_INBOUND',
+    ]);
     expect(manager.query.mock.calls[1][0]).toContain('MED_INBOUND');
-    expect(manager.query.mock.calls[1][1]).toEqual(['MED-STOCK-MED001', 12, '2026-07-07', 'MEDICINE', 'admin', '采购入库']);
+    expect(manager.query.mock.calls[1][1]).toEqual([
+      'MED-STOCK-MED001',
+      12,
+      '2026-07-07',
+      'LPH_MS_MEDICINE',
+      'COMP-LAO-AGRI',
+      'SITE-MENGSAI-LAYER',
+      'admin',
+      'MED_INBOUND',
+      '采购入库',
+    ]);
+  });
+
+  it('inbound accepts common payload aliases and defaults blank date to today', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-11T10:00:00+08:00'));
+    const { manager, svc } = buildSvc();
+    manager.query
+      .mockResolvedValueOnce([{ batch_no: 'MED-STOCK-MED001' }])
+      .mockResolvedValueOnce([]);
+
+    await svc.inbound('', [{ medicationCode: 'MED001', quantity: '3.5' }], 'admin');
+
+    expect(manager.query.mock.calls[0][1][1]).toBe('MED001');
+    expect(manager.query.mock.calls[0][1][2]).toBe(3.5);
+    expect(manager.query.mock.calls[1][1][2]).toBe('2026-07-11');
+    jest.useRealTimers();
+  });
+
+  it('inbound rejects malformed items as a controlled 400 instead of throwing TypeError', async () => {
+    const { manager, svc } = buildSvc();
+
+    await expect(svc.inbound('2026-07-07', undefined, 'admin'))
+      .rejects.toThrow(BadRequestException);
+
+    expect(manager.query).not.toHaveBeenCalled();
+  });
+
+  it('inbound rejects invalid calendar dates before SQL execution', async () => {
+    const { manager, svc } = buildSvc();
+
+    await expect(svc.inbound('2026-99-99', [{ medication_code: 'MED001', qty: 1 }], 'admin'))
+      .rejects.toThrow(BadRequestException);
+
+    expect(manager.query).not.toHaveBeenCalled();
   });
 
   it('rejects inbound for inactive or missing medicine before ledger write', async () => {
@@ -79,12 +135,23 @@ describe('FarmMedicineService', () => {
 
     await svc.outbound('2026-07-07', [{ medication_code: 'MED001', qty: 2, house_code: 'A001' }], 'admin');
 
-    expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('MEDICINE', '药品库存');
+    expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('LPH_MS_MEDICINE', '药品库存');
     expect(manager.query).toHaveBeenCalledTimes(2);
     expect(manager.query.mock.calls[0][0]).toContain('UPDATE inv_batches');
     expect(manager.query.mock.calls[0][1]).toEqual([2, 'MED-STOCK-MED001']);
     expect(manager.query.mock.calls[1][0]).toContain('MED_OUTBOUND');
-    expect(manager.query.mock.calls[1][1]).toEqual(['MED-STOCK-MED001', -2, '2026-07-07', 'MEDICINE', 'A001', 'admin', '用药出库']);
+    expect(manager.query.mock.calls[1][0]).not.toMatch(/\bhouse_code\b/);
+    expect(manager.query.mock.calls[1][1]).toEqual([
+      'MED-STOCK-MED001',
+      -2,
+      '2026-07-07',
+      'LPH_MS_MEDICINE',
+      'COMP-LAO-AGRI',
+      'SITE-MENGSAI-LAYER',
+      'admin',
+      'MED_OUTBOUND',
+      '用药出库 house=A001',
+    ]);
   });
 
   it('outbound rejects missing stock without writing ledger', async () => {

@@ -3,10 +3,76 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 
-const WAREHOUSE = 'MEDICINE';
+const WAREHOUSE = 'LPH_MS_MEDICINE';
+const LEGACY_WAREHOUSE = 'MEDICINE';
+const WAREHOUSE_CODES = [WAREHOUSE, LEGACY_WAREHOUSE];
+const COMPANY_CODE = 'COMP-LAO-AGRI';
+const STORE_CODE = 'SITE-MENGSAI-LAYER';
+const SOURCE_TYPE = 'FARM_MEDICINE';
 
 function batchNo(code: string): string {
   return `MED-STOCK-${code}`;
+}
+
+function todayString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function normalizeDate(input: string | null | undefined): string {
+  const value = String(input ?? '').trim();
+  if (!value) return todayString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException('日期格式必须为 YYYY-MM-DD');
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new BadRequestException('日期不是有效日历日期');
+  }
+  return value;
+}
+
+type RawMedItem = {
+  medication_code?: string;
+  medicationCode?: string;
+  medicine_code?: string;
+  code?: string;
+  qty?: number | string;
+  quantity?: number | string;
+  house_code?: string;
+  houseCode?: string;
+  note?: string;
+};
+
+function normalizeItems(items: unknown): Array<{ medication_code: string; qty: number; house_code?: string; note?: string }> {
+  if (!Array.isArray(items)) {
+    throw new BadRequestException('items 必须为数组');
+  }
+
+  const normalized: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }> = [];
+  for (const raw of items as RawMedItem[]) {
+    if (!raw || typeof raw !== 'object') continue;
+    const code = String(raw.medication_code ?? raw.medicationCode ?? raw.medicine_code ?? raw.code ?? '').trim();
+    const qty = Number(raw.qty ?? raw.quantity ?? 0);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    if (!code) throw new BadRequestException('药品编码不能为空');
+    normalized.push({
+      medication_code: code,
+      qty,
+      house_code: String(raw.house_code ?? raw.houseCode ?? '').trim() || undefined,
+      note: raw.note,
+    });
+  }
+
+  if (normalized.length === 0) {
+    throw new BadRequestException('至少提交一条数量大于 0 的药品明细');
+  }
+  return normalized;
 }
 
 export interface MedStockRow {
@@ -48,10 +114,10 @@ export class FarmMedicineService {
     const stocks = await this.ds.query<any[]>(
       `SELECT product_code, SUM(COALESCE(qty_available, qty, 0)) AS qty
        FROM inv_batches
-       WHERE warehouse_code = $1
+       WHERE warehouse_code = ANY($1)
          AND product_code IS NOT NULL
        GROUP BY product_code`,
-      [WAREHOUSE],
+      [WAREHOUSE_CODES],
     );
     const stockMap = new Map(stocks.map(s => [s.product_code as string, Number(s.qty)]));
 
@@ -69,34 +135,37 @@ export class FarmMedicineService {
     return this.ds.query<MedLedgerEntry[]>(
       `SELECT l.id, l.log_date::text, l.change_type,
               b.product_code AS medication_code, m.medication_name,
-              l.qty_change, l.house_code, l.note, l.operator,
+              l.qty_change, NULL::text AS house_code, l.note, l.operator,
               l.created_at::text
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
        LEFT JOIN brd_medications m ON m.medication_code = b.product_code
-       WHERE b.warehouse_code = $1
+       WHERE b.warehouse_code = ANY($1)
          AND l.log_date BETWEEN $2 AND $3
        ORDER BY l.created_at DESC`,
-      [WAREHOUSE, startDate, endDate],
+      [WAREHOUSE_CODES, normalizeDate(startDate), normalizeDate(endDate)],
     );
   }
 
   /** 入库（采购/领用入库） */
   async inbound(
     logDate: string,
-    items: Array<{ medication_code: string; qty: number; note?: string }>,
+    items: unknown,
     operator: string,
   ): Promise<void> {
     this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
+    const safeDate = normalizeDate(logDate);
+    const safeItems = normalizeItems(items);
 
     await this.ds.transaction(async manager => {
-      for (const item of items) {
-        const qty = Number(item.qty) || 0;
-        if (qty <= 0) continue;
+      for (const item of safeItems) {
+        const qty = item.qty;
         const bn = batchNo(item.medication_code);
         const rows = await manager.query(
-          `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, warehouse_code, status)
-           SELECT $1, $2, $3, $3, $4, 'AVAILABLE'
+          `INSERT INTO inv_batches
+             (batch_no, product_code, qty, qty_available, warehouse_code, store_code,
+              company_code, source_type, source_no, status, created_at, updated_at)
+           SELECT $1, $2, $3, $3, $4, $5, $6, $7, $8, 'AVAILABLE', NOW(), NOW()
            WHERE EXISTS (
              SELECT 1 FROM brd_medications WHERE medication_code = $2 AND status = 'ACTIVE'
            )
@@ -104,19 +173,24 @@ export class FarmMedicineService {
              qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty,
              qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty, 0) + EXCLUDED.qty,
              warehouse_code = EXCLUDED.warehouse_code,
+             store_code = EXCLUDED.store_code,
+             company_code = EXCLUDED.company_code,
+             source_type = EXCLUDED.source_type,
+             source_no = EXCLUDED.source_no,
              status = 'AVAILABLE',
              updated_at = NOW()
            RETURNING batch_no`,
-          [bn, item.medication_code, qty, WAREHOUSE],
+          [bn, item.medication_code, qty, WAREHOUSE, STORE_CODE, COMPANY_CODE, SOURCE_TYPE, 'MED_INBOUND'],
         );
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);
         }
         await manager.query(
           `INSERT INTO inv_ledger
-             (batch_no, change_type, qty_change, log_date, warehouse_code, operator, note)
-           VALUES ($1, 'MED_INBOUND', $2, $3, $4, $5, $6)`,
-          [bn, qty, logDate, WAREHOUSE, operator, item.note ?? '采购入库'],
+             (batch_no, change_type, qty_change, log_date, warehouse_code, company_code,
+              store_code, operator, ref_no, note)
+           VALUES ($1, 'MED_INBOUND', $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [bn, qty, safeDate, WAREHOUSE, COMPANY_CODE, STORE_CODE, operator, 'MED_INBOUND', item.note ?? '采购入库'],
         );
       }
     });
@@ -125,15 +199,16 @@ export class FarmMedicineService {
   /** 出库（用药） */
   async outbound(
     logDate: string,
-    items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>,
+    items: unknown,
     operator: string,
   ): Promise<void> {
     this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
+    const safeDate = normalizeDate(logDate);
+    const safeItems = normalizeItems(items);
 
     await this.ds.transaction(async manager => {
-      for (const item of items) {
-        const qty = Number(item.qty) || 0;
-        if (qty <= 0) continue;
+      for (const item of safeItems) {
+        const qty = item.qty;
         const bn = batchNo(item.medication_code);
         const rows = await manager.query(
           `UPDATE inv_batches
@@ -149,9 +224,20 @@ export class FarmMedicineService {
         }
         await manager.query(
           `INSERT INTO inv_ledger
-             (batch_no, change_type, qty_change, log_date, warehouse_code, house_code, operator, note)
-           VALUES ($1, 'MED_OUTBOUND', $2, $3, $4, $5, $6, $7)`,
-          [bn, -qty, logDate, WAREHOUSE, item.house_code ?? null, operator, item.note ?? '用药出库'],
+             (batch_no, change_type, qty_change, log_date, warehouse_code, company_code,
+              store_code, operator, ref_no, note)
+           VALUES ($1, 'MED_OUTBOUND', $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            bn,
+            -qty,
+            safeDate,
+            WAREHOUSE,
+            COMPANY_CODE,
+            STORE_CODE,
+            operator,
+            'MED_OUTBOUND',
+            item.note ?? (item.house_code ? `用药出库 house=${item.house_code}` : '用药出库'),
+          ],
         );
       }
     });
