@@ -717,11 +717,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T15:14:21.250Z",
+    "approvedAt": "2026-07-12T15:23:50.827Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Reconcile already-integrated verified agent commit after parent runner interruption.",
-    "redispatchCount": 4,
+    "approvalScope": "Replay verified already-integrated fixes after lifecycle evidence repair.",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
