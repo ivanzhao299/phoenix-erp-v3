@@ -1,18 +1,48 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-12T15:47:40.642Z",
+  "generated_at": "2026-07-12T17:58:33.918Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
-    "/home"
+    "/dashboard",
+    "/procurement2/dashboard",
+    "/warehouse/ledger",
+    "/warehouse/inbound"
   ],
   "results": [
     {
-      "route": "/home",
-      "url": "https://erp.eggslao.com/home",
+      "route": "/dashboard",
+      "url": "https://erp.eggslao.com/dashboard",
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 1601,
+      "elapsedMs": 1745,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/procurement2/dashboard",
+      "url": "https://erp.eggslao.com/procurement2/dashboard",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 497,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/warehouse/ledger",
+      "url": "https://erp.eggslao.com/warehouse/ledger",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 421,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
+    {
+      "route": "/warehouse/inbound",
+      "url": "https://erp.eggslao.com/warehouse/inbound",
+      "status": 200,
+      "ok": true,
+      "location": "",
+      "elapsedMs": 417,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],
