@@ -1,12 +1,12 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260707-0008",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260707-0008/agent-result",
+  "bugNo": "BUG-20260708-0003",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0003/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260707-0008-A3",
+    "taskId": "BUGTASK-20260708-0003-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260707-0008-A3-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": {
@@ -14,25 +14,25 @@
         "version": 1,
         "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1045,
-        "beforeHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-        "afterHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
+        "conclusion": "PASS",
+        "responseChars": 1102,
+        "beforeHead": "b517fa9ec652f5061b52adf43841cee01838d808",
+        "afterHead": "b517fa9ec652f5061b52adf43841cee01838d808",
         "commitHash": "",
         "changedFiles": [],
         "businessChangedFiles": [],
         "reportFiles": [],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T15:50:25.264Z",
-        "passed": false,
-        "role": "implementation",
-        "terminalStatus": "HOLD",
-        "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+        "checkedAt": "2026-07-12T15:51:58.060Z",
+        "passed": true,
+        "role": "implementation_verified_existing",
+        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+        "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
       },
-      "queueStatus": "HOLD",
+      "queueStatus": "SKIPPED_NOT_APPLICABLE",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0008-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0008-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0008-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26202\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-50-25-172Z-A3-Backend-Critical-Path.md\n完成 A3 后端复核，结果：`PASS WITH CONDITIONS`。\n\n后端修复已在当前基线提交 `a5e169f5 fix(app): normalize breeding daily overview metrics` 中集成，本次没有再改 backend 代码。根因是 `GET /api/crud/brd_daily_logs` 返回的 `log_date/business_date` 可能是 ISO timestamp，导致 `/breeding` 今日聚合按 `YYYY-MM-DD` 严格匹配时漏掉今日日报。现有后端逻辑已归一化为 `YYYY-MM-DD`，对应文件是：\n\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2142)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:67)\n\n我更新了本次任务报告：  \n[BUG-20260707-0008_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-e",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19041\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-51-57-967Z-A3-Backend-Critical-Path.md\nA3 backend reconciliation is complete for `BUG-20260708-0003`.\n\nThe backend repair was already present locally in `c6fdce84 fix(api): repair BUG-20260708-0003`: shipment create/update resolves purchase orders by `poId` or `poNo`, backfills linkage and ownership fields, rejects mismatches, and preserves DataScope checks. Focused regression coverage exists in [shipments.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts:1).\n\nI updated the task report with current redispatch evidence: [BUGTASK-20260708-0003-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-int",
     "nextAction": ""
   }
 }
