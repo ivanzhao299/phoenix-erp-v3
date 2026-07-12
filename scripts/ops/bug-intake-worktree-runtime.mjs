@@ -4,11 +4,17 @@ const RUNNER_RUNTIME_DEPENDENCY_PATHS = new Set([
   'apps/web/node_modules',
 ]);
 
+function statusPath(line) {
+  if (/^[ MADRCU?!]{2} /.test(line)) return line.slice(3).trim();
+  if (/^[MADRCU?!] /.test(line)) return line.slice(2).trim();
+  return line.trim();
+}
+
 export function filterRunnerRuntimeStatus(statusOutput) {
   return String(statusOutput || '')
     .split('\n')
     .filter((line) => {
-      const file = line.length >= 3 ? line.slice(3).trim() : line.trim();
+      const file = statusPath(line);
       const normalized = file.replace(/\/$/, '');
       return !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(normalized);
     })
@@ -20,7 +26,7 @@ export function gitStatusFiles(statusOutput) {
   return String(statusOutput || '')
     .split('\n')
     .filter(Boolean)
-    .map((line) => (line.length >= 3 ? line.slice(3).trim() : line.trim()))
+    .map(statusPath)
     .filter(Boolean);
 }
 

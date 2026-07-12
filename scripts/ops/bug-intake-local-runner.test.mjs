@@ -32,6 +32,7 @@ test('porcelain status paths preserve the leading path characters', () => {
     'docs/ops/BUG-X-report.md',
     'apps/api/src/x.ts',
   ]);
+  assert.deepEqual(gitStatusFiles('M docs/ops/BUG-X-report.md'), ['docs/ops/BUG-X-report.md']);
 });
 
 test('technical quarantine generation is eligible for one safe redispatch', () => {
@@ -117,6 +118,7 @@ test('existing-fix wording variants remain idempotent', () => {
     'PASS WITH CONDITIONS. The branch already contains the backend fix in abc123. Tests PASS.',
     'PASS WITH CONDITIONS。当前分支已有后端修复提交 abc123，Jest PASS。',
     'PASS WITH CONDITIONS. Existing owned frontend diff evidence is verified. No new frontend source changes were made.',
+    'PASS WITH CONDITIONS. The backend fix was already integrated in current HEAD via commit abc123.',
   ]) {
     const evidence = evaluateWorkerEvidence({
       task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },
