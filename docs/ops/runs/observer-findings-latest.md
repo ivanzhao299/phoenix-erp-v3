@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-12T10:59:44.144Z |
-| Run files inspected | 1760 |
+| Generated at | 2026-07-12T11:14:40.137Z |
+| Run files inspected | 1767 |
 | Task count | 299 |
 | Findings count | 33 |
 | Highest severity | CRITICAL |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 29.
+- Evidence: Queue HOLD count is 26.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 24 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 18 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260708-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260708-0005-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md;  M docs/ops/runs/BUGTASK-20260708-0006-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0006-A2-contract.md;  M docs/ops/runs/BUGTASK-20260708-0006-A3-contract.md;  M docs/ops/runs/BUGTASK-20260708-0007-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md;  M docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260711-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260708-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260708-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260708-0002-A4-contract.md;  M docs/ops/runs/BUGTASK-20260708-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
