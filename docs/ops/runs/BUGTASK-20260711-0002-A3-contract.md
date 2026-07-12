@@ -969,11 +969,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T10:44:39.249Z",
+    "approvedAt": "2026-07-12T10:49:00.205Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Controlled recovery after parent and child runtime dependency false-dirty fix; retain original scope and safety gates.",
-    "redispatchCount": 3,
+    "approvalScope": "Final controlled recovery after all three worktree preflight layers were unified.",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
