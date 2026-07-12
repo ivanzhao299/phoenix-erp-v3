@@ -16,6 +16,14 @@ export function filterRunnerRuntimeStatus(statusOutput) {
     .join('\n');
 }
 
+export function gitStatusFiles(statusOutput) {
+  return String(statusOutput || '')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => (line.length >= 3 ? line.slice(3).trim() : line.trim()))
+    .filter(Boolean);
+}
+
 export function filterRunnerRuntimeFiles(files) {
   return (files || []).filter((file) => !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(String(file || '').replace(/\/$/, '')));
 }

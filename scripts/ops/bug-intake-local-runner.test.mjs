@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
-import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
 test('runner-created dependency links do not make a worktree dirty', () => {
@@ -22,6 +22,16 @@ test('business and ops changes remain visible after runtime filtering', () => {
     ' M apps/api/src/modules/bug-intake/bug-intake.service.ts',
     '?? docs/ops/runs/example.md',
   ].join('\n'));
+});
+
+test('porcelain status paths preserve the leading path characters', () => {
+  assert.deepEqual(gitStatusFiles([
+    ' M docs/ops/BUG-X-report.md',
+    '?? apps/api/src/x.ts',
+  ].join('\n')), [
+    'docs/ops/BUG-X-report.md',
+    'apps/api/src/x.ts',
+  ]);
 });
 
 test('technical quarantine generation is eligible for one safe redispatch', () => {
@@ -105,6 +115,7 @@ test('existing-fix wording variants remain idempotent', () => {
   for (const response of [
     'PASS WITH CONDITIONS. The branch already contains the backend fix in abc123. Tests PASS.',
     'PASS WITH CONDITIONS。当前分支已有后端修复提交 abc123，Jest PASS。',
+    'PASS WITH CONDITIONS. Existing owned frontend diff evidence is verified. No new frontend source changes were made.',
   ]) {
     const evidence = evaluateWorkerEvidence({
       task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },

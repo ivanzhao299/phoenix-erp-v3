@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
-import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const MAIN_ROOT = process.cwd();
@@ -879,8 +879,7 @@ function unblockDirtyWorktree(task, args) {
       result: null,
     };
   }
-  const dirtyLines = before.output.split('\n').map((line) => line.trim()).filter(Boolean);
-  const dirtyFiles = dirtyLines.map((line) => line.slice(3).trim()).filter(Boolean);
+  const dirtyFiles = gitStatusFiles(before.output);
   const opsOnly = dirtyFiles.length > 0 && dirtyFiles.every((file) => file.startsWith('docs/ops/'));
   const command = opsOnly
     ? ['git', '-C', task.worktree, 'commit', '-m', 'docs(ops): preserve pending agent runtime artifacts']
@@ -1576,10 +1575,7 @@ async function runCycle(args, cycle) {
       const unblock = unblockDirtyWorktree(task, args);
       if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
         if (!args.dryRun && unblock.status === 'BLOCKED' && /non-ops files|implementation worktree/i.test(unblock.reason || '')) {
-          const dirtyFiles = String(unblock.before || '')
-            .split('\n')
-            .map((line) => line.trim().slice(3).trim())
-            .filter(Boolean);
+          const dirtyFiles = gitStatusFiles(unblock.before);
           const heldTask = patchTask(task.task_id, {
             status: 'HOLD',
             completed_at: new Date().toISOString(),
