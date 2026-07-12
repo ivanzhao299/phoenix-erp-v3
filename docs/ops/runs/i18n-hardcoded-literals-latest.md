@@ -1,11 +1,11 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-12T17:07:07.467Z
+Generated: 2026-07-12T17:23:20.225Z
 
-Total findings: 3155
-Auto-translatable by runtime bridge: 3142
-Still requiring componentization or dictionary modeling: 13
-Affected files: 177
+Total findings: 3163
+Auto-translatable by runtime bridge: 3155
+Still requiring componentization or dictionary modeling: 8
+Affected files: 176
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
 
@@ -43,6 +43,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/data-quality/page.tsx` | 27 | 45:优秀<br>46:良好<br>47:及格<br>48:需整改<br>62:主数据<br>63:主数据<br>64:主数据<br>65:主数据 |
 | `apps/web/src/app/(admin)/master-data/page.tsx` | 27 | 80:组织中心<br>81:集团 / 公司 / 项目 / 用户授权<br>86:组织架构<br>91:公司档案<br>96:项目档案<br>102:商业主体中心<br>103:客户 / 供应商 / 门店<br>108:客户档案 |
 | `apps/web/src/app/(admin)/workflow/definitions/page.tsx` | 26 | 14:财务<br>14:采购<br>14:合同<br>14:人事<br>14:仓储<br>14:品控<br>14:门店<br>14:养殖 |
+| `apps/web/src/app/(admin)/sales2/customers/page.tsx` | 25 | 17:直营店<br>20:经销商<br>23:代理商<br>26:大客户<br>29:散客零售<br>33:正常<br>36:观察<br>39:黑名单 |
 | `apps/web/src/app/(admin)/workflow/start/page.tsx` | 25 | 49:全部<br>63:全部<br>68:全部<br>75:无必填项<br>397:财务<br>398:采购<br>399:合同<br>400:人事 |
 | `apps/web/src/components/settings/UserOrgBindingPanel.tsx` | 25 | 43:个人<br>43:仅本人数据<br>44:项目<br>44:所属项目数据<br>45:公司<br>45:所属公司数据<br>46:区域<br>46:区域汇总数据 |
 | `apps/web/src/components/workflow/WorkflowDataView.tsx` | 25 | 63:数据源匹配中或暂无名称<br>76:金额<br>77:费用类型<br>78:门店<br>79:申请原因<br>80:物料/商品<br>81:数量<br>82:预算金额 |
@@ -51,7 +52,6 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx` | 24 | 131:待分配<br>139:暂无待处理节点<br>140:无待处理人<br>141:流程当前无需人工处理<br>143:从发起到当前的运行时长<br>149:等待审批处理<br>150:等待系统流转<br>151:流程已完成 |
 | `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 22:草稿<br>26:审批中<br>30:已批准<br>34:生效中<br>38:已失效<br>42:已取消<br>49:0号蛋<br>50:1号蛋 |
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
-| `apps/web/src/app/(admin)/sales2/customers/page.tsx` | 22 | 17:直营店<br>20:经销商<br>23:代理商<br>26:大客户<br>29:散客零售<br>33:正常<br>36:观察<br>39:黑名单 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |

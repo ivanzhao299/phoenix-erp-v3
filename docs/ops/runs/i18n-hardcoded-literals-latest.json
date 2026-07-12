@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-12T17:07:07.467Z",
+  "generated_at": "2026-07-12T17:23:20.225Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3155,
-  "auto_translatable_findings": 3142,
-  "manual_componentization_findings": 13,
-  "affected_files": 177,
+  "total_findings": 3163,
+  "auto_translatable_findings": 3155,
+  "manual_componentization_findings": 8,
+  "affected_files": 176,
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -1867,6 +1867,68 @@
       ]
     },
     {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "count": 25,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 17,
+          "kind": "string-literal",
+          "text": "直营店",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 20,
+          "kind": "string-literal",
+          "text": "经销商",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 23,
+          "kind": "string-literal",
+          "text": "代理商",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 26,
+          "kind": "string-literal",
+          "text": "大客户",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 29,
+          "kind": "string-literal",
+          "text": "散客零售",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 33,
+          "kind": "string-literal",
+          "text": "正常",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 36,
+          "kind": "string-literal",
+          "text": "观察",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+          "line": 39,
+          "kind": "string-literal",
+          "text": "黑名单",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
       "file": "apps/web/src/app/(admin)/workflow/start/page.tsx",
       "count": 25,
       "samples": [
@@ -2358,68 +2420,6 @@
           "line": 21,
           "kind": "string-literal",
           "text": "养殖",
-          "auto_translatable": true
-        }
-      ]
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "count": 22,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 17,
-          "kind": "string-literal",
-          "text": "直营店",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 20,
-          "kind": "string-literal",
-          "text": "经销商",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 23,
-          "kind": "string-literal",
-          "text": "代理商",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 26,
-          "kind": "string-literal",
-          "text": "大客户",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 29,
-          "kind": "string-literal",
-          "text": "散客零售",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 33,
-          "kind": "string-literal",
-          "text": "正常",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 36,
-          "kind": "string-literal",
-          "text": "观察",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-          "line": 39,
-          "kind": "string-literal",
-          "text": "黑名单",
           "auto_translatable": true
         }
       ]
@@ -11041,98 +11041,119 @@
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 46,
+      "line": 43,
       "kind": "string-literal",
       "text": "正常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 50,
+      "line": 46,
       "kind": "string-literal",
       "text": "冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 54,
+      "line": 49,
       "kind": "string-literal",
       "text": "黑名单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 60,
-      "kind": "string-literal",
-      "text": "直营",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 63,
-      "kind": "string-literal",
-      "text": "经销",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 66,
-      "kind": "string-literal",
-      "text": "代理",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 69,
-      "kind": "string-literal",
-      "text": "零售",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 76,
-      "kind": "string-literal",
-      "text": "启用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 80,
-      "kind": "string-literal",
-      "text": "停用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 849,
+      "line": 56,
       "kind": "string-literal",
       "text": "正常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 854,
+      "line": 60,
+      "kind": "string-literal",
+      "text": "冻结",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 64,
+      "kind": "string-literal",
+      "text": "黑名单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 70,
+      "kind": "string-literal",
+      "text": "直营",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 73,
+      "kind": "string-literal",
+      "text": "经销",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 76,
+      "kind": "string-literal",
+      "text": "代理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 79,
+      "kind": "string-literal",
+      "text": "零售",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 86,
+      "kind": "string-literal",
+      "text": "启用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 90,
+      "kind": "string-literal",
+      "text": "停用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 920,
+      "kind": "string-literal",
+      "text": "正常",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "line": 925,
       "kind": "string-literal",
       "text": "预警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 859,
+      "line": 930,
       "kind": "string-literal",
       "text": "超额度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 864,
+      "line": 935,
       "kind": "string-literal",
       "text": "逾期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-      "line": 869,
+      "line": 940,
       "kind": "string-literal",
       "text": "冻结",
       "auto_translatable": true
@@ -19016,7 +19037,7 @@
       "file": "apps/web/src/components/layout/Sidebar.tsx",
       "line": 119,
       "kind": "string-literal",
-      "text": "手工入库",
+      "text": "入库管理",
       "auto_translatable": true
     },
     {
@@ -22198,74 +22219,32 @@
       "auto_translatable": true
     },
     {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 19,
-      "kind": "string-literal",
-      "text": "严重外伤",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 20,
-      "kind": "string-literal",
-      "text": "患病",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 21,
-      "kind": "string-literal",
-      "text": "产蛋率低",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 22,
-      "kind": "string-literal",
-      "text": "老龄",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 26,
-      "kind": "string-literal",
-      "text": "其他原因",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/lib/breeding-daily.test.ts",
-      "line": 26,
-      "kind": "string-literal",
-      "text": "其他原因",
-      "auto_translatable": true
-    },
-    {
       "file": "apps/web/src/lib/breeding-daily.ts",
       "line": 6,
       "kind": "string-literal",
       "text": "产蛋率低",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/breeding-daily.ts",
       "line": 7,
       "kind": "string-literal",
       "text": "患病",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/breeding-daily.ts",
       "line": 8,
       "kind": "string-literal",
       "text": "老龄",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/breeding-daily.ts",
       "line": 9,
       "kind": "string-literal",
       "text": "严重外伤",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/breeding-daily.ts",
@@ -23262,39 +23241,11 @@
       "auto_translatable": true
     },
     {
-      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
-      "line": 13,
-      "kind": "string-literal",
-      "text": "¥1.3万",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
-      "line": 27,
-      "kind": "string-literal",
-      "text": "可上线",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
-      "line": 28,
-      "kind": "string-literal",
-      "text": "3 项阻塞",
-      "auto_translatable": false
-    },
-    {
-      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
-      "line": 29,
-      "kind": "string-literal",
-      "text": "0 项阻塞",
-      "auto_translatable": false
-    },
-    {
       "file": "apps/web/src/lib/pilot-run-ui.ts",
       "line": 28,
       "kind": "string-literal",
       "text": "可上线",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/shareholder-api.ts",
@@ -23630,6 +23581,111 @@
       "line": 92,
       "kind": "string-literal",
       "text": "万象屠宰加工厂",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 4,
+      "kind": "string-literal",
+      "text": "库存调整",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 5,
+      "kind": "string-literal",
+      "text": "蛋品入库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 6,
+      "kind": "string-literal",
+      "text": "蛋品冲销",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 7,
+      "kind": "string-literal",
+      "text": "养殖入库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 8,
+      "kind": "string-literal",
+      "text": "养殖用药出库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 9,
+      "kind": "string-literal",
+      "text": "养殖冲销",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "药品入库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "药品出库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "包装完成入库",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 13,
+      "kind": "string-literal",
+      "text": "包装入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 14,
+      "kind": "string-literal",
+      "text": "销售出库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 15,
+      "kind": "string-literal",
+      "text": "报废",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "临时生产入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "调拨入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "line": 18,
+      "kind": "string-literal",
+      "text": "调拨出库",
       "auto_translatable": true
     },
     {
