@@ -3,18 +3,19 @@
 | Field | Value |
 | --- | --- |
 | Task | BUGTASK-20260708-0007-A3 |
-| Trigger task | BUGTASK-20260708-0007-A3 |
+| Trigger task | BUGTASK-20260708-0001-A3 |
 | Agent | A3-Backend-Critical-Path |
 | Original worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-a3` |
-| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0007-A3-20260710085343` |
-| Quarantine branch | `codex/quarantine/bugtask-20260708-0007-a3-20260710085343` |
+| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260708-0007-A3-20260712111440` |
+| Quarantine branch | `codex/quarantine/bugtask-20260708-0007-a3-20260712111440` |
 | Clean execution slot recreated | Yes |
 
 ## Preserved status
 
 ```text
-?? apps/api/node_modules
-?? node_modules
+M apps/api/src/modules/sales-v2/services/sales-orders.service.ts
+?? apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts
+?? docs/ops/runs/bugtask-20260708-0007-a3-backend-report.md
 ```
 
 ## Decision
