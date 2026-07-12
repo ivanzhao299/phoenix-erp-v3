@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+import { filterRunnerRuntimeStatus } from './bug-intake-local-runner.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
@@ -174,7 +175,7 @@ function checkWorktree(task) {
   if (!inside.ok || inside.output !== 'true') result.errors.push('not a git worktree');
   result.branch = safeGit(['branch', '--show-current'], task.worktree).output;
   if (result.branch !== task.branch) result.errors.push(`wrong branch: ${result.branch}`);
-  const status = safeGit(['status', '--short'], task.worktree).output;
+  const status = filterRunnerRuntimeStatus(safeGit(['status', '--short'], task.worktree).output);
   result.clean = status === '';
   if (!result.clean) result.errors.push(`dirty worktree: ${status}`);
   const ancestor = safeGit(['merge-base', '--is-ancestor', task.branch, 'origin/main'], task.worktree);
