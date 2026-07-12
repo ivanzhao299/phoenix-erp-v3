@@ -1,11 +1,11 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-10T05:29:43.626Z
+Generated: 2026-07-12T16:47:37.031Z
 
-Total findings: 3133
-Auto-translatable by runtime bridge: 3133
-Still requiring componentization or dictionary modeling: 0
-Affected files: 171
+Total findings: 3140
+Auto-translatable by runtime bridge: 3139
+Still requiring componentization or dictionary modeling: 1
+Affected files: 174
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
 
@@ -59,7 +59,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/store-payment/page.tsx` | 20 | 24:万象直营店<br>162:附件预览待安全授权开通。<br>163:当前文件不可预览或下载。<br>164:权限不足，无法访问附件。<br>166:安全策略禁止裸链接访问。<br>168:当前仅显示受控附件状态。<br>214:文件元数据未配置<br>225:安全策略禁止裸链接访问 |
 | `apps/web/src/components/uat/FeedbackWidget.tsx` | 20 | 23:🐞 功能异常<br>24:💡 改进建议<br>25:❓ 操作疑问<br>26:📊 数据问题<br>29:低 · 不影响使用<br>30:中 · 有点别扭<br>31:高 · 影响干活<br>32:紧急 · 干不下去了 |
 | `apps/web/src/app/(admin)/breeding/device-alerts/page.tsx` | 19 | 73:实时<br>77:延迟<br>81:陈旧<br>85:无数据<br>101:环境<br>106:控制<br>111:饲喂<br>116:饮水 |
-| `apps/web/src/app/(admin)/finance2/ap/page.tsx` | 19 | 140:未到期<br>144:逾期 ≤30天<br>148:逾期 31-60天<br>152:逾期 61-90天<br>156:逾期 >90天<br>165:手工<br>169:采购订单<br>173:费用 |
+| `apps/web/src/app/(admin)/finance2/ap/page.tsx` | 19 | 141:未到期<br>145:逾期 ≤30天<br>149:逾期 31-60天<br>153:逾期 61-90天<br>157:逾期 >90天<br>166:手工<br>170:采购订单<br>174:费用 |
 | `apps/web/src/app/(admin)/sales2/returns/page.tsx` | 18 | 94:草稿<br>98:已提交<br>102:待审批<br>106:质检中<br>110:回库中<br>114:已完成<br>118:已拒绝<br>122:已取消 |
 | `apps/web/src/app/(admin)/procurement2/suppliers/page.tsx` | 17 | 52:集团共享<br>58:公司专用<br>64:项目专用<br>72:老挝 LA<br>75:中国 CN<br>78:泰国 TH<br>81:越南 VN<br>84:美国 US |
 | `apps/web/src/app/(admin)/sales2/delivery/page.tsx` | 17 | 49:待装车<br>55:装车中<br>61:已装车<br>67:已发车<br>73:已到达<br>79:部分签收<br>85:已完成<br>91:已取消 |
