@@ -12919,7 +12919,8 @@
     ],
     "quarantined_at": "2026-07-11T08:58:00.645Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260710-0001-A1",
@@ -13020,7 +13021,8 @@
         "source_bug_no": "BUG-20260710-0001",
         "source_repair_task_no": "BUGTASK-20260710-0001"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A3",
