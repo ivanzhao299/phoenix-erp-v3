@@ -23,22 +23,25 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0001-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A3-worker-assembled-prompt.md
-Assembled prompt chars: 23723
+Assembled prompt chars: 23737
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-40-14-506Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUG-20260708-0001`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-47-35-552Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for `BUG-20260708-0001`.
 
-Changed:
-- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:132): `confirmInbound` now bridges header-only manual inbound records (`wms_inbound.item` + `qty`) into the existing `inv_batches` / `inv_ledger` write path when no detail `items` are posted.
-- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:49): added regression coverage for the header-only inbound confirmation case.
-- [BUG-20260708-0001-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md:1): task report with root cause, changed files, validation, and `PASS WITH CONDITIONS`.
+Backend fix implemented in:
+- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts)
+- [generic-crud.module.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.module.ts)
+- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts)
+- Report: [BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md)
+
+Root cause: `PUT /api/crud/wms_inbound/...` could mark an inbound row `COMPLETED` through generic CRUD without going through `WmsService.confirmInbound()`, so `inv_batches`/`inv_ledger` were not created and `/warehouse/query` could not see the inbound item.
 
 Validation:
-- `cd apps/api && pnpm test -- wms.service.spec.ts` passed: 1 suite, 3 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed with 0 errors.
+- `cd apps/api && pnpm test -- generic-crud.controller.spec.ts --runInBand` PASS, 10 tests.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS.
 
-No migrations, schema/entity changes, DB writes, deploys, pushes, or frontend edits. Result is `PASS WITH CONDITIONS`: backend local validation passed, but final bug resolution still needs CI/CD, production smoke, and business acceptance.
+No migrations, schema/entity changes, DB writes, deploys, pushes, or task-board changes. Pre-existing untracked `node_modules` entries were left untouched. Final resolution still requires CI/CD, production or staging smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f561e-b4af-7c10-9fee-ac3513cdf3c6
+session id: 019f56c9-7001-73f2-a0e8-992e150437d3
 --------
 user
 # Base Agent Prompt
@@ -495,7 +498,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "a",
             "path": ".sideb
-...<truncated 413293 chars>
+...<truncated 680965 chars>
 
 ```
 
@@ -507,24 +510,26 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1199,
-  "beforeHead": "02ecb03305aeafd6750f5e0b592cd6bec5351ebd",
-  "afterHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
-  "commitHash": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+  "responseChars": 1343,
+  "beforeHead": "f8a45bbc1d7c10865d23a5f8d0d8e7ab4359838b",
+  "afterHead": "a791143e5e3b143f3cf6d2cae86dc2ac69cc58b9",
+  "commitHash": "a791143e5e3b143f3cf6d2cae86dc2ac69cc58b9",
   "changedFiles": [
-    "apps/api/src/modules/wms/wms.service.spec.ts",
-    "apps/api/src/modules/wms/wms.service.ts",
-    "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.module.ts",
+    "docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessChangedFiles": [
-    "apps/api/src/modules/wms/wms.service.spec.ts",
-    "apps/api/src/modules/wms/wms.service.ts"
+    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.module.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+    "docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:40:14.672Z",
+  "checkedAt": "2026-07-12T14:47:35.716Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -539,19 +544,21 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": true,
   "files": [
-    "apps/api/src/modules/wms/wms.service.spec.ts",
-    "apps/api/src/modules/wms/wms.service.ts",
-    "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.module.ts",
+    "docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessFiles": [
-    "apps/api/src/modules/wms/wms.service.spec.ts",
-    "apps/api/src/modules/wms/wms.service.ts"
+    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+    "apps/api/src/modules/generic-crud/generic-crud.module.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+    "docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
-  "commitHash": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+  "commitHash": "a791143e5e3b143f3cf6d2cae86dc2ac69cc58b9",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 1534d82a] fix(api): repair BUG-20260708-0001\n 3 files changed, 133 insertions(+), 7 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+  "output": "[codex/bug-intake-a3 a791143e] fix(api): repair BUG-20260708-0001\n 4 files changed, 152 insertions(+)\n create mode 100644 docs/ops/BUG-20260708-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
 }
 ```

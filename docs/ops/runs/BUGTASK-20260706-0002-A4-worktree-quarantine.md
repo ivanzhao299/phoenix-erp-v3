@@ -3,23 +3,21 @@
 | Field | Value |
 | --- | --- |
 | Task | BUGTASK-20260706-0002-A4 |
-| Trigger task | BUGTASK-20260707-0001-A4 |
+| Trigger task | BUGTASK-20260707-0010-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Original worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-a4` |
-| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260706-0002-A4-20260710061718` |
-| Quarantine branch | `codex/quarantine/bugtask-20260706-0002-a4-20260710061718` |
+| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260706-0002-A4-20260712144421` |
+| Quarantine branch | `codex/quarantine/bugtask-20260706-0002-a4-20260712144421` |
 | Clean execution slot recreated | Yes |
 
 ## Preserved status
 
 ```text
-M apps/web/src/app/(admin)/home/page.tsx
-?? apps/web/src/lib/home-farm-kpi.test.ts
-?? apps/web/src/lib/home-farm-kpi.ts
-?? docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md
-?? docs/ops/runs/BUGTASK-20260706-0002-a4-frontend-uat-smoke.md
+M docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md
 ```
 
 ## Decision
 
-The files belonged to `BUGTASK-20260706-0002-A4`, not the trigger task. They were preserved, validated, and committed as `8fe70ddf`; no file was silently discarded or attributed to the next bug.
+HOLD. The incomplete files are preserved for diagnosis. They were not committed, merged, pushed, or deployed. A fresh dedicated worktree is created from `origin/main` only when every preservation step succeeds.
+
+
