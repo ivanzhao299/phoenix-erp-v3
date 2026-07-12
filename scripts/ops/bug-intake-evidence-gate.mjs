@@ -27,12 +27,17 @@ function unique(values) {
 
 function normalizedConclusion(text) {
   const value = String(text || '').toUpperCase();
-  if (/\bFAIL\b/.test(value)) return 'FAIL';
-  if (/\bHOLD\b/.test(value)) return 'HOLD';
-  if (/\bGO WITH CONDITIONS\b/.test(value)) return 'GO_WITH_CONDITIONS';
-  if (/\bPASS WITH CONDITIONS\b/.test(value)) return 'PASS_WITH_CONDITIONS';
-  if (/\bGO\b/.test(value)) return 'GO';
-  if (/\bPASS\b/.test(value)) return 'PASS';
+  const candidates = [
+    ['PASS_WITH_CONDITIONS', /\bPASS WITH CONDITIONS\b/],
+    ['GO_WITH_CONDITIONS', /\bGO WITH CONDITIONS\b/],
+    ['HOLD', /\bHOLD\b/],
+    ['FAIL', /\bFAIL\b/],
+    ['PASS', /\bPASS\b/],
+    ['GO', /\bGO\b/],
+  ].map(([conclusion, pattern]) => ({ conclusion, index: value.search(pattern) }))
+    .filter((item) => item.index >= 0)
+    .sort((a, b) => a.index - b.index);
+  if (candidates.length > 0) return candidates[0].conclusion;
   return '';
 }
 

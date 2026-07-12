@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
-import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import { filterRunnerRuntimeFiles, filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
@@ -81,7 +81,7 @@ function dirtyFiles(cwd) {
     if (!result.ok) return { ok: false, files: [], error: result.output };
     files.push(...result.output.split('\n').map((item) => item.trim()).filter(Boolean));
   }
-  return { ok: true, files: [...new Set(files)] };
+  return { ok: true, files: filterRunnerRuntimeFiles([...new Set(files)]) };
 }
 
 function matchesPathRule(file, rule) {

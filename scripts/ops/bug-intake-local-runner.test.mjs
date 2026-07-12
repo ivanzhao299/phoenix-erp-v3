@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
 test('runner-created dependency links do not make a worktree dirty', () => {
   assert.equal(filterRunnerRuntimeStatus([
@@ -56,4 +57,17 @@ test('business HOLD and release agents are never auto-redispatched', () => {
   assert.deepEqual(selectAutomaticRedispatchCandidates([base], [{
     source: 'bug-intake', source_bug_no: base.bugNo, route_active: true, agent: 'A7-Final-QA-Gate', status: 'HOLD', redispatch_count: 0, reason: 'security review failed',
   }]), []);
+});
+
+test('explicit leading PASS is not overridden by later fail-fast wording', () => {
+  const evidence = evaluateWorkerEvidence({
+    task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },
+    exitCode: 0,
+    stdout: 'Run log: x\nPASS WITH CONDITIONS. Required columns still fail fast.',
+    beforeHead: 'a',
+    afterHead: 'b',
+    changedFiles: ['apps/api/src/x.ts', 'docs/ops/BUG-X_A3_REPORT.md'],
+  });
+  assert.equal(evidence.conclusion, 'PASS_WITH_CONDITIONS');
+  assert.equal(evidence.passed, true);
 });

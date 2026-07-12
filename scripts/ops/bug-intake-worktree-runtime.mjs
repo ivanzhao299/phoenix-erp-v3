@@ -15,3 +15,7 @@ export function filterRunnerRuntimeStatus(statusOutput) {
     .filter(Boolean)
     .join('\n');
 }
+
+export function filterRunnerRuntimeFiles(files) {
+  return (files || []).filter((file) => !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(String(file || '').replace(/\/$/, '')));
+}
