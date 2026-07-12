@@ -17517,7 +17517,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -17538,8 +17538,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T10:41:45.424Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260711-0002-A3-detached-worker-recovery.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -17553,7 +17553,7 @@
     ],
     "redispatch_count": 2,
     "last_redispatch_at": "2026-07-12T10:41:10.904Z",
-    "reason": null,
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=1",
     "quarantined_at": "2026-07-11T06:26:24.360Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
     "remote_repair_status": "HOLD",

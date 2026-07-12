@@ -1,66 +1,16 @@
 {
-  "decision": "BUG_AGENT_RESULT_WRITEBACK_DRY_RUN",
-  "bugNo": "BUG-20260707-0004",
-  "endpoint": null,
+  "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
+  "bugNo": "BUG-20260711-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260707-0004-A3",
+    "taskId": "BUGTASK-20260711-0002-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260707-0004-A3-worker-log.md",
-    "commitHash": "6ce84520f986d7e0b2bae9709993d0e8577e7e79",
-    "changedFiles": [
-      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-      "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-      "apps/api/src/modules/org/guards/data-scope.guard.spec.ts",
-      "apps/api/src/modules/org/guards/data-scope.guard.ts",
-      "apps/api/src/modules/wms/inventory.controller.ts",
-      "apps/api/src/modules/wms/wms.service.spec.ts",
-      "apps/api/src/modules/wms/wms.service.ts",
-      "docs/ops/BUG-20260707-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-    ],
-    "validationResults": {
-      "evidenceGate": {
-        "version": 1,
-        "agent": "A3-Backend-Critical-Path",
-        "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1704,
-        "beforeHead": "dc69ceb7a66e8f114ea394527296c3eb12550639",
-        "afterHead": "6ce84520f986d7e0b2bae9709993d0e8577e7e79",
-        "commitHash": "6ce84520f986d7e0b2bae9709993d0e8577e7e79",
-        "changedFiles": [
-          "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-          "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-          "apps/api/src/modules/org/guards/data-scope.guard.spec.ts",
-          "apps/api/src/modules/org/guards/data-scope.guard.ts",
-          "apps/api/src/modules/wms/inventory.controller.ts",
-          "apps/api/src/modules/wms/wms.service.spec.ts",
-          "apps/api/src/modules/wms/wms.service.ts",
-          "docs/ops/BUG-20260707-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-        ],
-        "businessChangedFiles": [
-          "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-          "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-          "apps/api/src/modules/org/guards/data-scope.guard.spec.ts",
-          "apps/api/src/modules/org/guards/data-scope.guard.ts",
-          "apps/api/src/modules/wms/inventory.controller.ts",
-          "apps/api/src/modules/wms/wms.service.spec.ts",
-          "apps/api/src/modules/wms/wms.service.ts"
-        ],
-        "reportFiles": [
-          "docs/ops/BUG-20260707-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-        ],
-        "parentCommitRecovered": false,
-        "checkedAt": "2026-07-10T07:00:05.666Z",
-        "passed": true,
-        "role": "implementation",
-        "terminalStatus": "IMPLEMENTATION_COMPLETED",
-        "reason": "Business change, task report, commit, and conclusion are present"
-      },
-      "queueStatus": "COMPLETED_MERGED",
-      "integratedCommit": "53a524f2772edd49467c6a749bd0c53e451f03a8"
-    },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260707-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260707-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260707-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260707-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260707-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 21585\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-00-05-500Z-A3-Backend-Critical-Path.md\nImplemented the backend repair for `BUG-20260707-0004` with scoped changes only under `apps/api/**` and `docs/ops/**`.\n\nChanged:\n- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts): inventory reads now use `COALESCE(qty_available, qty, 0) > 0`.\n- [inventory.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/inventory.controller.ts): read-only inventory batch endpoints accept `MENU_INV_BATCH` / `MENU_WMS_INOUT` alternatives.\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller",
+    "resultFile": "docs/ops/runs/BUGTASK-20260711-0002-A3-detached-worker-recovery.md",
+    "commitHash": "",
+    "changedFiles": [],
+    "validationResults": null,
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260711-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
     "nextAction": ""
   }
 }
