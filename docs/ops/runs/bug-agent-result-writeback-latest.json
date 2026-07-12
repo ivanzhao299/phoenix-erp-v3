@@ -1,38 +1,57 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260711-0002",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0002/agent-result",
+  "bugNo": "BUG-20260708-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260711-0002-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260708-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260711-0002-A3-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A4-worker-log.md",
+    "commitHash": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
+    "changedFiles": [
+      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+      "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+      "apps/web/src/lib/warehouse-query.test.ts",
+      "apps/web/src/lib/warehouse-query.ts",
+      "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1340,
-        "beforeHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
-        "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "responseChars": 1743,
+        "beforeHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
+        "afterHead": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
+        "commitHash": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+          "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+          "apps/web/src/lib/warehouse-query.test.ts",
+          "apps/web/src/lib/warehouse-query.ts",
+          "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+          "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+          "apps/web/src/lib/warehouse-query.test.ts",
+          "apps/web/src/lib/warehouse-query.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T11:51:18.023Z",
-        "passed": false,
+        "checkedAt": "2026-07-12T11:54:22.502Z",
+        "passed": true,
         "role": "implementation",
-        "terminalStatus": "HOLD",
-        "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "HOLD",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260711-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26059\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-51-17-932Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend repair for `BUG-20260711-0002`.\n\nChanged:\n- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts): medicine inbound/outbound now probes `inv_ledger` optional columns and builds ledger SQL only for columns that exist, so missing `log_date` / `warehouse_code` / `house_code` no longer rolls back the stock update.\n- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts): added focused regressions for optional-column absence and ledger fallback reads.\n- [BUGTASK-20260711-0002-A3-backend-report.",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23790\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-54-22-073Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS for the A4 frontend scope.\n\nImplemented the frontend repair in:\n- [warehouse-query.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-query.ts)\n- [warehouse-query.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-query.test.ts)\n- [query/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/query/page.tsx)\n- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx)\n\nWhat changed:\n- `/warehouse/query` now searches and displays inbound-compatible item aliases: `item`, `sku_code`, `mat",
     "nextAction": ""
   }
 }
