@@ -25,7 +25,7 @@ describe("workflow todo helpers", () => {
       items: [{
         taskSource: "APPROVAL_ENGINE",
         taskId: "PR2-20260707-00002",
-        subject: "采购测试2",
+        subject: "Procurement test 2",
       }],
       total: 0,
       page: 1,

@@ -13492,5 +13492,10 @@
   "ui.入库单缺少产品编码无法确认": "The inbound document has no product code and cannot be confirmed",
   "ui.入库数量必须大于0": "Inbound quantity must be greater than 0",
   "ui.入库确认失败": "Inbound confirmation failed",
-  "ui.确认后将写入库存查询": "Confirmation writes to the inventory ledger and makes the stock searchable"
+  "ui.确认后将写入库存查询": "Confirmation writes to the inventory ledger and makes the stock searchable",
+  "fin2.ap.status_open": "Unpaid",
+  "fin2.ap.status_partially_paid": "Partially paid",
+  "fin2.ap.status_paid": "Paid",
+  "fin2.ap.status_disputed": "Disputed",
+  "fin2.ap.status_cancelled": "Cancelled"
 }
