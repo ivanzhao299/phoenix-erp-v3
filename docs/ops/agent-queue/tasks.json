@@ -12960,7 +12960,7 @@
     "quarantined_at": "2026-07-11T08:58:00.645Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null
   },
   {
@@ -13088,7 +13088,7 @@
         "source_repair_task_no": "BUGTASK-20260710-0001"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
@@ -13213,7 +13213,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -13342,7 +13342,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -13458,7 +13458,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -13598,7 +13598,7 @@
       }
     ],
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null
   },
   {
@@ -13698,7 +13698,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0003"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
@@ -13822,7 +13822,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
@@ -13951,7 +13951,7 @@
       }
     ],
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null
   },
   {
@@ -14060,7 +14060,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
@@ -14169,7 +14169,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -14261,7 +14261,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0001"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14388,7 +14388,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "retry_after": null
   },
@@ -14505,7 +14505,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14620,7 +14620,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14734,7 +14734,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14865,7 +14865,7 @@
       }
     ],
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null
   },
   {
@@ -14980,7 +14980,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -15102,7 +15102,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -15208,7 +15208,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0005"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -15319,7 +15319,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -15411,7 +15411,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0004"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -15525,7 +15525,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -15651,7 +15651,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0003"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -15767,7 +15767,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0003"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -15874,7 +15874,7 @@
       }
     ],
     "baseline_autopilot_skipped": "not applicable to this Agent ownership boundary",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260708-0002-A4",
@@ -15998,7 +15998,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0002"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -16107,7 +16107,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0002"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -16216,7 +16216,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -16327,7 +16327,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -16422,7 +16422,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -16505,7 +16505,7 @@
       "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
     ],
     "reason": "verified integrated implementation evidence",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "49dd3552f5416df2ac4ecd74654753c136397e3e",
     "integrated_at": "2026-07-12T18:10:20.812Z",
     "baseline_autopilot_exit_code": 0,
@@ -16585,7 +16585,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T14:27:17.374Z",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -16704,7 +16704,7 @@
     "implementation_commit": "",
     "changed_files": [],
     "reason": null,
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "",
     "integrated_at": null,
     "baseline_autopilot_exit_code": 0,
@@ -16798,7 +16798,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T15:56:33.806Z",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "quarantined_at": "2026-07-10T08:54:01.403Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
@@ -16932,7 +16932,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T15:56:33.806Z",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -17074,7 +17074,7 @@
       "docs/ops/BUG-20260707-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md"
     ],
     "reason": null,
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "0253bf3e8c65fd674d1468c3fd7fea8dc188fb9a",
     "integrated_at": "2026-07-12T14:34:25.129Z",
     "baseline_autopilot_exit_code": 0,
@@ -17158,7 +17158,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -17261,7 +17261,7 @@
       "docs/ops/BUG-20260707-0006_A4_FRONTEND_UIUX_UAT_REDISPATCH_REPORT.md"
     ],
     "reason": null,
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "626c44f25beb8ab471faf7c6b2a0c1f6c43c44d9",
     "integrated_at": "2026-07-12T17:02:10.505Z",
     "baseline_autopilot_exit_code": 0,
@@ -17345,7 +17345,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -19086,7 +19086,7 @@
     "incomplete_worktree_detected_at": "2026-07-10T05:22:51.523Z",
     "quarantined_at": "2026-07-10T05:49:05.278Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "",
     "integrated_at": null,
     "baseline_autopilot_exit_code": 0,
@@ -19227,7 +19227,7 @@
     "integrated_commit": "c769ff773e8a2f0728cc8ae2ec102cd2cba2c0a5",
     "integrated_at": "2026-07-12T15:40:31.752Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_exit_code": 0,
     "quarantined_at": "2026-07-12T15:27:44.030Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
@@ -19347,7 +19347,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -19592,7 +19592,7 @@
     "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-11T00:50:56.989Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -19750,7 +19750,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -19830,7 +19830,7 @@
     "reason": null,
     "quarantined_at": "2026-07-12T11:51:23.954Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -19986,7 +19986,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -20254,7 +20254,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T02:04:01.673Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -20377,7 +20377,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T02:04:06.917Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -20521,7 +20521,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -20607,7 +20607,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T05:52:43.909Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -20739,7 +20739,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -20878,7 +20878,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -20996,7 +20996,7 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -21098,7 +21098,7 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
