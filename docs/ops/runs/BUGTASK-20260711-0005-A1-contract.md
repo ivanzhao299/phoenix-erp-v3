@@ -1213,11 +1213,11 @@ Assigned agent: A1-CI-Runtime-Gate
   "failureClassification": null,
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T10:44:40.113Z",
+    "approvedAt": "2026-07-12T14:27:22.864Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Controlled recovery after parent and child runtime dependency false-dirty fix; retain original scope and safety gates.",
-    "redispatchCount": 2,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

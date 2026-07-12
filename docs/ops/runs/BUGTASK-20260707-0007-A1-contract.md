@@ -912,11 +912,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:06.172Z",
+    "approvedAt": "2026-07-12T14:27:18.427Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-    "redispatchCount": 2,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

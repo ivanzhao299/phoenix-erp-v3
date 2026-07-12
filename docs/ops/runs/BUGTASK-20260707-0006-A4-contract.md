@@ -1188,11 +1188,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-10T04:38:04.924Z",
+    "approvedAt": "2026-07-12T14:27:18.959Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "User approved strict-evidence repair of reconciled false completions. Business code only within generated Agent contract; no migration, DB write, force push, or direct deploy outside CI/CD.",
-    "redispatchCount": 1,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

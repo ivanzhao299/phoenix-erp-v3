@@ -682,11 +682,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "failureClassification": null,
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T10:44:37.867Z",
+    "approvedAt": "2026-07-12T14:27:20.008Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Controlled recovery after parent and child runtime dependency false-dirty fix; retain original scope and safety gates.",
-    "redispatchCount": 1,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

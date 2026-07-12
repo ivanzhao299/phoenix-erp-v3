@@ -1001,11 +1001,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T10:59:08.993Z",
+    "approvedAt": "2026-07-12T14:27:14.227Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 4,
+    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
