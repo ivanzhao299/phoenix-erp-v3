@@ -1,38 +1,51 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0005",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0005/agent-result",
+  "bugNo": "BUG-20260709-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0005-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260709-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A1-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0001-A4-worker-log.md",
+    "commitHash": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+    "changedFiles": [
+      "apps/web/src/components/layout/Sidebar.tsx",
+      "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
+      "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A1-CI-Runtime-Gate",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 1543,
-        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 997,
+        "beforeHead": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+        "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+        "commitHash": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+        "changedFiles": [
+          "apps/web/src/components/layout/Sidebar.tsx",
+          "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
+          "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/components/layout/Sidebar.tsx",
+          "apps/web/src/lib/warehouse-inbound-menu-label.test.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T17:16:44.650Z",
+        "checkedAt": "2026-07-12T17:19:09.082Z",
         "passed": true,
-        "role": "validation",
-        "terminalStatus": "VALIDATION_COMPLETED",
-        "reason": "Validation evidence recorded; this is not implementation evidence"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "VALIDATION_COMPLETED",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\": ",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 30483\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-19-08-922Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS.\n\nChanged `/warehouse/inbound` sidebar label back to `入库管理` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:119). The page header/breadcrumb and `zh` locale were already aligned. Added a focused regression test in [warehouse-inbound-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-menu-label.test.ts:1).\n\nVerification run:\n- `pnpm --filter web test -- src/lib/warehouse-inbound-menu-label.test.ts` PASS\n- `pnpm --filter web typecheck` PASS\n\nReport written: [BUG-20260709-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktre",
     "nextAction": ""
   }
 }

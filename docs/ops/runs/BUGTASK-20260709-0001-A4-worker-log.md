@@ -23,20 +23,21 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 30469
+Assembled prompt chars: 30483
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-30-26-853Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend repair for `BUG-20260709-0001`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-19-08-922Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS.
 
-Changed [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:119) so `/warehouse/inbound` is back to `入库管理`, and added a regression test in [warehouse-inbound-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-menu-label.test.ts:1). Report written at [BUG-20260709-0001-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260709-0001-a4-frontend-report.md:1) with `PASS WITH CONDITIONS`.
+Changed `/warehouse/inbound` sidebar label back to `入库管理` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:119). The page header/breadcrumb and `zh` locale were already aligned. Added a focused regression test in [warehouse-inbound-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-menu-label.test.ts:1).
 
 Verification run:
-- `pnpm --filter web test -- src/lib/warehouse-inbound-menu-label.test.ts`: PASS
-- `pnpm --filter web typecheck`: PASS
-- `git diff --check ...`: PASS
+- `pnpm --filter web test -- src/lib/warehouse-inbound-menu-label.test.ts` PASS
+- `pnpm --filter web typecheck` PASS
 
-Condition: live desktop/mobile browser smoke could not run because the sandbox blocked local server binding with `listen EPERM 127.0.0.1:3000`. No backend, database, migration, deploy, push, RBAC, DataScope, audit, or attachment ACL changes were made.
+Report written: [BUG-20260709-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md:1).
+
+Condition: live desktop/mobile browser UAT could not run because the sandbox blocked Next.js from listening on both `0.0.0.0:3000` and `127.0.0.1:3300` with `listen EPERM`. No backend, DB, migration, deploy, push, or permission changes were made.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -53,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f564c-b635-78d1-94c8-db8880df97a9
+session id: 019f5754-db24-7380-805d-852a64ae1fb6
 --------
 user
 # Base Agent Prompt
@@ -512,7 +513,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "x": 0,
               "y": 756
        
-...<truncated 256883 chars>
+...<truncated 481909 chars>
 
 ```
 
@@ -524,24 +525,24 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1002,
-  "beforeHead": "874c5f753ffaa0ae0b5a51e03ea798c8912a648b",
-  "afterHead": "611118f114a6221ef03108dfa5a16277e10f3867",
-  "commitHash": "611118f114a6221ef03108dfa5a16277e10f3867",
+  "responseChars": 997,
+  "beforeHead": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+  "afterHead": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
+  "commitHash": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
   "changedFiles": [
     "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
-    "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/warehouse-inbound-menu-label.test.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:30:27.016Z",
+  "checkedAt": "2026-07-12T17:19:09.082Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -558,17 +559,17 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "files": [
     "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
-    "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
   ],
   "businessFiles": [
     "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/warehouse-inbound-menu-label.test.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
   ],
-  "commitHash": "611118f114a6221ef03108dfa5a16277e10f3867",
+  "commitHash": "98c16cf495d0f29cec5c5b2e581ede02d01b985e",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 611118f1] fix(web): repair BUG-20260709-0001\n 3 files changed, 62 insertions(+), 1 deletion(-)\n create mode 100644 apps/web/src/lib/warehouse-inbound-menu-label.test.ts\n create mode 100644 docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+  "output": "[codex/bug-intake-a4 98c16cf4] fix(web): repair BUG-20260709-0001\n 3 files changed, 83 insertions(+), 1 deletion(-)\n create mode 100644 apps/web/src/lib/warehouse-inbound-menu-label.test.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260709-0001-a4-frontend-uat-smoke.md"
 }
 ```
