@@ -231,6 +231,29 @@ export class PriceBooksService {
     return result[0];
   }
 
+  async restoreBook(id: string) {
+    const rec = await this.assertOwnership(id);
+    if (rec.status !== 'CANCELLED') {
+      throw new BadRequestException(`只有 CANCELLED 状态的价格册可恢复，当前状态：${rec.status}`);
+    }
+
+    const [cnt] = await this.ds.query(
+      `SELECT COUNT(*) AS c FROM sal_price_items WHERE price_book_id = $1 AND status = 'ACTIVE'`,
+      [id],
+    );
+    if (Number(cnt.c) === 0) {
+      throw new BadRequestException('价格册无有效明细，不可恢复为在用状态');
+    }
+
+    const result = await this.ds.query(
+      `UPDATE sal_price_books
+       SET status = 'ACTIVE', wf_instance_id = NULL, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id],
+    );
+    return result[0];
+  }
+
   async cancelBook(id: string) {
     const rec = await this.assertOwnership(id);
     if (rec.status === 'CANCELLED') return rec;
@@ -242,5 +265,35 @@ export class PriceBooksService {
       [id],
     );
     return result[0];
+  }
+
+  async deleteBook(id: string) {
+    const rec = await this.assertOwnership(id);
+    if (rec.status !== 'DRAFT') {
+      throw new BadRequestException(`只有 DRAFT 状态的价格册可删除，当前状态：${rec.status}`);
+    }
+
+    const [usage] = await this.ds.query(`
+      SELECT
+        (SELECT COUNT(*) FROM sal_sales_orders WHERE price_book_id = $1) AS order_count,
+        (SELECT COUNT(*) FROM sal_order_items WHERE price_book_id = $1) AS order_item_count
+    `, [id]);
+    const orderCount = Number(usage?.order_count ?? 0);
+    const orderItemCount = Number(usage?.order_item_count ?? 0);
+    if (orderCount > 0 || orderItemCount > 0) {
+      throw new BadRequestException('价格册已被销售单据引用，不可删除');
+    }
+
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(`DELETE FROM sal_price_items WHERE price_book_id = $1`, [id]);
+      await mgr.query(`DELETE FROM sal_price_books WHERE id = $1`, [id]);
+    });
+
+    return {
+      deleted: true,
+      id: String(rec.id),
+      priceBookNo: rec.price_book_no,
+      priceBookName: rec.price_book_name,
+    };
   }
 }

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
@@ -61,6 +61,13 @@ export class SalesPriceBooksController {
     return this.booksSvc.activateBook(id);
   }
 
+  @Post('books/:id/restore')
+  @RequireMenu('MENU_SALES2_PRICE', 'A')
+  @HttpCode(HttpStatus.OK)
+  restoreBook(@Param('id') id: string) {
+    return this.booksSvc.restoreBook(id);
+  }
+
   @Post('books/:id/expire')
   @RequireMenu('MENU_SALES2_PRICE', 'E')
   @HttpCode(HttpStatus.OK)
@@ -73,6 +80,13 @@ export class SalesPriceBooksController {
   @HttpCode(HttpStatus.OK)
   cancelBook(@Param('id') id: string) {
     return this.booksSvc.cancelBook(id);
+  }
+
+  @Delete('books/:id')
+  @RequireMenu('MENU_SALES2_PRICE', 'D')
+  @HttpCode(HttpStatus.OK)
+  deleteBook(@Param('id') id: string) {
+    return this.booksSvc.deleteBook(id);
   }
 
   // ── 价格明细 ─────────────────────────────────────────────────────────────
