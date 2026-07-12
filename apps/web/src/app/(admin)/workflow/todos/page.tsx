@@ -10,6 +10,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { WorkflowFormRenderer, type FormSchema, type UiSchema } from "@/components/workflow/WorkflowFormRenderer";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getWorkflowTodoDisplayTotal } from "@/lib/workflow-todos";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -129,13 +130,6 @@ function fmtAmount(amount: number | string | null, currency: string | null) {
   return `${n.toLocaleString("zh-CN", {
     maximumFractionDigits: 0
   })} ${currency ?? ""}`;
-}
-function getDisplayTotal(resp: TaskListResponse) {
-  const apiTotal = Number.isFinite(Number(resp.total)) ? Number(resp.total) : 0;
-  const currentPage = Math.max(1, Number(resp.page) || 1);
-  const currentPageSize = Math.max(1, Number(resp.pageSize) || 20);
-  const loadedMinimum = (currentPage - 1) * currentPageSize + resp.items.length;
-  return Math.max(apiTotal, loadedMinimum);
 }
 function StatusBadge({
   status
@@ -502,7 +496,7 @@ export default function ApprovalTodosPage() {
     else void handleReassign();
   };
   const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
-  const displayTotal = getDisplayTotal(resp);
+  const displayTotal = getWorkflowTodoDisplayTotal(resp);
   const totalPages = Math.max(1, Math.ceil(displayTotal / PAGE_SIZE));
   return <div>
       <PageHeader title={t('ui.审批待办','审批待办')} subtitle={`${t('ui.我的待审批任务（共','我的待审批任务（共')} ${displayTotal} ${t('ui.条）','条）')}`} breadcrumb={[t('ui.审批中心','审批中心'), t('ui.待办','待办')]} />
