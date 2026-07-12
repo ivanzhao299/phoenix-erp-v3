@@ -23,22 +23,24 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md
-Assembled prompt chars: 29422
+Assembled prompt chars: 29385
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T06-14-01-472Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend-owned change for BUG-20260706-0002, but the task status is **HOLD** because required local web typecheck, Vitest, and desktop/mobile browser smoke are blocked by missing `node_modules` and unavailable offline pnpm tarballs.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-32-24-430Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS / GO for CI handoff.
 
-Changed:
-- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:27): `/home` now delegates farm KPI aggregation to a helper; RBAC/request gates are unchanged.
-- [home-farm-kpi.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.ts:1): added robust frontend normalization for feed/water sources.
-- [home-farm-kpi.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.test.ts:1): added focused regression cases.
-- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/runs/BUGTASK-20260706-0002-a4-frontend-uat-smoke.md:1): documents root cause, files, validation, and HOLD status.
+The frontend fix for `BUG-20260706-0002` is already present on this branch: `/home` now uses `buildHomeFarmKpi` to keep feed and water fallback sources independent, preserving zero values and RBAC-gated IoT loading. I updated the task report with current evidence at [docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md).
 
-Validation:
+Verification run:
+- `./node_modules/.bin/vitest run src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`: PASS, 6/6
+- `./node_modules/.bin/tsc --noEmit`: PASS
 - `git diff --check`: PASS
-- Dependency-free Node regression script for the helper: PASS
-- `pnpm vitest`, `tsc --noEmit`, and browser smoke: BLOCKED because offline install is missing cached packages (`concurrently`, `@radix-ui/primitive`). No deploy, push, DB write, migration, or backend edit was performed.
+
+Conditions:
+- Local browser smoke could not run because sandbox rejected `127.0.0.1:3000` with `listen EPERM`.
+- `npm run build` was blocked by Turbopack resolving `apps/web/node_modules` outside the sandbox filesystem root; the service-worker stamp side effect was reverted.
+- No backend, database, migration, deploy, push, or production action was performed.
+- I am not claiming the production bug is resolved until CI/CD, production route smoke, and business acceptance pass.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f4aa4-1f6b-76a1-9b58-7a4a908c88d6
+session id: 019f56bc-90a5-7dd1-8bed-eb0d37ff1061
 --------
 user
 # Base Agent Prompt
@@ -512,7 +514,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 701
             },
         
-...<truncated 483286 chars>
+...<truncated 464744 chars>
 
 ```
 
@@ -523,20 +525,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1283,
-  "beforeHead": "e1010ad461f6db55b580f906fd1c098779f80078",
-  "afterHead": "e1010ad461f6db55b580f906fd1c098779f80078",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1145,
+  "beforeHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
+  "afterHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-10T06:14:01.589Z",
+  "checkedAt": "2026-07-12T14:32:24.525Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is HOLD"
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -547,11 +549,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "attempted": true,
   "ok": false,
   "files": [
-    "apps/web/src/app/(admin)/home/page.tsx",
-    "apps/web/src/lib/home-farm-kpi.test.ts",
-    "apps/web/src/lib/home-farm-kpi.ts",
-    "docs/ops/runs/BUGTASK-20260706-0002-a4-frontend-uat-smoke.md"
+    "docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md"
   ],
-  "error": "task-specific docs/ops report is missing"
+  "error": "no apps/web/ implementation file"
 }
 ```
