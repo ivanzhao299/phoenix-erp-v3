@@ -12971,7 +12971,7 @@
     "source_repair_task_no": "BUGTASK-20260710-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "HOLD",
+    "status": "VALIDATION_COMPLETED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -12995,7 +12995,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T17:41:55.204Z",
+    "completed_at": "2026-07-12T17:43:42.573Z",
     "result_file": "docs/ops/runs/BUGTASK-20260710-0001-A1-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13014,9 +13014,9 @@
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
-      "exitCode": 1,
+      "exitCode": 0,
       "conclusion": "PASS",
-      "responseChars": 1864,
+      "responseChars": 1580,
       "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
       "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
       "commitHash": "",
@@ -13025,17 +13025,17 @@
       "reportFiles": [],
       "parentCommitRecovered": false,
       "infrastructureFailure": null,
-      "checkedAt": "2026-07-12T17:41:55.203Z",
-      "passed": false,
-      "role": "execution",
-      "terminalStatus": "HOLD",
-      "reason": "Agent process exited with 1"
+      "checkedAt": "2026-07-12T17:43:42.573Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
     },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
     "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T17:31:20.520Z",
     "redispatch_history": [
       {
@@ -13089,7 +13089,8 @@
       }
     ],
     "remote_repair_status": "HOLD",
-    "retry_after": null
+    "retry_after": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A3",
