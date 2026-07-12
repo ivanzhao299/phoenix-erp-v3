@@ -43,11 +43,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 39,
+    "occurrence": 66,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
+    "updated_at": "2026-07-12T19:44:14.851Z"
   },
   {
     "improvement_id": "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
@@ -95,61 +95,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": false,
-    "occurrence": 21,
+    "occurrence": 78,
     "severity": "CRITICAL",
     "status": "OPEN",
     "created_at": "2026-07-12T10:30:37.057Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
-  },
-  {
-    "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
-    "source_pattern_id": "PATTERN-003",
-    "title": "Enforce Agent report schema compliance before decision",
-    "root_cause": "Report schema compliance is not enforced before result parsing.",
-    "proposed_solution": "Normalize and validate required report fields before parse, diagnose, decision, and task board updates.",
-    "risk": "LOW/MEDIUM",
-    "priority": "P0",
-    "owner_recommendation": "A1-CI-Runtime-Gate or Codex-Orchestrator",
-    "allowed_paths": [
-      "scripts/ops/**",
-      "docs/ops/**",
-      "docs/ops/evolution/**",
-      "docs/ops/runs/**",
-      "docs/ops/agent-queue/**"
-    ],
-    "forbidden_paths": [
-      "apps/api/**",
-      "apps/web/**",
-      "apps/api/src/database/migrations/**",
-      "database/**",
-      "infra/**",
-      ".github/**",
-      "Docker",
-      "deploy/**",
-      "auth/**",
-      "schema/entity/table/column"
-    ],
-    "validation_commands": [
-      "node --check scripts/ops/agent-evolution-planner.mjs",
-      "node --check scripts/ops/agent-goal-to-queue.mjs",
-      "node scripts/ops/agent-doctor.mjs",
-      "node scripts/ops/agent-finalize.mjs --apply",
-      "git diff --check",
-      "node scripts/ci/check-w5-closeout-gate.mjs"
-    ],
-    "acceptance_criteria": [
-      "Improvement candidate contains source pattern traceability.",
-      "No business code, migration, DB write, deploy, seed, reset, cleanup, or push is performed.",
-      "Doctor and Finalize expose Evolution Center state.",
-      "Missing report fields are detected and normalized before next-Agent decision."
-    ],
-    "auto_fix_allowed": true,
-    "requires_approval": true,
-    "occurrence": 9,
-    "severity": "MEDIUM",
-    "status": "OPEN",
-    "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
+    "updated_at": "2026-07-12T19:44:14.851Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
@@ -195,11 +145,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 25,
+    "occurrence": 22,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
+    "updated_at": "2026-07-12T19:44:14.851Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
@@ -245,11 +195,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 116,
+    "occurrence": 133,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
+    "updated_at": "2026-07-12T19:44:14.851Z"
   },
   {
     "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
@@ -295,10 +245,60 @@
     ],
     "auto_fix_allowed": false,
     "requires_approval": true,
-    "occurrence": 6,
+    "occurrence": 4,
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-12T14:17:47.979Z"
+    "updated_at": "2026-07-12T19:44:14.851Z"
+  },
+  {
+    "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+    "source_pattern_id": "PATTERN-003",
+    "title": "Enforce Agent report schema compliance before decision",
+    "root_cause": "Report schema compliance is not enforced before result parsing.",
+    "proposed_solution": "Normalize and validate required report fields before parse, diagnose, decision, and task board updates.",
+    "risk": "LOW/MEDIUM",
+    "priority": "P1",
+    "owner_recommendation": "A1-CI-Runtime-Gate or Codex-Orchestrator",
+    "allowed_paths": [
+      "scripts/ops/**",
+      "docs/ops/**",
+      "docs/ops/evolution/**",
+      "docs/ops/runs/**",
+      "docs/ops/agent-queue/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/web/**",
+      "apps/api/src/database/migrations/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Docker",
+      "deploy/**",
+      "auth/**",
+      "schema/entity/table/column"
+    ],
+    "validation_commands": [
+      "node --check scripts/ops/agent-evolution-planner.mjs",
+      "node --check scripts/ops/agent-goal-to-queue.mjs",
+      "node scripts/ops/agent-doctor.mjs",
+      "node scripts/ops/agent-finalize.mjs --apply",
+      "git diff --check",
+      "node scripts/ci/check-w5-closeout-gate.mjs"
+    ],
+    "acceptance_criteria": [
+      "Improvement candidate contains source pattern traceability.",
+      "No business code, migration, DB write, deploy, seed, reset, cleanup, or push is performed.",
+      "Doctor and Finalize expose Evolution Center state.",
+      "Missing report fields are detected and normalized before next-Agent decision."
+    ],
+    "auto_fix_allowed": true,
+    "requires_approval": true,
+    "occurrence": 7,
+    "severity": "MEDIUM",
+    "status": "OPEN",
+    "created_at": "2026-06-22T16:31:17.086Z",
+    "updated_at": "2026-07-12T19:44:14.851Z"
   }
 ]

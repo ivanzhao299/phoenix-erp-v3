@@ -1,23 +1,21 @@
 {
   "summary": {
-    "generated_at": "2026-07-12T14:17:47.917Z",
+    "generated_at": "2026-07-12T19:44:14.757Z",
     "dry_run": true,
-    "run_files_inspected": 1825,
-    "task_count": 299,
+    "run_files_inspected": 2005,
+    "task_count": 301,
     "task_status_counts": {
-      "archived": 206,
+      "archived": 213,
       "completed": 3,
-      "COMPLETED_MERGED": 16,
-      "VALIDATION_COMPLETED": 15,
-      "HOLD": 55,
-      "SKIPPED_NOT_APPLICABLE": 3,
-      "IMPLEMENTATION_COMPLETED": 1
+      "COMPLETED_MERGED": 43,
+      "VALIDATION_COMPLETED": 37,
+      "SKIPPED_NOT_APPLICABLE": 5
     },
     "registered_agents": 8,
-    "findings_count": 33,
-    "highest_severity": "CRITICAL",
+    "findings_count": 30,
+    "highest_severity": "HIGH",
     "routing_findings": 8,
-    "baseline_findings": 4,
+    "baseline_findings": 3,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
     "database_written": false,
@@ -281,28 +279,6 @@
     },
     {
       "id": "OBS-0024",
-      "severity": "MEDIUM",
-      "category": "repeat-hold",
-      "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 55.",
-      "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
-      "auto_fix_eligible": false,
-      "requires_human_gate": true,
-      "recommended_next_task": "Run Observer HOLD clustering in the next iteration."
-    },
-    {
-      "id": "OBS-0025",
-      "severity": "CRITICAL",
-      "category": "runner-generation-drift",
-      "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "31 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
-      "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY."
-    },
-    {
-      "id": "OBS-0026",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -313,7 +289,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0027",
+      "id": "OBS-0025",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -324,7 +300,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0028",
+      "id": "OBS-0026",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -335,7 +311,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2."
     },
     {
-      "id": "OBS-0029",
+      "id": "OBS-0027",
       "severity": "MEDIUM",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -346,18 +322,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP."
     },
     {
-      "id": "OBS-0030",
-      "severity": "MEDIUM",
-      "category": "baseline",
-      "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json",
-      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
-    },
-    {
-      "id": "OBS-0031",
+      "id": "OBS-0028",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A5-Data-Readiness",
@@ -368,7 +333,7 @@
       "recommended_next_task": "Baseline cleanup for A5-Data-Readiness."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0029",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
@@ -379,7 +344,7 @@
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0033",
+      "id": "OBS-0030",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
@@ -482,28 +447,6 @@
     {
       "task_id": "OBSERVER-EVOLUTION-009",
       "source_finding": "OBS-0024",
-      "severity": "MEDIUM",
-      "affected_agent": "Codex-Orchestrator",
-      "goal": "Run Observer HOLD clustering in the next iteration.",
-      "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
-      "auto_fix_eligible": false,
-      "requires_human_gate": true,
-      "status": "proposed"
-    },
-    {
-      "task_id": "OBSERVER-EVOLUTION-010",
-      "source_finding": "OBS-0025",
-      "severity": "CRITICAL",
-      "affected_agent": "BugIntakeLocalRunner",
-      "goal": "Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY.",
-      "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "status": "proposed"
-    },
-    {
-      "task_id": "OBSERVER-EVOLUTION-011",
-      "source_finding": "OBS-0026",
       "severity": "HIGH",
       "affected_agent": "A2-Security-Regression-Gate",
       "goal": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.",
@@ -513,11 +456,33 @@
       "status": "proposed"
     },
     {
-      "task_id": "OBSERVER-EVOLUTION-012",
-      "source_finding": "OBS-0027",
+      "task_id": "OBSERVER-EVOLUTION-010",
+      "source_finding": "OBS-0025",
       "severity": "HIGH",
       "affected_agent": "A2-Security-Regression-Gate",
       "goal": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-011",
+      "source_finding": "OBS-0026",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "status": "proposed"
+    },
+    {
+      "task_id": "OBSERVER-EVOLUTION-012",
+      "source_finding": "OBS-0027",
+      "severity": "MEDIUM",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.",
       "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -535,7 +500,7 @@
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "suggested_improvements": [
@@ -549,7 +514,7 @@
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "repeated_pattern_candidates": [
@@ -563,7 +528,7 @@
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "observer_boundaries": {
