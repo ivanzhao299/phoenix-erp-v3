@@ -15163,7 +15163,8 @@
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260708-0001-A4",
@@ -15231,7 +15232,8 @@
         "source_bug_no": "BUG-20260708-0001",
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260708-0001-A1",
@@ -15298,7 +15300,8 @@
         "source_bug_no": "BUG-20260708-0001",
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0009-A3",
@@ -19043,7 +19046,8 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0010-A4",
@@ -19118,7 +19122,8 @@
         "source_bug_no": "BUG-20260707-0010",
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260707-0010-A1",
@@ -19200,6 +19205,7 @@
         "source_bug_no": "BUG-20260707-0010",
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
-    ]
+    ],
+    "remote_repair_status": "HOLD"
   }
 ]

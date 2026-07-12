@@ -2,10 +2,10 @@
 
 ## Selected Agents
 
-- A3-Backend-Critical-Path
+- A4-Frontend-UAT-Smoke
 - A1-CI-Runtime-Gate
 
 ## Generated Tasks
 
-- BUGTASK-20260707-0009-A3 -> A3-Backend-Critical-Path
-- BUGTASK-20260707-0009-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260708-0004-A4 -> A4-Frontend-UAT-Smoke
+- BUGTASK-20260708-0004-A1 -> A1-CI-Runtime-Gate
