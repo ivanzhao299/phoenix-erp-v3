@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi, type ApiError } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
@@ -10,7 +10,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckSquare, Plus } from "lucide-react";
-import s from "@/components/ui/admin-ui.module.css";
+import {
+  buildWarehouseInboundConfirmPayload,
+  getWarehouseInboundConfirmKeyword,
+} from "@/lib/warehouse-inbound";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -24,6 +27,7 @@ const TABLE = "wms_inbound";
 const SOURCE_TYPES = ["", "PRODUCTION", "PURCHASE", "TRANSFER", "RETURN"] as const;
 
 type Row = Record<string, unknown>;
+type InboundConfirmResponse = { code?: number; msg?: string; message?: string };
 
 export default function InboundPage() {
   const { t } = useLanguage();
@@ -32,6 +36,7 @@ export default function InboundPage() {
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
   const canApproveInout = canApprove("MENU_WMS_INOUT");
+  const canConfirmInout = canApproveInout || canCreateInout;
   const canViewInventory = hasPermission("MENU_WMS_VIEW", "V");
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
@@ -41,6 +46,8 @@ export default function InboundPage() {
   const [deleteTarget,  setDeleteTarget]  = useState<Row | null>(null);
   const [approveTarget, setApproveTarget] = useState<Row | null>(null);
   const [approveOpen,   setApproveOpen]   = useState(false);
+  const [approving,     setApproving]     = useState(false);
+  const [approveError,  setApproveError]  = useState("");
   const [typeFilter,    setTypeFilter]    = useState("");
 
   const SOURCE_LABEL: Record<string, string> = {
@@ -117,12 +124,45 @@ export default function InboundPage() {
     setConfirmOpen(false); refresh();
   }, [deleteTarget, refresh]);
 
-  const handleApprove  = useCallback((row: Row) => { if (!canApproveInout) return; setApproveTarget(row); setApproveOpen(true); }, [canApproveInout]);
+  const handleApprove  = useCallback((row: Row) => {
+    if (!canConfirmInout) return;
+    setApproveError("");
+    setApproveTarget(row);
+    setApproveOpen(true);
+  }, [canConfirmInout]);
   const confirmApprove = useCallback(async () => {
-    if (!approveTarget?.id) return;
-    await crudApi.update(TABLE, approveTarget.id as number, { status: "COMPLETED" });
-    setApproveOpen(false); refresh();
-  }, [approveTarget, refresh]);
+    const built = buildWarehouseInboundConfirmPayload(approveTarget);
+    if (!built.ok) {
+      const reasonText: Record<typeof built.reason, string> = {
+        missing_task_no: t("ui.入库单缺少任务号无法确认", "入库单缺少任务号，无法写入库存。"),
+        missing_product_code: t("ui.入库单缺少产品编码无法确认", "入库单缺少产品编码/物料编码，无法写入库存。"),
+        invalid_qty: t("ui.入库数量必须大于0", "入库数量必须大于 0。"),
+      };
+      setApproveError(reasonText[built.reason]);
+      return;
+    }
+
+    setApproving(true);
+    setApproveError("");
+    try {
+      const res = await request<InboundConfirmResponse>("/inbound/confirm", {
+        method: "POST",
+        body: JSON.stringify(built.payload),
+      });
+      if (res?.code && res.code >= 400) {
+        setApproveError(res.msg || res.message || t("ui.入库确认失败", "入库确认失败"));
+        return;
+      }
+      setApproveOpen(false);
+      setApproveTarget(null);
+      refresh();
+    } catch (e) {
+      const err = e as ApiError;
+      setApproveError(err.message || t("ui.入库确认失败", "入库确认失败"));
+    } finally {
+      setApproving(false);
+    }
+  }, [approveTarget, refresh, t]);
 
   const COLUMNS: Column<Row>[] = [
     { key: "inbound_no",     title: t("ui.入库单号", "入库单号"),  width: 160 },
@@ -143,14 +183,14 @@ export default function InboundPage() {
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
           {canViewInventory && (
-            <Link href={`/warehouse/query?q=${encodeURIComponent(String(row.item ?? ""))}`} style={{ ...actionPill("info"), textDecoration: "none" }}>
+            <Link href={`/warehouse/query?q=${encodeURIComponent(getWarehouseInboundConfirmKeyword(row))}`} style={{ ...actionPill("info"), textDecoration: "none" }}>
               {t("ui.查库存", "查库存")}
             </Link>
           )}
           {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
-          {canApproveInout && row.status === "PENDING" && (
+          {canConfirmInout && row.status === "PENDING" && (
             <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
-              <CheckSquare size={11} />{t("ui.审核", "审核")}
+              <CheckSquare size={11} />{t("ui.确认入库", "确认入库")}
             </button>
           )}
           {canDeleteInout && (
@@ -202,9 +242,11 @@ export default function InboundPage() {
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
-      <ConfirmDialog open={approveOpen} title={t("ui.确认审核入库", "确认审核入库")}
-        message={`${t("ui.确认审核通过入库单", "确认审核通过入库单")}「${approveTarget?.inbound_no ?? ""}」？${t("ui.状态将变更为已入库", "状态将变更为【已入库】。")}`}
-        onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
+      <ConfirmDialog open={approveOpen} title={t("ui.确认入库", "确认入库")}
+        message={`${approveError ? `${approveError} ` : ""}${t("ui.确认审核通过入库单", "确认审核通过入库单")}「${approveTarget?.inbound_no ?? approveTarget?.task_no ?? ""}」？${t("ui.确认后将写入库存查询", "确认后将写入库存台账，并可在库存查询中按产品编码/物料编码查询。")}`}
+        confirmLabel={t("ui.确认入库", "确认入库")}
+        loading={approving}
+        onConfirm={confirmApprove} onCancel={() => { if (!approving) { setApproveOpen(false); setApproveError(""); } }} />
     </div>
   );
 }
