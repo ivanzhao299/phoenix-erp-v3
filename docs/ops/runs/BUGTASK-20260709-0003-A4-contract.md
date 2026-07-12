@@ -801,11 +801,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:27:12.290Z",
+    "approvedAt": "2026-07-12T17:31:21.863Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
-    "redispatchCount": 3,
+    "approvalScope": "Final frontend evidence replay after transient Codex exit or manually reconciled integration.",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

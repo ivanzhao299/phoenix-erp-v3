@@ -1150,11 +1150,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T16:17:36.706Z",
+    "approvedAt": "2026-07-12T17:31:22.355Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Replay already-integrated repair evidence after semantic evidence classifier completion.",
-    "redispatchCount": 4,
+    "approvalScope": "Final frontend evidence replay after transient Codex exit or manually reconciled integration.",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
