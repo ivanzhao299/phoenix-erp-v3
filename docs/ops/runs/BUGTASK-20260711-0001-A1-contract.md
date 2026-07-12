@@ -676,17 +676,17 @@ Assigned agent: A1-CI-Runtime-Gate
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-085038/BUG-20260711-0001/attachments/01-1783730877011-e16bcfc9.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": null,
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-11T00:48:37.952Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-12T10:44:37.867Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "Controlled recovery after parent and child runtime dependency false-dirty fix; retain original scope and safety gates.",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -700,4 +700,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-085038/BUG-20260711-0001/attachments/01-1783730877011-e16bcfc9.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
