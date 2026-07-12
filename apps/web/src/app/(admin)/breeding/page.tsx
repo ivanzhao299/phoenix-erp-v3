@@ -15,6 +15,16 @@ import {
   kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
   actionGroupBox, detailInfoBox, MONO_FONT,
 } from "@/components/design-system/cockpit-styles";
+import {
+  addLocalDays,
+  asDailyLogRows,
+  asNumber,
+  dailyLogDateKey,
+  dailyLogMortalityTotal,
+  dailyLogRowDate,
+  localDateString,
+  sumBreedingOverviewTodayMetrics,
+} from "@/lib/breeding-overview-metrics";
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const API = "";
@@ -29,36 +39,8 @@ async function apiFetch(path: string) {
   return r.json();
 }
 
-function localDateString(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function addLocalDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
 function dateKey(value: unknown): string {
-  if (value instanceof Date) return localDateString(value);
-  if (typeof value === "string") {
-    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
-    return match?.[1] || "";
-  }
-  if (typeof value === "number") return localDateString(new Date(value));
-  return "";
-}
-
-function asNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function mortalityTotal(row: Record<string, unknown>): number {
-  return asNumber(row.mortality_qty) + asNumber(row.elimination_qty);
+  return dailyLogDateKey(value);
 }
 
 // 产蛋率低于此值视为异常（业务规则，非动态配置）
@@ -168,7 +150,14 @@ export default function BreedingPage() {
     const today = localDateString(now);
     const weekAgo = localDateString(addLocalDays(now, -7));
     const ydStr = localDateString(addLocalDays(now, -1));
-    const [farmsRaw, flocksRaw, logsRaw, medsRaw, immuneRaw] = await Promise.all([apiFetch("/api/crud/brd_farms"), apiFetch("/api/crud/brd_flocks"), apiFetch("/api/crud/brd_daily_logs?limit=1000"), apiFetch("/api/crud/brd_medications"), apiFetch("/api/crud/brd_vaccinations")]);
+    const [farmsRaw, flocksRaw, logsRaw, todayLogsRaw, medsRaw, immuneRaw] = await Promise.all([
+      apiFetch("/api/crud/brd_farms"),
+      apiFetch("/api/crud/brd_flocks"),
+      apiFetch("/api/crud/brd_daily_logs?limit=1000"),
+      apiFetch(`/api/crud/brd_daily_logs?log_date=${today}&limit=1000`),
+      apiFetch("/api/crud/brd_medications"),
+      apiFetch("/api/crud/brd_vaccinations")
+    ]);
 
     // If the effect was superseded (Strict Mode double-invoke) or farms API failed,
     // bail out — never wipe existing displayed data with an empty/error result.
@@ -176,7 +165,8 @@ export default function BreedingPage() {
     if (farmsRaw === null) return;
     const farmsData = Array.isArray(farmsRaw?.data) ? farmsRaw.data : Array.isArray(farmsRaw) ? farmsRaw : [];
     const flocks = Array.isArray(flocksRaw?.data) ? flocksRaw.data : Array.isArray(flocksRaw) ? flocksRaw : [];
-    const logs = Array.isArray(logsRaw?.data) ? logsRaw.data : Array.isArray(logsRaw) ? logsRaw : [];
+    const logs = asDailyLogRows(logsRaw);
+    const todayMetricLogs = todayLogsRaw === null ? logs : asDailyLogRows(todayLogsRaw);
     const meds = Array.isArray(medsRaw?.data) ? medsRaw.data : Array.isArray(medsRaw) ? medsRaw : [];
     const immune = Array.isArray(immuneRaw?.data) ? immuneRaw.data : Array.isArray(immuneRaw) ? immuneRaw : [];
     const flockFarmMap: Record<string, string> = {};
@@ -193,12 +183,12 @@ export default function BreedingPage() {
         farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + asNumber(fk.current_qty);
       }
     });
-    const todayLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === today);
-    setTodayEggs(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.eggs_produced), 0));
-    setTodayDeaths(todayLogs.reduce((s: number, l: Record<string, unknown>) => s + mortalityTotal(l), 0));
-    const weekLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) >= weekAgo);
+    const todayMetrics = sumBreedingOverviewTodayMetrics(todayMetricLogs, today);
+    setTodayEggs(todayMetrics.eggs);
+    setTodayDeaths(todayMetrics.mortality);
+    const weekLogs = logs.filter((l: Record<string, unknown>) => dailyLogRowDate(l) >= weekAgo);
     const wEggs = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.eggs_produced), 0);
-    const wDeath = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + mortalityTotal(l), 0);
+    const wDeath = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + dailyLogMortalityTotal(l), 0);
     const wFeed = weekLogs.reduce((s: number, l: Record<string, unknown>) => s + asNumber(l.feed_consumed), 0);
     const immuneDone = immune.filter((i: Record<string, unknown>) => i.actual_date && dateKey(i.plan_date) >= weekAgo).length;
     const immuneTotal = immune.filter((i: Record<string, unknown>) => dateKey(i.plan_date) >= weekAgo).length;
@@ -209,8 +199,8 @@ export default function BreedingPage() {
       immuneDone,
       immuneTotal
     });
-    const latestDate = logs.reduce((mx: string, l: Record<string, unknown>) => dateKey(l.log_date) > mx ? dateKey(l.log_date) : mx, "");
-    const recentLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === latestDate);
+    const latestDate = logs.reduce((mx: string, l: Record<string, unknown>) => dailyLogRowDate(l) > mx ? dailyLogRowDate(l) : mx, "");
+    const recentLogs = logs.filter((l: Record<string, unknown>) => dailyLogRowDate(l) === latestDate);
     const farmEggMap: Record<string, number> = {};
     // farmLayMap: 用于产蛋率分母（有日报记录的当日在产鸡数），独立于存栏总数
     const farmLayMap: Record<string, number> = {};
@@ -254,7 +244,7 @@ export default function BreedingPage() {
         time: t('ui.系统', '系统')
       });
     });
-    const ydLogs = logs.filter((l: Record<string, unknown>) => dateKey(l.log_date) === ydStr);
+    const ydLogs = logs.filter((l: Record<string, unknown>) => dailyLogRowDate(l) === ydStr);
     const ydMap: Record<string, {
       eggs: number;
       cap: number;

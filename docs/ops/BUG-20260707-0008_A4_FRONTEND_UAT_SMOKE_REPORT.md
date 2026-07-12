@@ -1,78 +1,93 @@
-# BUG-20260707-0008 A4 Frontend UAT Report
+# BUG-20260707-0008 A4 Frontend UAT Smoke Report
 
-## Result
+Date: 2026-07-12
+Agent: A4-Frontend-UIUX-UAT
+Branch: `codex/bug-intake-a4`
+Route: `/breeding`
+Result: PASS WITH CONDITIONS
+Release Gate: HOLD
 
-- Status: PASS WITH CONDITIONS
-- Release gate: HOLD
-- Reason: Frontend-only fix is implemented, but local TypeScript/UI smoke could not be executed because workspace binaries are unavailable in this worktree.
+## Source Bug
+
+- Bug: `BUG-20260707-0008`
+- Task: `BUGTASK-20260707-0008`
+- Title: 养殖总览的今日产蛋、今日死淘都显示0
+- Acceptance: 养殖总览的今日产蛋、今日死淘按今日实际提交的日生产日报总数展示。
+
+## Diagnosis
+
+The `/breeding` overview headline cards are frontend-computed from `brd_daily_logs`.
+The affected cards must not depend on stale/unbounded all-log results or brittle date comparison.
+
+Root cause on the frontend side:
+
+- Today metrics were derived from the generic all-log read and then filtered in the page.
+- Date comparison needed one shared normalizer for date-only and ISO timestamp shapes.
+- 今日死淘 must aggregate both `mortality_qty` and `elimination_qty`.
+
+Backend/RBAC/DataScope paths were not changed by this agent.
 
 ## Changed Files
 
 - `apps/web/src/app/(admin)/breeding/page.tsx`
-- `docs/ops/BUG-20260707-0008-a4-frontend-uat-report.md`
+- `apps/web/src/lib/breeding-overview-metrics.ts`
+- `apps/web/src/lib/breeding-overview-metrics.test.ts`
+- `docs/ops/BUG-20260707-0008_A4_FRONTEND_UAT_SMOKE_REPORT.md`
 
-## Page / Component List
+## Frontend Fix
 
-- Route: `/breeding`
-- Component: `BreedingPage`
-- KPI cards affected:
-  - 今日产蛋
-  - 今日死淘
-  - 本周汇总 / 死淘累计
+- Added a pure frontend metric helper for breeding overview daily-log totals.
+- Normalized daily-log dates through one helper for `YYYY-MM-DD`, ISO timestamp strings, `Date`, and numeric date inputs.
+- Added a date-filtered today read:
+  - `/api/crud/brd_daily_logs?log_date=<today>&limit=1000`
+- Kept the existing all-log read for week summary and farm recent-rate calculations.
+- Preserved fallback behavior: if the today read fails, the page falls back to the existing all-log payload.
+- Changed 今日死淘 and 本周死淘累计 math to use `mortality_qty + elimination_qty`.
 
-## UI/UX Adjustment Summary
+## Permission / State Coverage
 
-- No visual layout, style, spacing, color, modal, drawer, or responsive structure changes.
-- Fixed the data mapping behind existing KPI cards:
-  - Replaced UTC `toISOString().slice(0, 10)` date derivation with local browser date.
-  - Normalized API date/date-time values to `YYYY-MM-DD` before filtering.
-  - Increased daily-log read limit from default to `limit=1000` to reduce dashboard undercount risk.
-  - Changed dead-cull aggregation from `mortality_qty` only to `mortality_qty + elimination_qty`.
+- Permission visibility: preserved. No new visible entry point, bypass, or hardcoded permission was added.
+- RBAC/DataScope: preserved. The page still calls the protected Generic CRUD endpoint with the existing bearer token.
+- Loading/empty/error state: preserved. Existing farm API failure guard still prevents wiping displayed data; empty farm state remains unchanged.
+- Attachment ACL/audit: not applicable; no attachment or write path changed.
+- Responsive behavior: no layout, CSS, DOM structure, or card sizing changed. The change is data fetching and pure metric calculation only.
 
-## Permission Visibility Notes
+## Validation
 
-- No new frontend permission bypass or visibility shortcut was added.
-- Existing requests still call protected API endpoints and therefore retain backend RBAC/DataScope behavior.
-- No attachment ACL, audit, or write permission path was changed.
+PASS:
 
-## Responsive Behavior Notes
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit --pretty false`
+- `cd apps/web && ./node_modules/.bin/vitest run src/lib/breeding-overview-metrics.test.ts`
+  - 1 file passed
+  - 4 tests passed
+- `git diff --check -- apps/web/src/app/\(admin\)/breeding/page.tsx apps/web/src/lib/breeding-overview-metrics.ts apps/web/src/lib/breeding-overview-metrics.test.ts`
+- `cd apps/web && ./node_modules/.bin/next build --webpack --debug-build-paths 'src/app/(admin)/breeding/page.tsx'`
+  - Compiled successfully
+  - TypeScript finished successfully
 
-- No DOM structure or CSS responsive behavior was changed.
-- Existing desktop/mobile rendering should remain unchanged because only computed KPI values changed.
+Observed local command caveats:
 
-## UAT Smoke Result
+- `pnpm --dir apps/web test src/lib/breeding-overview-metrics.test.ts`: FAIL, local pnpm returned `packages field missing or empty`.
+- `cd apps/web && pnpm test src/lib/breeding-overview-metrics.test.ts`: FAIL, same pnpm issue.
+- Direct Vitest binary was used instead and passed.
 
-- `pwd`: `/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke`
-- `git branch --show-current`: `w5-a4-frontend-uat-smoke`
-- Initial `git status --short`: clean
-- `git diff --check -- apps/web/src/app/(admin)/breeding/page.tsx`: PASS
-- `rg "log_date ===|plan_date ===|toISOString\\(\\)\\.slice\\(0, 10\\)" apps/web/src/app/(admin)/breeding/page.tsx -n`: PASS, no matches
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: FAIL, `./node_modules/.bin/tsc` not found
-- `pnpm --filter web exec tsc --noEmit`: FAIL, `Command "tsc" not found`
-- Browser smoke for `/breeding`: NOT RUN, local `next`/workspace binaries unavailable
+Browser smoke:
 
-## A2 Security Review Required
+- Desktop `/breeding`: HOLD. Local Next dev server could not be started because binding a local socket is blocked in this sandbox:
+  - `next dev -p 3014`: `listen EPERM 0.0.0.0:3014`
+  - `next dev -H 127.0.0.1 -p 3014`: `listen EPERM 127.0.0.1:3014`
+- Mobile `/breeding`: HOLD for the same local socket restriction.
+- Since no layout/CSS/DOM structure changed, static responsive risk is low, but real desktop/mobile browser smoke remains required before release acceptance.
 
-- Not required for this A4 frontend-only patch.
-- A2 review is recommended only if backend/API permission logic or DataScope behavior is changed by another agent.
+Full build:
 
-## A1 Validation Required
+- `cd apps/web && ./node_modules/.bin/next build --webpack`: FAIL due environment/dependency conditions outside this patch:
+  - Google Fonts fetch blocked through local proxy `127.0.0.1:7890`.
+  - Existing `node_modules` symlink targets point outside the accessible filesystem root for some dependencies.
 
-- Required before release.
-- Reason: TypeScript and browser UAT smoke were blocked locally by missing workspace binaries.
+## Decision
 
-## Blockers
+PASS WITH CONDITIONS.
 
-- Local dependency binaries are unavailable in this worktree:
-  - `apps/web/node_modules/.bin/tsc` missing
-  - root `node_modules/.bin` missing
-  - `pnpm --filter web exec tsc --noEmit` cannot find `tsc`
-- No local browser route verification was possible.
-- Original screenshot attachment was not available locally per task evidence.
-
-## Next Recommendation
-
-1. Restore/install workspace dependencies in a gated validation environment.
-2. Run `pnpm --filter web typecheck`.
-3. Start the web app and smoke `/breeding` with seeded daily logs where `log_date` includes both date-only and date-time shapes.
-4. Confirm 今日产蛋 equals today's submitted `eggs_produced` sum and 今日死淘 equals today's `mortality_qty + elimination_qty` sum.
+The frontend-owned fix and focused regression coverage are in place, and local typecheck/unit/route compile checks pass. Release remains HOLD until CI/CD, production smoke, and business acceptance confirm that `/breeding` 今日产蛋 and 今日死淘 match today’s submitted daily production reports in the target environment.
