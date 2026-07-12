@@ -1,42 +1,42 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0001/agent-result",
+  "bugNo": "BUG-20260709-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0001-A3",
+    "taskId": "BUGTASK-20260709-0004-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A3-worker-log.md",
-    "commitHash": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
+    "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
     "changedFiles": [
-      "apps/api/src/modules/wms/wms.service.spec.ts",
-      "apps/api/src/modules/wms/wms.service.ts",
-      "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+      "apps/api/src/modules/workflow/workflow.service.spec.ts",
+      "apps/api/src/modules/workflow/workflow.service.ts",
+      "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
         "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1199,
-        "beforeHead": "02ecb03305aeafd6750f5e0b592cd6bec5351ebd",
-        "afterHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
-        "commitHash": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+        "conclusion": "PASS",
+        "responseChars": 1278,
+        "beforeHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+        "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+        "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
         "changedFiles": [
-          "apps/api/src/modules/wms/wms.service.spec.ts",
-          "apps/api/src/modules/wms/wms.service.ts",
-          "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+          "apps/api/src/modules/workflow/workflow.service.spec.ts",
+          "apps/api/src/modules/workflow/workflow.service.ts",
+          "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
         ],
         "businessChangedFiles": [
-          "apps/api/src/modules/wms/wms.service.spec.ts",
-          "apps/api/src/modules/wms/wms.service.ts"
+          "apps/api/src/modules/workflow/workflow.service.spec.ts",
+          "apps/api/src/modules/workflow/workflow.service.ts"
         ],
         "reportFiles": [
-          "docs/ops/bug-intake/BUG-20260708-0001-A3-backend-report.md"
+          "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
         ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T11:40:14.672Z",
+        "checkedAt": "2026-07-12T11:48:15.870Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -45,7 +45,7 @@
       "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23723\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-40-14-506Z-A3-Backend-Critical-Path.md\nImplemented the backend repair for `BUG-20260708-0001`.\n\nChanged:\n- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:132): `confirmInbound` now bridges header-only manual inbound records (`wms_inbound.item` + `qty`) into the existing `inv_batches` / `inv_ledger` write path when no detail `items` are posted.\n- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:49): added regression coverage for the header-only inbound confirmation case.\n- [BUG-20260708-0001-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/o",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 21726\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-48-15-710Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend repair for `BUG-20260709-0004`.\n\nChanged:\n- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863): `listTodo()` now returns the full unified todo count, not current page length.\n- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:1075): `getTaskSummary()` now normalizes `req.user.id` / `userId` consistently before counting.\n- [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:155): added focused regressions",
     "nextAction": ""
   }
 }

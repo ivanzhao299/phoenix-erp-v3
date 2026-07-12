@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,21 +23,24 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 21718
+Assembled prompt chars: 21726
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T10-55-10-597Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS / GO.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-48-15-710Z-A3-Backend-Critical-Path.md
+Implemented the A3 backend repair for `BUG-20260709-0004`.
 
-Backend work completed within scope. I added a focused regression test in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:66) for `BUG-20260709-0004`: one visible ApprovalEngine todo for `PR2-20260707-00002` must return `total === 1`.
-
-Report added: [bug-20260709-0004-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260709-0004-a3-backend-critical-path.md)
+Changed:
+- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863): `listTodo()` now returns the full unified todo count, not current page length.
+- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:1075): `getTaskSummary()` now normalizes `req.user.id` / `userId` consistently before counting.
+- [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:155): added focused regressions for the BUG-20260709-0004 count mismatch.
+- [BUG-20260709-0004-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md:1): task report with root cause, validation, and result.
 
 Validation:
-- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` -> PASS, 4 tests
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS
+- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` PASS, 6 tests.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS.
+- `git diff --check ...` PASS.
 
-No frontend edits, migrations, schema/entity/table/column changes, DB writes, deploy, push, or task-board writes. Existing untracked `node_modules` directories remain untouched. Final closure still needs CI/CD, production smoke, and business acceptance.
+Result: `PASS WITH CONDITIONS`. No DB writes, migrations, frontend edits, deploy, push, or task-board changes. Full resolution still needs CI/CD, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f55f5-e621-7471-b846-b3c650804106
+session id: 019f5625-e627-71e3-b20d-549fc0afe440
 --------
 user
 # Base Agent Prompt
@@ -498,7 +501,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "div",
             "path": ".sidebar-module__C8A
-...<truncated 251465 chars>
+...<truncated 589887 chars>
 
 ```
 
@@ -509,20 +512,29 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 923,
-  "beforeHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
-  "afterHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS",
+  "responseChars": 1278,
+  "beforeHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+  "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+  "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+  "changedFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts",
+    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T10:55:10.764Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T11:48:15.870Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -531,13 +543,21 @@ Assigned agent: A3-Backend-Critical-Path
 ```json
 {
   "attempted": true,
-  "ok": false,
+  "ok": true,
   "files": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/node_modules",
-    "docs/ops/bug-20260709-0004-a3-backend-critical-path.md",
-    "node_modules"
+    "apps/api/src/modules/workflow/workflow.service.ts",
+    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
   ],
-  "error": "outside allowed paths: node_modules"
+  "businessFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+  ],
+  "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 ed28cf0c] fix(api): repair BUG-20260709-0004\n 3 files changed, 128 insertions(+), 9 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
 }
 ```

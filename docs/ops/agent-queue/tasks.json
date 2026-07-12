@@ -12987,7 +12987,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0004",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13008,8 +13008,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T11:48:15.870Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -13027,12 +13027,43 @@
     "reason": null,
     "quarantined_at": "2026-07-11T01:13:21.870Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "evidence_gate": null,
-    "implementation_commit": "",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 1278,
+      "beforeHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
+      "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+      "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+      "changedFiles": [
+        "apps/api/src/modules/workflow/workflow.service.spec.ts",
+        "apps/api/src/modules/workflow/workflow.service.ts",
+        "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/workflow/workflow.service.spec.ts",
+        "apps/api/src/modules/workflow/workflow.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-12T11:48:15.870Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
     "integrated_commit": "",
     "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "changed_files": [
+      "apps/api/src/modules/workflow/workflow.service.spec.ts",
+      "apps/api/src/modules/workflow/workflow.service.ts",
+      "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T10:58:34.771Z",
     "redispatch_history": [
       {
@@ -13063,7 +13094,8 @@
         "source_bug_no": "BUG-20260709-0004",
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
-    ]
+    ],
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A4",
@@ -15243,7 +15275,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -15268,7 +15300,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-12T11:45:49.933Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -15284,8 +15316,16 @@
     ],
     "redispatch_count": 4,
     "last_redispatch_at": "2026-07-12T11:14:06.942Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260708-0001-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260708-0001-A3",
+      "checkedAt": "2026-07-12T11:45:49.933Z"
+    },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
