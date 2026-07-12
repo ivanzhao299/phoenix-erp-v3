@@ -3,36 +3,52 @@
   "bugNo": "BUG-20260709-0002",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260709-0002-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260709-0002-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A3-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A4-worker-log.md",
+    "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
+    "changedFiles": [
+      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+      "apps/web/src/lib/warehouse-inbound.test.ts",
+      "apps/web/src/lib/warehouse-inbound.ts",
+      "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
         "conclusion": "PASS",
-        "responseChars": 1080,
-        "beforeHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
-        "afterHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "responseChars": 1519,
+        "beforeHead": "c036e8e0038b0dc790ab651ca3cd5fcd9c906b9f",
+        "afterHead": "f87738b8161f2f817a23dc40497af711f8bca91b",
+        "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+          "apps/web/src/lib/warehouse-inbound.test.ts",
+          "apps/web/src/lib/warehouse-inbound.ts",
+          "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+          "apps/web/src/lib/warehouse-inbound.test.ts",
+          "apps/web/src/lib/warehouse-inbound.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T16:28:08.630Z",
+        "checkedAt": "2026-07-12T16:32:14.596Z",
         "passed": true,
-        "role": "implementation_verified_existing",
-        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-        "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "SKIPPED_NOT_APPLICABLE",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29781\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-28-08-534Z-A3-Backend-Critical-Path.md\nA3 backend replay is complete for `BUG-20260709-0002`.\n\nThe backend repair is already integrated in local commit `2532602f` (`fix(api): repair BUG-20260709-0002`): `wms_inbound` completion now goes through `WmsService.confirmInbound`, with regression coverage preventing `COMPLETED` without inventory facts. I updated the task report with replay evidence and current validation results: [BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0002_A3_BACKEND_CRITICAL_PATH_REPORT.md).\n\nValidation passed:\n\n```bash\ncd apps/api && pnpm test -- generic-crud.controller.spec.ts wms.service.sp",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29848\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-32-14-423Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend fix for BUG-20260709-0002.\n\nRoot cause found: `/warehouse/inbound` still allowed `status` editing in the drawer, so users could save `COMPLETED` through generic CRUD and bypass `/api/inbound/confirm`.\n\nChanged:\n- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:76): removed writable status field and routes save payloads through a sanitizer.\n- [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:46): added safe save payload builder, forcing creates to `PENDING` and stripping `status` on edits.\n- [warehouse-inb",
     "nextAction": ""
   }
 }
