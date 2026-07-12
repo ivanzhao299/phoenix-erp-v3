@@ -23,34 +23,23 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23790
+Assembled prompt chars: 23804
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-54-22-073Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS for the A4 frontend scope.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-51-29-576Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS for `BUG-20260708-0001`.
 
-Implemented the frontend repair in:
-- [warehouse-query.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-query.ts)
-- [warehouse-query.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-query.test.ts)
-- [query/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/query/page.tsx)
-- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx)
+Implemented the frontend fix in [warehouse/inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:127): admin “确认入库” now calls `/api/inbound/confirm` instead of only updating `wms_inbound.status`, so it uses the WMS path that writes inventory batches. Added payload helpers in [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:30) and regression tests in `warehouse-inbound.test.ts`.
 
-What changed:
-- `/warehouse/query` now searches and displays inbound-compatible item aliases: `item`, `sku_code`, `material_code`, names, and existing `product_code`.
-- Inventory query column wording is now `产品编码/物料编码`.
-- 入库管理的 `查库存` link now uses the same normalized item query helper.
-- Regression coverage added for the alias/search behavior.
+Report written: [BUG-20260708-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md:1).
 
-Report written here:
-[BUG-20260708-0001-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md)
+Verification:
+- `pnpm --filter web test -- src/lib/warehouse-inbound.test.ts src/lib/warehouse-query.test.ts` passed, 9 tests.
+- `pnpm --filter web typecheck` passed.
+- `git diff --check` passed.
+- Browser smoke was not possible: local Next dev server failed to bind on both `0.0.0.0:3014` and `127.0.0.1:3014` with `listen EPERM`.
 
-Validation:
-- PASS `pnpm --filter web test -- src/lib/warehouse-query.test.ts`：6 tests passed.
-- PASS `cd apps/web && ./node_modules/.bin/tsc --noEmit`：0 errors.
-- HOLD condition: local browser/dev-server verification could not run because the sandbox rejects port binding with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`.
-- HOLD condition: `next build` hit a Turbopack sandbox symlink panic before route build; the service-worker stamp side effect was reverted.
-
-No commit, push, deploy, DB write, migration, or forbidden-scope edit was performed. The existing untracked `node_modules` / `apps/api/node_modules` entries were already present and left untouched.
+No deploy, push, DB write, migration, or API file edit was performed. This is not claimed production-resolved until CI/CD, production smoke, and business acceptance verify real inbound rows appear in `/warehouse/query`.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -67,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f562b-14e6-7b82-92d4-4b1883a5125e
+session id: 019f56cc-52fb-70b0-bbde-80b2f4c0c2ef
 --------
 user
 # Base Agent Prompt
@@ -505,7 +494,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "label": "临期预警",
             "disabled": false
          
-...<truncated 357982 chars>
+...<truncated 1040299 chars>
 
 ```
 
@@ -517,28 +506,26 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1743,
-  "beforeHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
-  "afterHead": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
-  "commitHash": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
+  "responseChars": 1280,
+  "beforeHead": "4dc827e8a373ea9826490c83abeead8a3c7b4755",
+  "afterHead": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
+  "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
   "changedFiles": [
     "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/app/(admin)/warehouse/query/page.tsx",
-    "apps/web/src/lib/warehouse-query.test.ts",
-    "apps/web/src/lib/warehouse-query.ts",
-    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+    "apps/web/src/lib/warehouse-inbound.test.ts",
+    "apps/web/src/lib/warehouse-inbound.ts",
+    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/app/(admin)/warehouse/query/page.tsx",
-    "apps/web/src/lib/warehouse-query.test.ts",
-    "apps/web/src/lib/warehouse-query.ts"
+    "apps/web/src/lib/warehouse-inbound.test.ts",
+    "apps/web/src/lib/warehouse-inbound.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:54:22.502Z",
+  "checkedAt": "2026-07-12T14:51:29.739Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -554,22 +541,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/app/(admin)/warehouse/query/page.tsx",
-    "apps/web/src/lib/warehouse-query.test.ts",
-    "apps/web/src/lib/warehouse-query.ts",
-    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+    "apps/web/src/lib/warehouse-inbound.test.ts",
+    "apps/web/src/lib/warehouse-inbound.ts",
+    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
   ],
   "businessFiles": [
     "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-    "apps/web/src/app/(admin)/warehouse/query/page.tsx",
-    "apps/web/src/lib/warehouse-query.test.ts",
-    "apps/web/src/lib/warehouse-query.ts"
+    "apps/web/src/lib/warehouse-inbound.test.ts",
+    "apps/web/src/lib/warehouse-inbound.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+    "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
   ],
-  "commitHash": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
+  "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 b9c02b0a] fix(web): repair BUG-20260708-0001\n 5 files changed, 132 insertions(+), 6 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-report.md"
+  "output": "[codex/bug-intake-a4 25ff4588] fix(web): repair BUG-20260708-0001\n 4 files changed, 239 insertions(+), 13 deletions(-)\n create mode 100644 apps/web/src/lib/warehouse-inbound.test.ts\n create mode 100644 apps/web/src/lib/warehouse-inbound.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
 }
 ```
