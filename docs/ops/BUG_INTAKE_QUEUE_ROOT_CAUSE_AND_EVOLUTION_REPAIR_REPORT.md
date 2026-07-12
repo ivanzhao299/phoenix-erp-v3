@@ -20,6 +20,7 @@ The queue was not healthy. Production reports could remain `AGENT_APPROVED` or `
 - Apply one shared filter module in the parent runner, child Agent worker, and CLI task runner preflight.
 - Apply the same runtime filter when recovering and committing Agent sandbox changes.
 - Parse the earliest explicit Agent conclusion so later prose such as `fail fast` cannot override a leading `PASS WITH CONDITIONS`.
+- Commit Observer stable reports and `docs/ops/evolution/**` together with queue/run artifacts before implementation integration, so the resident evolution loop cannot dirty-block its own repairs.
 - Preserve detection of every real business or ops file modification.
 - Detect approved reports whose current local generation is entirely terminal for runner-owned quarantine/dependency reasons.
 - Create a bounded new generation automatically, at most twice per report and at most three reports per cycle.

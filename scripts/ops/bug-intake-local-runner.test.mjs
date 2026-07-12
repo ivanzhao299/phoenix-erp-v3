@@ -49,6 +49,24 @@ test('technical quarantine generation is eligible for one safe redispatch', () =
   }]);
 });
 
+test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {
+  const reports = [{
+    bugNo: 'BUG-TEST-EVOLUTION', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',
+    repairTaskPayload: {
+      redispatchCount: 1,
+      agentExecutionApproval: { approved: true },
+      agentPlan: { selected_agents: ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+      redispatchHistory: [],
+    },
+  }];
+  const reason = 'runner root must be clean before implementation integration: M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/evolution/evolution-state.json';
+  const tasks = [
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVOLUTION', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 1, reason },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVOLUTION', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 1, reason: 'blocked by failed dependency: A4' },
+  ];
+  assert.equal(selectAutomaticRedispatchCandidates(reports, tasks).length, 1);
+});
+
 test('business HOLD and release agents are never auto-redispatched', () => {
   const base = {
     bugNo: 'BUG-TEST-0002', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',

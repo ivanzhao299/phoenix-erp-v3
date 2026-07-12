@@ -19,7 +19,13 @@ const SUCCESS_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED'
 const DEPENDENCY_SUCCESS_STATUSES = new Set([...SUCCESS_STATUSES, 'completed']);
 const DEPENDENCY_FAILURE_STATUSES = new Set(['HOLD', 'hold', 'failed']);
 const REMOTE_RUNNING_REPAIR_STATUSES = new Set(['AGENT_RUNNING', 'AGENT_APPROVED']);
-const OPS_RUNTIME_PATHS = ['docs/ops/agent-queue/tasks.json', 'docs/ops/runs'];
+const OPS_RUNTIME_PATHS = [
+  'docs/ops/agent-queue/tasks.json',
+  'docs/ops/runs',
+  'docs/ops/OBSERVER_FINDINGS_REPORT.md',
+  'docs/ops/OBSERVER_EVOLUTION_TASKS.md',
+  'docs/ops/evolution',
+];
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
@@ -1213,6 +1219,7 @@ const TECHNICAL_HOLD_PATTERNS = [
   /incomplete implementation worktree preserved in quarantine/i,
   /blocked by failed dependency/i,
   /runner-created dependency/i,
+  /runner root must be clean[\s\S]*(OBSERVER_FINDINGS_REPORT|docs\/ops\/evolution)/i,
 ];
 
 export function selectAutomaticRedispatchCandidates(reports, tasks, options = {}) {
