@@ -3,36 +3,49 @@
   "bugNo": "BUG-20260706-0002",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260706-0002-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260706-0002-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A4-worker-log.md",
+    "commitHash": "d134c94673143f78abe7e52ea77b9dca66016b75",
+    "changedFiles": [
+      "apps/web/src/lib/home-farm-kpi.test.ts",
+      "apps/web/src/lib/home-farm-kpi.ts",
+      "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1309,
-        "beforeHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-        "afterHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "responseChars": 1124,
+        "beforeHead": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+        "afterHead": "d134c94673143f78abe7e52ea77b9dca66016b75",
+        "commitHash": "d134c94673143f78abe7e52ea77b9dca66016b75",
+        "changedFiles": [
+          "apps/web/src/lib/home-farm-kpi.test.ts",
+          "apps/web/src/lib/home-farm-kpi.ts",
+          "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/lib/home-farm-kpi.test.ts",
+          "apps/web/src/lib/home-farm-kpi.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T15:36:32.747Z",
+        "checkedAt": "2026-07-12T15:40:30.026Z",
         "passed": true,
-        "role": "implementation_verified_existing",
-        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-        "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "SKIPPED_NOT_APPLICABLE",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29257\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-36-32-657Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nThe backend repair for `BUG-20260706-0002` is already implemented in commit `ff4bb175 fix(api): repair BUG-20260706-0002`, which is an ancestor of `origin/main`. I did not add new code in this redispatch because the exact backend fix and task report are already present.\n\nEvidence:\n- Added captured compatibility route: [farm-cabin.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/farm-cabin.controller.ts:53)\n- Added feed/water realtime fallback: [mon-device.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/mon-device.service.ts:422)\n- Task report: [BUG-2026",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29324\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-40-29-863Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260706-0002` on `/home`.\n\nChanged:\n- [home-farm-kpi.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.ts): today's feed/water now prefer `brd_daily_logs` sums before falling back to hen-report totals or IoT summary.\n- [home-farm-kpi.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.test.ts): added regression coverage for daily-log override and fallback behavior.\n- [bug-20260706-0002-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md): task report with `PASS WITH CONDITIONS`.\n",
     "nextAction": ""
   }
 }

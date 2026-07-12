@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,32 +23,23 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md
-Assembled prompt chars: 29320
+Assembled prompt chars: 29324
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-18-51-739Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-40-29-863Z-A4-Frontend-UAT-Smoke.md
+Implemented the frontend repair for `BUG-20260706-0002` on `/home`.
 
-已完成 redispatch 验证，未改前端源码，只更新了报告：[BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md)。
+Changed:
+- [home-farm-kpi.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.ts): today's feed/water now prefer `brd_daily_logs` sums before falling back to hen-report totals or IoT summary.
+- [home-farm-kpi.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.test.ts): added regression coverage for daily-log override and fallback behavior.
+- [bug-20260706-0002-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md): task report with `PASS WITH CONDITIONS`.
 
-验证结果：
-- `apps/web ./node_modules/.bin/tsc --noEmit`：PASS
-- `vitest run src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`：PASS，6/6
-- `pnpm --filter web test -- src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`：PASS，6/6
-- `git diff --check`：PASS
+Validated:
+- `vitest run src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts` passed, 7 tests.
+- `eslint src/lib/home-farm-kpi.ts src/lib/home-farm-kpi.test.ts` passed.
+- `tsc --noEmit` passed.
 
-确认现有修复覆盖：
-- 今日饲料消耗、今日用水独立取值，不再因 hen-report 存在但缺 water 而跳过 daily logs fallback。
-- `0` 被保留为有效录入值。
-- `MENU_FARM_DATA:V` 和 `MENU_DEVICE_MONITOR:V` 权限门禁保持不变。
-- 缺值显示 `--`，可选请求仍 silent 降级。
-
-条件/阻塞：
-- 本地浏览器 desktop/mobile smoke 未能完整执行：sandbox 禁止 `next dev` 监听端口，报 `listen EPERM`。
-- `next build` 也被当前 worktree 环境阻塞：Turbopack node_modules symlink root 问题；webpack fallback 又被离线 Google Fonts 和 stale symlink target 阻塞。
-- 因此不声明生产已解决；仍需 CI/CD、生产 `/home` 桌面+移动端 smoke、业务验收确认。
-
-未 push、未 deploy、未写库、未跑迁移、未 commit。
+Conditions recorded: local browser/dev-server verification was blocked by sandbox `listen EPERM`, and `next build` hit a Turbopack symlink issue before app compilation. No API, migration, schema, database, deploy, push, or merge action was performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -65,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56e6-7d13-7271-be3b-5c7fb89fda58
+session id: 019f56f9-35a0-7a03-8ab1-82ab9b82a001
 --------
 user
 # Base Agent Prompt
@@ -522,7 +513,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 701
             },
         
-...<truncated 497925 chars>
+...<truncated 998395 chars>
 
 ```
 
@@ -534,19 +525,28 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 974,
-  "beforeHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
-  "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "responseChars": 1124,
+  "beforeHead": "452a8fa0118d7ddeb09d1ceb98327a850d7e2883",
+  "afterHead": "d134c94673143f78abe7e52ea77b9dca66016b75",
+  "commitHash": "d134c94673143f78abe7e52ea77b9dca66016b75",
+  "changedFiles": [
+    "apps/web/src/lib/home-farm-kpi.test.ts",
+    "apps/web/src/lib/home-farm-kpi.ts",
+    "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+  ],
+  "businessChangedFiles": [
+    "apps/web/src/lib/home-farm-kpi.test.ts",
+    "apps/web/src/lib/home-farm-kpi.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+  ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T15:18:51.830Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T15:40:30.026Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -555,10 +555,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
 ```json
 {
   "attempted": true,
-  "ok": false,
+  "ok": true,
   "files": [
-    "docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md"
+    "apps/web/src/lib/home-farm-kpi.test.ts",
+    "apps/web/src/lib/home-farm-kpi.ts",
+    "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
   ],
-  "error": "no apps/web/ implementation file"
+  "businessFiles": [
+    "apps/web/src/lib/home-farm-kpi.test.ts",
+    "apps/web/src/lib/home-farm-kpi.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
+  ],
+  "commitHash": "d134c94673143f78abe7e52ea77b9dca66016b75",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a4 d134c946] fix(web): repair BUG-20260706-0002\n 3 files changed, 143 insertions(+), 21 deletions(-)\n create mode 100644 docs/ops/bug-20260706-0002-a4-frontend-uat-smoke.md"
 }
 ```
