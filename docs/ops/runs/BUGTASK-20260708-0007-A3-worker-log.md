@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,22 +23,22 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A3-worker-assembled-prompt.md
-Assembled prompt chars: 18616
+Assembled prompt chars: 18555
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-32-42-536Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUGTASK-20260708-0007`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-06-22-826Z-A3-Backend-Critical-Path.md
+Implemented and reverified `BUG-20260708-0007` on `codex/bug-intake-a3`.
 
-Changed:
-- [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:94): added a narrow fallback for `sal_order_items.sku_code` missing-column `42703`, retrying item insert without `sku_code` only for that exact case.
-- [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:41): added focused regression coverage.
-- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md:1): result is `PASS WITH CONDITIONS`.
+Changed in existing commit `a5213a1e fix(api): repair BUG-20260708-0007`:
+- [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:90): adds a narrow fallback when `sal_order_items.sku_code` is missing, retrying item insert without `sku_code` only for PostgreSQL `42703` on that column.
+- [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:41): regression test covers the old-schema `sku_code` missing path.
+- [BUGTASK-20260708-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md:1): task report records root cause, files, validation, and `PASS WITH CONDITIONS`.
 
-Validation run:
-- `cd apps/api && pnpm test -- sales-orders.service.spec.ts` PASS
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS
+Validation run now:
+- `cd apps/api && pnpm test -- sales-orders.service.spec.ts` PASS, 1 test passed.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS, 0 errors.
 
-I did not modify frontend, migrations, schema/entities, or run DB writes/deploy/push. Local PostgreSQL schema read was attempted but blocked by sandbox socket policy, so final confirmation still needs CI/CD, production smoke for `POST /api/v2/sales/orders`, and business acceptance. Existing untracked `node_modules` entries were left untouched.
+No deploy, push, migration execution, schema/entity/table/column change, database write, or frontend change was performed. Result remains `PASS WITH CONDITIONS`: backend failure mode is fixed, but final resolution still needs CI/CD, production smoke for `POST /api/v2/sales/orders`, and business acceptance on `/sales2/orders`.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +55,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56f1-1a76-7bf0-99eb-598f9c570983
+session id: 019f5713-8d48-7992-a1ec-498df045f4bc
 --------
 user
 # Base Agent Prompt
@@ -500,7 +500,7 @@ Assigned agent: A3-Backend-Critical-Path
             "disabled": false
           },
           {
-...<truncated 295599 chars>
+...<truncated 98478 chars>
 
 ```
 
@@ -512,28 +512,19 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1199,
-  "beforeHead": "206afb395c7da786fb0ffd94c0a4f0600dc9e799",
-  "afterHead": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-  "commitHash": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-  "changedFiles": [
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
-    "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
-  ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
-  ],
+  "responseChars": 1397,
+  "beforeHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
+  "afterHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T15:32:42.703Z",
-  "passed": true,
+  "checkedAt": "2026-07-12T16:06:22.916Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -541,22 +532,9 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
-    "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
-  ],
-  "businessFiles": [
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
-    "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
-  ],
-  "commitHash": "a5213a1ef6f726b6f92dae6ed61f959bd2f689ff",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 a5213a1e] fix(api): repair BUG-20260708-0007\n 3 files changed, 226 insertions(+), 37 deletions(-)\n create mode 100644 apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

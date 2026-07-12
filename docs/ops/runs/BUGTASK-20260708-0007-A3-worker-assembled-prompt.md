@@ -670,11 +670,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T14:27:13.708Z",
+    "approvedAt": "2026-07-12T15:34:29.440Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Bulk controlled recovery of runner-owned false HOLDs after runtime/evolution lifecycle repair. Original business scope and safety gates remain unchanged.",
-    "redispatchCount": 4,
+    "approvalScope": "Final evidence reconciliation after porcelain parsing and already-integrated evidence fixes.",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
