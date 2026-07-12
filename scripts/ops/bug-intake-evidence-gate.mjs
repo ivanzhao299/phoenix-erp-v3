@@ -54,7 +54,7 @@ function extractAgentResponse(stdout) {
 }
 
 function isNotApplicable(response) {
-  return /not applicable|no (backend|frontend)[ -]owned fix|belongs to (A3|A4)|outside .* scope|不属于.*范围|无需修改(后端|前端)|应由 ?A[1345]/i.test(response);
+  return /not applicable|no (backend|frontend)[ -]owned fix|belongs to (A3|A4)|outside .* scope|already (present|implemented|fixed)|fix .* already present|不属于.*范围|无需修改(后端|前端)|应由 ?A[1345]|修复.*已(存在|完成)|已经修复/i.test(response);
 }
 
 function reportFilesForTask(task, changedFiles) {

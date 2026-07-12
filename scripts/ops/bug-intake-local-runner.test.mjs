@@ -89,3 +89,14 @@ test('explicit leading PASS is not overridden by later fail-fast wording', () =>
   assert.equal(evidence.conclusion, 'PASS_WITH_CONDITIONS');
   assert.equal(evidence.passed, true);
 });
+
+test('already-fixed implementation ownership is accepted without redundant code churn', () => {
+  const evidence = evaluateWorkerEvidence({
+    task: { task_id: 'BUGTASK-X-A4', source_bug_no: 'BUG-X', agent: 'A4-Frontend-UAT-Smoke' },
+    exitCode: 0,
+    stdout: 'Run log: x\nPASS WITH CONDITIONS. The frontend fix is already present on this branch. Focused tests PASS.',
+    beforeHead: 'a', afterHead: 'a', changedFiles: [],
+  });
+  assert.equal(evidence.passed, true);
+  assert.equal(evidence.terminalStatus, 'SKIPPED_NOT_APPLICABLE');
+});
