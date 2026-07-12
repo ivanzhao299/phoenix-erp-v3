@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-08T02:13:43.166Z",
-  "updatedAt": "2026-07-12T14:51:31.032Z",
+  "updatedAt": "2026-07-12T14:51:36.879Z",
   "closedAt": null,
   "attachmentCount": 2,
   "description": "新建入库单的界面字段跟库存查询的字段不一致，感觉目前两个功能毫无关联，入库单有物料/品目，库存查询没有。库存查询有批次号、产品编码、库位、保质期等字段，并且入库单保存之后在库存查询查不到新入库的数据",
@@ -1686,56 +1686,92 @@
         }
       },
       {
-        "taskId": "BUGTASK-20260708-0001-A4",
         "agent": "A4-Frontend-UAT-Smoke",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A4-worker-log.md",
+        "taskId": "BUGTASK-20260708-0001-A4",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23804\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-51-29-576Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS for `BUG-20260708-0001`.\n\nImplemented the frontend fix in [warehouse/inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:127): admin “确认入库” now calls `/api/inbound/confirm` instead of only updating `wms_inbound.status`, so it uses the WMS path that writes inventory batches. Added payload helpers in [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:30) and regression tests in `warehouse-inbound.test.ts`.\n\nReport written: [BUG-20260708-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/o",
         "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T14:51:31.028Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A4-worker-log.md",
         "changedFiles": [
           "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
           "apps/web/src/lib/warehouse-inbound.test.ts",
           "apps/web/src/lib/warehouse-inbound.ts",
           "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
         ],
+        "redispatchCount": 5,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A4-Frontend-UAT-Smoke",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1280,
-            "beforeHead": "4dc827e8a373ea9826490c83abeead8a3c7b4755",
             "afterHead": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
+            "checkedAt": "2026-07-12T14:51:29.739Z",
+            "beforeHead": "4dc827e8a373ea9826490c83abeead8a3c7b4755",
             "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
+            ],
             "changedFiles": [
               "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
               "apps/web/src/lib/warehouse-inbound.test.ts",
               "apps/web/src/lib/warehouse-inbound.ts",
               "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
             ],
+            "responseChars": 1280,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
               "apps/web/src/lib/warehouse-inbound.test.ts",
               "apps/web/src/lib/warehouse-inbound.ts"
             ],
-            "reportFiles": [
-              "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
-            ],
-            "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T14:51:29.739Z",
-            "passed": true,
-            "role": "implementation",
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "reason": "Business change, task report, commit, and conclusion are present"
+            "parentCommitRecovered": false
           },
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260708-0001-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A1-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A1-CI-Runtime-Gate",
+            "exitCode": 0,
+            "conclusion": "PASS",
+            "responseChars": 1543,
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "changedFiles": [],
+            "businessChangedFiles": [],
+            "reportFiles": [],
+            "parentCommitRecovered": false,
+            "checkedAt": "2026-07-12T14:51:35.616Z",
+            "passed": true,
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
+          },
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23804\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-51-29-576Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS for `BUG-20260708-0001`.\n\nImplemented the frontend fix in [warehouse/inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:127): admin “确认入库” now calls `/api/inbound/confirm` instead of only updating `wms_inbound.status`, so it uses the WMS path that writes inventory batches. Added payload helpers in [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:30) and regression tests in `warehouse-inbound.test.ts`.\n\nReport written: [BUG-20260708-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/o",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\":",
         "nextAction": "",
         "redispatchCount": 5,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T14:51:31.028Z"
+        "recordedAt": "2026-07-12T14:51:36.877Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1748,56 +1784,40 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0001-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0001-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A4-worker-log.md",
-      "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
-      "changedFiles": [
-        "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-        "apps/web/src/lib/warehouse-inbound.test.ts",
-        "apps/web/src/lib/warehouse-inbound.ts",
-        "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
-      ],
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0001-A1-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A4-Frontend-UAT-Smoke",
+          "agent": "A1-CI-Runtime-Gate",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1280,
-          "beforeHead": "4dc827e8a373ea9826490c83abeead8a3c7b4755",
-          "afterHead": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
-          "commitHash": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
-          "changedFiles": [
-            "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-            "apps/web/src/lib/warehouse-inbound.test.ts",
-            "apps/web/src/lib/warehouse-inbound.ts",
-            "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
-          ],
-          "businessChangedFiles": [
-            "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-            "apps/web/src/lib/warehouse-inbound.test.ts",
-            "apps/web/src/lib/warehouse-inbound.ts"
-          ],
-          "reportFiles": [
-            "docs/ops/bug-intake/BUG-20260708-0001-a4-frontend-uat-smoke.md"
-          ],
+          "conclusion": "PASS",
+          "responseChars": 1543,
+          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "commitHash": "",
+          "changedFiles": [],
+          "businessChangedFiles": [],
+          "reportFiles": [],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T14:51:29.739Z",
+          "checkedAt": "2026-07-12T14:51:35.616Z",
           "passed": true,
-          "role": "implementation",
-          "terminalStatus": "IMPLEMENTATION_COMPLETED",
-          "reason": "Business change, task report, commit, and conclusion are present"
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "IMPLEMENTATION_COMPLETED",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23804\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-51-29-576Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS for `BUG-20260708-0001`.\n\nImplemented the frontend fix in [warehouse/inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:127): admin “确认入库” now calls `/api/inbound/confirm` instead of only updating `wms_inbound.status`, so it uses the WMS path that writes inventory batches. Added payload helpers in [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:30) and regression tests in `warehouse-inbound.test.ts`.\n\nReport written: [BUG-20260708-0001-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/o",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\":",
       "nextAction": "",
       "redispatchCount": 5,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T14:51:31.028Z"
+      "recordedAt": "2026-07-12T14:51:36.877Z"
     },
     "redispatchHistory": [
       {
