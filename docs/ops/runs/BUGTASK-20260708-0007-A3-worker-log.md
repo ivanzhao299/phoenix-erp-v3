@@ -23,23 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A3-worker-assembled-prompt.md
-Assembled prompt chars: 18602
+Assembled prompt chars: 18552
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T10-53-17-066Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS for `BUG-20260708-0007`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-08-31-151Z-A3-Backend-Critical-Path.md
+Implemented the backend fix for `BUGTASK-20260708-0007`.
 
-Implemented the backend repair in [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:39): sales order draft create/update now checks actual table columns and skips only optional extension columns such as `sku_code`, `below_floor_price`, and `expected_delivery_date` when absent. Required base columns still fail fast.
-
-Added focused regression coverage in [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:37), and wrote the required report at [BUG-20260708-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260708-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md:5).
+Changed:
+- [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:37): added cached `information_schema.columns` detection and skip optional `delivery_address` writes when the deployed `sal_sales_orders` table lacks that column.
+- [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:1): added focused regression tests for create draft with and without `delivery_address`.
+- [bugtask report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/runs/bugtask-20260708-0007-a3-backend-report.md:1): documented source bug, root cause, files, validation, and result.
 
 Validation:
-- `cd apps/api && ./node_modules/.bin/jest src/modules/sales-v2/services/sales-orders.service.spec.ts --runInBand` PASS
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS
-- RBAC/DataScope static check PASS
-- Local read-only `psql` catalog check HOLD: sandbox denied Postgres socket access with `Operation not permitted`
+- `pnpm --dir apps/api test -- sales-orders.service.spec.ts` passed, 2 tests.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed, 0 errors.
+- Read-only local DB metadata probe was blocked by sandbox socket permission, so the report marks this `PASS WITH CONDITIONS`.
 
-No migration/schema/entity/table/column changes, no DB write, no deploy, no push. Pre-existing untracked `node_modules` directories remain untouched. Final resolution still requires CI/CD, production smoke, and business acceptance.
+No frontend, migration, schema, entity, DB write, deploy, push, or board update was performed.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f55f2-fc74-7641-bb06-ae31bdbfc43e
+session id: 019f5601-5c96-7be0-9f4b-9dfcb6957e24
 --------
 user
 # Base Agent Prompt
@@ -501,7 +501,7 @@ Assigned agent: A3-Backend-Critical-Path
             "disabled": false
           },
           {
-...<truncated 490306 chars>
+...<truncated 466127 chars>
 
 ```
 
@@ -512,20 +512,20 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "FAIL",
-  "responseChars": 1411,
-  "beforeHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
-  "afterHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1181,
+  "beforeHead": "1de0a69ab3c3204e31b1ff44802efb0017b64168",
+  "afterHead": "1de0a69ab3c3204e31b1ff44802efb0017b64168",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T10:53:17.158Z",
+  "checkedAt": "2026-07-12T11:08:31.247Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is FAIL"
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -537,11 +537,9 @@ Assigned agent: A3-Backend-Critical-Path
   "ok": false,
   "files": [
     "apps/api/src/modules/sales-v2/services/sales-orders.service.ts",
-    "apps/api/node_modules",
     "apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts",
-    "docs/ops/BUG-20260708-0007_A3_BACKEND_CRITICAL_PATH_REPORT.md",
-    "node_modules"
+    "docs/ops/runs/bugtask-20260708-0007-a3-backend-report.md"
   ],
-  "error": "outside allowed paths: node_modules"
+  "error": "task-specific docs/ops report is missing"
 }
 ```
