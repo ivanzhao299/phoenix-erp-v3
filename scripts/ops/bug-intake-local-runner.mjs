@@ -55,6 +55,7 @@ function parseArgs(argv) {
     once: false,
     watch: false,
     interval: 300,
+    busyInterval: 5,
     maxCycles: 1,
     maxTasks: 3,
     outputDir: RUN_DIR,
@@ -102,6 +103,7 @@ function parseArgs(argv) {
     }
   }
   args.interval = Number.parseInt(args.interval, 10) || 300;
+  args.busyInterval = Number.parseInt(args.busyInterval, 10) || 5;
   args.maxCycles = Number.parseInt(args.maxCycles, 10) || 1;
   args.maxTasks = Number.parseInt(args.maxTasks, 10) || 3;
   args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
@@ -1802,14 +1804,18 @@ async function main() {
   const cycles = args.watch ? args.maxCycles : 1;
   try {
     for (let cycle = 1; cycle <= cycles; cycle += 1) {
+      let summary = null;
       try {
-        await runCycle(args, cycle);
+        summary = await runCycle(args, cycle);
       } catch (error) {
         crashSummary(args, cycle, error);
         console.error(`ERROR: ${error.message}`);
         if (!args.watch) throw error;
       }
-      if (args.watch && cycle < cycles) await sleep(args.interval * 1000);
+      if (args.watch && cycle < cycles) {
+        const busy = (summary?.workerRuns?.length || 0) > 0 || (summary?.runnableTasks?.length || 0) > 0;
+        await sleep((busy ? args.busyInterval : args.interval) * 1000);
+      }
     }
   } finally {
     releaseRunnerLock();
