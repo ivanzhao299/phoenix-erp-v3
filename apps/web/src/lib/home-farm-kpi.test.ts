@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { buildHomeFarmKpi } from './home-farm-kpi';
 
 describe('buildHomeFarmKpi', () => {
-  it('keeps feed from hen-report totals and fills water from daily logs when hen totals omit water', () => {
+  it('uses daily logs for feed and water when today has breeding log entries', () => {
     const kpi = buildHomeFarmKpi(
       {
         rows: [
           { current_qty: 1000, eggs: 820 },
           { current_qty: 1200, eggs: 960 },
         ],
-        totals: { current_qty: 2200, eggs: 1780, feed: 315, logged_houses: 2 },
+        totals: { current_qty: 2200, eggs: 1780, feed: 999, logged_houses: 2 },
       },
       null,
       {
@@ -23,6 +23,25 @@ describe('buildHomeFarmKpi', () => {
     expect(kpi.feedToday).toBe(315);
     expect(kpi.waterToday).toBe(500);
     expect(kpi.layRate).toBe(80.9);
+  });
+
+  it('falls back to hen-report feed totals when daily logs do not include feed data', () => {
+    const kpi = buildHomeFarmKpi(
+      {
+        rows: [],
+        totals: { feed: 315, water: 480 },
+      },
+      null,
+      {
+        rows: [
+          { eggs_produced: 100 },
+          { mortality_qty: 1 },
+        ],
+      },
+    );
+
+    expect(kpi.feedToday).toBe(315);
+    expect(kpi.waterToday).toBe(480);
   });
 
   it('treats entered zero feed and water as known values instead of missing data', () => {
