@@ -23,24 +23,22 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md
-Assembled prompt chars: 19169
+Assembled prompt chars: 19108
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-08-03-294Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend repair for `BUG-20260708-0003`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-55-19-823Z-A4-Frontend-UAT-Smoke.md
+Implemented the A4 frontend evidence pass for `BUG-20260708-0003`.
 
 Changed:
-- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): added `MENU_PRC2_SHIPMENT:C` gated “创建运单” actions from list and detail drawer.
-- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): supports `create=1&poId&poNo` prefill, auto-opens the drawer, locks PO fields, and gates direct prefill/new button by shipment create permission.
-- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement-shipments-layout.test.ts): added focused regression coverage.
-- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md): status `PASS WITH CONDITIONS`.
+- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement-shipments-layout.test.ts:37) strengthened regression coverage for PO-to-shipment linking, creatable statuses, detail drawer entry, PO validation, loading and empty states.
+- [bug-20260708-0003-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md:1) added the required task report with `PASS WITH CONDITIONS`.
 
-Validation passed:
-- `pnpm --filter web test -- src/__tests__/procurement-shipments-layout.test.ts`
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`
-- `git diff --check`
+Verification:
+- `pnpm --filter web test -- src/__tests__/procurement-shipments-layout.test.ts` PASS, 4 tests.
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit` PASS.
+- Target route compile with Next webpack PASS.
 
-Condition: local browser smoke could not run because the sandbox rejected `next dev` port binding with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`. No deploy, push, merge, DB write, migration, or backend/API change was performed.
+Condition: local live browser smoke could not run because the sandbox rejected localhost binding with `listen EPERM`. I did not deploy, push, merge, run migrations, write DB, or touch API files. The report explicitly does not claim production resolution before CI/CD, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +55,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56db-1fca-7b62-b385-2f0c300ab06c
+session id: 019f5707-4320-7191-8142-65e513cc702b
 --------
 user
 # Base Agent Prompt
@@ -504,7 +502,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           {
             "tag": "a",
             "path": ".admin-ui-module__B-1PDG__btnPrimary
-...<truncated 748426 chars>
+...<truncated 224256 chars>
 
 ```
 
@@ -515,27 +513,23 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1298,
-  "beforeHead": "bd6c494029b8cd8cc6fc9fcf017f9ecbfb976018",
-  "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
-  "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+  "conclusion": "PASS",
+  "responseChars": 1108,
+  "beforeHead": "d134c94673143f78abe7e52ea77b9dca66016b75",
+  "afterHead": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+  "commitHash": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
   "changedFiles": [
     "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
-    "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
   ],
   "businessChangedFiles": [
-    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
-    "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T15:08:03.461Z",
+  "checkedAt": "2026-07-12T15:55:19.981Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -551,20 +545,16 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
-    "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
   ],
   "businessFiles": [
-    "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
-    "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-    "apps/web/src/app/(admin)/procurement2/shipments/page.tsx"
+    "apps/web/src/__tests__/procurement-shipments-layout.test.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+    "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
   ],
-  "commitHash": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+  "commitHash": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 c544affa] fix(web): repair BUG-20260708-0003\n 4 files changed, 160 insertions(+), 14 deletions(-)\n create mode 100644 docs/ops/BUG-20260708-0003-A4-FRONTEND-UAT-SMOKE-REPORT.md"
+  "output": "[codex/bug-intake-a4 3de0a585] fix(web): repair BUG-20260708-0003\n 2 files changed, 88 insertions(+)\n create mode 100644 docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
 }
 ```

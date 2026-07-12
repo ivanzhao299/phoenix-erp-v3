@@ -3,36 +3,46 @@
   "bugNo": "BUG-20260708-0003",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0003/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0003-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260708-0003-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A4-worker-log.md",
+    "commitHash": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+    "changedFiles": [
+      "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+      "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
         "conclusion": "PASS",
-        "responseChars": 1102,
-        "beforeHead": "b517fa9ec652f5061b52adf43841cee01838d808",
-        "afterHead": "b517fa9ec652f5061b52adf43841cee01838d808",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "responseChars": 1108,
+        "beforeHead": "d134c94673143f78abe7e52ea77b9dca66016b75",
+        "afterHead": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+        "commitHash": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
+        "changedFiles": [
+          "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
+          "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/__tests__/procurement-shipments-layout.test.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T15:51:58.060Z",
+        "checkedAt": "2026-07-12T15:55:19.981Z",
         "passed": true,
-        "role": "implementation_verified_existing",
-        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-        "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "SKIPPED_NOT_APPLICABLE",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19041\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-51-57-967Z-A3-Backend-Critical-Path.md\nA3 backend reconciliation is complete for `BUG-20260708-0003`.\n\nThe backend repair was already present locally in `c6fdce84 fix(api): repair BUG-20260708-0003`: shipment create/update resolves purchase orders by `poId` or `poNo`, backfills linkage and ownership fields, rejects mismatches, and preserves DataScope checks. Focused regression coverage exists in [shipments.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.spec.ts:1).\n\nI updated the task report with current redispatch evidence: [BUGTASK-20260708-0003-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-int",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19108\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-55-19-823Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend evidence pass for `BUG-20260708-0003`.\n\nChanged:\n- [procurement-shipments-layout.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/procurement-shipments-layout.test.ts:37) strengthened regression coverage for PO-to-shipment linking, creatable statuses, detail drawer entry, PO validation, loading and empty states.\n- [bug-20260708-0003-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md:1) added the required task report with `PASS WITH CONDITIONS`.\n\nVerification:\n- `pnpm --filter web test -- src/__tests__/procurement-shipments-layou",
     "nextAction": ""
   }
 }
