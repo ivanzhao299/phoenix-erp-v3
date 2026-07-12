@@ -163,7 +163,7 @@ async function fetchReports(args) {
     const fetched = new Set(details.map((report) => report?.bugNo).filter(Boolean));
     const unresolvedStatuses = new Set(['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY']);
     const localBugNos = [...new Set(readJson(TASKS_FILE)
-      .filter((task) => task.source === 'bug-intake' && task.route_active !== false)
+      .filter((task) => task.source === 'bug-intake')
       .filter((task) => unresolvedStatuses.has(task.status))
       .map((task) => task.source_bug_no)
       .filter((bugNo) => bugNo && !fetched.has(bugNo)))];
@@ -331,12 +331,23 @@ function deactivateNotReadyQueueTasks(reports, apply) {
       }
       continue;
     }
-    if (task.route_active === false) continue;
+    if (task.route_active === false) {
+      if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY'].includes(task.status)) {
+        task.status = 'archived';
+        task.completed_at = task.completed_at || new Date().toISOString();
+        changed = true;
+      }
+      continue;
+    }
     task.route_active = false;
     changed = true;
     task.remote_repair_status = remoteStatus;
     task.route_superseded_reason = `remote bug is not executable: ${remoteStatus}`;
-    if (['pending', 'claimed'].includes(task.status)) {
+    // Once the remote report is terminal or otherwise no longer executable,
+    // every unfinished local route is historical evidence rather than active
+    // debt. Keep its quarantine/result metadata, but remove HOLD/failed/running
+    // labels from the live queue so dashboards cannot report a false blocker.
+    if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY'].includes(task.status)) {
       task.status = 'archived';
       task.completed_at = task.completed_at || new Date().toISOString();
     }
