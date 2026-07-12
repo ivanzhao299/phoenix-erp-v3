@@ -156,6 +156,25 @@ async function fetchReports(args) {
       page += 1;
     }
   }
+  // Open-list endpoints intentionally omit CLOSED/REJECTED reports. Reconcile
+  // local active non-success routes individually so a remotely closed report
+  // cannot remain as permanent local HOLD debt.
+  if (existsSync(resolveFile(TASKS_FILE))) {
+    const fetched = new Set(details.map((report) => report?.bugNo).filter(Boolean));
+    const unresolvedStatuses = new Set(['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY']);
+    const localBugNos = [...new Set(readJson(TASKS_FILE)
+      .filter((task) => task.source === 'bug-intake' && task.route_active !== false)
+      .filter((task) => unresolvedStatuses.has(task.status))
+      .map((task) => task.source_bug_no)
+      .filter((bugNo) => bugNo && !fetched.has(bugNo)))];
+    for (const bugNo of localBugNos) {
+      try {
+        details.push(await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(bugNo)}`));
+      } catch (error) {
+        FETCH_ERRORS.push({ bugNo, endpoint: `/api/bug-intake/reports/${bugNo}`, error: error.message });
+      }
+    }
+  }
   return details;
 }
 

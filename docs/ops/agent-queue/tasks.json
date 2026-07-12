@@ -20028,7 +20028,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -20039,7 +20039,8 @@
     "reason": "incomplete implementation worktree preserved in quarantine; no code merged",
     "quarantined_at": "2026-07-11T01:47:04.471Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260711-0003-A4",
@@ -20081,7 +20082,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -20092,7 +20093,8 @@
     "reason": "incomplete implementation worktree preserved in quarantine; no code merged",
     "quarantined_at": "2026-07-11T01:47:09.295Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260711-0003-A1",
@@ -20135,7 +20137,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -20153,7 +20155,8 @@
       "reason": "blocked by failed dependency: BUGTASK-20260711-0003-A3",
       "checkedAt": "2026-07-11T01:47:04.902Z"
     },
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": "remote bug is not executable: HOLD"
   },
   {
     "task_id": "BUGTASK-20260711-0004-A3",

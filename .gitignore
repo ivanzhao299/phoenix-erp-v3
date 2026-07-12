@@ -62,3 +62,6 @@ scripts/.prod-schema.sql
 
 # 畅捷通探针 token 缓存（含敏感 token，严禁提交）
 scripts/.yonyou-*.json
+
+# Bug intake 本地收件箱（含生产截图/附件与完整上下文，仅作运行时缓存）
+docs/ops/runs/bug-intake-inbox/
