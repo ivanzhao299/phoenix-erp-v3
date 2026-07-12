@@ -38,6 +38,16 @@ const RISK_LEVELS = [{
   value: "BLACKLIST",
   label: "黑名单"
 }];
+const CUSTOMER_STATUS_OPTIONS = [{
+  value: "ACTIVE",
+  label: "正常"
+}, {
+  value: "FROZEN",
+  label: "冻结"
+}, {
+  value: "BLACKLIST",
+  label: "黑名单"
+}];
 const STATUS_MAP: Record<string, {
   label: string;
   cls: string;
@@ -185,6 +195,7 @@ function CustomersTab() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [confirmFn, setConfirmFn] = useState<() => Promise<void>>(() => async () => {});
@@ -212,28 +223,68 @@ function CustomersTab() {
   }, [load]);
   const openNew = () => {
     setEditing(null);
+    setSaveError("");
     setDrawerOpen(true);
   };
   const openEdit = (row: any) => {
     setEditing(row);
+    setSaveError("");
     setDrawerOpen(true);
+  };
+  const closeDrawer = () => {
+    setSaveError("");
+    setDrawerOpen(false);
+  };
+  const applyCustomerStatus = async (customerId: string | number, status: string) => {
+    const action = status === "ACTIVE" ? "activate" : status === "FROZEN" ? "freeze" : "blacklist";
+    await apiFetch(`${API}/customers/${customerId}/${action}`, {
+      method: "POST",
+      body: "{}"
+    });
+  };
+  const patchCustomer = async (customerId: string | number, values: Record<string, unknown>) => {
+    await apiFetch(`${API}/customers/${customerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(values)
+    });
   };
   const handleSave = async (values: Record<string, unknown>) => {
     setSaving(true);
+    setSaveError("");
     try {
       if (editing?.id) {
-        await apiFetch(`${API}/customers/${editing.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(values)
-        });
+        const requestedStatus = String(values.status ?? editing.status ?? "ACTIVE");
+        const currentStatus = String(editing.status ?? "");
+        const statusChanged = requestedStatus !== currentStatus;
+        const patchValues = { ...values };
+        delete patchValues.status;
+
+        if (currentStatus === "BLACKLIST" && requestedStatus === "BLACKLIST") {
+          throw new Error(t('ui.黑名单客户不可直接编辑，请先将状态改为正常或冻结后保存', '黑名单客户不可直接编辑，请先将状态改为正常或冻结后保存'));
+        }
+
+        if (currentStatus === "BLACKLIST") {
+          await applyCustomerStatus(editing.id, "ACTIVE");
+          await patchCustomer(editing.id, patchValues);
+          if (requestedStatus === "FROZEN") {
+            await applyCustomerStatus(editing.id, "FROZEN");
+          }
+        } else {
+          await patchCustomer(editing.id, patchValues);
+          if (statusChanged) {
+            await applyCustomerStatus(editing.id, requestedStatus);
+          }
+        }
       } else {
         await apiFetch(`${API}/customers`, {
           method: "POST",
           body: JSON.stringify(values)
         });
       }
-      setDrawerOpen(false);
+      closeDrawer();
       load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t('ui.保存失败，请稍后重试', '保存失败，请稍后重试'));
     } finally {
       setSaving(false);
     }
@@ -305,6 +356,13 @@ function CustomersTab() {
     label: t('ui.风险等级', '风险等级'),
     type: "select",
     options: RISK_LEVELS
+  }, {
+    key: "status",
+    label: t('ui.状态', '状态'),
+    type: "select",
+    required: true,
+    defaultValue: "ACTIVE",
+    options: CUSTOMER_STATUS_OPTIONS
   }, {
     key: "salesRepName",
     label: t('ui.销售员', '销售员'),
@@ -556,10 +614,22 @@ function CustomersTab() {
           <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
           <span>{t('ui.第', '第')} {page} / {totalPages} {t('ui.页', '页')}</span>
           <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
-        </div>}
+      </div>}
 
       {/* Drawer */}
-      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑客户', '编辑客户') : t('ui.新建客户', '新建客户')} onClose={() => setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editing ? t('ui.编辑客户', '编辑客户') : t('ui.新建客户', '新建客户')} onClose={closeDrawer}>
+        {saveError && <div role="alert" style={{
+        marginBottom: 12,
+        padding: "10px 12px",
+        borderRadius: "var(--radius)",
+        border: "1px solid var(--status-danger)",
+        background: "var(--status-danger-bg-light)",
+        color: "var(--status-danger)",
+        fontSize: 13,
+        lineHeight: 1.5
+      }}>
+          {saveError}
+        </div>}
         <CrudForm fields={FIELDS} initialValues={editing ? {
         customerName: editing.customer_name,
         customerType: editing.customer_type,
@@ -570,12 +640,13 @@ function CustomersTab() {
         creditLimit: editing.credit_limit,
         paymentTerms: editing.payment_terms,
         riskLevel: editing.risk_level,
+        status: editing.status ?? "ACTIVE",
         salesRepName: editing.sales_rep_name,
         contactName: editing.contact_name,
         contactPhone: editing.contact_phone,
         deliveryAddress: editing.delivery_address,
         remark: editing.remark
-      } : {}} onSubmit={handleSave} onCancel={() => setDrawerOpen(false)} loading={saving} />
+      } : { status: "ACTIVE" }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       {/* Confirm */}
