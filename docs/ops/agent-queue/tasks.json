@@ -14388,7 +14388,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "retry_after": null
   },
@@ -14505,7 +14505,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14620,7 +14620,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0007"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14734,7 +14734,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -14865,7 +14865,7 @@
       }
     ],
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "retry_after": null
   },
   {
@@ -14980,7 +14980,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0006"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -16505,7 +16505,7 @@
       "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
     ],
     "reason": "verified integrated implementation evidence",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "integrated_commit": "49dd3552f5416df2ac4ecd74654753c136397e3e",
     "integrated_at": "2026-07-12T18:10:20.812Z",
     "baseline_autopilot_exit_code": 0,
@@ -16585,7 +16585,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T14:27:17.374Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "reason": null,
     "evidence_gate": {
       "version": 1,
