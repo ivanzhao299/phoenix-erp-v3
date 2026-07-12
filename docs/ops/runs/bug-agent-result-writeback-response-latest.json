@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-08T07:17:09.418Z",
-  "updatedAt": "2026-07-12T17:15:59.355Z",
+  "updatedAt": "2026-07-12T17:16:46.086Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "将客户加入黑名单后，风险和状态都变为“黑名单”，点击编辑按钮没有更改状态的地方，无法取消状态黑名单，并且风险等级改为正常后保存无反应，要求在编辑页面添加状态下拉框，状态和风险等级保存时都可成功",
@@ -2867,53 +2867,89 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260708-0005-A4",
         "agent": "A4-Frontend-UAT-Smoke",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A4-worker-log.md",
+        "taskId": "BUGTASK-20260708-0005-A4",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 45618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-15-57-607Z-A4-Frontend-UAT-Smoke.md\n已完成 BUG-20260708-0005 的前端修复，结果为 **PASS WITH CONDITIONS**，未部署、未 push、未改 API/迁移/数据库。\n\n改动：\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:41)：新增客户状态选项。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:238)：保存时拆分 `status`，走现有 `activate/freeze/blacklist` 动作接口，避免直接 PATCH 黑名单客户。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:360)：编辑抽屉新增“状态”下拉。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/custo",
         "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T17:15:59.352Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A4-worker-log.md",
         "changedFiles": [
           "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
           "apps/web/src/app/(admin)/sales2/customers/page.tsx",
           "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
         ],
+        "redispatchCount": 6,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A4-Frontend-UAT-Smoke",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1555,
-            "beforeHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
             "afterHead": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+            "checkedAt": "2026-07-12T17:15:57.769Z",
+            "beforeHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
             "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+            ],
             "changedFiles": [
               "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
               "apps/web/src/app/(admin)/sales2/customers/page.tsx",
               "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
             ],
+            "responseChars": 1555,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
               "apps/web/src/app/(admin)/sales2/customers/page.tsx"
             ],
-            "reportFiles": [
-              "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-            ],
-            "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T17:15:57.769Z",
-            "passed": true,
-            "role": "implementation",
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "reason": "Business change, task report, commit, and conclusion are present"
+            "parentCommitRecovered": false
           },
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260708-0005-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A1-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A1-CI-Runtime-Gate",
+            "exitCode": 0,
+            "conclusion": "PASS",
+            "responseChars": 1543,
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "changedFiles": [],
+            "businessChangedFiles": [],
+            "reportFiles": [],
+            "parentCommitRecovered": false,
+            "checkedAt": "2026-07-12T17:16:44.650Z",
+            "passed": true,
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
+          },
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 45618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-15-57-607Z-A4-Frontend-UAT-Smoke.md\n已完成 BUG-20260708-0005 的前端修复，结果为 **PASS WITH CONDITIONS**，未部署、未 push、未改 API/迁移/数据库。\n\n改动：\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:41)：新增客户状态选项。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:238)：保存时拆分 `status`，走现有 `activate/freeze/blacklist` 动作接口，避免直接 PATCH 黑名单客户。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:360)：编辑抽屉新增“状态”下拉。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/custo",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\":",
         "nextAction": "",
         "redispatchCount": 6,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T17:15:59.352Z"
+        "recordedAt": "2026-07-12T17:16:46.082Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -2926,53 +2962,40 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260708-0005-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260708-0005-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A4-worker-log.md",
-      "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
-      "changedFiles": [
-        "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
-        "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-        "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-      ],
+      "resultFile": "docs/ops/runs/BUGTASK-20260708-0005-A1-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A4-Frontend-UAT-Smoke",
+          "agent": "A1-CI-Runtime-Gate",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1555,
-          "beforeHead": "0c6d019c5d11908f96da0a20198c4489135afc6d",
-          "afterHead": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
-          "commitHash": "021cf7ae8c7ecb57b0c6af810a8e0bb40f1cc49c",
-          "changedFiles": [
-            "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
-            "apps/web/src/app/(admin)/sales2/customers/page.tsx",
-            "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-          ],
-          "businessChangedFiles": [
-            "apps/web/src/__tests__/sales-customers-status-edit.test.ts",
-            "apps/web/src/app/(admin)/sales2/customers/page.tsx"
-          ],
-          "reportFiles": [
-            "docs/ops/BUG-20260708-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-          ],
+          "conclusion": "PASS",
+          "responseChars": 1543,
+          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "commitHash": "",
+          "changedFiles": [],
+          "businessChangedFiles": [],
+          "reportFiles": [],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T17:15:57.769Z",
+          "checkedAt": "2026-07-12T17:16:44.650Z",
           "passed": true,
-          "role": "implementation",
-          "terminalStatus": "IMPLEMENTATION_COMPLETED",
-          "reason": "Business change, task report, commit, and conclusion are present"
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "IMPLEMENTATION_COMPLETED",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 45618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T17-15-57-607Z-A4-Frontend-UAT-Smoke.md\n已完成 BUG-20260708-0005 的前端修复，结果为 **PASS WITH CONDITIONS**，未部署、未 push、未改 API/迁移/数据库。\n\n改动：\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:41)：新增客户状态选项。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:238)：保存时拆分 `status`，走现有 `activate/freeze/blacklist` 动作接口，避免直接 PATCH 黑名单客户。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/customers/page.tsx:360)：编辑抽屉新增“状态”下拉。\n- [customers/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/custo",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260708-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\":",
       "nextAction": "",
       "redispatchCount": 6,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T17:15:59.352Z"
+      "recordedAt": "2026-07-12T17:16:46.082Z"
     },
     "redispatchHistory": [
       {
