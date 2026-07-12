@@ -23,22 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260711-0005-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260711-0005-A3-worker-assembled-prompt.md
-Assembled prompt chars: 34305
+Assembled prompt chars: 34340
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-01-54-796Z-A3-Backend-Critical-Path.md
-Implemented the backend repair for `BUG-20260711-0005`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-53-33-023Z-A3-Backend-Critical-Path.md
+Implemented the A3 backend repair for `BUG-20260711-0005`.
 
 Changed:
-- [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts): AP invoice detail now preserves the invoice response when optional `fin_ap_payment_allocations` is absent, returning `allocations: []` only for PostgreSQL `42P01`.
-- [ap-invoices.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts): added regression tests.
-- [bug-20260711-0005-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260711-0005-a3-backend-critical-path.md): required task report with `PASS WITH CONDITIONS` and GO-to-next-gates recommendation.
+- [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts): AP invoice detail now tolerates missing `fin_ap_payment_allocations`, falls back to legacy `fin_ap_payments`, and only returns empty `allocations` when both payment-history tables are absent.
+- [ap-invoices.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts): added focused regression tests for the missing-table 500 path.
+- [BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md): result report with `PASS WITH CONDITIONS`.
 
-Validation run:
-- `cd apps/api && pnpm test -- ap-invoices.service.spec.ts --runInBand` passed: 2 tests.
+Validation:
+- `cd apps/api && pnpm test -- ap-invoices.service.spec.ts --runInBand` passed: 4 tests.
 - `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed: 0 errors.
+- No DB writes, migrations, deploys, pushes, frontend edits, or schema/entity changes.
 
-No deploy, push, migration, schema/entity/table/column change, or database write was performed. Existing untracked `node_modules` entries were left untouched.
+Status: `PASS WITH CONDITIONS`. Backend 500 path is repaired locally; production CI/CD, route smoke, and business acceptance are still required before calling the bug fully resolved. Untracked `node_modules` entries were already present and left untouched.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5632-d7ac-7731-96bd-f9852cdb3670
+session id: 019f573d-789b-7282-8198-2cfe105c8a82
 --------
 user
 # Base Agent Prompt
@@ -425,7 +426,7 @@ Assigned agent: A3-Backend-Critical-Path
               "x": 0,
               "y": 346
   
-...<truncated 408233 chars>
+...<truncated 376615 chars>
 
 ```
 
@@ -437,24 +438,24 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1119,
-  "beforeHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
-  "afterHead": "60e916eb5f990794feaa5466d6d42c47f1341622",
-  "commitHash": "60e916eb5f990794feaa5466d6d42c47f1341622",
+  "responseChars": 1341,
+  "beforeHead": "004792f19209f4e341c56b66eaa77ccddaea6a5d",
+  "afterHead": "4a56c897018d833c4825d09bedc797a2151907d7",
+  "commitHash": "4a56c897018d833c4825d09bedc797a2151907d7",
   "changedFiles": [
     "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
     "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
-    "docs/ops/bug-20260711-0005-a3-backend-critical-path.md"
+    "docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessChangedFiles": [
     "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
     "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260711-0005-a3-backend-critical-path.md"
+    "docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:01:54.956Z",
+  "checkedAt": "2026-07-12T16:53:33.191Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -469,19 +470,19 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": true,
   "files": [
-    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
     "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
-    "docs/ops/bug-20260711-0005-a3-backend-critical-path.md"
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+    "docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessFiles": [
-    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
-    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts"
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260711-0005-a3-backend-critical-path.md"
+    "docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
-  "commitHash": "60e916eb5f990794feaa5466d6d42c47f1341622",
+  "commitHash": "4a56c897018d833c4825d09bedc797a2151907d7",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 60e916eb] fix(api): repair BUG-20260711-0005\n 3 files changed, 118 insertions(+), 7 deletions(-)\n create mode 100644 apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts\n create mode 100644 docs/ops/bug-20260711-0005-a3-backend-critical-path.md"
+  "output": "[codex/bug-intake-a3 4a56c897] fix(api): repair BUG-20260711-0005\n 3 files changed, 173 insertions(+), 9 deletions(-)\n create mode 100644 docs/ops/BUG-20260711-0005_A3_BACKEND_CRITICAL_PATH_REPORT.md"
 }
 ```
