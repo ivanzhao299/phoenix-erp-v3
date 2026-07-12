@@ -13,6 +13,20 @@ import {
   CancelApInvoiceDto,
 } from '../dto/ap-invoice.dto';
 
+const AP_STATUS_LABELS: Record<string, string> = {
+  OPEN: '未付款',
+  PARTIALLY_PAID: '部分付款',
+  PAID: '已付清',
+  DISPUTED: '争议中',
+  CANCELLED: '已取消',
+};
+
+const AP_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  UNPAID: '未付款',
+  PARTIAL: '部分付款',
+  PAID: '已付清',
+};
+
 /**
  * ApInvoicesService — Finance V2 Phase 1 AP Runtime
  *
@@ -33,6 +47,17 @@ export class ApInvoicesService {
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
+
+  private withStatusLabels<T extends Record<string, any>>(invoice: T): T & {
+    status_label?: string;
+    payment_status_label?: string;
+  } {
+    return {
+      ...invoice,
+      status_label: AP_STATUS_LABELS[String(invoice.status)] ?? invoice.status,
+      payment_status_label: AP_PAYMENT_STATUS_LABELS[String(invoice.payment_status)] ?? invoice.payment_status,
+    };
+  }
 
   private currentUser() {
     const u = this.cls.get('user') as any;
@@ -189,7 +214,7 @@ export class ApInvoicesService {
     ]);
 
     return {
-      items: rows,
+      items: rows.map((row: Record<string, any>) => this.withStatusLabels(row)),
       total: Number(countRow[0]?.cnt ?? 0),
       page,
       pageSize,
@@ -207,7 +232,7 @@ export class ApInvoicesService {
        FROM fin_ap_payment_allocations WHERE invoice_id = $1 ORDER BY payment_date DESC`,
       [id],
     );
-    return { ...inv, allocations: allocs };
+    return { ...this.withStatusLabels(inv), allocations: allocs };
   }
 
   // ── 3. 手工创建 AP ────────────────────────────────────────────────────────
@@ -256,7 +281,7 @@ export class ApInvoicesService {
     );
     this.logger.log(`[AP] 手工创建 AP Invoice: ${apNo} company=${dto.companyCode}`);
     // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
-    return { ...row[0], id: Number(row[0].id) };
+    return this.withStatusLabels({ ...row[0], id: Number(row[0].id) });
   }
 
   // ── 4. 从 PO / prc2_ap_ledger 创建 ───────────────────────────────────────
@@ -318,7 +343,7 @@ export class ApInvoicesService {
     const row = await this.ds.query(
       `SELECT * FROM fin_ap_invoices WHERE ap_no = $1`, [apNo],
     );
-    return row[0];
+    return this.withStatusLabels(row[0]);
   }
 
   // ── 5. 更新（仅 OPEN/PARTIALLY_PAID 可编辑）─────────────────────────────
@@ -402,7 +427,14 @@ export class ApInvoicesService {
     );
 
     this.logger.log(`[AP] 取消 AP Invoice #${id} (${inv.ap_no}) by user ${user.userId}`);
-    return { id, apNo: inv.ap_no, status: 'CANCELLED' };
+    return {
+      id,
+      apNo: inv.ap_no,
+      status: 'CANCELLED',
+      status_label: AP_STATUS_LABELS.CANCELLED,
+      payment_status: 'UNPAID',
+      payment_status_label: AP_PAYMENT_STATUS_LABELS.UNPAID,
+    };
   }
 
   // ── 7. 重算付款状态 ───────────────────────────────────────────────────────
