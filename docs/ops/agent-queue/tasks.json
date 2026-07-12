@@ -14288,7 +14288,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0005",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14311,8 +14311,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T12:20:22.500Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0005-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -14330,12 +14330,46 @@
     "reason": null,
     "quarantined_at": "2026-07-11T07:06:20.080Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "evidence_gate": null,
-    "implementation_commit": "",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 1366,
+      "beforeHead": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+      "afterHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
+      "commitHash": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+        "apps/web/src/lib/sales-customers-form.test.ts",
+        "apps/web/src/lib/sales-customers-form.ts",
+        "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+        "apps/web/src/lib/sales-customers-form.test.ts",
+        "apps/web/src/lib/sales-customers-form.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-12T12:20:22.500Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
     "integrated_commit": "",
     "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "changed_files": [
+      "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "apps/web/src/lib/sales-customers-form.test.ts",
+      "apps/web/src/lib/sales-customers-form.ts",
+      "docs/ops/bug-intake/BUG-20260708-0005-a4-frontend-report.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T10:59:09.440Z",
     "redispatch_history": [
       {
@@ -14359,7 +14393,8 @@
         "source_bug_no": "BUG-20260708-0005",
         "source_repair_task_no": "BUGTASK-20260708-0005"
       }
-    ]
+    ],
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260708-0005-A1",
@@ -14550,7 +14585,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -14574,7 +14609,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-12T12:17:09.414Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14589,8 +14624,16 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-12T10:59:09.915Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260708-0004-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260708-0004-A4",
+      "checkedAt": "2026-07-12T12:17:09.414Z"
+    },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
