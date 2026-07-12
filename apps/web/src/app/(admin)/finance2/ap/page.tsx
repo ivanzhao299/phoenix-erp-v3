@@ -9,6 +9,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getApInvoiceStatusLabel } from '@/lib/finance-ap-status';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -210,6 +211,17 @@ function SourceBadge({
   return <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-current/[0.08] ${cfg.colorClass}`}>
       {SOURCE_MAP[type] ? t(`fin2.ap.source_${type.toLowerCase()}`, cfg.label) : cfg.label}
     </span>;
+}
+
+function ApInvoiceStatusBadge({
+  status,
+  size = 'sm',
+}: {
+  status: string;
+  size?: 'sm' | 'md';
+}) {
+  const { t } = useLanguage();
+  return <StatusBadge status={status} label={getApInvoiceStatusLabel(status, t)} size={size} />;
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
@@ -506,7 +518,7 @@ function DetailDrawer({
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <SourceBadge type={detail.source_type} />
-                  <StatusBadge status={detail.status} size="sm" />
+                  <ApInvoiceStatusBadge status={detail.status} size="sm" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
@@ -844,7 +856,7 @@ export default function Finance2ApPage() {
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
                   <td>
-                    <StatusBadge status={r.status} size="sm" />
+                    <ApInvoiceStatusBadge status={r.status} size="sm" />
                   </td>
                 </tr>)}
             </tbody>
