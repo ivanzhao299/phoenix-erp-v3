@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,23 +23,30 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt.md
-Assembled prompt chars: 26059
+Assembled prompt chars: 26123
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-51-17-932Z-A3-Backend-Critical-Path.md
-Implemented the A3 backend repair for `BUG-20260711-0002`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-36-48-959Z-A3-Backend-Critical-Path.md
+Implemented the backend repair for `BUG-20260711-0002`.
 
 Changed:
-- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts): medicine inbound/outbound now probes `inv_ledger` optional columns and builds ledger SQL only for columns that exist, so missing `log_date` / `warehouse_code` / `house_code` no longer rolls back the stock update.
-- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts): added focused regressions for optional-column absence and ledger fallback reads.
-- [BUGTASK-20260711-0002-A3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/runs/BUGTASK-20260711-0002-A3-backend-report.md): task report with root cause, changed files, validation, and `PASS WITH CONDITIONS`.
+- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts)
+- [farm-medicine.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.controller.ts)
+- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts)
+- Report: [BUG-20260711-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md)
+
+What changed:
+- Switched medicine stock to governed warehouse code `LPH_MS_MEDICINE`, while still reading legacy `MEDICINE` rows for compatibility.
+- Added ownership/source fields on medicine stock writes so inbound stock remains visible under governed inventory scope.
+- Hardened inbound/outbound payload handling so malformed `items`, blank dates, invalid dates, and common field aliases return controlled behavior instead of raw 500s.
+- Removed dependency on unowned `inv_ledger.house_code`.
 
 Validation:
-- `pnpm --dir apps/api test -- farm-medicine.service.spec.ts --runInBand` passed: 12/12 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed with 0 errors.
-- `git diff --check` passed.
+- `cd apps/api && pnpm jest src/modules/farm/farm-medicine.service.spec.ts --runInBand` PASS, 8 tests.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS.
+- `git diff --check` PASS.
 
-No frontend, migration, schema/entity, DB write, deploy, push, or merge was performed. Local `psql` readback was blocked by the sandbox socket restriction, so final status remains `PASS WITH CONDITIONS` pending CI/CD, production smoke, and business acceptance.
+Result: `PASS WITH CONDITIONS`. No DB writes, migrations, deploy, push, or web changes were performed. This should still go through CI/CD, production smoke, and business acceptance before marking the bug resolved.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +63,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5628-26dc-78c0-b82b-bad09e8e5749
+session id: 019f572c-26aa-7a41-aa95-e98919908a5d
 --------
 user
 # Base Agent Prompt
@@ -528,7 +535,7 @@ Assigned agent: A3-Backend-Critical-Path
             },
             "label": "包装日报",
           
-...<truncated 517199 chars>
+...<truncated 962238 chars>
 
 ```
 
@@ -539,20 +546,31 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1340,
-  "beforeHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
-  "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS",
+  "responseChars": 1535,
+  "beforeHead": "183ec2910d81856b2a4573f267f574197209cffd",
+  "afterHead": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
+  "commitHash": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
+  "changedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts",
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:51:18.023Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T16:36:49.162Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -561,12 +579,23 @@ Assigned agent: A3-Backend-Critical-Path
 ```json
 {
   "attempted": true,
-  "ok": false,
+  "ok": true,
   "files": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
     "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
     "apps/api/src/modules/farm/farm-medicine.service.ts",
-    "docs/ops/runs/BUGTASK-20260711-0002-A3-backend-report.md"
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
   ],
-  "error": "task-specific docs/ops report is missing"
+  "businessFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
+  ],
+  "commitHash": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 fc947c16] fix(api): repair BUG-20260711-0002\n 4 files changed, 251 insertions(+), 33 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
 }
 ```

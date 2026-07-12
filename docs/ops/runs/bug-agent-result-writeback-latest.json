@@ -1,45 +1,45 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260709-0002",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0002/agent-result",
+  "bugNo": "BUG-20260711-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260709-0002-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260711-0002-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260709-0002-A4-worker-log.md",
-    "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
+    "resultFile": "docs/ops/runs/BUGTASK-20260711-0002-A3-worker-log.md",
+    "commitHash": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
     "changedFiles": [
-      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-      "apps/web/src/lib/warehouse-inbound.test.ts",
-      "apps/web/src/lib/warehouse-inbound.ts",
-      "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+      "apps/api/src/modules/farm/farm-medicine.controller.ts",
+      "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+      "apps/api/src/modules/farm/farm-medicine.service.ts",
+      "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A4-Frontend-UAT-Smoke",
+        "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
         "conclusion": "PASS",
-        "responseChars": 1519,
-        "beforeHead": "c036e8e0038b0dc790ab651ca3cd5fcd9c906b9f",
-        "afterHead": "f87738b8161f2f817a23dc40497af711f8bca91b",
-        "commitHash": "f87738b8161f2f817a23dc40497af711f8bca91b",
+        "responseChars": 1535,
+        "beforeHead": "183ec2910d81856b2a4573f267f574197209cffd",
+        "afterHead": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
+        "commitHash": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
         "changedFiles": [
-          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-          "apps/web/src/lib/warehouse-inbound.test.ts",
-          "apps/web/src/lib/warehouse-inbound.ts",
-          "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+          "apps/api/src/modules/farm/farm-medicine.controller.ts",
+          "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+          "apps/api/src/modules/farm/farm-medicine.service.ts",
+          "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
         ],
         "businessChangedFiles": [
-          "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
-          "apps/web/src/lib/warehouse-inbound.test.ts",
-          "apps/web/src/lib/warehouse-inbound.ts"
+          "apps/api/src/modules/farm/farm-medicine.controller.ts",
+          "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+          "apps/api/src/modules/farm/farm-medicine.service.ts"
         ],
         "reportFiles": [
-          "docs/ops/bug-intake/BUG-20260709-0002-a4-frontend-uat-smoke.md"
+          "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md"
         ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T16:32:14.596Z",
+        "checkedAt": "2026-07-12T16:36:49.162Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -48,7 +48,7 @@
       "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0002-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0002-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0002-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29848\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-32-14-423Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend fix for BUG-20260709-0002.\n\nRoot cause found: `/warehouse/inbound` still allowed `status` editing in the drawer, so users could save `COMPLETED` through generic CRUD and bypass `/api/inbound/confirm`.\n\nChanged:\n- [inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/inbound/page.tsx:76): removed writable status field and routes save payloads through a sanitizer.\n- [warehouse-inbound.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound.ts:46): added safe save payload builder, forcing creates to `PENDING` and stripping `status` on edits.\n- [warehouse-inb",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260711-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260711-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26123\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-36-48-959Z-A3-Backend-Critical-Path.md\nImplemented the backend repair for `BUG-20260711-0002`.\n\nChanged:\n- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts)\n- [farm-medicine.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.controller.ts)\n- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts)\n- Report: [BUG-20260711-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md)\n\nWhat changed:\n- Switched medi",
     "nextAction": ""
   }
 }
