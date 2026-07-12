@@ -1207,17 +1207,17 @@ Assigned agent: A3-Backend-Critical-Path
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-135223/BUG-20260711-0005/attachments/01-1783749065107-7899e418.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": null,
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-11T05:51:46.526Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-12T10:41:09.903Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+    "redispatchCount": 1,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1231,4 +1231,4 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260711-135223/BUG-20260711-0005/attachments/01-1783749065107-7899e418.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
