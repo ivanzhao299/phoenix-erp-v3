@@ -23,24 +23,32 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260706-0002-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A4-worker-assembled-prompt.md
-Assembled prompt chars: 29385
+Assembled prompt chars: 29320
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-32-24-430Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS / GO for CI handoff.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-18-51-739Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS.
 
-The frontend fix for `BUG-20260706-0002` is already present on this branch: `/home` now uses `buildHomeFarmKpi` to keep feed and water fallback sources independent, preserving zero values and RBAC-gated IoT loading. I updated the task report with current evidence at [docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md).
+已完成 redispatch 验证，未改前端源码，只更新了报告：[BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260706-0002-A4-FRONTEND-REPORT.md)。
 
-Verification run:
-- `./node_modules/.bin/vitest run src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`: PASS, 6/6
-- `./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
+验证结果：
+- `apps/web ./node_modules/.bin/tsc --noEmit`：PASS
+- `vitest run src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`：PASS，6/6
+- `pnpm --filter web test -- src/lib/home-farm-kpi.test.ts src/lib/home-request-plan.test.ts`：PASS，6/6
+- `git diff --check`：PASS
 
-Conditions:
-- Local browser smoke could not run because sandbox rejected `127.0.0.1:3000` with `listen EPERM`.
-- `npm run build` was blocked by Turbopack resolving `apps/web/node_modules` outside the sandbox filesystem root; the service-worker stamp side effect was reverted.
-- No backend, database, migration, deploy, push, or production action was performed.
-- I am not claiming the production bug is resolved until CI/CD, production route smoke, and business acceptance pass.
+确认现有修复覆盖：
+- 今日饲料消耗、今日用水独立取值，不再因 hen-report 存在但缺 water 而跳过 daily logs fallback。
+- `0` 被保留为有效录入值。
+- `MENU_FARM_DATA:V` 和 `MENU_DEVICE_MONITOR:V` 权限门禁保持不变。
+- 缺值显示 `--`，可选请求仍 silent 降级。
+
+条件/阻塞：
+- 本地浏览器 desktop/mobile smoke 未能完整执行：sandbox 禁止 `next dev` 监听端口，报 `listen EPERM`。
+- `next build` 也被当前 worktree 环境阻塞：Turbopack node_modules symlink root 问题；webpack fallback 又被离线 Google Fonts 和 stale symlink target 阻塞。
+- 因此不声明生产已解决；仍需 CI/CD、生产 `/home` 桌面+移动端 smoke、业务验收确认。
+
+未 push、未 deploy、未写库、未跑迁移、未 commit。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +65,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56bc-90a5-7dd1-8bed-eb0d37ff1061
+session id: 019f56e6-7d13-7271-be3b-5c7fb89fda58
 --------
 user
 # Base Agent Prompt
@@ -514,7 +522,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 701
             },
         
-...<truncated 464744 chars>
+...<truncated 497925 chars>
 
 ```
 
@@ -526,15 +534,15 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1145,
-  "beforeHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
-  "afterHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
+  "responseChars": 974,
+  "beforeHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
+  "afterHead": "c544affaae881ce91cc79cdbbee7801c65ab69dd",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T14:32:24.525Z",
+  "checkedAt": "2026-07-12T15:18:51.830Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
