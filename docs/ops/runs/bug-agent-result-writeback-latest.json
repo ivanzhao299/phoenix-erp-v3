@@ -3,52 +3,36 @@
   "bugNo": "BUG-20260711-0004",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260711-0004-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260711-0004-A1",
+    "agent": "A1-CI-Runtime-Gate",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260711-0004-A4-worker-log.md",
-    "commitHash": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
-    "changedFiles": [
-      "apps/web/src/__tests__/finance-ap-status.test.ts",
-      "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-      "apps/web/src/lib/finance-ap-status.ts",
-      "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
-    ],
+    "resultFile": "docs/ops/runs/BUGTASK-20260711-0004-A1-worker-log.md",
+    "commitHash": "",
+    "changedFiles": [],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A4-Frontend-UAT-Smoke",
+        "agent": "A1-CI-Runtime-Gate",
         "exitCode": 0,
         "conclusion": "PASS",
-        "responseChars": 1090,
-        "beforeHead": "f87738b8161f2f817a23dc40497af711f8bca91b",
-        "afterHead": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
-        "commitHash": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
-        "changedFiles": [
-          "apps/web/src/__tests__/finance-ap-status.test.ts",
-          "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-          "apps/web/src/lib/finance-ap-status.ts",
-          "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
-        ],
-        "businessChangedFiles": [
-          "apps/web/src/__tests__/finance-ap-status.test.ts",
-          "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-          "apps/web/src/lib/finance-ap-status.ts"
-        ],
-        "reportFiles": [
-          "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
-        ],
+        "responseChars": 1543,
+        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+        "commitHash": "",
+        "changedFiles": [],
+        "businessChangedFiles": [],
+        "reportFiles": [],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T16:42:29.471Z",
+        "checkedAt": "2026-07-12T16:42:37.534Z",
         "passed": true,
-        "role": "implementation",
-        "terminalStatus": "IMPLEMENTATION_COMPLETED",
-        "reason": "Business change, task report, commit, and conclusion are present"
+        "role": "validation",
+        "terminalStatus": "VALIDATION_COMPLETED",
+        "reason": "Validation evidence recorded; this is not implementation evidence"
       },
-      "queueStatus": "IMPLEMENTATION_COMPLETED",
+      "queueStatus": "VALIDATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260711-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260711-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260711-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260711-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260711-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23994\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-42-29-290Z-A4-Frontend-UAT-Smoke.md\n已完成 BUG-20260711-0004 的前端修复，结论写入 [BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md)。\n\n改动：\n- [ap/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/finance2/ap/page.tsx:216)：AP 页面新增局部 `ApInvoiceStatusBadge`，表格和详情抽屉中 `OPEN` 显示为“未付款”。\n- [finance-ap-status.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/finance-ap-status.ts:1)：新增 AP 专用状态文案映射。\n- [finance-ap-status.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/finance-ap-status.test.ts:1)：覆盖 `OPEN !== 未收款` 的回归测试。\n\n验证：",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260711-0004-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260711-0004-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS\",\n  \"responseChars\": ",
     "nextAction": ""
   }
 }
