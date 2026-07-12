@@ -14793,7 +14793,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0003",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14816,7 +14816,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T15:55:19.981Z",
+    "completed_at": "2026-07-12T15:55:22.179Z",
     "result_file": "docs/ops/runs/BUGTASK-20260708-0003-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14863,8 +14863,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "3de0a5855b2ce2c0bae8de1d1fe4c31d7dc2cfab",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "9ca435751e90d4a3650e71edbf281fbf719283ca",
+    "integrated_at": "2026-07-12T15:55:22.179Z",
     "changed_files": [
       "apps/web/src/__tests__/procurement-shipments-layout.test.ts",
       "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
@@ -14909,7 +14909,8 @@
       }
     ],
     "remote_repair_status": "HOLD",
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260708-0003-A1",
