@@ -1,45 +1,42 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260710-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260710-0001/agent-result",
+  "bugNo": "BUG-20260711-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260710-0001-A4",
+    "taskId": "BUGTASK-20260711-0001-A4",
     "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260710-0001-A4-worker-log.md",
-    "commitHash": "70d42edbcf61ef53056b7d1d0c64c27761228e34",
+    "resultFile": "docs/ops/runs/BUGTASK-20260711-0001-A4-worker-log.md",
+    "commitHash": "5cc04e9ed87363af8558ce20bb45411238c10f78",
     "changedFiles": [
-      "apps/web/src/app/(admin)/home/page.tsx",
-      "apps/web/src/lib/home-navigation.test.ts",
-      "apps/web/src/lib/home-navigation.ts",
-      "docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md"
+      "apps/web/src/lib/dashboard-menu-label.test.ts",
+      "apps/web/src/locales/zh.json",
+      "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
         "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1324,
-        "beforeHead": "ab1850caf00a4998585e4ae84adb78db845bd098",
-        "afterHead": "70d42edbcf61ef53056b7d1d0c64c27761228e34",
-        "commitHash": "70d42edbcf61ef53056b7d1d0c64c27761228e34",
+        "conclusion": "PASS",
+        "responseChars": 1098,
+        "beforeHead": "70d42edbcf61ef53056b7d1d0c64c27761228e34",
+        "afterHead": "5cc04e9ed87363af8558ce20bb45411238c10f78",
+        "commitHash": "5cc04e9ed87363af8558ce20bb45411238c10f78",
         "changedFiles": [
-          "apps/web/src/app/(admin)/home/page.tsx",
-          "apps/web/src/lib/home-navigation.test.ts",
-          "apps/web/src/lib/home-navigation.ts",
-          "docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md"
+          "apps/web/src/lib/dashboard-menu-label.test.ts",
+          "apps/web/src/locales/zh.json",
+          "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
         ],
         "businessChangedFiles": [
-          "apps/web/src/app/(admin)/home/page.tsx",
-          "apps/web/src/lib/home-navigation.test.ts",
-          "apps/web/src/lib/home-navigation.ts"
+          "apps/web/src/lib/dashboard-menu-label.test.ts",
+          "apps/web/src/locales/zh.json"
         ],
         "reportFiles": [
-          "docs/ops/bug-20260710-0001-a4-frontend-uat-smoke.md"
+          "docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md"
         ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T12:46:56.371Z",
+        "checkedAt": "2026-07-12T12:48:59.243Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -48,7 +45,7 @@
       "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260710-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260710-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260710-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260710-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260710-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22051\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-46-56-218Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend repair for `BUG-20260710-0001`.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:29): `进入采购中心` hero CTA and business-center tile now use a dedicated procurement route resolver.\n- [home-navigation.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-navigation.ts:1): added resolver that sends users with `MENU_PRC2_DASHBOARD:V` or `*` directly to `/procurement2/dashboard`, while preserving RBAC fallback for users without dashboard permission.\n- [home-navigation.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-navigation.",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260711-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260711-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260711-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260711-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260711-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19643\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-48-59-069Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260711-0001`.\n\nChanged [zh.json](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/locales/zh.json:4280) so `menu.dashboard` now displays `经营仪表盘`, matching the existing `/dashboard` menu config. Added focused regression coverage in [dashboard-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/dashboard-menu-label.test.ts:1). Wrote the required task report at [BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260711-0001-A4-FRONTEND-REPORT.md:1).\n\nVerification:\n- `pnpm --filter web test -- dashboard-menu-label.test",
     "nextAction": ""
   }
 }
