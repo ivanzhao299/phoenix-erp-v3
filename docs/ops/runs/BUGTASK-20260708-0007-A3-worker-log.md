@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,22 +23,24 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A3-worker-assembled-prompt.md
-Assembled prompt chars: 18555
+Assembled prompt chars: 18551
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-06-22-826Z-A3-Backend-Critical-Path.md
-Implemented and reverified `BUG-20260708-0007` on `codex/bug-intake-a3`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-23-50-368Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for `BUGTASK-20260708-0007`.
 
-Changed in existing commit `a5213a1e fix(api): repair BUG-20260708-0007`:
-- [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:90): adds a narrow fallback when `sal_order_items.sku_code` is missing, retrying item insert without `sku_code` only for PostgreSQL `42703` on that column.
-- [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:41): regression test covers the old-schema `sku_code` missing path.
-- [BUGTASK-20260708-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md:1): task report records root cause, files, validation, and `PASS WITH CONDITIONS`.
+The backend repair is already present on this worktree in commit `a5213a1e fix(api): repair BUG-20260708-0007`. It adds a narrow fallback in [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:94): when `sal_order_items.sku_code` is missing and PostgreSQL raises `42703`, draft item insert retries without that optional column. The regression is covered in [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:41).
 
-Validation run now:
-- `cd apps/api && pnpm test -- sales-orders.service.spec.ts` PASS, 1 test passed.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS, 0 errors.
+Validation rerun now:
 
-No deploy, push, migration execution, schema/entity/table/column change, database write, or frontend change was performed. Result remains `PASS WITH CONDITIONS`: backend failure mode is fixed, but final resolution still needs CI/CD, production smoke for `POST /api/v2/sales/orders`, and business acceptance on `/sales2/orders`.
+```bash
+cd apps/api && pnpm test -- sales-orders.service.spec.ts
+cd apps/api && ./node_modules/.bin/tsc --noEmit
+```
+
+Results: focused Jest spec passed, API typecheck passed with 0 errors.
+
+Report is already written at [BUGTASK-20260708-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260708-0007-a3-backend-report.md:1). I did not deploy, push, run migrations, or write to any database. Final closure still needs CI/CD, production smoke on `POST /api/v2/sales/orders`, and business acceptance on `/sales2/orders`.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5713-8d48-7992-a1ec-498df045f4bc
+session id: 019f5723-a2d6-7a50-b237-6f518915d0e6
 --------
 user
 # Base Agent Prompt
@@ -500,7 +502,7 @@ Assigned agent: A3-Backend-Critical-Path
             "disabled": false
           },
           {
-...<truncated 98478 chars>
+...<truncated 152920 chars>
 
 ```
 
@@ -512,19 +514,19 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1397,
-  "beforeHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
-  "afterHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
+  "responseChars": 1237,
+  "beforeHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
+  "afterHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T16:06:22.916Z",
-  "passed": false,
-  "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "checkedAt": "2026-07-12T16:23:50.456Z",
+  "passed": true,
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
