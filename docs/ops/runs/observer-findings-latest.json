@@ -1,17 +1,16 @@
 {
   "summary": {
-    "generated_at": "2026-07-12T11:31:16.469Z",
+    "generated_at": "2026-07-12T13:11:13.265Z",
     "dry_run": true,
-    "run_files_inspected": 1776,
+    "run_files_inspected": 1825,
     "task_count": 299,
     "task_status_counts": {
       "archived": 206,
       "completed": 3,
       "COMPLETED_MERGED": 16,
       "VALIDATION_COMPLETED": 15,
-      "HOLD": 25,
-      "pending": 31,
-      "SKIPPED_NOT_APPLICABLE": 2,
+      "HOLD": 55,
+      "SKIPPED_NOT_APPLICABLE": 3,
       "IMPLEMENTATION_COMPLETED": 1
     },
     "registered_agents": 8,
@@ -285,7 +284,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 25.",
+      "evidence": "Queue HOLD count is 55.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,
@@ -296,7 +295,7 @@
       "severity": "CRITICAL",
       "category": "runner-generation-drift",
       "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "16 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
+      "evidence": "31 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
       "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -351,7 +350,7 @@
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260707-0009-A1-contract.md;  M docs/ops/runs/BUGTASK-20260707-0009-A3-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A1-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A3-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -532,11 +531,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "suggested_improvements": [
@@ -546,11 +545,11 @@
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "repeated_pattern_candidates": [
@@ -560,11 +559,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "observer_boundaries": {
