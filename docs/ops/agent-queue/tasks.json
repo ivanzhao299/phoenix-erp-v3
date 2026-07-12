@@ -14710,7 +14710,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0003",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -14735,7 +14735,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-12T11:31:16.676Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -14751,8 +14751,16 @@
     ],
     "redispatch_count": 2,
     "last_redispatch_at": "2026-07-12T11:14:05.878Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260708-0003-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260708-0003-A3",
+      "checkedAt": "2026-07-12T11:31:16.676Z"
+    },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -15268,7 +15276,7 @@
     "source_repair_task_no": "BUGTASK-20260707-0009",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -15289,8 +15297,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T11:35:36.573Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260707-0009-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -15304,14 +15312,48 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-12T11:30:41.548Z",
-    "evidence_gate": null,
-    "implementation_commit": "",
-    "changed_files": [],
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 1368,
+      "beforeHead": "0030e8a099552246188069549a20245ca28c6abf",
+      "afterHead": "8e01a9998932dacc507f3b97e788ad60a036e950",
+      "commitHash": "8e01a9998932dacc507f3b97e788ad60a036e950",
+      "changedFiles": [
+        "apps/api/src/modules/farm/farm-medicine.controller.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.ts",
+        "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/farm/farm-medicine.controller.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+        "apps/api/src/modules/farm/farm-medicine.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-12T11:35:36.572Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "8e01a9998932dacc507f3b97e788ad60a036e950",
+    "changed_files": [
+      "apps/api/src/modules/farm/farm-medicine.controller.ts",
+      "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+      "apps/api/src/modules/farm/farm-medicine.service.ts",
+      "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
+    ],
     "reason": null,
     "remote_repair_status": "HOLD",
     "integrated_commit": "",
     "integrated_at": null,
-    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T11:30:41.548Z",
     "redispatch_history": [
       {
@@ -15330,7 +15372,8 @@
       }
     ],
     "quarantined_at": "2026-07-11T07:06:04.786Z",
-    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3"
+    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260707-0009-A1",

@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,24 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0009-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0009-A3-worker-assembled-prompt.md
-Assembled prompt chars: 20975
+Assembled prompt chars: 20925
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-10T07-37-58-382Z-A3-Backend-Critical-Path.md
-Implemented the backend redispatch patch for `BUG-20260707-0009`, but final status is `HOLD` because this worktree lacks backend dependencies, so API Jest and API typecheck could not run.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-35-36-402Z-A3-Backend-Critical-Path.md
+Implemented the backend repair for `BUGTASK-20260707-0009`.
 
 Changed:
-- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts:104): inbound upsert now backfills `product_code` on `ON CONFLICT`, so historical `MED-STOCK-*` rows missing `product_code` can be aggregated by `/api/farm/medicine/stock`.
-- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts:57): added focused regression assertion for that conflict branch.
-- [BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md:1): report with root cause, validation, and `HOLD`.
+- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts): carries farm/site scope into medicine stock reads and movement writes, stamps `store_code`, prevents scoped outbound from touching other scope rows, rejects no-op submissions.
+- [farm-medicine.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.controller.ts): passes `req.user` / `req.dataScope` into the service.
+- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts): added scoped inbound/outbound/overview regression coverage.
+- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md): decision is `PASS WITH CONDITIONS`.
 
 Validation:
-- `git diff --check`: PASS
-- Static RBAC/DataScope checks: PASS
-- Static stock aggregation/upsert checks: PASS
-- API test/typecheck: blocked because `apps/api/node_modules` is missing (`jest` and `tsc` not found)
+- `pnpm --dir apps/api test -- farm-medicine.service.spec.ts --runInBand` passed, `10 passed`.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed, `0 errors`.
 
-No migrations, schema/entity changes, DB writes, frontend edits, deploy, push, or task-board updates were done.
+No frontend files, migrations, schema/entity changes, DB writes, deploys, pushes, or commits were done. Existing untracked `node_modules` entries remain untouched. Business resolution still needs CI/CD, scoped environment smoke, and acceptance confirmation.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f4af4-2845-73d3-881d-2ef732a1d778
+session id: 019f5618-91f8-7a40-b99c-3ba293030f93
 --------
 user
 # Base Agent Prompt
@@ -496,7 +495,7 @@ Assigned agent: A3-Backend-Critical-Path
             },
             "label": "系统运维",
             "disabled": f
-...<truncated 399092 chars>
+...<truncated 1083644 chars>
 
 ```
 
@@ -507,29 +506,31 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1263,
-  "beforeHead": "d17e43b26e2c2ff246576cf345ff40a10246e60f",
-  "afterHead": "5a70721c693acdd7cfdc0ee31b22575d9afd02da",
-  "commitHash": "5a70721c693acdd7cfdc0ee31b22575d9afd02da",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1368,
+  "beforeHead": "0030e8a099552246188069549a20245ca28c6abf",
+  "afterHead": "8e01a9998932dacc507f3b97e788ad60a036e950",
+  "commitHash": "8e01a9998932dacc507f3b97e788ad60a036e950",
   "changedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
     "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
     "apps/api/src/modules/farm/farm-medicine.service.ts",
-    "docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md"
+    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
   ],
   "businessChangedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
     "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
     "apps/api/src/modules/farm/farm-medicine.service.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md"
+    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-10T07:37:58.542Z",
-  "passed": false,
+  "checkedAt": "2026-07-12T11:35:36.572Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Agent conclusion is HOLD"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -540,19 +541,21 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": true,
   "files": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
     "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
     "apps/api/src/modules/farm/farm-medicine.service.ts",
-    "docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md"
+    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
   ],
   "businessFiles": [
+    "apps/api/src/modules/farm/farm-medicine.controller.ts",
     "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
     "apps/api/src/modules/farm/farm-medicine.service.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md"
+    "docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
   ],
-  "commitHash": "5a70721c693acdd7cfdc0ee31b22575d9afd02da",
+  "commitHash": "8e01a9998932dacc507f3b97e788ad60a036e950",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 5a70721c] fix(api): repair BUG-20260707-0009\n 3 files changed, 70 insertions(+)\n create mode 100644 docs/ops/BUGTASK-20260707-0009-A3-backend-redispatch-20260710.md"
+  "output": "[codex/bug-intake-a3 8e01a999] fix(api): repair BUG-20260707-0009\n 4 files changed, 252 insertions(+), 36 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260707-0009-a3-backend-report.md"
 }
 ```
