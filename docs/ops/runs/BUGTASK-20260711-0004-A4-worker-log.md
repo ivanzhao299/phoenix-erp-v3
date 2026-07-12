@@ -23,30 +23,24 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260711-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260711-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 23922
+Assembled prompt chars: 23994
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-03-03-060Z-A4-Frontend-UAT-Smoke.md
-Implemented the AP frontend fix for `BUG-20260711-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-42-29-290Z-A4-Frontend-UAT-Smoke.md
+已完成 BUG-20260711-0004 的前端修复，结论写入 [BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md)。
 
-Changed:
-- [ap/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/finance2/ap/page.tsx:215): AP route now uses an AP-specific status badge label, so `OPEN` displays `未付款`.
-- [finance-ap-status.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/finance-ap-status.ts:1): added AP status label helper.
-- [finance-ap-status.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/finance-ap-status.test.ts:1): regression test ensures `OPEN !== 未收款`.
-- Updated zh/en/lo locale keys.
-- Report written: [BUGTASK-20260711-0004-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md:1)
+改动：
+- [ap/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/finance2/ap/page.tsx:216)：AP 页面新增局部 `ApInvoiceStatusBadge`，表格和详情抽屉中 `OPEN` 显示为“未付款”。
+- [finance-ap-status.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/finance-ap-status.ts:1)：新增 AP 专用状态文案映射。
+- [finance-ap-status.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/finance-ap-status.test.ts:1)：覆盖 `OPEN !== 未收款` 的回归测试。
 
-Validation:
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `cd apps/web && ./node_modules/.bin/vitest run src/lib/finance-ap-status.test.ts`: PASS
-- Locale JSON parse: PASS
-- `git diff --check`: PASS
+验证：
+- `cd apps/web && ./node_modules/.bin/vitest run src/__tests__/finance-ap-status.test.ts`：PASS，4 tests。
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`：PASS。
+- AP 页面源码核对：无残留“未收款”，无直接 `StatusBadge status={r/detail.status}` 使用点。
+- `git diff --check`：PASS。
 
-Conditions:
-- Local live desktop/mobile smoke could not run because the sandbox blocks server binding with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`.
-- `pnpm --filter web build` hit an existing Turbopack symlink panic for `apps/web/node_modules`.
-
-Result: `PASS WITH CONDITIONS`. No deploy, push, database write, migration, or backend/API change was performed.
+状态：`PASS WITH CONDITIONS`。本地 Next dev server 因沙箱 `listen EPERM` 无法绑定端口，所以真实桌面/移动浏览器 smoke 未完成；报告中已明确要求后续 CI/CD、可运行环境 smoke 和业务验收后才能声明生产问题关闭。未部署、未推送、未写数据库、未改 API/迁移。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -63,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f55fb-c56e-7300-96ff-ce6406018cf5
+session id: 019f5733-24dd-7022-8db8-40de5149d80a
 --------
 user
 # Base Agent Prompt
@@ -514,7 +508,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           {
             "tag": "a",
             "path": ".sidebar-module
-...<truncated 1473072 chars>
+...<truncated 1264429 chars>
 
 ```
 
@@ -526,32 +520,26 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS",
-  "responseChars": 1371,
-  "beforeHead": "82084b4f8a5fc314f0a8459260a99d9b1335c63e",
-  "afterHead": "8de07a803681ed85372dab4dfecfbf5d39134c6a",
-  "commitHash": "8de07a803681ed85372dab4dfecfbf5d39134c6a",
+  "responseChars": 1090,
+  "beforeHead": "f87738b8161f2f817a23dc40497af711f8bca91b",
+  "afterHead": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
+  "commitHash": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
   "changedFiles": [
+    "apps/web/src/__tests__/finance-ap-status.test.ts",
     "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-    "apps/web/src/lib/finance-ap-status.test.ts",
     "apps/web/src/lib/finance-ap-status.ts",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
-    "docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md"
+    "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
   ],
   "businessChangedFiles": [
+    "apps/web/src/__tests__/finance-ap-status.test.ts",
     "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-    "apps/web/src/lib/finance-ap-status.test.ts",
-    "apps/web/src/lib/finance-ap-status.ts",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json"
+    "apps/web/src/lib/finance-ap-status.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md"
+    "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:03:03.260Z",
+  "checkedAt": "2026-07-12T16:42:29.471Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -567,26 +555,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
-    "apps/web/src/lib/finance-ap-status.test.ts",
+    "apps/web/src/__tests__/finance-ap-status.test.ts",
     "apps/web/src/lib/finance-ap-status.ts",
-    "docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md"
+    "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
   ],
   "businessFiles": [
     "apps/web/src/app/(admin)/finance2/ap/page.tsx",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
-    "apps/web/src/lib/finance-ap-status.test.ts",
+    "apps/web/src/__tests__/finance-ap-status.test.ts",
     "apps/web/src/lib/finance-ap-status.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md"
+    "docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
   ],
-  "commitHash": "8de07a803681ed85372dab4dfecfbf5d39134c6a",
+  "commitHash": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 8de07a80] fix(web): repair BUG-20260711-0004\n 7 files changed, 134 insertions(+), 3 deletions(-)\n create mode 100644 apps/web/src/lib/finance-ap-status.test.ts\n create mode 100644 apps/web/src/lib/finance-ap-status.ts\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260711-0004-a4-frontend-report.md"
+  "output": "[codex/bug-intake-a4 09fc4a45] fix(web): repair BUG-20260711-0004\n 4 files changed, 133 insertions(+), 3 deletions(-)\n create mode 100644 apps/web/src/__tests__/finance-ap-status.test.ts\n create mode 100644 apps/web/src/lib/finance-ap-status.ts\n create mode 100644 docs/ops/BUGTASK-20260711-0004-A4-FRONTEND-AP-STATUS-REPORT.md"
 }
 ```
