@@ -18541,7 +18541,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -18565,7 +18565,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-12T12:54:34.883Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -18580,8 +18580,16 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-12T10:44:37.867Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260711-0001-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260711-0001-A4",
+      "checkedAt": "2026-07-12T12:54:34.883Z"
+    },
     "remote_repair_status": "HOLD",
     "implementation_commit": "",
     "integrated_commit": "",
