@@ -973,11 +973,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T15:34:27.058Z",
+    "approvedAt": "2026-07-12T15:56:33.806Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Final evidence reconciliation after porcelain parsing and already-integrated evidence fixes.",
-    "redispatchCount": 5,
+    "approvalScope": "Final replay of verified integrated breeding metrics fix.",
+    "redispatchCount": 6,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
