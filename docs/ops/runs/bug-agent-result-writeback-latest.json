@@ -1,12 +1,12 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0003/agent-result",
+  "bugNo": "BUG-20260706-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260706-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0003-A3",
+    "taskId": "BUGTASK-20260706-0002-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A3-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260706-0002-A3-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": {
@@ -15,15 +15,15 @@
         "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1239,
-        "beforeHead": "657654d2d52aa44d663e929804744c320048a8d7",
-        "afterHead": "657654d2d52aa44d663e929804744c320048a8d7",
+        "responseChars": 1674,
+        "beforeHead": "206afb395c7da786fb0ffd94c0a4f0600dc9e799",
+        "afterHead": "206afb395c7da786fb0ffd94c0a4f0600dc9e799",
         "commitHash": "",
         "changedFiles": [],
         "businessChangedFiles": [],
         "reportFiles": [],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T15:20:12.317Z",
+        "checkedAt": "2026-07-12T15:26:08.560Z",
         "passed": false,
         "role": "implementation",
         "terminalStatus": "HOLD",
@@ -32,7 +32,7 @@
       "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 19033\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-20-12-227Z-A3-Backend-Critical-Path.md\nA3 backend repair for `BUG-20260708-0003` is already integrated in commit `c6fdce84 fix(api): repair BUG-20260708-0003`.\n\nBackend evidence:\n- [create-shipment.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/dto/create-shipment.dto.ts:12): accepts `poId` or `poNo`.\n- [shipments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.service.ts:77): resolves PO, backfills linkage/ownership fields, rejects mismatched PO/company/project.\n- [shipments.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/shipments.ser",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260706-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260706-0002-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260706-0002-A3-worker-assembled-prompt.md\nAssembled prompt chars: 29238\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-26-08-418Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nThe backend fix for `BUG-20260706-0002` was already integrated in current `HEAD` via commit `ff4bb175 fix(api): repair BUG-20260706-0002`. I verified the owned backend diff covers:\n\n- [farm-cabin.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/farm-cabin.controller.ts): adds `POST /api/farm-device/cabins/daily-report/generate`\n- [mon-device.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/iot/mon-device.service.ts): falls back to realtime cumulative snapshots for today feed/water when daily aggregates are absent\n- focused specs in [farm-cabin.controller.spec.ts](/Users/mac/p",
     "nextAction": ""
   }
 }
