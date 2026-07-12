@@ -14448,7 +14448,7 @@
     "source_repair_task_no": "BUGTASK-20260708-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "IMPLEMENTATION_COMPLETED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -14471,8 +14471,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-12T12:17:07.323Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260708-0004-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -14490,12 +14490,46 @@
     "reason": null,
     "quarantined_at": "2026-07-10T08:54:20.776Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "evidence_gate": null,
-    "implementation_commit": "",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 1497,
+      "beforeHead": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+      "afterHead": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+      "commitHash": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+        "apps/web/src/lib/inventory-ledger-labels.test.ts",
+        "apps/web/src/lib/inventory-ledger-labels.ts",
+        "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+        "apps/web/src/lib/inventory-ledger-labels.test.ts",
+        "apps/web/src/lib/inventory-ledger-labels.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+      ],
+      "parentCommitRecovered": false,
+      "checkedAt": "2026-07-12T12:17:07.323Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
     "integrated_commit": "",
     "integrated_at": null,
-    "changed_files": [],
-    "baseline_autopilot_exit_code": null,
+    "changed_files": [
+      "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "apps/web/src/lib/inventory-ledger-labels.test.ts",
+      "apps/web/src/lib/inventory-ledger-labels.ts",
+      "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    ],
+    "baseline_autopilot_exit_code": 0,
     "redispatched_at": "2026-07-12T10:59:09.915Z",
     "redispatch_history": [
       {
@@ -14505,7 +14539,8 @@
         "source_bug_no": "BUG-20260708-0004",
         "source_repair_task_no": "BUGTASK-20260708-0004"
       }
-    ]
+    ],
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260708-0004-A1",

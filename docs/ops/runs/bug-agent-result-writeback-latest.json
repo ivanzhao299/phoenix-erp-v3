@@ -1,48 +1,45 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0003/agent-result",
+  "bugNo": "BUG-20260708-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0003-A4",
+    "taskId": "BUGTASK-20260708-0004-A4",
     "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0003-A4-worker-log.md",
-    "commitHash": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0004-A4-worker-log.md",
+    "commitHash": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
     "changedFiles": [
-      "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-      "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "apps/web/src/lib/procurement-shipments.test.ts",
-      "apps/web/src/lib/procurement-shipments.ts",
-      "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+      "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "apps/web/src/lib/inventory-ledger-labels.test.ts",
+      "apps/web/src/lib/inventory-ledger-labels.ts",
+      "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
         "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1803,
-        "beforeHead": "85723f72f8fe7b8c8f0fb16829f1fd3806e6498d",
-        "afterHead": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
-        "commitHash": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+        "conclusion": "PASS",
+        "responseChars": 1497,
+        "beforeHead": "f62d2ce8411db38f04ff4325185a6a9644fc840e",
+        "afterHead": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
+        "commitHash": "903f469a1f7793fd228ca1c40f7acd3557855e2d",
         "changedFiles": [
-          "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-          "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-          "apps/web/src/lib/procurement-shipments.test.ts",
-          "apps/web/src/lib/procurement-shipments.ts",
-          "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+          "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+          "apps/web/src/lib/inventory-ledger-labels.test.ts",
+          "apps/web/src/lib/inventory-ledger-labels.ts",
+          "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
         ],
         "businessChangedFiles": [
-          "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-          "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-          "apps/web/src/lib/procurement-shipments.test.ts",
-          "apps/web/src/lib/procurement-shipments.ts"
+          "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+          "apps/web/src/lib/inventory-ledger-labels.test.ts",
+          "apps/web/src/lib/inventory-ledger-labels.ts"
         ],
         "reportFiles": [
-          "docs/ops/bug-20260708-0003-a4-frontend-uat-smoke.md"
+          "docs/ops/BUG-20260708-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
         ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T12:08:19.839Z",
+        "checkedAt": "2026-07-12T12:17:07.323Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -51,7 +48,7 @@
       "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 19155\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-08-19-678Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend repair for `BUG-20260708-0003` with `PASS WITH CONDITIONS`.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx): adds `建运单` action for shippable purchase orders.\n- [shipments/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/shipments/page.tsx): replaces manual PO ID/PO number entry with backend-backed purchase order candidate selection and supports prefill from the PO list.\n- [procurement-shipments.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/procurement-shipments.ts): helper logic fo",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22865\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-17-07-144Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260708-0004` on `/warehouse/ledger`.\n\nChanged:\n- [ledger/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/ledger/page.tsx): transaction type now displays `change_type_label` first, then Chinese fallback labels for known codes like `FARM_OUT_MEDICATION`, `TEMP_PRODUCTION_INBOUND`, `FARM_IN`, `MED_INBOUND`, `MED_OUTBOUND`.\n- [inventory-ledger-labels.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/inventory-ledger-labels.ts): added pure label/normalization helpers.\n- [inventory-ledger-labels.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/",
     "nextAction": ""
   }
 }
