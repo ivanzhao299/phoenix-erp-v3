@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | SKIPPED_NOT_APPLICABLE |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,26 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260711-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260711-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 23855
+Assembled prompt chars: 23927
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T10-56-22-236Z-A3-Backend-Critical-Path.md
-**NOT APPLICABLE / HOLD**
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-39-52-302Z-A3-Backend-Critical-Path.md
+Implemented the backend portion for `BUG-20260711-0004`.
 
-A3 backend has no owned fix for `BUG-20260711-0004`.
-
-Evidence:
-- AP backend list returns raw codes only: `status`, `payment_status` at [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:170).
-- Unpaid AP creation/import/recalc uses `UNPAID`, not “未收款”: [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:240).
-- AP backend comments already use “未付款”: [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:376).
-- Static search found “未收款” only in AR context/comments, not AP response mapping.
+Changed:
+- [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts:16): AP responses now include AP-specific `status_label` / `payment_status_label`, with unpaid AP shown as `未付款`.
+- [ap-invoices.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts:17): focused regression tests for unpaid/cancelled AP labels.
+- [BUGTASK report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md:1): result marked `PASS WITH CONDITIONS`.
 
 Validation:
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed.
-- `git diff -- apps/api docs/ops` is empty.
-- No files changed. I did not write a docs report file because the contract says if there is no backend-owned fix, return `NOT APPLICABLE` and do not edit files.
+- `cd apps/api && ./node_modules/.bin/jest src/modules/finance-v2/services/ap-invoices.service.spec.ts --runInBand` passed, 2 tests.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed, 0 errors.
+- `git diff --check` passed.
 
-Root cause based on backend evidence: the displayed “未收款” is not produced by the AP backend. This needs the frontend `/finance2/ap` status label mapping to render AP unpaid state as “未付款”. I did not inspect or modify `apps/web/**` because it is forbidden for this A3 task.
+No frontend files, migrations, schema/entity changes, DB writes, deploys, pushes, or commits. This is not claimed production-resolved until CI/CD, deployed smoke, and business acceptance confirm `/finance2/ap` consumes the AP label correctly.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -59,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f55f7-9b52-7dc0-9a0a-12d6999714f0
+session id: 019f5731-0eee-7d71-8214-471aab8c28fb
 --------
 user
 # Base Agent Prompt
@@ -512,7 +509,7 @@ Assigned agent: A3-Backend-Critical-Path
             "rect": {
               "h": 32,
  
-...<truncated 1086741 chars>
+...<truncated 1263243 chars>
 
 ```
 
@@ -523,20 +520,29 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1325,
-  "beforeHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
-  "afterHead": "79a463600e3a9f7dc315084326cbc52d92caffbd",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1188,
+  "beforeHead": "fc947c1641750c26e9717a61aa9bbc5f479e1770",
+  "afterHead": "004792f19209f4e341c56b66eaa77ccddaea6a5d",
+  "commitHash": "004792f19209f4e341c56b66eaa77ccddaea6a5d",
+  "changedFiles": [
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+    "docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T10:56:22.327Z",
+  "checkedAt": "2026-07-12T16:39:52.485Z",
   "passed": true,
-  "role": "not_applicable",
-  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-  "reason": "Agent proved this task has no implementation in its ownership boundary"
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -545,11 +551,21 @@ Assigned agent: A3-Backend-Critical-Path
 ```json
 {
   "attempted": true,
-  "ok": false,
+  "ok": true,
   "files": [
-    "apps/api/node_modules",
-    "node_modules"
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+    "docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md"
   ],
-  "error": "outside allowed paths: node_modules; task-specific docs/ops report is missing"
+  "businessFiles": [
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+    "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md"
+  ],
+  "commitHash": "004792f19209f4e341c56b66eaa77ccddaea6a5d",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 004792f1] fix(api): repair BUG-20260711-0004\n 3 files changed, 165 insertions(+), 5 deletions(-)\n create mode 100644 apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260711-0004-A3-backend-report.md"
 }
 ```
