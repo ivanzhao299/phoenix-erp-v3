@@ -23,27 +23,24 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260707-0010-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260707-0010-A4-worker-assembled-prompt.md
-Assembled prompt chars: 21111
+Assembled prompt chars: 21125
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-04-01-478Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS for `BUG-20260707-0010`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T14-54-18-194Z-A4-Frontend-UAT-Smoke.md
+Implemented the A4 frontend repair for `BUG-20260707-0010` as `PASS WITH CONDITIONS`.
 
-Implemented frontend-owned regression coverage for `/workflow/todos`:
+Changed:
+- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/workflow/todos/page.tsx:13): `/workflow/todos` now uses a tested display-total helper for the header and pagination count.
+- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts:13): added `getWorkflowTodoDisplayTotal()`, which prevents `共 0 条` when returned rows prove visible pending tasks exist.
+- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:14): added regression coverage for `items.length=1,total=0`.
+- [BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md:5): updated task report with root cause, changed files, validation, state preservation, and conditions.
 
-- Updated [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/workflow/todos/page.tsx) to use a tested helper for todo header totals.
-- Added [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts).
-- Added [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts).
-- Updated report: [BUG-20260707-0010-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md).
-
-Validation completed:
-
-- `pnpm --filter web exec vitest run src/lib/workflow-todos.test.ts`: PASS
-- `pnpm --filter web exec eslint ...`: PASS
+Validation run:
+- `pnpm --filter web test -- src/lib/workflow-todos.test.ts`: PASS, 4 tests
+- `pnpm --filter web exec eslint 'src/app/(admin)/workflow/todos/page.tsx' src/lib/workflow-todos.ts src/lib/workflow-todos.test.ts`: PASS
 - `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
 
-Condition: local browser desktop/mobile smoke could not run because Next dev server binding failed with `listen EPERM 127.0.0.1:3001`. I documented that HOLD condition in the report. No deploy, push, DB write, migration, or forbidden scope change was performed.
+I did not push, deploy, run migrations, or write any database. Local live desktop/mobile browser smoke could not be run because the sandbox blocks Next dev server socket binding with `EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3001`; the report records that condition and requires production desktop/mobile smoke plus business acceptance before calling the bug resolved.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -60,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5634-9f13-72a2-8469-3380b75f782b
+session id: 019f56d0-97e5-73e3-9f2f-6f038d6a44b5
 --------
 user
 # Base Agent Prompt
@@ -515,7 +512,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "h": 38,
               "w": 215,
           
-...<truncated 315801 chars>
+...<truncated 306184 chars>
 
 ```
 
@@ -527,15 +524,15 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1173,
-  "beforeHead": "b9c02b0ab6e91316e629909fed05efca35d3ad91",
-  "afterHead": "85723f72f8fe7b8c8f0fb16829f1fd3806e6498d",
-  "commitHash": "85723f72f8fe7b8c8f0fb16829f1fd3806e6498d",
+  "responseChars": 1631,
+  "beforeHead": "25ff4588d0fb9c62fa1ae00f5b0728f193729037",
+  "afterHead": "2a33d541b0f4a20348c0baa3fedbd1ea00beda29",
+  "commitHash": "2a33d541b0f4a20348c0baa3fedbd1ea00beda29",
   "changedFiles": [
     "apps/web/src/app/(admin)/workflow/todos/page.tsx",
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts",
-    "docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md"
+    "docs/ops/BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/app/(admin)/workflow/todos/page.tsx",
@@ -543,10 +540,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
     "apps/web/src/lib/workflow-todos.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md"
+    "docs/ops/BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:04:01.642Z",
+  "checkedAt": "2026-07-12T14:54:18.362Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -562,7 +559,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "ok": true,
   "files": [
     "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-    "docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md",
+    "docs/ops/BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md",
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts"
   ],
@@ -572,10 +569,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
     "apps/web/src/lib/workflow-todos.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260707-0010-a4-frontend-uat-report.md"
+    "docs/ops/BUG-20260707-0010_A4_FRONTEND_UAT_SMOKE_REPORT.md"
   ],
-  "commitHash": "85723f72f8fe7b8c8f0fb16829f1fd3806e6498d",
+  "commitHash": "2a33d541b0f4a20348c0baa3fedbd1ea00beda29",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 85723f72] fix(web): repair BUG-20260707-0010\n 4 files changed, 88 insertions(+), 53 deletions(-)\n create mode 100644 apps/web/src/lib/workflow-todos.test.ts\n create mode 100644 apps/web/src/lib/workflow-todos.ts"
+  "output": "[codex/bug-intake-a4 2a33d541] fix(web): repair BUG-20260707-0010\n 4 files changed, 101 insertions(+), 25 deletions(-)\n create mode 100644 apps/web/src/lib/workflow-todos.test.ts\n create mode 100644 apps/web/src/lib/workflow-todos.ts"
 }
 ```
