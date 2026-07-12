@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,29 +23,26 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0006-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0006-A3-worker-assembled-prompt.md
-Assembled prompt chars: 41037
+Assembled prompt chars: 40968
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T15-10-27-919Z-A3-Backend-Critical-Path.md
-Implemented the A3 backend repair for `BUG-20260708-0006`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-05-22-799Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS.
 
-Changed:
-- [sales-price-books.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts)
-- [price-books.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/price-books.service.ts)
-- [price-books.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/price-books.service.spec.ts)
-- [A3 report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md)
+Reconciled the already-integrated backend repair for `BUG-20260708-0006` in commit `635d840a fix(api): repair BUG-20260708-0006`. No new edits were needed in this rerun.
 
-What changed:
-- Added `POST /api/v2/sales/pricing/books/:id/restore`, guarded by `MENU_SALES2_PRICE:A`, only for `CANCELLED` books with active details.
-- Added `DELETE /api/v2/sales/pricing/books/:id`, guarded by `MENU_SALES2_PRICE:D`, only for `DRAFT` books with no sales order/order item references.
-- Added focused regression coverage for lifecycle behavior and RBAC metadata.
+Implemented evidence:
+- Restore endpoint: [sales-price-books.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts:64)
+- Backend lifecycle logic: [price-books.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/price-books.service.ts:234)
+- Focused regression tests: [price-books.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/price-books.service.spec.ts:10)
+- Task report: [BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md:1)
 
-Validation passed:
-- `cd apps/api && ./node_modules/.bin/jest src/modules/sales-v2/services/price-books.service.spec.ts --runInBand`
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`
-- `git diff --check ...`
+Validation rerun:
+- `cd apps/api && ./node_modules/.bin/jest src/modules/sales-v2/services/price-books.service.spec.ts --runInBand`: 6 passed
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: passed, 0 errors
+- `git diff --check -- ...`: passed
 
-Result: `PASS WITH CONDITIONS`. No DB writes, migrations, deploys, pushes, or production actions were run. Actual production record deletion/restoration still needs a separate approved runtime/data operation plus CI/CD, smoke, and business acceptance.
+No database writes, migrations, deploys, pushes, schema/entity changes, or frontend edits were performed. Production record deletion/restoration still requires the separate approved runtime/data operation, then CI/CD, production smoke, and business acceptance before calling the business bug resolved.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -62,7 +59,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f56df-129a-7de3-8c95-bd1b3eeecfb8
+session id: 019f5712-a044-7ec2-83e8-846b5e252753
 --------
 user
 # Base Agent Prompt
@@ -167,7 +164,7 @@ Assigned agent: A3-Backend-Critical-Path
     ],
     "consoleErrors": "[{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:23.854Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:26.257Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:28.459Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:39.445Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:44.870Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:48.284Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:07:52.967Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:03.390Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:22.689Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:23.770Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:24.378Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:08:25.141Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:10:32.408Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:11:36.402Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:44055)\\n    at async https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:35929\",\"message\":\"黑名单客户不可编辑，请先解除黑名单\",\"timestamp\":\"2026-07-08T07:11:44.765Z\"},{\"type\":\"unhandledrejection\",\"stack\":\"Error: 黑名单客户不可编辑，请先解除黑名单\\n    at C (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:43283)\\n    at async V (https://erp.eggslao.com/_next/static/chunks/0yvrca.f9yr9w.js:1:\n...[truncated by bug-intake contract builder]",
     "failedRequests": "[{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:23.852Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:26.254Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:28.457Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:39.444Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:44.869Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:48.282Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:07:52.965Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"requestId\":\"\",\"timestamp\":\"2026-07-08T07:08:03.387Z\",\"responseExcerpt\":\"{\\\"code\\\":403,\\\"message\\\":\\\"黑名单客户不可编辑，请先解除黑名单\\\",\\\"error\\\":\\\"Forbidden\\\",\\\"statusCode\\\":403}\"},{\"url\":\"/api/v2/sales/customers/10951\",\"method\":\"PATCH\",\"status\":403,\"re
-...<truncated 343614 chars>
+...<truncated 249377 chars>
 
 ```
 
@@ -179,30 +176,19 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1479,
-  "beforeHead": "8a39c8bfbd1ea409c93da03cb50a8a20980a0882",
-  "afterHead": "5bab6254661f9b58185bb3978773887f542905ff",
-  "commitHash": "5bab6254661f9b58185bb3978773887f542905ff",
-  "changedFiles": [
-    "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.ts",
-    "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
+  "responseChars": 1470,
+  "beforeHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
+  "afterHead": "6df847de590546766c3aa61af520cfe7a613a7f8",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T15:10:28.090Z",
-  "passed": true,
+  "checkedAt": "2026-07-12T16:05:22.891Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -210,24 +196,9 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts",
-    "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/api/src/modules/sales-v2/controllers/sales-price-books.controller.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.ts",
-    "apps/api/src/modules/sales-v2/services/price-books.service.spec.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "commitHash": "5bab6254661f9b58185bb3978773887f542905ff",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 5bab6254] fix(api): repair BUG-20260708-0006\n 4 files changed, 261 insertions(+), 1 deletion(-)\n create mode 100644 apps/api/src/modules/sales-v2/services/price-books.service.spec.ts\n create mode 100644 docs/ops/BUG-20260708-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```
