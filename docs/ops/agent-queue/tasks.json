@@ -19742,7 +19742,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -19765,7 +19765,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-12T16:42:29.472Z",
+    "completed_at": "2026-07-12T16:42:31.333Z",
     "result_file": "docs/ops/runs/BUGTASK-20260711-0004-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -19817,8 +19817,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "09fc4a45d1f0619a6e5ce1a28027aed7afbb94da",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "663907c9b6756db204dfd70ab95598e69f236761",
+    "integrated_at": "2026-07-12T16:42:31.333Z",
     "changed_files": [
       "apps/web/src/__tests__/finance-ap-status.test.ts",
       "apps/web/src/app/(admin)/finance2/ap/page.tsx",
@@ -19857,7 +19857,8 @@
         "source_repair_task_no": "BUGTASK-20260711-0004"
       }
     ],
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260711-0004-A1",
