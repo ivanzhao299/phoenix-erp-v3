@@ -91,6 +91,69 @@ export class SalesOrdersService {
     return `${prefix}${String(Number(row[0].cnt) + 1).padStart(5, '0')}`;
   }
 
+  private isMissingOrderItemSkuColumn(err: unknown): boolean {
+    const e = err as { code?: string; message?: string };
+    return e?.code === '42703'
+      && String(e.message ?? '').includes('sku_code')
+      && String(e.message ?? '').includes('sal_order_items');
+  }
+
+  private async insertOrderItem(params: {
+    salesOrderId: string;
+    productCode: string;
+    productName: string | null;
+    gradeCode: string | null;
+    packagingSpec: string | null;
+    qty: number;
+    resolvedUnitPrice: number;
+    actualUnitPrice: number;
+    floorPrice: number | null;
+    ceilingPrice: number | null;
+    amount: number;
+    priceBookId: string | null;
+    priceBookNo: string | null;
+    belowFloor: boolean;
+    skuCode: string | null;
+  }) {
+    const values = [
+      params.salesOrderId,
+      params.productCode, params.productName,
+      params.gradeCode, params.packagingSpec, params.qty,
+      params.resolvedUnitPrice, params.actualUnitPrice, params.actualUnitPrice,
+      params.floorPrice, params.ceilingPrice, params.amount,
+      params.priceBookId, params.priceBookNo, params.belowFloor,
+      params.skuCode,
+    ];
+
+    try {
+      await this.ds.query(
+        `INSERT INTO sal_order_items (
+           sales_order_id, product_code, product_name,
+           grade_code, packaging_spec, qty,
+           resolved_unit_price, actual_unit_price, unit_price,
+           floor_price, ceiling_price, amount,
+           price_book_id, price_book_no, below_floor_price,
+           sku_code
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        values,
+      );
+    } catch (err: unknown) {
+      if (!this.isMissingOrderItemSkuColumn(err)) throw err;
+
+      this.logger.warn('[SalesOrder] sal_order_items.sku_code 缺失，明细写入降级为旧 schema 兼容路径');
+      await this.ds.query(
+        `INSERT INTO sal_order_items (
+           sales_order_id, product_code, product_name,
+           grade_code, packaging_spec, qty,
+           resolved_unit_price, actual_unit_price, unit_price,
+           floor_price, ceiling_price, amount,
+           price_book_id, price_book_no, below_floor_price
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        values.slice(0, 15),
+      );
+    }
+  }
+
   // ── 1. 列表 ───────────────────────────────────────────────────────────────
 
   async listOrders(q: QuerySalesOrderDto) {
@@ -323,25 +386,7 @@ export class SalesOrdersService {
 
     // 明细行
     for (const item of resolvedItems) {
-      await this.ds.query(
-        `INSERT INTO sal_order_items (
-           sales_order_id, product_code, product_name,
-           grade_code, packaging_spec, qty,
-           resolved_unit_price, actual_unit_price, unit_price,
-           floor_price, ceiling_price, amount,
-           price_book_id, price_book_no, below_floor_price,
-           sku_code
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-        [
-          String(order.id),
-          item.productCode, item.productName,
-          item.gradeCode, item.packagingSpec, item.qty,
-          item.resolvedUnitPrice, item.actualUnitPrice, item.actualUnitPrice,
-          item.floorPrice, item.ceilingPrice, item.amount,
-          item.priceBookId, item.priceBookNo, item.belowFloor,
-          item.skuCode,   // Phase H5
-        ],
-      );
+      await this.insertOrderItem({ salesOrderId: String(order.id), ...item });
     }
 
     const items = await this.ds.query(
@@ -427,24 +472,7 @@ export class SalesOrdersService {
       const totalAmount = Math.round(subtotal * 100) / 100;
 
       for (const item of resolvedItems) {
-        await this.ds.query(
-          `INSERT INTO sal_order_items (
-             sales_order_id, product_code, product_name,
-             grade_code, packaging_spec, qty,
-             resolved_unit_price, actual_unit_price, unit_price,
-             floor_price, ceiling_price, amount,
-             price_book_id, price_book_no, below_floor_price,
-             sku_code
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-          [
-            id,
-            item.productCode, item.productName, item.gradeCode, item.packagingSpec, item.qty,
-            item.resolvedUnitPrice, item.actualUnitPrice, item.actualUnitPrice,
-            item.floorPrice, item.ceilingPrice, item.amount,
-            item.priceBookId, item.priceBookNo, item.belowFloor,
-            item.skuCode,  // Phase H5
-          ],
-        );
+        await this.insertOrderItem({ salesOrderId: id, ...item });
       }
 
       // 更新订单金额
