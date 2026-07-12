@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Query } from '@nestjs/common';
 import { MonDeviceService } from './mon-device.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
@@ -48,6 +48,16 @@ export class FarmCabinController {
     @Query('status') status: string,
   ) {
     return await this.monDeviceService.getHouseAlarms(houseCode, status);
+  }
+
+  @Post('daily-report/generate')
+  @RequireMenu(DEVICE_MENU, 'E')
+  async generateDailyReport(@Body() body: { house_code: string; log_date: string; snapshot_hour?: number }) {
+    return this.monDeviceService.generateDailyReportFromIoT(
+      body.house_code,
+      body.log_date,
+      body.snapshot_hour != null ? { snapshotHour: body.snapshot_hour } : undefined,
+    );
   }
 
   @Get(':houseCode/stream')

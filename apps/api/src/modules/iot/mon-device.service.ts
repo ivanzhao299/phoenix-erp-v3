@@ -420,11 +420,11 @@ export class MonDeviceService {
         aggIdx[`${a.erp_house_code}|${a.property_code}|${a.agg_date instanceof Date ? a.agg_date.toISOString().slice(0,10) : String(a.agg_date).slice(0,10)}`] = Number(a.max_val);
       }
       const diffFor = (houseCode: string, code: string): number | null => {
-        const t = aggIdx[`${houseCode}|${code}|${today}`];
+        const t = aggIdx[`${houseCode}|${code}|${today}`] ?? getVal(snapByHouse[houseCode] || [], code);
         const y = aggIdx[`${houseCode}|${code}|${yest}`];
         if (t == null && y == null) return null;
         if (t != null && y != null) return Math.max(0, t - y);
-        if (t != null) return t;
+        if (t != null) return Math.max(0, t);
         return null;
       };
 
