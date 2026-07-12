@@ -23,26 +23,23 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 21793
+Assembled prompt chars: 21857
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-44-19-400Z-A4-Frontend-UAT-Smoke.md
-Implemented the A4 frontend repair package for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-20-49-891Z-A4-Frontend-UAT-Smoke.md
+Implemented the A4 frontend evidence for `BUG-20260709-0004`.
 
-The `/workflow/todos` count path now uses `getWorkflowTodoDisplayTotal`, which prevents the header from showing `共 0 条` when loaded rows already prove pending tasks exist. I also hardened the helper for incomplete response shapes and added focused Vitest coverage.
+Changed:
+- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts:18): documented the display-count floor that prevents stale API `total: 0` from undercounting visible rows.
+- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23): added a regression case matching the bug: one visible approval todo with `total: 0` displays count `1`.
+- [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:1): added the required task report.
 
-Changed/added:
-- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts)
-- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts)
-- [BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md)
+Validation:
+- `cd apps/web && ./node_modules/.bin/vitest run src/lib/workflow-todos.test.ts` passed: 5 tests.
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed: 0 errors.
+- Local browser smoke could not run because Next dev server port binding is blocked in this sandbox: `listen EPERM`.
 
-Verification:
-- `pnpm --filter web test -- src/lib/workflow-todos.test.ts`: PASS, 5 tests
-- `pnpm --filter web typecheck`: PASS
-- `git diff --check ...`: PASS
-- Local browser smoke: HOLD condition because Next dev server bind failed with `listen EPERM 127.0.0.1:3304`
-
-Report result is `PASS WITH CONDITIONS`. I did not deploy, push, merge, run migrations, or write any database. Production resolution is not claimed until CI/CD, production smoke on `/workflow/todos`, and business acceptance complete.
+Result: `PASS WITH CONDITIONS`. No backend, migration, DB, deploy, push, or task-board changes were made. Existing untracked `node_modules` paths were left untouched.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -59,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5659-49c9-7fb0-a18b-a95ab86261eb
+session id: 019f571f-3501-7893-93b9-291770a47352
 --------
 user
 # Base Agent Prompt
@@ -503,7 +500,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
 
-...<truncated 256395 chars>
+...<truncated 195755 chars>
 
 ```
 
@@ -514,25 +511,25 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1234,
-  "beforeHead": "e4ec41f2ee8219efd405c1ae811c2f3372221f98",
-  "afterHead": "ab1850caf00a4998585e4ae84adb78db845bd098",
-  "commitHash": "ab1850caf00a4998585e4ae84adb78db845bd098",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1165,
+  "beforeHead": "59a5a4ba182bb80870c725d8fb1c87875ea0c6d4",
+  "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+  "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
   "changedFiles": [
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts",
-    "docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
   ],
   "businessChangedFiles": [
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:44:19.562Z",
+  "checkedAt": "2026-07-12T16:20:50.051Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -549,17 +546,17 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "files": [
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts",
-    "docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
   ],
   "businessFiles": [
     "apps/web/src/lib/workflow-todos.test.ts",
     "apps/web/src/lib/workflow-todos.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
   ],
-  "commitHash": "ab1850caf00a4998585e4ae84adb78db845bd098",
+  "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 ab1850ca] fix(web): repair BUG-20260709-0004\n 3 files changed, 76 insertions(+), 3 deletions(-)\n create mode 100644 docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+  "output": "[codex/bug-intake-a4 8f9a420e] fix(web): repair BUG-20260709-0004\n 3 files changed, 74 insertions(+)\n create mode 100644 docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
 }
 ```

@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-09T08:25:35.584Z",
-  "updatedAt": "2026-07-12T16:14:52.206Z",
+  "updatedAt": "2026-07-12T16:20:51.368Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条",
@@ -1474,37 +1474,86 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260709-0004-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
+        "taskId": "BUGTASK-20260709-0004-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 21790\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-14-50-734Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nAdded task-specific backend regression coverage for BUG-20260709-0004 in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123). It captures the visible ApprovalEngine todo row shape and asserts `items.length = 1`, `total = 1`, and `total >= items.length`.\n\nWrote the required report at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1).\n\nValidation:\n- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand`: PASS, 5 tests",
         "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-12T16:14:52.204Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
         "changedFiles": [
           "apps/api/src/modules/workflow/workflow.service.spec.ts",
           "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
         ],
+        "redispatchCount": 6,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 941,
-            "beforeHead": "2532602f3c6d5df2b5d7d60476c0d4018c72c665",
             "afterHead": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+            "checkedAt": "2026-07-12T16:14:50.895Z",
+            "beforeHead": "2532602f3c6d5df2b5d7d60476c0d4018c72c665",
             "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            ],
             "changedFiles": [
               "apps/api/src/modules/workflow/workflow.service.spec.ts",
               "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
+            "responseChars": 941,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/api/src/modules/workflow/workflow.service.spec.ts"
             ],
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260709-0004-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A4-worker-log.md",
+        "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+        "changedFiles": [
+          "apps/web/src/lib/workflow-todos.test.ts",
+          "apps/web/src/lib/workflow-todos.ts",
+          "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
+        ],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A4-Frontend-UAT-Smoke",
+            "exitCode": 0,
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1165,
+            "beforeHead": "59a5a4ba182bb80870c725d8fb1c87875ea0c6d4",
+            "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+            "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+            "changedFiles": [
+              "apps/web/src/lib/workflow-todos.test.ts",
+              "apps/web/src/lib/workflow-todos.ts",
+              "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/lib/workflow-todos.test.ts",
+              "apps/web/src/lib/workflow-todos.ts"
+            ],
             "reportFiles": [
-              "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+              "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
             ],
             "parentCommitRecovered": false,
-            "checkedAt": "2026-07-12T16:14:50.895Z",
+            "checkedAt": "2026-07-12T16:20:50.051Z",
             "passed": true,
             "role": "implementation",
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -1513,11 +1562,11 @@
           "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 21790\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-14-50-734Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nAdded task-specific backend regression coverage for BUG-20260709-0004 in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123). It captures the visible ApprovalEngine todo row shape and asserts `items.length = 1`, `total = 1`, and `total >= items.length`.\n\nWrote the required report at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1).\n\nValidation:\n- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand`: PASS, 5 tests",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 21857\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-20-49-891Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend evidence for `BUG-20260709-0004`.\n\nChanged:\n- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts:18): documented the display-count floor that prevents stale API `total: 0` from undercounting visible rows.\n- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23): added a regression case matching the bug: one visible approval todo with `total: 0` displays count `1`.\n- [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:1)",
         "nextAction": "",
         "redispatchCount": 6,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-12T16:14:52.204Z"
+        "recordedAt": "2026-07-12T16:20:51.366Z"
       }
     ],
     "suggestedOwner": "_____",
@@ -1530,37 +1579,40 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260709-0004-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260709-0004-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
-      "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+      "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A4-worker-log.md",
+      "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
       "changedFiles": [
-        "apps/api/src/modules/workflow/workflow.service.spec.ts",
-        "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+        "apps/web/src/lib/workflow-todos.test.ts",
+        "apps/web/src/lib/workflow-todos.ts",
+        "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
       ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 941,
-          "beforeHead": "2532602f3c6d5df2b5d7d60476c0d4018c72c665",
-          "afterHead": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
-          "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+          "responseChars": 1165,
+          "beforeHead": "59a5a4ba182bb80870c725d8fb1c87875ea0c6d4",
+          "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+          "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
           "changedFiles": [
-            "apps/api/src/modules/workflow/workflow.service.spec.ts",
-            "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            "apps/web/src/lib/workflow-todos.test.ts",
+            "apps/web/src/lib/workflow-todos.ts",
+            "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
           ],
           "businessChangedFiles": [
-            "apps/api/src/modules/workflow/workflow.service.spec.ts"
+            "apps/web/src/lib/workflow-todos.test.ts",
+            "apps/web/src/lib/workflow-todos.ts"
           ],
           "reportFiles": [
-            "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
           ],
           "parentCommitRecovered": false,
-          "checkedAt": "2026-07-12T16:14:50.895Z",
+          "checkedAt": "2026-07-12T16:20:50.051Z",
           "passed": true,
           "role": "implementation",
           "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -1569,11 +1621,11 @@
         "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 21790\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-14-50-734Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nAdded task-specific backend regression coverage for BUG-20260709-0004 in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123). It captures the visible ApprovalEngine todo row shape and asserts `items.length = 1`, `total = 1`, and `total >= items.length`.\n\nWrote the required report at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1).\n\nValidation:\n- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand`: PASS, 5 tests",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 21857\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-20-49-891Z-A4-Frontend-UAT-Smoke.md\nImplemented the A4 frontend evidence for `BUG-20260709-0004`.\n\nChanged:\n- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts:18): documented the display-count floor that prevents stale API `total: 0` from undercounting visible rows.\n- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23): added a regression case matching the bug: one visible approval todo with `total: 0` displays count `1`.\n- [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:1)",
       "nextAction": "",
       "redispatchCount": 6,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-12T16:14:52.204Z"
+      "recordedAt": "2026-07-12T16:20:51.366Z"
     },
     "redispatchHistory": [
       {
