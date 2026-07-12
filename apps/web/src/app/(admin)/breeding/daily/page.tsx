@@ -34,7 +34,7 @@ import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
-import { isDailyReportHouseMissing } from '@/lib/breeding-daily';
+import { cullingReasonLabel, isDailyReportHouseMissing } from '@/lib/breeding-daily';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -112,6 +112,7 @@ export default function DailyPage() {
   const [formDate, setFormDate] = useState(today);
   // 班次字典化：BRD_SHIFT（G102 统一为中文 早班/晚班）；字典为空时 fallback 同口径
   const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
+  const { codeMap: cullingReasonCodeMap } = useDictOptions('BRD_CULLING_REASON');
   const shiftRows = shiftOptions.length > 0
     ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
     : [mkRow(1, '早班'), mkRow(2, '晚班')];
@@ -401,7 +402,7 @@ export default function DailyPage() {
   };
   const handleExport = () => {
     const headers = [t('ui.班次', '班次'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰数', '淘汰数'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料kg', '饲料kg'), t('ui.用水L', '用水L'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')];
-    const rowData = rows.map(r => [shiftLabel(r.shift), r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, r.elimReason || '', r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
+    const rowData = rows.map(r => [shiftLabel(r.shift), r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, cullingReasonLabel(r.elimReason, cullingReasonCodeMap, ''), r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
     const csv = [headers, ...rowData].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], {
       type: 'text/csv;charset=utf-8'
@@ -809,7 +810,7 @@ export default function DailyPage() {
                 <td style={{
               color: Number(r.elimination) > 0 ? 'var(--status-warning)' : 'var(--text-primary)'
             }}>{Number(r.elimination) > 0 ? String(r.elimination) : '—'}</td>
-                <td className={u.muted12}>{String(r.cullingReason || '—')}</td>
+                <td className={u.muted12}>{cullingReasonLabel(r.cullingReason, cullingReasonCodeMap)}</td>
                 <td>{String(r.feedKg ?? '—')}</td>
                 <td>{String(r.temp ?? '—')}℃</td>
                 <td>{String(r.humidity ?? '—')}%</td>
