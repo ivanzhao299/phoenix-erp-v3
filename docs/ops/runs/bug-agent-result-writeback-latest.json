@@ -1,38 +1,51 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260708-0007",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0007/agent-result",
+  "bugNo": "BUG-20260709-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0007-A4",
+    "taskId": "BUGTASK-20260709-0001-A4",
     "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-A4-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260709-0001-A4-worker-log.md",
+    "commitHash": "611118f114a6221ef03108dfa5a16277e10f3867",
+    "changedFiles": [
+      "apps/web/src/components/layout/Sidebar.tsx",
+      "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
+      "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
         "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "HOLD",
-        "responseChars": 904,
-        "beforeHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
-        "afterHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 1002,
+        "beforeHead": "874c5f753ffaa0ae0b5a51e03ea798c8912a648b",
+        "afterHead": "611118f114a6221ef03108dfa5a16277e10f3867",
+        "commitHash": "611118f114a6221ef03108dfa5a16277e10f3867",
+        "changedFiles": [
+          "apps/web/src/components/layout/Sidebar.tsx",
+          "apps/web/src/lib/warehouse-inbound-menu-label.test.ts",
+          "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/components/layout/Sidebar.tsx",
+          "apps/web/src/lib/warehouse-inbound-menu-label.test.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/BUG-20260709-0001-a4-frontend-report.md"
+        ],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T12:22:38.257Z",
+        "checkedAt": "2026-07-12T12:30:27.016Z",
         "passed": true,
-        "role": "not_applicable",
-        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-        "reason": "Agent proved this task has no implementation in its ownership boundary"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "SKIPPED_NOT_APPLICABLE",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0007-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A4-worker-assembled-prompt.md\nAssembled prompt chars: 18619\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-22-38-160Z-A4-Frontend-UAT-Smoke.md\nHOLD / NOT APPLICABLE for frontend-owned repair.\n\nI did not change `apps/web`. The 400 maps to backend PostgreSQL `42703` (`字段不存在，请联系管理员`), and the backend create SQL unconditionally inserts columns like `expected_delivery_date`, `delivery_address`, and `sku_code`, so a frontend payload change cannot make “新建订单 → 创建草稿” succeed if runtime schema is missing one of those columns.\n\nReport added: [BUG-20260708-0007-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0007-a4-frontend-uat-smoke.md)\n\nVerification:\n- `apps/web` diff: none\n- `./node_modules/.bin/tsc --noEmit` from `apps/web`: PASS\n- Local browser des",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 30469\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-30-26-853Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260709-0001`.\n\nChanged [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:119) so `/warehouse/inbound` is back to `入库管理`, and added a regression test in [warehouse-inbound-menu-label.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-inbound-menu-label.test.ts:1). Report written at [BUG-20260709-0001-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260709-0001-a4-frontend-report.md:1) with `PASS WITH CONDITIONS`.\n\nVerification run:\n- `pnpm --filter web test -- src/lib/warehouse-inbound-menu-label.",
     "nextAction": ""
   }
 }
