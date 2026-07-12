@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ConflictException,
+  Injectable, NotFoundException, ConflictException, BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { Prc2ShipmentEntity }  from '../entities/prc2-shipment.entity';
 import { Prc2ReceiptEntity }   from '../entities/prc2-receipt.entity';
 import { Prc2ApprovalEntity }  from '../entities/prc2-approval.entity';
+import { Prc2PurchaseOrderEntity } from '../entities/prc2-purchase-order.entity';
 
 import { CreateShipmentDto }   from '../dto/create-shipment.dto';
 import { UpdateShipmentDto }   from '../dto/update-shipment.dto';
@@ -50,6 +51,52 @@ export class ShipmentsService {
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
+
+  private optionalText(value: string | null | undefined): string | undefined {
+    const text = String(value ?? '').trim();
+    return text.length > 0 ? text : undefined;
+  }
+
+  private assertPoContextMatchesShipment(
+    dto: CreateShipmentDto | UpdateShipmentDto,
+    po: Prc2PurchaseOrderEntity,
+  ): void {
+    const companyCode = this.optionalText(dto.companyCode);
+    const projectCode = this.optionalText(dto.projectCode);
+
+    if (companyCode && po.companyCode && companyCode !== po.companyCode) {
+      throw new BadRequestException(`运单公司 ${companyCode} 与采购订单 ${po.poNo} 公司 ${po.companyCode} 不一致`);
+    }
+    if (projectCode && po.projectCode && projectCode !== po.projectCode) {
+      throw new BadRequestException(`运单项目 ${projectCode} 与采购订单 ${po.poNo} 项目 ${po.projectCode} 不一致`);
+    }
+  }
+
+  private async resolvePurchaseOrder(
+    mgr: EntityManager,
+    dto: CreateShipmentDto | UpdateShipmentDto,
+  ): Promise<Prc2PurchaseOrderEntity | null> {
+    const poId = this.optionalText(dto.poId);
+    const poNo = this.optionalText(dto.poNo);
+    if (!poId && !poNo) return null;
+
+    const po = await mgr.findOne(Prc2PurchaseOrderEntity, {
+      where: poId ? { id: poId } : { poNo },
+    });
+    if (!po) {
+      throw new NotFoundException(`采购订单不存在: ${poId ?? poNo}`);
+    }
+    if (poNo && po.poNo !== poNo) {
+      throw new BadRequestException(`采购订单引用不一致: poId=${po.id} 对应 ${po.poNo}, 不是 ${poNo}`);
+    }
+
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: po.companyCode, projectCode: po.projectCode },
+      '采购订单',
+    );
+    this.assertPoContextMatchesShipment(dto, po);
+    return po;
+  }
 
   private userId(): string {
     const u = this.cls.get('user');
@@ -131,8 +178,12 @@ export class ShipmentsService {
 
   async create(dto: CreateShipmentDto) {
     return this.ds.transaction(async mgr => {
+      const po = await this.resolvePurchaseOrder(mgr, dto);
+      const companyCode = dto.companyCode ?? po?.companyCode;
+      const projectCode = dto.projectCode ?? po?.projectCode;
+
       this.scopeHelper.assertWritableOwnership(
-        { companyCode: dto.companyCode, projectCode: dto.projectCode },
+        { companyCode, projectCode },
         '采购运单',
       );
       const prefix = `SHP2-${format(new Date(), 'yyyyMMdd')}-`;
@@ -140,14 +191,14 @@ export class ShipmentsService {
 
       const shp = mgr.create(Prc2ShipmentEntity, {
         shipmentNo,
-        poId:                dto.poId,
-        poNo:                dto.poNo,
-        companyId:           dto.companyId,
-        companyCode:         dto.companyCode,
-        companyName:         dto.companyName,
-        projectId:           dto.projectId,
-        projectCode:         dto.projectCode,
-        projectName:         dto.projectName,
+        poId:                po?.id ?? dto.poId,
+        poNo:                po?.poNo ?? dto.poNo,
+        companyId:           dto.companyId ?? po?.companyId,
+        companyCode,
+        companyName:         dto.companyName ?? po?.companyName,
+        projectId:           dto.projectId ?? po?.projectId,
+        projectCode,
+        projectName:         dto.projectName ?? po?.projectName,
         shipmentType:        dto.shipmentType,
         carrierName:         dto.carrierName,
         trackingNo:          dto.trackingNo,
@@ -186,8 +237,20 @@ export class ShipmentsService {
       if (!['DRAFT', 'READY'].includes(shp.status))
         throw new ConflictException(`当前状态 ${shp.status} 不允许编辑`);
 
-      if (dto.poId               !== undefined) shp.poId               = dto.poId;
-      if (dto.poNo               !== undefined) shp.poNo               = dto.poNo;
+      const po = await this.resolvePurchaseOrder(mgr, dto);
+      if (po) {
+        shp.poId = po.id;
+        shp.poNo = po.poNo;
+        if (dto.companyId   === undefined) shp.companyId   = po.companyId;
+        if (dto.companyCode === undefined) shp.companyCode = po.companyCode;
+        if (dto.companyName === undefined) shp.companyName = po.companyName;
+        if (dto.projectId   === undefined) shp.projectId   = po.projectId;
+        if (dto.projectCode === undefined) shp.projectCode = po.projectCode;
+        if (dto.projectName === undefined) shp.projectName = po.projectName;
+      } else {
+        if (dto.poId             !== undefined) shp.poId             = dto.poId;
+        if (dto.poNo             !== undefined) shp.poNo             = dto.poNo;
+      }
       if (dto.companyId          !== undefined) shp.companyId          = dto.companyId;
       if (dto.companyCode        !== undefined) shp.companyCode        = dto.companyCode;
       if (dto.companyName        !== undefined) shp.companyName        = dto.companyName;

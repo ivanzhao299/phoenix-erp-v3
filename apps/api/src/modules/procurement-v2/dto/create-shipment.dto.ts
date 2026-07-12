@@ -10,11 +10,11 @@ export enum ShipmentType {
 }
 
 export class CreateShipmentDto {
-  @IsString()
-  poId: string;
+  @IsOptional() @IsString()
+  poId?: string;
 
-  @IsString()
-  poNo: string;
+  @IsOptional() @IsString()
+  poNo?: string;
 
   @IsOptional() @IsString() companyId?:   string;
   @IsOptional() @IsString() companyCode?: string;
