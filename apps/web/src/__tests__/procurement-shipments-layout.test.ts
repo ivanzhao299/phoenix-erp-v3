@@ -37,10 +37,15 @@ describe("procurement shipments drawer layout", () => {
   it("lets approved procurement orders start a shipment with locked PO prefill", () => {
     expect(ordersPageSource).toContain('usePermission("MENU_PRC2_SHIPMENT")');
     expect(ordersPageSource).toContain("shipmentPerm.canCreate");
+    expect(ordersPageSource).toContain("const SHIPMENT_CREATABLE_ORDER_STATUSES = new Set([");
+    for (const status of ["APPROVED", "PARTIALLY_PAID", "PAID", "IN_TRANSIT", "PARTIALLY_RECEIVED"]) {
+      expect(ordersPageSource).toContain(`"${status}"`);
+    }
     expect(ordersPageSource).toContain('create: "1"');
     expect(ordersPageSource).toContain("poId: row.id");
     expect(ordersPageSource).toContain("poNo: row.poNo");
     expect(ordersPageSource).toContain("/procurement2/shipments?");
+    expect(ordersPageSource).toContain("{canCreateShipment(detailData) && (");
     expect(pageSource).toContain('usePermission("MENU_PRC2_SHIPMENT")');
     expect(pageSource).toContain('params.get("create") !== "1"');
     expect(pageSource).toContain('params.get("poId")?.trim()');
@@ -50,5 +55,14 @@ describe("procurement shipments drawer layout", () => {
     expect(pageSource).toContain("openNew({");
     expect(pageSource).toContain("readOnly={poLocked}");
     expect(pageSource).toContain("aria-readonly={poLocked}");
+  });
+
+  it("preserves shipment create validation plus loading and empty states", () => {
+    expect(pageSource).toContain("poId: formData.poId?.trim()");
+    expect(pageSource).toContain("poNo: formData.poNo?.trim()");
+    expect(pageSource).toContain("if (!payload.poId || !payload.poNo)");
+    expect(pageSource).toContain("请填写关联PO");
+    expect(pageSource).toContain("{loading && <tr><td colSpan={11}");
+    expect(pageSource).toContain("{!loading && items.length === 0");
   });
 });
