@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
-import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+import { evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
 test('runner-created dependency links do not make a worktree dirty', () => {
   assert.equal(filterRunnerRuntimeStatus([
@@ -109,6 +109,7 @@ test('already-fixed implementation ownership is accepted without redundant code 
   });
   assert.equal(evidence.passed, true);
   assert.equal(evidence.terminalStatus, 'SKIPPED_NOT_APPLICABLE');
+  assert.equal(evidence.role, 'implementation_verified_existing');
 });
 
 test('existing-fix wording variants remain idempotent', () => {
@@ -122,5 +123,24 @@ test('existing-fix wording variants remain idempotent', () => {
       exitCode: 0, stdout: `Run log: x\n${response}`, beforeHead: 'a', afterHead: 'a', changedFiles: [],
     });
     assert.equal(evidence.terminalStatus, 'SKIPPED_NOT_APPLICABLE');
+    assert.equal(evidence.role, 'implementation_verified_existing');
   }
+});
+
+test('verified existing implementation satisfies release evidence', () => {
+  const implementation = {
+    task_id: 'BUGTASK-X-A4', agent: 'A4-Frontend-UAT-Smoke', status: 'SKIPPED_NOT_APPLICABLE',
+    route_active: true, redispatch_count: 2,
+    evidence_gate: { passed: true, role: 'implementation_verified_existing' },
+  };
+  const validation = {
+    task_id: 'BUGTASK-X-A1', agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED',
+    route_active: true, redispatch_count: 2,
+    evidence_gate: { passed: true, role: 'validation' },
+  };
+  const release = evaluateBugReleaseEvidence(
+    [implementation, validation],
+    ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'],
+  );
+  assert.equal(release.passed, true);
 });

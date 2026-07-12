@@ -110,7 +110,13 @@ export function evaluateWorkerEvidence(input = {}) {
       return { ...base, passed: false, role: 'implementation', terminalStatus: 'HOLD', reason: 'Codex exited 0 but produced no Agent result' };
     }
     if (businessChangedFiles.length === 0 && isNotApplicable(response)) {
-      return { ...base, passed: true, role: 'not_applicable', terminalStatus: 'SKIPPED_NOT_APPLICABLE', reason: 'Agent proved this task has no implementation in its ownership boundary' };
+      return {
+        ...base,
+        passed: true,
+        role: 'implementation_verified_existing',
+        terminalStatus: 'SKIPPED_NOT_APPLICABLE',
+        reason: 'Agent verified an already-integrated implementation in its ownership boundary without redundant code churn',
+      };
     }
     if (['HOLD', 'FAIL'].includes(conclusion)) {
       return { ...base, passed: false, role: 'implementation', terminalStatus: 'HOLD', reason: `Agent conclusion is ${conclusion}` };
@@ -141,7 +147,10 @@ export function evaluateBugReleaseEvidence(tasks = [], selectedAgents = []) {
   const missingAgents = selected.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
   const unfinished = selectedTasks.filter((task) => !TERMINAL_SUCCESS.has(task.status) && !HOLD_STATUSES.has(task.status));
   const failed = selectedTasks.filter((task) => HOLD_STATUSES.has(task.status) || task.evidence_gate?.passed === false);
-  const implementationTasks = selectedTasks.filter((task) => task.evidence_gate?.role === 'implementation' && task.evidence_gate?.passed === true);
+  const implementationTasks = selectedTasks.filter((task) => (
+    ['implementation', 'implementation_verified_existing'].includes(task.evidence_gate?.role)
+    && task.evidence_gate?.passed === true
+  ));
   const validationTasks = selectedTasks.filter((task) => task.evidence_gate?.role === 'validation' && task.evidence_gate?.passed === true);
   const a1Required = selected.includes('A1-CI-Runtime-Gate');
   const a1Passed = !a1Required || validationTasks.some((task) => task.agent === 'A1-CI-Runtime-Gate');
