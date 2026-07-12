@@ -13502,5 +13502,15 @@
   "breeding.culling_reason.sickness": "患病",
   "breeding.culling_reason.age": "老龄",
   "breeding.culling_reason.injury": "严重外伤",
-  "ui.pilot_ready": "可上线"
+  "ui.pilot_ready": "可上线",
+  "ui.黑名单客户不可直接编辑，请先将状态改为正常或冻结后保存": "黑名单客户不可直接编辑，请先将状态改为正常或冻结后保存",
+  "ui.保存失败，请稍后重试": "保存失败，请稍后重试",
+  "warehouse.change_type.egg_in": "蛋品入库",
+  "warehouse.change_type.egg_reversed": "蛋品冲销",
+  "warehouse.change_type.farm_in": "养殖入库",
+  "warehouse.change_type.farm_out_medication": "养殖用药出库",
+  "warehouse.change_type.farm_reversed": "养殖冲销",
+  "warehouse.change_type.med_inbound": "药品入库",
+  "warehouse.change_type.med_outbound": "药品出库",
+  "warehouse.change_type.pack_done": "包装完成入库"
 }

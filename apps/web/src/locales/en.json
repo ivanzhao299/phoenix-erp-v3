@@ -13502,5 +13502,15 @@
   "breeding.culling_reason.sickness": "Illness",
   "breeding.culling_reason.age": "Age",
   "breeding.culling_reason.injury": "Severe injury",
-  "ui.pilot_ready": "Ready to go live"
+  "ui.pilot_ready": "Ready to go live",
+  "ui.黑名单客户不可直接编辑，请先将状态改为正常或冻结后保存": "Blacklisted customers cannot be edited directly. Change the status to normal or frozen first.",
+  "ui.保存失败，请稍后重试": "Save failed. Please try again later.",
+  "warehouse.change_type.egg_in": "Egg stock receipt",
+  "warehouse.change_type.egg_reversed": "Egg stock reversal",
+  "warehouse.change_type.farm_in": "Farm stock receipt",
+  "warehouse.change_type.farm_out_medication": "Farm medication issue",
+  "warehouse.change_type.farm_reversed": "Farm stock reversal",
+  "warehouse.change_type.med_inbound": "Medication receipt",
+  "warehouse.change_type.med_outbound": "Medication issue",
+  "warehouse.change_type.pack_done": "Packaging completion receipt"
 }
