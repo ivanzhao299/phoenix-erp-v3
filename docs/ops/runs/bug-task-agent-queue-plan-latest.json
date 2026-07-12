@@ -12,11 +12,11 @@
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-11T07:00:28.287Z",
-      "approvedBy": "admin",
+      "approvedAt": "2026-07-12T11:30:41.548Z",
+      "approvedBy": "bug_intake_runner",
       "redispatch": true,
-      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "redispatchCount": 4,
+      "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+      "redispatchCount": 5,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -32,46 +32,19 @@
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
-        "agent": "A2-Security-Regression-Gate",
-        "reasons": [
-          "security/RBAC/DataScope signal matched",
-          "failure classification RBAC_403"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "backend/API/error route matched",
-          "failure classification RBAC_403"
+          "administrator-approved redispatch scope"
         ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "reasons": [
-          "frontend/UI route or wording matched"
-        ],
-        "execution_mode": "dry-run-first",
-        "approval_required": true
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "reasons": [
-          "data readiness/master data signal matched"
-        ],
-        "execution_mode": "dry-run-first",
+        "execution_mode": "approved-execution",
         "approval_required": true
       },
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
-          "failure classification RBAC_403",
-          "required validation after repair"
+          "administrator-approved redispatch scope"
         ],
-        "execution_mode": "dry-run-first",
+        "execution_mode": "approved-execution",
         "approval_required": true
       }
     ],
@@ -144,8 +117,8 @@
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 4,
-      "last_redispatch_at": "2026-07-11T07:00:28.287Z"
+      "redispatch_count": 5,
+      "last_redispatch_at": "2026-07-12T11:30:41.548Z"
     },
     {
       "task_id": "BUGTASK-20260707-0009-A1",
@@ -192,8 +165,8 @@
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 4,
-      "last_redispatch_at": "2026-07-11T07:00:28.287Z"
+      "redispatch_count": 5,
+      "last_redispatch_at": "2026-07-12T11:30:41.548Z"
     }
   ]
 }
