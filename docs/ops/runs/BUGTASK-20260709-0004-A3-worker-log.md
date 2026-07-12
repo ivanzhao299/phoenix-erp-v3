@@ -23,24 +23,21 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 21726
+Assembled prompt chars: 21790
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T11-48-15-710Z-A3-Backend-Critical-Path.md
-Implemented the A3 backend repair for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-14-50-734Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS.
 
-Changed:
-- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863): `listTodo()` now returns the full unified todo count, not current page length.
-- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:1075): `getTaskSummary()` now normalizes `req.user.id` / `userId` consistently before counting.
-- [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:155): added focused regressions for the BUG-20260709-0004 count mismatch.
-- [BUG-20260709-0004-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md:1): task report with root cause, validation, and result.
+Added task-specific backend regression coverage for BUG-20260709-0004 in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123). It captures the visible ApprovalEngine todo row shape and asserts `items.length = 1`, `total = 1`, and `total >= items.length`.
+
+Wrote the required report at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1).
 
 Validation:
-- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` PASS, 6 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS.
-- `git diff --check ...` PASS.
+- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand`: PASS, 5 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: PASS
 
-Result: `PASS WITH CONDITIONS`. No DB writes, migrations, frontend edits, deploy, push, or task-board changes. Full resolution still needs CI/CD, production smoke, and business acceptance.
+No frontend, schema, entity, migration, database write, deploy, push, or task board change was performed. Production resolution is not claimed until CI/CD, production smoke on `/workflow/todos`, and business acceptance complete.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -57,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5625-e627-71e3-b20d-549fc0afe440
+session id: 019f571a-29d3-7a93-a889-1efed54c71e3
 --------
 user
 # Base Agent Prompt
@@ -501,7 +498,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "div",
             "path": ".sidebar-module__C8A
-...<truncated 589887 chars>
+...<truncated 334558 chars>
 
 ```
 
@@ -512,25 +509,23 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1278,
-  "beforeHead": "1534d82a8acf4b28a58aced6b52d428f283aeafd",
-  "afterHead": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
-  "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 941,
+  "beforeHead": "2532602f3c6d5df2b5d7d60476c0d4018c72c665",
+  "afterHead": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
+  "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
   "changedFiles": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts",
-    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessChangedFiles": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts"
+    "apps/api/src/modules/workflow/workflow.service.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T11:48:15.870Z",
+  "checkedAt": "2026-07-12T16:14:50.895Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -546,18 +541,16 @@ Assigned agent: A3-Backend-Critical-Path
   "ok": true,
   "files": [
     "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts",
-    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
   "businessFiles": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts"
+    "apps/api/src/modules/workflow/workflow.service.spec.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
   ],
-  "commitHash": "ed28cf0c9dd904a850daad16a208fb1a86d15675",
+  "commitHash": "296c30c959f1797f79e6bf4fbdd688c7fc433c37",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 ed28cf0c] fix(api): repair BUG-20260709-0004\n 3 files changed, 128 insertions(+), 9 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260709-0004-a3-backend-report.md"
+  "output": "[codex/bug-intake-a3 296c30c9] fix(api): repair BUG-20260709-0004\n 2 files changed, 93 insertions(+)\n create mode 100644 docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
 }
 ```
