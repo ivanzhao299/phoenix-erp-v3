@@ -236,6 +236,20 @@ function observeQueue(findings, tasks) {
       recommended_next_task: 'Run Observer HOLD clustering in the next iteration.',
     });
   }
+  const falseQuarantine = tasks.filter((task) => ['HOLD', 'hold'].includes(task.status))
+    .filter((task) => /incomplete implementation worktree preserved in quarantine|blocked by failed dependency/i.test(String(task.reason || '')));
+  if (falseQuarantine.length > 0) {
+    addFinding(findings, {
+      severity: 'CRITICAL',
+      category: 'runner-generation-drift',
+      affected_agent: 'BugIntakeLocalRunner',
+      evidence: `${falseQuarantine.length} terminal task(s) match runner-owned quarantine/dependency HOLD evidence.`,
+      suggested_fix: 'Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.',
+      auto_fix_eligible: true,
+      requires_human_gate: false,
+      recommended_next_task: 'Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY.',
+    });
+  }
 }
 
 function isResultJson(file, data) {

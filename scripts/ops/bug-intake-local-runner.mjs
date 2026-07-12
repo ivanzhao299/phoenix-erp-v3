@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
@@ -23,6 +24,11 @@ const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bi
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
 const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
 const TOKEN_CACHE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-token.json';
+const RUNNER_RUNTIME_DEPENDENCY_PATHS = new Set([
+  'node_modules',
+  'apps/api/node_modules',
+  'apps/web/node_modules',
+]);
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -61,6 +67,9 @@ function parseArgs(argv) {
     childTimeoutMs: 900000,
     fetchTimeoutMs: 45000,
     staleLeaseMinutes: 1,
+    autoRecoverGenerationDrift: true,
+    maxAutoRecoveries: 2,
+    maxAutoRedispatchPerCycle: 3,
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   let explicitDryRun = false;
@@ -81,6 +90,10 @@ function parseArgs(argv) {
       args.skipBlocked = false;
       continue;
     }
+    if (arg === '--no-auto-recover-generation-drift') {
+      args.autoRecoverGenerationDrift = false;
+      continue;
+    }
     if (arg.startsWith('--')) {
       args[arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = normalized[i + 1];
       i += 1;
@@ -93,6 +106,8 @@ function parseArgs(argv) {
   args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 900000;
   args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
   args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 1;
+  args.maxAutoRecoveries = Number.parseInt(args.maxAutoRecoveries, 10) || 2;
+  args.maxAutoRedispatchPerCycle = Number.parseInt(args.maxAutoRedispatchPerCycle, 10) || 3;
   if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
   if (!args.once && !args.watch) args.once = true;
   return args;
@@ -291,6 +306,22 @@ function commitOpsRuntimeArtifacts(args) {
   return commit.ok
     ? { skipped: false, ok: true, files: staged.output.split('\n').filter(Boolean), output: commit.output }
     : { skipped: false, ok: false, step: 'git commit', error: commit.output };
+}
+
+function runEvolutionCycle(args, cycle, generationRecovery) {
+  const due = cycle % 12 === 0 || (generationRecovery?.candidates?.length || 0) > 0;
+  if (!due) return { skipped: true, reason: 'not scheduled this cycle' };
+  const observer = run([NODE_BIN, 'scripts/ops/agent-observer.mjs', '--output-dir', 'docs/ops/runs', '--dry-run'], {
+    cwd: args.mainRoot,
+    timeoutMs: 180000,
+  });
+  const planner = observer.status === 0
+    ? run([NODE_BIN, 'scripts/ops/agent-evolution-planner.mjs', args.dryRun ? '--dry-run' : '--apply'], {
+      cwd: args.mainRoot,
+      timeoutMs: 180000,
+    })
+    : { status: 1, skipped: true, reason: 'observer failed' };
+  return { skipped: false, observer, planner };
 }
 
 function tokenAvailable(args) {
@@ -691,9 +722,22 @@ An abnormal/detached worker result is never allowed to merge. The task remains H
   };
 }
 
+export function filterRunnerRuntimeStatus(statusOutput) {
+  return String(statusOutput || '')
+    .split('\n')
+    .filter((line) => {
+      const file = line.length >= 3 ? line.slice(3).trim() : line.trim();
+      const normalized = file.replace(/\/$/, '');
+      return !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(normalized);
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
 function gitStatusShort(cwd) {
   if (!cwd || !existsSync(cwd)) return { ok: false, output: 'worktree does not exist' };
-  return safeGit(['status', '--short'], cwd);
+  const status = safeGit(['status', '--short'], cwd);
+  return status.ok ? { ...status, output: filterRunnerRuntimeStatus(status.output) } : status;
 }
 
 function worktreeClean(cwd) {
@@ -1001,6 +1045,22 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   return run(pushCommand(args), { cwd: args.mainRoot });
 }
 
+function pushOpsAuditCommitsIfSafe(args, releasePush) {
+  if (args.dryRun || !args.pushAfterSuccess) return { skipped: true, reason: args.dryRun ? 'dry-run' : 'push-after-success disabled' };
+  if (!releasePush?.skipped && releasePush?.status === 0) return { skipped: true, reason: 'release push already completed' };
+  const status = safeGit(['status', '--short'], args.mainRoot);
+  if (!status.ok || status.output.trim()) return { skipped: true, reason: `main root dirty: ${status.output}` };
+  const commits = safeGit(['rev-list', 'origin/main..HEAD'], args.mainRoot);
+  if (!commits.ok || !commits.output.trim()) return { skipped: true, reason: 'no unpushed commits' };
+  const files = safeGit(['diff', '--name-only', 'origin/main..HEAD'], args.mainRoot);
+  if (!files.ok) return { skipped: true, reason: `cannot inspect unpushed paths: ${files.output}` };
+  const paths = files.output.split('\n').map((file) => file.trim()).filter(Boolean);
+  if (paths.length === 0 || paths.some((file) => !file.startsWith('docs/ops/'))) {
+    return { skipped: true, reason: 'unpushed commits contain non-audit paths; release evidence is required', paths };
+  }
+  return { ...run(pushCommand(args), { cwd: args.mainRoot }), auditOnly: true, paths };
+}
+
 function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
   if (!args.productionSmokeAfterCi) return { skipped: true, reason: 'production-smoke-after-ci disabled' };
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
@@ -1162,6 +1222,82 @@ function selectedAgentsForReport(report, localTasks) {
   const agents = Array.isArray(selected) ? selected.map((item) => String(item)).filter(Boolean) : [];
   if (agents.length > 0) return agents;
   return [...new Set(localTasks.map((task) => String(task.agent || '')).filter(Boolean))];
+}
+
+const AUTO_RECOVERY_NOTE = 'AUTO_QUEUE_RECOVERY';
+const TECHNICAL_HOLD_PATTERNS = [
+  /incomplete implementation worktree preserved in quarantine/i,
+  /blocked by failed dependency/i,
+  /runner-created dependency/i,
+];
+
+export function selectAutomaticRedispatchCandidates(reports, tasks, options = {}) {
+  const maxRecoveries = Number(options.maxAutoRecoveries || 2);
+  const maxPerCycle = Number(options.maxAutoRedispatchPerCycle || 3);
+  const tasksByBug = new Map();
+  for (const task of tasks || []) {
+    if (task.source !== 'bug-intake' || !task.source_bug_no || task.route_active === false) continue;
+    const list = tasksByBug.get(task.source_bug_no) || [];
+    list.push(task);
+    tasksByBug.set(task.source_bug_no, list);
+  }
+
+  return (reports || []).flatMap((report) => {
+    const payload = report?.repairTaskPayload || {};
+    const approval = payload.agentExecutionApproval || {};
+    const remoteStatus = String(report?.status || '');
+    const repairStatus = String(report?.repairTaskStatus || '');
+    if (!approval.approved || ['RESOLVED', 'CLOSED', 'REJECTED'].includes(remoteStatus)) return [];
+    if (!['AGENT_APPROVED', 'HOLD'].includes(repairStatus)) return [];
+
+    const localTasks = tasksByBug.get(report.bugNo) || [];
+    if (localTasks.length === 0) return [];
+    const generation = Number(payload.redispatchCount || 0);
+    const currentTasks = localTasks.filter((task) => Number(task.redispatch_count || 0) === generation);
+    if (currentTasks.length === 0 || currentTasks.some((task) => !['HOLD', 'hold', 'failed'].includes(task.status))) return [];
+    if (currentTasks.some((task) => !TECHNICAL_HOLD_PATTERNS.some((pattern) => pattern.test(String(task.reason || ''))))) return [];
+
+    const selectedAgents = selectedAgentsForReport(report, currentTasks);
+    if (selectedAgents.length === 0 || selectedAgents.some((agent) => ['A6-Staging-Deploy-Runbook', 'A7-Final-QA-Gate'].includes(agent))) return [];
+    const recoveryCount = (Array.isArray(payload.redispatchHistory) ? payload.redispatchHistory : [])
+      .filter((item) => String(item?.note || '').startsWith(AUTO_RECOVERY_NOTE)).length;
+    if (recoveryCount >= maxRecoveries) return [];
+    return [{
+      bugNo: report.bugNo,
+      generation,
+      selectedAgents,
+      recoveryCount,
+      reasons: [...new Set(currentTasks.map((task) => String(task.reason || '')).filter(Boolean))],
+    }];
+  }).slice(0, maxPerCycle);
+}
+
+async function recoverTechnicalGenerationDrift(args, childEnv) {
+  if (!args.autoRecoverGenerationDrift) return { skipped: true, reason: 'automatic generation recovery disabled', candidates: [] };
+  const reports = readLatestInboxReports(args);
+  const tasks = readJson(TASKS_FILE, []);
+  const candidates = selectAutomaticRedispatchCandidates(reports, tasks, args);
+  if (args.dryRun || candidates.length === 0) {
+    return { skipped: args.dryRun, reason: candidates.length ? 'dry-run' : 'no safe technical HOLD candidates', candidates, results: [] };
+  }
+  const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
+  const results = [];
+  for (const candidate of candidates) {
+    const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(candidate.bugNo)}/redispatch`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'REQUEUE',
+        selectedAgents: candidate.selectedAgents,
+        approvalScope: 'Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.',
+        note: `${AUTO_RECOVERY_NOTE}: dependency symlink false-dirty/quarantine generation ${candidate.generation}`,
+      }),
+    });
+    const body = await response.text();
+    results.push({ bugNo: candidate.bugNo, ok: response.ok, status: response.status, body: body.slice(0, 1000) });
+  }
+  return { skipped: false, candidates, results };
 }
 
 function bugTaskConclusion(task) {
@@ -1399,7 +1535,14 @@ async function runCycle(args, cycle) {
 
   const token = await loginToken(args);
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
-  const sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  let sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  const generationRecovery = sync.status === 0
+    ? await recoverTechnicalGenerationDrift(args, childEnv)
+    : { skipped: true, reason: 'sync failed', candidates: [], results: [] };
+  if (!args.dryRun && generationRecovery.results?.some((item) => item.ok)) {
+    sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  }
+  const evolutionCycle = runEvolutionCycle(args, cycle, generationRecovery);
   const preWorkerCommit = sync.status === 0 ? commitOpsRuntimeArtifacts(args) : { skipped: true, reason: 'sync failed' };
   const candidateTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
   const runnableTasks = [];
@@ -1566,6 +1709,7 @@ async function runCycle(args, cycle) {
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
   const productionSmoke = runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence);
+  const auditPush = pushOpsAuditCommitsIfSafe(args, push);
   const summary = {
     decision: args.dryRun ? 'BUG_INTAKE_LOCAL_RUNNER_DRY_RUN' : 'BUG_INTAKE_LOCAL_RUNNER_EXECUTED',
     generatedAt: new Date().toISOString(),
@@ -1578,6 +1722,8 @@ async function runCycle(args, cycle) {
     autoUnblockDirtyWorktrees: Boolean(args.autoUnblockDirtyWorktrees),
     skipBlocked: Boolean(args.skipBlocked),
     sync,
+    generationRecovery,
+    evolutionCycle,
     leaseRecovery,
     preWorkerCommit,
     candidateTasks: candidateTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
@@ -1606,6 +1752,7 @@ async function runCycle(args, cycle) {
       activeChildProcesses: item.activeChildProcesses || [],
     })),
     push,
+    auditPush,
     ci,
     productionSmoke,
     releaseEvidence,
@@ -1678,7 +1825,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`ERROR: ${error.message}`);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main().catch((error) => {
+    console.error(`ERROR: ${error.message}`);
+    process.exit(1);
+  });
+}

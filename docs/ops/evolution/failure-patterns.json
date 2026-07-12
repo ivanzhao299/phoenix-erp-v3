@@ -75,5 +75,20 @@
     "root_cause": "Baseline sync lifecycle was not consistently attached to every Agent execution path.",
     "evidence": ["manual rebase requested", "manual merge requested", "manual docs/ops/runs cleanup requested"],
     "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-PHX-003",
+    "title": "Runner-created dependency links trigger false dirty quarantine",
+    "description": "Bug Intake worktrees are quarantined when runner-created node_modules links are mistaken for implementation changes, leaving the approved remote generation terminal locally.",
+    "occurrence": 14,
+    "severity": "CRITICAL",
+    "impact": "Approved repairs appear processed but never execute, worker capacity falls to zero, and reports remain stuck in HOLD or AGENT_APPROVED.",
+    "root_cause": "Worktree dependency preparation and dirty-worktree classification use the same unfiltered git status surface, while no automatic generation recovery follows a runner-owned technical HOLD.",
+    "evidence": [
+      "quarantine worktrees contain only node_modules symlinks",
+      "remote AGENT_APPROVED generation is terminal HOLD locally",
+      "queue health score reaches zero with no runnable tasks"
+    ],
+    "suggested_owner": "Codex-Orchestrator"
   }
 ]

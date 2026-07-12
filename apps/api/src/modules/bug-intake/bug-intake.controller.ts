@@ -139,7 +139,7 @@ export class BugIntakeController {
   @RequireMenu('MENU_BUG_REPORT', 'E')
   async redispatchRepairTask(
     @Param('bugNo') bugNo: string,
-    @Body() body: { mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE'; approvalScope?: string; note?: string },
+    @Body() body: { mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE'; approvalScope?: string; note?: string; selectedAgents?: string[] },
     @Req() req: AuthedRequest,
   ) {
     return this.service.redispatchRepairTask(bugNo, body, req.user ?? {}, this.reqMeta(req));

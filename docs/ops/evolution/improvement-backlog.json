@@ -43,21 +43,21 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 14,
+    "occurrence": 23,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-06-22T16:33:07.345Z"
+    "updated_at": "2026-07-12T10:30:37.057Z"
   },
   {
-    "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
-    "source_pattern_id": "PATTERN-003",
-    "title": "Enforce Agent report schema compliance before decision",
-    "root_cause": "Report schema compliance is not enforced before result parsing.",
-    "proposed_solution": "Normalize and validate required report fields before parse, diagnose, decision, and task board updates.",
+    "improvement_id": "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
+    "source_pattern_id": "PATTERN-PHX-003",
+    "title": "Prevent runner-owned false quarantine and recover terminal generations",
+    "root_cause": "Worktree dependency preparation and dirty-worktree classification use the same unfiltered git status surface, while no automatic generation recovery follows a runner-owned technical HOLD.",
+    "proposed_solution": "Ignore runner-created dependency links during dirty classification, preserve real business diff detection, and auto-redispatch only approved generations whose HOLD evidence is entirely runner-owned technical noise.",
     "risk": "LOW/MEDIUM",
     "priority": "P0",
-    "owner_recommendation": "A1-CI-Runtime-Gate or Codex-Orchestrator",
+    "owner_recommendation": "Codex-Orchestrator",
     "allowed_paths": [
       "scripts/ops/**",
       "docs/ops/**",
@@ -89,15 +89,17 @@
       "Improvement candidate contains source pattern traceability.",
       "No business code, migration, DB write, deploy, seed, reset, cleanup, or push is performed.",
       "Doctor and Finalize expose Evolution Center state.",
-      "Missing report fields are detected and normalized before next-Agent decision."
+      "node_modules links created by the runner never make a worktree dirty.",
+      "Real apps/api and apps/web modifications remain visible to the evidence gate.",
+      "A technical terminal generation can be recreated at most twice and never includes A6/A7."
     ],
     "auto_fix_allowed": true,
-    "requires_approval": true,
-    "occurrence": 9,
-    "severity": "MEDIUM",
+    "requires_approval": false,
+    "occurrence": 14,
+    "severity": "CRITICAL",
     "status": "OPEN",
-    "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-06-22T16:33:07.345Z"
+    "created_at": "2026-07-12T10:30:37.057Z",
+    "updated_at": "2026-07-12T10:30:37.057Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
@@ -143,11 +145,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 60,
+    "occurrence": 23,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-06-22T16:33:07.345Z"
+    "updated_at": "2026-07-12T10:30:37.057Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
@@ -193,11 +195,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 144,
+    "occurrence": 115,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-06-22T16:33:07.345Z"
+    "updated_at": "2026-07-12T10:30:37.057Z"
   },
   {
     "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
@@ -243,10 +245,60 @@
     ],
     "auto_fix_allowed": false,
     "requires_approval": true,
-    "occurrence": 6,
+    "occurrence": 4,
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-06-22T16:33:07.345Z"
+    "updated_at": "2026-07-12T10:30:37.057Z"
+  },
+  {
+    "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+    "source_pattern_id": "PATTERN-003",
+    "title": "Enforce Agent report schema compliance before decision",
+    "root_cause": "Report schema compliance is not enforced before result parsing.",
+    "proposed_solution": "Normalize and validate required report fields before parse, diagnose, decision, and task board updates.",
+    "risk": "LOW/MEDIUM",
+    "priority": "P1",
+    "owner_recommendation": "A1-CI-Runtime-Gate or Codex-Orchestrator",
+    "allowed_paths": [
+      "scripts/ops/**",
+      "docs/ops/**",
+      "docs/ops/evolution/**",
+      "docs/ops/runs/**",
+      "docs/ops/agent-queue/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/web/**",
+      "apps/api/src/database/migrations/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Docker",
+      "deploy/**",
+      "auth/**",
+      "schema/entity/table/column"
+    ],
+    "validation_commands": [
+      "node --check scripts/ops/agent-evolution-planner.mjs",
+      "node --check scripts/ops/agent-goal-to-queue.mjs",
+      "node scripts/ops/agent-doctor.mjs",
+      "node scripts/ops/agent-finalize.mjs --apply",
+      "git diff --check",
+      "node scripts/ci/check-w5-closeout-gate.mjs"
+    ],
+    "acceptance_criteria": [
+      "Improvement candidate contains source pattern traceability.",
+      "No business code, migration, DB write, deploy, seed, reset, cleanup, or push is performed.",
+      "Doctor and Finalize expose Evolution Center state.",
+      "Missing report fields are detected and normalized before next-Agent decision."
+    ],
+    "auto_fix_allowed": true,
+    "requires_approval": true,
+    "occurrence": 7,
+    "severity": "MEDIUM",
+    "status": "OPEN",
+    "created_at": "2026-06-22T16:31:17.086Z",
+    "updated_at": "2026-07-12T10:30:37.057Z"
   }
 ]

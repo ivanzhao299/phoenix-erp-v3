@@ -108,6 +108,9 @@ function scanSignals(limit = 160) {
     if (/manual rebase|手工.*rebase|manual merge|手工.*merge|docs\/ops\/runs.*cleanup|清.*docs\/ops\/runs|baseline autopilot/i.test(text)) {
       signals.push({ pattern_id: 'PATTERN-PHX-002', file });
     }
+    if (/node_modules.*quarantine|dependency symlink|false[- ]dirty|incomplete implementation worktree preserved in quarantine|AUTO_QUEUE_RECOVERY/i.test(text)) {
+      signals.push({ pattern_id: 'PATTERN-PHX-003', file });
+    }
   }
   return signals;
 }
@@ -201,6 +204,21 @@ function candidateFor(pattern, signalCount) {
       owner_recommendation: 'Codex-Orchestrator',
       acceptance_criteria: [...base.acceptance_criteria, 'Queue readers can tolerate task snapshot conflicts by deriving status from events.'],
     },
+    'PATTERN-PHX-003': {
+      improvement_id: 'IMPROVE-BUG-INTAKE-QUEUE-RECOVERY',
+      title: 'Prevent runner-owned false quarantine and recover terminal generations',
+      proposed_solution: 'Ignore runner-created dependency links during dirty classification, preserve real business diff detection, and auto-redispatch only approved generations whose HOLD evidence is entirely runner-owned technical noise.',
+      risk: 'LOW/MEDIUM',
+      owner_recommendation: 'Codex-Orchestrator',
+      auto_fix_allowed: true,
+      requires_approval: false,
+      acceptance_criteria: [
+        ...base.acceptance_criteria,
+        'node_modules links created by the runner never make a worktree dirty.',
+        'Real apps/api and apps/web modifications remain visible to the evidence gate.',
+        'A technical terminal generation can be recreated at most twice and never includes A6/A7.',
+      ],
+    },
   };
   return { ...base, ...(overrides[pattern.pattern_id] || {}) };
 }
@@ -215,7 +233,7 @@ function buildPlan() {
     acc[signal.pattern_id] = (acc[signal.pattern_id] || 0) + 1;
     return acc;
   }, {});
-  const required = ['PATTERN-PHX-001', 'PATTERN-004', 'PATTERN-PHX-002', 'PATTERN-003', 'PATTERN-005'];
+  const required = ['PATTERN-PHX-001', 'PATTERN-004', 'PATTERN-PHX-002', 'PATTERN-PHX-003', 'PATTERN-003', 'PATTERN-005'];
   const candidates = patterns
     .filter((pattern) => required.includes(pattern.pattern_id) || signalCounts[pattern.pattern_id] >= 2)
     .map((pattern) => candidateFor(pattern, signalCounts[pattern.pattern_id] || 0))
