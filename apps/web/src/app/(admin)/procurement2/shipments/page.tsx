@@ -8,6 +8,7 @@ import { ConfirmDialogV2 } from "@/components/design-system"; // G161：统一�
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
+import styles from "./shipments.module.css";
 import DictSelect from "@/components/shared-selectors/DictSelect";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, Send, Truck, Package, X, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -419,19 +420,26 @@ export default function ShipmentsPage() {
         </div>}
 
       {/* ── New Shipment Drawer ── */}
-      <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title={t('ui.新建物流运单','新建物流运单')} width={600}>
+      <RightDrawer
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={t('ui.新建物流运单','新建物流运单')}
+        width={760}
+        footer={formOpen ? (
+          <div className={styles.drawerActions}>
+            <button type="button" className={s.btnSecondary} onClick={() => setFormOpen(false)}>{t('ui.取消','取消')}</button>
+            <button type="button" className={s.btnPrimary} onClick={handleSave} disabled={formSaving}>
+              {formSaving ? t('ui.保存中...','保存中...') : t('ui.创建运单','创建运单')}
+            </button>
+          </div>
+        ) : null}
+      >
         {/* G158：重表单仅 open 时挂载 */}
-        {formOpen && <div style={{
-        padding: "0 24px 24px"
-      }}>
-          <div className={s.formSection}>
-            <div style={{
-            fontWeight: 600,
-            marginBottom: 12,
-            fontSize: 13
-          }}>{t('ui.关联采购订单','关联采购订单')}</div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+        {formOpen && <div className={styles.shipmentForm}>
+          <section className={styles.formSection}>
+            <h4 className={styles.sectionTitle}>{t('ui.关联采购订单','关联采购订单')}</h4>
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.采购订单 ID','采购订单 ID')} <span style={{
                   color: "var(--color-danger)"
                 }}>*</span></label>
@@ -440,7 +448,7 @@ export default function ShipmentsPage() {
                 poId: e.target.value
               }))} placeholder={t('ui.PO内部ID','PO内部ID')} />
               </div>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.采购订单号','采购订单号')} <span style={{
                   color: "var(--color-danger)"
                 }}>*</span></label>
@@ -450,16 +458,12 @@ export default function ShipmentsPage() {
               }))} placeholder="PO2-..." />
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className={`${s.formSection} ${u.mt12}`}>
-            <div style={{
-            fontWeight: 600,
-            marginBottom: 12,
-            fontSize: 13
-          }}>{t('ui.物流信息','物流信息')}</div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+          <section className={styles.formSection}>
+            <h4 className={styles.sectionTitle}>{t('ui.物流信息','物流信息')}</h4>
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.运输类型','运输类型')}</label>
                 <select className={s.inp} value={formData.shipmentType ?? "CROSS_BORDER"} onChange={e => setFormData(p => ({
                 ...p,
@@ -470,48 +474,42 @@ export default function ShipmentsPage() {
                   <option value="LOCAL">{t('ui.本地','本地')}</option>
                 </select>
               </div>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.承运商','承运商')}</label>
                 <input className={s.inp} value={formData.carrierName ?? ""} onChange={e => setFormData(p => ({
                 ...p,
                 carrierName: e.target.value
               }))} placeholder={t('ui.承运商名称','承运商名称')} />
               </div>
-            </div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+              <div className={`${styles.field} ${styles.fullSpan}`}>
                 <label className={s.lbl}>{t('ui.运单号','运单号')}</label>
                 <input className={s.inp} value={formData.trackingNo ?? ""} onChange={e => setFormData(p => ({
                 ...p,
                 trackingNo: e.target.value
               }))} placeholder={t('ui.物流跟踪号','物流跟踪号')} />
               </div>
-            </div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.发货国','发货国')}</label>
                 <DictSelect dictType="SYS_COUNTRY" value={formData.originCountry ?? "CN"} onChange={v => setFormData(p => ({
                 ...p,
                 originCountry: v
               }))} allowEmpty />
               </div>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.目的国','目的国')}</label>
                 <DictSelect dictType="SYS_COUNTRY" value={formData.destinationCountry ?? "LA"} onChange={v => setFormData(p => ({
                 ...p,
                 destinationCountry: v
               }))} allowEmpty />
               </div>
-            </div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.发货日期','发货日期')}</label>
                 <input type="date" className={s.inp} value={formData.departureDate ?? ""} onChange={e => setFormData(p => ({
                 ...p,
                 departureDate: e.target.value
               }))} />
               </div>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.预计到货','预计到货')}</label>
                 <input type="date" className={s.inp} value={formData.arrivalDate ?? ""} onChange={e => setFormData(p => ({
                 ...p,
@@ -519,25 +517,19 @@ export default function ShipmentsPage() {
               }))} />
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className={`${s.formSection} ${u.mt12}`}>
-            <div style={{
-            fontWeight: 600,
-            marginBottom: 12,
-            fontSize: 13
-          }}>{t('ui.报关信息','报关信息')}</div>
-            <div className={s.fieldRow}>
-              <div className={`${s.field} ${u.flexRow8}`}>
+          <section className={styles.formSection}>
+            <h4 className={styles.sectionTitle}>{t('ui.报关信息','报关信息')}</h4>
+            <div className={styles.formGrid}>
+              <div className={`${styles.field} ${styles.checkboxField}`}>
                 <input type="checkbox" id="custReq" checked={formData.customsRequired ?? false} onChange={e => setFormData(p => ({
                 ...p,
                 customsRequired: e.target.checked
               }))} />
                 <label htmlFor="custReq" className={u.fs13}>{t('ui.需要报关','需要报关')}</label>
               </div>
-            </div>
-            <div className={s.fieldRow}>
-              <div className={s.field}>
+              <div className={styles.field}>
                 <label className={s.lbl}>{t('ui.报关单号','报关单号')}</label>
                 <input className={s.inp} value={formData.customsDeclNo ?? ""} onChange={e => setFormData(p => ({
                 ...p,
@@ -545,24 +537,17 @@ export default function ShipmentsPage() {
               }))} />
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className={`${s.formSection} ${u.mt12}`}>
-            <div className={s.field}>
+          <section className={styles.formSection}>
+            <div className={styles.field}>
               <label className={s.lbl}>{t('ui.备注','备注')}</label>
               <textarea className={s.textarea} rows={2} value={formData.remark ?? ""} onChange={e => setFormData(p => ({
               ...p,
               remark: e.target.value
             }))} />
             </div>
-          </div>
-
-          <div className={s.drawerFooter}>
-            <button className={s.btnSecondary} onClick={() => setFormOpen(false)}>{t('ui.取消','取消')}</button>
-            <button className={s.btnPrimary} onClick={handleSave} disabled={formSaving}>
-              {formSaving ? t('ui.保存中...','保存中...') : t('ui.创建运单','创建运单')}
-            </button>
-          </div>
+          </section>
         </div>}
       </RightDrawer>
 

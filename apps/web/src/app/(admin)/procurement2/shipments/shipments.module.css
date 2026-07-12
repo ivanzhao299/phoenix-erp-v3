@@ -1,0 +1,88 @@
+.shipmentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formSection {
+  display: block;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--color-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.field {
+  min-width: 0;
+}
+
+.fullSpan {
+  grid-column: 1 / -1;
+}
+
+.checkboxField {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkboxField input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  flex: 0 0 auto;
+}
+
+.drawerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .shipmentForm {
+    gap: 12px;
+  }
+
+  .formSection {
+    padding: 12px;
+  }
+
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .fullSpan {
+    grid-column: auto;
+  }
+
+  .drawerActions {
+    gap: 8px;
+  }
+
+  .drawerActions button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
