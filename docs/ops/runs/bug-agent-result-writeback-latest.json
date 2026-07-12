@@ -1,16 +1,16 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260711-0004",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0004/agent-result",
+  "bugNo": "BUG-20260711-0005",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260711-0005/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260711-0004-A3",
+    "taskId": "BUGTASK-20260711-0005-A3",
     "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260711-0004-A3-detached-worker-recovery.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260711-0005-A3-detached-worker-recovery.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": null,
-    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260711-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260711-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 1 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
     "nextAction": ""
   }
 }
