@@ -19544,7 +19544,7 @@
     "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-11T00:50:56.989Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -19702,7 +19702,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -19782,7 +19782,7 @@
     "reason": null,
     "quarantined_at": "2026-07-12T11:51:23.954Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -19938,7 +19938,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -20206,7 +20206,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T02:04:01.673Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -20329,7 +20329,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T02:04:06.917Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -20473,7 +20473,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -20559,7 +20559,7 @@
     "reason": null,
     "quarantined_at": "2026-07-11T05:52:43.909Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -20691,7 +20691,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_EXECUTION_FINISHED",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
