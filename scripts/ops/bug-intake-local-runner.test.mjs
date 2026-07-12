@@ -119,6 +119,7 @@ test('existing-fix wording variants remain idempotent', () => {
     'PASS WITH CONDITIONS。当前分支已有后端修复提交 abc123，Jest PASS。',
     'PASS WITH CONDITIONS. Existing owned frontend diff evidence is verified. No new frontend source changes were made.',
     'PASS WITH CONDITIONS. The backend fix was already integrated in current HEAD via commit abc123.',
+    '完成 A3 后端复核，结果：PASS WITH CONDITIONS。后端修复已在当前基线提交 a5e169f5 中集成，本次没有再改 backend 代码。',
   ]) {
     const evidence = evaluateWorkerEvidence({
       task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },
