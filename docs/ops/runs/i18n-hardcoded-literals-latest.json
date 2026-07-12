@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-12T16:47:37.031Z",
+  "generated_at": "2026-07-12T17:07:07.467Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3140,
-  "auto_translatable_findings": 3139,
-  "manual_componentization_findings": 1,
-  "affected_files": 174,
+  "total_findings": 3155,
+  "auto_translatable_findings": 3142,
+  "manual_componentization_findings": 13,
+  "affected_files": 177,
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -3152,28 +3152,14 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 117,
+      "line": 118,
       "kind": "string-literal",
       "text": "早班",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 117,
-      "kind": "string-literal",
-      "text": "晚班",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 130,
-      "kind": "string-literal",
-      "text": "早班",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 130,
+      "line": 118,
       "kind": "string-literal",
       "text": "晚班",
       "auto_translatable": true
@@ -3181,27 +3167,41 @@
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
       "line": 131,
+      "kind": "string-literal",
+      "text": "早班",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "line": 131,
+      "kind": "string-literal",
+      "text": "晚班",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "line": 132,
       "kind": "string-literal",
       "text": "夜班",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 131,
+      "line": 132,
       "kind": "string-literal",
       "text": "全天",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 132,
+      "line": 133,
       "kind": "string-literal",
       "text": "早班",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
-      "line": 132,
+      "line": 133,
       "kind": "string-literal",
       "text": "晚班",
       "auto_translatable": true
@@ -10404,63 +10404,63 @@
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 110,
+      "line": 121,
       "kind": "string-literal",
       "text": "良好",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 111,
+      "line": 122,
       "kind": "string-literal",
       "text": "警告",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 112,
+      "line": 123,
       "kind": "string-literal",
       "text": "危险",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 116,
+      "line": 127,
       "kind": "string-literal",
       "text": "销售",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 117,
+      "line": 128,
       "kind": "string-literal",
       "text": "库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 118,
+      "line": 129,
       "kind": "string-literal",
       "text": "配送",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 119,
+      "line": 130,
       "kind": "string-literal",
       "text": "财务",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 120,
+      "line": 131,
       "kind": "string-literal",
       "text": "审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/pilot-run/page.tsx",
-      "line": 121,
+      "line": 132,
       "kind": "string-literal",
       "text": "稳定性",
       "auto_translatable": true
@@ -22198,6 +22198,83 @@
       "auto_translatable": true
     },
     {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "严重外伤",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 20,
+      "kind": "string-literal",
+      "text": "患病",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 21,
+      "kind": "string-literal",
+      "text": "产蛋率低",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 22,
+      "kind": "string-literal",
+      "text": "老龄",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 26,
+      "kind": "string-literal",
+      "text": "其他原因",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.test.ts",
+      "line": 26,
+      "kind": "string-literal",
+      "text": "其他原因",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.ts",
+      "line": 6,
+      "kind": "string-literal",
+      "text": "产蛋率低",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.ts",
+      "line": 7,
+      "kind": "string-literal",
+      "text": "患病",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.ts",
+      "line": 8,
+      "kind": "string-literal",
+      "text": "老龄",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.ts",
+      "line": 9,
+      "kind": "string-literal",
+      "text": "严重外伤",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/breeding-daily.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "其它",
+      "auto_translatable": true
+    },
+    {
       "file": "apps/web/src/lib/design-tokens.ts",
       "line": 204,
       "kind": "string-literal",
@@ -23183,6 +23260,41 @@
       "kind": "string-literal",
       "text": "操作失败",
       "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
+      "line": 13,
+      "kind": "string-literal",
+      "text": "¥1.3万",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
+      "line": 27,
+      "kind": "string-literal",
+      "text": "可上线",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
+      "line": 28,
+      "kind": "string-literal",
+      "text": "3 项阻塞",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/pilot-run-ui.test.ts",
+      "line": 29,
+      "kind": "string-literal",
+      "text": "0 项阻塞",
+      "auto_translatable": false
+    },
+    {
+      "file": "apps/web/src/lib/pilot-run-ui.ts",
+      "line": 28,
+      "kind": "string-literal",
+      "text": "可上线",
+      "auto_translatable": false
     },
     {
       "file": "apps/web/src/lib/shareholder-api.ts",
@@ -24779,13 +24891,6 @@
       "kind": "string-literal",
       "text": "财务备案",
       "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/lib/workflow-todos.test.ts",
-      "line": 28,
-      "kind": "string-literal",
-      "text": "采购测试2",
-      "auto_translatable": false
     },
     {
       "file": "apps/web/src/hooks/useLabelConfig.ts",
