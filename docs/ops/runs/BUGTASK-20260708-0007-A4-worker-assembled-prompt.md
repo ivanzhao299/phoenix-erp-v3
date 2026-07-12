@@ -671,11 +671,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T10:58:33.206Z",
+    "approvedAt": "2026-07-12T16:17:37.940Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Controlled recovery after unified runtime-file filtering and explicit-conclusion parsing.",
-    "redispatchCount": 3,
+    "approvalScope": "Replay already-integrated repair evidence after semantic evidence classifier completion.",
+    "redispatchCount": 6,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

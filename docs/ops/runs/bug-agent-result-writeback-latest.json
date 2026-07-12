@@ -3,27 +3,27 @@
   "bugNo": "BUG-20260708-0007",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260708-0007/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260708-0007-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260708-0007-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-A3-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260708-0007-A4-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1237,
-        "beforeHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
-        "afterHead": "bf7a479a9abbb58e5157f72d9a237e0f434d8c89",
+        "conclusion": "HOLD",
+        "responseChars": 1140,
+        "beforeHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+        "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
         "commitHash": "",
         "changedFiles": [],
         "businessChangedFiles": [],
         "reportFiles": [],
         "parentCommitRecovered": false,
-        "checkedAt": "2026-07-12T16:23:50.456Z",
+        "checkedAt": "2026-07-12T16:26:30.591Z",
         "passed": true,
         "role": "implementation_verified_existing",
         "terminalStatus": "SKIPPED_NOT_APPLICABLE",
@@ -32,7 +32,7 @@
       "queueStatus": "SKIPPED_NOT_APPLICABLE",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0007-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0007-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0007-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A3-worker-assembled-prompt.md\nAssembled prompt chars: 18551\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-23-50-368Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for `BUGTASK-20260708-0007`.\n\nThe backend repair is already present on this worktree in commit `a5213a1e fix(api): repair BUG-20260708-0007`. It adds a narrow fallback in [sales-orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.ts:94): when `sal_order_items.sku_code` is missing and PostgreSQL raises `42703`, draft item insert retries without that optional column. The regression is covered in [sales-orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/sales-v2/services/sales-orders.service.spec.ts:41).\n\nValidation r",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260708-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260708-0007-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A4-worker-assembled-prompt.md\nAssembled prompt chars: 18618\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-26-30-495Z-A4-Frontend-UAT-Smoke.md\nHOLD / NOT APPLICABLE for A4 frontend repair.\n\nI did not change `apps/web`: the captured failure is `POST /api/v2/sales/orders` returning `字段不存在，请联系管理员`, which maps to the backend undefined-column path already documented by A3 for `sal_order_items.sku_code`. A frontend payload/layout change would not safely fix that.\n\nReport added: [BUG-20260708-0007-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0007-a4-frontend-uat-smoke.md)\n\nValidation completed:\n- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS\n- focused source verification for permission gate, create POST route, shared selectors, loading/e",
     "nextAction": ""
   }
 }

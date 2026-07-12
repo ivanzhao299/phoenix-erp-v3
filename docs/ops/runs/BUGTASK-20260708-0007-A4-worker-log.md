@@ -23,23 +23,23 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260708-0007-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260708-0007-A4-worker-assembled-prompt.md
-Assembled prompt chars: 18619
+Assembled prompt chars: 18618
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T12-22-38-160Z-A4-Frontend-UAT-Smoke.md
-HOLD / NOT APPLICABLE for frontend-owned repair.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-26-30-495Z-A4-Frontend-UAT-Smoke.md
+HOLD / NOT APPLICABLE for A4 frontend repair.
 
-I did not change `apps/web`. The 400 maps to backend PostgreSQL `42703` (`字段不存在，请联系管理员`), and the backend create SQL unconditionally inserts columns like `expected_delivery_date`, `delivery_address`, and `sku_code`, so a frontend payload change cannot make “新建订单 → 创建草稿” succeed if runtime schema is missing one of those columns.
+I did not change `apps/web`: the captured failure is `POST /api/v2/sales/orders` returning `字段不存在，请联系管理员`, which maps to the backend undefined-column path already documented by A3 for `sal_order_items.sku_code`. A frontend payload/layout change would not safely fix that.
 
 Report added: [BUG-20260708-0007-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260708-0007-a4-frontend-uat-smoke.md)
 
-Verification:
-- `apps/web` diff: none
-- `./node_modules/.bin/tsc --noEmit` from `apps/web`: PASS
-- Local browser desktop/mobile check: blocked by sandbox `EPERM` on binding `127.0.0.1:3000` / `0.0.0.0:3000`
-- No DB writes, no migrations, no deploy, no push, no commit
+Validation completed:
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
+- focused source verification for permission gate, create POST route, shared selectors, loading/empty/error states: PASS
+- local browser route smoke: HOLD, sandbox blocked Next dev server with `listen EPERM 127.0.0.1:3000`
+- draft-save POST not replayed because it would write a sales order record
 
-This should route to backend/schema owner before anyone claims the bug is resolved.
+No backend files, migrations, schema/entity/table/column files, deploys, pushes, commits, or DB writes were performed. Final resolution still requires CI/CD, approved release, production smoke for `POST /api/v2/sales/orders`, and business acceptance on `/sales2/orders`.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5645-8bdb-7101-a1e4-99b142eabcad
+session id: 019f5725-0c40-7190-b499-11cf1451215c
 --------
 user
 # Base Agent Prompt
@@ -499,7 +499,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "y": 7
             },
             "label
-...<truncated 250647 chars>
+...<truncated 335839 chars>
 
 ```
 
@@ -511,19 +511,19 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "HOLD",
-  "responseChars": 904,
-  "beforeHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
-  "afterHead": "3cee1ef2f3889605d3edb7027702ca2dd671f2f8",
+  "responseChars": 1140,
+  "beforeHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
+  "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T12:22:38.257Z",
+  "checkedAt": "2026-07-12T16:26:30.591Z",
   "passed": true,
-  "role": "not_applicable",
+  "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-  "reason": "Agent proved this task has no implementation in its ownership boundary"
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
