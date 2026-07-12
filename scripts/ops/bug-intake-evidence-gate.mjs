@@ -54,7 +54,7 @@ function extractAgentResponse(stdout) {
 }
 
 function isNotApplicable(response) {
-  return /not applicable|no (new )?(backend|frontend)( source)?[ -]owned (fix|change)|no new (backend|frontend) source changes|no new edits (were )?needed|existing owned (backend|frontend) diff evidence|belongs to (A3|A4)|outside .* scope|already[- ](present|implemented|fixed|integrated)|already contains .*fix|fix .* already present|(backend|frontend) failure mode is fixed|不属于.*范围|无需修改(后端|前端)|应由 ?A[1345]|修复.*已(存在|完成)|修复已.*(集成|合入)|已经修复|已有.*修复|没有(再|新增)(修改)?(后端|前端|backend|frontend)(源码|代码)?/i.test(response);
+  return /not applicable|no (new )?(backend|frontend)( source)?[ -]owned (fix|change)|no new (backend|frontend) source (changes?|edits?)( (was|were))? needed|no new edits (were )?needed|existing owned (backend|frontend) diff evidence|belongs to (A3|A4)|outside .* scope|already[- ](present|implemented|fixed|integrated)|already contains .*(fix|repair)|fix .* already present|(backend|frontend) failure mode is fixed|不属于.*范围|无需修改(后端|前端)|应由 ?A[1345]|修复.*已(存在|完成)|修复已.*(集成|合入)|已经修复|已有.*修复|没有(再|新增)(修改)?(后端|前端|backend|frontend)(源码|代码)?/i.test(response);
 }
 
 function reportFilesForTask(task, changedFiles) {
