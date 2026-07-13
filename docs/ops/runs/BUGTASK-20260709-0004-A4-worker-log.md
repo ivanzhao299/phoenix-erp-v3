@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,23 +23,21 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 21857
+Assembled prompt chars: 21744
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-12T16-20-49-891Z-A4-Frontend-UAT-Smoke.md
-Implemented the A4 frontend evidence for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T02-42-35-235Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS for `BUG-20260709-0004`.
 
-Changed:
-- [workflow-todos.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.ts:18): documented the display-count floor that prevents stale API `total: 0` from undercounting visible rows.
-- [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23): added a regression case matching the bug: one visible approval todo with `total: 0` displays count `1`.
-- [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:1): added the required task report.
+The frontend display repair is present on this branch: `/workflow/todos` uses `getWorkflowTodoDisplayTotal(resp)` so the header/pagination cannot show `共 0 条` when returned rows are visibly rendered. Task-specific regression coverage exists in [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23), and I updated the report at [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:41).
 
-Validation:
-- `cd apps/web && ./node_modules/.bin/vitest run src/lib/workflow-todos.test.ts` passed: 5 tests.
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` passed: 0 errors.
-- Local browser smoke could not run because Next dev server port binding is blocked in this sandbox: `listen EPERM`.
+Validation run:
+- `vitest run src/lib/workflow-todos.test.ts`: PASS, 5 tests
+- `tsc --noEmit`: PASS
+- focused eslint on `/workflow/todos` + helper/test: PASS
+- local Next dev server for desktop/mobile Playwright smoke: BLOCKED by sandbox `listen EPERM 127.0.0.1:3014`
 
-Result: `PASS WITH CONDITIONS`. No backend, migration, DB, deploy, push, or task-board changes were made. Existing untracked `node_modules` paths were left untouched.
+No backend, migration, database write, deploy, merge, or push was performed. Final production resolution is still pending CI/CD, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f571f-3501-7893-93b9-291770a47352
+session id: 019f5959-8c50-7942-a1f5-f288a4bf03b3
 --------
 user
 # Base Agent Prompt
@@ -500,7 +498,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
 
-...<truncated 195755 chars>
+...<truncated 258949 chars>
 
 ```
 
@@ -512,28 +510,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1165,
-  "beforeHead": "59a5a4ba182bb80870c725d8fb1c87875ea0c6d4",
-  "afterHead": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
-  "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
-  "changedFiles": [
-    "apps/web/src/lib/workflow-todos.test.ts",
-    "apps/web/src/lib/workflow-todos.ts",
-    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/lib/workflow-todos.test.ts",
-    "apps/web/src/lib/workflow-todos.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
-  ],
+  "responseChars": 1037,
+  "beforeHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
+  "afterHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T16:20:50.051Z",
-  "passed": true,
+  "infrastructureFailure": null,
+  "checkedAt": "2026-07-13T02:42:35.317Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -542,21 +532,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
 ```json
 {
   "attempted": true,
-  "ok": true,
+  "ok": false,
   "files": [
-    "apps/web/src/lib/workflow-todos.test.ts",
-    "apps/web/src/lib/workflow-todos.ts",
     "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
   ],
-  "businessFiles": [
-    "apps/web/src/lib/workflow-todos.test.ts",
-    "apps/web/src/lib/workflow-todos.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
-  ],
-  "commitHash": "8f9a420e5dd4bd05438ac210e36710f06f95cf59",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 8f9a420e] fix(web): repair BUG-20260709-0004\n 3 files changed, 74 insertions(+)\n create mode 100644 docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md"
+  "error": "no apps/web/ implementation file"
 }
 ```
