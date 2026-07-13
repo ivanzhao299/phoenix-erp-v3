@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission";
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -225,6 +226,7 @@ export default function SalesV2PricingPage() {
 // ══════════════════════════════════════════════════════════════════════════════
 function PriceBooksTab() {
   const { t } = useLanguage();
+  const pricePerm = usePermission("MENU_SALES2_PRICE");
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -237,6 +239,9 @@ function PriceBooksTab() {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState("");
+  const [confirmLabel, setConfirmLabel] = useState(t('common.confirm', '确认'));
+  const [confirmDanger, setConfirmDanger] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmFn, setConfirmFn] = useState<() => Promise<void>>(() => async () => {});
   const [errorMsg, setErrorMsg] = useState("");
   const load = useCallback(async () => {
@@ -284,8 +289,10 @@ function PriceBooksTab() {
       setSaving(false);
     }
   };
-  const ask = (msg: string, fn: () => Promise<void>) => {
+  const ask = (msg: string, fn: () => Promise<void>, options?: { confirmLabel?: string; danger?: boolean }) => {
     setConfirmMsg(msg);
+    setConfirmLabel(options?.confirmLabel ?? t('common.confirm', '确认'));
+    setConfirmDanger(options?.danger ?? false);
     setConfirmFn(() => fn);
     setConfirmOpen(true);
   };
@@ -300,6 +307,22 @@ function PriceBooksTab() {
       } catch (e: any) {
         setErrorMsg(e.message);
       }
+    });
+  };
+  const deleteBook = async (row: any) => {
+    const name = row.price_book_name ?? row.price_book_no ?? row.id;
+    ask(`${t('ui.确认删除价格册','确认删除价格册')}「${name}」？${t('ui.删除后不可恢复','删除后不可恢复。')}`, async () => {
+      try {
+        await apiFetch(`${API}/books/${row.id}`, {
+          method: "DELETE"
+        });
+        load();
+      } catch (e: any) {
+        setErrorMsg(e.message);
+      }
+    }, {
+      confirmLabel: t('ui.确认删除','确认删除'),
+      danger: true
     });
   };
   const FIELDS: FormField[] = [{
@@ -426,7 +449,7 @@ function PriceBooksTab() {
           animation: loading ? "spin 1s linear infinite" : "none"
         }} /> {t('ui.刷新','刷新')}
         </button>
-        <button type="button" className={s.btnPrimary} onClick={() => {
+        {pricePerm.canCreate && <button type="button" className={s.btnPrimary} onClick={() => {
         setEditing(null);
         setDrawerOpen(true);
       }} style={{
@@ -436,7 +459,7 @@ function PriceBooksTab() {
         gap: 6
       }}>
           <Plus size={13} /> {t('ui.新建价格册','新建价格册')}
-        </button>
+        </button>}
       </div>
 
       <div style={{
@@ -497,27 +520,40 @@ function PriceBooksTab() {
                   flexWrap: "wrap"
                 }}>
                       {row.status === "DRAFT" && <>
-                          <button type="button" className={s.btnSecondary} onClick={() => {
+                          {pricePerm.canEdit && <button type="button" className={s.btnSecondary} onClick={() => {
                       setEditing(row);
                       setDrawerOpen(true);
                     }} style={{
                       padding: "2px 8px",
                       fontSize: 11
-                    }}>{t('ui.编辑','编辑')}</button>
-                          <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "submit", t('ui.提交审批','提交审批'))} style={{
+                    }}>{t('ui.编辑','编辑')}</button>}
+                          {pricePerm.canApprove && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "submit", t('ui.提交审批','提交审批'))} style={{
                       padding: "2px 8px",
                       fontSize: 11
-                    }}>{t('ui.提交审批','提交审批')}</button>
+                    }}>{t('ui.提交审批','提交审批')}</button>}
+                          {pricePerm.canDelete && <button type="button" onClick={() => deleteBook(row)} style={{
+                      padding: "2px 8px",
+                      fontSize: 11,
+                      background: "none",
+                      border: "1px solid var(--status-danger)",
+                      color: "var(--status-danger)",
+                      borderRadius: "var(--radius)",
+                      cursor: "pointer"
+                    }}>{t('ui.删除','删除')}</button>}
                         </>}
-                      {row.status === "APPROVED" && <button type="button" className={s.btnPrimary} onClick={() => doAction(row.id, "activate", t('ui.激活','激活'))} style={{
+                      {row.status === "APPROVED" && pricePerm.canApprove && <button type="button" className={s.btnPrimary} onClick={() => doAction(row.id, "activate", t('ui.激活','激活'))} style={{
                     padding: "2px 8px",
                     fontSize: 11
                   }}>{t('ui.激活','激活')}</button>}
-                      {(row.status === "ACTIVE" || row.status === "APPROVED") && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "expire", t('ui.失效','失效'))} style={{
+                      {row.status === "CANCELLED" && pricePerm.canApprove && <button type="button" className={s.btnPrimary} onClick={() => doAction(row.id, "restore", t('ui.恢复','恢复'))} style={{
+                    padding: "2px 8px",
+                    fontSize: 11
+                  }}>{t('ui.恢复','恢复')}</button>}
+                      {(row.status === "ACTIVE" || row.status === "APPROVED") && pricePerm.canEdit && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "expire", t('ui.失效','失效'))} style={{
                     padding: "2px 8px",
                     fontSize: 11
                   }}>{t('ui.失效','失效')}</button>}
-                      {!["CANCELLED", "ACTIVE"].includes(row.status) && <button type="button" onClick={() => doAction(row.id, "cancel", t('ui.取消','取消'))} style={{
+                      {!["CANCELLED", "ACTIVE"].includes(row.status) && pricePerm.canEdit && <button type="button" onClick={() => doAction(row.id, "cancel", t('ui.取消','取消'))} style={{
                     padding: "2px 8px",
                     fontSize: 11,
                     background: "none",
@@ -563,9 +599,14 @@ function PriceBooksTab() {
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t('ui.确认操作','确认操作')} message={confirmMsg} onConfirm={async () => {
-      await confirmFn();
-      setConfirmOpen(false);
-    }} onCancel={() => setConfirmOpen(false)} />
+      setConfirmLoading(true);
+      try {
+        await confirmFn();
+        setConfirmOpen(false);
+      } finally {
+        setConfirmLoading(false);
+      }
+    }} onCancel={() => setConfirmOpen(false)} confirmLabel={confirmLabel} danger={confirmDanger} loading={confirmLoading} />
     </div>;
 }
 
