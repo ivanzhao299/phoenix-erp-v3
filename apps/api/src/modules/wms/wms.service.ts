@@ -608,9 +608,15 @@ export class WmsService {
   // ─── 库存 (Inventory) ───────────────────────────────────────────────────────
   async getInventoryBatches() {
     try {
-      const scope = this.warehouseScope('warehouse_code', 0);
+      const scope = this.warehouseScope('b.warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 AND ${scope.sql} ORDER BY created_at DESC LIMIT 200`,
+        `SELECT b.*,
+                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
+                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name_zh
+           FROM inv_batches b
+           LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
+          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}
+          ORDER BY b.created_at DESC LIMIT 200`,
         scope.params,
       );
       return { code: 200, data };
@@ -628,9 +634,14 @@ export class WmsService {
   async getInventoryBatchesSummary() {
     const empty = { totalCount: 0, activeCount: 0, totalQtyKg: 0, expiringCount: 0, gradeBuckets: { AA: 0, A: 0, B: 0, C: 0 }, recent: [] as any[] };
     try {
-      const scope = this.warehouseScope('warehouse_code', 0);
+      const scope = this.warehouseScope('b.warehouse_code', 0);
       const rows: any[] = await this.em.query(
-        `SELECT * FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 AND ${scope.sql}`,
+        `SELECT b.*,
+                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
+                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name_zh
+           FROM inv_batches b
+           LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
+          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}`,
         scope.params,
       );
       const isActive = (s?: string) => !s || s === 'AVAILABLE' || s === 'LOCKED';

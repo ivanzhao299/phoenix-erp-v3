@@ -19,18 +19,21 @@ describe('WmsService inventory read queries', () => {
     return { service: new WmsService(em as any, cls as any), em };
   };
 
-  it('uses qty_available fallback when reading visible inventory batches', async () => {
-    const { service, em } = buildService([{ batch_no: 'B1', qty: 0, qty_available: 12 }]);
+  it('uses qty_available fallback and projects warehouse display name when reading visible inventory batches', async () => {
+    const { service, em } = buildService([{ batch_no: 'B1', qty: 0, qty_available: 12, warehouse_name: '孟赛鸡蛋销售成品仓' }]);
 
     await expect(service.getInventoryBatches()).resolves.toEqual({
       code: 200,
-      data: [{ batch_no: 'B1', qty: 0, qty_available: 12 }],
+      data: [{ batch_no: 'B1', qty: 0, qty_available: 12, warehouse_name: '孟赛鸡蛋销售成品仓' }],
     });
 
     expect(em.query).toHaveBeenCalledWith(
-      expect.stringContaining('COALESCE(qty_available, qty, 0) > 0'),
+      expect.stringContaining('COALESCE(b.qty_available, b.qty, 0) > 0'),
       [['LPH_MS_EGG_SALES']],
     );
+    expect(em.query.mock.calls[0][0]).toContain('LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code');
+    expect(em.query.mock.calls[0][0]).toContain('COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name');
+    expect(em.query.mock.calls[0][0]).toContain('(b.warehouse_code = ANY($1) OR b.warehouse_code IS NULL)');
     expect(em.query.mock.calls[0][0]).not.toContain('WHERE qty > 0');
   });
 
@@ -40,9 +43,10 @@ describe('WmsService inventory read queries', () => {
     await service.getInventoryBatchesSummary();
 
     expect(em.query).toHaveBeenCalledWith(
-      expect.stringContaining('COALESCE(qty_available, qty, 0) > 0'),
+      expect.stringContaining('COALESCE(b.qty_available, b.qty, 0) > 0'),
       [['LPH_MS_EGG_SALES']],
     );
+    expect(em.query.mock.calls[0][0]).toContain('LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code');
   });
 
   it('rejects inbound confirmation before completing the task when no stock line can be posted', async () => {
