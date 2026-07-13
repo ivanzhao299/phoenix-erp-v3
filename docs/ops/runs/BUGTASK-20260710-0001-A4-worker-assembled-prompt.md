@@ -826,11 +826,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-12T17:31:20.520Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-13T02:34:01.060Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Final frontend evidence replay after transient Codex exit or manually reconciled integration.",
-    "redispatchCount": 9,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 10,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
