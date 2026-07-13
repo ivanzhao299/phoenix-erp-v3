@@ -13206,7 +13206,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "remote_repair_status": "HOLD",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
   },
@@ -13331,7 +13331,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "remote_repair_status": "HOLD",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
@@ -13344,7 +13344,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0004",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -13369,7 +13369,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-13T02:42:37.067Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13385,8 +13385,16 @@
     ],
     "redispatch_count": 7,
     "last_redispatch_at": "2026-07-13T02:38:20.845Z",
-    "reason": null,
-    "evidence_gate": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260709-0004-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260709-0004-A4",
+      "checkedAt": "2026-07-13T02:42:37.067Z"
+    },
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -13437,7 +13445,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "remote_repair_status": "HOLD",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
