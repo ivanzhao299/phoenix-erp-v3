@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { TrendingDown, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, Download, X, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
@@ -25,6 +26,7 @@ import {
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 import { currencySymbol } from '@/lib/currency';
+import { buildFinanceApPaymentPrefillHref } from '@/lib/finance-ap-payment-prefill';
 interface ApInvoice {
   id: string;
   ap_no: string;
@@ -470,6 +472,7 @@ function DetailDrawer({
   onCancelled: () => void;
 }) {
   const { t } = useLanguage();
+  const { canCreate: canCreatePayment, hasAccess: canViewPayment } = usePermission('MENU_PRC2_PAYMENT');
   const [detail, setDetail] = useState<ApDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -499,6 +502,20 @@ function DetailDrawer({
     }
   };
   const canCancel = detail && !['PAID', 'CANCELLED'].includes(detail.status) && Number(detail.paid_amount_original) === 0;
+  const canStartPayment = detail && ['OPEN', 'PARTIALLY_PAID'].includes(detail.status) && Number(detail.balance_amount_original) > 0;
+  const paymentHref = detail ? buildFinanceApPaymentPrefillHref({
+    apId: detail.id,
+    apNo: detail.ap_no,
+    companyCode: detail.company_code,
+    companyName: detail.company_name,
+    projectCode: detail.project_code,
+    projectName: detail.project_name,
+    supplierCode: detail.supplier_code,
+    supplierName: detail.supplier_name,
+    currencyCode: detail.currency_code,
+    balanceAmountOriginal: detail.balance_amount_original,
+    sourceNo: detail.source_no,
+  }) : '';
   /* g200a DetailDrawer 整体改造(2026-06-19):同 ar/ArDetailDrawer 模式 */
   return <div style={drawerMask} onClick={onClose}>
       <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
@@ -573,6 +590,33 @@ function DetailDrawer({
                 </div>
               ))}
             </div>
+
+            {/* 付款入口 */}
+            {canStartPayment && (
+              <div style={actionGroupBox}>
+                {canCreatePayment ? (
+                  <Link
+                    href={paymentHref}
+                    style={{
+                      ...actionPill('brand'),
+                      width: '100%',
+                      justifyContent: 'center',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Wallet size={12} /> {t('fin2.ap.start_payment', '发起付款')}
+                  </Link>
+                ) : canViewPayment ? (
+                  <div style={inlineAlert('warning')}>
+                    <AlertCircle size={13} /> {t('fin2.ap.payment_create_denied', '当前账号可查看付款管理，但缺少新建付款单权限。')}
+                  </div>
+                ) : (
+                  <div style={inlineAlert('warning')}>
+                    <AlertCircle size={13} /> {t('fin2.ap.payment_menu_denied', '当前账号缺少付款管理权限，请联系管理员发起付款。')}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 取消区域 */}
             {canCancel && (

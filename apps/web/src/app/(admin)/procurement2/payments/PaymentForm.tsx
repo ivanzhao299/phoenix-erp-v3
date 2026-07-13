@@ -17,6 +17,7 @@ import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors";
 import { ManagedAttachmentUploader } from "@/components/design-system";
 import { tableInputCell } from "@/components/design-system/cockpit-styles";
+import { parseFinanceApPaymentPrefill } from "@/lib/finance-ap-payment-prefill";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface ApLedger {
@@ -113,6 +114,8 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   const [formVoucherUrl, setFormVoucherUrl] = useState("");
   const [formRemark, setFormRemark] = useState("");
   const [formAllocs, setFormAllocs] = useState<Allocation[]>([emptyAlloc()]);
+  const [prefillQuery, setPrefillQuery] = useState("");
+  const [prefillNotice, setPrefillNotice] = useState("");
 
   // AP 选择浮层
   const [apModalOpen, setApModalOpen] = useState(false);
@@ -158,6 +161,40 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   }, [paymentId]); // eslint-disable-line
 
   useEffect(() => { if (paymentId) loadForEdit(); }, [paymentId, loadForEdit]);
+
+  useEffect(() => {
+    if (!editing && typeof window !== "undefined") setPrefillQuery(window.location.search);
+  }, [editing]);
+
+  useEffect(() => {
+    if (editing) return;
+    const prefill = parseFinanceApPaymentPrefill(new URLSearchParams(prefillQuery));
+    if (!prefill) return;
+
+    setFormCompCode(prefill.companyCode);
+    setFormCompName(prefill.companyName);
+    setFormProjCode(prefill.projectCode);
+    setFormProjName(prefill.projectName);
+    setFormPayerType("COMPANY");
+    setFormPayerCode(prefill.companyCode);
+    setFormPayerName(prefill.companyName || prefill.companyCode);
+    setFormPayerAccount("");
+    setFormPayeeName(prefill.supplierName || prefill.supplierCode);
+    setFormCurrency(prefill.currencyCode);
+    setFormAllocs([{
+      apId: prefill.apId,
+      apNo: prefill.apNo,
+      poNo: prefill.sourceNo,
+      companyCode: prefill.companyCode,
+      companyName: prefill.companyName,
+      projectCode: prefill.projectCode,
+      projectName: prefill.projectName,
+      allocatedAmountOriginal: prefill.balanceAmountOriginal,
+      allocatedAmountBase: "",
+    }]);
+    setFormRemark(t('prc2.prefill_from_finance_ap_remark', '由应付账款发起付款') + `：${prefill.apNo}`);
+    setPrefillNotice(t('prc2.prefill_from_finance_ap', '已从应付账款带入待付发票') + `：${prefill.apNo}`);
+  }, [editing, prefillQuery, t]);
 
   // 分摊行操作
   function setAllocField(idx: number, field: keyof Allocation, value: string) {
@@ -253,6 +290,24 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: 96 }}>
+      {prefillNotice && (
+        <div style={{
+          marginBottom: 16,
+          padding: "10px 12px",
+          borderRadius: 8,
+          border: "1px solid color-mix(in srgb, var(--status-info) 35%, var(--border))",
+          background: "color-mix(in srgb, var(--status-info) 9%, var(--bg-card))",
+          color: "var(--text-primary)",
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}>
+          <CreditCard size={14} color="var(--status-info)" />
+          <span>{prefillNotice}</span>
+        </div>
+      )}
+
       {/* 基础信息 */}
       <div className={s.formSection}>{t('prc2.basic_info', "基础信息")}</div>
       <div className={s.fieldRow}>
