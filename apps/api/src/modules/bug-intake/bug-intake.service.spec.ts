@@ -91,6 +91,65 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.status).toBe('IN_PROGRESS');
   });
 
+  it('returns a compact administrator repair result after release validation succeeds', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'FIX_READY_FOR_UAT';
+    row.resolutionNote = '等待管理员按原问题路径复验。';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'] },
+      agentResults: [
+        {
+          taskId: 'A3', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', changedFiles: ['apps/api/src/x.ts'], recordedAt: '2026-07-13T08:00:00.000Z',
+          validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+        },
+        {
+          taskId: 'A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+        {
+          taskId: 'RUNNER', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', recordedAt: '2026-07-13T08:05:00.000Z',
+          validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+        },
+      ],
+    };
+
+    const detail = await service.detail(row.bugNo) as any;
+
+    expect(detail.repairResult).toMatchObject({
+      visibility: 'READY_FOR_UAT',
+      conclusion: 'GO_WITH_CONDITIONS',
+      readyForUat: true,
+      businessVerified: false,
+      commitHash: 'abc123',
+      completedAt: '2026-07-13T08:05:00.000Z',
+    });
+    expect(detail.repairResult.changedFiles).toEqual(['apps/api/src/x.ts']);
+    expect(detail.repairResult.validations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'implementation', status: 'PASS' }),
+      expect.objectContaining({ key: 'ci', status: 'PASS' }),
+      expect.objectContaining({ key: 'productionSmoke', status: 'PASS' }),
+    ]));
+  });
+
+  it('does not present a HOLD repair task as successfully completed', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'HOLD';
+    row.resolutionNote = '实现证据不足，需要重新派发。';
+
+    const detail = await service.detail(row.bugNo) as any;
+
+    expect(detail.repairResult).toMatchObject({
+      visibility: 'HOLD',
+      conclusion: 'HOLD',
+      readyForUat: false,
+      businessVerified: false,
+    });
+    expect(detail.repairResult.adminSummary).toContain('实现证据不足');
+    expect(detail.repairResult.validations.every((item: any) => item.status !== 'PASS')).toBe(true);
+  });
+
   it('rejects runner lifecycle PASS when implementation evidence is not ready', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'AGENT_APPROVED';

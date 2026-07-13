@@ -1159,6 +1159,94 @@ export class BugIntakeService {
     return String(value).slice(0, 300);
   }
 
+  private buildAdministratorRepairResult(report: BugReportEntity) {
+    const payload = this.payloadObject(report.repairTaskPayload);
+    const runtime = this.extractPipelineRuntime(payload);
+    const implementationResult = [...runtime.agentResults].reverse().find((item) => {
+      if (String(item.agent || '') === 'BugIntakeLocalRunner') return false;
+      const gate = this.payloadObject(this.payloadObject(item.validationResults).evidenceGate);
+      return gate.role === 'implementation';
+    });
+    const validationResult = [...runtime.agentResults].reverse().find((item) => {
+      const gate = this.payloadObject(this.payloadObject(item.validationResults).evidenceGate);
+      return gate.role === 'validation';
+    });
+    const implementationGate = this.payloadObject(this.payloadObject(implementationResult?.validationResults).evidenceGate);
+    const validationGate = this.payloadObject(this.payloadObject(validationResult?.validationResults).evidenceGate);
+    const runnerValidation = this.payloadObject(runtime.latestRunnerResult?.validationResults);
+    const changedFiles = Array.from(new Set(
+      runtime.agentResults.flatMap((item) => Array.isArray(item.changedFiles) ? item.changedFiles.map(String) : []),
+    )).slice(0, 20);
+    const status = String(report.repairTaskStatus || '');
+    const reportStatus = String(report.status || '');
+    const verified = status === 'BUSINESS_VERIFIED' || ['RESOLVED', 'CLOSED'].includes(reportStatus);
+    const readyForUat = status === 'FIX_READY_FOR_UAT';
+    const hold = status === 'HOLD' || reportStatus === 'REJECTED';
+    const running = ['AGENT_APPROVED', 'AGENT_RUNNING'].includes(status);
+    const releaseValidation = ['AGENT_COMPLETED', 'AGENT_EXECUTION_FINISHED'].includes(status);
+    const visibility = verified
+      ? 'VERIFIED'
+      : readyForUat
+        ? 'READY_FOR_UAT'
+        : hold
+          ? 'HOLD'
+          : releaseValidation
+            ? 'RELEASE_VALIDATION'
+            : running
+              ? 'RUNNING'
+              : 'WAITING';
+    const headlineByVisibility: Record<string, string> = {
+      VERIFIED: '修复已完成并通过业务验收',
+      READY_FOR_UAT: '修复已发布，等待管理员业务复验',
+      HOLD: '修复暂未完成，当前处于 HOLD',
+      RELEASE_VALIDATION: '代码修复已完成，正在等待发布验证',
+      RUNNING: '修复任务正在执行',
+      WAITING: report.repairTaskNo ? '修复任务等待执行' : '问题等待管理员受理',
+    };
+    const summaryByVisibility: Record<string, string> = {
+      VERIFIED: report.resolutionNote || '业务复验已经通过，问题可以关闭。',
+      READY_FOR_UAT: report.resolutionNote || '实现、CI、推送、发布与生产 smoke 证据已通过，请按原问题路径复验。',
+      HOLD: report.resolutionNote || String(runtime.latestAgentResult?.nextAction || '证据或执行条件不足，需要重新分派或人工复核。'),
+      RELEASE_VALIDATION: report.resolutionNote || '实现证据已回写，尚未完成推送、发布或生产 smoke。',
+      RUNNING: `已收到 ${runtime.agentResults.length} 条 Agent 回写，任务仍在执行。`,
+      WAITING: report.repairTaskNo ? '任务包已经生成，等待路由、批准或本地 runner 领取。' : '尚未生成修复任务包。',
+    };
+    const validationStatus = (value: unknown, fallback: unknown = null) => {
+      if (value === true) return 'PASS';
+      if (value === false) return 'HOLD';
+      const normalized = String(value ?? fallback ?? '').toUpperCase();
+      if (['PASS', 'GO', 'SUCCESS', 'COMPLETED'].includes(normalized)) return 'PASS';
+      if (['FAIL', 'HOLD', 'ERROR', 'REJECTED'].includes(normalized)) return 'HOLD';
+      return 'PENDING';
+    };
+    const completedAt = String(runtime.latestRunnerResult?.recordedAt || runtime.latestAgentResult?.recordedAt || '') || null;
+
+    return {
+      visibility,
+      headline: headlineByVisibility[visibility],
+      conclusion: verified ? 'GO' : readyForUat ? 'GO_WITH_CONDITIONS' : hold ? 'HOLD' : (running || releaseValidation) ? 'IN_PROGRESS' : 'PENDING',
+      adminSummary: summaryByVisibility[visibility],
+      sourceStatus: status || reportStatus || 'OPEN',
+      readyForUat,
+      businessVerified: verified,
+      commitHash: runtime.latestCommitHash || null,
+      changedFiles,
+      validations: [
+        { key: 'implementation', label: '代码修复', status: validationStatus(implementationGate.passed) },
+        { key: 'ci', label: 'CI 验证', status: validationStatus(runnerValidation.ci, validationGate.passed) },
+        { key: 'push', label: '代码推送', status: validationStatus(runnerValidation.push) },
+        { key: 'release', label: '发布验证', status: validationStatus(runnerValidation.releaseEvidence) },
+        { key: 'productionSmoke', label: '生产复测', status: validationStatus(runnerValidation.productionSmoke) },
+      ],
+      completedAt,
+      nextAction: verified
+        ? '问题已完成，可查看验收结论。'
+        : readyForUat
+          ? '请管理员按原问题路径复验；通过后标记为已解决。'
+          : this.pipelineNextAction(report.repairTaskStatus, report.status, runtime),
+    };
+  }
+
   private pipelineNextAction(repairTaskStatus: unknown, status: unknown, runtime: ReturnType<BugIntakeService['extractPipelineRuntime']>) {
     const repairStatus = String(repairTaskStatus || '');
     if (!repairStatus) return '等待管理员受理并生成修复任务包';
@@ -1445,6 +1533,7 @@ export class BugIntakeService {
       clientContext: report.clientContext,
       resolutionNote: report.resolutionNote,
       repairTaskPayload: report.repairTaskPayload,
+      repairResult: this.buildAdministratorRepairResult(report),
       updatedBy: report.updatedBy,
     };
   }

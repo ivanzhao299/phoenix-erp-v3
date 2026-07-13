@@ -5,7 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
-import { AlertTriangle, Bug, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Bug, CheckCircle2, ChevronDown, ChevronUp, Clock3, Loader2, RefreshCw, X } from "lucide-react";
 
 type BugReportListItem = {
   bugNo: string;
@@ -48,7 +48,23 @@ type BugReportDetail = BugReportListItem & {
   clientContext: Record<string, unknown>;
   resolutionNote: string;
   repairTaskPayload: Record<string, unknown>;
+  repairResult: RepairResult;
   updatedBy: string;
+};
+
+type RepairResult = {
+  visibility: "WAITING" | "RUNNING" | "HOLD" | "RELEASE_VALIDATION" | "READY_FOR_UAT" | "VERIFIED";
+  headline: string;
+  conclusion: string;
+  adminSummary: string;
+  sourceStatus: string;
+  readyForUat: boolean;
+  businessVerified: boolean;
+  commitHash: string | null;
+  changedFiles: string[];
+  validations: Array<{ key: string; label: string; status: "PASS" | "HOLD" | "PENDING" }>;
+  completedAt: string | null;
+  nextAction: string;
 };
 
 type AgentResult = {
@@ -218,6 +234,87 @@ function repairPayload(detail: BugReportDetail) {
   return detail.repairTaskPayload && typeof detail.repairTaskPayload === "object" ? detail.repairTaskPayload : {};
 }
 
+function repairResultTone(visibility: RepairResult["visibility"]) {
+  if (visibility === "VERIFIED" || visibility === "READY_FOR_UAT") {
+    return { color: "var(--status-success)", background: "var(--status-success-bg-faint)", icon: CheckCircle2 };
+  }
+  if (visibility === "HOLD") {
+    return { color: "var(--status-danger)", background: "var(--status-danger-bg-faint)", icon: AlertTriangle };
+  }
+  return { color: "var(--color-primary)", background: "var(--status-info-bg-faint)", icon: Clock3 };
+}
+
+function RepairResultPanel({
+  result,
+  refreshing,
+  refreshedAt,
+  onRefresh,
+}: {
+  result: RepairResult;
+  refreshing: boolean;
+  refreshedAt: Date | null;
+  onRefresh: () => void;
+}) {
+  const tone = repairResultTone(result.visibility);
+  const ResultIcon = tone.icon;
+  return (
+    <section style={{ border: `1px solid ${tone.color}`, borderRadius: "var(--radius-lg)", overflow: "hidden", background: tone.background }}>
+      <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
+          <ResultIcon size={22} color={tone.color} style={{ flex: "0 0 auto", marginTop: 2 }} />
+          <div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <strong style={{ fontSize: 16 }}>{result.headline}</strong>
+              <span style={{ color: tone.color, border: `1px solid ${tone.color}`, borderRadius: 99, padding: "2px 8px", fontSize: 11, fontWeight: 800 }}>{result.conclusion}</span>
+            </div>
+            <p style={{ margin: "8px 0 0", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{result.adminSummary}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", padding: "7px 10px", cursor: refreshing ? "not-allowed" : "pointer" }}
+        >
+          <RefreshCw size={14} className={refreshing ? "animate-spin" : undefined} />
+          刷新结果
+        </button>
+      </div>
+
+      <div style={{ borderTop: "1px solid var(--border)", padding: 14, background: "var(--bg-card)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8 }}>
+          {result.validations.map(item => {
+            const color = item.status === "PASS" ? "var(--status-success)" : item.status === "HOLD" ? "var(--status-danger)" : "var(--status-warning)";
+            return (
+              <div key={item.key} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, background: "var(--bg-muted)" }}>
+                <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{item.label}</div>
+                <strong style={{ display: "block", color, marginTop: 5, fontSize: 12 }}>{item.status === "PASS" ? "已通过" : item.status === "HOLD" ? "未通过" : "待完成"}</strong>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, marginTop: 12, fontSize: 12 }}>
+          <span style={{ color: "var(--text-secondary)" }}>提交版本</span><strong style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{result.commitHash || "尚未产生"}</strong>
+          <span style={{ color: "var(--text-secondary)" }}>完成时间</span><strong>{result.completedAt ? new Date(result.completedAt).toLocaleString("zh-CN") : "尚未完成"}</strong>
+          <span style={{ color: "var(--text-secondary)" }}>改动范围</span><strong>{result.changedFiles.length ? `${result.changedFiles.length} 个文件` : "尚无已验证改动"}</strong>
+          <span style={{ color: "var(--text-secondary)" }}>下一步</span><strong>{result.nextAction}</strong>
+        </div>
+        {result.changedFiles.length > 0 && (
+          <details style={{ marginTop: 10 }}>
+            <summary style={{ cursor: "pointer", color: "var(--color-primary)", fontSize: 12, fontWeight: 700 }}>查看修改文件</summary>
+            <div style={{ marginTop: 8, display: "grid", gap: 4, fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)" }}>
+              {result.changedFiles.map(file => <span key={file} style={{ wordBreak: "break-all" }}>{file}</span>)}
+            </div>
+          </details>
+        )}
+        <div style={{ marginTop: 10, color: "var(--text-secondary)", fontSize: 11 }}>
+          每 10 秒自动更新{refreshedAt ? ` · 最近刷新 ${refreshedAt.toLocaleTimeString("zh-CN")}` : ""}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function BugRepairTimeline({ detail, t }: { detail: BugReportDetail; t: (key: string, fallback?: string) => string }) {
   const payload = repairPayload(detail);
   const agentPlan = payload.agentPlan && typeof payload.agentPlan === "object" ? payload.agentPlan as Record<string, unknown> : null;
@@ -303,6 +400,9 @@ export default function BugReportsPage() {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<BugReportDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
+  const [detailRefreshedAt, setDetailRefreshedAt] = useState<Date | null>(null);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
   const [triage, setTriage] = useState({
@@ -374,30 +474,51 @@ export default function BugReportsPage() {
     }
   };
 
-  const openDetail = async (bugNo: string) => {
-    setDetailLoading(true);
-    setDetail(null);
-    setNote("");
-    setAcceptanceCriteria("");
-    setApprovalScope("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
+  const refreshDetail = useCallback(async (bugNo: string, initializeForm = false) => {
+    if (initializeForm) setDetailLoading(true);
+    else setDetailRefreshing(true);
     try {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}`, { headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) {
         const data = await res.json() as BugReportDetail;
         setDetail(data);
-        setNote(data.resolutionNote ?? "");
-        setTriage({
-          status: data.status || "OPEN",
-          priority: data.priority || "P2",
-          moduleCode: data.moduleCode || "",
-          assigneeUsername: data.assigneeUsername || "",
-          assigneeName: data.assigneeName || "",
-        });
+        setDetailRefreshedAt(new Date());
+        if (initializeForm) {
+          setNote(data.resolutionNote ?? "");
+          setTriage({
+            status: data.status || "OPEN",
+            priority: data.priority || "P2",
+            moduleCode: data.moduleCode || "",
+            assigneeUsername: data.assigneeUsername || "",
+            assigneeName: data.assigneeName || "",
+          });
+        }
       }
     } finally {
-      setDetailLoading(false);
+      if (initializeForm) setDetailLoading(false);
+      else setDetailRefreshing(false);
     }
+  }, []);
+
+  const openDetail = async (bugNo: string) => {
+    setDetailLoading(true);
+    setDetail(null);
+    setDetailRefreshedAt(null);
+    setShowTechnicalDetails(false);
+    setNote("");
+    setAcceptanceCriteria("");
+    setApprovalScope("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
+    await refreshDetail(bugNo, true);
   };
+
+  useEffect(() => {
+    const bugNo = detail?.bugNo;
+    if (!bugNo) return;
+    const timer = window.setInterval(() => {
+      void refreshDetail(bugNo, false);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [detail?.bugNo, refreshDetail]);
 
   const saveTriage = async (bugNo: string) => {
     setSaving(true);
@@ -802,6 +923,7 @@ export default function BugReportsPage() {
                 t("system.bugIntake.module", "模块"),
                 t("system.bugIntake.assignee", "负责人"),
                 t("system.bugIntake.repairTask", "修复任务"),
+                t("system.bugIntake.repairResult", "修复结果"),
                 t("system.bugIntake.page", "页面"),
                 t("system.bugIntake.reporter", "提报人"),
                 t("system.bugIntake.screenshots", "截图"),
@@ -811,9 +933,9 @@ export default function BugReportsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={12} style={{ textAlign: "center", padding: 48 }}><Loader2 size={22} className="animate-spin" /></td></tr>
+              <tr><td colSpan={13} style={{ textAlign: "center", padding: 48 }}><Loader2 size={22} className="animate-spin" /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={12} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>{t("system.bugIntake.empty", "暂无问题反馈")}</p></td></tr>
+              <tr><td colSpan={13} style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}><Bug size={26} /><p>{t("system.bugIntake.empty", "暂无问题反馈")}</p></td></tr>
             ) : rows.map(row => {
               const sev = badgeColor(row.severity);
               const st = badgeColor(row.status);
@@ -828,6 +950,7 @@ export default function BugReportsPage() {
                   <td>{row.moduleCode || "—"}</td>
                   <td>{row.assigneeName || row.assigneeUsername || "—"}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.repairTaskNo || "—"}</td>
+                  <td><strong style={{ color: timelineStatusColor(row.repairTaskStatus || row.status) }}>{repairStatusLabel(row.repairTaskStatus, t)}</strong></td>
                   <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-secondary)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.route || "—"}</td>
                   <td>{row.reporterName || row.reporterUsername || "—"}</td>
                   <td>{row.attachmentCount}</td>
@@ -869,10 +992,30 @@ export default function BugReportsPage() {
                   <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.description", "说明")}</span><span style={{ whiteSpace: "pre-wrap" }}>{detail.description || "—"}</span>
                 </section>
 
-                <section>
-                  <h4>{t("system.bugIntake.timeline", "闭环时间线")}</h4>
-                  <BugRepairTimeline detail={detail} t={t} />
-                </section>
+                {detail.repairResult && (
+                  <RepairResultPanel
+                    result={detail.repairResult}
+                    refreshing={detailRefreshing}
+                    refreshedAt={detailRefreshedAt}
+                    onRefresh={() => void refreshDetail(detail.bugNo, false)}
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowTechnicalDetails(value => !value)}
+                  style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", cursor: "pointer", fontWeight: 700 }}
+                >
+                  <span>{showTechnicalDetails ? "隐藏技术过程与证据" : "查看技术过程与证据"}</span>
+                  {showTechnicalDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {showTechnicalDetails && (
+                  <section>
+                    <h4>{t("system.bugIntake.timeline", "闭环时间线")}</h4>
+                    <BugRepairTimeline detail={detail} t={t} />
+                  </section>
+                )}
 
                 <section>
                   <h4>{t("system.bugIntake.triageTitle", "受理与分派")}</h4>
@@ -925,7 +1068,7 @@ export default function BugReportsPage() {
                   </div>
                 </section>
 
-                <section>
+                {showTechnicalDetails && (<section>
                   <h4>{t("system.bugIntake.repairTaskTitle", "修复任务包")}</h4>
                   <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, fontSize: 13, marginBottom: 10 }}>
                     <span style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.repairTask", "修复任务")}</span><strong>{detail.repairTaskNo || "—"}</strong>
@@ -1000,7 +1143,7 @@ export default function BugReportsPage() {
                     </div>
                   )}
                   {detail.repairTaskPayload && Object.keys(detail.repairTaskPayload).length > 0 && <JsonBlock value={detail.repairTaskPayload} />}
-                </section>
+                </section>)}
 
                 <section>
                   <h4>{t("system.bugIntake.attachments", "截图 / 附件")}</h4>
@@ -1026,18 +1169,20 @@ export default function BugReportsPage() {
                   ) : <p style={{ color: "var(--text-secondary)" }}>{t("system.bugIntake.noScreenshots", "未上传截图。")}</p>}
                 </section>
 
-                <section>
-                  <h4><AlertTriangle size={16} /> {t("system.bugIntake.recentConsoleErrors", "最近 Console Error")}</h4>
-                  <JsonBlock value={detail.consoleErrors} />
-                </section>
-                <section>
-                  <h4>{t("system.bugIntake.recentFailedRequests", "最近失败接口")}</h4>
-                  <JsonBlock value={detail.failedRequests} />
-                </section>
-                <section>
-                  <h4>{t("system.bugIntake.clientContext", "客户端上下文")}</h4>
-                  <JsonBlock value={detail.clientContext} />
-                </section>
+                {showTechnicalDetails && (<>
+                  <section>
+                    <h4><AlertTriangle size={16} /> {t("system.bugIntake.recentConsoleErrors", "最近 Console Error")}</h4>
+                    <JsonBlock value={detail.consoleErrors} />
+                  </section>
+                  <section>
+                    <h4>{t("system.bugIntake.recentFailedRequests", "最近失败接口")}</h4>
+                    <JsonBlock value={detail.failedRequests} />
+                  </section>
+                  <section>
+                    <h4>{t("system.bugIntake.clientContext", "客户端上下文")}</h4>
+                    <JsonBlock value={detail.clientContext} />
+                  </section>
+                </>)}
               </div>
             )}
           </div>
