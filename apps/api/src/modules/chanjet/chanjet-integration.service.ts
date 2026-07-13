@@ -816,7 +816,7 @@ const MASTER_DATA_ALIGNMENT_DOMAINS: MasterDataAlignmentDomainDefinition[] = [
     mappingTypes: ['CUSTOMER', 'SUPPLIER'],
     endpointKeys: ['CUSTOMER_SUPPLIER'],
     entityTypes: ['CUSTOMER_SUPPLIER'],
-    erpTargets: ['sal_customers.customer_code', 'prc2_suppliers.supplier_code'],
+    erpTargets: ['sal_customers.customer_no', 'prc2_suppliers.supplier_code'],
     priority: 'P0',
     authorityRule: '往来单位必须区分客户/供应商/双重身份；不得把好业财汇总行写入发票级表。',
   },
@@ -4018,6 +4018,11 @@ export class ChanjetIntegrationService {
   }
 
   private detectCounterpartyRole(raw: Record<string, unknown>): ChanjetCounterpartyAdapterRow['roleCandidate'] {
+    const partyRoleTypeId = this.firstChanjetText(raw, ['partyRoleTypeId']);
+    if (partyRoleTypeId === '100001') return 'CUSTOMER';
+    if (partyRoleTypeId === '100101') return 'SUPPLIER';
+    if (partyRoleTypeId === '100400') return 'BOTH';
+
     const text = JSON.stringify(this.compactChanjetRawEvidence(raw))
       .replace(/"(?:isSupplier|isVendor|supplierFlag|vendorFlag)"\s*:\s*(?:false|0|"false"|"0")/gi, '')
       .replace(/"(?:isCustomer|customerFlag|custFlag)"\s*:\s*(?:false|0|"false"|"0")/gi, '')
@@ -4056,6 +4061,12 @@ export class ChanjetIntegrationService {
     const chanjetCode = snapshot.externalCode || this.firstChanjetText(snapshot.rawData || {}, ['code', 'customerCode', 'supplierCode']);
     const chanjetName = snapshot.externalName || this.firstChanjetText(snapshot.rawData || {}, ['name', 'customerName', 'supplierName', 'partyName']);
     const evidence: string[] = [];
+    const partyRoleTypeId = this.firstChanjetText(snapshot.rawData || {}, ['partyRoleTypeId']);
+    if (['100001', '100101', '100400'].includes(partyRoleTypeId)) {
+      evidence.push(`好业财 partyRoleTypeId=${partyRoleTypeId} 已锁定为 ${roleCandidate}`);
+    } else if (partyRoleTypeId) {
+      evidence.push(`未知好业财 partyRoleTypeId=${partyRoleTypeId}，禁止按余额或名称猜测角色`);
+    }
     if (!mappingType) evidence.push('无法从好业财样本确定客户/供应商属性，禁止猜测');
     if (!companyCode) evidence.push('账套尚未形成启用的公司映射');
     const eligible = mappingType
@@ -4472,6 +4483,10 @@ export class ChanjetIntegrationService {
     const endpoints = PROBE_ENDPOINTS.filter((ep) => selectedKeys.has(ep.key));
     if (!endpoints.length) throw new Error(`未找到可执行 mirror scope: ${requested.join(',')}`);
 
+    if (endpoints.some((endpoint) => endpoint.requiresBook) && await this.accountBookRepo.count() === 0) {
+      await this.refreshAccountBooks();
+    }
+
     let books = bookId ? [bookId] : (await this.listEnabledBookIds());
     if (!books.length) {
       const refreshed = await this.refreshAccountBooks();
@@ -4524,6 +4539,9 @@ export class ChanjetIntegrationService {
             query,
             body: ep.body,
           });
+          if (ep.key === 'ACCOUNT_BOOKS') {
+            await this.persistAccountBooks(resp);
+          }
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
           const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp);
           const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp);
@@ -4983,37 +5001,7 @@ export class ChanjetIntegrationService {
       const resp = await this.auth.listAccountBooks();
       await this.recordApiSample('account-book', '/accounting/openapi/cc/book/findByEnterpriseId', 'GET', resp);
       const books = this.extractBooks(resp);
-      const mapByBook = new Map((await this.bookCompanyMapRepo.find()).map((m) => [m.bookid, m]));
-
-      const savedBooks: ChanjetAccountBookEntity[] = [];
-      for (const b of books) {
-        const mapped = mapByBook.get(b.bookId);
-        const entity = this.accountBookRepo.create({
-          bookId: b.bookId,
-          bookName: b.bookName,
-          companyCode: mapped?.companyCode ?? null,
-          companyName: mapped?.companyName ?? null,
-          enabled: !!mapped?.syncEnabled,
-          rawData: b.rawData,
-          lastProbeAt: new Date(),
-        });
-        savedBooks.push(await this.accountBookRepo.save(entity));
-        if (mapped) {
-          await this.upsertMasterMapping({
-            mappingType: 'COMPANY',
-            bookId: b.bookId,
-            erpCode: mapped.companyCode,
-            erpName: mapped.companyName,
-            chanjetId: b.bookId,
-            chanjetCode: b.bookId,
-            chanjetName: b.bookName,
-            matchStatus: 'MATCHED',
-            confidence: '100.00',
-            reviewStatus: 'APPROVED',
-            rawData: b.rawData,
-          });
-        }
-      }
+      const savedBooks = await this.persistAccountBooks(resp);
 
       await this.finishJob(job, 'SUCCESS', {
         fetched: books.length,
@@ -5024,6 +5012,42 @@ export class ChanjetIntegrationService {
       await this.finishJob(job, 'FAIL', {}, (err as Error).message);
       throw err;
     }
+  }
+
+  private async persistAccountBooks(resp: unknown): Promise<ChanjetAccountBookEntity[]> {
+    const books = this.extractBooks(resp);
+    const mapByBook = new Map((await this.bookCompanyMapRepo.find()).map((mapping) => [mapping.bookid, mapping]));
+    const savedBooks: ChanjetAccountBookEntity[] = [];
+
+    for (const book of books) {
+      const mapped = mapByBook.get(book.bookId);
+      const entity = this.accountBookRepo.create({
+        bookId: book.bookId,
+        bookName: book.bookName,
+        companyCode: mapped?.companyCode ?? null,
+        companyName: mapped?.companyName ?? null,
+        enabled: !!mapped?.syncEnabled,
+        rawData: book.rawData,
+        lastProbeAt: new Date(),
+      });
+      savedBooks.push(await this.accountBookRepo.save(entity));
+      if (mapped) {
+        await this.upsertMasterMapping({
+          mappingType: 'COMPANY',
+          bookId: book.bookId,
+          erpCode: mapped.companyCode,
+          erpName: mapped.companyName,
+          chanjetId: book.bookId,
+          chanjetCode: book.bookId,
+          chanjetName: book.bookName,
+          matchStatus: 'MATCHED',
+          confidence: '100.00',
+          reviewStatus: 'APPROVED',
+          rawData: book.rawData,
+        });
+      }
+    }
+    return savedBooks;
   }
 
   async probe(scope: string[] = [], bookId?: string): Promise<{
@@ -5163,14 +5187,15 @@ export class ChanjetIntegrationService {
     amount: string;
     currency: string;
   } {
-    const idCandidate = this.firstText(row, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
+    const sourceRow = entityType === 'ACCOUNT_BOOK' && this.isRecord(row.tenant) ? row.tenant : row;
+    const idCandidate = this.firstText(sourceRow, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
     const id = this.isUsableExternalId(idCandidate, entityType, endpointKey) ? idCandidate : '';
-    const code = this.firstText(row, ['code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode', 'billNo', 'number']);
-    const name = this.firstText(row, ['name', 'Name', 'bookName', 'deptName', 'subjectName', 'customerName', 'supplierName', 'fullName', 'title', 'summary']);
-    const status = this.firstText(row, ['status', 'state', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
-    const period = this.firstText(row, ['period', 'accountPeriod', 'yearMonth', 'bizPeriod']);
-    const currency = this.firstText(row, ['currency', 'currencyCode', 'currencyName', 'origCurrency']) || 'RMB';
-    const amount = this.firstNumberText(row, [
+    const code = this.firstText(sourceRow, ['code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode', 'billNo', 'number']);
+    const name = this.firstText(sourceRow, ['name', 'Name', 'bookName', 'deptName', 'subjectName', 'customerName', 'supplierName', 'fullName', 'title', 'summary']);
+    const status = this.firstText(sourceRow, ['status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
+    const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod']);
+    const currency = this.firstText(sourceRow, ['currency', 'currencyCode', 'currencyName', 'baseCurrencyId', 'origCurrency']) || 'RMB';
+    const amount = this.firstNumberText(sourceRow, [
       'amount',
       'totalAmount',
       'taxAmount',
@@ -5301,26 +5326,26 @@ export class ChanjetIntegrationService {
     const name = normalizedName.toLowerCase();
     if (/customer/.test(name)) {
       return {
-        table: 'mst_customers',
-        rule: '客户字段进入客户主数据映射候选，必须经人工审核后固化。',
+        table: 'sal_customers',
+        rule: '客户字段进入 sal_customers 客户主数据映射候选，必须经人工审核后固化。',
       };
     }
     if (/supplier|vendor/.test(name)) {
       return {
-        table: 'mst_suppliers',
-        rule: '供应商字段进入供应商主数据映射候选，必须经人工审核后固化。',
+        table: 'prc2_suppliers',
+        rule: '供应商字段进入 prc2_suppliers 供应商主数据映射候选，必须经人工审核后固化。',
       };
     }
     if (/(^|[^a-z])(supplier|payable|ap)([^a-z]|$)/.test(haystack)) {
       return {
-        table: 'mst_suppliers',
-        rule: '供应商字段进入供应商主数据映射候选，必须经人工审核后固化。',
+        table: 'prc2_suppliers',
+        rule: '供应商字段进入 prc2_suppliers 供应商主数据映射候选，必须经人工审核后固化。',
       };
     }
     if (/(^|[^a-z])(customer|receivable|ar)([^a-z]|$)/.test(haystack)) {
       return {
-        table: 'mst_customers',
-        rule: '客户字段进入客户主数据映射候选，必须经人工审核后固化。',
+        table: 'sal_customers',
+        rule: '客户字段进入 sal_customers 客户主数据映射候选，必须经人工审核后固化。',
       };
     }
     return {
@@ -5330,14 +5355,16 @@ export class ChanjetIntegrationService {
   }
 
   private async deprecateFakeCounterpartyTargets(): Promise<void> {
-    await this.fieldMappingRepo.update(
-      { erpTable: 'mst_customers/mst_suppliers' },
-      {
+    await this.fieldMappingRepo
+      .createQueryBuilder()
+      .update(ChanjetErpFieldMappingEntity)
+      .set({
         erpTable: 'chanjet_master_mapping',
         transformRule: '历史候选目标表不存在；往来单位先进入好业财主数据映射中间层，再按客户/供应商属性拆分。',
-        analysisNote: '已自动收口历史假目标表 mst_customers/mst_suppliers，禁止据此创建 ERP schema。',
-      },
-    );
+        analysisNote: '已自动收口历史假目标表，禁止据此创建 ERP schema；重新分析后再指向真实 sal_customers / prc2_suppliers。',
+      })
+      .where('erp_table IN (:...tables)', { tables: ['mst_customers', 'mst_suppliers', 'mst_customers/mst_suppliers'] })
+      .execute();
   }
 
   private async deprecateApiEnvelopeBusinessTargets(): Promise<void> {
@@ -5488,17 +5515,19 @@ export class ChanjetIntegrationService {
 
   private extractBooks(resp: unknown): NormalizedBook[] {
     const rows = this.extractRows(resp);
-    return rows
+    const books = rows
       .map((row) => {
+        const source = this.isRecord(row.tenant) ? row.tenant : row;
         const bookId = String(
-          row.id ?? row.bookId ?? row.bookid ?? row.tenantId ?? row.tenantID ?? row.book_id ?? '',
+          source.id ?? source.bookId ?? source.bookid ?? source.tenantId ?? source.tenantID ?? source.book_id ?? '',
         );
         const bookName = String(
-          row.name ?? row.bookName ?? row.book_name ?? row.tenantName ?? row.orgName ?? bookId,
+          source.name ?? source.bookName ?? source.book_name ?? source.tenantName ?? source.orgName ?? bookId,
         );
         return bookId ? { bookId, bookName, rawData: row } : null;
       })
       .filter((row): row is NormalizedBook => !!row);
+    return [...new Map(books.map((book) => [book.bookId, book])).values()];
   }
 
   private extractRows(resp: unknown): Record<string, unknown>[] {

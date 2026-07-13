@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-13 — Chanjet P0 Production Readonly Gate Patch
+
+Current stage: `CHANJET_P0_PRODUCTION_READONLY_GATE_PATCH_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Confirmed the production account-book response uses nested `tenant.id/name`.
+2. Fixed account-book cache persistence and duplicate removal.
+3. Fixed `partyRoleTypeId` role classification for customer, supplier, and dual-role counterparties.
+4. Replaced invalid historical ERP target names with real `sal_customers` / `prc2_suppliers` masters.
+5. Added a GET-only production Gate audit script.
+6. Passed 12 Chanjet unit tests and API typecheck.
+
+Next actions:
+
+1. Deploy the patch through the normal CI/CD chain.
+2. Refresh the account-book cache using the readonly Chanjet path.
+3. Rerun the 16-scope readonly mirror and restore the 24-hour freshness Gate.
+4. Generate only PENDING counterparty candidates; do not auto-approve.
+5. Rerun the authenticated GET-only production Gate audit.
+6. Keep Chanjet writeback and voucher push on HOLD.
+
 ## 2026-07-08 — Chanjet Readonly Adapter Patch and Sample Review
 
 Current stage: `CHANJET_READONLY_ADAPTER_PATCH_AUTHENTICATED_RERUN_VERIFIED`

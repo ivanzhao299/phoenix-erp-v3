@@ -44,8 +44,8 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       sampleValueMasked: '往来单位A',
     });
 
-    expect(supplier.erpTable).toBe('mst_suppliers');
-    expect(customer.erpTable).toBe('mst_customers');
+    expect(supplier.erpTable).toBe('prc2_suppliers');
+    expect(customer.erpTable).toBe('sal_customers');
     expect(ambiguous.erpTable).toBe('chanjet_master_mapping');
   });
 
@@ -119,6 +119,69 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
   it('does not infer a role from an explicitly false supplier flag', () => {
     expect(service.detectCounterpartyRole({ isSupplier: false, note: '普通往来单位' })).toBe('UNKNOWN');
     expect(service.detectCounterpartyRole({ isCustomer: true, customerName: '甲客户' })).toBe('CUSTOMER');
+  });
+
+  it('locks observed Chanjet partyRoleTypeId values without amount-based guessing', () => {
+    expect(service.detectCounterpartyRole({ partyRoleTypeId: 100001 })).toBe('CUSTOMER');
+    expect(service.detectCounterpartyRole({ partyRoleTypeId: 100101 })).toBe('SUPPLIER');
+    expect(service.detectCounterpartyRole({ partyRoleTypeId: 100400 })).toBe('BOTH');
+    expect(service.detectCounterpartyRole({ partyRoleTypeId: 999999, arAmount: 100, apAmount: 0 })).toBe('UNKNOWN');
+  });
+
+  it('extracts and deduplicates nested tenant account books from the real response shape', () => {
+    const books = service.extractBooks({
+      data: [
+        { tenant: { id: 3533914511118750, name: '农业账套' }, isDefault: true },
+        { tenant: { id: 3533914511118750, name: '农业账套' }, isDefault: false },
+        { tenant: { id: 3537748712226818, name: '星驰账套' }, isDefault: false },
+      ],
+    });
+
+    expect(books).toHaveLength(2);
+    expect(books[0]).toMatchObject({ bookId: '3533914511118750', bookName: '农业账套' });
+    expect(books[1]).toMatchObject({ bookId: '3537748712226818', bookName: '星驰账套' });
+  });
+
+  it('normalizes nested account-book tenant identity for entity snapshots', () => {
+    const normalized = service.normalizeExternalEntity(
+      { tenant: { id: 3533914511118750, name: '农业账套', statusEnum: 'ACTIVE' } },
+      'ACCOUNT_BOOK',
+      0,
+      'ACCOUNT_BOOKS',
+    );
+
+    expect(normalized).toMatchObject({
+      externalId: '3533914511118750',
+      externalName: '农业账套',
+      status: 'ACTIVE',
+    });
+  });
+
+  it('persists account books with configured company mapping and approved middle-layer mapping', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.extractBooks = jest.fn().mockReturnValue([
+      { bookId: 'BOOK-1', bookName: '测试账套', rawData: { tenant: { id: 'BOOK-1' } } },
+    ]);
+    subject.bookCompanyMapRepo = {
+      find: jest.fn().mockResolvedValue([
+        { bookid: 'BOOK-1', companyCode: 'COMP-1', companyName: '测试公司', syncEnabled: true },
+      ]),
+    };
+    subject.accountBookRepo = {
+      create: jest.fn((value) => value),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+    subject.upsertMasterMapping = jest.fn().mockResolvedValue(undefined);
+
+    const books = await subject.persistAccountBooks({});
+
+    expect(books).toHaveLength(1);
+    expect(subject.accountBookRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      bookId: 'BOOK-1', companyCode: 'COMP-1', enabled: true,
+    }));
+    expect(subject.upsertMasterMapping).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'COMPANY', bookId: 'BOOK-1', erpCode: 'COMP-1', reviewStatus: 'APPROVED',
+    }));
   });
 
   it('rejects an approval that conflicts with an existing one-to-one mapping', async () => {

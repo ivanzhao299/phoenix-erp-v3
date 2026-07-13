@@ -1726,3 +1726,10 @@ Decision: `GO_WITH_CONDITIONS`.
 - Candidate generation writes only ERP middle-layer `PENDING` mappings and never auto-approves.
 - Approval rejects empty, unstable, unmapped-book, or one-to-one-conflicting mappings.
 - Chanjet write, modify, delete, voucher push, and ERP business-table overwrite remain disabled.
+# 2026-07-13 — Chanjet production readonly Gate must parse real tenant/role shapes
+
+- Decision: parse account-book identity from nested `tenant.id/name` and deduplicate by book ID.
+- Decision: lock production-observed `partyRoleTypeId` values `100001/100101/100400`; unknown values HOLD.
+- Decision: customer and supplier candidates target real `sal_customers.customer_no` and `prc2_suppliers.supplier_code` masters.
+- Decision: no balance-based role guessing, no fuzzy auto-approval, and no Chanjet writeback.
+- Evidence: `docs/ops/CHANJET_P0_PRODUCTION_READONLY_GATE_EVIDENCE_REPORT_20260713.md`.
