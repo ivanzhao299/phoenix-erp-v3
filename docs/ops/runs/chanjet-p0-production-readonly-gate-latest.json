@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-07-13T04:42:16.411Z",
+  "decision": "DRY_RUN_READY",
+  "dryRun": true,
+  "source": {
+    "apiBase": "http://127.0.0.1:3100/api",
+    "authenticated": false
+  },
+  "summary": {
+    "nextGate": "AUTHENTICATED_GET_ONLY_AUDIT"
+  },
+  "errors": [],
+  "baselineScopes": [],
+  "plannedRequests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3100/api/chanjet/integration/baseline-readiness?freshnessHours=24"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3100/api/chanjet/integration/account-book-mapping-gate"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3100/api/chanjet/integration/counterparty-mapping-candidates"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "mappingAutoApprove": false,
+    "requestMethods": [
+      "GET"
+    ]
+  }
+}
