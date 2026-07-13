@@ -43,11 +43,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 68,
+    "occurrence": 67,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   },
   {
     "improvement_id": "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
@@ -95,11 +95,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": false,
-    "occurrence": 78,
+    "occurrence": 77,
     "severity": "CRITICAL",
     "status": "OPEN",
     "created_at": "2026-07-12T10:30:37.057Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   },
   {
     "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
@@ -149,7 +149,7 @@
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
@@ -195,11 +195,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 24,
+    "occurrence": 26,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
@@ -245,11 +245,11 @@
     ],
     "auto_fix_allowed": true,
     "requires_approval": true,
-    "occurrence": 133,
+    "occurrence": 137,
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   },
   {
     "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
@@ -299,6 +299,6 @@
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-13T02:24:20.875Z"
+    "updated_at": "2026-07-13T03:32:25.084Z"
   }
 ]
