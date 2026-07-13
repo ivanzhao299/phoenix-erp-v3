@@ -19,20 +19,24 @@ Current backend implementation in `WorkflowService.listMyTasks()` satisfies that
 - applies `bizType` and `keyword` filters before computing `total`;
 - returns `total = all.length` from the same filtered list used for `items`.
 
-Root cause of the reported production symptom is a stale/narrower total source drifting from the visible row source. This backend path now has a task-specific regression guard to prevent returning visible ApprovalEngine items with `total = 0`.
+The backend-owned gap was the legacy `GET /api/workflow/tasks/todo` path. It already returned the same unified WorkflowEngine + ApprovalEngine visible rows, but `WorkflowService.listTodo()` reported `total = rows.length` after pagination instead of using the same unified count helper used by task summary. That let the legacy count contract drift from the real authorized todo set whenever a caller relied on backend total metadata.
+
+Root cause: unified todo rows and legacy todo count were computed from different scopes. Rows came from `listUnifiedTodoTasks(...)`; total came from the current page length instead of `countUnifiedTodoTasks(...)`.
 
 ## Changed Files
 
+- `apps/api/src/modules/workflow/workflow.service.ts`
+  - Changed `listTodo()` to return `countUnifiedTodoTasks(user)` as `total` while still returning paginated rows from `listUnifiedTodoTasks(...)`.
 - `apps/api/src/modules/workflow/workflow.service.spec.ts`
-  - Added focused regression coverage for `BUG-20260709-0004`.
-  - The test captures the reported ApprovalEngine row shape and asserts `items.length = 1`, `total = 1`, and `total >= items.length`.
+  - Added focused regression coverage for the legacy todo endpoint.
+  - The test captures a visible ApprovalEngine row and asserts `total` comes from unified count, not the current page length.
 
 No schema, entity, migration, table, column, seed, DataScope service, RBAC guard, or frontend file was changed.
 
 ## Validation
 
-- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand`
-  - PASS: 1 test suite passed, 5 tests passed.
+- `cd apps/api && pnpm test -- workflow.service.spec.ts`
+  - PASS: 1 test suite passed, 6 tests passed.
 - `cd apps/api && ./node_modules/.bin/tsc --noEmit`
   - PASS: 0 TypeScript errors.
 

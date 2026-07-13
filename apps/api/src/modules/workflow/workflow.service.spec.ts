@@ -180,4 +180,31 @@ describe('WorkflowService listMyTasks', () => {
     ]);
     expect(em.query.mock.calls[0][0]).toContain('i.company_code = ANY($3::varchar[])');
   });
+
+  it('returns the unified todo count instead of the current page length on the legacy todo endpoint', async () => {
+    const { em, svc } = buildService([]);
+    em.query
+      .mockResolvedValueOnce([
+        {
+          task_source: 'APPROVAL_ENGINE',
+          id: '1783585535582',
+          instance_id: '101',
+          instance_no: 'AE-101',
+          biz_type: 'PR',
+          biz_no: 'PR2-20260707-00002',
+          title: '采购测试2',
+          status: 'TODO',
+        },
+      ])
+      .mockResolvedValueOnce([{ count: 2 }]);
+
+    const result = await svc.listTodo(
+      { userId: 1, roles: ['ROLE_ADMIN', 'ROLE_MASTER_DATA_APPROVER'] },
+      { limit: 1, offset: 0 },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.total).toBe(2);
+    expect(result.total).toBeGreaterThanOrEqual(result.data.length);
+  });
 });

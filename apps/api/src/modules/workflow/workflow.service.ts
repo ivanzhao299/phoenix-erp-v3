@@ -862,8 +862,11 @@ export class WorkflowService implements OnModuleInit {
 
   async listTodo(user: WorkflowUser, query: QueryDto) {
     const { limit, offset } = this.page(query);
-    const rows = await this.listUnifiedTodoTasks(user, limit, offset);
-    return { code: 200, data: rows, total: rows.length };
+    const [rows, total] = await Promise.all([
+      this.listUnifiedTodoTasks(user, limit, offset),
+      this.countUnifiedTodoTasks(user),
+    ]);
+    return { code: 200, data: rows, total };
   }
 
   async listMyTasks(user: WorkflowUser, query: MyTasksQuery) {
