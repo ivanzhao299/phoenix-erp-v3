@@ -26,18 +26,21 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt
 Assembled prompt chars: 21744
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T02-42-35-235Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T06-23-07-135Z-A4-Frontend-UAT-Smoke.md
+BUG-20260709-0004 frontend repair is in place and reverified.
 
-The frontend display repair is present on this branch: `/workflow/todos` uses `getWorkflowTodoDisplayTotal(resp)` so the header/pagination cannot show `共 0 条` when returned rows are visibly rendered. Task-specific regression coverage exists in [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23), and I updated the report at [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:41).
+The `/workflow/todos` header count now uses `getWorkflowTodoDisplayTotal`, so if the API returns `total: 0` but visible todo rows are loaded, the title shows the loaded count instead of `0`. The focused regression covers the exact stale-total case.
 
-Validation run:
-- `vitest run src/lib/workflow-todos.test.ts`: PASS, 5 tests
-- `tsc --noEmit`: PASS
-- focused eslint on `/workflow/todos` + helper/test: PASS
-- local Next dev server for desktop/mobile Playwright smoke: BLOCKED by sandbox `listen EPERM 127.0.0.1:3014`
+Updated report: [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md)
 
-No backend, migration, database write, deploy, merge, or push was performed. Final production resolution is still pending CI/CD, production smoke, and business acceptance.
+Verification:
+- `cd apps/web && ./node_modules/.bin/vitest run src/lib/workflow-todos.test.ts` PASS, 5 tests
+- `cd apps/web && ./node_modules/.bin/tsc --noEmit` PASS
+- `cd apps/web && ./node_modules/.bin/eslint 'src/app/(admin)/workflow/todos/page.tsx' src/lib/workflow-todos.ts src/lib/workflow-todos.test.ts` PASS
+- Static desktop/mobile checks PASS
+- Local browser smoke HOLD: `next dev` cannot bind `127.0.0.1:3014` in this sandbox: `listen EPERM`
+
+Result: **PASS WITH CONDITIONS**. No backend, migration, DB write, deploy, merge, or push was performed. Final “resolved in production” still needs CI/CD, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,7 +57,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5959-8c50-7942-a1f5-f288a4bf03b3
+session id: 019f5a22-ce7a-7782-83bd-5e8b8ee337b7
 --------
 user
 # Base Agent Prompt
@@ -498,7 +501,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
 
-...<truncated 258949 chars>
+...<truncated 104904 chars>
 
 ```
 
@@ -509,17 +512,17 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1037,
-  "beforeHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
-  "afterHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
+  "conclusion": "PASS",
+  "responseChars": 1136,
+  "beforeHead": "754f9964737adae477d4fa8afb7be95bbf22d447",
+  "afterHead": "754f9964737adae477d4fa8afb7be95bbf22d447",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-13T02:42:35.317Z",
+  "checkedAt": "2026-07-13T06:23:07.223Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
