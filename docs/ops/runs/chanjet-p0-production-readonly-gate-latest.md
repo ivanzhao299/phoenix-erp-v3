@@ -1,25 +1,25 @@
 # Chanjet P0 Production Readonly Gate Audit
 
-- generated_at: 2026-07-13T04:42:16.411Z
-- decision: DRY_RUN_READY
-- api_base: http://127.0.0.1:3100/api
+- generated_at: 2026-07-13T04:58:08.457Z
+- decision: HOLD
+- api_base: https://erp.eggslao.com/api
 - request_methods: GET only
 - chanjet_write: false
 - mapping_auto_approve: false
 
 ## Summary
 
-- baseline: undefined
-- fresh_targets: undefined/undefined
-- stale_targets: undefined
-- missing_targets: undefined
-- account_book_gate: undefined
-- cached_books: undefined
-- valid_book_company_mappings: undefined
-- counterparty_gate: undefined
-- counterparty_candidates: undefined
-- matched / pending / conflict / unknown: undefined / undefined / undefined / undefined
-- next_gate: AUTHENTICATED_GET_ONLY_AUDIT
+- baseline: UNAVAILABLE
+- fresh_targets: 0/0
+- stale_targets: 0
+- missing_targets: 0
+- account_book_gate: UNAVAILABLE
+- cached_books: 0
+- valid_book_company_mappings: 0
+- counterparty_gate: UNAVAILABLE
+- counterparty_candidates: 0
+- matched / pending / conflict / unknown: 0 / 0 / 0 / 0
+- next_gate: HOLD
 
 ## Scope Readiness
 
@@ -27,7 +27,7 @@ _none_
 
 ## Errors
 
-- none
+- Missing PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN; authenticated audit failed closed.
 
 ## Boundary
 
