@@ -75,21 +75,39 @@ It issues GET requests only and writes JSON/Markdown audit artifacts under `docs
 - audit script syntax check: PASS.
 - audit dry-run: `DRY_RUN_READY`.
 - W5 closeout: default freeze/security review correctly blocked the changed branch; authorized `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` rerun PASS.
-- production evidence collection: read-only, PASS.
+- main CI/security run `29226428504`: PASS.
+- full CI/CD deploy run `29226428523`: PASS; API/Web images, migrations Gate, regressions, deploy, and health checks completed.
+- authenticated production readonly run `29226762516`: PASS.
+- production evidence collection: read-only, PASS; 3/3 account books and 46/46 book-scoped targets are fresh.
 - Chanjet write/delete/modify: NO.
-- ERP production DB write: NO.
+- ERP business-table overwrite: NO.
+- mapping auto-approval: NO.
 - migration: NO.
-- deploy: NO in this evidence stage.
-- push: NO in this evidence stage.
+- push/deploy: YES for the audited ERP patch only; no Chanjet data was changed.
+
+## Production Gate Evidence
+
+The authenticated production Gate completed at `2026-07-13T05:38:07.881Z` with `GO_WITH_CONDITIONS`:
+
+1. Baseline freshness: `GO`; 16 readonly scopes, 46 expected targets, 46 fresh, 0 stale, 0 missing.
+2. Account-book Gate: `GO`; 3 cached books, 3 enabled mappings, 3 valid company bindings, 0 blockers.
+3. Company bindings:
+   - `3533914511118750` -> `COMP-LAO-AGRI`
+   - `3537748712226818` -> `COMP-LAO-XINGCHI`
+   - `3539743721526654` -> `COMP-LAO-FOOD`
+4. Counterparty Gate: `GO_WITH_CONDITIONS`; 315 source counterparties produced 404 role-specific candidates.
+5. Candidate state: 51 matched, 353 pending, 0 conflicts, 0 unknown roles, 0 approved automatically.
+6. High-volume evidence includes 1,275 voucher rows, 47 cash accounts, 43 AP-statistic rows, 71 AR-statistic rows, 100 AP payment rows, 100 AR receipt rows, and 43 purchase-order rows in the latest pull.
+7. Request-method guardrail: Chanjet-facing evidence calls are GET-only.
 
 ## Decision
 
-Implementation result: `GO_WITH_CONDITIONS`.
+Production runtime result: `GO_WITH_CONDITIONS`.
 
-Production runtime Gate remains `HOLD` until this commit is deployed and the authenticated GET-only audit is rerun. After deployment, the permitted sequence is:
+The deploy, cache refresh, 16-scope mirror rerun, PENDING-only candidate generation, and authenticated GET-only Gate audit are complete. The next single Gate is `CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW`:
 
-1. refresh the account-book cache through the approved readonly-to-Chanjet middle-layer path;
-2. rerun the 16-scope readonly mirror to restore 24-hour freshness;
-3. generate customer/supplier candidates as `PENDING` only;
-4. rerun the GET-only Gate audit;
-5. keep individual approvals and all Chanjet writes on HOLD.
+1. review the 353 pending customer/supplier role-specific candidates against ERP masters;
+2. keep conflict and unknown-role items fail-closed;
+3. do not silently overwrite ERP customer/supplier masters;
+4. do not approve mappings in bulk without candidate evidence;
+5. keep Chanjet writeback and voucher push on HOLD.

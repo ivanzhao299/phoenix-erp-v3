@@ -1,8 +1,8 @@
 # Next Actions
 
-## 2026-07-13 — Chanjet P0 Production Readonly Gate Patch
+## 2026-07-13 — Chanjet P0 Production Readonly Gate Verified
 
-Current stage: `CHANJET_P0_PRODUCTION_READONLY_GATE_PATCH_READY`
+Current stage: `CHANJET_P0_PRODUCTION_READONLY_GATE_VERIFIED`
 
 Decision: `GO_WITH_CONDITIONS`
 
@@ -14,15 +14,18 @@ Completed:
 4. Replaced invalid historical ERP target names with real `sal_customers` / `prc2_suppliers` masters.
 5. Added a GET-only production Gate audit script.
 6. Passed 12 Chanjet unit tests and API typecheck.
+7. Pushed and completed full CI/CD deploy run `29226428523`.
+8. Completed authenticated production readonly run `29226762516`.
+9. Verified 3/3 account books, 16/16 scopes, and 46/46 fresh book-scoped targets.
+10. Generated 404 counterparty candidates: 51 matched, 353 pending, 0 conflicts, 0 unknown roles.
 
 Next actions:
 
-1. Deploy the patch through the normal CI/CD chain.
-2. Refresh the account-book cache using the readonly Chanjet path.
-3. Rerun the 16-scope readonly mirror and restore the 24-hour freshness Gate.
-4. Generate only PENDING counterparty candidates; do not auto-approve.
-5. Rerun the authenticated GET-only production Gate audit.
-6. Keep Chanjet writeback and voucher push on HOLD.
+1. Enter `CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW`.
+2. Review the 353 pending role-specific customer/supplier candidates against `sal_customers` and `prc2_suppliers`.
+3. Preserve 0-conflict and 0-unknown-role fail-closed invariants.
+4. Keep individual mapping approval explicit; do not bulk auto-approve.
+5. Keep Chanjet writeback and voucher push on HOLD.
 
 ## 2026-07-08 — Chanjet Readonly Adapter Patch and Sample Review
 

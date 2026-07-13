@@ -1733,3 +1733,13 @@ Decision: `GO_WITH_CONDITIONS`.
 - Decision: customer and supplier candidates target real `sal_customers.customer_no` and `prc2_suppliers.supplier_code` masters.
 - Decision: no balance-based role guessing, no fuzzy auto-approval, and no Chanjet writeback.
 - Evidence: `docs/ops/CHANJET_P0_PRODUCTION_READONLY_GATE_EVIDENCE_REPORT_20260713.md`.
+## 2026-07-13 — Chanjet P0 production readonly Gate verified
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Full CI/CD deploy run `29226428523`: PASS.
+- Authenticated readonly Gate run `29226762516`: PASS.
+- Account books: 3 cached, 3 mapped, 3 valid, 0 blockers.
+- Readonly freshness: 16/16 scopes and 46/46 book-scoped targets fresh; 0 stale, 0 missing.
+- Counterparty candidates: 404 total, 51 matched, 353 pending, 0 conflicts, 0 unknown roles.
+- Guardrails: no Chanjet write/delete/modify, no voucher push, no ERP business overwrite, no mapping auto-approval.
+- Next Gate: `CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW`.
