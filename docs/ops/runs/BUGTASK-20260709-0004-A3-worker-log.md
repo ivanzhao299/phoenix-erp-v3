@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -26,20 +26,16 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt
 Assembled prompt chars: 21677
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T02-41-06-121Z-A3-Backend-Critical-Path.md
-Implemented A3 backend repair for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T06-20-54-496Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS for `BUG-20260709-0004`.
 
-Changed:
-- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863): legacy `listTodo()` now returns the unified todo count via `countUnifiedTodoTasks(user)` instead of paginated `rows.length`.
-- [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:184): added regression coverage proving visible ApprovalEngine rows do not produce an undercounted total.
-- [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1): updated task report with root cause, changed files, validation, and `PASS WITH CONDITIONS`.
+Backend fix is present on `codex/bug-intake-a3`: [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863) now returns `total` from `countUnifiedTodoTasks(user)` instead of paginated `rows.length`, keeping the待办 total aligned with the unified visible task set. Regression coverage is in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123), including the captured ApprovalEngine row and legacy endpoint count behavior.
 
-Validation:
-- `cd apps/api && pnpm test -- workflow.service.spec.ts`: PASS, 6 tests
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
+Validation run:
+- `cd apps/api && pnpm test -- workflow.service.spec.ts` PASS, 1 suite / 6 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS, 0 errors
 
-Result: `PASS WITH CONDITIONS`. No deploy, DB write, migration, push, or frontend change was performed. Production resolution still requires CI/CD, production smoke on `/workflow/todos`, and business acceptance.
+Report is written at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1). No database writes, migrations, deploys, pushes, frontend edits, or task board changes were performed. Production resolution still needs CI/CD, production smoke on `/workflow/todos`, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -56,7 +52,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5957-e2b3-77d3-9df2-98dc8954a0e7
+session id: 019f5a21-a304-7a42-b137-51098404cdf1
 --------
 user
 # Base Agent Prompt
@@ -500,7 +496,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "div",
             "path": ".sidebar-module__C8A
-...<truncated 1185462 chars>
+...<truncated 78871 chars>
 
 ```
 
@@ -512,29 +508,20 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1198,
-  "beforeHead": "4a56c897018d833c4825d09bedc797a2151907d7",
-  "afterHead": "021e8108021ec62ba3755f5e109b2b7b5d969667",
-  "commitHash": "021e8108021ec62ba3755f5e109b2b7b5d969667",
-  "changedFiles": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts",
-    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
+  "responseChars": 1175,
+  "beforeHead": "28a98af173fad729183bb2581ab67e71660b8998",
+  "afterHead": "28a98af173fad729183bb2581ab67e71660b8998",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-13T02:41:06.295Z",
-  "passed": true,
+  "checkedAt": "2026-07-13T06:20:54.582Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -542,22 +529,9 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts",
-    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/api/src/modules/workflow/workflow.service.spec.ts",
-    "apps/api/src/modules/workflow/workflow.service.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "commitHash": "021e8108021ec62ba3755f5e109b2b7b5d969667",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 021e8108] fix(api): repair BUG-20260709-0004\n 3 files changed, 41 insertions(+), 7 deletions(-)"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```
