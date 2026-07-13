@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T05:21:05.351Z",
+  "generatedAt": "2026-07-13T05:37:35.757Z",
   "decision": "GO_WITH_CONDITIONS",
   "plan": {
     "requestedScope": [],
@@ -68,7 +68,7 @@
   },
   "blockers": [],
   "coverage": {
-    "generatedAt": "2026-07-13T05:21:45.820Z",
+    "generatedAt": "2026-07-13T05:38:06.671Z",
     "writeChanjet": false,
     "writeBusinessTables": false,
     "pushVoucher": false,
@@ -216,11 +216,11 @@
         "entityType": "DEPARTMENT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:07.061Z",
+        "latestPulledAt": "2026-07-13T05:37:36.820Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -231,11 +231,11 @@
         "entityType": "CUSTOMER_SUPPLIER",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 15,
-        "rowCount": 2042,
+        "snapshotCount": 16,
+        "rowCount": 2271,
         "entityCount": 315,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:09.122Z",
+        "latestPulledAt": "2026-07-13T05:37:37.450Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -246,11 +246,11 @@
         "entityType": "SUBJECT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:11.143Z",
+        "latestPulledAt": "2026-07-13T05:37:39.133Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -261,11 +261,11 @@
         "entityType": "PROJECT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 66,
+        "snapshotCount": 36,
+        "rowCount": 72,
         "entityCount": 6,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:12.063Z",
+        "latestPulledAt": "2026-07-13T05:37:39.881Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -321,11 +321,11 @@
         "entityType": "AP_PAYMENT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 1100,
+        "snapshotCount": 36,
+        "rowCount": 1200,
         "entityCount": 213,
         "amountSum": 14582114752.45,
-        "latestPulledAt": "2026-07-13T05:21:20.417Z",
+        "latestPulledAt": "2026-07-13T05:37:46.908Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -336,11 +336,11 @@
         "entityType": "AR_RECEIPT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 1100,
-        "entityCount": 335,
-        "amountSum": 7391416829,
-        "latestPulledAt": "2026-07-13T05:21:29.251Z",
+        "snapshotCount": 36,
+        "rowCount": 1200,
+        "entityCount": 341,
+        "amountSum": 7403652829,
+        "latestPulledAt": "2026-07-13T05:37:55.069Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -351,11 +351,11 @@
         "entityType": "PURCHASE_ORDER",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 463,
+        "snapshotCount": 36,
+        "rowCount": 506,
         "entityCount": 43,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:30.490Z",
+        "latestPulledAt": "2026-07-13T05:37:55.963Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -381,11 +381,11 @@
         "entityType": "GL_BALANCE",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:41.173Z",
+        "latestPulledAt": "2026-07-13T05:38:02.880Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -396,11 +396,11 @@
         "entityType": "BALANCE_SHEET",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:41.893Z",
+        "latestPulledAt": "2026-07-13T05:38:03.367Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -411,11 +411,11 @@
         "entityType": "INCOME_STATEMENT",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:42.484Z",
+        "latestPulledAt": "2026-07-13T05:38:03.867Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       },
@@ -426,11 +426,11 @@
         "entityType": "CASH_FLOW",
         "requiredForP0": true,
         "covered": true,
-        "snapshotCount": 33,
-        "rowCount": 33,
+        "snapshotCount": 36,
+        "rowCount": 36,
         "entityCount": 3,
         "amountSum": 0,
-        "latestPulledAt": "2026-07-13T05:21:43.231Z",
+        "latestPulledAt": "2026-07-13T05:38:04.390Z",
         "latestJobStatus": "SUCCESS",
         "latestJobError": null
       }
@@ -632,7 +632,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "462",
+            "rawSnapshotId": "508",
             "entityRows": 1
           },
           {
@@ -641,7 +641,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "463",
+            "rawSnapshotId": "509",
             "entityRows": 1
           },
           {
@@ -650,7 +650,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "464",
+            "rawSnapshotId": "510",
             "entityRows": 1
           },
           {
@@ -659,7 +659,7 @@
             "status": "SUCCESS",
             "fields": 154,
             "rows": 229,
-            "rawSnapshotId": "465",
+            "rawSnapshotId": "511",
             "entityRows": 229
           },
           {
@@ -686,7 +686,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "468",
+            "rawSnapshotId": "514",
             "entityRows": 1
           },
           {
@@ -695,7 +695,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "469",
+            "rawSnapshotId": "515",
             "entityRows": 1
           },
           {
@@ -704,7 +704,7 @@
             "status": "SUCCESS",
             "fields": 6,
             "rows": 1,
-            "rawSnapshotId": "470",
+            "rawSnapshotId": "516",
             "entityRows": 1
           },
           {
@@ -713,7 +713,7 @@
             "status": "SUCCESS",
             "fields": 77,
             "rows": 4,
-            "rawSnapshotId": "471",
+            "rawSnapshotId": "517",
             "entityRows": 4
           },
           {
@@ -722,7 +722,7 @@
             "status": "SUCCESS",
             "fields": 57,
             "rows": 2,
-            "rawSnapshotId": "472",
+            "rawSnapshotId": "518",
             "entityRows": 2
           },
           {
@@ -731,7 +731,7 @@
             "status": "SUCCESS",
             "fields": 11,
             "rows": 0,
-            "rawSnapshotId": "473",
+            "rawSnapshotId": "519",
             "entityRows": 0
           },
           {
@@ -821,7 +821,7 @@
             "status": "SUCCESS",
             "fields": 71,
             "rows": 50,
-            "rawSnapshotId": "483",
+            "rawSnapshotId": "529",
             "entityRows": 50
           },
           {
@@ -830,7 +830,7 @@
             "status": "SUCCESS",
             "fields": 76,
             "rows": 50,
-            "rawSnapshotId": "484",
+            "rawSnapshotId": "530",
             "entityRows": 50
           },
           {
@@ -839,16 +839,16 @@
             "status": "SUCCESS",
             "fields": 11,
             "rows": 0,
-            "rawSnapshotId": "485",
+            "rawSnapshotId": "531",
             "entityRows": 0
           },
           {
             "key": "PAYMENT_AR",
             "bookId": "3533914511118750",
             "status": "SUCCESS",
-            "fields": 83,
+            "fields": 79,
             "rows": 50,
-            "rawSnapshotId": "486",
+            "rawSnapshotId": "532",
             "entityRows": 50
           },
           {
@@ -857,7 +857,7 @@
             "status": "SUCCESS",
             "fields": 83,
             "rows": 50,
-            "rawSnapshotId": "487",
+            "rawSnapshotId": "533",
             "entityRows": 50
           },
           {
@@ -866,7 +866,7 @@
             "status": "SUCCESS",
             "fields": 11,
             "rows": 0,
-            "rawSnapshotId": "488",
+            "rawSnapshotId": "534",
             "entityRows": 0
           },
           {
@@ -875,7 +875,7 @@
             "status": "SUCCESS",
             "fields": 97,
             "rows": 42,
-            "rawSnapshotId": "489",
+            "rawSnapshotId": "535",
             "entityRows": 42
           },
           {
@@ -884,7 +884,7 @@
             "status": "SUCCESS",
             "fields": 39,
             "rows": 1,
-            "rawSnapshotId": "490",
+            "rawSnapshotId": "536",
             "entityRows": 1
           },
           {
@@ -893,7 +893,7 @@
             "status": "SUCCESS",
             "fields": 11,
             "rows": 0,
-            "rawSnapshotId": "491",
+            "rawSnapshotId": "537",
             "entityRows": 0
           },
           {
@@ -929,7 +929,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "495",
+            "rawSnapshotId": "541",
             "entityRows": 1
           },
           {
@@ -938,7 +938,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "496",
+            "rawSnapshotId": "542",
             "entityRows": 1
           },
           {
@@ -947,7 +947,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "497",
+            "rawSnapshotId": "543",
             "entityRows": 1
           },
           {
@@ -956,7 +956,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "498",
+            "rawSnapshotId": "544",
             "entityRows": 1
           },
           {
@@ -965,7 +965,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "499",
+            "rawSnapshotId": "545",
             "entityRows": 1
           },
           {
@@ -974,7 +974,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "500",
+            "rawSnapshotId": "546",
             "entityRows": 1
           },
           {
@@ -983,7 +983,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "501",
+            "rawSnapshotId": "547",
             "entityRows": 1
           },
           {
@@ -992,7 +992,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "502",
+            "rawSnapshotId": "548",
             "entityRows": 1
           },
           {
@@ -1001,7 +1001,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "503",
+            "rawSnapshotId": "549",
             "entityRows": 1
           },
           {
@@ -1010,7 +1010,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "504",
+            "rawSnapshotId": "550",
             "entityRows": 1
           },
           {
@@ -1019,7 +1019,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "505",
+            "rawSnapshotId": "551",
             "entityRows": 1
           },
           {
@@ -1028,7 +1028,7 @@
             "status": "SUCCESS",
             "fields": 12,
             "rows": 1,
-            "rawSnapshotId": "506",
+            "rawSnapshotId": "552",
             "entityRows": 1
           }
         ],

@@ -1,6 +1,6 @@
 # Chanjet Readonly Mirror Sync Gate
 
-Generated at: 2026-07-13T05:21:05.351Z
+Generated at: 2026-07-13T05:37:35.757Z
 Decision: GO_WITH_CONDITIONS
 
 ## Scope
@@ -81,7 +81,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "462",
+        "rawSnapshotId": "508",
         "entityRows": 1
       },
       {
@@ -90,7 +90,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "463",
+        "rawSnapshotId": "509",
         "entityRows": 1
       },
       {
@@ -99,7 +99,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "464",
+        "rawSnapshotId": "510",
         "entityRows": 1
       },
       {
@@ -108,7 +108,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 154,
         "rows": 229,
-        "rawSnapshotId": "465",
+        "rawSnapshotId": "511",
         "entityRows": 229
       },
       {
@@ -135,7 +135,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "468",
+        "rawSnapshotId": "514",
         "entityRows": 1
       },
       {
@@ -144,7 +144,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "469",
+        "rawSnapshotId": "515",
         "entityRows": 1
       },
       {
@@ -153,7 +153,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 6,
         "rows": 1,
-        "rawSnapshotId": "470",
+        "rawSnapshotId": "516",
         "entityRows": 1
       },
       {
@@ -162,7 +162,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 77,
         "rows": 4,
-        "rawSnapshotId": "471",
+        "rawSnapshotId": "517",
         "entityRows": 4
       },
       {
@@ -171,7 +171,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 57,
         "rows": 2,
-        "rawSnapshotId": "472",
+        "rawSnapshotId": "518",
         "entityRows": 2
       },
       {
@@ -180,7 +180,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 11,
         "rows": 0,
-        "rawSnapshotId": "473",
+        "rawSnapshotId": "519",
         "entityRows": 0
       },
       {
@@ -270,7 +270,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 71,
         "rows": 50,
-        "rawSnapshotId": "483",
+        "rawSnapshotId": "529",
         "entityRows": 50
       },
       {
@@ -279,7 +279,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 76,
         "rows": 50,
-        "rawSnapshotId": "484",
+        "rawSnapshotId": "530",
         "entityRows": 50
       },
       {
@@ -288,16 +288,16 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 11,
         "rows": 0,
-        "rawSnapshotId": "485",
+        "rawSnapshotId": "531",
         "entityRows": 0
       },
       {
         "key": "PAYMENT_AR",
         "bookId": "3533914511118750",
         "status": "SUCCESS",
-        "fields": 83,
+        "fields": 79,
         "rows": 50,
-        "rawSnapshotId": "486",
+        "rawSnapshotId": "532",
         "entityRows": 50
       },
       {
@@ -306,7 +306,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 83,
         "rows": 50,
-        "rawSnapshotId": "487",
+        "rawSnapshotId": "533",
         "entityRows": 50
       },
       {
@@ -315,7 +315,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 11,
         "rows": 0,
-        "rawSnapshotId": "488",
+        "rawSnapshotId": "534",
         "entityRows": 0
       },
       {
@@ -324,7 +324,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 97,
         "rows": 42,
-        "rawSnapshotId": "489",
+        "rawSnapshotId": "535",
         "entityRows": 42
       },
       {
@@ -333,7 +333,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 39,
         "rows": 1,
-        "rawSnapshotId": "490",
+        "rawSnapshotId": "536",
         "entityRows": 1
       },
       {
@@ -342,7 +342,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 11,
         "rows": 0,
-        "rawSnapshotId": "491",
+        "rawSnapshotId": "537",
         "entityRows": 0
       },
       {
@@ -378,7 +378,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "495",
+        "rawSnapshotId": "541",
         "entityRows": 1
       },
       {
@@ -387,7 +387,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "496",
+        "rawSnapshotId": "542",
         "entityRows": 1
       },
       {
@@ -396,7 +396,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "497",
+        "rawSnapshotId": "543",
         "entityRows": 1
       },
       {
@@ -405,7 +405,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "498",
+        "rawSnapshotId": "544",
         "entityRows": 1
       },
       {
@@ -414,7 +414,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "499",
+        "rawSnapshotId": "545",
         "entityRows": 1
       },
       {
@@ -423,7 +423,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "500",
+        "rawSnapshotId": "546",
         "entityRows": 1
       },
       {
@@ -432,7 +432,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "501",
+        "rawSnapshotId": "547",
         "entityRows": 1
       },
       {
@@ -441,7 +441,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "502",
+        "rawSnapshotId": "548",
         "entityRows": 1
       },
       {
@@ -450,7 +450,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "503",
+        "rawSnapshotId": "549",
         "entityRows": 1
       },
       {
@@ -459,7 +459,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "504",
+        "rawSnapshotId": "550",
         "entityRows": 1
       },
       {
@@ -468,7 +468,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "505",
+        "rawSnapshotId": "551",
         "entityRows": 1
       },
       {
@@ -477,7 +477,7 @@ Decision: GO_WITH_CONDITIONS
         "status": "SUCCESS",
         "fields": 12,
         "rows": 1,
-        "rawSnapshotId": "506",
+        "rawSnapshotId": "552",
         "entityRows": 1
       }
     ],
