@@ -1,39 +1,58 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260709-0004",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+  "bugNo": "BUG-20260713-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260709-0004-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260713-0001-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260709-0004-A4-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260713-0001-A3-worker-log.md",
+    "commitHash": "28a98af173fad729183bb2581ab67e71660b8998",
+    "changedFiles": [
+      "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts",
+      "apps/api/src/modules/finance-v2/dto/ap-invoice.dto.ts",
+      "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+      "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+      "docs/ops/BUG-20260713-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A4-Frontend-UAT-Smoke",
+        "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1037,
-        "beforeHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
-        "afterHead": "fdecce30c974f95c7dd50f17541674d2fb3fa10d",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "responseChars": 1612,
+        "beforeHead": "021e8108021ec62ba3755f5e109b2b7b5d969667",
+        "afterHead": "28a98af173fad729183bb2581ab67e71660b8998",
+        "commitHash": "28a98af173fad729183bb2581ab67e71660b8998",
+        "changedFiles": [
+          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts",
+          "apps/api/src/modules/finance-v2/dto/ap-invoice.dto.ts",
+          "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+          "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts",
+          "docs/ops/BUG-20260713-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+        ],
+        "businessChangedFiles": [
+          "apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts",
+          "apps/api/src/modules/finance-v2/dto/ap-invoice.dto.ts",
+          "apps/api/src/modules/finance-v2/services/ap-invoices.service.spec.ts",
+          "apps/api/src/modules/finance-v2/services/ap-invoices.service.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/BUG-20260713-0001_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+        ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-13T02:42:35.317Z",
-        "passed": false,
+        "checkedAt": "2026-07-13T03:04:05.586Z",
+        "passed": true,
         "role": "implementation",
-        "terminalStatus": "HOLD",
-        "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "HOLD",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260709-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 21744\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T02-42-35-235Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS for `BUG-20260709-0004`.\n\nThe frontend display repair is present on this branch: `/workflow/todos` uses `getWorkflowTodoDisplayTotal(resp)` so the header/pagination cannot show `共 0 条` when returned rows are visibly rendered. Task-specific regression coverage exists in [workflow-todos.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/workflow-todos.test.ts:23), and I updated the report at [BUG-20260709-0004-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-intake/BUG-20260709-0004-a4-frontend-uat-smoke.md:41).\n\nValidation run:\n- `vitest run src/lib/workflow-todos.test.ts`: PASS, 5 tests\n- `tsc --noE",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0001-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0001-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0001-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0001-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0001-A3-worker-assembled-prompt.md\nAssembled prompt chars: 24480\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T03-04-05-425Z-A3-Backend-Critical-Path.md\nImplemented the backend AP payment critical path for `BUG-20260713-0001`.\n\nChanged:\n- [fin-ap.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/controllers/fin-ap.controller.ts): added `POST /api/v2/finance/ap/invoices/:id/pay`\n- [ap-invoice.dto.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/dto/ap-invoice.dto.ts): added `PayApInvoiceDto`\n- [ap-invoices.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/finance-v2/services/ap-invoices.service.ts): added transactional payment execution with DataScope, account/company/currency/balance checks",
     "nextAction": ""
   }
 }
