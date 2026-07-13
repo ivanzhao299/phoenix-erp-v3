@@ -19817,7 +19817,7 @@
     "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
     "quarantined_at": "2026-07-12T11:51:23.954Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
-    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -19907,7 +19907,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -19931,7 +19931,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-13T03:39:20.841Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -19946,9 +19946,17 @@
     ],
     "redispatch_count": 7,
     "last_redispatch_at": "2026-07-13T03:32:08.664Z",
-    "reason": null,
-    "evidence_gate": null,
-    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "reason": "blocked by failed dependency: BUGTASK-20260711-0002-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260711-0002-A3",
+      "checkedAt": "2026-07-13T03:39:20.841Z"
+    },
+    "remote_repair_status": "HOLD",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
