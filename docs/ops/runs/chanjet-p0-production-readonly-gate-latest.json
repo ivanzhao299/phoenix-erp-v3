@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T04:58:08.457Z",
+  "generatedAt": "2026-07-13T05:01:33.879Z",
   "decision": "HOLD",
   "dryRun": false,
   "source": {
@@ -10,30 +10,316 @@
     "authenticated": true
   },
   "summary": {
-    "baselineDecision": "UNAVAILABLE",
-    "expectedScopes": 0,
-    "expectedTargets": 0,
+    "baselineDecision": "HOLD",
+    "expectedScopes": 16,
+    "expectedTargets": 16,
     "freshTargets": 0,
-    "staleTargets": 0,
-    "missingTargets": 0,
-    "accountBookDecision": "UNAVAILABLE",
+    "staleTargets": 1,
+    "missingTargets": 15,
+    "accountBookDecision": "HOLD",
     "cachedBooks": 0,
     "validMappings": 0,
-    "counterpartyDecision": "UNAVAILABLE",
-    "sourceCounterparties": 0,
-    "candidateCount": 0,
-    "matchedCandidates": 0,
-    "pendingCandidates": 0,
+    "counterpartyDecision": "GO_WITH_CONDITIONS",
+    "sourceCounterparties": 292,
+    "candidateCount": 381,
+    "matchedCandidates": 51,
+    "pendingCandidates": 330,
     "conflictCandidates": 0,
     "unknownRoleCandidates": 0,
-    "nextGate": "HOLD"
+    "nextGate": "CHANJET_MIRROR_BASELINE_REPAIR"
   },
-  "errors": [
-    "Missing PHOENIX_ADMIN_TOKEN / PHOENIX_AUTH_TOKEN; authenticated audit failed closed."
+  "errors": [],
+  "accountBookGate": {
+    "generatedAt": "2026-07-13T05:01:33.155Z",
+    "decision": "HOLD",
+    "canRunBookScopedSync": false,
+    "summary": {
+      "cachedBooks": 0,
+      "enabledBooks": 0,
+      "configuredMappings": 3,
+      "enabledMappings": 3,
+      "validMappings": 0,
+      "blockingIssues": 3,
+      "warnings": 0
+    },
+    "mappings": [
+      {
+        "bookId": "3537748712226818",
+        "bookName": "老挝东鹏县星驰农业发展有限公司",
+        "companyCode": "COMP-LAO-XINGCHI",
+        "companyName": "星驰农业",
+        "syncEnabled": true,
+        "cachedBookExists": false,
+        "cachedBookEnabled": false,
+        "companyExists": true,
+        "status": "HOLD",
+        "issues": [
+          "账套未出现在好业财账套缓存"
+        ]
+      },
+      {
+        "bookId": "3533914511118750",
+        "bookName": "老挝凤凰农业发展有限公司",
+        "companyCode": "COMP-LAO-AGRI",
+        "companyName": "凤凰农业",
+        "syncEnabled": true,
+        "cachedBookExists": false,
+        "cachedBookEnabled": false,
+        "companyExists": true,
+        "status": "HOLD",
+        "issues": [
+          "账套未出现在好业财账套缓存"
+        ]
+      },
+      {
+        "bookId": "3539743721526654",
+        "bookName": "老挝凤凰食品集团有限公司",
+        "companyCode": "COMP-LAO-FOOD",
+        "companyName": "凤凰食品",
+        "syncEnabled": true,
+        "cachedBookExists": false,
+        "cachedBookEnabled": false,
+        "companyExists": true,
+        "status": "HOLD",
+        "issues": [
+          "账套未出现在好业财账套缓存"
+        ]
+      }
+    ],
+    "blockingIssues": [
+      "3537748712226818→COMP-LAO-XINGCHI: 账套未出现在好业财账套缓存",
+      "3533914511118750→COMP-LAO-AGRI: 账套未出现在好业财账套缓存",
+      "3539743721526654→COMP-LAO-FOOD: 账套未出现在好业财账套缓存"
+    ],
+    "warnings": [],
+    "guardrails": {
+      "nameBasedAutoMatch": false,
+      "oneBookPerCompany": true,
+      "oneCompanyPerBook": true,
+      "chanjetWrite": false,
+      "rule": "账套同步只接受 chanjet_book_company_map 中启用且通过公司主数据校验的一对一映射。"
+    }
+  },
+  "baselineScopes": [
+    {
+      "endpointKey": "ACCOUNT_BOOKS",
+      "label": "账套列表",
+      "bookId": "",
+      "entityType": "ACCOUNT_BOOK",
+      "status": "STALE",
+      "rowCount": 3,
+      "entityCount": 6,
+      "latestPulledAt": "2026-07-05T06:18:35.833Z",
+      "ageHours": 190.72,
+      "latestJobStatus": "SUCCESS",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "DEPARTMENT",
+      "label": "部门列表",
+      "bookId": "",
+      "entityType": "DEPARTMENT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "CUSTOMER_SUPPLIER",
+      "label": "往来单位",
+      "bookId": "",
+      "entityType": "CUSTOMER_SUPPLIER",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "SUBJECT",
+      "label": "科目列表",
+      "bookId": "",
+      "entityType": "SUBJECT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "PROJECT",
+      "label": "项目列表",
+      "bookId": "",
+      "entityType": "PROJECT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "FIN_ACCOUNT",
+      "label": "资金账号",
+      "bookId": "",
+      "entityType": "CASH_ACCOUNT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "PAYABLE_STATISTICS",
+      "label": "应付统计",
+      "bookId": "",
+      "entityType": "AP_STATISTICS",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "RECEIVABLE_STATISTICS",
+      "label": "应收统计",
+      "bookId": "",
+      "entityType": "AR_STATISTICS",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "PAYMENT_AP",
+      "label": "付款单列表",
+      "bookId": "",
+      "entityType": "AP_PAYMENT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "PAYMENT_AR",
+      "label": "收款单列表",
+      "bookId": "",
+      "entityType": "AR_RECEIPT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "PURCHASE_ORDER",
+      "label": "采购订单列表",
+      "bookId": "",
+      "entityType": "PURCHASE_ORDER",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "VOUCHER_SEARCH",
+      "label": "凭证列表",
+      "bookId": "",
+      "entityType": "VOUCHER",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "GL_BALANCE",
+      "label": "科目余额表",
+      "bookId": "",
+      "entityType": "GL_BALANCE",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "BALANCE_SHEET",
+      "label": "资产负债表",
+      "bookId": "",
+      "entityType": "BALANCE_SHEET",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "INCOME_STATEMENT",
+      "label": "利润表",
+      "bookId": "",
+      "entityType": "INCOME_STATEMENT",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    },
+    {
+      "endpointKey": "CASH_FLOW",
+      "label": "现金流量表",
+      "bookId": "",
+      "entityType": "CASH_FLOW",
+      "status": "MISSING",
+      "rowCount": 0,
+      "entityCount": 0,
+      "latestPulledAt": null,
+      "ageHours": null,
+      "latestJobStatus": "MISSING",
+      "latestJobError": null
+    }
   ],
-  "accountBookGate": null,
-  "baselineScopes": [],
-  "counterpartySummary": null,
+  "counterpartySummary": {
+    "sourceRows": 292,
+    "candidates": 381,
+    "matched": 51,
+    "pending": 330,
+    "conflicts": 0,
+    "unknownRole": 0,
+    "approvedMappings": 0,
+    "nextGate": "CHANJET_COUNTERPARTY_MAPPING_APPROVAL"
+  },
   "guardrails": {
     "chanjetWrite": false,
     "chanjetDelete": false,
