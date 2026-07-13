@@ -1,6 +1,6 @@
 # Chanjet P0 Production Readonly Gate Audit
 
-- generated_at: 2026-07-13T05:01:33.879Z
+- generated_at: 2026-07-13T05:08:28.132Z
 - decision: HOLD
 - api_base: https://erp.eggslao.com/api
 - request_methods: GET only
@@ -9,42 +9,27 @@
 
 ## Summary
 
-- baseline: HOLD
-- fresh_targets: 0/16
-- stale_targets: 1
-- missing_targets: 15
-- account_book_gate: HOLD
+- baseline: UNAVAILABLE
+- fresh_targets: 0/0
+- stale_targets: 0
+- missing_targets: 0
+- account_book_gate: UNAVAILABLE
 - cached_books: 0
 - valid_book_company_mappings: 0
-- counterparty_gate: GO_WITH_CONDITIONS
-- counterparty_candidates: 381
-- matched / pending / conflict / unknown: 51 / 330 / 0 / 0
-- next_gate: CHANJET_MIRROR_BASELINE_REPAIR
+- counterparty_gate: UNAVAILABLE
+- counterparty_candidates: 0
+- matched / pending / conflict / unknown: 0 / 0 / 0 / 0
+- next_gate: HOLD
 
 ## Scope Readiness
 
-|endpointKey|bookId|status|rowCount|entityCount|ageHours|latestJobStatus|
-|---|---|---|---|---|---|---|
-|ACCOUNT_BOOKS|enterprise|STALE|3|6|190.72|SUCCESS|
-|DEPARTMENT|enterprise|MISSING|0|0|—|MISSING|
-|CUSTOMER_SUPPLIER|enterprise|MISSING|0|0|—|MISSING|
-|SUBJECT|enterprise|MISSING|0|0|—|MISSING|
-|PROJECT|enterprise|MISSING|0|0|—|MISSING|
-|FIN_ACCOUNT|enterprise|MISSING|0|0|—|MISSING|
-|PAYABLE_STATISTICS|enterprise|MISSING|0|0|—|MISSING|
-|RECEIVABLE_STATISTICS|enterprise|MISSING|0|0|—|MISSING|
-|PAYMENT_AP|enterprise|MISSING|0|0|—|MISSING|
-|PAYMENT_AR|enterprise|MISSING|0|0|—|MISSING|
-|PURCHASE_ORDER|enterprise|MISSING|0|0|—|MISSING|
-|VOUCHER_SEARCH|enterprise|MISSING|0|0|—|MISSING|
-|GL_BALANCE|enterprise|MISSING|0|0|—|MISSING|
-|BALANCE_SHEET|enterprise|MISSING|0|0|—|MISSING|
-|INCOME_STATEMENT|enterprise|MISSING|0|0|—|MISSING|
-|CASH_FLOW|enterprise|MISSING|0|0|—|MISSING|
+_none_
 
 ## Errors
 
-- none
+- baseline failed HTTP 403: Forbidden
+- accountBookGate failed HTTP 403: Forbidden
+- counterpartyCandidates failed HTTP 403: Forbidden
 
 ## Boundary
 
