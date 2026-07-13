@@ -11,7 +11,10 @@ import {
   UpdateApInvoiceDto,
   QueryApInvoiceDto,
   CancelApInvoiceDto,
+  PayApInvoiceDto,
 } from '../dto/ap-invoice.dto';
+import { CashAccountsService } from './cash-accounts.service';
+import { CashTransactionsService } from './cash-transactions.service';
 
 const AP_STATUS_LABELS: Record<string, string> = {
   OPEN: '未付款',
@@ -44,6 +47,8 @@ export class ApInvoicesService {
     @InjectDataSource()
     private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly cashAccSvc?: CashAccountsService,
+    private readonly cashTxnSvc?: CashTransactionsService,
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
@@ -95,6 +100,30 @@ export class ApInvoicesService {
     const pre  = `APA-${ym}-`;
     const row  = await this.ds.query(
       `SELECT COUNT(*) AS cnt FROM fin_ap_payment_allocations WHERE alloc_no LIKE $1`,
+      [`${pre}%`],
+    );
+    const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
+    return `${pre}${seq}`;
+  }
+
+  /** 生成分配编号（事务内） */
+  private async genAllocNoIn(qr: import('typeorm').QueryRunner): Promise<string> {
+    const ym   = new Date().toISOString().slice(0, 7).replace('-', '');
+    const pre  = `APA-${ym}-`;
+    const row  = await qr.query(
+      `SELECT COUNT(*) AS cnt FROM fin_ap_payment_allocations WHERE alloc_no LIKE $1`,
+      [`${pre}%`],
+    );
+    const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
+    return `${pre}${seq}`;
+  }
+
+  /** 生成旧 AP payment 编号（兼容历史表） */
+  private async genLegacyPaymentNoIn(qr: import('typeorm').QueryRunner): Promise<string> {
+    const ym   = new Date().toISOString().slice(0, 7).replace('-', '');
+    const pre  = `PAY-${ym}-`;
+    const row  = await qr.query(
+      `SELECT COUNT(*) AS cnt FROM fin_ap_payments WHERE payment_no LIKE $1`,
       [`${pre}%`],
     );
     const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
@@ -466,6 +495,194 @@ export class ApInvoicesService {
       payment_status: 'UNPAID',
       payment_status_label: AP_PAYMENT_STATUS_LABELS.UNPAID,
     };
+  }
+
+  // ── 6.5 付款核销（扣资金账户 + 写 AP_PAYMENT 流水）──────────────────────
+
+  async payInvoice(id: string, dto: PayApInvoiceDto) {
+    if (!this.cashAccSvc || !this.cashTxnSvc) {
+      throw new BadRequestException('AP 付款运行时未就绪');
+    }
+
+    const user = this.currentUser();
+    const amount = Number(dto.amountOriginal);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('付款金额必须大于 0');
+    }
+
+    const qr = this.ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction('SERIALIZABLE');
+
+    try {
+      const invRows = await qr.query(
+        `SELECT id, ap_no, company_code, company_name, supplier_code, supplier_name,
+                currency_code, exchange_rate, amount_original,
+                paid_amount_original, paid_amount_base,
+                balance_amount_original, balance_amount_base,
+                status, payment_status
+         FROM fin_ap_invoices
+         WHERE id = $1
+         FOR UPDATE`,
+        [id],
+      );
+      if (!invRows.length) throw new NotFoundException(`AP Invoice #${id} 不存在`);
+      const inv = invRows[0];
+
+      if (!user.scopeAll && user.companyCodes.length === 0) {
+        throw new ForbiddenException('无权付款 AP Invoice（数据范围未配置）');
+      }
+      if (!user.scopeAll && !user.companyCodes.includes(inv.company_code)) {
+        throw new ForbiddenException(`无权付款公司 ${inv.company_code} 的 AP Invoice`);
+      }
+      if (!['OPEN', 'PARTIALLY_PAID'].includes(inv.status)) {
+        throw new BadRequestException(`状态 ${inv.status} 不允许付款`);
+      }
+
+      const balance = Number(inv.balance_amount_original);
+      if (amount > balance + 0.005) {
+        throw new BadRequestException(
+          `AP ${inv.ap_no} 余额 ${balance}，本次付款 ${amount} 超额`,
+        );
+      }
+
+      const accRows = await qr.query(
+        `SELECT id, account_code, account_name, company_code, company_name,
+                currency_code, current_balance, status
+         FROM fin_cash_accounts
+         WHERE id = $1
+         FOR UPDATE`,
+        [dto.cashAccountId],
+      );
+      if (!accRows.length) throw new NotFoundException(`资金账户 ${dto.cashAccountId} 不存在`);
+      const acc = accRows[0];
+      if (acc.status !== 'ACTIVE') {
+        throw new BadRequestException(`资金账户状态 ${acc.status}，不允许付款`);
+      }
+      if (acc.company_code !== inv.company_code) {
+        throw new ForbiddenException(`资金账户 ${acc.account_code} 不属于 AP 公司 ${inv.company_code}`);
+      }
+      if (acc.currency_code !== inv.currency_code) {
+        throw new BadRequestException(`资金账户币种 ${acc.currency_code} 与 AP 币种 ${inv.currency_code} 不一致`);
+      }
+      if (Number(acc.current_balance) < amount) {
+        throw new BadRequestException(
+          `账户余额不足：当前 ${acc.current_balance} ${acc.currency_code}，本次付款 ${amount}`,
+        );
+      }
+
+      const exRate = dto.exchangeRate ?? Number(inv.exchange_rate ?? 1);
+      const amountBase = dto.amountBase ?? Math.round(amount * exRate * 100) / 100;
+      const baseCurrency = dto.baseCurrency ?? 'CNY';
+
+      let paymentRow: any;
+      try {
+        const allocNo = await this.genAllocNoIn(qr);
+        [paymentRow] = await qr.query(
+          `INSERT INTO fin_ap_payment_allocations (
+             alloc_no, invoice_id, company_code, company_name,
+             currency_code, amount_original, exchange_rate, amount_base, base_currency,
+             payment_date, payment_method, bank_account, reference_no,
+             cash_account_id, remark, created_by, updated_by
+           ) VALUES (
+             $1,$2,$3,$4,
+             $5,$6,$7,$8,$9,
+             $10,$11,$12,$13,
+             $14,$15,$16,$16
+           )
+           RETURNING id, alloc_no`,
+          [
+            allocNo, id, inv.company_code, inv.company_name ?? null,
+            inv.currency_code, amount, exRate, amountBase, baseCurrency,
+            dto.paymentDate, dto.paymentMethod ?? null, acc.account_code, dto.referenceNo ?? null,
+            acc.id, dto.remark ?? null, user.userId,
+          ],
+        );
+      } catch (err) {
+        if (!this.isUndefinedTableError(err)) throw err;
+        this.logger.warn('[AP] fin_ap_payment_allocations missing; writing legacy fin_ap_payments record');
+        const paymentNo = await this.genLegacyPaymentNoIn(qr);
+        [paymentRow] = await qr.query(
+          `INSERT INTO fin_ap_payments (
+             payment_no, invoice_id, company_code, supplier_code,
+             payment_date, amount, currency_code, exchange_rate,
+             payment_method, bank_account, reference_no, note,
+             cash_account_id, created_by, updated_by
+           ) VALUES (
+             $1,$2,$3,$4,
+             $5,$6,$7,$8,
+             $9,$10,$11,$12,
+             $13,$14,$14
+           )
+           RETURNING id, payment_no AS alloc_no`,
+          [
+            paymentNo, id, inv.company_code, inv.supplier_code ?? '',
+            dto.paymentDate, amount, inv.currency_code, exRate,
+            dto.paymentMethod ?? null, acc.account_code, dto.referenceNo ?? null, dto.remark ?? null,
+            acc.id, user.userId,
+          ],
+        );
+      }
+
+      const newPaid = Number(inv.paid_amount_original) + amount;
+      const newPaidBase = Number(inv.paid_amount_base ?? 0) + amountBase;
+      const newBalance = Math.max(0, Number(inv.amount_original) - newPaid);
+      const newBalanceBase = Math.max(0, Number(inv.balance_amount_base ?? 0) - amountBase);
+      const newPaymentStatus = newBalance <= 0.005 ? 'PAID' : 'PARTIAL';
+      const newStatus = newBalance <= 0.005 ? 'PAID' : 'PARTIALLY_PAID';
+
+      await qr.query(
+        `UPDATE fin_ap_invoices
+         SET paid_amount_original = $1,
+             paid_amount_base = $2,
+             balance_amount_original = $3,
+             balance_amount_base = $4,
+             status = $5,
+             payment_status = $6,
+             updated_by = $7,
+             updated_at = now()
+         WHERE id = $8`,
+        [
+          newPaid,
+          newPaidBase,
+          newBalance,
+          newBalanceBase,
+          newStatus,
+          newPaymentStatus,
+          user.userId,
+          id,
+        ],
+      );
+
+      const newAccountBalance = await this.cashAccSvc.applyBalance(qr, String(acc.id), -amount, user.userId);
+      await this.cashTxnSvc.writeTransaction({
+        qr,
+        accountId: acc.id,
+        accountCode: acc.account_code,
+        accountName: acc.account_name,
+        companyCode: acc.company_code,
+        companyName: acc.company_name,
+        direction: 'OUT',
+        sourceType: 'AP_PAYMENT',
+        sourceId: paymentRow.id,
+        sourceNo: paymentRow.alloc_no,
+        currencyCode: acc.currency_code,
+        amount,
+        balanceAfter: newAccountBalance,
+        remark: dto.remark ?? `AP 付款核销 ${inv.ap_no}`,
+        createdBy: user.userId,
+      });
+
+      await qr.commitTransaction();
+      this.logger.log(`[AP] 付款核销 AP Invoice #${id} (${inv.ap_no}) amount=${amount} by user ${user.userId}`);
+      return this.findById(id);
+    } catch (err) {
+      await qr.rollbackTransaction();
+      this.logger.error(`[AP] payInvoice 事务回滚: ${(err as Error).message}`);
+      throw err;
+    } finally {
+      await qr.release();
+    }
   }
 
   // ── 7. 重算付款状态 ───────────────────────────────────────────────────────

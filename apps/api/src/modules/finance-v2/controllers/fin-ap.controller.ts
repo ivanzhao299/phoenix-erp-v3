@@ -10,6 +10,7 @@ import {
   CreateApInvoiceDto,
   UpdateApInvoiceDto,
   CancelApInvoiceDto,
+  PayApInvoiceDto,
   QueryApInvoiceDto,
 } from '../dto/ap-invoice.dto';
 
@@ -24,6 +25,7 @@ import {
  *   POST   /api/v2/finance/ap/invoices          — 手工创建
  *   PATCH  /api/v2/finance/ap/invoices/:id      — 更新（OPEN/PARTIALLY_PAID）
  *   POST   /api/v2/finance/ap/invoices/:id/cancel — 取消
+ *   POST   /api/v2/finance/ap/invoices/:id/pay  — 执行付款并核销
  *   GET    /api/v2/finance/ap/aging             — AP Aging 明细
  *   GET    /api/v2/finance/ap/summary           — AP 汇总统计
  *   POST   /api/v2/finance/ap/import-from-prc2  — 从 prc2_ap_ledger 幂等导入
@@ -100,6 +102,21 @@ export class FinApController {
     @Body() dto: CancelApInvoiceDto,
   ) {
     return this.apSvc.cancel(id, dto);
+  }
+
+  // ── 付款核销 ─────────────────────────────────────────────────────────────
+
+  /**
+   * POST /api/v2/finance/ap/invoices/:id/pay
+   * 对 AP Invoice 执行付款，扣减资金账户并写 AP_PAYMENT 资金流水。
+   */
+  @Post('invoices/:id/pay')
+  @RequireMenu('MENU_FIN2_AP', 'E')
+  pay(
+    @Param('id') id: string,
+    @Body() dto: PayApInvoiceDto,
+  ) {
+    return this.apSvc.payInvoice(id, dto);
   }
 
   // ── Aging ─────────────────────────────────────────────────────────────────

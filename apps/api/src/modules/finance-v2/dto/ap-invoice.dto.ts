@@ -112,6 +112,40 @@ export class CancelApInvoiceDto {
   reason?: string;
 }
 
+// ── AP 付款核销 ───────────────────────────────────────────────────────────
+
+export class PayApInvoiceDto {
+  @IsString()
+  cashAccountId: string;
+
+  @IsDateString()
+  paymentDate: string;
+
+  @IsNumber() @Min(0.01)
+  @Type(() => Number)
+  amountOriginal: number;
+
+  @IsOptional() @IsNumber() @Min(0)
+  @Type(() => Number)
+  exchangeRate?: number;
+
+  @IsOptional() @IsNumber() @Min(0)
+  @Type(() => Number)
+  amountBase?: number;
+
+  @IsOptional() @IsString()
+  baseCurrency?: string;
+
+  @IsOptional() @IsString()
+  paymentMethod?: string;
+
+  @IsOptional() @IsString()
+  referenceNo?: string;
+
+  @IsOptional() @IsString()
+  remark?: string;
+}
+
 // ── 查询筛选 ──────────────────────────────────────────────────────────────
 
 export class QueryApInvoiceDto {
