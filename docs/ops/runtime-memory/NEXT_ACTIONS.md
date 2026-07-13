@@ -824,6 +824,20 @@ Next actions:
 
 Current stage: `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING_IMPLEMENTED`
 
+## 2026-07-13 — Chanjet P0 Baseline / Counterparty / Book Mapping Gate
+
+Current stage: `CHANJET_P0_BASELINE_COUNTERPARTY_BOOK_MAPPING_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Next actions:
+
+1. Deploy and execute the new read-only `baseline-readiness` and `account-book-mapping-gate` endpoints.
+2. Preview customer/supplier counterparty candidates, then generate only `PENDING` exact-match candidates.
+3. Resolve `CONFLICT`, `UNKNOWN`, and unmatched rows before approving mappings.
+4. Rerun the finance Read Model authority Gate after approved mapping coverage is sufficient.
+5. Keep Chanjet writeback, voucher push, and silent ERP business-table overwrite blocked.
+
 Decision: `GO_WITH_CONDITIONS`
 
 Implemented:

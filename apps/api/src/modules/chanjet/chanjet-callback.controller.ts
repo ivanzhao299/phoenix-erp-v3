@@ -499,6 +499,36 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/baseline-readiness
+   * 校验 16 个只读 scope 的快照新鲜度、最近作业与账套映射 Gate。
+   */
+  @Get('integration/baseline-readiness')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationBaselineReadiness(@Query('freshnessHours') freshnessHours: string) {
+    try {
+      const baseline = await this.integration.mirrorBaselineReadiness(Number(freshnessHours) || 24);
+      return { success: true, baseline };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/account-book-mapping-gate
+   * 账套 ↔ ERP 公司一对一映射门禁。只读 ERP 中间层和公司主数据。
+   */
+  @Get('integration/account-book-mapping-gate')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationAccountBookMappingGate() {
+    try {
+      const gate = await this.integration.accountBookMappingGate();
+      return { success: true, gate };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/account-books/refresh
    * 只读好业财账套列表，写 ERP 中间层账套缓存与字段 catalog。
    */
@@ -909,6 +939,44 @@ export class ChanjetCallbackController {
       return { success: true, count: mappings.length, mappings };
     } catch (e) {
       return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/counterparty-mapping-candidates
+   * 预览好业财往来单位 ↔ ERP 客户/供应商候选。只读，不落候选。
+   */
+  @Get('integration/counterparty-mapping-candidates')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationCounterpartyMappingCandidates() {
+    try {
+      const candidateOverview = await this.integration.counterpartyMappingCandidates();
+      return { success: true, candidateOverview };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/integration/counterparty-mapping-candidates/generate
+   * 仅把高置信候选写入 ERP 中间层 PENDING 映射，不自动批准、不写好业财/业务表。
+   */
+  @Post('integration/counterparty-mapping-candidates/generate')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async generateIntegrationCounterpartyMappingCandidates(@Req() req: any) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'system');
+    this.log.warn(`manual chanjet counterparty candidate generation user=${requestedBy}`);
+    try {
+      const result = await this.integration.generateCounterpartyMappingCandidates(requestedBy);
+      return {
+        success: true,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        autoApprove: false,
+        ...result,
+      };
+    } catch (e) {
+      return { success: false, writeChanjet: false, error: (e as Error).message };
     }
   }
 

@@ -375,7 +375,117 @@ export interface ChanjetReadonlyFieldAdapterOverview {
   adapters: Array<ChanjetReadonlyAdapterBase & {
     rows: Array<ChanjetVoucherHeaderAdapterRow | ChanjetVoucherLineAdapterRow | ChanjetCounterpartyAdapterRow>;
   }>;
+  guardrails: Record<string, boolean | string | number>;
+}
+
+export type ChanjetBaselineStatus = 'FRESH' | 'STALE' | 'MISSING';
+
+export interface ChanjetMirrorBaselineReadiness {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  freshnessHours: number;
+  summary: {
+    expectedScopes: number;
+    expectedTargets: number;
+    freshTargets: number;
+    staleTargets: number;
+    missingTargets: number;
+    failedRecentJobs: number;
+    endpointCoverageRate: number;
+    nextGate: string;
+  };
+  accountBookGate: ChanjetAccountBookMappingGate;
+  scopes: Array<{
+    endpointKey: string;
+    label: string;
+    bookId: string;
+    entityType: string;
+    status: ChanjetBaselineStatus;
+    rowCount: number;
+    entityCount: number;
+    latestPulledAt: string | null;
+    ageHours: number | null;
+    latestJobStatus: string;
+    latestJobError: string | null;
+  }>;
   guardrails: Record<string, boolean | string>;
+}
+
+export interface ChanjetAccountBookMappingGate {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  canRunBookScopedSync: boolean;
+  summary: {
+    cachedBooks: number;
+    enabledBooks: number;
+    configuredMappings: number;
+    enabledMappings: number;
+    validMappings: number;
+    blockingIssues: number;
+    warnings: number;
+  };
+  mappings: Array<{
+    bookId: string;
+    bookName: string;
+    companyCode: string;
+    companyName: string;
+    syncEnabled: boolean;
+    cachedBookExists: boolean;
+    cachedBookEnabled: boolean;
+    companyExists: boolean;
+    status: 'VALID' | 'WARNING' | 'HOLD';
+    issues: string[];
+  }>;
+  blockingIssues: string[];
+  warnings: string[];
+  guardrails: Record<string, boolean | string>;
+}
+
+type CounterpartyMappingType = 'CUSTOMER' | 'SUPPLIER';
+
+interface ErpCounterpartyMaster {
+  mappingType: CounterpartyMappingType;
+  code: string;
+  name: string;
+  companyCode: string;
+  status: string;
+}
+
+export interface ChanjetCounterpartyMappingCandidate {
+  candidateKey: string;
+  snapshotId: string;
+  bookId: string;
+  companyCode: string;
+  mappingType: CounterpartyMappingType | null;
+  roleCandidate: ChanjetCounterpartyAdapterRow['roleCandidate'];
+  chanjetId: string;
+  chanjetCode: string;
+  chanjetName: string;
+  matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT';
+  confidence: number;
+  erpCode: string;
+  erpName: string;
+  evidence: string[];
+  alternatives: Array<{ erpCode: string; erpName: string; companyCode: string; score: number; reason: string }>;
+  requiresApproval: true;
+  canAutoApprove: false;
+}
+
+export interface ChanjetCounterpartyCandidateOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    sourceRows: number;
+    candidates: number;
+    matched: number;
+    pending: number;
+    conflicts: number;
+    unknownRole: number;
+    approvedMappings: number;
+    nextGate: string;
+  };
+  candidates: ChanjetCounterpartyMappingCandidate[];
+  guardrails: Record<string, boolean | string | number>;
 }
 
 export interface ReceiptPaymentDateStatusLock {
@@ -1073,6 +1183,190 @@ export class ChanjetIntegrationService {
       unmappedFields,
       pushEnabled: false,
       boundary: 'ERP writes middle-layer only; Chanjet push remains disabled until a separate gate approves it.',
+    };
+  }
+
+  async accountBookMappingGate(): Promise<ChanjetAccountBookMappingGate> {
+    const [books, maps, organizationRows] = await Promise.all([
+      this.accountBookRepo.find({ order: { bookName: 'ASC' } }),
+      this.bookCompanyMapRepo.find({ order: { bookName: 'ASC' } }),
+      this.ds.query(
+        `SELECT DISTINCT COALESCE(NULLIF(company_code, ''), org_code) AS company_code
+           FROM sys_organizations
+          WHERE org_type = 'COMPANY' AND status = 'ACTIVE'`,
+      ).catch((error) => {
+        this.log.warn(`Chanjet account-book gate could not read active companies: ${(error as Error).message}`);
+        return [] as Array<{ company_code: string }>;
+      }),
+    ]);
+    const bookById = new Map(books.map((book) => [book.bookId, book]));
+    const activeCompanies = new Set(
+      (organizationRows as Array<{ company_code?: string }>)
+        .map((row) => String(row.company_code || '').trim())
+        .filter(Boolean),
+    );
+    const duplicateBooks = this.findDuplicateValues(maps.map((mapping) => mapping.bookid));
+    const duplicateCompanies = this.findDuplicateValues(maps.map((mapping) => mapping.companyCode));
+    const blockingIssues: string[] = [];
+    const warnings: string[] = [];
+
+    if (duplicateBooks.length) blockingIssues.push(`重复账套映射: ${duplicateBooks.join(', ')}`);
+    if (duplicateCompanies.length) blockingIssues.push(`同一 ERP 公司被多个账套占用: ${duplicateCompanies.join(', ')}`);
+
+    const mappings = maps.map((mapping) => {
+      const cachedBook = bookById.get(mapping.bookid);
+      const issues: string[] = [];
+      if (!mapping.bookid || !mapping.companyCode) issues.push('账套或公司编码为空');
+      if (!cachedBook) issues.push('账套未出现在好业财账套缓存');
+      if (cachedBook && mapping.syncEnabled && !cachedBook.enabled) issues.push('映射已启用但账套缓存未启用');
+      if (!activeCompanies.has(mapping.companyCode)) issues.push('ERP ACTIVE 公司主数据不存在');
+      const status: 'VALID' | 'WARNING' | 'HOLD' = issues.length
+        ? (mapping.syncEnabled ? 'HOLD' : 'WARNING')
+        : 'VALID';
+      const issueText = `${mapping.bookid || '(empty)'}→${mapping.companyCode || '(empty)'}: ${issues.join(' / ')}`;
+      if (status === 'HOLD') blockingIssues.push(issueText);
+      if (status === 'WARNING') warnings.push(issueText);
+      return {
+        bookId: mapping.bookid,
+        bookName: mapping.bookName,
+        companyCode: mapping.companyCode,
+        companyName: mapping.companyName,
+        syncEnabled: mapping.syncEnabled,
+        cachedBookExists: !!cachedBook,
+        cachedBookEnabled: !!cachedBook?.enabled,
+        companyExists: activeCompanies.has(mapping.companyCode),
+        status,
+        issues,
+      };
+    });
+
+    for (const book of books.filter((item) => item.enabled)) {
+      if (!maps.some((mapping) => mapping.bookid === book.bookId && mapping.syncEnabled)) {
+        blockingIssues.push(`启用账套 ${book.bookId} (${book.bookName}) 缺少启用的一对一公司映射`);
+      }
+    }
+
+    const decision = blockingIssues.length ? 'HOLD' : warnings.length ? 'GO_WITH_CONDITIONS' : 'GO';
+    return {
+      generatedAt: new Date().toISOString(),
+      decision,
+      canRunBookScopedSync: decision !== 'HOLD' && maps.some((mapping) => mapping.syncEnabled),
+      summary: {
+        cachedBooks: books.length,
+        enabledBooks: books.filter((book) => book.enabled).length,
+        configuredMappings: maps.length,
+        enabledMappings: maps.filter((mapping) => mapping.syncEnabled).length,
+        validMappings: mappings.filter((mapping) => mapping.status === 'VALID').length,
+        blockingIssues: blockingIssues.length,
+        warnings: warnings.length,
+      },
+      mappings,
+      blockingIssues,
+      warnings,
+      guardrails: {
+        nameBasedAutoMatch: false,
+        oneBookPerCompany: true,
+        oneCompanyPerBook: true,
+        chanjetWrite: false,
+        rule: '账套同步只接受 chanjet_book_company_map 中启用且通过公司主数据校验的一对一映射。',
+      },
+    };
+  }
+
+  async mirrorBaselineReadiness(freshnessHours = 24): Promise<ChanjetMirrorBaselineReadiness> {
+    const safeFreshnessHours = Math.min(Math.max(Number(freshnessHours) || 24, 1), 168);
+    const [books, snapshots, entities, jobs, accountBookGate] = await Promise.all([
+      this.accountBookRepo.find({ where: { enabled: true }, order: { bookName: 'ASC' } }),
+      this.readSnapshotRepo.find({ order: { pulledAt: 'DESC' }, take: 5000 }),
+      this.entitySnapshotRepo.find({ order: { updatedAt: 'DESC' }, take: 10000 }),
+      this.jobRepo.find({ where: { jobType: 'SNAPSHOT' }, order: { createdAt: 'DESC' }, take: 500 }),
+      this.accountBookMappingGate(),
+    ]);
+    const now = Date.now();
+    const endpoints = PROBE_ENDPOINTS.filter((endpoint) => endpoint.mirrorDefault);
+    const scopes: ChanjetMirrorBaselineReadiness['scopes'] = [];
+
+    for (const endpoint of endpoints) {
+      const targets = endpoint.requiresBook ? books.map((book) => book.bookId) : [''];
+      if (endpoint.requiresBook && targets.length === 0) targets.push('');
+      for (const targetBookId of targets) {
+        const snapshot = snapshots.find((item) => item.endpointKey === endpoint.key && item.bookId === targetBookId);
+        const latestJob = jobs.find((job) => {
+          const scope = job.requestScope || {};
+          return String(scope.key || '') === endpoint.key && job.bookId === targetBookId;
+        });
+        const latestSuccessfulJob = jobs.find((job) => {
+          const scope = job.requestScope || {};
+          return job.status === 'SUCCESS'
+            && String(scope.key || '') === endpoint.key
+            && job.bookId === targetBookId;
+        });
+        const evidenceDates = [snapshot?.pulledAt, latestSuccessfulJob?.updatedAt]
+          .filter((value): value is Date => value instanceof Date);
+        const latestEvidenceAt = evidenceDates.length
+          ? new Date(Math.max(...evidenceDates.map((value) => value.getTime())))
+          : null;
+        const ageHours = latestEvidenceAt
+          ? Math.max(0, (now - latestEvidenceAt.getTime()) / 3_600_000)
+          : null;
+        const status: ChanjetBaselineStatus = !snapshot && !latestSuccessfulJob
+          ? 'MISSING'
+          : ageHours !== null && ageHours <= safeFreshnessHours
+            ? 'FRESH'
+            : 'STALE';
+        scopes.push({
+          endpointKey: endpoint.key,
+          label: endpoint.label,
+          bookId: targetBookId,
+          entityType: endpoint.entityType || endpoint.key,
+          status,
+          rowCount: snapshot?.rowCount || 0,
+          entityCount: entities.filter((item) => (
+            item.endpointKey === endpoint.key && item.bookId === targetBookId
+          )).length,
+          latestPulledAt: latestEvidenceAt?.toISOString() || null,
+          ageHours: ageHours === null ? null : Number(ageHours.toFixed(2)),
+          latestJobStatus: latestJob?.status || 'MISSING',
+          latestJobError: latestJob?.errorMessage || null,
+        });
+      }
+    }
+
+    const freshTargets = scopes.filter((scope) => scope.status === 'FRESH').length;
+    const staleTargets = scopes.filter((scope) => scope.status === 'STALE').length;
+    const missingTargets = scopes.filter((scope) => scope.status === 'MISSING').length;
+    const failedRecentJobs = scopes.filter((scope) => scope.latestJobStatus === 'FAIL').length;
+    const decision = accountBookGate.decision === 'HOLD' || missingTargets > 0
+      ? 'HOLD'
+      : staleTargets > 0 || failedRecentJobs > 0
+        ? 'GO_WITH_CONDITIONS'
+        : 'GO';
+    return {
+      generatedAt: new Date().toISOString(),
+      decision,
+      freshnessHours: safeFreshnessHours,
+      summary: {
+        expectedScopes: endpoints.length,
+        expectedTargets: scopes.length,
+        freshTargets,
+        staleTargets,
+        missingTargets,
+        failedRecentJobs,
+        endpointCoverageRate: scopes.length ? Number((((scopes.length - missingTargets) / scopes.length) * 100).toFixed(2)) : 0,
+        nextGate: decision === 'HOLD'
+          ? 'CHANJET_MIRROR_BASELINE_REPAIR'
+          : 'CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW',
+      },
+      accountBookGate,
+      scopes,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        businessTableWrite: false,
+        rule: '基线只读取 ERP 中间层快照、作业审计和账套映射，不调用好业财写接口。',
+      },
     };
   }
 
@@ -3724,13 +4018,124 @@ export class ChanjetIntegrationService {
   }
 
   private detectCounterpartyRole(raw: Record<string, unknown>): ChanjetCounterpartyAdapterRow['roleCandidate'] {
-    const text = JSON.stringify(this.compactChanjetRawEvidence(raw)).toLowerCase();
-    const customer = /customer|cust|客户|应收|receive/.test(text);
-    const supplier = /supplier|vendor|供应商|应付|pay/.test(text);
+    const text = JSON.stringify(this.compactChanjetRawEvidence(raw))
+      .replace(/"(?:isSupplier|isVendor|supplierFlag|vendorFlag)"\s*:\s*(?:false|0|"false"|"0")/gi, '')
+      .replace(/"(?:isCustomer|customerFlag|custFlag)"\s*:\s*(?:false|0|"false"|"0")/gi, '')
+      .toLowerCase();
+    const customerFlag = this.firstChanjetText(raw, [
+      'isCustomer', 'customerFlag', 'custFlag', 'customerType', 'customerId', 'customerCode', 'customerName',
+    ]).toLowerCase();
+    const supplierFlag = this.firstChanjetText(raw, [
+      'isSupplier', 'isVendor', 'supplierFlag', 'vendorFlag', 'supplierType', 'supplierId', 'supplierCode', 'supplierName',
+    ]).toLowerCase();
+    const enabledFlag = (value: string) => !!value && !['false', '0', 'no', '否', 'null', 'undefined'].includes(value);
+    const customer = enabledFlag(customerFlag) || /customer|cust|客户|应收|receive/.test(text);
+    const supplier = enabledFlag(supplierFlag) || /supplier|vendor|供应商|应付|payable/.test(text);
     if (customer && supplier) return 'BOTH';
     if (customer) return 'CUSTOMER';
     if (supplier) return 'SUPPLIER';
     return 'UNKNOWN';
+  }
+
+  private counterpartyMappingTypes(
+    role: ChanjetCounterpartyAdapterRow['roleCandidate'],
+  ): CounterpartyMappingType[] {
+    if (role === 'BOTH') return ['CUSTOMER', 'SUPPLIER'];
+    if (role === 'CUSTOMER' || role === 'SUPPLIER') return [role];
+    return [];
+  }
+
+  private buildCounterpartyMappingCandidate(
+    snapshot: ChanjetEntitySnapshotEntity,
+    mappingType: CounterpartyMappingType | null,
+    roleCandidate: ChanjetCounterpartyAdapterRow['roleCandidate'],
+    companyCode: string,
+    masters: ErpCounterpartyMaster[],
+  ): ChanjetCounterpartyMappingCandidate {
+    const chanjetId = snapshot.externalId || this.firstChanjetText(snapshot.rawData || {}, ['id', 'partyId']) || snapshot.id;
+    const chanjetCode = snapshot.externalCode || this.firstChanjetText(snapshot.rawData || {}, ['code', 'customerCode', 'supplierCode']);
+    const chanjetName = snapshot.externalName || this.firstChanjetText(snapshot.rawData || {}, ['name', 'customerName', 'supplierName', 'partyName']);
+    const evidence: string[] = [];
+    if (!mappingType) evidence.push('无法从好业财样本确定客户/供应商属性，禁止猜测');
+    if (!companyCode) evidence.push('账套尚未形成启用的公司映射');
+    const eligible = mappingType
+      ? masters.filter((master) => (
+        master.mappingType === mappingType
+        && (!companyCode || !master.companyCode || master.companyCode === companyCode)
+      ))
+      : [];
+    const normalizedCode = this.normalizeCounterpartyCode(chanjetCode);
+    const normalizedName = this.normalizeCounterpartyName(chanjetName);
+    const scored = eligible
+      .map((master) => {
+        const codeMatches = !!normalizedCode && this.normalizeCounterpartyCode(master.code) === normalizedCode;
+        const nameMatches = !!normalizedName && this.normalizeCounterpartyName(master.name) === normalizedName;
+        const score = codeMatches ? 100 : nameMatches ? 95 : 0;
+        return {
+          master,
+          score,
+          reason: codeMatches ? '编码精确匹配' : nameMatches ? '规范化名称精确匹配' : '',
+        };
+      })
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score || left.master.code.localeCompare(right.master.code));
+    const topScore = scored[0]?.score || 0;
+    const top = scored.filter((item) => item.score === topScore);
+    const selected = top.length === 1 ? top[0] : null;
+    const matchStatus: ChanjetCounterpartyMappingCandidate['matchStatus'] = !mappingType || top.length === 0
+      ? 'PENDING'
+      : top.length > 1
+        ? 'CONFLICT'
+        : 'MATCHED';
+    if (selected) evidence.push(selected.reason);
+    if (top.length > 1) evidence.push(`发现 ${top.length} 个同分 ERP 主数据，必须人工消歧`);
+    if (mappingType && top.length === 0) evidence.push('ERP 真实主档中无编码或名称精确匹配项');
+    return {
+      candidateKey: `${snapshot.bookId}:${mappingType || 'UNKNOWN'}:${chanjetId}`,
+      snapshotId: snapshot.id,
+      bookId: snapshot.bookId,
+      companyCode,
+      mappingType,
+      roleCandidate,
+      chanjetId,
+      chanjetCode,
+      chanjetName,
+      matchStatus,
+      confidence: selected?.score || 0,
+      erpCode: selected?.master.code || '',
+      erpName: selected?.master.name || '',
+      evidence,
+      alternatives: scored.slice(0, 5).map((item) => ({
+        erpCode: item.master.code,
+        erpName: item.master.name,
+        companyCode: item.master.companyCode,
+        score: item.score,
+        reason: item.reason,
+      })),
+      requiresApproval: true,
+      canAutoApprove: false,
+    };
+  }
+
+  private normalizeCounterpartyCode(value: string): string {
+    return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+  }
+
+  private normalizeCounterpartyName(value: string): string {
+    return String(value || '')
+      .normalize('NFKC')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\p{P}\p{S}]+/gu, '')
+      .replace(/(有限责任公司|股份有限公司|有限公司|公司)$/u, '');
+  }
+
+  private findDuplicateValues(values: string[]): string[] {
+    const counts = new Map<string, number>();
+    for (const value of values.map((item) => String(item || '').trim()).filter(Boolean)) {
+      counts.set(value, (counts.get(value) || 0) + 1);
+    }
+    return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value);
   }
 
   private firstChanjetArray(rawData: Record<string, unknown>, paths: string[]): unknown[] {
@@ -4072,6 +4477,19 @@ export class ChanjetIntegrationService {
       const refreshed = await this.refreshAccountBooks();
       books = refreshed.books.filter((b) => b.enabled).map((b) => b.bookId);
     }
+    if (endpoints.some((endpoint) => endpoint.requiresBook)) {
+      const mappingGate = await this.accountBookMappingGate();
+      if (!mappingGate.canRunBookScopedSync) {
+        throw new Error(`账套-公司映射 Gate HOLD: ${mappingGate.blockingIssues.join('；') || '无可用启用映射'}`);
+      }
+      const allowedBooks = new Set(
+        mappingGate.mappings
+          .filter((mapping) => mapping.syncEnabled && mapping.status === 'VALID')
+          .map((mapping) => mapping.bookId),
+      );
+      const deniedBooks = books.filter((candidate) => !allowedBooks.has(candidate));
+      if (deniedBooks.length) throw new Error(`账套未通过一对一映射 Gate: ${deniedBooks.join(', ')}`);
+    }
 
     const results: Array<{
       key: string;
@@ -4109,7 +4527,7 @@ export class ChanjetIntegrationService {
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
           const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp);
           const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp);
-          if (ep.mappingType) {
+          if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
             await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
           }
           await this.finishJob(job, 'SUCCESS', {
@@ -4137,6 +4555,9 @@ export class ChanjetIntegrationService {
       }
     }
 
+    if (endpoints.some((endpoint) => endpoint.key === 'CUSTOMER_SUPPLIER')) {
+      await this.generateCounterpartyMappingCandidates('mirror-sync');
+    }
     const fieldGapSummary = await this.analyzeFieldGaps();
     return { requestedScope: requested, books, results, fieldGapSummary };
   }
@@ -4300,6 +4721,216 @@ export class ChanjetIntegrationService {
     });
   }
 
+  async counterpartyMappingCandidates(): Promise<ChanjetCounterpartyCandidateOverview> {
+    const [snapshots, bookMaps, customerRows, supplierRows, approvedMappings] = await Promise.all([
+      this.entitySnapshotRepo.find({
+        where: { entityType: 'CUSTOMER_SUPPLIER' },
+        order: { updatedAt: 'DESC' },
+        take: 5000,
+      }),
+      this.bookCompanyMapRepo.find({ where: { syncEnabled: true } }),
+      this.ds.query(
+        `SELECT customer_no AS code, customer_name AS name, company_code, status
+           FROM sal_customers`,
+      ).catch((error) => {
+        this.log.warn(`Chanjet customer mapping candidates unavailable: ${(error as Error).message}`);
+        return [];
+      }),
+      this.ds.query(
+        `SELECT supplier_code AS code, supplier_name AS name,
+                COALESCE(owner_company_code, '') AS company_code, status
+           FROM prc2_suppliers`,
+      ).catch((error) => {
+        this.log.warn(`Chanjet supplier mapping candidates unavailable: ${(error as Error).message}`);
+        return [];
+      }),
+      this.mappingRepo.find({
+        where: { mappingType: In(['CUSTOMER', 'SUPPLIER']), reviewStatus: 'APPROVED' },
+        take: 10000,
+      }),
+    ]);
+    const companyByBook = new Map(bookMaps.map((mapping) => [mapping.bookid, mapping.companyCode]));
+    const masters: ErpCounterpartyMaster[] = [
+      ...(customerRows as Array<Record<string, unknown>>).map((row) => ({
+        mappingType: 'CUSTOMER' as const,
+        code: String(row.code || ''),
+        name: String(row.name || ''),
+        companyCode: String(row.company_code || ''),
+        status: String(row.status || ''),
+      })),
+      ...(supplierRows as Array<Record<string, unknown>>).map((row) => ({
+        mappingType: 'SUPPLIER' as const,
+        code: String(row.code || ''),
+        name: String(row.name || ''),
+        companyCode: String(row.company_code || ''),
+        status: String(row.status || ''),
+      })),
+    ];
+    const generatedCandidates = snapshots.flatMap((snapshot) => {
+      const role = this.detectCounterpartyRole(snapshot.rawData || {});
+      const mappingTypes = this.counterpartyMappingTypes(role);
+      if (!mappingTypes.length) {
+        return [this.buildCounterpartyMappingCandidate(snapshot, null, role, companyByBook.get(snapshot.bookId) || '', masters)];
+      }
+      return mappingTypes.map((mappingType) => (
+        this.buildCounterpartyMappingCandidate(snapshot, mappingType, role, companyByBook.get(snapshot.bookId) || '', masters)
+      ));
+    });
+    const candidates = generatedCandidates.map((candidate) => {
+      if (!candidate.mappingType) return candidate;
+      const approvedByExternal = approvedMappings.find((mapping) => (
+        mapping.mappingType === candidate.mappingType
+        && mapping.bookId === candidate.bookId
+        && mapping.chanjetId === candidate.chanjetId
+      ));
+      if (approvedByExternal) {
+        return {
+          ...candidate,
+          matchStatus: 'MATCHED' as const,
+          confidence: Number(approvedByExternal.confidence || 100),
+          erpCode: approvedByExternal.erpCode,
+          erpName: approvedByExternal.erpName,
+          evidence: [...candidate.evidence, '采用当前账套内已经人工批准的映射'],
+        };
+      }
+      const approvedByErp = candidate.erpCode
+        ? approvedMappings.find((mapping) => (
+          mapping.mappingType === candidate.mappingType
+          && mapping.bookId === candidate.bookId
+          && mapping.erpCode === candidate.erpCode
+          && mapping.chanjetId !== candidate.chanjetId
+        ))
+        : null;
+      if (candidate.matchStatus === 'MATCHED' && approvedByErp) {
+        return {
+          ...candidate,
+          matchStatus: 'CONFLICT' as const,
+          evidence: [
+            ...candidate.evidence,
+            `ERP 编码 ${candidate.erpCode} 已批准映射到另一好业财 ID ${approvedByErp.chanjetId}`,
+          ],
+        };
+      }
+      return candidate;
+    });
+    const matched = candidates.filter((candidate) => candidate.matchStatus === 'MATCHED').length;
+    const conflicts = candidates.filter((candidate) => candidate.matchStatus === 'CONFLICT').length;
+    const pending = candidates.length - matched - conflicts;
+    const unknownRole = candidates.filter((candidate) => candidate.roleCandidate === 'UNKNOWN').length;
+    const approvedCoverage = candidates.filter((candidate) => (
+      !!candidate.mappingType
+      && approvedMappings.some((mapping) => (
+        mapping.mappingType === candidate.mappingType
+        && mapping.bookId === candidate.bookId
+        && mapping.chanjetId === candidate.chanjetId
+        && mapping.erpCode === candidate.erpCode
+      ))
+    )).length;
+    const decision = conflicts > 0 || unknownRole > 0
+      ? 'HOLD'
+      : pending > 0 || approvedCoverage < matched
+        ? 'GO_WITH_CONDITIONS'
+        : 'GO';
+    return {
+      generatedAt: new Date().toISOString(),
+      decision,
+      summary: {
+        sourceRows: snapshots.length,
+        candidates: candidates.length,
+        matched,
+        pending,
+        conflicts,
+        unknownRole,
+        approvedMappings: approvedCoverage,
+        nextGate: matched > approvedCoverage
+          ? 'CHANJET_COUNTERPARTY_MAPPING_APPROVAL'
+          : 'CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW',
+      },
+      candidates,
+      guardrails: {
+        exactCodeMatchScore: 100,
+        exactNormalizedNameMatchScore: 95,
+        fuzzyAutoMatch: false,
+        autoApprove: false,
+        chanjetWrite: false,
+        erpBusinessTableWrite: false,
+        rule: '候选只按真实 sal_customers / prc2_suppliers 生成；写入中间层后仍为 PENDING，必须逐条批准。',
+      },
+    };
+  }
+
+  async generateCounterpartyMappingCandidates(reviewedBy: string): Promise<{
+    preview: ChanjetCounterpartyCandidateOverview;
+    created: number;
+    updated: number;
+    skippedApproved: number;
+    skippedUnmatched: number;
+  }> {
+    const preview = await this.counterpartyMappingCandidates();
+    const existingMappings = await this.mappingRepo.find({
+      where: { mappingType: In(['CUSTOMER', 'SUPPLIER']) },
+      take: 10000,
+    });
+    let created = 0;
+    let updated = 0;
+    let skippedApproved = 0;
+    let skippedUnmatched = 0;
+
+    for (const candidate of preview.candidates) {
+      if (!candidate.mappingType || candidate.matchStatus !== 'MATCHED' || !candidate.erpCode) {
+        skippedUnmatched += 1;
+        continue;
+      }
+      const existing = existingMappings.find((mapping) => (
+        mapping.mappingType === candidate.mappingType
+        && mapping.bookId === candidate.bookId
+        && mapping.chanjetId === candidate.chanjetId
+      ));
+      if (existing?.reviewStatus === 'APPROVED') {
+        skippedApproved += 1;
+        continue;
+      }
+      const rawData = {
+        source: 'counterparty_mapping_candidate_generator',
+        generatedBy: reviewedBy || 'system',
+        generatedAt: new Date().toISOString(),
+        evidence: candidate.evidence,
+        alternatives: candidate.alternatives,
+        sourceSnapshotId: candidate.snapshotId,
+      };
+      if (existing) {
+        existing.erpCode = candidate.erpCode;
+        existing.erpName = candidate.erpName;
+        existing.chanjetCode = candidate.chanjetCode;
+        existing.chanjetName = candidate.chanjetName;
+        existing.matchStatus = 'MATCHED';
+        existing.confidence = candidate.confidence.toFixed(2);
+        existing.reviewStatus = 'PENDING';
+        existing.reviewedBy = null;
+        existing.reviewedAt = null;
+        existing.rawData = rawData;
+        await this.mappingRepo.save(existing);
+        updated += 1;
+      } else {
+        await this.upsertMasterMapping({
+          mappingType: candidate.mappingType,
+          bookId: candidate.bookId,
+          erpCode: candidate.erpCode,
+          erpName: candidate.erpName,
+          chanjetId: candidate.chanjetId,
+          chanjetCode: candidate.chanjetCode,
+          chanjetName: candidate.chanjetName,
+          matchStatus: 'MATCHED',
+          confidence: candidate.confidence.toFixed(2),
+          reviewStatus: 'PENDING',
+          rawData,
+        });
+        created += 1;
+      }
+    }
+    return { preview, created, updated, skippedApproved, skippedUnmatched };
+  }
+
   async updateMappingReview(
     id: string,
     reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED',
@@ -4307,6 +4938,35 @@ export class ChanjetIntegrationService {
   ): Promise<ChanjetMasterMappingEntity> {
     const mapping = await this.mappingRepo.findOneBy({ id });
     if (!mapping) throw new Error(`mapping ${id} 不存在`);
+    if (reviewStatus === 'APPROVED') {
+      if (!mapping.erpCode || !mapping.chanjetId) {
+        throw new Error('映射缺少 ERP 编码或好业财 ID，禁止批准');
+      }
+      if (!['MATCHED', 'MANUAL'].includes(mapping.matchStatus)) {
+        throw new Error(`映射状态 ${mapping.matchStatus} 不可批准，必须先达到 MATCHED 或 MANUAL`);
+      }
+      if (mapping.bookId) {
+        const bookMap = await this.bookCompanyMapRepo.findOneBy({ bookid: mapping.bookId });
+        if (!bookMap?.syncEnabled) throw new Error(`账套 ${mapping.bookId} 未通过启用的一对一公司映射 Gate`);
+      }
+      const approved = await this.mappingRepo.find({
+        where: { mappingType: mapping.mappingType, reviewStatus: 'APPROVED' },
+        take: 10000,
+      });
+      const conflict = approved.find((item) => (
+        item.id !== mapping.id
+        && item.bookId === mapping.bookId
+        && (
+          (item.chanjetId === mapping.chanjetId && item.erpCode !== mapping.erpCode)
+          || (item.erpCode === mapping.erpCode && item.chanjetId !== mapping.chanjetId)
+        )
+      ));
+      if (conflict) {
+        throw new Error(
+          `一对一映射冲突: ${mapping.mappingType} ${mapping.erpCode} ↔ ${mapping.chanjetId} 与已批准映射 ${conflict.id} 冲突`,
+        );
+      }
+    }
     mapping.reviewStatus = reviewStatus;
     mapping.reviewedBy = reviewedBy || null;
     mapping.reviewedAt = new Date();
@@ -4400,7 +5060,7 @@ export class ChanjetIntegrationService {
             body: ep.body,
           });
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
-          if (ep.mappingType) {
+          if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
             await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
           }
           await this.finishJob(job, 'SUCCESS', {

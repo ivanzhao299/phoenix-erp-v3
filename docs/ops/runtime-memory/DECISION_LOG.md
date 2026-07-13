@@ -1716,3 +1716,13 @@ Guardrails remain active:
 - Finance-card primary source switch: false.
 
 Next decision point: `CHANJET_P4_VOUCHER_DRAFT_PREP`.
+
+## 2026-07-13 — Chanjet P0 Baseline / Counterparty / Book Mapping Gate
+
+Decision: `GO_WITH_CONDITIONS`.
+
+- A 16-scope freshness baseline and account-book/company one-to-one Gate now run before book-scoped mirror sync.
+- Customer/supplier candidates now target real ERP masters (`sal_customers`, `prc2_suppliers`) using exact code or normalized-name equality only.
+- Candidate generation writes only ERP middle-layer `PENDING` mappings and never auto-approves.
+- Approval rejects empty, unstable, unmapped-book, or one-to-one-conflicting mappings.
+- Chanjet write, modify, delete, voucher push, and ERP business-table overwrite remain disabled.

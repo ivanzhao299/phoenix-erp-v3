@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -60,6 +60,29 @@ interface Mapping {
   matchStatus: string;
   confidence: string;
   reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+interface AccountBookMappingGate {
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  canRunBookScopedSync: boolean;
+  summary: { cachedBooks: number; enabledBooks: number; configuredMappings: number; enabledMappings: number; validMappings: number; blockingIssues: number; warnings: number };
+  mappings: Array<{ bookId: string; bookName: string; companyCode: string; companyName: string; syncEnabled: boolean; status: 'VALID' | 'WARNING' | 'HOLD'; issues: string[] }>;
+  blockingIssues: string[];
+  warnings: string[];
+}
+
+interface MirrorBaselineReadiness {
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  freshnessHours: number;
+  summary: { expectedScopes: number; expectedTargets: number; freshTargets: number; staleTargets: number; missingTargets: number; failedRecentJobs: number; endpointCoverageRate: number; nextGate: string };
+  accountBookGate: AccountBookMappingGate;
+  scopes: Array<{ endpointKey: string; label: string; bookId: string; entityType: string; status: 'FRESH' | 'STALE' | 'MISSING'; rowCount: number; entityCount: number; latestPulledAt: string | null; ageHours: number | null; latestJobStatus: string; latestJobError: string | null }>;
+}
+
+interface CounterpartyCandidateOverview {
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: { sourceRows: number; candidates: number; matched: number; pending: number; conflicts: number; unknownRole: number; approvedMappings: number; nextGate: string };
+  candidates: Array<{ candidateKey: string; bookId: string; companyCode: string; mappingType: 'CUSTOMER' | 'SUPPLIER' | null; roleCandidate: string; chanjetId: string; chanjetCode: string; chanjetName: string; matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT'; confidence: number; erpCode: string; erpName: string; evidence: string[]; requiresApproval: true }>;
 }
 
 interface FieldCatalog {
@@ -578,9 +601,9 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 }
 
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
-  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY'].includes(status)) return 'green';
-  if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'BLOCKED_MAPPING'].includes(status)) return 'amber';
+  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY', 'FRESH', 'VALID', 'GO'].includes(status)) return 'green';
+  if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL', 'CONFLICT'].includes(status)) return 'red';
+  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'STALE', 'BLOCKED_MAPPING', 'GO_WITH_CONDITIONS'].includes(status)) return 'amber';
   return 'muted';
 }
 
@@ -608,7 +631,7 @@ function pct(value: number | null | undefined) {
 export default function ChanjetIntegrationPage() {
   const { t } = useLanguage();
   const { canView, canEdit } = usePermission('MENU_SETTINGS_CHANJET');
-  const [tab, setTab] = useState<TabKey>('adapter');
+  const [tab, setTab] = useState<TabKey>('governance');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -627,6 +650,9 @@ export default function ChanjetIntegrationPage() {
   const [financeReadonlyReports, setFinanceReadonlyReports] = useState<FinanceReadonlyStatementReportOverview | null>(null);
   const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
   const [readonlyFieldAdapters, setReadonlyFieldAdapters] = useState<ReadonlyFieldAdaptersOverview | null>(null);
+  const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
+  const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
+  const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -640,7 +666,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -659,6 +685,9 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; readonlyReport: FinanceReadonlyStatementReportOverview; error?: string }>('/chanjet/integration/subject-balance-readonly-report'),
         request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
         request<{ success: boolean; readonlyFieldAdapters: ReadonlyFieldAdaptersOverview; error?: string }>('/chanjet/integration/readonly-field-adapters'),
+        request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
+        request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
+        request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -679,6 +708,9 @@ export default function ChanjetIntegrationPage() {
       setFinanceReadonlyReports(financeReadonlyReportResp.readonlyReport || null);
       setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
       setReadonlyFieldAdapters(readonlyFieldAdaptersResp.readonlyFieldAdapters || null);
+      setBaselineReadiness(baselineResp.baseline || null);
+      setAccountBookGate(accountBookGateResp.gate || null);
+      setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -824,6 +856,7 @@ export default function ChanjetIntegrationPage() {
 
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 14, flexWrap: 'wrap' }}>
         {[
+          ['governance', '治理 Gate'],
           ['adapter', 'P0 财务适配'],
           ['coverage', '覆盖率看板'],
           ['readonlyAdapters', '只读适配器'],
@@ -856,6 +889,119 @@ export default function ChanjetIntegrationPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'governance' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div>
+              <strong>好业财只读融合治理 Gate</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                检查镜像基线新鲜度、账套与公司唯一映射、客户/供应商候选。任何 HOLD 都会阻止财务权威口径提升。
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Badge tone={statusTone(baselineReadiness?.decision || 'HOLD')}>{baselineReadiness?.decision || '—'}</Badge>
+              <Button
+                variant="outline"
+                disabled={!canEdit || loading}
+                onClick={() => runAction('往来单位候选生成', () => request('/chanjet/integration/counterparty-mapping-candidates/generate', { method: 'POST' }))}
+              >生成待审核候选</Button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>镜像新鲜目标</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{baselineReadiness?.summary?.freshTargets ?? 0}/{baselineReadiness?.summary?.expectedTargets ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>阈值 {baselineReadiness?.freshnessHours ?? 24}h · 覆盖 {baselineReadiness?.summary?.endpointCoverageRate ?? 0}%</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>过期 / 缺失</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{baselineReadiness?.summary?.staleTargets ?? 0}/{baselineReadiness?.summary?.missingTargets ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>最近失败作业 {baselineReadiness?.summary?.failedRecentJobs ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>有效账套映射</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{accountBookGate?.summary?.validMappings ?? 0}/{accountBookGate?.summary?.enabledMappings ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>阻断 {accountBookGate?.summary?.blockingIssues ?? 0} · 警告 {accountBookGate?.summary?.warnings ?? 0}</div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>往来候选匹配</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{counterpartyCandidates?.summary?.matched ?? 0}/{counterpartyCandidates?.summary?.candidates ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>冲突 {counterpartyCandidates?.summary?.conflicts ?? 0} · 未判定 {counterpartyCandidates?.summary?.unknownRole ?? 0}</div>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 14, background: '#f8fafc' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Badge tone="green">好业财写入: 否</Badge>
+              <Badge tone="green">业务表覆盖: 否</Badge>
+              <Badge tone="green">候选自动批准: 否</Badge>
+              <Badge tone="green">模糊自动匹配: 否</Badge>
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>下一 Gate: {baselineReadiness?.summary?.nextGate || '—'}</div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(520px,1fr))', gap: 14 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>账套 ↔ 公司映射</div>
+              <table style={{ ...tableStyle, minWidth: 620 }}>
+                <thead><tr>{['账套', 'ERP 公司', '状态', '问题'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(accountBookGate?.mappings || []).map((item) => (
+                    <tr key={item.bookId}>
+                      <td style={cellStyle}><strong>{item.bookName || item.bookId}</strong><div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.bookId}</div></td>
+                      <td style={cellStyle}>{item.companyName || item.companyCode}<div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.companyCode}</div></td>
+                      <td style={cellStyle}><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
+                      <td style={cellStyle}>{item.issues.join(' / ') || '—'}</td>
+                    </tr>
+                  ))}
+                  {!accountBookGate?.mappings?.length && <tr><td style={cellStyle} colSpan={4}>暂无账套映射。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>往来单位候选（前 30 条）</div>
+              <table style={{ ...tableStyle, minWidth: 720 }}>
+                <thead><tr>{['好业财往来单位', '角色', 'ERP 候选', '状态', '置信度'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(counterpartyCandidates?.candidates || []).slice(0, 30).map((item) => (
+                    <tr key={item.candidateKey}>
+                      <td style={cellStyle}><strong>{item.chanjetName || item.chanjetCode}</strong><div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.chanjetCode || item.chanjetId}</div></td>
+                      <td style={cellStyle}>{item.mappingType || item.roleCandidate}</td>
+                      <td style={cellStyle}>{item.erpName || '待匹配'}<div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.erpCode || item.evidence.join(' / ')}</div></td>
+                      <td style={cellStyle}><Badge tone={statusTone(item.matchStatus)}>{item.matchStatus}</Badge></td>
+                      <td style={cellStyle}>{item.confidence}%</td>
+                    </tr>
+                  ))}
+                  {!counterpartyCandidates?.candidates?.length && <tr><td style={cellStyle} colSpan={5}>暂无往来单位镜像候选。</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto', marginTop: 14 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>16 scope 镜像基线</div>
+            <table style={{ ...tableStyle, minWidth: 920 }}>
+              <thead><tr>{['Scope', '账套', '新鲜度', '快照/实体', '最近拉取', '作业'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+              <tbody>
+                {(baselineReadiness?.scopes || []).map((item) => (
+                  <tr key={`${item.endpointKey}:${item.bookId}`}>
+                    <td style={cellStyle}><strong>{item.label}</strong><div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.endpointKey}</div></td>
+                    <td style={cellStyle}>{item.bookId || '企业级'}</td>
+                    <td style={cellStyle}><Badge tone={item.status === 'FRESH' ? 'green' : item.status === 'MISSING' ? 'red' : 'amber'}>{item.status}</Badge><div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{item.ageHours === null ? '—' : `${item.ageHours}h`}</div></td>
+                    <td style={cellStyle}>{item.rowCount} / {item.entityCount}</td>
+                    <td style={cellStyle}>{fmtDate(item.latestPulledAt)}</td>
+                    <td style={cellStyle}><Badge tone={statusTone(item.latestJobStatus)}>{item.latestJobStatus}</Badge>{item.latestJobError && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{item.latestJobError}</div>}</td>
+                  </tr>
+                ))}
+                {!baselineReadiness?.scopes?.length && <tr><td style={cellStyle} colSpan={6}>暂无镜像基线数据。</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {tab === 'adapter' && (
         <section style={cardStyle}>
