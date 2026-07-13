@@ -33,6 +33,7 @@ jobs:
           node --check scripts/ops/role-business-smoke.mjs
           node --check scripts/ops/chanjet-readonly-mirror-sync.mjs
           node --check scripts/ops/chanjet-readonly-field-adapter-audit.mjs
+          node --check scripts/ops/chanjet-p0-production-readonly-gate-audit.mjs
           node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
 
       - name: Document smoke entrypoints
@@ -184,6 +185,34 @@ jobs:
               --coverage-timeout-ms=120000 \
               --output-dir=docs/ops/runs
 
+            PHOENIX_ADMIN_TOKEN="$TOKEN" node --input-type=module - <<'NODE'
+            const response = await fetch('https://erp.eggslao.com/api/chanjet/integration/counterparty-mapping-candidates/generate', {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${process.env.PHOENIX_ADMIN_TOKEN}`,
+                'Content-Type': 'application/json',
+              },
+              body: '{}',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload?.success !== true || payload?.writeChanjet !== false || payload?.autoApprove !== false) {
+              console.error(`COUNTERPARTY_CANDIDATE_GENERATION_FAILED status=${response.status}`);
+              process.exit(6);
+            }
+            console.log(JSON.stringify({
+              success: true,
+              writeChanjet: payload.writeChanjet,
+              writeErpBusinessTables: payload.writeErpBusinessTables,
+              autoApprove: payload.autoApprove,
+              generated: payload.generated ?? payload.upserted ?? payload.count ?? null,
+            }));
+            NODE
+
+            PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-p0-production-readonly-gate-audit.mjs \
+              --api-base=https://erp.eggslao.com/api \
+              --output-dir=docs/ops/runs
+
       - name: Pull Chanjet readonly sync artifacts from production
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
         env:
@@ -227,8 +256,16 @@ jobs:
           ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.md\"" \
             > docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json\"" \
+            > docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md\"" \
+            > docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md
           test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
           test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
+          test -s docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json
+          test -s docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md
 
       - name: Run Chanjet readonly adapter production audit
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-adapter-production'

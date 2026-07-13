@@ -17,9 +17,41 @@ const user = process.env.DEPLOY_USER;
 const port = process.env.DEPLOY_PORT || '22';
 const deployPath = process.env.DEPLOY_PATH || '~/phoenix-erp';
 const expiresIn = process.env.PHOENIX_CI_TOKEN_EXPIRES_IN || '20m';
+const maxAttempts = Math.max(1, Number(process.env.PHOENIX_SSH_MAX_ATTEMPTS || 3));
 
 const tempDir = mkdtempSync(join(tmpdir(), 'phoenix-ci-ssh-'));
 const keyPath = join(tempDir, 'deploy_key');
+
+const tokenScript = `
+const jwt = require('jsonwebtoken');
+const secret = process.env.JWT_SECRET;
+if (!secret || secret === 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD') {
+  console.error('JWT_SECRET_NOT_AVAILABLE');
+  process.exit(4);
+}
+const adminId = Number(process.env.PHOENIX_CI_ADMIN_ID || 0);
+const permsVersion = Number(process.env.PHOENIX_CI_PERMS_VERSION || 1);
+const expiresIn = process.env.PHOENIX_CI_TOKEN_EXPIRES_IN || '20m';
+if (!adminId) {
+  console.error('ADMIN_ID_NOT_AVAILABLE');
+  process.exit(5);
+}
+const payload = {
+  userId: adminId,
+  sub: adminId,
+  username: 'admin',
+  realNameZh: 'CI Chanjet Readonly Sync',
+  role: 'ROLE_ADMIN',
+  roleNameZh: '集团超级管理员',
+  storeCode: 'ALL',
+  store_code: 'ALL',
+  locale: 'zh-CN',
+  roles: ['ROLE_ADMIN'],
+  permissions: ['*'],
+  perms_version: permsVersion,
+};
+process.stdout.write(jwt.sign(payload, secret, { expiresIn }));
+`;
 
 const remoteScript = [
   'set -euo pipefail',
@@ -37,69 +69,63 @@ const remoteScript = [
   '  -e PHOENIX_CI_ADMIN_ID="$ADMIN_ID" \\',
   '  -e PHOENIX_CI_PERMS_VERSION="$PERMS_VERSION" \\',
   '  -e PHOENIX_CI_TOKEN_EXPIRES_IN="${PHOENIX_CI_TOKEN_EXPIRES_IN:-20m}" \\',
-  '  api node - <<\'NODE\'',
-  'const jwt = require("jsonwebtoken");',
-  'const secret = process.env.JWT_SECRET;',
-  'if (!secret || secret === "DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD") {',
-  '  console.error("JWT_SECRET_NOT_AVAILABLE");',
-  '  process.exit(4);',
-  '}',
-  'const adminId = Number(process.env.PHOENIX_CI_ADMIN_ID || 0);',
-  'const permsVersion = Number(process.env.PHOENIX_CI_PERMS_VERSION || 1);',
-  'const expiresIn = process.env.PHOENIX_CI_TOKEN_EXPIRES_IN || "20m";',
-  'if (!adminId) {',
-  '  console.error("ADMIN_ID_NOT_AVAILABLE");',
-  '  process.exit(5);',
-  '}',
-  'const payload = {',
-  '  userId: adminId,',
-  '  sub: adminId,',
-  '  username: "admin",',
-  '  realNameZh: "CI Chanjet Readonly Sync",',
-  '  role: "ROLE_ADMIN",',
-  '  roleNameZh: "集团超级管理员",',
-  '  storeCode: "ALL",',
-  '  store_code: "ALL",',
-  '  locale: "zh-CN",',
-  '  roles: ["ROLE_ADMIN"],',
-  '  permissions: ["*"],',
-  '  perms_version: permsVersion,',
-  '};',
-  'process.stdout.write(jwt.sign(payload, secret, { expiresIn }));',
-  'NODE',
+  `  api node -e ${JSON.stringify(tokenScript)} < /dev/null`,
 ].join('\n');
+
+const encodedRemoteScript = Buffer.from(remoteScript, 'utf8').toString('base64');
+const remoteDeployPath = deployPath.startsWith('~/')
+  ? `"$HOME"/${JSON.stringify(deployPath.slice(2))}`
+  : JSON.stringify(deployPath);
+const remoteCommand = [
+  `cd ${remoteDeployPath}`,
+  `printf '%s' ${JSON.stringify(encodedRemoteScript)} | base64 --decode | PHOENIX_CI_TOKEN_EXPIRES_IN=${JSON.stringify(expiresIn)} bash`,
+].join(' && ');
 
 try {
   writeFileSync(keyPath, `${process.env.DEPLOY_SSH_KEY.trim()}\n`, { mode: 0o600 });
-  const ssh = spawnSync('ssh', [
-    '-i', keyPath,
-    '-p', String(port),
-    '-o', 'StrictHostKeyChecking=no',
-    '-o', 'UserKnownHostsFile=/dev/null',
-    '-o', 'ConnectTimeout=30',
-    `${user}@${host}`,
-    `cd ${deployPath} && PHOENIX_CI_TOKEN_EXPIRES_IN=${JSON.stringify(expiresIn)} bash -s`,
-  ], {
-    input: remoteScript,
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024,
-  });
+  let token = '';
+  let lastError = '';
+  let lastStdout = '';
+  let lastStatus = null;
 
-  if (ssh.status !== 0) {
-    console.error((ssh.stderr || ssh.stdout || 'SSH token mint failed').trim());
-    process.exit(ssh.status || 1);
+  for (let attempt = 1; attempt <= maxAttempts && !token; attempt += 1) {
+    const ssh = spawnSync('ssh', [
+      '-S', 'none',
+      '-i', keyPath,
+      '-p', String(port),
+      '-o', 'ControlMaster=no',
+      '-o', 'ControlPath=none',
+      '-o', 'ConnectionAttempts=1',
+      '-o', 'ServerAliveInterval=10',
+      '-o', 'ServerAliveCountMax=3',
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'ConnectTimeout=30',
+      `${user}@${host}`,
+      remoteCommand,
+    ], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+    });
+
+    // docker compose/SSH may emit harmless informational text around stdout.
+    const tokens = (ssh.stdout || '').match(/eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g) || [];
+    token = tokens.at(-1) || '';
+    lastStdout = ssh.stdout || '';
+    lastStatus = ssh.status;
+    lastError = (ssh.stderr || ssh.stdout || `SSH token mint attempt ${attempt} returned no token`).trim();
+
+    if (!token && attempt < maxAttempts) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 1000);
+    }
   }
 
-  // docker compose/SSH may emit harmless informational text around stdout.
-  // Extract the final JWT instead of treating any wrapper output as a failed mint.
-  const tokens = (ssh.stdout || '').match(/eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g) || [];
-  const token = tokens.at(-1) || '';
   if (!token) {
-    const sanitized = (ssh.stdout || '')
+    const sanitized = `${lastError}\nstdout=${lastStdout}`
       .replace(/[A-Za-z0-9_-]{20,}/g, '[REDACTED]')
       .replace(/[^\x20-\x7E\n\r\t]/g, '?')
       .slice(0, 500);
-    console.error(`Remote command did not return a JWT token (stdout bytes=${Buffer.byteLength(ssh.stdout || '')}, sanitized=${JSON.stringify(sanitized)}).`);
+    console.error(`Remote command did not return a JWT token after ${maxAttempts} attempt(s) (status=${lastStatus}, sanitized=${JSON.stringify(sanitized)}).`);
     process.exit(6);
   }
   process.stdout.write(token);
