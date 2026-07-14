@@ -46,16 +46,27 @@ export class ChanjetReadonlySyncScheduler {
       this.running = true;
       const now = new Date();
       const period = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const result = await this.integration.syncReadOnlyMirrorResilient([], undefined, period, 3);
+      const result = await this.integration.runReadonlyAlignmentCycle(
+        'system:chanjet-readonly-sync',
+        [],
+        undefined,
+        period,
+        3,
+      );
       if (result.decision !== 'GO') {
-        throw new Error(`unresolved readonly sync failures: ${result.unresolvedFailures.map((item) => `${item.key}/${item.bookId || 'global'}=${item.error}`).join('; ')}`);
+        if (result.decision === 'HOLD') {
+          throw new Error(
+            result.mirror.unresolvedFailures.length
+              ? `unresolved readonly sync failures: ${result.mirror.unresolvedFailures.map((item) => `${item.key}/${item.bookId || 'global'}=${item.error}`).join('; ')}`
+              : `readonly alignment cycle HOLD at ${result.stoppedAt || 'PRODUCTION_READINESS'}`,
+          );
+        }
       }
-      const mapping = await this.integration.confirmDeterministicCounterpartyMappings('system:chanjet-readonly-sync');
       await this.cronMon.ok(
         JOB_NAME,
-        `targets=${result.results.length}; attempts=${result.attempts}; exactApproved=${mapping.approved}`,
+        `decision=${result.decision}; targets=${result.mirror.results.length}; attempts=${result.mirror.attempts}; exactApproved=${result.exactMappings?.approved || 0}; reconciliationCreated=${result.reconciliation?.created || 0}; reconciliationResolved=${result.reconciliation?.autoResolved || 0}`,
       );
-      this.log.log(`${JOB_NAME} completed targets=${result.results.length} attempts=${result.attempts} exactApproved=${mapping.approved}`);
+      this.log.log(`${JOB_NAME} completed decision=${result.decision} targets=${result.mirror.results.length} attempts=${result.mirror.attempts} exactApproved=${result.exactMappings?.approved || 0}`);
     } catch (error) {
       const message = (error as Error).message;
       this.log.error(`${JOB_NAME} failed: ${message}`);

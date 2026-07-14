@@ -4882,6 +4882,69 @@ export class ChanjetIntegrationService {
     };
   }
 
+  /**
+   * Runs the complete safe Chanjet read-only lifecycle.
+   *
+   * The sequence deliberately stops after a failed mirror sync. Every write is
+   * limited to ERP integration/audit tables; no Chanjet mutation or ERP
+   * business-table overwrite is performed here.
+   */
+  async runReadonlyAlignmentCycle(
+    requestedBy: string,
+    scope: string[] = [],
+    bookId?: string,
+    period?: string,
+    maxAttempts = 3,
+  ): Promise<{
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    requestedBy: string;
+    startedAt: string;
+    completedAt: string;
+    writeChanjet: false;
+    writeErpBusinessTables: false;
+    mirror: Awaited<ReturnType<ChanjetIntegrationService['syncReadOnlyMirrorResilient']>>;
+    exactMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicCounterpartyMappings']>> | null;
+    reconciliation: Awaited<ReturnType<ChanjetIntegrationService['runMappingReconciliation']>> | null;
+    readiness: ChanjetProductionReadiness | null;
+    stoppedAt: string | null;
+  }> {
+    const startedAt = new Date().toISOString();
+    const actor = String(requestedBy || 'system:chanjet-readonly-cycle').slice(0, 128);
+    const mirror = await this.syncReadOnlyMirrorResilient(scope, bookId, period, maxAttempts);
+    if (mirror.decision === 'HOLD') {
+      return {
+        decision: 'HOLD',
+        requestedBy: actor,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        mirror,
+        exactMappings: null,
+        reconciliation: null,
+        readiness: null,
+        stoppedAt: 'READONLY_MIRROR',
+      };
+    }
+
+    const exactMappings = await this.confirmDeterministicCounterpartyMappings(actor);
+    const reconciliation = await this.runMappingReconciliation();
+    const readiness = await this.productionReadinessOverview();
+    return {
+      decision: readiness.decision,
+      requestedBy: actor,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      mirror,
+      exactMappings,
+      reconciliation,
+      readiness,
+      stoppedAt: null,
+    };
+  }
+
   async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
     const fields = await this.fieldCatalogRepo.find({ take: 5000 });
     let upserted = 0;
@@ -4980,6 +5043,8 @@ export class ChanjetIntegrationService {
   async runMappingReconciliation(): Promise<{
     scanned: number;
     created: number;
+    unchanged: number;
+    autoResolved: number;
     statusCounts: Record<string, number>;
     results: ChanjetReconciliationResultEntity[];
   }> {
@@ -4989,11 +5054,40 @@ export class ChanjetIntegrationService {
     });
 
     try {
-      const mappings = await this.mappingRepo.find({ take: 2000, order: { mappingType: 'ASC', createdAt: 'DESC' } });
+      const [mappings, openResults] = await Promise.all([
+        this.mappingRepo.find({ take: 2000, order: { mappingType: 'ASC', createdAt: 'DESC' } }),
+        this.reconciliationRepo.find({
+          where: { reconciliationType: 'MASTER_MAPPING', resolved: false },
+          order: { createdAt: 'DESC' },
+          take: 5000,
+        }),
+      ]);
       const results: ChanjetReconciliationResultEntity[] = [];
+      const activeIssueKeys = new Set<string>();
+      let unchanged = 0;
       for (const mapping of mappings) {
         const issue = this.mappingIssue(mapping);
         if (!issue) continue;
+        const subjectKey = mapping.erpCode || mapping.chanjetId || mapping.chanjetCode || String(mapping.id);
+        const issueKey = this.reconciliationIssueKey(
+          mapping.mappingType,
+          mapping.bookId ?? '',
+          subjectKey,
+          issue.status,
+          issue.diffSummary,
+        );
+        activeIssueKeys.add(issueKey);
+        const existing = openResults.find((result) => this.reconciliationIssueKey(
+          result.subjectType,
+          result.bookId,
+          result.subjectKey,
+          result.status,
+          result.diffSummary,
+        ) === issueKey);
+        if (existing) {
+          unchanged += 1;
+          continue;
+        }
         const result = this.reconciliationRepo.create({
           reconciliationType: 'MASTER_MAPPING',
           companyCode: '',
@@ -5002,7 +5096,7 @@ export class ChanjetIntegrationService {
           status: issue.status,
           severity: issue.severity,
           subjectType: mapping.mappingType,
-          subjectKey: mapping.erpCode || mapping.chanjetId || mapping.chanjetCode || String(mapping.id),
+          subjectKey,
           subjectName: mapping.erpName || mapping.chanjetName || '',
           erpValue: {
             code: mapping.erpCode,
@@ -5021,16 +5115,51 @@ export class ChanjetIntegrationService {
         });
         results.push(await this.reconciliationRepo.save(result));
       }
+
+      let autoResolved = 0;
+      for (const openResult of openResults) {
+        const key = this.reconciliationIssueKey(
+          openResult.subjectType,
+          openResult.bookId,
+          openResult.subjectKey,
+          openResult.status,
+          openResult.diffSummary,
+        );
+        if (activeIssueKeys.has(key)) continue;
+        openResult.resolved = true;
+        openResult.resolvedBy = 'system:chanjet-reconciliation';
+        openResult.resolvedAt = new Date();
+        await this.reconciliationRepo.save(openResult);
+        autoResolved += 1;
+      }
       const statusCounts = results.reduce<Record<string, number>>((acc, r) => {
         acc[r.status] = (acc[r.status] || 0) + 1;
         return acc;
       }, {});
-      await this.finishJob(job, 'SUCCESS', { scanned: mappings.length, created: results.length, statusCounts });
-      return { scanned: mappings.length, created: results.length, statusCounts, results };
+      await this.finishJob(job, 'SUCCESS', {
+        scanned: mappings.length,
+        created: results.length,
+        unchanged,
+        autoResolved,
+        statusCounts,
+      });
+      return { scanned: mappings.length, created: results.length, unchanged, autoResolved, statusCounts, results };
     } catch (err) {
       await this.finishJob(job, 'FAIL', {}, (err as Error).message);
       throw err;
     }
+  }
+
+  private reconciliationIssueKey(
+    subjectType: string,
+    bookId: string,
+    subjectKey: string,
+    status: string,
+    diffSummary: string,
+  ): string {
+    return [subjectType, bookId, subjectKey, status, diffSummary]
+      .map((value) => String(value || '').trim())
+      .join('|');
   }
 
   async listMasterMappings(mappingType?: string): Promise<ChanjetMasterMappingEntity[]> {

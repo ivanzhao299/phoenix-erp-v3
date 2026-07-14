@@ -612,7 +612,7 @@ export class ChanjetCallbackController {
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async syncIntegrationMirror(
     @Body() body: { scope?: string[]; bookId?: string; period?: string },
-    @Req() req: any,
+    @Req() req: { user?: { username?: string; userId?: string } },
   ) {
     this.log.warn(`manual chanjet readonly mirror sync triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'} scope=${(body.scope || []).join(',') || 'default'} book=${body.bookId || 'enabled-books'}`);
     try {
@@ -642,6 +642,41 @@ export class ChanjetCallbackController {
       return { success: result.decision === 'GO', writeChanjet: false, writeErpBusinessTables: false, ...result };
     } catch (e) {
       return { success: false, writeChanjet: false, writeErpBusinessTables: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * 完整只读对齐闭环：镜像同步 → 精确映射确认 → 幂等对账 → 生产准备度。
+   * 只写 ERP 中间层和审计表，不写好业财或 ERP 业务事实表。
+   */
+  @Post('integration/alignment/run')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async runIntegrationAlignmentCycle(
+    @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`manual chanjet readonly alignment cycle user=${requestedBy} scope=${(body.scope || []).join(',') || 'default'}`);
+    try {
+      const result = await this.integration.runReadonlyAlignmentCycle(
+        `user:${requestedBy}`,
+        body.scope || [],
+        body.bookId,
+        body.period,
+        body.maxAttempts || 3,
+      );
+      return {
+        success: result.decision !== 'HOLD',
+        ...result,
+      };
+    } catch (e) {
+      return {
+        success: false,
+        decision: 'HOLD',
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        error: (e as Error).message,
+      };
     }
   }
 

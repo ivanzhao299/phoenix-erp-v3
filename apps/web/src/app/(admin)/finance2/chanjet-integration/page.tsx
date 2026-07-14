@@ -107,6 +107,21 @@ interface ProductionReadiness {
   tokenHealth: { configured: boolean; tokens: Record<string, { expiresAt: string; valid: boolean }> };
 }
 
+interface ReadonlyAlignmentCycleResult {
+  success: boolean;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  startedAt: string;
+  completedAt: string;
+  stoppedAt: string | null;
+  writeChanjet: false;
+  writeErpBusinessTables: false;
+  mirror: { attempts: number; results: Array<{ status: string }>; unresolvedFailures: Array<{ key: string; bookId: string; error: string }> };
+  exactMappings: { eligible: number; approved: number; skipped: number; errors: Array<{ candidateKey: string; error: string }> } | null;
+  reconciliation: { scanned: number; created: number; unchanged: number; autoResolved: number } | null;
+  readiness: ProductionReadiness | null;
+  error?: string;
+}
+
 interface FieldCatalog {
   id: string;
   apiDomain: string;
@@ -676,6 +691,7 @@ export default function ChanjetIntegrationPage() {
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
   const [productionReadiness, setProductionReadiness] = useState<ProductionReadiness | null>(null);
+  const [lastAlignmentCycle, setLastAlignmentCycle] = useState<ReadonlyAlignmentCycleResult | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -743,7 +759,10 @@ export default function ChanjetIntegrationPage() {
     }
   }, [canView]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const kpis = useMemo(() => [
     { label: '账套缓存', value: overview?.accountBooks ?? 0, sub: `${overview?.enabledBooks ?? 0} 个启用`, icon: BookOpen },
@@ -777,6 +796,32 @@ export default function ChanjetIntegrationPage() {
       method: 'POST',
       body: JSON.stringify({ reviewStatus }),
     }));
+  }
+
+  async function runFullReadonlyAlignment() {
+    if (!canEdit) return;
+    setLoading(true);
+    setMessage('');
+    setError('');
+    try {
+      const result = await request<ReadonlyAlignmentCycleResult>('/chanjet/integration/alignment/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [],
+          maxAttempts: 3,
+        }),
+      });
+      setLastAlignmentCycle(result);
+      if (!result.success || result.decision === 'HOLD') {
+        throw new Error(result.error || `完整只读闭环在 ${result.stoppedAt || '生产准备度'} 阶段 HOLD`);
+      }
+      setMessage(`完整只读闭环 ${result.decision}：同步 ${result.mirror.results.length} 个目标，自动确认 ${result.exactMappings?.approved || 0} 条精确映射`);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateDraftStatus(id: string, status: VoucherDraft['status']) {
@@ -828,7 +873,7 @@ export default function ChanjetIntegrationPage() {
           <>
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
-            <Button disabled={!canEdit || loading} onClick={() => runAction('韧性只读同步', () => request('/chanjet/integration/mirror/sync-resilient', { method: 'POST', body: JSON.stringify({ scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [], maxAttempts: 3 }) }))}>韧性只读同步</Button>
+            <Button disabled={!canEdit || loading} onClick={runFullReadonlyAlignment}>运行完整只读闭环</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('系统确认精确映射', () => request('/chanjet/integration/master-mappings/system-confirm-exact', { method: 'POST' }))}>确认精确映射</Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
@@ -988,6 +1033,23 @@ export default function ChanjetIntegrationPage() {
             <Badge tone={productionReadiness?.summary.exactSystemApprovalCandidates ? 'blue' : 'muted'}>可系统确认精确映射: {productionReadiness?.summary.exactSystemApprovalCandidates ?? 0}</Badge>
             <Badge tone={productionReadiness?.summary.manualMappingCandidates ? 'amber' : 'green'}>待人工映射: {productionReadiness?.summary.manualMappingCandidates ?? 0}</Badge>
           </div>
+          {lastAlignmentCycle && (
+            <div style={{ ...cardStyle, marginTop: 14, padding: 12, background: '#f8fafc' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                <strong>本次完整只读闭环</strong>
+                <Badge tone={statusTone(lastAlignmentCycle.decision)}>{lastAlignmentCycle.decision}</Badge>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 10, fontSize: 12 }}>
+                <div>镜像目标：{lastAlignmentCycle.mirror.results.length} · 重试轮次：{lastAlignmentCycle.mirror.attempts}</div>
+                <div>精确映射：{lastAlignmentCycle.exactMappings?.approved || 0}/{lastAlignmentCycle.exactMappings?.eligible || 0}</div>
+                <div>新增差异：{lastAlignmentCycle.reconciliation?.created || 0} · 保持：{lastAlignmentCycle.reconciliation?.unchanged || 0}</div>
+                <div>自动结案：{lastAlignmentCycle.reconciliation?.autoResolved || 0}</div>
+              </div>
+              <div style={{ marginTop: 8, color: 'var(--text-secondary)', fontSize: 12 }}>
+                {fmtDate(lastAlignmentCycle.startedAt)} 至 {fmtDate(lastAlignmentCycle.completedAt)} · 好业财写入：否 · ERP 业务表覆盖：否
+              </div>
+            </div>
+          )}
           <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 10 }}>下一 Gate: {productionReadiness?.summary.nextGate || '—'} · 生成时间 {fmtDate(productionReadiness?.generatedAt)}</div>
         </section>
       )}

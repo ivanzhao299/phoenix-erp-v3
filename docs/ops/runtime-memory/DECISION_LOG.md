@@ -1756,3 +1756,13 @@ Decision: `GO_WITH_CONDITIONS`.
 - Counterparty candidates: 404 total, 51 matched, 353 pending, 0 conflicts, 0 unknown roles.
 - Guardrails: no Chanjet write/delete/modify, no voucher push, no ERP business overwrite, no mapping auto-approval.
 - Next Gate: `CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW`.
+
+## 2026-07-14 — Chanjet full readonly lifecycle is the production default
+
+Decision: `GO_WITH_CONDITIONS`.
+
+- The scheduled and manual production path is now one ordered lifecycle: resilient readonly mirror, exact deterministic mapping confirmation, idempotent reconciliation, and production-readiness evaluation.
+- Unchanged open reconciliation findings are reused instead of duplicated; findings absent from the current evidence are automatically resolved with a system audit identity.
+- A mirror `HOLD` stops the lifecycle before mapping and reconciliation.
+- 353 non-deterministic counterparty candidates remain a controlled data-quality queue and must not be fuzzy-approved.
+- Chanjet mutation, deletion, voucher push, and ERP business-table overwrite remain disabled.

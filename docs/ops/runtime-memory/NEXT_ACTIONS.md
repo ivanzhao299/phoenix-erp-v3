@@ -967,3 +967,22 @@ Next actions:
    - Keep Chanjet writeback and voucher push blocked.
 2. Keep finance-card primary source switches gated by explicit authority rules.
 3. Continue data mapping cleanup for subject, project, cash account, counterparty, and report-line fields.
+
+## 2026-07-14 — Chanjet Full Readonly Functional Closeout
+
+Current stage: `CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Implemented:
+
+- Complete readonly cycle: mirror sync → exact mapping → idempotent reconciliation → production readiness.
+- Four-hour scheduler now runs the complete cycle under the existing advisory lock and retry policy.
+- Reconciliation no longer duplicates an unchanged open issue and automatically closes issues that disappeared.
+- Admin console can run and inspect the complete cycle; ordinary users remain unaware of the integration middle layer.
+
+Next actions:
+
+1. `CHANJET_FULL_READONLY_ALIGNMENT_PRODUCTION_VERIFY`
+2. `CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW` (353 pending candidates; no fuzzy auto-approval)
+3. `KEEP_CHANJET_WRITEBACK_BLOCKED`

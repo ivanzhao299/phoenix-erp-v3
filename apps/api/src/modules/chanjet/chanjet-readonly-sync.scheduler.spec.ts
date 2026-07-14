@@ -19,13 +19,17 @@ describe('ChanjetReadonlySyncScheduler', () => {
       release: jest.fn().mockResolvedValue(undefined),
     };
     const integration = {
-      syncReadOnlyMirrorResilient: jest.fn().mockResolvedValue({
+      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
         decision: 'GO',
-        results: [{ key: 'ACCOUNT_BOOKS', bookId: '', status: 'SUCCESS' }],
-        attempts: 1,
-        unresolvedFailures: [],
+        mirror: {
+          results: [{ key: 'ACCOUNT_BOOKS', bookId: '', status: 'SUCCESS' }],
+          attempts: 1,
+          unresolvedFailures: [],
+        },
+        exactMappings: { approved: 2 },
+        reconciliation: { created: 1, autoResolved: 3 },
+        stoppedAt: null,
       }),
-      confirmDeterministicCounterpartyMappings: jest.fn().mockResolvedValue({ approved: 2 }),
     };
     const cronMonitor = {
       ok: jest.fn().mockResolvedValue(undefined),
@@ -44,8 +48,9 @@ describe('ChanjetReadonlySyncScheduler', () => {
     expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('pg_try_advisory_lock'), ['chanjet-full-readonly-sync']);
     expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('pg_advisory_unlock'), ['chanjet-full-readonly-sync']);
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
-    expect(integration.syncReadOnlyMirrorResilient).toHaveBeenCalledWith([], undefined, expect.stringMatching(/^\d{6}$/), 3);
-    expect(integration.confirmDeterministicCounterpartyMappings).toHaveBeenCalledWith('system:chanjet-readonly-sync');
+    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
+      'system:chanjet-readonly-sync', [], undefined, expect.stringMatching(/^\d{6}$/), 3,
+    );
     expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
     expect(cronMonitor.fail).not.toHaveBeenCalled();
   });
@@ -61,13 +66,15 @@ describe('ChanjetReadonlySyncScheduler', () => {
       release: jest.fn().mockResolvedValue(undefined),
     };
     const integration = {
-      syncReadOnlyMirrorResilient: jest.fn().mockResolvedValue({
+      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
         decision: 'HOLD',
-        results: [],
-        attempts: 3,
-        unresolvedFailures: [{ key: 'VOUCHERS', bookId: 'BOOK-1', error: 'timeout' }],
+        mirror: {
+          results: [],
+          attempts: 3,
+          unresolvedFailures: [{ key: 'VOUCHERS', bookId: 'BOOK-1', error: 'timeout' }],
+        },
+        stoppedAt: 'READONLY_MIRROR',
       }),
-      confirmDeterministicCounterpartyMappings: jest.fn(),
     };
     const cronMonitor = {
       ok: jest.fn(),
@@ -86,7 +93,6 @@ describe('ChanjetReadonlySyncScheduler', () => {
       'chanjet-full-readonly-sync',
       expect.stringContaining('VOUCHERS/BOOK-1=timeout'),
     );
-    expect(integration.confirmDeterministicCounterpartyMappings).not.toHaveBeenCalled();
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 });

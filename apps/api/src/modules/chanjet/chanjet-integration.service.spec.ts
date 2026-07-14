@@ -258,4 +258,81 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.unresolvedFailures).toEqual([]);
     expect(result.results[0]).toMatchObject({ status: 'SUCCESS', attempt: 2, rows: 8 });
   });
+
+  it('runs the complete readonly alignment cycle in a fixed safe order', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.syncReadOnlyMirrorResilient = jest.fn().mockResolvedValue({
+      decision: 'GO', results: [], attempts: 1, unresolvedFailures: [],
+    });
+    subject.confirmDeterministicCounterpartyMappings = jest.fn().mockResolvedValue({
+      generated: {}, eligible: 2, approved: 2, skipped: 0, errors: [],
+    });
+    subject.runMappingReconciliation = jest.fn().mockResolvedValue({
+      scanned: 4, created: 1, unchanged: 2, autoResolved: 1, statusCounts: {}, results: [],
+    });
+    subject.productionReadinessOverview = jest.fn().mockResolvedValue({ decision: 'GO_WITH_CONDITIONS' });
+
+    const result = await subject.runReadonlyAlignmentCycle('tester', [], undefined, '202607', 3);
+
+    expect(result).toMatchObject({
+      decision: 'GO_WITH_CONDITIONS',
+      requestedBy: 'tester',
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      stoppedAt: null,
+    });
+    expect(subject.confirmDeterministicCounterpartyMappings).toHaveBeenCalledWith('tester');
+    expect(subject.runMappingReconciliation).toHaveBeenCalledTimes(1);
+    expect(subject.productionReadinessOverview).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the readonly alignment cycle before mapping when mirror sync is HOLD', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.syncReadOnlyMirrorResilient = jest.fn().mockResolvedValue({
+      decision: 'HOLD', results: [], attempts: 3, unresolvedFailures: [{ key: 'GL_BALANCE', bookId: 'B1', error: 'timeout' }],
+    });
+    subject.confirmDeterministicCounterpartyMappings = jest.fn();
+    subject.runMappingReconciliation = jest.fn();
+    subject.productionReadinessOverview = jest.fn();
+
+    const result = await subject.runReadonlyAlignmentCycle('tester');
+
+    expect(result).toMatchObject({ decision: 'HOLD', stoppedAt: 'READONLY_MIRROR' });
+    expect(subject.confirmDeterministicCounterpartyMappings).not.toHaveBeenCalled();
+    expect(subject.runMappingReconciliation).not.toHaveBeenCalled();
+  });
+
+  it('keeps open reconciliation issues idempotent and resolves disappeared issues', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const activeMapping = { id: '1', mappingType: 'CUSTOMER', bookId: 'B1', erpCode: 'C1', erpName: '客户一', chanjetId: 'CJ1', chanjetCode: 'C1', chanjetName: '客户甲' };
+    const existingOpen = {
+      id: 'R1', reconciliationType: 'MASTER_MAPPING', resolved: false,
+      subjectType: 'CUSTOMER', bookId: 'B1', subjectKey: 'C1', status: 'WARN', diffSummary: '名称不一致',
+    };
+    const disappearedOpen = {
+      id: 'R2', reconciliationType: 'MASTER_MAPPING', resolved: false,
+      subjectType: 'SUPPLIER', bookId: 'B1', subjectKey: 'S1', status: 'HOLD', diffSummary: '待映射',
+    };
+    subject.mappingRepo = { find: jest.fn().mockResolvedValue([activeMapping]) };
+    subject.reconciliationRepo = {
+      find: jest.fn().mockResolvedValue([existingOpen, disappearedOpen]),
+      create: jest.fn((value) => value),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+    subject.mappingIssue = jest.fn().mockReturnValue({
+      status: 'WARN', severity: 'MEDIUM', diffSummary: '名称不一致', actionRequired: '复核',
+    });
+    subject.createJob = jest.fn().mockResolvedValue({});
+    subject.finishJob = jest.fn().mockResolvedValue(undefined);
+
+    const result = await subject.runMappingReconciliation();
+
+    expect(result).toMatchObject({ scanned: 1, created: 0, unchanged: 1, autoResolved: 1 });
+    expect(disappearedOpen).toMatchObject({
+      resolved: true,
+      resolvedBy: 'system:chanjet-reconciliation',
+      resolvedAt: expect.any(Date),
+    });
+    expect(subject.reconciliationRepo.save).toHaveBeenCalledTimes(1);
+  });
 });
