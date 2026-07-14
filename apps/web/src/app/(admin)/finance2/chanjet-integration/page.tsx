@@ -1042,8 +1042,8 @@ export default function ChanjetIntegrationPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 10, fontSize: 12 }}>
                 <div>镜像目标：{lastAlignmentCycle.mirror.results.length} · 重试轮次：{lastAlignmentCycle.mirror.attempts}</div>
                 <div>精确映射：{lastAlignmentCycle.exactMappings?.approved || 0}/{lastAlignmentCycle.exactMappings?.eligible || 0}</div>
-                <div>只读源身份：{lastAlignmentCycle.exactMappings?.sourceOnlyResolved || 0}</div>
-                <div>待处理：{lastAlignmentCycle.exactMappings?.remainingPending || 0} · 冲突：{lastAlignmentCycle.exactMappings?.remainingConflicts || 0}</div>
+                <div>{t('ui.只读源身份', '只读源身份')}：{lastAlignmentCycle.exactMappings?.sourceOnlyResolved || 0}</div>
+                <div>{t('ui.待处理', '待处理')}：{lastAlignmentCycle.exactMappings?.remainingPending || 0} · {t('ui.冲突', '冲突')}：{lastAlignmentCycle.exactMappings?.remainingConflicts || 0}</div>
                 <div>新增差异：{lastAlignmentCycle.reconciliation?.created || 0} · 保持：{lastAlignmentCycle.reconciliation?.unchanged || 0}</div>
                 <div>自动结案：{lastAlignmentCycle.reconciliation?.autoResolved || 0}</div>
               </div>
@@ -1092,9 +1092,9 @@ export default function ChanjetIntegrationPage() {
               <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>阻断 {accountBookGate?.summary?.blockingIssues ?? 0} · 警告 {accountBookGate?.summary?.warnings ?? 0}</div>
             </div>
             <div style={{ ...cardStyle, padding: 12 }}>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>往来身份解析</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{t('ui.往来身份解析', '往来身份解析')}</div>
               <div style={{ fontSize: 28, fontWeight: 800 }}>{(counterpartyCandidates?.summary?.matched ?? 0) + (counterpartyCandidates?.summary?.sourceOnly ?? 0)}/{counterpartyCandidates?.summary?.candidates ?? 0}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>精确 {counterpartyCandidates?.summary?.matched ?? 0} · 只读源 {counterpartyCandidates?.summary?.sourceOnly ?? 0} · 待处理 {counterpartyCandidates?.summary?.pending ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{t('ui.精确', '精确')} {counterpartyCandidates?.summary?.matched ?? 0} · {t('ui.只读源', '只读源')} {counterpartyCandidates?.summary?.sourceOnly ?? 0} · {t('ui.待处理', '待处理')} {counterpartyCandidates?.summary?.pending ?? 0}</div>
             </div>
           </div>
 

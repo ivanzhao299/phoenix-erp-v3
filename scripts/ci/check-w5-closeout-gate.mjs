@@ -60,6 +60,10 @@ const checks = [
     pass: run('node', ['scripts/ci/check-menu-permission-atomicity.mjs']),
   },
   {
+    name: 'user role assignment atomicity gate passes',
+    pass: run('node', ['scripts/ci/check-user-role-assignment-atomicity.mjs']),
+  },
+  {
     name: 'sensitive menu guard gate passes',
     pass: run('node', ['scripts/ci/check-sensitive-menu-guards.mjs']),
   },

@@ -258,7 +258,11 @@ export default function UserManagementPage() {
       if (res.code === 200 && res.data?.id && selectedRoles.length > 1) {
         await API(`/${res.data.id}/roles`, {
           method: "PUT",
-          body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
+          body: JSON.stringify({ roles: selectedRoles.map(r => ({
+            role_code: r.role_code,
+            is_primary: r.is_primary,
+            is_visible: r.is_visible !== false,
+          })) }),
         });
       }
       if (res.code === 200) {

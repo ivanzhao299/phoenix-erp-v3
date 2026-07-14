@@ -202,7 +202,7 @@ const report = {
     ...item,
     file: path.relative(ROOT, item.file),
   })),
-  note: 'This detects remaining hardcoded Chinese literals. Existing key parity gate only proves referenced t() keys exist; it does not prove full UI i18n coverage.',
+  note: 'This scans hardcoded Chinese literals. auto_translatable findings are covered by the validated runtime bridge; only manual_componentization findings and locale quality issues are release blockers.',
 };
 
 if (writeReport) {
@@ -213,13 +213,13 @@ if (writeReport) {
     '',
     `Generated: ${report.generated_at}`,
     '',
-    `Total findings: ${report.total_findings}`,
-    `Auto-translatable by runtime bridge: ${report.auto_translatable_findings}`,
-    `Still requiring componentization or dictionary modeling: ${report.manual_componentization_findings}`,
+    `Scanned hardcoded literals: ${report.total_findings}`,
+    `Covered by validated runtime bridge: ${report.auto_translatable_findings}`,
+    `Release-blocking uncovered literals: ${report.manual_componentization_findings}`,
     `Locale quality issues: ${report.locale_quality_issue_count}`,
     `Affected files: ${report.affected_files}`,
     '',
-    'This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.',
+    'A scanned literal is not automatically debt: the runtime bridge is accepted only when the same source text has real English and Lao translations. Release blocking is based on uncovered literals and locale quality issues.',
     '',
     '## Top Files',
     '',
@@ -231,7 +231,10 @@ if (writeReport) {
   fs.writeFileSync(REPORT_MD, lines.join('\n'));
 }
 
-console.log(`i18n-hardcoded-literals: ${allFindings.length} findings in ${sortedFiles.length} files`);
+console.log(
+  `i18n-hardcoded-literals: scanned=${report.total_findings} covered=${report.auto_translatable_findings} `
+  + `uncovered=${report.manual_componentization_findings} locale_quality=${report.locale_quality_issue_count} files=${report.affected_files}`,
+);
 if (writeReport) console.log(`reports: ${path.relative(ROOT, REPORT_JSON)}, ${path.relative(ROOT, REPORT_MD)}`);
 if (failOnUncovered && (report.manual_componentization_findings > 0 || report.locale_quality_issue_count > 0)) process.exit(1);
 if (failOnFindings && findingsWithCoverage.length > 0) process.exit(1);

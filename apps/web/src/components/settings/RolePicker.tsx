@@ -98,14 +98,29 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
   };
 
   const setPrimary = (code: string) => {
-    onChange(selected.map(r => ({ ...r, is_primary: r.role_code === code })));
+    onChange(selected.map(r => ({
+      ...r,
+      is_primary: r.role_code === code && r.is_visible !== false,
+    })));
   };
 
   // 切换该用户此角色授权是否生效。字段沿用 is_visible，但语义已收紧为“有效/停用授权”。
   const toggleVisible = (code: string) => {
-    onChange(selected.map(r =>
-      r.role_code === code ? { ...r, is_visible: r.is_visible === false ? true : false } : r
-    ));
+    const next = selected.map(r =>
+      r.role_code === code
+        ? { ...r, is_visible: r.is_visible === false, is_primary: r.is_visible === false ? r.is_primary : false }
+        : r
+    );
+    if (!next.some(r => r.is_primary && r.is_visible !== false)) {
+      const replacement = [...next]
+        .filter(r => r.is_visible !== false)
+        .sort((a, b) => b.approval_level - a.approval_level)[0];
+      if (replacement) {
+        onChange(next.map(r => ({ ...r, is_primary: r.role_code === replacement.role_code })));
+        return;
+      }
+    }
+    onChange(next);
   };
 
   return (
@@ -122,8 +137,10 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
                 fontSize: 12, color: col, fontWeight: 600,
                 opacity: r.is_visible === false ? 0.55 : 1,
                 textDecoration: r.is_visible === false ? "line-through" : "none" }}>
-                {r.is_primary && <Star size={10} style={{ fill: col }}/>}
-                {r.role_name_zh}
+                {r.is_primary && r.is_visible !== false && (
+                  <Star size={10} style={{ fill: col }}/>
+                )}
+                <span>{r.role_name_zh}</span>
                 <LevelBadge level={r.approval_level}/>
                 <button type="button" onClick={() => toggleVisible(r.role_code)}
                   title={r.is_visible === false
@@ -133,7 +150,7 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
                     color: col, opacity: 0.7, display: "inline-flex", alignItems: "center" }}>
                   {r.is_visible === false ? <EyeOff size={11}/> : <Eye size={11}/>}
                 </button>
-                {!r.is_primary && selected.length > 1 && (
+                {!r.is_primary && r.is_visible !== false && selected.length > 1 && (
                   <button type="button" onClick={() => setPrimary(r.role_code)}
                     title={t("ui.设为主角色", "设为主角色")}
                     style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",

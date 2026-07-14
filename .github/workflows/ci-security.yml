@@ -56,6 +56,10 @@ jobs:
         if: always()
         run: node scripts/ci/check-i18n-hardcoded-literals.mjs --fail-on-uncovered
 
+      - name: Check user role assignment atomicity
+        if: always()
+        run: node scripts/ci/check-user-role-assignment-atomicity.mjs
+
       - name: W5 closeout static gate
         if: always()
         env:

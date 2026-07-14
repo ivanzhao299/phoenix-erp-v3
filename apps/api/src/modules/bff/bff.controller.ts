@@ -4,6 +4,10 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // P1C 包装收口
+import {
+  normalizeUserRoleAssignments,
+  UserRoleAssignmentValidationError,
+} from './user-role-assignment';
 
 // ═══════════════════════════════════════════════════════════════
 //  Phoenix ERP V3 — BFF Controller
@@ -773,15 +777,17 @@ export class UsersBffController {
 	      const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code=$1`, [role]);
       if (!roleRow[0]) return { code: 400, msg: `角色 ${role} 不存在` };
       const roleId = roleRow[0].role_id;
-      // 清除旧 primary，再设新 primary
-      await this.em.query(`UPDATE sys_user_role SET is_primary=false WHERE user_id=$1`, [id]);
-      await this.em.query(
-        `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at)
-         VALUES ($1, $2, true, now())
-         ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary=true`,
-        [id, roleId],
-      );
-      await this.em.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`, [id]);
+      await this.em.transaction(async (mgr) => {
+        // 清除旧 primary，再设新 primary；同一事务避免中途失败留下“无主角色”状态。
+        await mgr.query(`UPDATE sys_user_role SET is_primary=false WHERE user_id=$1`, [id]);
+        await mgr.query(
+          `INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at)
+           VALUES ($1, $2, true, true, now())
+           ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary=true, is_visible=true`,
+          [id, roleId],
+        );
+        await mgr.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`, [id]);
+      });
       return { code: 200, msg: '主角色已更新' };
     } catch (e: any) { return { code: 500, msg: e?.message }; }
   }
@@ -790,7 +796,7 @@ export class UsersBffController {
   @Put(':id/roles')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
 	  async setRoles(@Param('id') id: string, @Body() body: any) {
-    // body: { roles: [{ role_code, is_primary }] }
+    // body: { roles: [{ role_code, is_primary, is_visible }] }
     const { roles } = body || {};
 	    if (!Array.isArray(roles)) return { code: 400, msg: 'roles 必须是数组' };
 	    try {
@@ -798,23 +804,15 @@ export class UsersBffController {
 	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
 	      // 获取角色 ID 映射
       const allRoles = await this.em.query(`SELECT role_id, role_code FROM sys_role`);
-      const codeToId = new Map(allRoles.map((r: any) => [r.role_code, r.role_id]));
-
-      // 确保至多一个 primary
-      const hasPrimary = roles.some((r: any) => r.is_primary);
-      const resolved = roles.map((r: any, i: number) => ({
-        role_code: r.role_code,
-        role_id:   codeToId.get(r.role_code),
-        is_primary: hasPrimary ? !!r.is_primary : i === 0,
-      })).filter((r: any) => r.role_id);
+      const resolved = normalizeUserRoleAssignments(roles, allRoles);
 
       // 事务：删旧 → 插新
       await this.em.transaction(async (mgr) => {
         await mgr.query(`DELETE FROM sys_user_role WHERE user_id=$1`, [id]);
         for (const r of resolved) {
           await mgr.query(
-	            `INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at) VALUES ($1, $2, $3, true, now())`,
-	            [id, r.role_id, r.is_primary],
+	            `INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at) VALUES ($1, $2, $3, $4, now())`,
+	            [id, r.role_id, r.is_primary, r.is_visible],
 	          );
 	        }
         // 触发权限刷新
@@ -823,8 +821,11 @@ export class UsersBffController {
           [id],
         );
       });
-	      return { code: 200, msg: '角色已更新', data: { count: resolved.length } };
-	    } catch (e: any) { return { code: 500, msg: e?.message }; }
+	      return { code: 200, msg: '角色已更新', data: { count: resolved.length, roles: resolved } };
+	    } catch (e: any) {
+        if (e instanceof UserRoleAssignmentValidationError) return { code: 400, msg: e.message };
+        return { code: 500, msg: e?.message };
+      }
 	  }
 
 	  /**
@@ -853,6 +854,31 @@ export class UsersBffController {
 	            [it.is_visible, id, it.role_code],
 	          );
 	        }
+	        await mgr.query(
+	          `UPDATE sys_user_role SET is_primary=false WHERE user_id=$1 AND COALESCE(is_visible, true)=false`,
+	          [id],
+	        );
+	        await mgr.query(
+	          `UPDATE sys_user_role ur
+	              SET is_primary=true
+	            WHERE ur.user_id=$1
+	              AND COALESCE(ur.is_visible, true)=true
+	              AND NOT EXISTS (
+	                SELECT 1 FROM sys_user_role current_primary
+	                 WHERE current_primary.user_id=$1
+	                   AND current_primary.is_primary=true
+	                   AND COALESCE(current_primary.is_visible, true)=true
+	              )
+	              AND ur.role_id=(
+	                SELECT candidate.role_id
+	                  FROM sys_user_role candidate
+	                  JOIN sys_role r ON r.role_id=candidate.role_id
+	                 WHERE candidate.user_id=$1 AND COALESCE(candidate.is_visible, true)=true
+	                 ORDER BY COALESCE(r.approval_level, 0) DESC, r.role_code
+	                 LIMIT 1
+	              )`,
+	          [id],
+	        );
 	        await mgr.query(
 	          `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
 	          [id],

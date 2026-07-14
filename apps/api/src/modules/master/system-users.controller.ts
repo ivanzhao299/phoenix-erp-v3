@@ -157,15 +157,16 @@ export class SystemUsersController {
                (SELECT r.role_code FROM sys_user_role ur
                   JOIN sys_role r ON ur.role_id = r.role_id
                  WHERE ur.user_id = u.user_id AND ur.is_primary = true
+                   AND COALESCE(ur.is_visible, true) = true
                  LIMIT 1),
                (SELECT r.role_code FROM sys_user_role ur
                   JOIN sys_role r ON ur.role_id = r.role_id
-                 WHERE ur.user_id = u.user_id LIMIT 1)
+                 WHERE ur.user_id = u.user_id AND COALESCE(ur.is_visible, true) = true LIMIT 1)
              ) AS role,
              COALESCE(
                (SELECT json_agg(r.role_code) FROM sys_user_role ur
                   JOIN sys_role r ON ur.role_id = r.role_id
-                 WHERE ur.user_id = u.user_id),
+                 WHERE ur.user_id = u.user_id AND COALESCE(ur.is_visible, true) = true),
                '[]'::json
              ) AS roles,
              COALESCE(
@@ -337,9 +338,9 @@ export class SystemUsersController {
         [id],
       );
       await mgr.query(
-        `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at)
-         VALUES ($1, $2, true, now())
-         ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
+        `INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at)
+         VALUES ($1, $2, true, true, now())
+         ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true, is_visible = true`,
         [id, roleId],
       );
 
@@ -419,6 +420,31 @@ export class SystemUsersController {
           [it.is_visible, id, it.role_code],
         );
       }
+      await mgr.query(
+        `UPDATE sys_user_role SET is_primary=false WHERE user_id=$1 AND COALESCE(is_visible, true)=false`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE sys_user_role ur
+            SET is_primary=true
+          WHERE ur.user_id=$1
+            AND COALESCE(ur.is_visible, true)=true
+            AND NOT EXISTS (
+              SELECT 1 FROM sys_user_role current_primary
+               WHERE current_primary.user_id=$1
+                 AND current_primary.is_primary=true
+                 AND COALESCE(current_primary.is_visible, true)=true
+            )
+            AND ur.role_id=(
+              SELECT candidate.role_id
+                FROM sys_user_role candidate
+                JOIN sys_role r ON r.role_id=candidate.role_id
+               WHERE candidate.user_id=$1 AND COALESCE(candidate.is_visible, true)=true
+               ORDER BY COALESCE(r.approval_level, 0) DESC, r.role_code
+               LIMIT 1
+            )`,
+        [id],
+      );
       // 触发 token 重算，让前台立即看到效果
       await mgr.query(
         `UPDATE sys_user SET perms_version = COALESCE(perms_version,0) + 1, updated_at = now() WHERE user_id = $1`,

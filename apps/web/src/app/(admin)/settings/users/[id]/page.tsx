@@ -127,24 +127,23 @@ export default function UserDetailPage() {
       if (rolesChanged && selectedRoles.length > 0) {
         const rolesRes = await API(`/${user.id}/roles`, {
           method: "PUT",
-          body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
+          body: JSON.stringify({ roles: selectedRoles.map(r => ({
+            role_code: r.role_code,
+            is_primary: r.is_primary,
+            is_visible: r.is_visible !== false,
+          })) }),
         });
-        if (rolesRes.code !== 200) toast.error(rolesRes.msg || t("ui.角色更新失败", "角色更新失败"));
+        if (rolesRes.code !== 200) {
+          toast.error(rolesRes.msg || t("ui.角色更新失败", "角色更新失败"));
+          return;
+        }
       } else if (rolesChanged) {
         // 清除所有角色（传空数组）
-        await API(`/${user.id}/roles`, { method: "PUT", body: JSON.stringify({ roles: [] }) });
-      }
-
-      // 同步角色授权开关（is_visible=false 代表该用户角色授权停用，不参与权限计算）
-      if (rolesChanged && selectedRoles.length > 0) {
-        const visItems = selectedRoles.map(r => ({
-          role_code: r.role_code,
-          is_visible: r.is_visible !== false,
-        }));
-        await API(`/${user.id}/role-visibility`, {
-          method: "PUT",
-          body: JSON.stringify({ items: visItems }),
-        }).catch(() => { /* 显示开关失败不影响主流程 */ });
+        const rolesRes = await API(`/${user.id}/roles`, { method: "PUT", body: JSON.stringify({ roles: [] }) });
+        if (rolesRes.code !== 200) {
+          toast.error(rolesRes.msg || t("ui.角色更新失败", "角色更新失败"));
+          return;
+        }
       }
 
       // 可选：重置密码
@@ -280,8 +279,9 @@ export default function UserDetailPage() {
 
   const isAdmin = user.username === "admin";
   const isArchived = user.status === "ARCHIVED";
-  const primaryRole = (user.roles_detail || []).find(r => r.is_primary)
-    ?? [...(user.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level)[0];
+  const activeRoles = (user.roles_detail || []).filter(r => r.is_visible !== false);
+  const primaryRole = activeRoles.find(r => r.is_primary)
+    ?? [...activeRoles].sort((a, b) => b.approval_level - a.approval_level)[0];
   const editable = canEdit && !isAdmin && !isArchived;
 
   // ── Tabs ──────────────────────────────────────────────────────────────────────
