@@ -1028,7 +1028,8 @@ export class ChanjetCallbackController {
 
   /**
    * POST /api/chanjet/integration/counterparty-mapping-candidates/generate
-   * 仅把高置信候选写入 ERP 中间层 PENDING 映射，不自动批准、不写好业财/业务表。
+   * 精确候选写入 PENDING；ERP 主档缺失时可确认 SOURCE_ONLY 只读源身份。
+   * 两者均只写 ERP 中间层，不写好业财/业务表。
    */
   @Post('integration/counterparty-mapping-candidates/generate')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
@@ -1041,7 +1042,7 @@ export class ChanjetCallbackController {
         success: true,
         writeChanjet: false,
         writeErpBusinessTables: false,
-        autoApprove: false,
+        autoApprove: 'source_identity_only',
         ...result,
       };
     } catch (e) {
@@ -1050,8 +1051,8 @@ export class ChanjetCallbackController {
   }
 
   /**
-   * 系统确认可证明的一对一往来映射。
-   * 仅限账套公司、编码、名称和 ACTIVE 状态全部精确一致；只写 ERP 中间层。
+   * 系统确认可证明的精确一对一映射与 SOURCE_ONLY 只读源身份。
+   * 只写 ERP 中间层，不生成 ERP 客户/供应商业务主档。
    */
   @Post('integration/master-mappings/system-confirm-exact')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
@@ -1066,7 +1067,7 @@ export class ChanjetCallbackController {
         success: result.errors.length === 0,
         writeChanjet: false,
         writeErpBusinessTables: false,
-        rule: 'book-company + code + normalized-name + ACTIVE must all match',
+        rule: 'exact ERP master match or complete Chanjet readonly source identity',
         ...result,
       };
     } catch (e) {

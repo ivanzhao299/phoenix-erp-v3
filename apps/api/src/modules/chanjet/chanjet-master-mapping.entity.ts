@@ -17,7 +17,8 @@ export type ChanjetMappingType =
 /**
  * chanjet_master_mapping — ERP 主数据与好业财主数据的统一映射层。
  *
- * 自动探针只能生成 PENDING/MANUAL 建议；业务生效必须经财务/主数据人工审核。
+ * 精确 ERP 主档映射与好业财只读源身份都可由确定性规则确认。
+ * SOURCE_ONLY 只服务于中间层读取，绝不代表 ERP 业务主档存在。
  */
 @Entity('chanjet_master_mapping')
 @Unique('uq_chanjet_master_mapping', ['mappingType', 'erpCode', 'chanjetId'])
@@ -49,7 +50,7 @@ export class ChanjetMasterMappingEntity {
   chanjetName: string;
 
   @Column({ name: 'match_status', type: 'varchar', length: 32, default: 'PENDING' })
-  matchStatus: 'MATCHED' | 'MISSING_IN_ERP' | 'MISSING_IN_CHANJET' | 'CONFLICT' | 'MANUAL' | 'PENDING';
+  matchStatus: 'MATCHED' | 'SOURCE_ONLY' | 'MISSING_IN_ERP' | 'MISSING_IN_CHANJET' | 'CONFLICT' | 'MANUAL' | 'PENDING';
 
   @Column({ name: 'confidence', type: 'numeric', precision: 5, scale: 2, default: 0 })
   confidence: string;

@@ -81,8 +81,8 @@ interface MirrorBaselineReadiness {
 
 interface CounterpartyCandidateOverview {
   decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
-  summary: { sourceRows: number; candidates: number; matched: number; pending: number; conflicts: number; unknownRole: number; approvedMappings: number; nextGate: string };
-  candidates: Array<{ candidateKey: string; bookId: string; companyCode: string; mappingType: 'CUSTOMER' | 'SUPPLIER' | null; roleCandidate: string; chanjetId: string; chanjetCode: string; chanjetName: string; matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT'; confidence: number; erpCode: string; erpName: string; evidence: string[]; matchKind: string; systemApprovalEligible: boolean; systemApprovalReason: string; requiresApproval: boolean }>;
+  summary: { sourceRows: number; candidates: number; matched: number; sourceOnly: number; pending: number; conflicts: number; unknownRole: number; approvedMappings: number; nextGate: string };
+  candidates: Array<{ candidateKey: string; bookId: string; companyCode: string; mappingType: 'CUSTOMER' | 'SUPPLIER' | null; roleCandidate: string; chanjetId: string; chanjetCode: string; chanjetName: string; matchStatus: 'MATCHED' | 'SOURCE_ONLY' | 'PENDING' | 'CONFLICT'; confidence: number; erpCode: string; erpName: string; evidence: string[]; matchKind: string; systemApprovalEligible: boolean; sourceIdentityEligible: boolean; systemApprovalReason: string; requiresApproval: boolean }>;
 }
 
 interface ProductionReadiness {
@@ -116,7 +116,7 @@ interface ReadonlyAlignmentCycleResult {
   writeChanjet: false;
   writeErpBusinessTables: false;
   mirror: { attempts: number; results: Array<{ status: string }>; unresolvedFailures: Array<{ key: string; bookId: string; error: string }> };
-  exactMappings: { eligible: number; approved: number; skipped: number; errors: Array<{ candidateKey: string; error: string }> } | null;
+  exactMappings: { eligible: number; approved: number; skipped: number; sourceOnlyResolved: number; remainingPending: number; remainingConflicts: number; errors: Array<{ candidateKey: string; error: string }> } | null;
   reconciliation: { scanned: number; created: number; unchanged: number; autoResolved: number } | null;
   readiness: ProductionReadiness | null;
   error?: string;
@@ -638,7 +638,7 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 }
 
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
-  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY', 'FRESH', 'VALID', 'GO'].includes(status)) return 'green';
+  if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY', 'SOURCE_ONLY', 'FRESH', 'VALID', 'GO'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL', 'CONFLICT'].includes(status)) return 'red';
   if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'STALE', 'BLOCKED_MAPPING', 'GO_WITH_CONDITIONS', 'READY_WITH_CONDITIONS'].includes(status)) return 'amber';
   return 'muted';
@@ -815,7 +815,7 @@ export default function ChanjetIntegrationPage() {
       if (!result.success || result.decision === 'HOLD') {
         throw new Error(result.error || `完整只读闭环在 ${result.stoppedAt || '生产准备度'} 阶段 HOLD`);
       }
-      setMessage(`完整只读闭环 ${result.decision}：同步 ${result.mirror.results.length} 个目标，自动确认 ${result.exactMappings?.approved || 0} 条精确映射`);
+      setMessage(`完整只读闭环 ${result.decision}：同步 ${result.mirror.results.length} 个目标，精确映射 ${result.exactMappings?.approved || 0} 条，只读源身份 ${result.exactMappings?.sourceOnlyResolved || 0} 条`);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -1042,6 +1042,8 @@ export default function ChanjetIntegrationPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 10, fontSize: 12 }}>
                 <div>镜像目标：{lastAlignmentCycle.mirror.results.length} · 重试轮次：{lastAlignmentCycle.mirror.attempts}</div>
                 <div>精确映射：{lastAlignmentCycle.exactMappings?.approved || 0}/{lastAlignmentCycle.exactMappings?.eligible || 0}</div>
+                <div>只读源身份：{lastAlignmentCycle.exactMappings?.sourceOnlyResolved || 0}</div>
+                <div>待处理：{lastAlignmentCycle.exactMappings?.remainingPending || 0} · 冲突：{lastAlignmentCycle.exactMappings?.remainingConflicts || 0}</div>
                 <div>新增差异：{lastAlignmentCycle.reconciliation?.created || 0} · 保持：{lastAlignmentCycle.reconciliation?.unchanged || 0}</div>
                 <div>自动结案：{lastAlignmentCycle.reconciliation?.autoResolved || 0}</div>
               </div>
@@ -1090,9 +1092,9 @@ export default function ChanjetIntegrationPage() {
               <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>阻断 {accountBookGate?.summary?.blockingIssues ?? 0} · 警告 {accountBookGate?.summary?.warnings ?? 0}</div>
             </div>
             <div style={{ ...cardStyle, padding: 12 }}>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>往来候选匹配</div>
-              <div style={{ fontSize: 28, fontWeight: 800 }}>{counterpartyCandidates?.summary?.matched ?? 0}/{counterpartyCandidates?.summary?.candidates ?? 0}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>冲突 {counterpartyCandidates?.summary?.conflicts ?? 0} · 未判定 {counterpartyCandidates?.summary?.unknownRole ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>往来身份解析</div>
+              <div style={{ fontSize: 28, fontWeight: 800 }}>{(counterpartyCandidates?.summary?.matched ?? 0) + (counterpartyCandidates?.summary?.sourceOnly ?? 0)}/{counterpartyCandidates?.summary?.candidates ?? 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>精确 {counterpartyCandidates?.summary?.matched ?? 0} · 只读源 {counterpartyCandidates?.summary?.sourceOnly ?? 0} · 待处理 {counterpartyCandidates?.summary?.pending ?? 0}</div>
             </div>
           </div>
 
@@ -1100,7 +1102,7 @@ export default function ChanjetIntegrationPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <Badge tone="green">好业财写入: 否</Badge>
               <Badge tone="green">业务表覆盖: 否</Badge>
-              <Badge tone="blue">系统确认: 仅编码+名称+公司+ACTIVE 精确一致</Badge>
+              <Badge tone="blue">系统确认: 精确主档或完整只读源身份</Badge>
               <Badge tone="green">模糊自动匹配: 否</Badge>
             </div>
             <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>下一 Gate: {baselineReadiness?.summary?.nextGate || '—'}</div>

@@ -119,6 +119,45 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
   });
 
+  it('resolves a complete Chanjet-only counterparty as an isolated readonly source identity', () => {
+    const candidate = service.buildCounterpartyMappingCandidate(
+      {
+        id: '14',
+        bookId: 'BOOK-1',
+        externalId: 'CJ-ONLY-1',
+        externalCode: 'C-9001',
+        externalName: '好业财独有客户',
+        rawData: { partyRoleTypeId: 100001, customerCode: 'C-9001', customerName: '好业财独有客户' },
+      },
+      'CUSTOMER',
+      'CUSTOMER',
+      'COMP-1',
+      [],
+    );
+
+    expect(candidate).toMatchObject({
+      matchStatus: 'SOURCE_ONLY',
+      matchKind: 'SOURCE_IDENTITY',
+      confidence: 100,
+      erpCode: 'CJRO:BOOK-1:C:C9001',
+      erpName: '好业财独有客户',
+      sourceIdentityEligible: true,
+      systemApprovalEligible: false,
+      requiresApproval: false,
+      canAutoApprove: true,
+    });
+    expect(candidate.evidence.join(' ')).toContain('不写入 sal_customers / prc2_suppliers');
+  });
+
+  it('keeps readonly source identity codes deterministic and role-specific', () => {
+    const customer = service.buildCounterpartySourceIdentityCode('BOOK-1', 'CUSTOMER', 'C-9001', 'CJ-1');
+    const supplier = service.buildCounterpartySourceIdentityCode('BOOK-1', 'SUPPLIER', 'C-9001', 'CJ-1');
+
+    expect(customer).toBe('CJRO:BOOK-1:C:C9001');
+    expect(service.buildCounterpartySourceIdentityCode('BOOK-1', 'CUSTOMER', 'C-9001', 'CJ-1')).toBe(customer);
+    expect(supplier).toBe('CJRO:BOOK-1:S:C9001');
+  });
+
   it('holds duplicate normalized-name matches for manual disambiguation', () => {
     const candidate = service.buildCounterpartyMappingCandidate(
       {

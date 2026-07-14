@@ -461,14 +461,15 @@ export interface ChanjetCounterpartyMappingCandidate {
   chanjetId: string;
   chanjetCode: string;
   chanjetName: string;
-  matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT';
+  matchStatus: 'MATCHED' | 'SOURCE_ONLY' | 'PENDING' | 'CONFLICT';
   confidence: number;
   erpCode: string;
   erpName: string;
   evidence: string[];
   alternatives: Array<{ erpCode: string; erpName: string; companyCode: string; score: number; reason: string }>;
-  matchKind: 'EXACT_CODE_AND_NAME' | 'EXACT_CODE' | 'EXACT_NAME' | 'NONE' | 'CONFLICT';
+  matchKind: 'EXACT_CODE_AND_NAME' | 'EXACT_CODE' | 'EXACT_NAME' | 'SOURCE_IDENTITY' | 'NONE' | 'CONFLICT';
   systemApprovalEligible: boolean;
+  sourceIdentityEligible: boolean;
   systemApprovalReason: string;
   requiresApproval: boolean;
   canAutoApprove: boolean;
@@ -511,6 +512,7 @@ export interface ChanjetCounterpartyCandidateOverview {
     sourceRows: number;
     candidates: number;
     matched: number;
+    sourceOnly: number;
     pending: number;
     conflicts: number;
     unknownRole: number;
@@ -4275,14 +4277,32 @@ export class ChanjetIntegrationService {
     const topScore = scored[0]?.score || 0;
     const top = scored.filter((item) => item.score === topScore);
     const selected = top.length === 1 ? top[0] : null;
-    const matchStatus: ChanjetCounterpartyMappingCandidate['matchStatus'] = !mappingType || top.length === 0
+    const sourceIdentityEligible = Boolean(
+      mappingType
+      && top.length === 0
+      && companyCode
+      && chanjetId
+      && chanjetCode
+      && chanjetName,
+    );
+    const sourceIdentityCode = sourceIdentityEligible
+      ? this.buildCounterpartySourceIdentityCode(snapshot.bookId, mappingType!, chanjetCode, chanjetId)
+      : '';
+    const matchStatus: ChanjetCounterpartyMappingCandidate['matchStatus'] = !mappingType
       ? 'PENDING'
+      : top.length === 0
+        ? sourceIdentityEligible ? 'SOURCE_ONLY' : 'PENDING'
       : top.length > 1
         ? 'CONFLICT'
         : 'MATCHED';
     if (selected) evidence.push(selected.reason);
     if (top.length > 1) evidence.push(`发现 ${top.length} 个同分 ERP 主数据，必须人工消歧`);
-    if (mappingType && top.length === 0) evidence.push('ERP 真实主档中无编码或名称精确匹配项');
+    if (sourceIdentityEligible) {
+      evidence.push('ERP 真实主档中无对应项，已建立隔离的好业财只读源身份');
+      evidence.push('该身份不写入 sal_customers / prc2_suppliers，不作为 ERP 业务主档');
+    } else if (mappingType && top.length === 0) {
+      evidence.push('ERP 真实主档中无编码或名称精确匹配项');
+    }
     const selectedCodeMatches = Boolean(
       selected
       && normalizedCode
@@ -4295,6 +4315,8 @@ export class ChanjetIntegrationService {
     );
     const matchKind: ChanjetCounterpartyMappingCandidate['matchKind'] = top.length > 1
       ? 'CONFLICT'
+      : sourceIdentityEligible
+        ? 'SOURCE_IDENTITY'
       : selectedCodeMatches && selectedNameMatches
         ? 'EXACT_CODE_AND_NAME'
         : selectedCodeMatches
@@ -4311,6 +4333,8 @@ export class ChanjetIntegrationService {
     );
     const systemApprovalReason = systemApprovalEligible
       ? '账套公司、ERP 编码、规范化名称和 ACTIVE 状态同时精确一致，可由系统确认中间层映射。'
+      : sourceIdentityEligible
+        ? '账套、角色、好业财 ID/编码/名称完整且 ERP 无候选，系统确认隔离的只读源身份。'
       : matchKind === 'CONFLICT'
         ? '存在多个同分候选，必须人工消歧。'
         : !companyCode
@@ -4331,9 +4355,9 @@ export class ChanjetIntegrationService {
       chanjetCode,
       chanjetName,
       matchStatus,
-      confidence: selected?.score || 0,
-      erpCode: selected?.master.code || '',
-      erpName: selected?.master.name || '',
+      confidence: selected?.score || (sourceIdentityEligible ? 100 : 0),
+      erpCode: selected?.master.code || sourceIdentityCode,
+      erpName: selected?.master.name || (sourceIdentityEligible ? chanjetName : ''),
       evidence,
       alternatives: scored.slice(0, 5).map((item) => ({
         erpCode: item.master.code,
@@ -4344,10 +4368,24 @@ export class ChanjetIntegrationService {
       })),
       matchKind,
       systemApprovalEligible,
+      sourceIdentityEligible,
       systemApprovalReason,
-      requiresApproval: !systemApprovalEligible,
-      canAutoApprove: systemApprovalEligible,
+      requiresApproval: !(systemApprovalEligible || sourceIdentityEligible),
+      canAutoApprove: systemApprovalEligible || sourceIdentityEligible,
     };
+  }
+
+  private buildCounterpartySourceIdentityCode(
+    bookId: string,
+    mappingType: CounterpartyMappingType,
+    chanjetCode: string,
+    chanjetId: string,
+  ): string {
+    const sourcePart = this.normalizeCounterpartyCode(chanjetCode) || this.normalizeCounterpartyCode(chanjetId);
+    const readable = `CJRO:${bookId}:${mappingType === 'CUSTOMER' ? 'C' : 'S'}:${sourcePart}`;
+    if (readable.length <= 128) return readable;
+    const digest = crypto.createHash('sha256').update(readable).digest('hex').slice(0, 24).toUpperCase();
+    return `CJRO:${bookId}:${mappingType === 'CUSTOMER' ? 'C' : 'S'}:${digest}`;
   }
 
   private normalizeCounterpartyCode(value: string): string {
@@ -5232,14 +5270,29 @@ export class ChanjetIntegrationService {
         && mapping.bookId === candidate.bookId
         && mapping.chanjetId === candidate.chanjetId
       ));
-      if (approvedByExternal) {
+      const approvedResolutionKind = String(
+        (approvedByExternal?.rawData as Record<string, unknown> | null)?.resolutionKind || '',
+      );
+      const approvedIsSourceIdentity = approvedResolutionKind === 'CHANJET_SOURCE_IDENTITY'
+        || approvedByExternal?.matchStatus === 'SOURCE_ONLY';
+      if (approvedByExternal && (!approvedIsSourceIdentity || candidate.matchStatus === 'SOURCE_ONLY')) {
         return {
           ...candidate,
-          matchStatus: 'MATCHED' as const,
+          matchStatus: approvedIsSourceIdentity ? 'SOURCE_ONLY' as const : 'MATCHED' as const,
+          matchKind: approvedIsSourceIdentity ? 'SOURCE_IDENTITY' as const : candidate.matchKind,
           confidence: Number(approvedByExternal.confidence || 100),
           erpCode: approvedByExternal.erpCode,
           erpName: approvedByExternal.erpName,
-          evidence: [...candidate.evidence, '采用当前账套内已经人工批准的映射'],
+          sourceIdentityEligible: approvedIsSourceIdentity,
+          systemApprovalEligible: !approvedIsSourceIdentity && candidate.systemApprovalEligible,
+          requiresApproval: false,
+          canAutoApprove: true,
+          evidence: [
+            ...candidate.evidence,
+            approvedIsSourceIdentity
+              ? '采用已确认的好业财只读源身份；不代表 ERP 业务主档已存在'
+              : '采用当前账套内已确认的精确映射',
+          ],
         };
       }
       const approvedByErp = candidate.erpCode
@@ -5268,8 +5321,9 @@ export class ChanjetIntegrationService {
       return candidate;
     });
     const matched = candidates.filter((candidate) => candidate.matchStatus === 'MATCHED').length;
+    const sourceOnly = candidates.filter((candidate) => candidate.matchStatus === 'SOURCE_ONLY').length;
     const conflicts = candidates.filter((candidate) => candidate.matchStatus === 'CONFLICT').length;
-    const pending = candidates.length - matched - conflicts;
+    const pending = candidates.length - matched - sourceOnly - conflicts;
     const unknownRole = candidates.filter((candidate) => candidate.roleCandidate === 'UNKNOWN').length;
     const approvedCoverage = candidates.filter((candidate) => (
       !!candidate.mappingType
@@ -5282,7 +5336,7 @@ export class ChanjetIntegrationService {
     )).length;
     const decision = conflicts > 0 || unknownRole > 0
       ? 'HOLD'
-      : pending > 0 || approvedCoverage < matched
+      : pending > 0 || approvedCoverage < matched + sourceOnly
         ? 'GO_WITH_CONDITIONS'
         : 'GO';
     return {
@@ -5292,11 +5346,12 @@ export class ChanjetIntegrationService {
         sourceRows: snapshots.length,
         candidates: candidates.length,
         matched,
+        sourceOnly,
         pending,
         conflicts,
         unknownRole,
         approvedMappings: approvedCoverage,
-        nextGate: matched > approvedCoverage
+        nextGate: matched + sourceOnly > approvedCoverage
           ? 'CHANJET_COUNTERPARTY_MAPPING_APPROVAL'
           : 'CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW',
       },
@@ -5305,10 +5360,10 @@ export class ChanjetIntegrationService {
         exactCodeMatchScore: 100,
         exactNormalizedNameMatchScore: 95,
         fuzzyAutoMatch: false,
-        autoApprove: 'only_exact_code_name_company_active',
+        autoApprove: 'exact_code_name_company_active_or_readonly_source_identity',
         chanjetWrite: false,
         erpBusinessTableWrite: false,
-        rule: '候选只按真实 sal_customers / prc2_suppliers 生成；仅账套公司、编码、名称与 ACTIVE 状态同时精确一致时允许系统确认，其余必须人工批准。',
+        rule: '优先与真实 sal_customers / prc2_suppliers 精确匹配；ERP 主档不存在但好业财身份完整时，只在中间层确认 SOURCE_ONLY 只读身份，不写客户/供应商业务表；日后 ERP 主档出现时自动晋升为精确映射。',
       },
     };
   }
@@ -5317,6 +5372,7 @@ export class ChanjetIntegrationService {
     preview: ChanjetCounterpartyCandidateOverview;
     created: number;
     updated: number;
+    sourceOnlyResolved: number;
     skippedApproved: number;
     skippedUnmatched: number;
   }> {
@@ -5327,11 +5383,17 @@ export class ChanjetIntegrationService {
     });
     let created = 0;
     let updated = 0;
+    let sourceOnlyResolved = 0;
     let skippedApproved = 0;
     let skippedUnmatched = 0;
 
     for (const candidate of preview.candidates) {
-      if (!candidate.mappingType || candidate.matchStatus !== 'MATCHED' || !candidate.erpCode) {
+      const sourceOnly = candidate.matchStatus === 'SOURCE_ONLY';
+      if (
+        !candidate.mappingType
+        || (candidate.matchStatus !== 'MATCHED' && !sourceOnly)
+        || !candidate.erpCode
+      ) {
         skippedUnmatched += 1;
         continue;
       }
@@ -5340,12 +5402,24 @@ export class ChanjetIntegrationService {
         && mapping.bookId === candidate.bookId
         && mapping.chanjetId === candidate.chanjetId
       ));
-      if (existing?.reviewStatus === 'APPROVED') {
+      const existingResolutionKind = String(
+        (existing?.rawData as Record<string, unknown> | null)?.resolutionKind || '',
+      );
+      const existingIsSourceIdentity = existingResolutionKind === 'CHANJET_SOURCE_IDENTITY'
+        || existing?.matchStatus === 'SOURCE_ONLY';
+      if (existing?.reviewStatus === 'APPROVED' && (sourceOnly || !existingIsSourceIdentity)) {
         skippedApproved += 1;
+        if (sourceOnly) sourceOnlyResolved += 1;
         continue;
       }
+      const resolutionKind = sourceOnly ? 'CHANJET_SOURCE_IDENTITY' : 'ERP_EXACT_CANDIDATE';
       const rawData = {
         source: 'counterparty_mapping_candidate_generator',
+        resolutionKind,
+        sourceOnly,
+        erpBusinessMasterExists: !sourceOnly,
+        writeErpBusinessTables: false,
+        writeChanjet: false,
         generatedBy: reviewedBy || 'system',
         generatedAt: new Date().toISOString(),
         evidence: candidate.evidence,
@@ -5357,14 +5431,15 @@ export class ChanjetIntegrationService {
         existing.erpName = candidate.erpName;
         existing.chanjetCode = candidate.chanjetCode;
         existing.chanjetName = candidate.chanjetName;
-        existing.matchStatus = 'MATCHED';
+        existing.matchStatus = sourceOnly ? 'SOURCE_ONLY' : 'MATCHED';
         existing.confidence = candidate.confidence.toFixed(2);
-        existing.reviewStatus = 'PENDING';
-        existing.reviewedBy = null;
-        existing.reviewedAt = null;
+        existing.reviewStatus = sourceOnly ? 'APPROVED' : 'PENDING';
+        existing.reviewedBy = sourceOnly ? `system:source-identity:${reviewedBy || 'system'}` : null;
+        existing.reviewedAt = sourceOnly ? new Date() : null;
         existing.rawData = rawData;
         await this.mappingRepo.save(existing);
         updated += 1;
+        if (sourceOnly) sourceOnlyResolved += 1;
       } else {
         await this.upsertMasterMapping({
           mappingType: candidate.mappingType,
@@ -5374,15 +5449,18 @@ export class ChanjetIntegrationService {
           chanjetId: candidate.chanjetId,
           chanjetCode: candidate.chanjetCode,
           chanjetName: candidate.chanjetName,
-          matchStatus: 'MATCHED',
+          matchStatus: sourceOnly ? 'SOURCE_ONLY' : 'MATCHED',
           confidence: candidate.confidence.toFixed(2),
-          reviewStatus: 'PENDING',
+          reviewStatus: sourceOnly ? 'APPROVED' : 'PENDING',
+          reviewedBy: sourceOnly ? `system:source-identity:${reviewedBy || 'system'}` : null,
+          reviewedAt: sourceOnly ? new Date() : null,
           rawData,
         });
         created += 1;
+        if (sourceOnly) sourceOnlyResolved += 1;
       }
     }
-    return { preview, created, updated, skippedApproved, skippedUnmatched };
+    return { preview, created, updated, sourceOnlyResolved, skippedApproved, skippedUnmatched };
   }
 
   async confirmDeterministicCounterpartyMappings(reviewedBy = 'system:chanjet-exact-match'): Promise<{
@@ -5390,6 +5468,9 @@ export class ChanjetIntegrationService {
     eligible: number;
     approved: number;
     skipped: number;
+    sourceOnlyResolved: number;
+    remainingPending: number;
+    remainingConflicts: number;
     errors: Array<{ candidateKey: string; error: string }>;
   }> {
     const generated = await this.generateCounterpartyMappingCandidates(reviewedBy);
@@ -5425,11 +5506,15 @@ export class ChanjetIntegrationService {
         errors.push({ candidateKey: candidate.candidateKey, error: (error as Error).message });
       }
     }
+    const resolvedOverview = await this.counterpartyMappingCandidates();
     return {
       generated,
       eligible: eligibleCandidates.length,
       approved,
       skipped,
+      sourceOnlyResolved: resolvedOverview.summary.sourceOnly,
+      remainingPending: resolvedOverview.summary.pending,
+      remainingConflicts: resolvedOverview.summary.conflicts,
       errors,
     };
   }
@@ -5983,9 +6068,12 @@ export class ChanjetIntegrationService {
       return {
         status: 'WARN',
         severity: 'MEDIUM',
-        diffSummary: '映射未人工批准。',
-        actionRequired: '由财务/主数据负责人审核为 APPROVED 后才能参与凭证建议。',
+        diffSummary: '映射尚未确认。',
+        actionRequired: '由系统确定性规则或授权审核确认为 APPROVED 后才能参与凭证建议。',
       };
+    }
+    if (mapping.matchStatus === 'SOURCE_ONLY') {
+      return null;
     }
     if (mapping.matchStatus !== 'MATCHED' && mapping.matchStatus !== 'MANUAL') {
       return {
