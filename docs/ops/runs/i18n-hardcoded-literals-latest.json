@@ -1,9 +1,11 @@
 {
-  "generated_at": "2026-07-14T12:02:53.393Z",
+  "generated_at": "2026-07-14T12:19:25.206Z",
   "scope": "apps/web/src app/components/lib/hooks",
   "total_findings": 3240,
   "auto_translatable_findings": 3240,
   "manual_componentization_findings": 0,
+  "locale_quality_issue_count": 0,
+  "locale_quality_issues": [],
   "affected_files": 176,
   "top_files": [
     {
