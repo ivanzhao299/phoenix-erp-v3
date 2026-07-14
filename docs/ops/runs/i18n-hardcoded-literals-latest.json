@@ -1,82 +1,11 @@
 {
-  "generated_at": "2026-07-14T13:20:05.261Z",
+  "generated_at": "2026-07-14T13:21:51.770Z",
   "scope": "apps/web/src app/components/lib/hooks",
   "total_findings": 3247,
-  "auto_translatable_findings": 3240,
-  "manual_componentization_findings": 7,
-  "locale_quality_issue_count": 14,
-  "locale_quality_issues": [
-    {
-      "language": "en",
-      "key": "auto.literal.c7d4ff6e98e1",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.984dd8604670",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.77ddafa5f85f",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.385dabb5d097",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.6780885a8d06",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.ab86e855c6ca",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "en",
-      "key": "auto.literal.97e86cad86e2",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.c7d4ff6e98e1",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.984dd8604670",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.77ddafa5f85f",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.385dabb5d097",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.6780885a8d06",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.ab86e855c6ca",
-      "reason": "placeholder_translation"
-    },
-    {
-      "language": "lo",
-      "key": "auto.literal.97e86cad86e2",
-      "reason": "placeholder_translation"
-    }
-  ],
+  "auto_translatable_findings": 3247,
+  "manual_componentization_findings": 0,
+  "locale_quality_issue_count": 0,
+  "locale_quality_issues": [],
   "affected_files": 176,
   "top_files": [
     {
@@ -4880,7 +4809,7 @@
       "line": 816,
       "kind": "string-literal",
       "text": "生产准备度",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -4971,7 +4900,7 @@
       "line": 876,
       "kind": "jsx-text",
       "text": "运行完整只读闭环",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -5272,28 +5201,28 @@
       "line": 1039,
       "kind": "jsx-text",
       "text": "本次完整只读闭环",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1043,
       "kind": "jsx-text",
       "text": "镜像目标：",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1043,
       "kind": "jsx-text",
       "text": "· 重试轮次：",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1044,
       "kind": "jsx-text",
       "text": "精确映射：",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -5307,7 +5236,7 @@
       "line": 1045,
       "kind": "jsx-text",
       "text": "· 保持：",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",

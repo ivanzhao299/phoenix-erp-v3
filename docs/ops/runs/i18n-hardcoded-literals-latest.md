@@ -1,11 +1,11 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-14T13:20:05.261Z
+Generated: 2026-07-14T13:21:51.770Z
 
 Total findings: 3247
-Auto-translatable by runtime bridge: 3240
-Still requiring componentization or dictionary modeling: 7
-Locale quality issues: 14
+Auto-translatable by runtime bridge: 3247
+Still requiring componentization or dictionary modeling: 0
+Locale quality issues: 0
 Affected files: 176
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.

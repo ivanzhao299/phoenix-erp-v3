@@ -13635,5 +13635,14 @@
   "auto.literal.2c80f65becc0": "Packaging completion receipt",
   "auto.literal.11a1eb935d97": "Scrap",
   "auto.literal.c1293c8281a5": "Allocate and store",
-  "auto.literal.f4dbff5985cd": "Transfer Out"
+  "auto.literal.f4dbff5985cd": "Transfer Out",
+  "auto.literal.c7d4ff6e98e1": "Production readiness",
+  "auto.literal.984dd8604670": "Run full read-only cycle",
+  "auto.literal.77ddafa5f85f": "Current full read-only cycle",
+  "auto.literal.385dabb5d097": "Mirror targets:",
+  "auto.literal.6780885a8d06": " · Retry rounds:",
+  "auto.literal.ab86e855c6ca": "Exact mappings:",
+  "auto.literal.c2968c2344b4": "New differences:",
+  "auto.literal.97e86cad86e2": " · Unchanged:",
+  "auto.literal.9a8344e3d177": "Automatically resolved:"
 }

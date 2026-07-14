@@ -52,6 +52,7 @@
 - Chanjet service/scheduler 单元测试：PASS（19 tests）。
 - API production build：PASS。
 - Web production build：PASS（Webpack）；Turbopack 在本 worktree 因 `node_modules` 外部符号链接触发工具链限制，CI 正常 checkout 不受该布局影响。
+- i18n hardcoded literal coverage：PASS；本轮新增管理员闭环文案已补齐中文、英文、老挝文。
 - `git diff --check`：PASS。
 - Freeze/security：显式审查覆盖后 PASS。
 - W5 closeout：PASS。
