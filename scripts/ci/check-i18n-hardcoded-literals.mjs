@@ -67,11 +67,19 @@ const zhLocale = loadJson(path.join(LOCALE_DIR, 'zh.json'));
 const enLocale = loadJson(path.join(LOCALE_DIR, 'en.json'));
 const loLocale = loadJson(path.join(LOCALE_DIR, 'lo.json'));
 const autoTranslatable = new Set();
+function isUsableTranslation(value, source) {
+  const target = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!target || target === source) return false;
+  if (/Localized UI text\s/i.test(target)) return false;
+  return !/[\u3400-\u9fff]/.test(target);
+}
 for (const key of Object.keys(zhLocale)) {
   if (!localePrefixes.some((prefix) => key.startsWith(prefix))) continue;
   const source = String(zhLocale[key] || '').replace(/\s+/g, ' ').trim();
   if (!source || !/[\u4e00-\u9fff]/.test(source)) continue;
-  if (enLocale[key] && loLocale[key]) autoTranslatable.add(source);
+  if (isUsableTranslation(enLocale[key], source) && isUsableTranslation(loLocale[key], source)) {
+    autoTranslatable.add(source);
+  }
 }
 
 function walk(dir, out = []) {
@@ -167,12 +175,27 @@ const sortedFiles = [...byFile.entries()]
   .sort((a, b) => b[1].length - a[1].length)
   .map(([file, findings]) => ({ file, count: findings.length, samples: findings.slice(0, 8) }));
 
+const localeQualityIssues = [];
+for (const [language, locale] of [['en', enLocale], ['lo', loLocale]]) {
+  for (const [key, rawValue] of Object.entries(locale)) {
+    const value = String(rawValue || '');
+    if (/Localized UI text\s/i.test(value)) {
+      localeQualityIssues.push({ language, key, reason: 'placeholder_translation' });
+    }
+    if (/[\u3400-\u9fff]/.test(value)) {
+      localeQualityIssues.push({ language, key, reason: 'chinese_residue' });
+    }
+  }
+}
+
 const report = {
   generated_at: new Date().toISOString(),
   scope: 'apps/web/src app/components/lib/hooks',
   total_findings: findingsWithCoverage.length,
   auto_translatable_findings: findingsWithCoverage.filter((item) => item.auto_translatable).length,
   manual_componentization_findings: findingsWithCoverage.filter((item) => !item.auto_translatable).length,
+  locale_quality_issue_count: localeQualityIssues.length,
+  locale_quality_issues: localeQualityIssues,
   affected_files: sortedFiles.length,
   top_files: sortedFiles.slice(0, 50),
   findings: findingsWithCoverage.map((item) => ({
@@ -193,6 +216,7 @@ if (writeReport) {
     `Total findings: ${report.total_findings}`,
     `Auto-translatable by runtime bridge: ${report.auto_translatable_findings}`,
     `Still requiring componentization or dictionary modeling: ${report.manual_componentization_findings}`,
+    `Locale quality issues: ${report.locale_quality_issue_count}`,
     `Affected files: ${report.affected_files}`,
     '',
     'This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.',
@@ -209,5 +233,5 @@ if (writeReport) {
 
 console.log(`i18n-hardcoded-literals: ${allFindings.length} findings in ${sortedFiles.length} files`);
 if (writeReport) console.log(`reports: ${path.relative(ROOT, REPORT_JSON)}, ${path.relative(ROOT, REPORT_MD)}`);
-if (failOnUncovered && report.manual_componentization_findings > 0) process.exit(1);
+if (failOnUncovered && (report.manual_componentization_findings > 0 || report.locale_quality_issue_count > 0)) process.exit(1);
 if (failOnFindings && findingsWithCoverage.length > 0) process.exit(1);

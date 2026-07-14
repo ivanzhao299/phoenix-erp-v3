@@ -12,6 +12,7 @@ const HARD_CODED_REPORT = path.join(RUNS_DIR, 'i18n-hardcoded-literals-latest.js
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has('--apply');
+const refreshExisting = args.has('--refresh-existing');
 
 function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -832,7 +833,45 @@ function cleanupEnglish(value) {
     .trim();
 }
 
+const reviewedTranslations = new Map([
+  ['刷新结果', { en: 'Refresh result', lo: 'ໂຫຼດຜົນຄືນໃໝ່' }],
+  ['未通过', { en: 'Not passed', lo: 'ບໍ່ຜ່ານ' }],
+  ['待完成', { en: 'Pending completion', lo: 'ລໍຖ້າສຳເລັດ' }],
+  ['提交版本', { en: 'Submitted version', lo: 'ຮຸ່ນທີ່ສົ່ງ' }],
+  ['尚未产生', { en: 'Not generated yet', lo: 'ຍັງບໍ່ມີ' }],
+  ['完成时间', { en: 'Completed at', lo: 'ເວລາສຳເລັດ' }],
+  ['尚未完成', { en: 'Not completed yet', lo: 'ຍັງບໍ່ສຳເລັດ' }],
+  ['改动范围', { en: 'Change scope', lo: 'ຂອບເຂດການປ່ຽນແປງ' }],
+  ['尚无已验证改动', { en: 'No verified changes yet', lo: 'ຍັງບໍ່ມີການປ່ຽນແປງທີ່ກວດສອບແລ້ວ' }],
+  ['查看修改文件', { en: 'View changed files', lo: 'ເບິ່ງໄຟລ໌ທີ່ປ່ຽນແປງ' }],
+  ['每 10 秒自动更新', { en: 'Updates automatically every 10 seconds', lo: 'ອັບເດດອັດຕະໂນມັດທຸກ 10 ວິນາທີ' }],
+  ['隐藏技术过程与证据', { en: 'Hide technical process and evidence', lo: 'ເຊື່ອງຂະບວນການແລະຫຼັກຖານທາງເຕັກນິກ' }],
+  ['查看技术过程与证据', { en: 'View technical process and evidence', lo: 'ເບິ່ງຂະບວນການແລະຫຼັກຖານທາງເຕັກນິກ' }],
+  ['韧性只读同步', { en: 'Resilient read-only sync', lo: 'ຊິງຄ໌ແບບອ່ານຢ່າງດຽວທີ່ທົນທານ' }],
+  ['系统确认精确映射', { en: 'System-confirm exact mappings', lo: 'ໃຫ້ລະບົບຢືນຢັນການຈັບຄູ່ທີ່ຖືກຕ້ອງ' }],
+  ['确认精确映射', { en: 'Confirm exact mappings', lo: 'ຢືນຢັນການຈັບຄູ່ທີ່ຖືກຕ້ອງ' }],
+  ['P0-P6 准备度', { en: 'P0-P6 readiness', lo: 'ຄວາມພ້ອມ P0-P6' }],
+  ['好业财融合生产准备度', { en: 'Chanjet integration production readiness', lo: 'ຄວາມພ້ອມສຳລັບການໃຊ້ງານການເຊື່ອມ Chanjet' }],
+  ['镜像新鲜度', { en: 'Mirror freshness', lo: 'ຄວາມສົດຂອງຂໍ້ມູນສຳເນົາ' }],
+  ['账套映射', { en: 'Account-book mapping', lo: 'ການຈັບຄູ່ຊຸດບັນຊີ' }],
+  ['主数据批准覆盖', { en: 'Approved master-data coverage', lo: 'ຄວາມຄອບຄຸມຂໍ້ມູນຫຼັກທີ່ອະນຸມັດແລ້ວ' }],
+  ['字段语义覆盖', { en: 'Field semantic coverage', lo: 'ຄວາມຄອບຄຸມຄວາມໝາຍຂອງຟິວ' }],
+  ['财务卡片权威覆盖', { en: 'Authoritative finance-card coverage', lo: 'ຄວາມຄອບຄຸມແຫຼ່ງທາງການຂອງບັດການເງິນ' }],
+  ['最近作业成功率', { en: 'Recent job success rate', lo: 'ອັດຕາສຳເລັດຂອງວຽກຫຼ້າສຸດ' }],
+  ['阻断项', { en: 'Blockers', lo: 'ລາຍການຂັດຂວາງ' }],
+  ['无硬阻断。', { en: 'No hard blockers.', lo: 'ບໍ່ມີຕົວຂັດຂວາງຫຼັກ.' }],
+  ['条件项', { en: 'Conditions', lo: 'ເງື່ອນໄຂ' }],
+  ['无开放条件。', { en: 'No open conditions.', lo: 'ບໍ່ມີເງື່ອນໄຂທີ່ຍັງເປີດ.' }],
+  ['认证配置:', { en: 'Authentication configuration:', lo: 'ການຕັ້ງຄ່າການຢັ້ງຢືນ:' }],
+  ['好业财写入: 永久关闭', { en: 'Chanjet writes: permanently disabled', lo: 'ການຂຽນໄປ Chanjet: ປິດຖາວອນ' }],
+  ['可系统确认精确映射:', { en: 'Exact mappings eligible for system confirmation:', lo: 'ການຈັບຄູ່ທີ່ລະບົບຢືນຢັນໄດ້:' }],
+  ['待人工映射:', { en: 'Pending manual mapping:', lo: 'ລໍຖ້າຈັບຄູ່ດ້ວຍຄົນ:' }],
+  ['· 生成时间', { en: '· Generated at', lo: '· ສ້າງເມື່ອ' }],
+]);
+
 function translate(text, targetLang) {
+  const reviewed = reviewedTranslations.get(text);
+  if (reviewed) return reviewed[targetLang];
   const exact = targetLang === 'lo' ? exactLo : exactEn;
   const phrases = targetLang === 'lo' ? phraseLo : phraseEn;
   if (exact.has(text) && !hasChinese(exact.get(text))) return exact.get(text);
@@ -857,9 +896,10 @@ const created = [];
 const updated = [];
 for (const text of uniqueTexts) {
   const key = keyFor(text);
+  const existed = Object.prototype.hasOwnProperty.call(zh, key);
+  if (existed && !refreshExisting) continue;
   const enValue = translate(text, 'en');
   const loValue = translate(text, 'lo');
-  const existed = Object.prototype.hasOwnProperty.call(zh, key);
   if (!existed) created.push({ key, text, en: enValue, lo: loValue });
   else updated.push({ key, text, en: enValue, lo: loValue });
   zh[key] = text;
@@ -870,6 +910,7 @@ for (const text of uniqueTexts) {
 const report = {
   generated_at: new Date().toISOString(),
   apply,
+  refresh_existing: refreshExisting,
   source_report: path.relative(ROOT, HARD_CODED_REPORT),
   unique_hardcoded_literals: uniqueTexts.length,
   created_keys: created.length,
@@ -882,6 +923,9 @@ const report = {
   },
   unresolved_english_chinese_count: created.concat(updated).filter((item) => hasChinese(item.en)).length,
   unresolved_lao_chinese_count: created.concat(updated).filter((item) => hasChinese(item.lo)).length,
+  placeholder_translation_count: created.concat(updated).filter((item) =>
+    /Localized UI text\s/.test(item.en) || /Localized UI text\s/.test(item.lo),
+  ).length,
   sample_created: created.slice(0, 40),
 };
 
@@ -903,6 +947,7 @@ fs.writeFileSync(REPORT_MD, [
   `Updated keys: ${report.updated_keys}`,
   `Unresolved English Chinese count: ${report.unresolved_english_chinese_count}`,
   `Unresolved Lao Chinese count: ${report.unresolved_lao_chinese_count}`,
+  `Placeholder translation count: ${report.placeholder_translation_count}`,
   '',
   'The generated keys are under `auto.literal.*` and are used by the runtime hardcoded-text bridge while high-frequency pages are gradually converted to explicit `t()` calls.',
   '',
